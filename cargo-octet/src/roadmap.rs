@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
@@ -9,6 +10,8 @@ use serde_json::Value;
 use crate::determinism;
 
 const SCHEMA_VERSION: u32 = 1;
+const BLAKE3_IDENTITY_PREFIX: &str = "b3:";
+const BLAKE3_HEX_LENGTH: usize = 64;
 /// Stands in for an absolute-path string value so identities do not depend on local paths.
 const ABSOLUTE_PATH_PLACEHOLDER: &str = "<absolute-path>";
 /// What [`normalize_value`] guarantees about stored artifacts and capsules.
@@ -96,7 +99,7 @@ pub fn parse(args: &[String]) -> Result<RoadmapCommand, String> {
 pub fn run(command: RoadmapCommand) -> Result<i32, String> {
     match command {
         RoadmapCommand::ArtifactStore { kind, input, store_dir } => artifact_store(&kind, &input, &store_dir),
-        RoadmapCommand::ArtifactInspect { hash, store_dir } => artifact_inspect(&hash, &store_dir, "inspect"),
+        RoadmapCommand::ArtifactInspect { hash, store_dir } => artifact_inspect(&hash, &store_dir),
         RoadmapCommand::ArtifactReplay { hash, store_dir } => artifact_replay(&hash, &store_dir),
         RoadmapCommand::CapsuleCapture { input, capsule } => capsule_capture(&input, &capsule),
         RoadmapCommand::CapsuleInspect { capsule } => capsule_inspect(&capsule),
@@ -337,19 +340,9 @@ struct ArtifactRecord {
 }
 
 fn artifact_store(kind: &str, input: &Path, store_dir: &Path) -> Result<i32, String> {
-    let raw = read_json(input)?;
-    let normalized = normalize_value(raw);
-    let canonical = canonical_json(&serde_json::json!({
-        "schema_version": SCHEMA_VERSION,
-        "artifact_kind": kind,
-        "normalized": normalized,
-    }))?;
-    let hash = determinism::full_hash(&canonical);
-    let dependencies = normalized
-        .get("dependencies")
-        .and_then(Value::as_array)
-        .map(|items| items.iter().filter_map(Value::as_str).map(str::to_owned).collect())
-        .unwrap_or_default();
+    let normalized = normalize_value(read_json(input)?);
+    let dependencies = artifact_dependencies(&normalized)?;
+    let hash = artifact_hash(&Value::from(SCHEMA_VERSION), kind, &normalized)?;
     let record = ArtifactRecord {
         schema_version: SCHEMA_VERSION,
         artifact_kind: kind.to_owned(),
@@ -364,37 +357,128 @@ fn artifact_store(kind: &str, input: &Path, store_dir: &Path) -> Result<i32, Str
     Ok(0)
 }
 
-fn artifact_inspect(hash: &str, store_dir: &Path, operation: &'static str) -> Result<i32, String> {
-    let record = read_json(&store_dir.join(hash_file_name(hash)))?;
-    let report = serde_json::json!({
+fn artifact_hash(schema_version: &Value, kind: &str, normalized: &Value) -> Result<String, String> {
+    let canonical = canonical_json(&serde_json::json!({
+        "schema_version": schema_version,
+        "artifact_kind": kind,
+        "normalized": normalized,
+    }))?;
+    Ok(determinism::full_hash(&canonical))
+}
+
+/// The `dependencies` of a normalized artifact: absent means none, otherwise an array of
+/// well-formed artifact hashes.
+fn artifact_dependencies(normalized: &Value) -> Result<Vec<String>, String> {
+    let Some(dependencies) = normalized.get("dependencies") else {
+        return Ok(Vec::new());
+    };
+    let items = dependencies
+        .as_array()
+        .ok_or_else(|| "artifact dependencies must be an array of artifact hashes".to_owned())?;
+    items
+        .iter()
+        .enumerate()
+        .map(|(index, item)| {
+            let dependency = item
+                .as_str()
+                .ok_or_else(|| format!("artifact dependencies[{index}] must be an artifact hash string"))?;
+            validate_artifact_hash(dependency)?;
+            Ok(dependency.to_owned())
+        })
+        .collect()
+}
+
+/// A stored artifact record whose content re-hashes to the hash it was requested by.
+struct VerifiedArtifact {
+    record: Value,
+    dependencies: Vec<String>,
+}
+
+fn load_artifact(hash: &str, store_dir: &Path) -> Result<VerifiedArtifact, String> {
+    validate_artifact_hash(hash)?;
+    let path = store_dir.join(hash_file_name(hash));
+    let record = read_json(&path)?;
+    let (Some(schema_version), Some(kind), Some(normalized)) = (
+        record.get("schema_version"),
+        record.get("artifact_kind").and_then(Value::as_str),
+        record.get("normalized"),
+    ) else {
+        return Err(format!(
+            "artifact record {} must contain schema_version, string artifact_kind, and normalized",
+            path.display()
+        ));
+    };
+    let recomputed = artifact_hash(schema_version, kind, normalized)?;
+    let recorded = record.get("hash").and_then(Value::as_str);
+    if recomputed != hash || recorded != Some(hash) {
+        return Err(format!(
+            "artifact record {} was requested as `{hash}` and records hash {} but its content hashes to `{recomputed}`; the record was modified or misplaced",
+            path.display(),
+            record.get("hash").unwrap_or(&Value::Null)
+        ));
+    }
+    let dependencies = artifact_dependencies(normalized).map_err(|error| format!("{}: {error}", path.display()))?;
+    let recorded_dependencies_match = record
+        .get("dependencies")
+        .and_then(Value::as_array)
+        .is_some_and(|items| items.iter().map(Value::as_str).eq(dependencies.iter().map(|item| Some(item.as_str()))));
+    if !recorded_dependencies_match {
+        return Err(format!("artifact record {} dependencies differ from its hashed content", path.display()));
+    }
+    Ok(VerifiedArtifact { record, dependencies })
+}
+
+fn artifact_report(artifact: &VerifiedArtifact, operation: &'static str) -> Value {
+    serde_json::json!({
         "schema_version": SCHEMA_VERSION,
         "operation": operation,
-        "artifact_kind": record["artifact_kind"],
-        "hash": record["hash"],
-        "dependencies": record["dependencies"],
-        "replay_prerequisites": record["dependencies"],
-    });
-    print_json(&report)?;
+        "artifact_kind": artifact.record["artifact_kind"],
+        "hash": artifact.record["hash"],
+        "dependencies": artifact.dependencies,
+        "replay_prerequisites": artifact.dependencies,
+    })
+}
+
+fn artifact_inspect(hash: &str, store_dir: &Path) -> Result<i32, String> {
+    let artifact = load_artifact(hash, store_dir)?;
+    print_json(&artifact_report(&artifact, "inspect"))?;
     Ok(0)
 }
 
 fn artifact_replay(hash: &str, store_dir: &Path) -> Result<i32, String> {
-    let record = read_json(&store_dir.join(hash_file_name(hash)))?;
-    for dependency in record["dependencies"].as_array().into_iter().flatten().filter_map(Value::as_str) {
-        let dependency_path = store_dir.join(hash_file_name(dependency));
-        if !dependency_path.exists() {
-            let report = serde_json::json!({
-                "schema_version": SCHEMA_VERSION,
-                "operation": "replay",
-                "hash": hash,
-                "status": "failed-closed",
-                "missing_dependency": dependency,
-            });
-            print_json(&report)?;
-            return Ok(1);
-        }
+    let artifact = load_artifact(hash, store_dir)?;
+    if let Some(missing) = missing_dependency(hash, &artifact.dependencies, store_dir)? {
+        let report = serde_json::json!({
+            "schema_version": SCHEMA_VERSION,
+            "operation": "replay",
+            "hash": hash,
+            "status": "failed-closed",
+            "missing_dependency": missing,
+        });
+        print_json(&report)?;
+        return Ok(1);
     }
-    artifact_inspect(hash, store_dir, "replay")
+    print_json(&artifact_report(&artifact, "replay"))?;
+    Ok(0)
+}
+
+/// Walks the transitive dependency closure of `root`, verifying every present record like the
+/// root, and returns the first dependency hash missing from the store.
+fn missing_dependency(root: &str, dependencies: &[String], store_dir: &Path) -> Result<Option<String>, String> {
+    let mut visited = BTreeSet::from([root.to_owned()]);
+    let mut pending: Vec<String> = dependencies.iter().rev().cloned().collect();
+    while let Some(dependency) = pending.pop() {
+        if !visited.insert(dependency.clone()) {
+            continue;
+        }
+        if !store_dir.join(hash_file_name(&dependency)).exists() {
+            return Ok(Some(dependency));
+        }
+        let artifact =
+            load_artifact(&dependency, store_dir).map_err(|error| format!("dependency `{dependency}`: {error}"))?;
+        pending.extend(artifact.dependencies.into_iter().rev());
+    }
+    Ok(None)
 }
 
 fn capsule_capture(input: &Path, capsule_path: &Path) -> Result<i32, String> {
@@ -980,6 +1064,19 @@ fn is_absolute_path(text: &str) -> bool {
 
 fn canonical_json(value: &Value) -> Result<String, String> {
     serde_json::to_string(value).map_err(|error| format!("serialize canonical json: {error}"))
+}
+
+/// Rejects anything but `b3:` plus 64 lowercase hex digits, so a hash can be joined to a store
+/// directory without escaping it.
+fn validate_artifact_hash(hash: &str) -> Result<(), String> {
+    let well_formed = hash.strip_prefix(BLAKE3_IDENTITY_PREFIX).is_some_and(|hex| {
+        hex.len() == BLAKE3_HEX_LENGTH && hex.bytes().all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+    });
+    if well_formed {
+        Ok(())
+    } else {
+        Err(format!("artifact hash `{hash}` must be `b3:` followed by {BLAKE3_HEX_LENGTH} lowercase hex digits"))
+    }
 }
 
 fn hash_file_name(hash: &str) -> String {

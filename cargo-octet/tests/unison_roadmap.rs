@@ -816,13 +816,14 @@ fn roadmap_docs_transcript_covers_agent_surfaces() {
 #[test]
 fn roadmap_error_paths_fail_closed_with_operator_context() {
     let temp = tempfile::tempdir().unwrap();
+    let missing_hash = format!("b3:{}", "0".repeat(64));
     let missing_artifact = run(
         &[
             "roadmap",
             "artifact",
             "inspect",
             "--hash",
-            "b3:missing",
+            &missing_hash,
             "--store-dir",
             temp.path().join("store").to_str().unwrap(),
         ],
@@ -830,7 +831,7 @@ fn roadmap_error_paths_fail_closed_with_operator_context() {
     );
     assert!(!missing_artifact.status.success());
     assert!(stderr_text(&missing_artifact).contains("read"));
-    assert!(stderr_text(&missing_artifact).contains("b3_missing.json"));
+    assert!(stderr_text(&missing_artifact).contains(&format!("{}.json", missing_hash.replace(':', "_"))));
 
     let malformed_manifest = temp.path().join("manifest.json");
     let trace = temp.path().join("trace.json");
@@ -926,6 +927,21 @@ fn store_artifact(input: &Path, store: &Path, cwd: &Path) -> std::process::Outpu
     )
 }
 
+fn artifact_by_hash(operation: &str, hash: &str, store: &Path, cwd: &Path) -> std::process::Output {
+    run(
+        &[
+            "roadmap",
+            "artifact",
+            operation,
+            "--hash",
+            hash,
+            "--store-dir",
+            store.to_str().unwrap(),
+        ],
+        cwd,
+    )
+}
+
 fn stored_hash(dto: serde_json::Value, name: &str, store: &Path, cwd: &Path) -> String {
     let input = cwd.join(name);
     write_json(&input, dto);
@@ -982,6 +998,119 @@ fn ability_enforce_requires_string_arrays_for_manifest_and_trace() {
     assert_eq!(allowed["status"], "allowed");
     let empty = stdout_json(&enforce(manifest, serde_json::json!({"effects": []}), temp.path()));
     assert_eq!(empty["status"], "allowed");
+}
+
+#[test]
+fn artifact_hash_lookup_rejects_malformed_hashes_before_touching_the_store() {
+    let temp = tempfile::tempdir().unwrap();
+    let store = temp.path().join("store");
+    let planted = stored_hash(serde_json::json!({"name": "planted"}), "planted.json", &store, temp.path());
+    // A record outside the store directory that `b3:../outside` would resolve to.
+    fs::create_dir_all(store.join("b3_")).unwrap();
+    fs::copy(record_path(&store, &planted), temp.path().join("outside.json")).unwrap();
+
+    for hash in [
+        "b3:../../outside",
+        "b3:missing",
+        "../outside",
+        &format!("b3:{}", planted[3..].to_uppercase()),
+        &planted[..planted.len() - 1],
+        &planted.replacen("b3:", "b2:", 1),
+    ] {
+        for operation in ["inspect", "replay"] {
+            let output = artifact_by_hash(operation, hash, &store, temp.path());
+            assert_eq!(
+                output.status.code(),
+                Some(2),
+                "{operation} {hash}: stdout={}",
+                String::from_utf8_lossy(&output.stdout)
+            );
+        }
+    }
+}
+
+#[test]
+fn artifact_inspect_and_replay_recompute_record_hashes() {
+    let temp = tempfile::tempdir().unwrap();
+    let store = temp.path().join("store");
+    let hash = stored_hash(serde_json::json!({"name": "review", "body": "check"}), "a.json", &store, temp.path());
+    let other = stored_hash(serde_json::json!({"name": "other"}), "b.json", &store, temp.path());
+    let path = record_path(&store, &hash);
+    let pristine = fs::read_to_string(&path).unwrap();
+    for operation in ["inspect", "replay"] {
+        assert!(artifact_by_hash(operation, &hash, &store, temp.path()).status.success());
+    }
+
+    let mut edited_body: serde_json::Value = serde_json::from_str(&pristine).unwrap();
+    edited_body["normalized"]["body"] = serde_json::json!("tampered");
+    let mut edited_kind: serde_json::Value = serde_json::from_str(&pristine).unwrap();
+    edited_kind["artifact_kind"] = serde_json::json!("tool_schema");
+    let mut edited_deps: serde_json::Value = serde_json::from_str(&pristine).unwrap();
+    edited_deps["dependencies"] = serde_json::json!([other]);
+    let mut renamed: serde_json::Value = serde_json::from_str(&pristine).unwrap();
+    renamed["hash"] = serde_json::json!(other);
+    let substituted: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(record_path(&store, &other)).unwrap()).unwrap();
+    for tampered in [edited_body, edited_kind, edited_deps, renamed, substituted] {
+        write_json(&path, tampered.clone());
+        for operation in ["inspect", "replay"] {
+            let output = artifact_by_hash(operation, &hash, &store, temp.path());
+            assert_eq!(output.status.code(), Some(2), "{operation} accepted tampered record {tampered}");
+        }
+    }
+}
+
+#[test]
+fn artifact_replay_verifies_the_full_dependency_closure() {
+    let temp = tempfile::tempdir().unwrap();
+    let store = temp.path().join("store");
+    let leaf = stored_hash(serde_json::json!({"name": "leaf"}), "leaf.json", &store, temp.path());
+    let middle =
+        stored_hash(serde_json::json!({"name": "middle", "dependencies": [leaf]}), "middle.json", &store, temp.path());
+    let root =
+        stored_hash(serde_json::json!({"name": "root", "dependencies": [middle]}), "root.json", &store, temp.path());
+
+    let replay = stdout_json(&artifact_by_hash("replay", &root, &store, temp.path()));
+    assert_eq!(replay["operation"], "replay");
+    assert_eq!(replay["dependencies"], serde_json::json!([middle]));
+
+    // A transitive dependency that is missing fails closed with exit 1.
+    let leaf_record = fs::read_to_string(record_path(&store, &leaf)).unwrap();
+    fs::remove_file(record_path(&store, &leaf)).unwrap();
+    let missing = artifact_by_hash("replay", &root, &store, temp.path());
+    assert_eq!(missing.status.code(), Some(1));
+    let report: serde_json::Value = serde_json::from_slice(&missing.stdout).unwrap();
+    assert_eq!(report["status"], "failed-closed");
+    assert_eq!(report["missing_dependency"], leaf);
+
+    // A dependency file that exists but does not hash to its name is not a satisfied prerequisite.
+    let mut tampered: serde_json::Value = serde_json::from_str(&leaf_record).unwrap();
+    tampered["normalized"]["name"] = serde_json::json!("forged");
+    write_json(&record_path(&store, &leaf), tampered);
+    assert_eq!(artifact_by_hash("replay", &root, &store, temp.path()).status.code(), Some(2));
+    assert_eq!(artifact_by_hash("replay", &middle, &store, temp.path()).status.code(), Some(2));
+}
+
+#[test]
+fn artifact_store_rejects_malformed_dependencies() {
+    let temp = tempfile::tempdir().unwrap();
+    let store = temp.path().join("store");
+    let input = temp.path().join("dto.json");
+    let valid = format!("b3:{}", "0".repeat(64));
+    for dependencies in [
+        serde_json::json!([1]),
+        serde_json::json!([valid, {"hash": valid}]),
+        serde_json::json!(valid),
+        serde_json::json!(["../outside"]),
+        serde_json::json!(["b3:missing"]),
+    ] {
+        write_json(&input, serde_json::json!({"name": "x", "dependencies": dependencies}));
+        let output = store_artifact(&input, &store, temp.path());
+        assert_eq!(output.status.code(), Some(2), "dependencies={dependencies}");
+    }
+    write_json(&input, serde_json::json!({"name": "x", "dependencies": [valid]}));
+    let stored = stdout_json(&store_artifact(&input, &store, temp.path()));
+    assert_eq!(stored["dependencies"], serde_json::json!([valid]));
 }
 
 #[test]

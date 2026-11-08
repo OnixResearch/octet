@@ -4,13 +4,13 @@ This executable transcript documents the Unison-inspired agent-facing roadmap su
 
 ```octet-transcript
 $ cargo octet roadmap artifact store --kind prompt --input prompt.json --store-dir store
-=> stores normalized content, redacts local/secret fields, and returns a stable b3: artifact hash
+=> drops secret-like and local-only fields, replaces absolute-path values with <absolute-path>, rejects non-hash dependencies, and returns a stable b3: artifact hash
 
 $ cargo octet roadmap artifact inspect --hash b3:<artifact> --store-dir store
-=> reports artifact_kind, dependencies, and replay prerequisites without re-reading local paths
+=> accepts only b3: plus 64 lowercase hex, re-hashes the stored record, and reports artifact_kind, dependencies, and replay prerequisites
 
 $ cargo octet roadmap artifact replay --hash b3:<artifact> --store-dir store
-=> fails closed when dependencies are missing and replays only when prerequisite hashes exist
+=> verifies the full dependency closure the same way, fails closed with missing_dependency when one is absent, and exits 2 for a record that does not hash to its name
 
 $ cargo octet roadmap ability enforce --manifest ability-manifest.json --trace effect-trace.json
 => denies effects not declared by the ability manifest and reports denied_effects; allowed_effects and effects must be arrays of strings
