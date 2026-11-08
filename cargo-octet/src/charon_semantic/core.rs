@@ -335,7 +335,7 @@ pub(crate) fn analyze_snapshot(
         ));
     }
     let (items, edges, mut unknowns, mut candidates) = normalize_functions(&raw_functions, &mut diagnostics);
-    let trait_rows = project_trait_rows(translated, &raw_functions, &mut diagnostics);
+    let trait_rows = project_trait_rows(translated, &raw_functions, &mut unknowns, &mut diagnostics);
     if edges.len() > profile.limits.edge_max_count {
         diagnostics.push(format!(
             "Charon edge count exceeds configured limit: {} > {}",
@@ -885,6 +885,7 @@ fn contains_object_key(value: &Value, needle: &str) -> bool {
 fn project_trait_rows(
     translated: &Value,
     functions: &[RawFunction],
+    unknowns: &mut Vec<UnknownFact>,
     diagnostics: &mut Vec<String>,
 ) -> Vec<TraitResolutionRow> {
     let trait_names = translated
@@ -916,14 +917,24 @@ fn project_trait_rows(
             continue;
         };
         let implementation_name = qualified_name(implementation.pointer("/item_meta/name").and_then(Value::as_array));
-        let mut method_items = implementation
-            .get("methods")
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten()
-            .filter_map(|method| method.pointer("/skip_binder/id").and_then(Value::as_u64))
-            .filter_map(|id| function_names.get(&id).cloned())
-            .collect::<Vec<_>>();
+        let mut method_items = Vec::new();
+        let methods = implementation.get("methods").and_then(Value::as_array).into_iter().flatten();
+        for method in methods.filter(|method| !method.is_null()) {
+            let id = method.pointer("/skip_binder/id").and_then(Value::as_u64);
+            match id.map(|id| (id, function_names.get(&id))) {
+                Some((_, Some(name))) => method_items.push(name.clone()),
+                Some((id, None)) => unknowns.push(UnknownFact {
+                    item: implementation_name.clone(),
+                    fact: "trait-resolution".to_owned(),
+                    reason: format!("trait method def_id `{id}` does not resolve to a local function"),
+                }),
+                None => unknowns.push(UnknownFact {
+                    item: implementation_name.clone(),
+                    fact: "trait-resolution".to_owned(),
+                    reason: "trait method entry is missing a def_id".to_owned(),
+                }),
+            }
+        }
         method_items.sort();
         method_items.dedup();
         rows.push(TraitResolutionRow {
@@ -1170,6 +1181,42 @@ mod tests {
                 output.analysis.unknowns
             );
         }
+    }
+
+    #[test]
+    fn records_unresolved_trait_methods_as_unknown() {
+        let profile = profile();
+        let mut value = snapshot();
+        value["translated"]["trait_decls"] = serde_json::json!([{
+            "def_id": 0,
+            "item_meta": { "name": [{ "Ident": ["real_fixture", 0] }, { "Ident": ["Marker", 0] }] }
+        }]);
+        value["translated"]["trait_impls"] = serde_json::json!([{
+            "def_id": 0,
+            "item_meta": { "name": [{ "Ident": ["real_fixture", 0] }, { "Impl": {} }], "is_local": true },
+            "impl_trait": { "id": 0 },
+            "methods": [
+                { "skip_binder": { "id": SELF_CALL_ID } },
+                { "skip_binder": { "id": MISSING_CALL_ID } },
+                { "skip_binder": {} },
+                null
+            ]
+        }]);
+        let output = analyze_snapshot(&profile, &rendered(&value)).expect("unresolved trait method remains recorded");
+        assert_eq!(output.projection.trait_rows.len(), 1);
+        assert_eq!(output.projection.trait_rows[0].method_items, vec!["real_fixture::safe_add"]);
+        assert_eq!(output.analysis.status, "unknown");
+        let trait_unknowns = output
+            .analysis
+            .unknowns
+            .iter()
+            .filter(|unknown| unknown.fact == "trait-resolution" && unknown.item == "real_fixture::{impl}")
+            .map(|unknown| unknown.reason.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(trait_unknowns, vec![
+            "trait method def_id `99` does not resolve to a local function",
+            "trait method entry is missing a def_id",
+        ]);
     }
 
     #[test]

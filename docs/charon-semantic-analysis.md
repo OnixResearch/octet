@@ -36,7 +36,7 @@ For deterministic offline replay without invoking Charon, replace `--run` with `
 
 The imperative shell copies only the selected fixture into a fresh work root, denies network access, bounds execution and logs, reads the declared snapshot, and removes the work root. The pure core parses the in-memory snapshot and rejects partial/errorful extraction, skipped borrow checking, source or target drift, duplicate source paths, broad/duplicate item selection, missing call endpoints, unsupported vocabularies, and malformed parent evidence.
 
-Only a call whose callee is a direct `Fun.Regular` function id becomes a `local-call`/`item-dependency` edge. A call through a function pointer (`Dynamic` operand), a trait method, a builtin function, or an unrecognized callee produces no edge; the core records an `unknown-call` effect candidate and a `local-call` unknown fact for the calling item, so the analysis status is `unknown`.
+Only a call whose callee is a direct `Fun.Regular` function id becomes a `local-call`/`item-dependency` edge. A call through a function pointer (`Dynamic` operand), a trait method, a builtin function, or an unrecognized callee produces no edge; the core records an `unknown-call` effect candidate and a `local-call` unknown fact for the calling item, so the analysis status is `unknown`. Likewise, a local trait implementation method whose def_id is missing or does not resolve to a projected local function stays out of the trait row's method items and is recorded as a `trait-resolution` unknown fact for the implementation.
 
 ## Artifact roles
 
