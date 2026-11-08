@@ -20,9 +20,10 @@ const COMMENT_MARKER: &str = "// octet-fingerprint:";
 const LEGACY_SLOTCAR_COMMENT_MARKER: &str = "// slotcar-fingerprint:";
 const LEGACY_TIGERSTYLE_COMMENT_MARKER: &str = "// tigerstyle-fingerprint:";
 const ATTR_MARKER: &str = "#[fingerprint(";
-const REVIEW_KEY: &str = "review=";
-const EVIDENCE_KEY: &str = "evidence=";
-const MACRO_ALLOW_KEY: &str = "macro=allow";
+const REVIEW_KEY: &str = "review";
+const EVIDENCE_KEY: &str = "evidence";
+const MACRO_KEY: &str = "macro";
+const MACRO_ALLOW_VALUE: &str = "allow";
 const FINGERPRINT_PROVENANCE_SOURCE_ID: &str = "octet.fingerprint.review-manifest";
 const FINGERPRINT_REVIEW_ACTION: &str = "review fingerprint manifest records before using them as release evidence";
 
@@ -804,24 +805,31 @@ fn parse_marker(line: &str, start: usize, end: usize) -> Marker {
         start,
         end,
         stored_hash,
-        review: value_after(line, REVIEW_KEY),
-        evidence: value_after(line, EVIDENCE_KEY),
-        macro_allowed: line.contains(MACRO_ALLOW_KEY),
+        review: marker_value(line, REVIEW_KEY),
+        evidence: marker_value(line, EVIDENCE_KEY),
+        macro_allowed: marker_item(line, MACRO_KEY) == Some(MACRO_ALLOW_VALUE),
     }
 }
 
-fn value_after(line: &str, key: &str) -> Option<String> {
-    let bare_key = key.trim_end_matches('=');
-    let start = line.find(bare_key)? + bare_key.len();
-    let value_start = line[start..].find('=')? + start + 1;
-    let value = line[value_start..]
-        .split([';', ',', ')', ']'])
-        .next()
-        .unwrap_or("")
-        .trim()
-        .trim_matches('"')
-        .to_owned();
-    (!value.is_empty() && value != "TODO").then_some(value)
+/// Reviewed metadata value for `key` in a marker line. An empty or `TODO`
+/// value is unreviewed.
+pub(crate) fn marker_value(line: &str, key: &str) -> Option<String> {
+    marker_item(line, key).filter(|value| !value.is_empty() && *value != "TODO").map(str::to_owned)
+}
+
+/// Value of the `key=value` item whose key is exactly `key`. Items follow the
+/// marker prefix (`// octet-fingerprint:`) or sit inside `#[fingerprint(...)]`
+/// and are separated by `;` or `,`; spaces around keys and values and quotes
+/// around values are ignored. The first `=` in an item ends its key.
+fn marker_item<'a>(line: &'a str, key: &str) -> Option<&'a str> {
+    let body = match line.strip_prefix(ATTR_MARKER) {
+        Some(arguments) => arguments.trim_end().strip_suffix(")]").unwrap_or(arguments),
+        None => line.split_once(':').map_or(line, |(_, body)| body),
+    };
+    body.split([';', ',']).find_map(|item| {
+        let (item_key, value) = item.split_once('=')?;
+        (item_key.trim() == key).then(|| value.trim().trim_matches('"'))
+    })
 }
 
 /// Offset just past the delimiter that closes the `{`, `(`, or `[` at `open`
@@ -1339,6 +1347,32 @@ mod tests {
             assert_eq!(functions.len(), 1, "{source}");
             let marker = functions[0].marker.as_ref().unwrap_or_else(|| panic!("marker not bound: {source}"));
             assert_eq!((marker.review(), marker.evidence()), (Some("R"), Some("E")), "{source}");
+        }
+    }
+
+    #[test]
+    fn marker_metadata_keys_match_exactly() {
+        for (marker, expected) in [
+            (
+                "// octet-fingerprint: b3:abc; review=example-evidence; macro=allow",
+                (Some("example-evidence"), None, true),
+            ),
+            ("// octet-fingerprint: b3:abc; preview=P; review=R; evidence=E", (Some("R"), Some("E"), false)),
+            ("// octet-fingerprint: b3:abc; review=R; reevidence=X", (Some("R"), None, false)),
+            (
+                "// octet-fingerprint: b3:abc; review=macro=allow; evidence=E",
+                (Some("macro=allow"), Some("E"), false),
+            ),
+            ("// octet-fingerprint: b3:abc; review=R; evidence=E; macro=allowed", (Some("R"), Some("E"), false)),
+            (
+                "#[fingerprint(\"b3:abc\", review = \"R\", evidence = \"E\", macro = \"allow\")]",
+                (Some("R"), Some("E"), true),
+            ),
+        ] {
+            let source = format!("{marker}\nfn f() -> u32 {{ 1 }}\n");
+            let functions = find_functions(&source);
+            let marker = functions[0].marker.as_ref().unwrap_or_else(|| panic!("marker not bound: {source}"));
+            assert_eq!((marker.review(), marker.evidence(), marker.macro_allowed), expected, "{source}");
         }
     }
 

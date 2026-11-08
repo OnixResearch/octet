@@ -1326,6 +1326,28 @@ fn object_v2_comment_forgery_with_matching_digest_is_missing_not_reviewed() {
 }
 
 #[test]
+fn object_marker_metadata_keys_match_exactly() {
+    let temp = tempfile::tempdir().expect("create tempdir");
+    let source_path = temp.path().join("lib.rs");
+    fs::write(&source_path, "pub fn selected() -> u32 { 1 }\n").expect("write unmarked source");
+    object_v2_command(temp.path(), &["object", "update", "--output-format=json", "lib.rs"]);
+    let written = fs::read_to_string(&source_path).expect("read marked source");
+    fs::write(&source_path, written.replace("review=TODO; evidence=TODO", "preview=P; evidence=E; reevidence=X"))
+        .expect("write lookalike metadata keys");
+
+    let checked = Command::new(cargo_octet())
+        .args(["object", "check", "--output-format=json", "lib.rs"])
+        .current_dir(temp.path())
+        .output()
+        .expect("check lookalike metadata keys");
+    assert_eq!(checked.status.code(), Some(1), "`preview` is not `review`");
+    let report: serde_json::Value = serde_json::from_slice(&checked.stdout).expect("parse marker check");
+    assert_eq!(report["records"][0]["status"], "match");
+    assert!(report["records"][0]["review"].is_null(), "{report}");
+    assert_eq!(report["records"][0]["evidence"], "E");
+}
+
+#[test]
 fn object_internal_corpus_matches_reviewed_source_reference_and_rejects_tamper() {
     let root = repo_root();
     let sources = reviewed_v2_selection(&root, "internal_corpus");

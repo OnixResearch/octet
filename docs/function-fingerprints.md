@@ -24,6 +24,12 @@ Attribute markers are also recognized by the scanner:
 fn checked_transition(input: State) -> State { /* ... */ }
 ```
 
+Marker metadata is a list of `key=value` items separated by `;` or `,`. Keys
+match exactly: `preview=` does not supply `review`, and `review=macro=allow`
+records the review class `macro=allow` without granting a macro allowance.
+Spaces around keys and values and quotes around values are ignored. A `TODO`
+or empty value counts as missing metadata.
+
 The implementation hashes canonical function tokens and ignores the marker itself.
 Ordinary whitespace and non-doc comments that leave Rust TokenStream unchanged
 do not change the hash; doc comments can become compiler-visible attributes

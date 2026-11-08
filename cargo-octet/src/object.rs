@@ -2270,21 +2270,9 @@ fn object_marker_before(source: &str, item_start: usize, marker_in_code: bool) -
             previous_end
         },
         stored_hash,
-        review: marker_value(previous, "review"),
-        evidence: marker_value(previous, "evidence"),
+        review: fingerprint::marker_value(previous, "review"),
+        evidence: fingerprint::marker_value(previous, "evidence"),
     })
-}
-
-fn marker_value(line: &str, key: &str) -> Option<String> {
-    let value_start = line.find(&format!("{key}="))? + key.len() + 1;
-    let value = line[value_start..]
-        .split([';', ',', ')', ']'])
-        .next()
-        .unwrap_or("")
-        .trim()
-        .trim_matches('"')
-        .to_owned();
-    (!value.is_empty() && value != "TODO").then_some(value)
 }
 
 fn run_diff(
