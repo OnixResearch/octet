@@ -650,7 +650,7 @@ fn dependency_graph(
         .arg("--locked")
         .arg("--filter-platform")
         .arg(target)
-        .args(metadata_feature_args(cargo_check_args))
+        .args(metadata_cargo_args(cargo_check_args)?)
         .current_dir(workspace_root)
         .env(TOOLCHAIN_ENV, &check_metadata.toolchain);
     let output = command.output().map_err(|error| format!("run cargo metadata: {error}"))?;
@@ -735,27 +735,26 @@ fn package_source(package: &CargoPackage, workspace_package: bool) -> String {
     })
 }
 
-fn metadata_feature_args(cargo_check_args: &[String]) -> Vec<String> {
+/// Selects the direct Cargo arguments that change which manifest, configuration, or feature set
+/// `cargo metadata` resolves, so the recorded provider graph describes the checked build.
+fn metadata_cargo_args(cargo_check_args: &[String]) -> Result<Vec<String>, String> {
     let mut args = Vec::new();
-    let mut index = 0;
-    while index < cargo_check_args.len() {
-        let arg = &cargo_check_args[index];
-        match arg.as_str() {
-            "--features" => {
-                if let Some(value) = cargo_check_args.get(index + 1) {
-                    args.push(arg.clone());
-                    args.push(value.clone());
-                    index += 2;
-                    continue;
-                }
-            }
-            "--all-features" | "--no-default-features" => args.push(arg.clone()),
-            _ if arg.starts_with("--features=") => args.push(arg.clone()),
-            _ => {}
+    let mut cargo_check_args = cargo_check_args.iter();
+    while let Some(arg) = cargo_check_args.next() {
+        if ["--manifest-path", "--config", "--features", "-F"].contains(&arg.as_str()) {
+            let value = cargo_check_args.next().ok_or_else(|| format!("Cargo option `{arg}` is missing its value"))?;
+            args.push(arg.clone());
+            args.push(value.clone());
+        } else if ["--offline", "--frozen", "--all-features", "--no-default-features"].contains(&arg.as_str())
+            || arg.starts_with("--manifest-path=")
+            || arg.starts_with("--config=")
+            || arg.starts_with("--features=")
+            || arg.starts_with("-F")
+        {
+            args.push(arg.clone());
         }
-        index += 1;
     }
-    args
+    Ok(args)
 }
 
 fn selected_target(cargo_check_args: &[String]) -> Result<String, String> {
@@ -1199,13 +1198,56 @@ mod tests {
             "--all-targets".to_owned(),
             "--no-default-features".to_owned(),
         ];
-        assert_eq!(metadata_feature_args(&args), vec!["--features", "serde,proof", "--no-default-features"]);
+        assert_eq!(metadata_cargo_args(&args).expect("metadata args"), vec![
+            "--features",
+            "serde,proof",
+            "--no-default-features"
+        ]);
         assert!(selected_target(&args).is_err());
         assert_eq!(
             selected_target(&["--target=x86_64-unknown-linux-gnu".to_owned()]).expect("explicit target"),
             "x86_64-unknown-linux-gnu"
         );
         assert!(selected_target(&["--target".to_owned(), "a".to_owned(), "--target=b".to_owned()]).is_err());
+    }
+
+    #[test]
+    fn metadata_args_forward_manifest_config_and_short_features() {
+        let args = [
+            "--lib",
+            "-F",
+            "extra",
+            "-Fother",
+            "--config",
+            "net.offline=true",
+            "--config=build.rustflags=[]",
+            "--manifest-path",
+            "p/Cargo.toml",
+            "--manifest-path=q/Cargo.toml",
+            "--target",
+            "x86_64-unknown-linux-gnu",
+            "--release",
+            "--frozen",
+        ]
+        .map(str::to_owned);
+        assert_eq!(metadata_cargo_args(&args).expect("metadata args"), vec![
+            "-F",
+            "extra",
+            "-Fother",
+            "--config",
+            "net.offline=true",
+            "--config=build.rustflags=[]",
+            "--manifest-path",
+            "p/Cargo.toml",
+            "--manifest-path=q/Cargo.toml",
+            "--frozen",
+        ]);
+        for flag in ["--manifest-path", "--config", "--features", "-F"] {
+            assert_eq!(
+                metadata_cargo_args(&["--lib".to_owned(), flag.to_owned()]),
+                Err(format!("Cargo option `{flag}` is missing its value"))
+            );
+        }
     }
 
     #[test]
