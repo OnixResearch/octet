@@ -27,6 +27,33 @@ fn wildcard_transition(state: State, event: Event) -> Result<State, InvalidTrans
 }
 
 #[octet::state_machine_core]
+fn tuple_position_wildcard_transition(state: State, event: Event) -> Result<State, InvalidTransition> {
+    match (state, event) {
+        (State::Idle, Event::Start) => Ok(State::Running),
+        (State::Idle, Event::Stop) => Err(InvalidTransition),
+        (State::Running, _) => Err(InvalidTransition),
+    }
+}
+
+#[octet::state_machine_core]
+fn tuple_position_binding_transition(state: State, event: Event) -> Result<State, InvalidTransition> {
+    match (state, event) {
+        (State::Idle, Event::Start) => Ok(State::Running),
+        (other, Event::Stop) => Ok(other),
+        (State::Running, Event::Start) => Err(InvalidTransition),
+    }
+}
+
+#[octet::state_machine_core]
+fn tuple_rest_transition(state: State, event: Event) -> Result<State, InvalidTransition> {
+    match (state, event) {
+        (State::Idle, ..) => Ok(State::Running),
+        (State::Running, Event::Start) => Err(InvalidTransition),
+        (State::Running, Event::Stop) => Ok(State::Idle),
+    }
+}
+
+#[octet::state_machine_core]
 fn mutation_transition(state: State, event: Event) -> Result<State, InvalidTransition> {
     let mut next = state;
     match (state, event) {

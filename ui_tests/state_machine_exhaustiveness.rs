@@ -28,6 +28,36 @@ fn transition(state: State, event: Event) -> Result<State, InvalidTransition> {
     }
 }
 
+mod fsm_core {
+    #[octet::state_machine_enum]
+    #[derive(Clone, Copy)]
+    pub enum Phase {
+        Waiting,
+        Retrying { retry_count: u8, attempt_limit: u8 },
+    }
+
+    #[octet::state_machine_enum]
+    #[derive(Clone, Copy)]
+    pub enum Signal {
+        Tick,
+        Reset(u8, u8),
+    }
+}
+
+// Snake_case field bindings, underscored module paths, and `_`/`..` inside variant payloads are
+// explicit arms, not wildcard fallbacks.
+#[octet::state_machine_core]
+fn payload_transition(phase: fsm_core::Phase, signal: fsm_core::Signal) -> Result<fsm_core::Phase, InvalidTransition> {
+    match (phase, signal) {
+        (fsm_core::Phase::Waiting, fsm_core::Signal::Tick) => Ok(fsm_core::Phase::Waiting),
+        (fsm_core::Phase::Waiting, fsm_core::Signal::Reset(_, _)) => Err(InvalidTransition),
+        (fsm_core::Phase::Retrying { retry_count, attempt_limit }, fsm_core::Signal::Tick) => {
+            Ok(fsm_core::Phase::Retrying { retry_count, attempt_limit })
+        }
+        (fsm_core::Phase::Retrying { .. }, fsm_core::Signal::Reset(..)) => Ok(fsm_core::Phase::Waiting),
+    }
+}
+
 fn main() {
     match transition(State::Idle, Event::Start) {
         Ok(_) | Err(_) => {}
