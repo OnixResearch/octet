@@ -495,7 +495,7 @@ const ARTIFACT_HELP: &str = "cargo octet artifact verify
 
 Options: --artifact-dir PATH, --output-format human|json, --emit-valence-provenance PATH.
 
-Verifies a saved cargo octet check/prove artifact directory or a log-only evidence-log-manifest.json directory without mutating it. The verifier recomputes BLAKE3 hashes, validates provenance coverage, verifies raw log artifacts, rejects stale sidecars, and reports deterministic human or JSON output. The optional Valence provenance export is written only after verification succeeds.
+Verifies a saved cargo octet check/prove artifact directory or a log-only evidence-log-manifest.json directory without mutating it. The verifier recomputes BLAKE3 hashes, validates provenance coverage, verifies raw log artifacts, rejects stale sidecars, and reports deterministic human or JSON output. The optional Valence provenance export is written only after verification succeeds, and only to a path outside the artifact directory.
 ";
 
 const CHECK_HELP: &str = "cargo octet check

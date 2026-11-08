@@ -156,7 +156,8 @@ Reviewers use the existing commands at the matching stage:
 - `cargo octet artifact verify` recomputes artifact identities and checks saved
   receipts plus provenance before an artifact directory is treated as evidence.
   With `--emit-valence-provenance <path>`, it writes a Valence-ready export only
-  after verification succeeds. r[impl octet.evidence_provenance.valence_export.boundary]
+  after verification succeeds, and refuses a path that resolves inside the
+  verified artifact directory. r[impl octet.evidence_provenance.valence_export.boundary]
   r[impl octet.evidence_provenance.valence_export.boundary_hardened]
   The export is a Valence adapter input: every record carries a replayable
   receipt envelope, canonical BLAKE3 input/output artifact identities, typed edge

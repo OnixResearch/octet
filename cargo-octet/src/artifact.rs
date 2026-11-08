@@ -278,6 +278,9 @@ pub fn run(args: &ArtifactArgs) -> Result<i32, String> {
     }
 
     let files = read_bundle_files(&args.artifact_dir)?;
+    if let Some(output_path) = &args.emit_valence_provenance {
+        ensure_export_outside_artifact_dir(output_path, &args.artifact_dir)?;
+    }
     let input = ArtifactBundleInput {
         artifact_dir: args.artifact_dir.display().to_string(),
         files,
@@ -319,6 +322,53 @@ fn write_valence_provenance_export(
     let bytes =
         serde_json::to_vec_pretty(&export).map_err(|error| format!("serialize Valence provenance export: {error}"))?;
     write_valence_provenance_export_bytes(output_path, &bytes)
+}
+
+/// The verifier must not create or rewrite files in the bundle it checks, so the export path is
+/// resolved through symlinks and `..` and refused when it lands inside the artifact directory.
+// r[impl octet.artifact_bundle_verification.command.local]
+fn ensure_export_outside_artifact_dir(output_path: &Path, artifact_dir: &Path) -> Result<(), String> {
+    let artifact_root = std::fs::canonicalize(artifact_dir)
+        .map_err(|error| format!("resolve artifact directory {}: {error}", artifact_dir.display()))?;
+    let resolved_output = resolve_output_path(output_path)?;
+    if resolved_output.starts_with(&artifact_root) {
+        return Err(format!(
+            "refusing Valence provenance export to {}: it is inside the artifact directory {}; artifact verification \
+             must not create or rewrite files in the verified bundle, so choose a path outside it",
+            output_path.display(),
+            artifact_dir.display()
+        ));
+    }
+    Ok(())
+}
+
+/// Resolves an output path that may not exist yet: an existing path is canonicalized (following a
+/// final symlink); otherwise the nearest existing ancestor is canonicalized and the remaining
+/// components are applied lexically, matching how the writer creates missing parents.
+fn resolve_output_path(output_path: &Path) -> Result<std::path::PathBuf, String> {
+    let absolute = std::path::absolute(output_path)
+        .map_err(|error| format!("resolve output path {}: {error}", output_path.display()))?;
+    let mut existing = absolute.as_path();
+    let mut missing = Vec::new();
+    while existing.symlink_metadata().is_err() {
+        let (Some(parent), Some(component)) = (existing.parent(), existing.components().next_back()) else {
+            break;
+        };
+        missing.push(component);
+        existing = parent;
+    }
+    let mut resolved = std::fs::canonicalize(existing)
+        .map_err(|error| format!("resolve output path {}: {error}", output_path.display()))?;
+    for component in missing.into_iter().rev() {
+        match component {
+            std::path::Component::ParentDir => {
+                resolved.pop();
+            }
+            std::path::Component::Normal(name) => resolved.push(name),
+            std::path::Component::CurDir | std::path::Component::RootDir | std::path::Component::Prefix(_) => {}
+        }
+    }
+    Ok(resolved)
 }
 
 // r[impl octet.evidence_provenance.valence_export]
@@ -2456,6 +2506,47 @@ mod tests {
                 .iter()
                 .any(|diagnostic| diagnostic.contains("unmatched provenance record for artifact `ghost.txt`"))
         );
+    }
+
+    // r[verify octet.artifact_bundle_verification.command.local]
+    #[test]
+    fn valence_export_refuses_output_paths_inside_the_artifact_dir() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let artifact_dir = temp.path().join("artifacts");
+        std::fs::create_dir(&artifact_dir).expect("create artifact dir");
+        for file in valid_input(OutputFormat::Json).files {
+            std::fs::write(artifact_dir.join(&file.name), &file.contents).expect("write bundle file");
+        }
+        let snapshot = || {
+            read_bundle_files(&artifact_dir)
+                .expect("read bundle")
+                .into_iter()
+                .map(|file| (file.name, file.contents))
+                .collect::<Vec<_>>()
+        };
+        let original = snapshot();
+        let verify_args = |emit_valence_provenance: Option<std::path::PathBuf>| ArtifactArgs {
+            artifact_dir: artifact_dir.clone(),
+            output_format: OutputFormat::Json,
+            emit_valence_provenance,
+        };
+
+        for inside in [
+            artifact_dir.join("valence-provenance.json"),
+            artifact_dir.join(STATUS_ARTIFACT_NAME),
+            artifact_dir.join("nested").join("valence-provenance.json"),
+            temp.path().join("missing").join("..").join("artifacts").join("valence-provenance.json"),
+        ] {
+            let error = run(&verify_args(Some(inside.clone()))).expect_err("export inside artifact dir is refused");
+            assert!(error.contains("inside the artifact directory"), "{}: {error}", inside.display());
+            assert_eq!(snapshot(), original, "{} must not touch the bundle", inside.display());
+        }
+        assert_eq!(run(&verify_args(None)).expect("verify"), EXIT_VALID);
+
+        let outside = temp.path().join("valence-provenance.json");
+        assert_eq!(run(&verify_args(Some(outside.clone()))).expect("export outside"), EXIT_VALID);
+        assert!(outside.is_file());
+        assert_eq!(snapshot(), original);
     }
 
     fn valid_input(output_format: OutputFormat) -> ArtifactBundleInput {
