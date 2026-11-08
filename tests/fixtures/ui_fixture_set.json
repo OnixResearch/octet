@@ -34,6 +34,7 @@
     "excessive_file_length_within_limit",
     "explicit_defaults/explicit_defaults",
     "fallible_int_fallback",
+    "fallible_int_fallback_no_std",
     "fat_trait",
     "fat_trait_within_limit",
     "float_for_currency",
