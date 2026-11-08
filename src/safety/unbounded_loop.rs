@@ -109,6 +109,7 @@ fn loop_has_counter_marker(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
 }
 
 struct ExplicitExitVisitor {
+    nested_targets: Vec<hir::HirId>,
     found: bool,
 }
 
@@ -118,11 +119,28 @@ impl<'tcx> Visitor<'tcx> for ExplicitExitVisitor {
             return;
         }
 
+        // Nested loops are walked: a `return` anywhere, or a `break` whose resolved
+        // destination is not a loop or labelled block nested inside the walked loop
+        // (e.g. `break 'outer` from an inner loop), exits it.
         match expr.kind {
-            hir::ExprKind::Break(..) | hir::ExprKind::Ret(..) if !expr.span.from_expansion() => {
+            hir::ExprKind::Ret(..) if !expr.span.from_expansion() => {
                 self.found = true;
             }
-            hir::ExprKind::Break(..) | hir::ExprKind::Ret(..) | hir::ExprKind::Closure(_) | hir::ExprKind::Loop(..) => {
+            hir::ExprKind::Break(destination, _)
+                if !expr.span.from_expansion()
+                    && destination.target_id.is_ok_and(|target| !self.nested_targets.contains(&target)) =>
+            {
+                self.found = true;
+            }
+            hir::ExprKind::Closure(_) => {}
+            hir::ExprKind::Loop(..) => {
+                self.nested_targets.push(expr.hir_id);
+                intravisit::walk_expr(self, expr);
+            }
+            // A labelled block's `break` resolves to the inner `hir::Block`, not the block expression.
+            hir::ExprKind::Block(block, Some(_)) => {
+                self.nested_targets.push(block.hir_id);
+                intravisit::walk_expr(self, expr);
             }
             _ => intravisit::walk_expr(self, expr),
         }
@@ -130,7 +148,10 @@ impl<'tcx> Visitor<'tcx> for ExplicitExitVisitor {
 }
 
 fn block_has_explicit_exit<'tcx>(block: &'tcx hir::Block<'tcx>) -> bool {
-    let mut visitor = ExplicitExitVisitor { found: false };
+    let mut visitor = ExplicitExitVisitor {
+        nested_targets: Vec::new(),
+        found: false,
+    };
     visitor.visit_block(block);
     visitor.found
 }

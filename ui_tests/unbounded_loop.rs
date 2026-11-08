@@ -52,3 +52,63 @@ fn bounded_for_loop() {
         std::hint::spin_loop();
     }
 }
+
+fn inner_for_return_loop(items: &[u32]) -> u32 {
+    // Should NOT warn: `return` inside the inner `for` exits the outer loop.
+    loop {
+        for item in items {
+            if *item > 3 {
+                return *item;
+            }
+        }
+        std::hint::black_box(items);
+    }
+}
+
+fn labelled_outer_break_loop(items: &[u32]) {
+    // Should NOT warn: `break 'outer` from the inner loop exits the outer loop.
+    'outer: loop {
+        loop {
+            if std::hint::black_box(items.is_empty()) {
+                break 'outer;
+            }
+            std::hint::black_box(items);
+        }
+    }
+}
+
+fn inner_break_only_loop(items: &[u32]) {
+    // Should warn: unlabelled `break` only exits the inner `for`.
+    loop {
+        for item in items {
+            if *item > 3 {
+                break;
+            }
+        }
+        std::hint::black_box(items);
+    }
+}
+
+fn inner_labelled_break_only_loop(items: &[u32]) {
+    // Should warn: `break 'inner` only exits the inner loop.
+    loop {
+        'inner: loop {
+            if std::hint::black_box(items.is_empty()) {
+                break 'inner;
+            }
+        }
+        std::hint::black_box(items);
+    }
+}
+
+fn labelled_block_break_only_loop(items: &[u32]) {
+    // Should warn: `break 'block` only exits the labelled block.
+    loop {
+        'block: {
+            if std::hint::black_box(items.is_empty()) {
+                break 'block;
+            }
+            std::hint::black_box(items);
+        }
+    }
+}
