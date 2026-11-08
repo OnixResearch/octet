@@ -17,9 +17,13 @@ failures, proof-card diagnostics (for example a card demoted to
 `manual_review_required`), unsupported evidence tiers, or overbroad claim
 wording become blockers. Proof-ref and artifact-verification diagnostics are not
 inputs to the prove summary; run `cargo octet proof-ref validate` and
-`cargo octet artifact verify` for those. A blocked goal reports
-`emits_formal_proof=false`, and a rail whose verifier run or receipt validation
-failed also gets no `formal_proof` provenance record.
+`cargo octet artifact verify` for those. A blocked goal emits no `formal_proof`
+provenance: the rail's receipt and any Aeneas stage artifacts are still bound by
+BLAKE3 in `provenance.jsonl`, but as `manual_review_required` records whose
+`human_action` names the blockers. The rail status and its proof card's
+evidence tier are `manual_review_required`, the blockers become run
+diagnostics so the run status is `failed`, and `cargo octet artifact verify`
+still accepts the bundle.
 Its remediation commands include a runnable `cargo octet prove --explain` rerun
 that carries the run's `--registry` or `--policy-artifacts-dir` and `--source`
 paths, selects the goal with `--rail <policy-id>#rail-<N>`, and writes to a

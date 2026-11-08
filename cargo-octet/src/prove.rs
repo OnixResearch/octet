@@ -116,6 +116,8 @@ const MANUAL_ACTION: &str = "review cargo octet prove command, status, and scope
 const PROOF_CARD_MANUAL_ACTION: &str =
     "review proof cards with matching receipt, provenance, and cargo octet artifact verify output before release";
 const ARTIFACT_VERIFY_COMMAND: &str = "cargo octet artifact verify --artifact-dir <artifact-dir>";
+const WITHHELD_FORMAL_PROOF_ACTION: &str = "formal_proof provenance withheld because the proof goal is blocked; resolve these blockers and rerun cargo octet prove";
+const WITHHELD_FORMAL_PROOF_DIAGNOSTIC: &str = "proof goal blocked; formal_proof provenance withheld";
 const TRELLIS_IMPORT_PROVENANCE_ARTIFACT: &str = "standards/proof-imports/generated/trellis-proof-imports.json";
 const TRELLIS_IMPORTS_JSON: &str = include_str!("../../standards/proof-imports/generated/trellis-proof-imports.json");
 const AENEAS_CONSUMER_POLICY_ID: &str = "octet.aeneas_consumer_contract.external-fixture";
@@ -285,6 +287,8 @@ struct SelectedRail<'a> {
 struct ExecutedProof {
     row: ProofReportRow,
     receipt_text: String,
+    /// Receipt provenance for a rail whose verifier and receipt checks passed: `formal_proof`, or
+    /// `manual_review_required` once a blocked goal state withholds the formal claim.
     formal_provenance: Option<ProvenanceRecord>,
     logs: Vec<CapturedProofLog>,
     extra_artifacts: Vec<GeneratedProofArtifact>,
@@ -350,7 +354,7 @@ pub fn run(args: &ProveArgs) -> Result<i32, String> {
     if selected_rails.is_empty() {
         diagnostics.push("no selected proof rails matched the provided sources".to_owned());
     }
-    let executions = if diagnostics.is_empty() {
+    let mut executions = if diagnostics.is_empty() {
         selected_rails
             .iter()
             .map(|selected| execute_proof(selected, &sources, &working_dir, args.explain))
@@ -358,9 +362,21 @@ pub fn run(args: &ProveArgs) -> Result<i32, String> {
     } else {
         Vec::new()
     };
-    diagnostics.extend(executions.iter().flat_map(|execution| execution.row.diagnostics.clone()));
+    let goal_states = settle_proof_goals(args, &mut executions);
+    let report = prove_report(args, diagnostics, &executions);
+    write_artifacts(args, &report, &executions, &goal_states)?;
+    print_report(args.output_format, &report)?;
 
-    let report = ProveReport {
+    Ok(if report.diagnostics.is_empty() {
+        EXIT_PROOF_VALID
+    } else {
+        EXIT_PROOF_INVALID
+    })
+}
+
+fn prove_report(args: &ProveArgs, mut diagnostics: Vec<String>, executions: &[ExecutedProof]) -> ProveReport {
+    diagnostics.extend(executions.iter().flat_map(|execution| execution.row.diagnostics.clone()));
+    ProveReport {
         schema_version: REPORT_SCHEMA_VERSION,
         status: if diagnostics.is_empty() {
             STATUS_PASSED
@@ -370,15 +386,41 @@ pub fn run(args: &ProveArgs) -> Result<i32, String> {
         artifact_dir: args.artifact_dir.display().to_string(),
         proofs: executions.iter().map(|execution| execution.row.clone()).collect(),
         diagnostics,
-    };
-    write_artifacts(args, &report, &executions)?;
-    print_report(args.output_format, &report)?;
+    }
+}
 
-    Ok(if report.diagnostics.is_empty() {
-        EXIT_PROOF_VALID
-    } else {
-        EXIT_PROOF_INVALID
-    })
+/// Computes each rail's goal state and withholds `formal_proof` provenance from blocked rails, so
+/// a blocked claim never reaches the bundle as `formal_proof`.
+fn settle_proof_goals(args: &ProveArgs, executions: &mut [ExecutedProof]) -> Vec<ProofGoalState> {
+    executions
+        .iter_mut()
+        .map(|execution| {
+            let goal_state = proof_goal_state_for_execution(args, execution);
+            if !goal_state.emits_formal_proof {
+                withhold_formal_proof(execution, &goal_state.blockers);
+            }
+            goal_state
+        })
+        .collect()
+}
+
+/// Downgrades a blocked rail's receipt provenance to `manual_review_required`, still binding the
+/// receipt bytes the run writes, and marks the rail for manual review with the blockers as
+/// diagnostics. Rails that never earned provenance (verifier or receipt failures) are unchanged.
+fn withhold_formal_proof(execution: &mut ExecutedProof, blockers: &[String]) {
+    let Some(record) = execution.formal_provenance.as_mut() else {
+        return;
+    };
+    record.evidence_tier = EvidenceTier::ManualReviewRequired;
+    record.blake3 = crate::evidence::artifact_blake3_hex(execution.receipt_text.as_bytes());
+    record.human_action = Some(format!("{WITHHELD_FORMAL_PROOF_ACTION}: {}", blockers.join("; ")));
+    execution.row.status = STATUS_MANUAL_REVIEW_REQUIRED;
+    execution
+        .row
+        .diagnostics
+        .extend(blockers.iter().map(|blocker| format!("{WITHHELD_FORMAL_PROOF_DIAGNOSTIC}: {blocker}")));
+    execution.row.diagnostics.sort();
+    execution.row.diagnostics.dedup();
 }
 
 fn load_registry(args: &ProveArgs) -> Result<PolicyRegistry, String> {
@@ -1601,13 +1643,18 @@ fn is_existing_prove_bundle(artifact_root: &ArtifactRoot) -> Result<bool, String
     }))
 }
 
-fn write_artifacts(args: &ProveArgs, report: &ProveReport, executions: &[ExecutedProof]) -> Result<(), String> {
+fn write_artifacts(
+    args: &ProveArgs,
+    report: &ProveReport,
+    executions: &[ExecutedProof],
+    goal_states: &[ProofGoalState],
+) -> Result<(), String> {
     let artifact_root = prepare_artifact_dir(&args.artifact_dir)?;
     artifact_root.create_dir_all(&RootRelativePath::new(PROOF_ARTIFACT_DIR_NAME)?)?;
 
     let command_text = format!("{}\n", args.command_line);
     let status_text = status_text(args.output_format, report)?;
-    let summary_text = summary_text(report, args, executions);
+    let summary_text = summary_text(report, &args.command_line, goal_states, executions);
     let proof_cards_text = proof_cards_text(executions)?;
     let provenance_text = provenance_text(&command_text, &status_text, &summary_text, &proof_cards_text, executions)?;
     let evidence_log_manifest_text = evidence_log_manifest_text(&args.command_line, executions)?;
@@ -1646,8 +1693,12 @@ fn status_text(output_format: OutputFormat, report: &ProveReport) -> Result<Stri
     json_text(&artifact)
 }
 
-fn summary_text(report: &ProveReport, args: &ProveArgs, executions: &[ExecutedProof]) -> String {
-    let replay_command = &args.command_line;
+fn summary_text(
+    report: &ProveReport,
+    replay_command: &str,
+    goal_states: &[ProofGoalState],
+    executions: &[ExecutedProof],
+) -> String {
     let mut text = format!(
         "octet prove status={} proofs={} diagnostics={}\n",
         report.status,
@@ -1671,7 +1722,7 @@ fn summary_text(report: &ProveReport, args: &ProveArgs, executions: &[ExecutedPr
         )
         .expect("write proof summary to string");
     }
-    for goal_state in executions.iter().map(|execution| proof_goal_state_for_execution(args, execution)) {
+    for goal_state in goal_states {
         writeln!(
             &mut text,
             "proof_goal_state schema_version={} goal_id={} claim_id={} satisfied_evidence={} missing_obligations={} blockers={} emits_formal_proof={}",
@@ -1733,7 +1784,7 @@ fn proof_goal_state_for_execution(args: &ProveArgs, execution: &ExecutedProof) -
             vec![GoalEvidence {
                 artifact: provenance.artifact_locator.clone(),
                 actual_blake3: provenance.blake3.clone(),
-                evidence_tier: EvidenceTier::FormalProof,
+                evidence_tier: provenance.evidence_tier,
                 status: row.status.to_owned(),
             }]
         })
@@ -1857,13 +1908,22 @@ fn provenance_text(
     ];
     records.extend(executions.iter().filter_map(|execution| execution.formal_provenance.clone()));
     records.extend(executions.iter().flat_map(|execution| {
-        execution.extra_artifacts.iter().map(|artifact| {
-            proof_provenance_record(
+        let withheld = execution
+            .formal_provenance
+            .as_ref()
+            .filter(|receipt_record| receipt_record.evidence_tier != EvidenceTier::FormalProof);
+        execution.extra_artifacts.iter().map(move |artifact| {
+            let mut record = proof_provenance_record(
                 &artifact.locator,
                 &artifact.contents,
                 &execution.row.checked_scope,
                 "aeneas-stage-artifact",
-            )
+            );
+            if let Some(receipt_record) = withheld {
+                record.evidence_tier = receipt_record.evidence_tier;
+                record.human_action.clone_from(&receipt_record.human_action);
+            }
+            record
         })
     }));
     let mut text = String::new();
@@ -1938,13 +1998,19 @@ fn proof_card_for_execution(execution: &ExecutedProof) -> ProofCard {
         |envelope| initial_aeneas_proof_card(execution, envelope, execution.formal_provenance.as_ref()),
     );
     card.formal_proof_envelope.clone_from(&formal_proof_envelope);
-    if execution.formal_provenance.is_some() && (receipt.is_some() || formal_proof_envelope.is_some()) {
+    // A receipt record withheld to `manual_review_required` binds the bytes but cannot promote the
+    // card.
+    let formal_provenance = execution
+        .formal_provenance
+        .as_ref()
+        .filter(|record| record.evidence_tier == EvidenceTier::FormalProof);
+    if formal_provenance.is_some() && (receipt.is_some() || formal_proof_envelope.is_some()) {
         card.evidence_tier.clear();
         card.evidence_tier.push_str(EvidenceTier::FormalProof.as_str());
     }
     let diagnostics = formal_proof_envelope.as_ref().map_or_else(
-        || proof_card_validation_diagnostics(&card, receipt.as_ref(), execution.formal_provenance.as_ref()),
-        |envelope| aeneas_proof_card_linkage_diagnostics(&card, envelope, execution.formal_provenance.as_ref()),
+        || proof_card_validation_diagnostics(&card, receipt.as_ref(), formal_provenance),
+        |envelope| aeneas_proof_card_linkage_diagnostics(&card, envelope, formal_provenance),
     );
     if diagnostics.is_empty() {
         card
@@ -3173,6 +3239,81 @@ mod tests {
                 "card diagnostic `{diagnostic}` missing from goal-state blockers: {:?}",
                 state.blockers
             );
+        }
+    }
+
+    type ExecutionTamper = fn(&mut ExecutedProof);
+
+    #[test]
+    fn blocked_goal_withholds_formal_proof_provenance_and_bundle_still_verifies() {
+        let cases: [(&str, ExecutionTamper); 3] = [
+            ("clean", |_| {}),
+            ("demoted card", |execution| {
+                VERIFIER_MODE_PRODUCTION.clone_into(&mut execution.row.verifier_mode);
+                execution.extra_artifacts.push(GeneratedProofArtifact {
+                    locator: format!("{PROOF_ARTIFACT_DIR_NAME}/fixture-stage.bin"),
+                    contents: b"stage artifact\n".to_vec(),
+                });
+            }),
+            ("stale provenance digest", |execution| {
+                execution.formal_provenance.as_mut().expect("formal provenance").blake3 = "0".repeat(64);
+            }),
+        ];
+        for (case, tamper) in cases {
+            let temp = tempfile::tempdir().expect("tempdir");
+            let policy = fixture_policy(temp.path(), PASS_SIGNAL, command_argv(PASS_SIGNAL));
+            let (args, mut execution) = passing_fixture_execution(temp.path(), &policy);
+            tamper(&mut execution);
+            let receipt = execution.row.receipt.clone();
+            let mut executions = vec![execution];
+
+            let goal_states = settle_proof_goals(&args, &mut executions);
+            let report = prove_report(&args, Vec::new(), &executions);
+            write_artifacts(&args, &report, &executions, &goal_states).expect("write prove bundle");
+
+            let provenance = fs::read_to_string(args.artifact_dir.join(PROVENANCE_ARTIFACT_NAME)).expect("provenance");
+            let records = provenance
+                .lines()
+                .map(|line| serde_json::from_str::<ProvenanceRecord>(line).expect("provenance record"))
+                .collect::<Vec<_>>();
+            let receipt_record =
+                records.iter().find(|record| record.artifact_locator == receipt).expect("receipt record");
+            let status: serde_json::Value = serde_json::from_str(
+                &fs::read_to_string(args.artifact_dir.join(STATUS_ARTIFACT_NAME)).expect("status"),
+            )
+            .expect("status json");
+            let cards: ProofCardDeck = serde_json::from_str(
+                &fs::read_to_string(args.artifact_dir.join(PROOF_CARDS_ARTIFACT_NAME)).expect("cards"),
+            )
+            .expect("cards json");
+            let summary = fs::read_to_string(args.artifact_dir.join(SUMMARY_ARTIFACT_NAME)).expect("summary");
+            let verification = verify_bundle(bundle_input(&args.artifact_dir));
+
+            assert_eq!(verification.status, "valid", "{case}: {:?}", verification.diagnostics);
+            if case == "clean" {
+                assert_eq!(receipt_record.evidence_tier, EvidenceTier::FormalProof, "{case}");
+                assert_eq!(report.status, STATUS_PASSED, "{case}");
+                assert_eq!(status["proofs"][0]["status"], STATUS_PASSED, "{case}");
+                assert_eq!(cards.cards[0].evidence_tier, EvidenceTier::FormalProof.as_str(), "{case}");
+                assert!(summary.contains("emits_formal_proof=true"), "{case}: {summary}");
+                continue;
+            }
+            assert!(
+                records.iter().all(|record| record.evidence_tier != EvidenceTier::FormalProof),
+                "{case}: blocked rail must not emit formal_proof provenance: {records:?}"
+            );
+            assert_eq!(receipt_record.evidence_tier, EvidenceTier::ManualReviewRequired, "{case}");
+            assert!(
+                receipt_record
+                    .human_action
+                    .as_deref()
+                    .is_some_and(|action| action.contains(WITHHELD_FORMAL_PROOF_ACTION)),
+                "{case}: {receipt_record:?}"
+            );
+            assert_eq!(report.status, STATUS_FAILED, "{case}");
+            assert_eq!(status["proofs"][0]["status"], STATUS_MANUAL_REVIEW_REQUIRED, "{case}");
+            assert_eq!(cards.cards[0].evidence_tier, EvidenceTier::ManualReviewRequired.as_str(), "{case}");
+            assert!(summary.contains("emits_formal_proof=false"), "{case}: {summary}");
         }
     }
 

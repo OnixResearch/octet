@@ -1752,9 +1752,12 @@ fn expected_check_extra_artifact(record: &ProvenanceRecord) -> Option<String> {
         .then(|| record.artifact_locator.clone())
 }
 
+/// A prove bundle's `proofs/` receipts and stage artifacts are recorded as `formal_proof`, or as
+/// `manual_review_required` when a blocked proof goal withheld the formal claim.
 fn expected_proof_artifact(record: &ProvenanceRecord) -> Option<String> {
-    (record.evidence_tier == EvidenceTier::FormalProof && record.artifact_locator.starts_with(PROOF_ARTIFACT_PREFIX))
-        .then(|| record.artifact_locator.clone())
+    (matches!(record.evidence_tier, EvidenceTier::FormalProof | EvidenceTier::ManualReviewRequired)
+        && record.artifact_locator.starts_with(PROOF_ARTIFACT_PREFIX))
+    .then(|| record.artifact_locator.clone())
 }
 
 fn validate_file_set(file_map: &BTreeMap<String, Vec<u8>>, expected_files: &[String], diagnostics: &mut Vec<String>) {
@@ -1898,7 +1901,10 @@ fn validate_expected_record_shape(
             record.artifact_locator, expected.checker_id, record.checker_id
         ));
     }
-    if record.evidence_tier != expected.evidence_tier {
+    let withheld_formal_proof = bundle_kind == BundleKind::Prove
+        && expected.evidence_tier == EvidenceTier::FormalProof
+        && record.evidence_tier == EvidenceTier::ManualReviewRequired;
+    if record.evidence_tier != expected.evidence_tier && !withheld_formal_proof {
         diagnostics.push(format!(
             "unexpected evidence_tier for artifact `{}`; expected `{}`, got `{}`",
             record.artifact_locator,
@@ -1907,7 +1913,7 @@ fn validate_expected_record_shape(
         ));
     }
 
-    if bundle_kind == BundleKind::Prove && record.evidence_tier == EvidenceTier::FormalProof {
+    if bundle_kind == BundleKind::Prove && expected.evidence_tier == EvidenceTier::FormalProof {
         if record.checked_scope.trim().is_empty() {
             diagnostics.push(format!("missing required provenance field `{FIELD_CHECKED_SCOPE}`"));
         }
@@ -2649,6 +2655,46 @@ mod tests {
                 None => assert_eq!(report.status, STATUS_VALID, "{record_scope}: {:?}", report.diagnostics),
                 Some(expected) => {
                     assert_eq!(report.status, STATUS_INVALID, "{record_scope}");
+                    assert!(report.diagnostics.contains(&expected), "{:?}", report.diagnostics);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn prove_bundle_accepts_withheld_manual_review_proof_records_only() {
+        let cases = [
+            (EvidenceTier::ManualReviewRequired, Some("formal_proof provenance withheld"), None),
+            (
+                EvidenceTier::ManualReviewRequired,
+                None,
+                Some("missing required provenance field `human_action`".to_owned()),
+            ),
+            (
+                EvidenceTier::StaticLint,
+                None,
+                Some(format!(
+                    "unexpected evidence_tier for artifact `{PROOF_RECEIPT_ARTIFACT_NAME}`; expected `formal_proof`, got `static_lint`"
+                )),
+            ),
+        ];
+        for (tier, human_action, expected) in cases {
+            let mut input = prove_input(PROOF_RECEIPT_CONTENTS, None, PROOF_CHECKED_SCOPE);
+            let mut records = provenance_records_of(&input);
+            let receipt_record = records
+                .iter_mut()
+                .find(|record| record.artifact_locator == PROOF_RECEIPT_ARTIFACT_NAME)
+                .expect("receipt record");
+            receipt_record.evidence_tier = tier;
+            receipt_record.human_action = human_action.map(str::to_owned);
+            replace_file(&mut input, PROVENANCE_ARTIFACT_NAME, render_records(&records).into_bytes());
+
+            let report = verify_bundle(input);
+
+            match expected {
+                None => assert_eq!(report.status, STATUS_VALID, "{}: {:?}", tier.as_str(), report.diagnostics),
+                Some(expected) => {
+                    assert_eq!(report.status, STATUS_INVALID, "{}", tier.as_str());
                     assert!(report.diagnostics.contains(&expected), "{:?}", report.diagnostics);
                 }
             }
