@@ -36,7 +36,7 @@ cargo octet artifact verify \
   --artifact-dir artifacts/clippy-restrictions
 ```
 
-Profiled run mode uses the embedded shipped catalog by default, so downstream workspaces only need `--profile`. `--config PATH` may select another catalog, which must satisfy the same checked schema and bounded lint allowlist. The runner constructs fixed quiet workspace/all-target Clippy JSON argv and rejects `--command` rather than allowing the profile file or operator to inject arbitrary process authority. Unprofiled Clippy run and JSON import remain compatibility surfaces.
+Profiled run mode uses the embedded shipped catalog by default, so downstream workspaces only need `--profile`. `--config PATH` may select another catalog, which must satisfy the same checked schema and bounded lint allowlist. The runner constructs fixed quiet workspace/all-target Clippy JSON argv and rejects `--command` rather than allowing the profile file or operator to inject arbitrary process authority. Unprofiled Clippy run and JSON import remain compatibility surfaces; unprofiled run mode always uses the fixed `cargo clippy --message-format=json` argv and also rejects a non-empty `--command`.
 
 A profiled receipt binds:
 

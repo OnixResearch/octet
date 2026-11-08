@@ -4201,8 +4201,9 @@ fn prepare_clippy_run(args: &EvidenceRailArgs) -> Result<Option<PreparedClippyRu
     if !args.run || args.rail != EvidenceRailKind::ClippyCoReporting {
         return Ok(None);
     }
-    if args.profile.is_some() && args.command.as_deref().is_some_and(|command| !command.is_empty()) {
-        return Err("profiled Clippy run rejects arbitrary --command authority; use the checked profile".to_owned());
+    if args.command.as_deref().is_some_and(|command| !command.is_empty()) {
+        return Err("Clippy run rejects arbitrary --command authority; use a checked `--profile` or the default argv"
+            .to_owned());
     }
     match (args.config.as_deref(), args.profile.as_deref()) {
         (None, None) => Ok(None),
@@ -5162,6 +5163,19 @@ mod tests {
         assert!(crate::clippy_restrictions::is_blake3_identity(&embedded.config_identity));
         assert_eq!(embedded.command_argv, prepared.command_argv);
         assert!(arbitrary.contains("arbitrary --command authority"));
+    }
+
+    #[test]
+    fn unprofiled_clippy_run_rejects_arbitrary_command_authority() {
+        let args = clippy_run_args(None, None, Some("cargo clippy --all-features"));
+        let prepare_error = prepare_clippy_run(&args).expect_err("unprofiled arbitrary command should fail");
+        let argv_error = run_mode_command_argv(&args).expect_err("run argv must not drop the arbitrary command");
+        assert!(prepare_error.contains("arbitrary --command authority"), "{prepare_error}");
+        assert!(argv_error.contains("arbitrary --command authority"), "{argv_error}");
+
+        let default =
+            run_mode_command_argv(&clippy_run_args(None, None, Some(""))).expect("empty command is no authority");
+        assert_eq!(default, default_clippy_command_argv());
     }
 
     #[test]
