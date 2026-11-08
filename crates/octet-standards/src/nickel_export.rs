@@ -6,6 +6,8 @@
 //! manifest projection so existing generated artifacts and commands remain
 //! compatible during migration.
 
+use std::collections::BTreeSet;
+
 use nickel_export_core as canonical;
 use serde::Deserialize;
 use serde::Serialize;
@@ -173,6 +175,10 @@ pub fn manifest_for_exports(inputs: &[NickelExportInput<'_>]) -> Result<NickelEx
 }
 
 /// Verify that an existing Octet v1 manifest matches current exact inputs.
+///
+/// The manifest must equal the one rebuilt from `inputs`: schema, generator,
+/// evaluator identity, and every entry's identities, paths, and metadata are
+/// compared, and duplicate output paths are rejected.
 #[must_use]
 pub fn verify_manifest(manifest: &NickelExportManifest, inputs: &[NickelExportInput<'_>]) -> Vec<String> {
     let mut diagnostics = Vec::new();
@@ -189,6 +195,14 @@ pub fn verify_manifest(manifest: &NickelExportManifest, inputs: &[NickelExportIn
             return diagnostics;
         }
     };
+    push_manifest_field_mismatch("generator", &expected.generator, &manifest.generator, &mut diagnostics);
+    push_manifest_field_mismatch(
+        "Nickel identity",
+        &expected.nickel_identity,
+        &manifest.nickel_identity,
+        &mut diagnostics,
+    );
+    push_duplicate_outputs(manifest, &mut diagnostics);
     for expected_entry in &expected.exports {
         match manifest.exports.iter().find(|entry| entry.output.path == expected_entry.output.path) {
             Some(actual) => compare_manifest_entry(expected_entry, actual, &mut diagnostics),
@@ -199,6 +213,11 @@ pub fn verify_manifest(manifest: &NickelExportManifest, inputs: &[NickelExportIn
         if !expected.exports.iter().any(|entry| entry.output.path == actual.output.path) {
             diagnostics.push(format!("Nickel export manifest contains stale output `{}`", actual.output.path));
         }
+    }
+    if diagnostics.is_empty() && *manifest != expected {
+        diagnostics.push(
+            "Nickel export manifest does not match the manifest rebuilt from current inputs; regenerate it".to_owned(),
+        );
     }
     diagnostics
 }
@@ -322,6 +341,25 @@ fn legacy_contract_diagnostics(input: &NickelExportInput<'_>) -> Vec<String> {
         .collect()
 }
 
+fn push_manifest_field_mismatch(field: &str, expected: &str, actual: &str, diagnostics: &mut Vec<String>) {
+    if expected != actual {
+        diagnostics.push(format!("stale Nickel export manifest {field}; expected `{expected}`, got `{actual}`"));
+    }
+}
+
+fn push_duplicate_outputs(manifest: &NickelExportManifest, diagnostics: &mut Vec<String>) {
+    let mut seen_paths = BTreeSet::new();
+    let mut duplicate_paths = BTreeSet::new();
+    for entry in &manifest.exports {
+        if !seen_paths.insert(entry.output.path.as_str()) {
+            duplicate_paths.insert(entry.output.path.as_str());
+        }
+    }
+    for path in duplicate_paths {
+        diagnostics.push(format!("Nickel export manifest contains duplicate output `{path}`"));
+    }
+}
+
 fn compare_manifest_entry(
     expected: &NickelExportManifestEntry,
     actual: &NickelExportManifestEntry,
@@ -330,17 +368,30 @@ fn compare_manifest_entry(
     push_identity_mismatch("source", &expected.source, &actual.source, diagnostics);
     compare_dependencies(expected, actual, diagnostics);
     push_identity_mismatch("output", &expected.output, &actual.output, diagnostics);
-    if expected.output_format != actual.output_format {
+    let output = expected.output.path.as_str();
+    push_entry_field_mismatch(output, "family", &expected.family_id, &actual.family_id, diagnostics);
+    push_entry_field_mismatch(output, "format", &expected.output_format, &actual.output_format, diagnostics);
+    push_entry_field_mismatch(output, "selector", &expected.selector, &actual.selector, diagnostics);
+    push_entry_field_mismatch(output, "contract", &expected.contract, &actual.contract, diagnostics);
+    push_entry_field_mismatch(
+        output,
+        "generation command",
+        &expected.generation_command,
+        &actual.generation_command,
+        diagnostics,
+    );
+    if expected.command_argv != actual.command_argv {
         diagnostics.push(format!(
-            "stale Nickel export metadata `{}`; expected format `{}`, got `{}`",
-            expected.output.path, expected.output_format, actual.output_format
+            "stale Nickel export metadata `{output}`; expected command argv {:?}, got {:?}",
+            expected.command_argv, actual.command_argv
         ));
     }
-    if expected.generation_command != actual.generation_command {
-        diagnostics.push(format!(
-            "stale Nickel export metadata `{}`; expected generation command `{}`, got `{}`",
-            expected.output.path, expected.generation_command, actual.generation_command
-        ));
+}
+
+fn push_entry_field_mismatch(output: &str, field: &str, expected: &str, actual: &str, diagnostics: &mut Vec<String>) {
+    if expected != actual {
+        diagnostics
+            .push(format!("stale Nickel export metadata `{output}`; expected {field} `{expected}`, got `{actual}`"));
     }
 }
 
@@ -376,6 +427,10 @@ fn push_identity_mismatch(
     actual: &ExportIdentity,
     diagnostics: &mut Vec<String>,
 ) {
+    if expected.path != actual.path {
+        diagnostics
+            .push(format!("stale Nickel export {label} path; expected `{}`, got `{}`", expected.path, actual.path));
+    }
     if expected.blake3 == actual.blake3 && expected.bytes == actual.bytes {
         return;
     }
@@ -585,6 +640,51 @@ mod tests {
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("missing dependency")));
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("stale Nickel export output")));
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("contains stale output")));
+    }
+
+    #[test]
+    fn manifest_verification_rejects_identity_metadata_drift_and_duplicate_outputs() {
+        let spec = json_spec();
+        let fresh = manifest_for_exports(&[export_input(&spec, OUTPUT_TEXT)]).expect("valid observation");
+        assert!(verify_manifest(&fresh, &[export_input(&spec, OUTPUT_TEXT)]).is_empty());
+
+        let drifted = |mutate: &dyn Fn(&mut NickelExportManifest)| {
+            let mut manifest = fresh.clone();
+            mutate(&mut manifest);
+            verify_manifest(&manifest, &[export_input(&spec, OUTPUT_TEXT)])
+        };
+        let cases: [(&str, &dyn Fn(&mut NickelExportManifest)); 10] = [
+            ("nickel identity", &|manifest| manifest.nickel_identity = "nickel-substituted".to_owned()),
+            ("generator", &|manifest| manifest.generator = "other-generator".to_owned()),
+            ("family", &|manifest| manifest.exports[0].family_id = "octet.other-family".to_owned()),
+            ("contract", &|manifest| manifest.exports[0].contract = "OtherContract".to_owned()),
+            ("selector", &|manifest| manifest.exports[0].selector = "other".to_owned()),
+            ("command argv", &|manifest| manifest.exports[0].command_argv.push("--extra".to_owned())),
+            ("source path", &|manifest| manifest.exports[0].source.path = "templates/other.ncl".to_owned()),
+            ("dependency path", &|manifest| {
+                manifest.exports[0].dependencies[0].path = "standards/policies/other.ncl".to_owned();
+            }),
+            ("duplicate dependency", &|manifest| {
+                let duplicate = manifest.exports[0].dependencies[0].clone();
+                manifest.exports[0].dependencies.push(duplicate);
+            }),
+            ("duplicate output", &|manifest| {
+                let mut duplicate = manifest.exports[0].clone();
+                duplicate.output.blake3 = bare_blake3("stale");
+                manifest.exports.push(duplicate);
+            }),
+        ];
+        let accepted = cases
+            .into_iter()
+            .filter(|(_, mutate)| drifted(*mutate).is_empty())
+            .map(|(label, _)| label)
+            .collect::<Vec<_>>();
+        assert!(accepted.is_empty(), "drifted manifests verified clean: {accepted:?}");
+        let duplicate_diagnostics = drifted(&|manifest| manifest.exports.push(manifest.exports[0].clone()));
+        assert!(
+            duplicate_diagnostics.iter().any(|diagnostic| diagnostic.contains("duplicate output")),
+            "{duplicate_diagnostics:?}"
+        );
     }
 
     #[test]
