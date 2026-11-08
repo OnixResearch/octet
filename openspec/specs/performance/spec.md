@@ -211,6 +211,13 @@ The lint MUST NOT warn on clones that are moved into ownership-consuming APIs, s
 - WHEN the lint runs
 - THEN it does NOT warn in the first implementation scope because the clone may be the intended ownership boundary
 
+#### Scenario: Borrowed clone kept across a mutation of the original is accepted [r[clone-then-borrow-lint.scenario.mutated-original-accepted]]
+
+- GIVEN `let before = &values.clone(); values.push(1);`
+- WHEN the lint runs
+- THEN it does NOT warn because the borrowed clone is stored in a `let` binding (directly or inside a tuple, array, or struct literal) and a later statement in the same block assigns or mutably borrows the original, so borrowing the original would fail with E0502
+- AND a stored borrowed clone with no later mutation of the original still warns
+
 #### Scenario: Expansion boundary is skipped [r[clone-then-borrow-lint.scenario.expansion-skip]]
 
 - GIVEN a macro expansion generates a borrowed clone expression
