@@ -1138,6 +1138,49 @@ fn non_lint_compile_errors_beside_denied_findings_exit_two() {
 }
 
 #[test]
+fn non_json_cargo_stdout_lines_are_skipped_without_losing_the_run() {
+    const PROC_MACRO_LINE: &str = "proc macro debug: expanding derive(Example)";
+
+    let fixture = ConsumerFixture::new("non-json-stdout", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let lines = vec![
+        PROC_MACRO_LINE.to_owned(),
+        cargo_compiler_message("consumer", "no_unwrap", "use of `.unwrap()`", "src/lib.rs", 10, 5, None),
+        String::new(),
+        "{ not json".to_owned(),
+        cargo_build_finished(true),
+    ];
+
+    let json = run_with_output_format(&fixture, JSON_OUTPUT_FORMAT, &lines, EXIT_CODE_SUCCESS);
+    assert_eq!(
+        json.status.code(),
+        Some(EXIT_CODE_SUCCESS),
+        "non-JSON Cargo stdout must not abort the check: stdout={} stderr={}",
+        String::from_utf8_lossy(&json.stdout),
+        String::from_utf8_lossy(&json.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&json.stdout);
+    let findings: Vec<serde_json::Value> = stdout
+        .lines()
+        .map(|line| serde_json::from_str(line).expect("structured stdout stays JSON lines"))
+        .collect();
+    assert_eq!(findings.len(), 1, "the finding after the non-JSON line must be kept: {stdout}");
+    assert!(!stdout.contains(PROC_MACRO_LINE), "non-JSON lines must not leak into structured stdout: {stdout}");
+
+    let dir = artifact_dir(&fixture, "non-json-human");
+    let human = run_with_check_args(
+        &fixture,
+        &["--artifact-dir", dir.to_str().expect("artifact dir utf8")],
+        &lines,
+        EXIT_CODE_SUCCESS,
+    );
+    assert_eq!(human.status.code(), Some(EXIT_CODE_SUCCESS));
+    let stderr = String::from_utf8_lossy(&human.stderr);
+    assert!(stderr.contains(PROC_MACRO_LINE), "human mode should echo non-JSON Cargo stdout to stderr: {stderr}");
+    assert!(stderr.contains("Warnings: 1"), "human summary should count the finding: {stderr}");
+    assert!(artifact_bundle_is_valid(&dir, "human"), "the bundle must still be written");
+}
+
+#[test]
 fn warning_level_lint_findings_exit_with_code_zero() {
     let fixture = ConsumerFixture::new("lint-warning", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
     let lines = vec![

@@ -230,64 +230,17 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
         let child_stdout = child.stdout.take().expect("stdout piped");
 
         let meta_map = output::lint_meta_map();
-        let mut findings: Vec<Finding> = Vec::new();
-        let mut finding_counter: usize = 0;
+        let streamed_findings =
+            read_cargo_messages(BufReader::new(child_stdout), check, &meta_map, &run_metadata, &diagnostic_paths);
+        if streamed_findings.is_err() {
+            // Stop Cargo before reaping it so an aborted read cannot leave it blocked on a full pipe.
+            let _ = child.kill();
+        }
+        let cargo_wait = child.wait().map_err(|error| format!("wait for cargo check: {error}"));
+        let mut findings = streamed_findings?;
+        let cargo_process_exit = classify_cargo_process_exit(cargo_wait?);
         let mut stdout_lock = std::io::stdout().lock();
         let mut stderr_lock = std::io::stderr().lock();
-
-        for line in BufReader::new(child_stdout).lines() {
-            let line = line.map_err(|error| format!("read cargo stdout: {error}"))?;
-            let json: serde_json::Value =
-                serde_json::from_str(&line).map_err(|error| format!("parse cargo JSON: {error}"))?;
-
-            let reason = json["reason"].as_str().unwrap_or("");
-
-            match reason {
-                "compiler-message" => {
-                    let message = &json["message"];
-
-                    if check.output_format == OutputFormat::Human
-                        && let Some(rendered) = message["rendered"].as_str()
-                    {
-                        let _ = write!(stderr_lock, "{rendered}");
-                    }
-
-                    if is_informational_compiler_level(message["level"].as_str()) || is_rustc_abort_summary(message) {
-                        continue;
-                    }
-
-                    let code = message["code"]["code"].as_str().unwrap_or("");
-                    let lint_name = normalize_lint_name(code);
-
-                    let meta = meta_map.get(lint_name.as_str()).unwrap_or(&output::UNKNOWN_LINT_META);
-                    finding_counter += 1;
-                    findings.push(build_finding(
-                        finding_counter,
-                        &json,
-                        meta,
-                        &lint_name,
-                        &run_metadata.config_hash,
-                        check.cache,
-                        &diagnostic_paths,
-                    )?);
-                }
-                "compiler-artifact" if check.output_format == OutputFormat::Human => {
-                    if let Some(banner) = format_compiling_banner(&json) {
-                        let _ = writeln!(stderr_lock, "{banner}");
-                    }
-                }
-                "build-finished" if check.output_format == OutputFormat::Human => {
-                    let success = json["success"].as_bool().unwrap_or(false);
-                    if success {
-                        let _ = writeln!(stderr_lock, "    Finished checking");
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        let cargo_process_exit =
-            classify_cargo_process_exit(child.wait().map_err(|error| format!("wait for cargo check: {error}"))?);
         let architecture_artifacts = if cargo_process_exit.is_success() {
             collector.as_ref().map(crate::architecture_ir::normalize_collected_shards).transpose()?
         } else {
@@ -968,6 +921,80 @@ fn remove_extra_artifact_paths(artifact_root: &ArtifactRoot, expected_files: &[&
     }
 
     Ok(())
+}
+
+/// Collects findings from `cargo check --message-format=json` stdout and, in human mode, echoes
+/// rendered diagnostics and progress to stderr. Cargo passes through anything rustc writes to its
+/// own stdout, such as a proc macro printing during expansion, so lines that are not JSON objects
+/// are not Cargo messages: they are echoed in human mode and otherwise skipped.
+fn read_cargo_messages(
+    reader: impl BufRead,
+    check: &CheckArgs,
+    meta_map: &std::collections::HashMap<&str, output::LintMeta>,
+    run_metadata: &RunMetadata,
+    diagnostic_paths: &DiagnosticPaths,
+) -> Result<Vec<Finding>, String> {
+    let mut findings: Vec<Finding> = Vec::new();
+    let mut finding_counter: usize = 0;
+    let mut stderr_lock = std::io::stderr().lock();
+
+    for line in reader.lines() {
+        let line = line.map_err(|error| format!("read cargo stdout: {error}"))?;
+        let Some(json) = serde_json::from_str::<serde_json::Value>(&line).ok().filter(serde_json::Value::is_object)
+        else {
+            if check.output_format == OutputFormat::Human {
+                let _ = writeln!(stderr_lock, "{line}");
+            }
+            continue;
+        };
+
+        let reason = json["reason"].as_str().unwrap_or("");
+
+        match reason {
+            "compiler-message" => {
+                let message = &json["message"];
+
+                if check.output_format == OutputFormat::Human
+                    && let Some(rendered) = message["rendered"].as_str()
+                {
+                    let _ = write!(stderr_lock, "{rendered}");
+                }
+
+                if is_informational_compiler_level(message["level"].as_str()) || is_rustc_abort_summary(message) {
+                    continue;
+                }
+
+                let code = message["code"]["code"].as_str().unwrap_or("");
+                let lint_name = normalize_lint_name(code);
+
+                let meta = meta_map.get(lint_name.as_str()).unwrap_or(&output::UNKNOWN_LINT_META);
+                finding_counter += 1;
+                findings.push(build_finding(
+                    finding_counter,
+                    &json,
+                    meta,
+                    &lint_name,
+                    &run_metadata.config_hash,
+                    check.cache,
+                    diagnostic_paths,
+                )?);
+            }
+            "compiler-artifact" if check.output_format == OutputFormat::Human => {
+                if let Some(banner) = format_compiling_banner(&json) {
+                    let _ = writeln!(stderr_lock, "{banner}");
+                }
+            }
+            "build-finished" if check.output_format == OutputFormat::Human => {
+                let success = json["success"].as_bool().unwrap_or(false);
+                if success {
+                    let _ = writeln!(stderr_lock, "    Finished checking");
+                }
+            }
+            _ => {}
+        }
+    }
+
+    Ok(findings)
 }
 
 fn classify_cargo_process_exit(status: std::process::ExitStatus) -> output::CargoProcessExit {
