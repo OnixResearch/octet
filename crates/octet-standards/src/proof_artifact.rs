@@ -186,22 +186,26 @@ pub fn build_closure_digest(paths: &[String], sources: &[SourceFile]) -> Option<
 
 /// Build a BLAKE3 digest over canonical Nix exportReferencesGraph artifacts.
 ///
+/// Returns `Ok(None)` only when no closure graph paths are configured.
+///
 /// # Errors
 ///
-/// Returns a deterministic diagnostic when any matched graph is malformed.
+/// Returns a deterministic diagnostic when configured paths match no checked graph artifact or
+/// when any matched graph is malformed; callers must not fall back to a configured digest.
 pub fn nix_closure_graph_digest(paths: &[String], sources: &[SourceFile]) -> Result<Option<String>, String> {
     if paths.is_empty() {
         return Ok(None);
     }
     let mut matched_sources = matching_sources(paths, sources);
     if matched_sources.is_empty() {
-        return Ok(None);
+        return Err(format!("{FIELD_CLOSURE_GRAPH} [{}] matches no checked closure graph artifact", paths.join(", ")));
     }
     matched_sources.sort_by(|left, right| left.path.cmp(&right.path));
     let mut canonical_graphs = String::new();
     for source in matched_sources {
-        let canonical = canonical_nix_closure_graph(&source.text)
-            .map_err(|diagnostic| format!("{FIELD_CLOSURE_GRAPH} `{}`: {diagnostic}", source.path))?;
+        let canonical = canonical_nix_closure_graph(&source.text).map_err(|diagnostic| {
+            format!("{FIELD_CLOSURE_GRAPH} `{}`: malformed closure graph: {diagnostic}", source.path)
+        })?;
         canonical_graphs.push_str(&canonical);
     }
     Ok(Some(blake3_hex_text(&canonical_graphs)))
@@ -412,6 +416,30 @@ mod tests {
         let error = canonical_nix_closure_graph("/nix/store/a\nnot-a-count\n").expect_err("bad graph");
 
         assert!(error.contains("malformed reference count"));
+    }
+
+    #[test]
+    fn closure_graph_digest_rejects_unmatched_configured_paths() {
+        let sources = vec![SourceFile::new(SOURCE_PATH, SOURCE_TEXT)];
+
+        let error = nix_closure_graph_digest(&["artifacts/*.graph".to_owned()], &sources).expect_err("missing graph");
+
+        assert!(error.contains(FIELD_CLOSURE_GRAPH));
+        assert!(error.contains("matches no checked closure graph artifact"));
+        assert_eq!(nix_closure_graph_digest(&[], &sources), Ok(None));
+    }
+
+    #[test]
+    fn closure_graph_digest_rejects_malformed_matched_graph() {
+        let sources = vec![SourceFile::new(
+            "artifacts/closure.graph",
+            "/nix/store/a\nnot-a-count\n",
+        )];
+
+        let error = nix_closure_graph_digest(&["artifacts/*.graph".to_owned()], &sources).expect_err("bad graph");
+
+        assert!(error.contains("artifacts/closure.graph"));
+        assert!(error.contains("malformed closure graph"));
     }
 
     #[test]

@@ -524,6 +524,8 @@ fn execute_proof_rails_uses_command_output_as_receipt() {
         "nix-derivation = octet-standards.drv\nclosure-source = exportReferencesGraph\n",
     )
     .expect("proof Nix closure manifest should be written");
+    std::fs::write(fixture.join("proof-nix-closure.graph"), nix_closure_graph())
+        .expect("proof Nix closure graph should be written");
     std::fs::write(
         fixture.join("proof-command.sh"),
         "#!/usr/bin/env bash\nset -euo pipefail\nprintf '%s\\n' 'proof-result: pass deterministic-effect-handlers'\n",
@@ -547,6 +549,43 @@ fn execute_proof_rails_uses_command_output_as_receipt() {
     let report = parse_report(&output);
     assert_eq!(report.diagnostics.len(), 0);
     assert!(report.evaluated_policy_ids.iter().any(|policy_id| policy_id == PROOF_POLICY_ID));
+}
+
+#[test]
+fn execute_proof_rails_rejects_missing_nix_closure_graph() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry_value(&temp, &proof_registry());
+    let fixture = write_executable_proof_fixture(&temp, "missing-graph-proof-fixture");
+    std::fs::remove_file(fixture.join("proof-nix-closure.graph")).expect("proof Nix closure graph should be removed");
+
+    let output = run_executed_proof_check(&registry, &fixture);
+
+    assert_failure(&output);
+    let report = parse_report(&output);
+    assert!(report.diagnostics.iter().any(|diagnostic| {
+        diagnostic.policy_id == PROOF_POLICY_ID
+            && diagnostic.message.contains("verifier_nix_closure_graph_paths")
+            && diagnostic.message.contains("matches no checked closure graph artifact")
+    }));
+}
+
+#[test]
+fn execute_proof_rails_rejects_malformed_nix_closure_graph() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry_value(&temp, &proof_registry());
+    let fixture = write_executable_proof_fixture(&temp, "malformed-graph-proof-fixture");
+    std::fs::write(fixture.join("proof-nix-closure.graph"), "/nix/store/aaa-octet-standards\nnot-a-count\n")
+        .expect("malformed proof Nix closure graph should be written");
+
+    let output = run_executed_proof_check(&registry, &fixture);
+
+    assert_failure(&output);
+    let report = parse_report(&output);
+    assert!(report.diagnostics.iter().any(|diagnostic| {
+        diagnostic.policy_id == PROOF_POLICY_ID
+            && diagnostic.message.contains("verifier_nix_closure_graph_paths")
+            && diagnostic.message.contains("malformed closure graph")
+    }));
 }
 
 #[test]

@@ -2308,7 +2308,7 @@ in
           verifier_nix_closure_digest = "b1501c0c0d38a17b4a5ddd298136b1c168a499237b872cf02fc72f2650a002f2",
           verifier_nix_closure_paths = ["proof-nix-closure.txt"],
           verifier_nix_closure_graph_digest = "0ed5ac9f1899c34eeda9035c5a165eefeb0beb254a1e36e354e458ae97d4943b",
-          verifier_nix_closure_graph_paths = ["proof-nix-closure.graph"],
+          verifier_nix_closure_graph_paths = ["standards/check-fixtures/verification/*/proof-nix-closure.graph"],
           toolchain_id = "rust-toolchain.toml",
           toolchain_digest = "50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8",
         },

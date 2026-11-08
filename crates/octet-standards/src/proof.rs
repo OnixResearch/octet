@@ -761,9 +761,17 @@ fn validate_legacy_proof_receipt(rail: &ProofRail, sources: &[SourceFile], proof
             "mismatched receipt provenance in proof receipt field `{FIELD_RECEIPT_PROVENANCE}` required lines"
         ));
     }
-    if receipt_verifier_enabled(rail) && !receipt_verifier_matches(rail, sources, proof_source) {
-        diagnostics
-            .push(format!("mismatched receipt verifier metadata in proof receipt field `{FIELD_VERIFIER_IDENTITY}`"));
+    if receipt_verifier_enabled(rail) {
+        if let Err(error) = expected_nix_closure_graph_digest(&rail.receipt_verifier, sources) {
+            diagnostics.push(format!(
+                "proof receipt field `{FIELD_VERIFIER_IDENTITY}` cannot recompute Nix closure graph digest: {error}"
+            ));
+        }
+        if !receipt_verifier_matches(rail, sources, proof_source) {
+            diagnostics.push(format!(
+                "mismatched receipt verifier metadata in proof receipt field `{FIELD_VERIFIER_IDENTITY}`"
+            ));
+        }
     }
     diagnostics
 }
@@ -1013,18 +1021,17 @@ fn resolved_verifier_identity(
     diagnostics: &mut Vec<String>,
 ) -> VerusVerifierIdentity {
     let verifier = &rail.receipt_verifier;
-    let verifier_nix_closure_graph_digest = if verifier.verifier_nix_closure_graph_paths.is_empty() {
-        verifier.verifier_nix_closure_graph_digest.clone()
-    } else {
-        match crate::proof_artifact::nix_closure_graph_digest(&verifier.verifier_nix_closure_graph_paths, sources) {
-            Ok(Some(digest)) => digest,
-            Ok(None) => verifier.verifier_nix_closure_graph_digest.clone(),
-            Err(error) => {
-                diagnostics.push(format!(
-                    "proof package lock field `verifier_identity.verifier_nix_closure_graph_digest` rejected malformed closure graph: {error}"
-                ));
-                verifier.verifier_nix_closure_graph_digest.clone()
-            }
+    let verifier_nix_closure_graph_digest = match crate::proof_artifact::nix_closure_graph_digest(
+        &verifier.verifier_nix_closure_graph_paths,
+        sources,
+    ) {
+        Ok(Some(digest)) => digest,
+        Ok(None) => verifier.verifier_nix_closure_graph_digest.clone(),
+        Err(error) => {
+            diagnostics.push(format!(
+                "proof package lock field `verifier_identity.verifier_nix_closure_graph_digest` rejected closure graph: {error}"
+            ));
+            verifier.verifier_nix_closure_graph_digest.clone()
         }
     };
     VerusVerifierIdentity {
@@ -1444,8 +1451,8 @@ fn expected_receipt_verifier_lines(rail: &ProofRail, sources: &[SourceFile]) -> 
         verifier_nix_closure,
         verifier_nix_closure_digest,
         verifier_nix_closure_paths,
-        verifier_nix_closure_graph_digest,
-        verifier_nix_closure_graph_paths,
+        verifier_nix_closure_graph_digest: _,
+        verifier_nix_closure_graph_paths: _,
         toolchain_id,
         toolchain_digest,
         solver_id,
@@ -1486,9 +1493,7 @@ fn expected_receipt_verifier_lines(rail: &ProofRail, sources: &[SourceFile]) -> 
             .unwrap_or_else(|| verifier_nix_closure_digest.clone());
         lines.push(format!("proof-verifier-nix-closure-blake3: {digest}"));
     }
-    if !verifier_nix_closure_graph_digest.is_empty() {
-        let digest = nix_closure_graph_digest(verifier_nix_closure_graph_paths, sources)
-            .unwrap_or_else(|| verifier_nix_closure_graph_digest.clone());
+    if let Ok(Some(digest)) = expected_nix_closure_graph_digest(&rail.receipt_verifier, sources) {
         lines.push(format!("proof-verifier-nix-closure-graph-blake3: {digest}"));
     }
     if !toolchain_id.is_empty() {
@@ -1510,8 +1515,19 @@ fn build_closure_digest(paths: &[String], sources: &[SourceFile]) -> Option<Stri
     crate::proof_artifact::build_closure_digest(paths, sources)
 }
 
-fn nix_closure_graph_digest(paths: &[String], sources: &[SourceFile]) -> Option<String> {
-    crate::proof_artifact::nix_closure_graph_digest(paths, sources).ok().flatten()
+/// Return the receipt's expected Nix closure graph digest: recomputed from configured graph
+/// artifacts, or the configured digest only when no graph paths are configured.
+fn expected_nix_closure_graph_digest(
+    verifier: &ReceiptVerifier,
+    sources: &[SourceFile],
+) -> Result<Option<String>, String> {
+    if verifier.verifier_nix_closure_graph_digest.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(
+        crate::proof_artifact::nix_closure_graph_digest(&verifier.verifier_nix_closure_graph_paths, sources)?
+            .unwrap_or_else(|| verifier.verifier_nix_closure_graph_digest.clone()),
+    ))
 }
 
 fn expected_receipt_provenance_lines(rail: &ProofRail) -> Vec<String> {
@@ -1697,6 +1713,63 @@ mod tests {
             .expect_err("malformed closure graph should fail before proof execution");
 
         assert!(errors.iter().any(|error| error.contains("malformed closure graph")));
+    }
+
+    #[test]
+    fn verus_proof_package_lock_rejects_missing_closure_graph_offline() {
+        let mut rail = verus_rail(VERIFIER_MODE_PRODUCTION);
+        rail.receipt_verifier.verifier_nix_closure_graph_digest = "configured-graph-digest".to_owned();
+        rail.receipt_verifier.verifier_nix_closure_graph_paths = vec!["artifacts/proof/closure.graph".to_owned()];
+        let sources = source_files();
+        let proof_sources = proof_files();
+
+        let errors = build_verus_proof_package_lock(&lock_input(&rail, &sources, &proof_sources))
+            .expect_err("unmatched closure graph paths should fail before proof execution");
+
+        assert!(errors.iter().any(|error| error.contains("matches no checked closure graph artifact")));
+    }
+
+    #[test]
+    fn legacy_receipt_rejects_missing_closure_graph_instead_of_configured_digest() {
+        let rail = legacy_closure_graph_rail();
+        let receipt = legacy_closure_graph_receipt("configured-graph-digest");
+
+        let diagnostics = validate_proof_receipt(&rail, &source_files(), &receipt);
+
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("matches no checked closure graph artifact")),
+            "missing closure graph must not fall back to the configured digest: {diagnostics:?}"
+        );
+    }
+
+    #[test]
+    fn legacy_receipt_rejects_malformed_closure_graph_instead_of_configured_digest() {
+        let rail = legacy_closure_graph_rail();
+        let receipt = legacy_closure_graph_receipt("configured-graph-digest");
+        let mut sources = source_files();
+        sources.push(SourceFile::new("artifacts/proof/closure.graph", "/nix/store/verus\nnot-a-count\n"));
+
+        let diagnostics = validate_proof_receipt(&rail, &sources, &receipt);
+
+        assert!(
+            diagnostics.iter().any(|diagnostic| diagnostic.contains("malformed closure graph")),
+            "malformed closure graph must not fall back to the configured digest: {diagnostics:?}"
+        );
+    }
+
+    #[test]
+    fn legacy_receipt_accepts_recomputed_closure_graph_digest() {
+        let rail = legacy_closure_graph_rail();
+        let graph = "/nix/store/verus\n0\n";
+        let receipt = legacy_closure_graph_receipt(&crate::proof_artifact::blake3_hex_text(graph));
+        let mut sources = source_files();
+        sources.push(SourceFile::new("artifacts/proof/closure.graph", graph));
+
+        let diagnostics = validate_proof_receipt(&rail, &sources, &receipt);
+
+        assert!(diagnostics.is_empty(), "recomputed closure graph digest should validate: {diagnostics:?}");
     }
 
     #[test]
@@ -2138,6 +2211,28 @@ mod tests {
         ];
         rail.checked_scope = format!("formal-proof:production:{SECOND_POLICY_ID}#rail-0");
         rail
+    }
+
+    fn legacy_closure_graph_rail() -> ProofRail {
+        ProofRail {
+            backend: "local-command-receipt".to_owned(),
+            source_paths: vec![SOURCE_PATH.to_owned()],
+            receipt_paths: vec![PROOF_ARTIFACT.to_owned()],
+            pass_signal: PASS_SIGNAL.to_owned(),
+            receipt_verifier: ReceiptVerifier {
+                verifier_nix_closure_graph_digest: "configured-graph-digest".to_owned(),
+                verifier_nix_closure_graph_paths: vec!["artifacts/proof/*.graph".to_owned()],
+                ..ReceiptVerifier::default()
+            },
+            ..ProofRail::default()
+        }
+    }
+
+    fn legacy_closure_graph_receipt(graph_digest: &str) -> SourceFile {
+        SourceFile::new(
+            PROOF_ARTIFACT,
+            format!("proof-verifier-nix-closure-graph-blake3: {graph_digest}\n{PASS_SIGNAL}\n"),
+        )
     }
 
     fn source_files() -> Vec<SourceFile> {
