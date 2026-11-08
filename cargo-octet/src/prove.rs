@@ -1478,8 +1478,43 @@ fn failed_receipt_text(policy_id: &str, rail_index: usize, diagnostics: &[String
     format!("{}\n", serde_json::to_string_pretty(&value).expect("failed receipt json"))
 }
 
+/// Opens the artifact directory the way `cargo octet check` does: only an empty directory or an
+/// earlier prove bundle may be reused. An earlier bundle is cleared first, so receipts, logs,
+/// Aeneas stage artifacts, or an evidence-log manifest from a previous run cannot survive into this
+/// one.
+fn prepare_artifact_dir(artifact_dir: &Path) -> Result<ArtifactRoot, String> {
+    let artifact_root = ArtifactRoot::open_or_create(artifact_dir)?;
+    let entries = artifact_root.read_entry_names()?;
+    if entries.is_empty() {
+        return Ok(artifact_root);
+    }
+    if !is_existing_prove_bundle(&artifact_root)? {
+        return Err(format!(
+            "refusing to use artifact directory {}: it is not empty and is not an existing `cargo octet prove` bundle \
+             (missing `{PROVENANCE_ARTIFACT_NAME}` or a `{STATUS_ARTIFACT_NAME}` with bundle_kind `{BUNDLE_KIND_PROVE}`); \
+             choose a new or empty directory",
+            artifact_dir.display()
+        ));
+    }
+    for entry in entries {
+        artifact_root.remove_file_or_dir_all(&RootRelativePath::new(entry.as_str())?)?;
+    }
+    Ok(artifact_root)
+}
+
+fn is_existing_prove_bundle(artifact_root: &ArtifactRoot) -> Result<bool, String> {
+    let status = RootRelativePath::new(STATUS_ARTIFACT_NAME)?;
+    if !artifact_root.is_file(&RootRelativePath::new(PROVENANCE_ARTIFACT_NAME)?)? || !artifact_root.is_file(&status)? {
+        return Ok(false);
+    }
+    let status_text = artifact_root.read_to_string(&status)?;
+    Ok(serde_json::from_str::<serde_json::Value>(&status_text).is_ok_and(|status_json| {
+        status_json.get("bundle_kind").and_then(serde_json::Value::as_str) == Some(BUNDLE_KIND_PROVE)
+    }))
+}
+
 fn write_artifacts(args: &ProveArgs, report: &ProveReport, executions: &[ExecutedProof]) -> Result<(), String> {
-    let artifact_root = ArtifactRoot::open_or_create(&args.artifact_dir)?;
+    let artifact_root = prepare_artifact_dir(&args.artifact_dir)?;
     artifact_root.create_dir_all(&RootRelativePath::new(PROOF_ARTIFACT_DIR_NAME)?)?;
 
     let command_text = format!("{}\n", args.command_line);
@@ -3168,6 +3203,53 @@ mod tests {
             assert_eq!(code, EXIT_PROOF_INVALID, "selector `{selector}` must fail closed");
             assert!(!artifact_dir.exists(), "list mode should not write artifact bundles");
         }
+    }
+
+    #[test]
+    fn prove_reuses_prove_bundle_directory_without_stale_proof_artifacts() {
+        const SECOND_POLICY_ID: &str = "octet.verus_proof_rails.fixture-second";
+        let temp = tempfile::tempdir().expect("tempdir");
+        let source = write_fixture_source(temp.path());
+        write_fixture_proof(temp.path());
+        let mut registry = fixture_registry(temp.path(), PASS_SIGNAL, command_argv(PASS_SIGNAL));
+        let mut second = registry.policies[0].clone();
+        second.policy_id = SECOND_POLICY_ID.to_owned();
+        second.proof_rails[0].receipt_paths = vec![proof_artifact_locator(&second, 0)];
+        second.proof_rails[0].checked_scope = format!("formal-proof:fixture-only:{SECOND_POLICY_ID}#rail-0");
+        let second_receipt = proof_artifact_locator(&second, 0);
+        registry.policies.push(second);
+        let registry_path = temp.path().join("registry-two-policies.json");
+        fs::write(&registry_path, serde_json::to_string_pretty(&registry).expect("registry json"))
+            .expect("write registry");
+        let artifact_dir = temp.path().join("artifacts-reused");
+        let mut args = fixture_args(registry_path, vec![source], artifact_dir.clone());
+
+        assert_eq!(run(&args).expect("first prove run"), EXIT_PROOF_VALID);
+        assert!(artifact_dir.join(&second_receipt).is_file());
+        args.rail = vec![format!("{POLICY_ID}#rail-0")];
+        assert_eq!(run(&args).expect("second prove run"), EXIT_PROOF_VALID);
+
+        assert!(!artifact_dir.join(&second_receipt).exists(), "stale receipt from the earlier run must be removed");
+        let report = verify_bundle(bundle_input(&artifact_dir));
+        assert_eq!(report.status, "valid", "unexpected diagnostics: {:?}", report.diagnostics);
+    }
+
+    #[test]
+    fn prove_refuses_non_empty_artifact_directory_that_is_not_a_prove_bundle() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let source = write_fixture_source(temp.path());
+        write_fixture_proof(temp.path());
+        let registry = write_fixture_registry(temp.path(), PASS_SIGNAL, command_argv(PASS_SIGNAL));
+        let artifact_dir = temp.path().join("artifacts-foreign");
+        fs::create_dir_all(&artifact_dir).expect("create foreign directory");
+        fs::write(artifact_dir.join("notes.txt"), "operator notes\n").expect("write foreign file");
+
+        let error = run(&fixture_args(registry, vec![source], artifact_dir.clone()))
+            .expect_err("foreign artifact directory must be refused");
+
+        assert!(error.contains("refusing to use artifact directory"), "unexpected error: {error}");
+        assert!(artifact_dir.join("notes.txt").is_file(), "foreign files must not be removed");
+        assert!(!artifact_dir.join(STATUS_ARTIFACT_NAME).exists());
     }
 
     fn fixture_args(registry: PathBuf, source: Vec<PathBuf>, artifact_dir: PathBuf) -> ProveArgs {

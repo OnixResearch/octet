@@ -98,6 +98,10 @@ impl ArtifactRoot {
         self.root.read_entry_names(&RootRelativePath::current())
     }
 
+    pub(crate) fn read_to_string(&self, relative: &RootRelativePath) -> Result<String, String> {
+        self.root.read_to_string(relative)
+    }
+
     pub(crate) fn is_file(&self, relative: &RootRelativePath) -> Result<bool, String> {
         self.root.is_file(relative)
     }

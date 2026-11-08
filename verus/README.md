@@ -64,6 +64,11 @@ rail's `stdout_max_bytes` or `stderr_max_bytes` fails the rail with a
 `verifier-failure` diagnostic, because the retained log no longer shows
 everything the verifier printed.
 
+The artifact directory must be empty or hold an earlier `cargo octet prove`
+bundle. An earlier bundle is cleared before the new one is written, so no
+receipt, log, or evidence-log manifest from a previous run survives; any other
+non-empty directory is refused.
+
 ## Proof cards
 
 `proof-cards.json` contains one generated card per selected rail. A card names
