@@ -93,7 +93,7 @@ nickel export --format json standards/wasm-artifact/profiles.ncl > standards/was
 
 Mantle can supply the exact final bytes through the same command. It can also add a `mantle:` parent artifact identity.
 
-Octet records a `mantle-exact-byte` handoff role. It does not treat store paths, build success, runtime reports, or release decisions as static artifact facts.
+Octet records a `mantle-exact-byte` handoff role. A `chaoscontrol:` or `molten:` parent identity without a `mantle:` identity records `external-orchestrator`. Other `--parent-artifact` values stay provenance links and leave the role `standalone`. Verification rejects a receipt whose handoff role does not match its recorded parent identities. Octet does not treat store paths, build success, runtime reports, or release decisions as static artifact facts.
 
 ## Claim boundary
 

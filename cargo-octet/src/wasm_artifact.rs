@@ -685,16 +685,14 @@ pub(crate) fn validate_receipt_details(
     if !matches!(details.verification_role.as_str(), RECORDED_ONLY_ROLE | "boundary") {
         diagnostics.push("Wasm artifact verification role must remain recorded_only or boundary".to_owned());
     }
+    let expected_handoff_role = handoff_role(&details.handoff_parent_identities);
     if !matches!(details.handoff_role.as_str(), STANDALONE_HANDOFF | MANTLE_HANDOFF | EXTERNAL_HANDOFF) {
         diagnostics.push(format!("unsupported Wasm artifact handoff role `{}`", details.handoff_role));
-    }
-    if details.handoff_role == STANDALONE_HANDOFF && !details.handoff_parent_identities.is_empty() {
-        diagnostics.push("standalone Wasm handoff must not claim external parent identities".to_owned());
-    }
-    if details.handoff_role == MANTLE_HANDOFF
-        && !details.handoff_parent_identities.iter().any(|identity| identity.starts_with(MANTLE_PARENT_PREFIX))
-    {
-        diagnostics.push("Mantle Wasm handoff requires a mantle: parent identity".to_owned());
+    } else if details.handoff_role != expected_handoff_role {
+        diagnostics.push(format!(
+            "Wasm artifact handoff role `{}` does not match its parent identities; expected `{expected_handoff_role}`",
+            details.handoff_role
+        ));
     }
     if details.handoff_parent_identities.iter().any(|identity| !is_external_handoff_identity(identity)) {
         diagnostics.push("Wasm handoff contains an unsupported external parent identity".to_owned());
@@ -1929,13 +1927,14 @@ pub(crate) fn is_external_handoff_identity(value: &str) -> bool {
 }
 
 fn handoff_role(parent_artifacts: &[String]) -> &'static str {
-    if parent_artifacts.is_empty() {
-        STANDALONE_HANDOFF
-    } else if parent_artifacts.iter().any(|parent| parent.starts_with(MANTLE_PARENT_PREFIX)) {
-        MANTLE_HANDOFF
-    } else {
-        EXTERNAL_HANDOFF
+    let mut role = STANDALONE_HANDOFF;
+    for parent in parent_artifacts.iter().filter(|parent| is_external_handoff_identity(parent)) {
+        if parent.starts_with(MANTLE_PARENT_PREFIX) {
+            return MANTLE_HANDOFF;
+        }
+        role = EXTERNAL_HANDOFF;
     }
+    role
 }
 
 #[cfg(test)]
@@ -2816,6 +2815,70 @@ mod tests {
         assert_eq!(evaluation.status, WasmEvaluationStatus::Failed);
         assert!(evaluation.diagnostics.iter().any(|diagnostic| diagnostic.contains("exact-bytes")));
         assert!(evaluation.diagnostics.iter().any(|diagnostic| diagnostic.contains("recorded_only or boundary")));
+    }
+
+    #[test]
+    fn non_handoff_parent_artifacts_keep_standalone_role() {
+        let registry = valid_registry();
+        let module = wat::parse_str("(module)").expect("module fixture");
+        let parents = [
+            "b3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned(),
+            "artifacts/octet/status.json".to_owned(),
+        ];
+
+        let report = analyze(&module, &registry, &parents);
+
+        assert_eq!(report.details.handoff_role, STANDALONE_HANDOFF);
+        assert!(report.details.handoff_parent_identities.is_empty());
+        let evaluation = evaluate_envelope(&render_envelope(&report).expect("render envelope"));
+        assert!(evaluation.diagnostics.is_empty(), "{:?}", evaluation.diagnostics);
+    }
+
+    #[test]
+    fn external_orchestrator_handoff_binds_valid_external_identities() {
+        let registry = valid_registry();
+        let module = wat::parse_str("(module)").expect("module fixture");
+        let parents = [
+            "chaoscontrol:fixture-run".to_owned(),
+            "b3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned(),
+        ];
+
+        let report = analyze(&module, &registry, &parents);
+
+        assert_eq!(report.details.handoff_role, EXTERNAL_HANDOFF);
+        assert_eq!(report.details.handoff_parent_identities, vec!["chaoscontrol:fixture-run".to_owned()]);
+        let evaluation = evaluate_envelope(&render_envelope(&report).expect("render envelope"));
+        assert!(evaluation.diagnostics.is_empty(), "{:?}", evaluation.diagnostics);
+    }
+
+    #[test]
+    fn receipt_validation_rejects_handoff_role_identity_mismatches() {
+        let registry = valid_registry();
+        let module = wat::parse_str("(module)").expect("module fixture");
+        let cases: [(&str, &[&str]); 5] = [
+            (EXTERNAL_HANDOFF, &[]),
+            (EXTERNAL_HANDOFF, &[MANTLE_PARENT]),
+            (STANDALONE_HANDOFF, &["molten:fixture-run"]),
+            (MANTLE_HANDOFF, &["chaoscontrol:fixture-run"]),
+            (MANTLE_HANDOFF, &[]),
+        ];
+        for (role, identities) in cases {
+            let mut report = analyze(&module, &registry, &[]);
+            role.clone_into(&mut report.details.handoff_role);
+            report.details.handoff_parent_identities = identities.iter().map(|&identity| identity.to_owned()).collect();
+
+            let evaluation = evaluate_envelope(&render_envelope(&report).expect("render envelope"));
+
+            assert_eq!(evaluation.status, WasmEvaluationStatus::Failed, "{role} {identities:?}");
+            assert!(
+                evaluation
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.contains("does not match its parent identities")),
+                "{role} {identities:?}: {:?}",
+                evaluation.diagnostics
+            );
+        }
     }
 
     fn analyze(bytes: &[u8], registry: &WasmProfileRegistry, parents: &[String]) -> WasmArtifactEnvelope {
