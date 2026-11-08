@@ -11,6 +11,10 @@ pub const COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_SCHEMA_VERSION: &str =
 pub const COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_ENV: &str = "OCTET_COMPILER_ARCHITECTURE_CONTEXT";
 pub const COMPILER_ARCHITECTURE_CONTRACT_PATH: &str =
     "standards/compiler-architecture-ir/contracts/compiler-architecture-ir.generated.ncl";
+/// Build and evidence directory names excluded from package source envelopes when they sit
+/// beside a `Cargo.toml`; files below them are generated, never workspace source.
+pub const SOURCE_BUILD_DIRECTORIES: &[&str] =
+    &["target", ".cargo-target", ".git", ".octet", ".direnv", ".devenv", ".pi"];
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]

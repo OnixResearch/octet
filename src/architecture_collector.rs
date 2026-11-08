@@ -1881,7 +1881,31 @@ fn normalized_workspace_source_path(path: &str, workspace_root: &str) -> Option<
         .strip_prefix(REMAPPED_WORKSPACE_PREFIX)
         .map_or_else(|| PathBuf::from(path), |relative| workspace.join(relative));
     let physical = fs::canonicalize(candidate).ok()?;
-    normalized_relative_path(physical.strip_prefix(&workspace).ok()?)
+    let relative = physical.strip_prefix(&workspace).ok()?;
+    if inside_source_build_directory(&workspace, relative) {
+        return None;
+    }
+    normalized_relative_path(relative)
+}
+
+// Apply the package source envelope rule: build and evidence directory names
+// are excluded only beside a `Cargo.toml`. Build-script output under `target/`
+// (`OUT_DIR`) is then generated source, while a module directory such as
+// `src/target/` stays workspace source.
+fn inside_source_build_directory(workspace: &Path, relative: &Path) -> bool {
+    let mut directory = workspace.to_path_buf();
+    for component in relative.parent().map(Path::components).into_iter().flatten() {
+        let std::path::Component::Normal(name) = component else {
+            return false;
+        };
+        if name.to_str().is_some_and(|name| octet_architecture_ir::SOURCE_BUILD_DIRECTORIES.contains(&name))
+            && directory.join("Cargo.toml").is_file()
+        {
+            return true;
+        }
+        directory.push(name);
+    }
+    false
 }
 
 fn normalized_relative_path(path: &Path) -> Option<String> {
@@ -2065,6 +2089,40 @@ mod tests {
         ] {
             assert_eq!(randomness_family(owner, name, root), None, "{owner}::{name}, root={root}");
         }
+    }
+
+    #[test]
+    fn build_and_evidence_directories_beside_manifests_are_not_workspace_sources() {
+        let root = std::env::temp_dir().join(format!("octet-collector-source-paths-{}", std::process::id()));
+        for relative in [
+            "Cargo.toml",
+            "src/lib.rs",
+            "src/target/mod.rs",
+            "target/debug/build/app-0123/out/generated.rs",
+            ".octet/compiler-architecture-fixtures/generated.rs",
+            "fuzz/Cargo.toml",
+            "fuzz/target/generated.rs",
+        ] {
+            let path = root.join(relative);
+            fs::create_dir_all(path.parent().expect("fixture parent")).expect("fixture directory");
+            fs::write(&path, b"").expect("fixture file");
+        }
+        let workspace = root.display().to_string();
+        let source =
+            |relative: &str| normalized_workspace_source_path(&root.join(relative).display().to_string(), &workspace);
+        assert_eq!(source("src/lib.rs").as_deref(), Some("src/lib.rs"));
+        assert_eq!(source("src/target/mod.rs").as_deref(), Some("src/target/mod.rs"));
+        assert_eq!(source("target/debug/build/app-0123/out/generated.rs"), None);
+        assert_eq!(source(".octet/compiler-architecture-fixtures/generated.rs"), None);
+        assert_eq!(source("fuzz/target/generated.rs"), None);
+        assert_eq!(
+            normalized_workspace_source_path(
+                &format!("{REMAPPED_WORKSPACE_PREFIX}target/debug/build/app-0123/out/generated.rs"),
+                &workspace
+            ),
+            None
+        );
+        fs::remove_dir_all(root).expect("remove owned test directory");
     }
 
     #[test]

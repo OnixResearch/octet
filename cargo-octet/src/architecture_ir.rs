@@ -15,6 +15,7 @@ use octet_architecture_ir::CompilerValueFlowSelection;
 use octet_architecture_ir::ExpectedCompilationUnit;
 use octet_architecture_ir::InvalidCompilerArchitectureShard;
 use octet_architecture_ir::NormalizationInput;
+use octet_architecture_ir::SOURCE_BUILD_DIRECTORIES;
 use octet_architecture_ir::SourceRoleScope;
 use octet_standards::project_architecture_gate::ArchitectureCargoEdge;
 use octet_standards::project_architecture_gate::ArchitectureCargoGraph;
@@ -42,7 +43,6 @@ const CARGO_METADATA_SUBCOMMAND: &str = "metadata";
 const FORMAT_VERSION_FLAG: &str = "--format-version";
 const METADATA_FORMAT_VERSION: &str = "1";
 const LOCKED_FLAG: &str = "--locked";
-const SOURCE_BUILD_DIRECTORIES: &[&str] = &["target", ".cargo-target", ".git", ".octet", ".direnv", ".devenv", ".pi"];
 
 #[derive(Debug, Deserialize)]
 struct CargoMetadata {
