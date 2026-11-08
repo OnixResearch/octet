@@ -1001,7 +1001,9 @@ pub fn verify_bundle(input: ArtifactBundleInput) -> ArtifactVerificationReport {
         .filter(|name| *name != PROVENANCE_ARTIFACT_NAME)
         .collect::<Vec<_>>();
     let mut expected_files = provenance_expected_files.clone();
-    extend_expected_evidence_log_files(&file_map, &mut expected_files, &mut diagnostics);
+    if status.bundle_kind == BundleKind::Prove {
+        extend_expected_evidence_log_files(&file_map, &mut expected_files, &mut diagnostics);
+    }
 
     validate_file_set(&file_map, &expected_files, &mut diagnostics);
 
@@ -1769,6 +1771,9 @@ fn validate_file_set(file_map: &BTreeMap<String, Vec<u8>>, expected_files: &[Str
     }
 }
 
+/// Only `cargo octet prove` writes `evidence-log-manifest.json` next to `status.json`, and its raw
+/// logs live under `proofs/`; any other bundle kind, or a manifest locator outside `proofs/`, is
+/// left to the file-set check as an unexpected artifact without provenance.
 fn extend_expected_evidence_log_files(
     file_map: &BTreeMap<String, Vec<u8>>,
     expected_files: &mut Vec<String>,
@@ -1782,7 +1787,16 @@ fn extend_expected_evidence_log_files(
         return;
     };
     diagnostics.extend(crate::evidence_log::validate_evidence_log_manifest(&manifest, file_map));
-    expected_files.extend(crate::evidence_log::manifest_artifact_locators(&manifest));
+    for locator in crate::evidence_log::manifest_artifact_locators(&manifest) {
+        if locator.starts_with(PROOF_ARTIFACT_PREFIX) {
+            expected_files.push(locator);
+        } else {
+            diagnostics.push(format!(
+                "{} lists evidence log `{locator}` outside `{PROOF_ARTIFACT_PREFIX}`",
+                crate::evidence_log::EVIDENCE_LOG_MANIFEST_ARTIFACT
+            ));
+        }
+    }
     expected_files.sort();
     expected_files.dedup();
 }
@@ -2470,8 +2484,8 @@ mod tests {
     }
 
     #[test]
-    fn evidence_log_manifest_extends_artifact_verification() {
-        let mut input = valid_input(OutputFormat::Human);
+    fn evidence_log_manifest_extends_prove_bundle_verification() {
+        let mut input = valid_prove_input();
         append_valid_evidence_log_manifest(&mut input);
 
         let report = verify_bundle(input);
@@ -2482,7 +2496,7 @@ mod tests {
 
     #[test]
     fn evidence_log_manifest_tampering_fails_closed() {
-        let mut input = valid_input(OutputFormat::Human);
+        let mut input = valid_prove_input();
         append_valid_evidence_log_manifest(&mut input);
         replace_file(&mut input, EVIDENCE_LOG_ARTIFACT_NAME, b"tampered proof log\n".to_vec());
 
@@ -2490,6 +2504,42 @@ mod tests {
 
         assert_eq!(report.status, STATUS_INVALID);
         assert!(report.diagnostics.iter().any(|diagnostic| diagnostic.contains("field `blake3` mismatch")));
+    }
+
+    // r[verify octet.artifact_bundle_verification.fail_closed.file_set]
+    #[test]
+    fn check_bundle_rejects_evidence_log_manifest_sidecars() {
+        let mut input = valid_input(OutputFormat::Human);
+        append_valid_evidence_log_manifest(&mut input);
+
+        let report = verify_bundle(input);
+
+        assert_eq!(report.status, STATUS_INVALID);
+        for sidecar in [
+            crate::evidence_log::EVIDENCE_LOG_MANIFEST_ARTIFACT,
+            EVIDENCE_LOG_ARTIFACT_NAME,
+        ] {
+            let expected = format!("unexpected artifact `{sidecar}`");
+            assert!(report.diagnostics.contains(&expected), "{:?}", report.diagnostics);
+        }
+    }
+
+    // r[verify octet.artifact_bundle_verification.fail_closed.file_set]
+    #[test]
+    fn prove_bundle_rejects_evidence_logs_outside_the_proofs_dir() {
+        const OUTSIDE_LOG: &str = "stale-log.txt";
+        let mut input = valid_prove_input();
+        append_evidence_log_manifest(&mut input, OUTSIDE_LOG);
+
+        let report = verify_bundle(input);
+
+        assert_eq!(report.status, STATUS_INVALID);
+        for expected in [
+            format!("unexpected artifact `{OUTSIDE_LOG}`"),
+            format!("evidence-log-manifest.json lists evidence log `{OUTSIDE_LOG}` outside `proofs/`"),
+        ] {
+            assert!(report.diagnostics.contains(&expected), "{:?}", report.diagnostics);
+        }
     }
 
     #[test]
@@ -2901,13 +2951,17 @@ mod tests {
     }
 
     fn append_valid_evidence_log_manifest(input: &mut ArtifactBundleInput) {
-        let manifest = valid_evidence_log_manifest();
+        append_evidence_log_manifest(input, EVIDENCE_LOG_ARTIFACT_NAME);
+    }
+
+    fn append_evidence_log_manifest(input: &mut ArtifactBundleInput, log_locator: &str) {
+        let manifest = evidence_log_manifest(log_locator);
         input.files.push(BundleFile {
             name: crate::evidence_log::EVIDENCE_LOG_MANIFEST_ARTIFACT.to_owned(),
             contents: serde_json::to_vec_pretty(&manifest).expect("serialize evidence log manifest"),
         });
         input.files.push(BundleFile {
-            name: EVIDENCE_LOG_ARTIFACT_NAME.to_owned(),
+            name: log_locator.to_owned(),
             contents: EVIDENCE_LOG_CONTENTS.to_vec(),
         });
     }
@@ -2921,9 +2975,9 @@ mod tests {
         input
     }
 
-    fn valid_evidence_log_manifest() -> crate::evidence_log::EvidenceLogManifest {
+    fn evidence_log_manifest(log_locator: &str) -> crate::evidence_log::EvidenceLogManifest {
         crate::evidence_log::manifest_from_entries(vec![crate::evidence_log::EvidenceLogEntry::from_bytes(
-            EVIDENCE_LOG_ARTIFACT_NAME,
+            log_locator,
             EVIDENCE_LOG_CONTENTS,
             EVIDENCE_LOG_REPLAY_COMMAND,
             CHECKED_SCOPE,

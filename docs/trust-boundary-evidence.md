@@ -159,7 +159,10 @@ Reviewers use the existing commands at the matching stage:
   and each `formal_proof` record in a prove bundle must carry the checked scope
   its proof receipt records (or, for a receipt without one, its proof card's
   `checked_rust_source_scope`), so a `fixture-only` proof cannot be relabelled
-  `production` by rewriting provenance.
+  `production` by rewriting provenance. Beside `status.json`, an
+  `evidence-log-manifest.json` is accepted only in prove bundles and only for
+  raw logs under `proofs/`; in any other bundle it and the logs it lists are
+  unexpected artifacts.
   With `--emit-valence-provenance <path>`, it writes a Valence-ready export only
   after verification succeeds, and refuses a path that resolves inside the
   verified artifact directory. r[impl octet.evidence_provenance.valence_export.boundary]
