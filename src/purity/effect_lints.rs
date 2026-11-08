@@ -369,6 +369,7 @@ pub struct InteriorMutabilityInCore {
 }
 pub struct LoggingInCore {
     core_source_scopes: Vec<String>,
+    reported_callsites: std::collections::HashSet<Span>,
 }
 pub struct MissingConstFn;
 pub struct MutatingInputInPure {
@@ -404,7 +405,10 @@ impl InteriorMutabilityInCore {
 
 impl LoggingInCore {
     pub fn new(core_source_scopes: Vec<String>) -> Self {
-        Self { core_source_scopes }
+        Self {
+            core_source_scopes,
+            reported_callsites: std::collections::HashSet::new(),
+        }
     }
 }
 
@@ -663,6 +667,56 @@ fn direct_call_callee_snippet(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> Opt
     Some(format!("{source}("))
 }
 
+/// Maps a macro definition to its logging pattern when it is one of the
+/// recognized std, `log`, or `tracing` logging macros.
+fn logging_macro_pattern(cx: &LateContext<'_>, macro_def_id: rustc_hir::def_id::DefId) -> Option<&'static str> {
+    if let Some(diagnostic_name) = cx.tcx.get_diagnostic_name(macro_def_id) {
+        return match diagnostic_name.as_str() {
+            "dbg_macro" => Some("dbg!("),
+            "eprintln_macro" => Some("eprintln!("),
+            "println_macro" => Some("println!("),
+            _ => None,
+        };
+    }
+    let crate_name = cx.tcx.crate_name(macro_def_id.krate);
+    let macro_name = cx.tcx.opt_item_name(macro_def_id)?;
+    match (crate_name.as_str(), macro_name.as_str()) {
+        ("log", "debug") => Some("log::debug!("),
+        ("log", "error") => Some("log::error!("),
+        ("log", "info") => Some("log::info!("),
+        ("log", "trace") => Some("log::trace!("),
+        ("log", "warn") => Some("log::warn!("),
+        ("tracing", "debug") => Some("tracing::debug!("),
+        ("tracing", "error") => Some("tracing::error!("),
+        ("tracing", "event") => Some("tracing::event!("),
+        ("tracing", "info") => Some("tracing::info!("),
+        ("tracing", "trace") => Some("tracing::trace!("),
+        ("tracing", "warn") => Some("tracing::warn!("),
+        _ => None,
+    }
+}
+
+/// Returns the logging pattern and user-written callsite when `span` comes from
+/// a direct invocation of a recognized logging macro.
+///
+/// The macro is identified by the outermost expansion's macro definition, so
+/// nested expansions (for example the `eprintln!` inside `dbg!`) resolve to the
+/// macro the user wrote. Invocations nested inside other macros are not
+/// reported.
+fn logging_macro_call(cx: &LateContext<'_>, span: Span) -> Option<(&'static str, Span)> {
+    let mut outermost = None;
+    let mut current = span;
+    while current.from_expansion() {
+        let expn_data = current.ctxt().outer_expn_data();
+        current = expn_data.call_site;
+        outermost = Some(expn_data);
+    }
+
+    let outermost = outermost?;
+    let pattern = logging_macro_pattern(cx, outermost.macro_def_id?)?;
+    Some((pattern, outermost.call_site))
+}
+
 fn span_snippet(cx: &LateContext<'_>, span: Span) -> Option<String> {
     cx.sess().source_map().span_to_snippet(span.source_callsite()).ok()
 }
@@ -901,22 +955,21 @@ impl<'tcx> LateLintPass<'tcx> for InteriorMutabilityInCore {
 
 impl<'tcx> LateLintPass<'tcx> for LoggingInCore {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx hir::Expr<'tcx>) {
-        if !source_is_in_core_scope(cx, expr.span, &self.core_source_scopes) || late_expr_should_skip(cx, expr) {
-            return;
-        }
-        if expr.span.from_expansion() && !matches!(expr.kind, hir::ExprKind::Block(..)) {
-            return;
-        }
-        let Some(source) = expr_snippet(cx, expr) else {
+        let Some((pattern, callsite)) = logging_macro_call(cx, expr.span) else {
             return;
         };
-        let Some(pattern) = classify_logging_call(&source) else {
+        if !source_is_in_core_scope(cx, callsite, &self.core_source_scopes) || late_expr_should_skip(cx, expr) {
             return;
-        };
+        }
+        // Every expression expanded from one invocation shares its callsite;
+        // report the invocation once.
+        if !self.reported_callsites.insert(callsite) {
+            return;
+        }
         emit(
             cx,
             LOGGING_IN_CORE,
-            expr.span.source_callsite(),
+            callsite,
             format!("core scope emits `{pattern}` directly; return events or diagnostics for the shell to log"),
             LOGGING_IN_CORE_LINT,
         );
