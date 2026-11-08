@@ -891,6 +891,36 @@ fn object_bundle_export_is_deterministic_and_records_replay() {
     assert!(!temp.path().join("unresolved-bundle.json").exists());
 }
 
+#[test]
+fn object_bundle_export_rejects_unknown_flags_before_writing() {
+    let temp = tempfile::tempdir().expect("create tempdir");
+    let objects_path = temp.path().join("objects.json");
+    write_object_records(&objects_path, &[("alpha", &blake3_hex(b"alpha input + 1"))]);
+    let bundle_path = temp.path().join("bundle.json");
+
+    let typo = Command::new(cargo_octet())
+        .args(["object", "bundle", "export", "--objects"])
+        .arg(&objects_path)
+        .args(["--pointer"])
+        .arg(temp.path().join("pointers.json"))
+        .args(["--output"])
+        .arg(&bundle_path)
+        .args([
+            "--replay-command",
+            "cargo octet object emit --output-format=json lib.rs",
+        ])
+        .output()
+        .expect("export bundle with typo flag");
+
+    assert_eq!(typo.status.code(), Some(2), "stderr: {}", String::from_utf8_lossy(&typo.stderr));
+    assert!(
+        String::from_utf8_lossy(&typo.stderr).contains("unsupported object bundle export argument `--pointer`"),
+        "typo flag was not named: {}",
+        String::from_utf8_lossy(&typo.stderr)
+    );
+    assert!(!bundle_path.exists(), "rejected bundle export must not write a bundle");
+}
+
 const INTERNAL_OBJECT_CORPUS: &[&str] = &[
     "cargo-octet/src/baseline.rs",
     "cargo-octet/src/bin/cargo-slotcar.rs",

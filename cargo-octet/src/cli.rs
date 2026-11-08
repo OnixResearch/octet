@@ -1624,56 +1624,108 @@ fn parse_object_diff(args: &[String]) -> Result<ObjectArgs, String> {
 }
 
 fn parse_object_pointer(args: &[String]) -> Result<ObjectArgs, String> {
-    match args.first().map(String::as_str) {
+    let mode = match args.first().map(String::as_str) {
         Some("set") => {
-            let manifest = PathBuf::from(required_arg(&args[1..], "--manifest")?);
-            let name = required_arg(&args[1..], "--name")?;
-            let hash = required_arg(&args[1..], "--hash")?;
-            let objects = PathBuf::from(required_arg(&args[1..], "--objects")?);
-            let receipt = PathBuf::from(required_arg(&args[1..], "--receipt")?);
+            let [manifest, name, hash, objects, receipt] = parse_object_flags("object pointer set", &args[1..], [
+                "--manifest",
+                "--name",
+                "--hash",
+                "--objects",
+                "--receipt",
+            ])?;
+            ObjectMode::PointerSet {
+                manifest: PathBuf::from(required_object_flag(manifest, "--manifest")?),
+                name: required_object_flag(name, "--name")?,
+                hash: required_object_flag(hash, "--hash")?,
+                objects: PathBuf::from(required_object_flag(objects, "--objects")?),
+                receipt: PathBuf::from(required_object_flag(receipt, "--receipt")?),
+            }
+        }
+        Some("validate") => {
+            let [manifest, objects] =
+                parse_object_flags("object pointer validate", &args[1..], ["--manifest", "--objects"])?;
+            ObjectMode::PointerValidate {
+                manifest: PathBuf::from(required_object_flag(manifest, "--manifest")?),
+                objects: PathBuf::from(required_object_flag(objects, "--objects")?),
+            }
+        }
+        Some(other) => {
+            return Err(format!("unknown object pointer action `{other}`; expected `set` or `validate`"));
+        }
+        None => return Err("missing object pointer action; expected `set` or `validate`".to_owned()),
+    };
+    Ok(ObjectArgs {
+        mode,
+        paths: Vec::new(),
+        function: None,
+        output_format: OutputFormat::Json,
+    })
+}
+
+fn parse_object_bundle(args: &[String]) -> Result<ObjectArgs, String> {
+    match args.first().map(String::as_str) {
+        Some("export") => {
+            let [objects, pointers, output, replay_command] =
+                parse_object_flags("object bundle export", &args[1..], [
+                    "--objects",
+                    "--pointers",
+                    "--output",
+                    "--replay-command",
+                ])?;
             Ok(ObjectArgs {
-                mode: ObjectMode::PointerSet {
-                    manifest,
-                    name,
-                    hash,
-                    objects,
-                    receipt,
+                mode: ObjectMode::BundleExport {
+                    objects: PathBuf::from(required_object_flag(objects, "--objects")?),
+                    pointers: pointers.map(PathBuf::from),
+                    output: PathBuf::from(required_object_flag(output, "--output")?),
+                    replay_command: required_object_flag(replay_command, "--replay-command")?,
                 },
                 paths: Vec::new(),
                 function: None,
                 output_format: OutputFormat::Json,
             })
         }
-        Some("validate") => Ok(ObjectArgs {
-            mode: ObjectMode::PointerValidate {
-                manifest: PathBuf::from(required_arg(&args[1..], "--manifest")?),
-                objects: PathBuf::from(required_arg(&args[1..], "--objects")?),
-            },
-            paths: Vec::new(),
-            function: None,
-            output_format: OutputFormat::Json,
-        }),
-        Some(other) => Err(format!("unknown object pointer action `{other}`; expected `set` or `validate`")),
-        None => Err("missing object pointer action; expected `set` or `validate`".to_owned()),
-    }
-}
-
-fn parse_object_bundle(args: &[String]) -> Result<ObjectArgs, String> {
-    match args.first().map(String::as_str) {
-        Some("export") => Ok(ObjectArgs {
-            mode: ObjectMode::BundleExport {
-                objects: PathBuf::from(required_arg(&args[1..], "--objects")?),
-                pointers: optional_arg(&args[1..], "--pointers").map(PathBuf::from),
-                output: PathBuf::from(required_arg(&args[1..], "--output")?),
-                replay_command: required_arg(&args[1..], "--replay-command")?,
-            },
-            paths: Vec::new(),
-            function: None,
-            output_format: OutputFormat::Json,
-        }),
         Some(other) => Err(format!("unknown object bundle action `{other}`; expected `export`")),
         None => Err("missing object bundle action; expected `export`".to_owned()),
     }
+}
+
+/// Walks `args` once, accepting only `flags` as `--flag VALUE` or `--flag=VALUE`; the last
+/// occurrence wins. Unknown arguments and separate values that look like flags are rejected.
+fn parse_object_flags<const N: usize>(
+    command: &str,
+    args: &[String],
+    flags: [&str; N],
+) -> Result<[Option<String>; N], String> {
+    let mut values: [Option<String>; N] = std::array::from_fn(|_| None);
+    let mut index = 0;
+    while index < args.len() {
+        let arg = &args[index];
+        let (flag, inline_value) =
+            arg.split_once('=').map_or((arg.as_str(), None), |(flag, value)| (flag, Some(value)));
+        let Some(slot) = flags
+            .iter()
+            .zip(values.iter_mut())
+            .find_map(|(candidate, slot)| (*candidate == flag).then_some(slot))
+        else {
+            return Err(format!("unsupported {command} argument `{arg}`"));
+        };
+        if let Some(value) = inline_value {
+            *slot = Some(value.to_owned());
+            index += 1;
+        } else {
+            let value = required_arg_at(args, index, flag)?;
+            if value.starts_with('-') {
+                return Err(format!("missing value after `{flag}`; found flag-like `{value}`"));
+            }
+            *slot = Some(value);
+            index += 2;
+        }
+    }
+    Ok(values)
+}
+
+fn required_object_flag(value: Option<String>, flag: &str) -> Result<String, String> {
+    value.ok_or_else(|| format!("missing `{flag}`"))
 }
 
 #[allow(clippy::too_many_lines)]
@@ -2079,22 +2131,6 @@ fn parse_supplement_fixture_shape(
     value: &str,
 ) -> Result<crate::object_core::SupplementFixtureSelection, String> {
     crate::object_core::parse_supplement_fixture_shape(scope, value)
-}
-
-fn optional_arg(args: &[String], flag: &str) -> Option<String> {
-    if let Some(value) = args.iter().find_map(|arg| arg.strip_prefix(&format!("{flag}="))) {
-        return Some(value.to_owned());
-    }
-    let index = args.iter().position(|arg| arg == flag)?;
-    args.get(index + 1).cloned()
-}
-
-fn required_arg(args: &[String], flag: &str) -> Result<String, String> {
-    if let Some(value) = args.iter().find_map(|arg| arg.strip_prefix(&format!("{flag}="))) {
-        return Ok(value.to_owned());
-    }
-    let index = args.iter().position(|arg| arg == flag).ok_or_else(|| format!("missing `{flag}`"))?;
-    args.get(index + 1).cloned().ok_or_else(|| format!("missing value after `{flag}`"))
 }
 
 fn required_arg_at(args: &[String], index: usize, flag: &str) -> Result<String, String> {
@@ -2542,6 +2578,7 @@ mod tests {
     use super::FingerprintMode;
     use super::HelpTopic;
     use super::MigrateMode;
+    use super::ObjectMode;
     use super::OutputFormat;
     use super::ProofRefMode;
     use super::format_command_line;
@@ -3182,6 +3219,118 @@ mod tests {
             let argv = ["cargo", "octet"].iter().chain(args.iter()).map(OsString::from);
             let error = parse(argv).expect_err("migrate SARIF must fail at parse time");
             assert!(error.contains("migrate does not support SARIF output"), "{args:?}: {error}");
+        }
+    }
+
+    #[test]
+    fn object_pointer_and_bundle_parse_reject_unknown_flags_and_flag_values() {
+        let cases: &[(&[&str], &str)] = &[
+            (
+                &[
+                    "bundle",
+                    "export",
+                    "--objects",
+                    "objects.json",
+                    "--pointer",
+                    "pointers.json",
+                    "--output",
+                    "bundle.json",
+                    "--replay-command",
+                    "cargo octet object emit",
+                ],
+                "unsupported object bundle export argument `--pointer`",
+            ),
+            (
+                &[
+                    "bundle",
+                    "export",
+                    "--objects",
+                    "objects.json",
+                    "stray.json",
+                    "--output",
+                    "bundle.json",
+                    "--replay-command",
+                    "cargo octet object emit",
+                ],
+                "unsupported object bundle export argument `stray.json`",
+            ),
+            (
+                &[
+                    "pointer",
+                    "set",
+                    "--manifest",
+                    "--name",
+                    "crate::f",
+                    "--hash",
+                    "b3:00",
+                    "--objects",
+                    "objects.json",
+                    "--receipt",
+                    "receipt.json",
+                ],
+                "missing value after `--manifest`",
+            ),
+            (
+                &[
+                    "pointer",
+                    "validate",
+                    "--manifest",
+                    "pointers.json",
+                    "--objects",
+                    "objects.json",
+                    "--strict",
+                ],
+                "unsupported object pointer validate argument `--strict`",
+            ),
+            (
+                &["pointer", "validate", "--manifest", "pointers.json", "--objects"],
+                "missing value after `--objects`",
+            ),
+        ];
+        for (args, expected) in cases {
+            let argv = ["cargo", "octet", "object"].iter().chain(args.iter()).map(OsString::from);
+            let error = parse(argv).expect_err("malformed object pointer/bundle args must fail");
+            assert!(error.contains(expected), "{args:?}: {error}");
+        }
+    }
+
+    #[test]
+    fn object_bundle_parse_accepts_inline_and_separate_values() {
+        let parsed = parse(
+            [
+                "cargo",
+                "octet",
+                "object",
+                "bundle",
+                "export",
+                "--objects=objects.json",
+                "--pointers",
+                "pointers.json",
+                "--output",
+                "bundle.json",
+                "--replay-command",
+                "cargo octet object emit --output-format=json lib.rs",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse object bundle export");
+
+        match parsed {
+            CommandArgs::Object(args) => match args.mode {
+                ObjectMode::BundleExport {
+                    objects,
+                    pointers,
+                    output,
+                    replay_command,
+                } => {
+                    assert_eq!(objects, std::path::PathBuf::from("objects.json"));
+                    assert_eq!(pointers, Some(std::path::PathBuf::from("pointers.json")));
+                    assert_eq!(output, std::path::PathBuf::from("bundle.json"));
+                    assert_eq!(replay_command, "cargo octet object emit --output-format=json lib.rs");
+                }
+                other => panic!("expected bundle export mode, got {other:?}"),
+            },
+            other => panic!("expected object args, got {other:?}"),
         }
     }
 
