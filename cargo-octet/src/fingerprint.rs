@@ -1,4 +1,5 @@
 use std::fs;
+use std::ops::Range;
 use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
@@ -21,6 +22,15 @@ const COMMENT_MARKER: &str = "// octet-fingerprint:";
 const LEGACY_SLOTCAR_COMMENT_MARKER: &str = "// slotcar-fingerprint:";
 const LEGACY_TIGERSTYLE_COMMENT_MARKER: &str = "// tigerstyle-fingerprint:";
 const ATTR_MARKER: &str = "#[fingerprint(";
+const FINGERPRINT_MARKER_PREFIXES: [&str; 4] = [
+    COMMENT_MARKER,
+    LEGACY_SLOTCAR_COMMENT_MARKER,
+    LEGACY_TIGERSTYLE_COMMENT_MARKER,
+    ATTR_MARKER,
+];
+/// Object markers share the marker block above a function with fingerprint
+/// markers; see [`marker_lines`].
+pub(crate) const OBJECT_COMMENT_MARKER: &str = "// octet-object:";
 const REVIEW_KEY: &str = "review";
 const EVIDENCE_KEY: &str = "evidence";
 const MACRO_KEY: &str = "macro";
@@ -98,7 +108,9 @@ pub(crate) struct FunctionSpan {
     pub(crate) start: usize,
     pub(crate) end: usize,
     pub(crate) marker: Option<Marker>,
-    pub(crate) preceding_marker_in_code: bool,
+    /// Contiguous octet marker lines directly above the item, in code; see
+    /// [`marker_lines`]. Empty when the item has no markers.
+    pub(crate) marker_block: Range<usize>,
     pub(crate) macro_calls: bool,
 }
 
@@ -475,14 +487,18 @@ pub(crate) fn find_functions(source: &str) -> Vec<FunctionSpan> {
         } else {
             first_code
         };
-        let (marker, preceding_marker_in_code) = preceding_marker(source, item_start, &mut marker_cursor);
+        let marker_block = marker_block(source, item_start, &mut marker_cursor);
+        let marker = marker_lines(source, marker_block.clone())
+            .filter(|line| FINGERPRINT_MARKER_PREFIXES.iter().any(|prefix| line.text.starts_with(prefix)))
+            .last()
+            .map(|line| parse_marker(line.text, line.start, line.end));
         let body = &source[open_brace..end];
         spans.push(FunctionSpan {
             name: source[name_start..name_end].to_owned(),
             start: item_start,
             end,
             marker,
-            preceding_marker_in_code,
+            marker_block,
             macro_calls: contains_macro_call(body),
         });
         cursor = end;
@@ -792,32 +808,61 @@ fn matching_open_delimiter(code: &str, close: usize, open_byte: u8, close_byte: 
     None
 }
 
-fn preceding_marker(
-    source: &str,
-    item_start: usize,
-    marker_cursor: &mut MarkerLexicalCursor<'_>,
-) -> (Option<Marker>, bool) {
-    let prefix = &source[..item_start];
-    let line_start = prefix.rfind('\n').map_or(0, |index| index + 1);
-    let previous_end = line_start.saturating_sub(1);
-    let previous_start = source[..previous_end].rfind('\n').map_or(0, |index| index + 1);
-    let line = &source[previous_start..previous_end];
-    let previous = line.trim();
-    let marker_in_code = marker_cursor.in_code(previous_start + line.len() - line.trim_start().len());
-    if !(previous.starts_with(COMMENT_MARKER)
-        || previous.starts_with(LEGACY_SLOTCAR_COMMENT_MARKER)
-        || previous.starts_with(LEGACY_TIGERSTYLE_COMMENT_MARKER)
-        || previous.starts_with(ATTR_MARKER))
-        || !marker_in_code
-    {
-        return (None, marker_in_code);
+/// The run of octet marker lines (fingerprint, legacy, attribute, and object
+/// markers) directly above the item's line, limited to lines that start in
+/// code. Fingerprint and object markers stack in either order; each reader
+/// takes its own kind from the block, nearest the item first.
+fn marker_block(source: &str, item_start: usize, marker_cursor: &mut MarkerLexicalCursor<'_>) -> Range<usize> {
+    let block_end = source[..item_start].rfind('\n').map_or(0, |index| index + 1);
+    let mut top = block_end;
+    while let Some(previous_end) = top.checked_sub(1) {
+        let previous_start = source[..previous_end].rfind('\n').map_or(0, |index| index + 1);
+        let line = source[previous_start..previous_end].trim();
+        if !FINGERPRINT_MARKER_PREFIXES
+            .iter()
+            .chain([&OBJECT_COMMENT_MARKER])
+            .any(|prefix| line.starts_with(prefix))
+        {
+            break;
+        }
+        top = previous_start;
     }
-    let line_end = if previous_end < source.len() {
-        previous_end + 1
-    } else {
-        previous_end
-    };
-    (Some(parse_marker(previous, previous_start, line_end)), marker_in_code)
+    // A marker-looking line inside a comment or literal ends the block, so
+    // only the in-code lines nearest the item remain.
+    let mut block_start = None;
+    for line in marker_lines(source, top..block_end) {
+        let raw = &source[line.start..line.end];
+        if marker_cursor.in_code(line.start + raw.len() - raw.trim_start().len()) {
+            block_start.get_or_insert(line.start);
+        } else {
+            block_start = None;
+        }
+    }
+    block_start.unwrap_or(block_end)..block_end
+}
+
+/// One line of a marker block.
+pub(crate) struct MarkerLine<'a> {
+    /// Offset of the line start.
+    pub(crate) start: usize,
+    /// Offset just past the line's newline.
+    pub(crate) end: usize,
+    /// The line without surrounding whitespace.
+    pub(crate) text: &'a str,
+}
+
+/// Lines of a function's `marker_block`, top to bottom.
+pub(crate) fn marker_lines(source: &str, block: Range<usize>) -> impl Iterator<Item = MarkerLine<'_>> {
+    let block_start = block.start;
+    source[block].split_inclusive('\n').scan(block_start, |offset, line| {
+        let start = *offset;
+        *offset += line.len();
+        Some(MarkerLine {
+            start,
+            end: *offset,
+            text: line.trim(),
+        })
+    })
 }
 
 /// Source-ordered functions share one lexical walk. Even if every function has
@@ -1531,9 +1576,28 @@ mod tests {
         assert_eq!(functions.iter().map(|function| function.marker.is_some()).collect::<Vec<_>>(), [
             true, false, false, true
         ]);
-        assert_eq!(functions.iter().map(|function| function.preceding_marker_in_code).collect::<Vec<_>>(), [
+        assert_eq!(functions.iter().map(|function| !function.marker_block.is_empty()).collect::<Vec<_>>(), [
             true, false, false, true
         ]);
+    }
+
+    #[test]
+    fn fingerprint_marker_binds_through_a_stacked_object_marker_in_either_order() {
+        for source in [
+            "// octet-fingerprint: b3:abc; review=R; evidence=E\n// octet-object: b3:def; review=R; evidence=E\nfn f() -> u32 { 1 }\n",
+            "// octet-object: b3:def; review=R; evidence=E\n// octet-fingerprint: b3:abc; review=R; evidence=E\n#[inline]\nfn f() -> u32 { 1 }\n",
+            "    // octet-object: b3:def; review=R; evidence=E\n    #[fingerprint(\"b3:abc\", review = \"R\", evidence = \"E\")]\n    fn f() -> u32 { 1 }\n",
+            "    #[fingerprint(\"b3:abc\", review = \"R\", evidence = \"E\")]\n    // octet-object: b3:def; review=R; evidence=E\n    fn f() -> u32 { 1 }\n",
+        ] {
+            let functions = find_functions(source);
+            assert_eq!(functions.len(), 1, "{source}");
+            let marker = functions[0].marker.as_ref().unwrap_or_else(|| panic!("fingerprint marker unbound: {source}"));
+            assert_eq!(marker.stored_hash(), Some("abc"), "{source}");
+            assert!(normalize_tokens(&source[functions[0].start..functions[0].end]).contains("fn f"), "{source}");
+            assert!(!source[functions[0].start..functions[0].end].contains("octet-"), "{source}");
+        }
+        let commented = "/*\n// octet-fingerprint: b3:abc; review=R; evidence=E\n*/\n// octet-object: b3:def; review=R; evidence=E\nfn f() -> u32 { 1 }\n";
+        assert!(find_functions(commented)[0].marker.is_none(), "a marker inside a comment never binds");
     }
 
     #[test]

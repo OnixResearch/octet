@@ -1442,6 +1442,60 @@ fn object_v2_comment_forgery_with_matching_digest_is_missing_not_reviewed() {
 }
 
 #[test]
+fn fingerprint_and_object_markers_stay_bound_when_stacked_in_either_order() {
+    let run = |root: &Path, args: &[&str]| {
+        let output = Command::new(cargo_octet()).args(args).current_dir(root).output().expect("run cargo-octet");
+        let json: serde_json::Value = serde_json::from_slice(&output.stdout)
+            .unwrap_or_else(|error| panic!("{args:?}: {error}; stderr={}", String::from_utf8_lossy(&output.stderr)));
+        let statuses = json["records"]
+            .as_array()
+            .expect("records")
+            .iter()
+            .map(|record| record["status"].as_str().expect("status").to_owned())
+            .collect::<Vec<_>>();
+        (output.status.code(), statuses)
+    };
+    let fingerprint = |root: &Path, mode: &str| run(root, &["fingerprint", mode, "--output-format=json", "lib.rs"]);
+    let object = |root: &Path, mode: &str| run(root, &["object", mode, "--output-format=json", "lib.rs"]);
+    let review = |root: &Path| {
+        let path = root.join("lib.rs");
+        let source = fs::read_to_string(&path).expect("read lib.rs");
+        fs::write(&path, source.replace("review=TODO; evidence=TODO", "review=R-1; evidence=E-1")).expect("review");
+    };
+
+    for fingerprint_first in [true, false] {
+        let temp = tempfile::tempdir().expect("create tempdir");
+        let root = temp.path();
+        fs::write(root.join("lib.rs"), "#[inline]\npub fn selected(input: u32) -> u32 {\n    input + 1\n}\n")
+            .expect("write lib.rs");
+        if fingerprint_first {
+            assert_eq!(fingerprint(root, "--write"), (Some(0), vec!["written".to_owned()]));
+            assert_eq!(object(root, "update"), (Some(0), vec!["written".to_owned()]));
+        } else {
+            assert_eq!(object(root, "update"), (Some(0), vec!["written".to_owned()]));
+            assert_eq!(fingerprint(root, "--write"), (Some(0), vec!["written".to_owned()]));
+        }
+        review(root);
+        let order = format!("fingerprint_first={fingerprint_first}");
+        assert_eq!(fingerprint(root, "--check"), (Some(0), vec!["match".to_owned()]), "{order}");
+        assert_eq!(object(root, "check"), (Some(0), vec!["match".to_owned()]), "{order}");
+
+        let source = fs::read_to_string(root.join("lib.rs")).expect("read lib.rs");
+        fs::write(root.join("lib.rs"), source.replace("input + 1", "input + 2")).expect("drift lib.rs");
+        assert_eq!(fingerprint(root, "--check"), (Some(1), vec!["mismatch".to_owned()]), "{order}");
+        assert_eq!(object(root, "check"), (Some(1), vec!["mismatch".to_owned()]), "{order}");
+        assert_eq!(fingerprint(root, "--update"), (Some(0), vec!["written".to_owned()]), "{order}");
+        assert_eq!(object(root, "update"), (Some(0), vec!["written".to_owned()]), "{order}");
+        assert_eq!(fingerprint(root, "--check"), (Some(0), vec!["match".to_owned()]), "{order}");
+        assert_eq!(object(root, "check"), (Some(0), vec!["match".to_owned()]), "{order}");
+
+        let source = fs::read_to_string(root.join("lib.rs")).expect("read lib.rs");
+        assert_eq!(source.matches("// octet-fingerprint:").count(), 1, "{order}: {source}");
+        assert_eq!(source.matches("// octet-object:").count(), 1, "{order}: {source}");
+    }
+}
+
+#[test]
 fn object_marker_metadata_keys_match_exactly() {
     let temp = tempfile::tempdir().expect("create tempdir");
     let source_path = temp.path().join("lib.rs");

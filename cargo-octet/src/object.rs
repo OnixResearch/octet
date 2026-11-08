@@ -73,7 +73,6 @@ const CORPUS_RECEIPT_COMPARED_FIELDS: &[&str] = &[
     "pure_cache_blocked_count",
     "boundary",
 ];
-const OBJECT_MARKER: &str = "// octet-object:";
 const HASH_PREFIX: &str = "b3:";
 // Request the scanner's v2 identity; the exact selected Valence constructor
 // decides whether that label is supported and refuses older v1-only pins.
@@ -2101,7 +2100,7 @@ fn run_marker(args: &ObjectArgs, update: bool) -> Result<i32, String> {
                 continue;
             }
             let object = function_object_for_source(&path, &source, &span)?;
-            let marker = object_marker_before(&source, span.start, span.preceding_marker_in_code);
+            let marker = object_marker_before(&source, span.marker_block.clone());
             let status = match marker.as_ref().map(|marker| marker.stored_hash.as_str()) {
                 Some(stored) if stored == object.object_hash => "match",
                 Some(_) => "mismatch",
@@ -2247,31 +2246,24 @@ fn normalized_source_path(path: &Path) -> String {
     determinism::normalize_path(&relative)
 }
 
-fn object_marker_before(source: &str, item_start: usize, marker_in_code: bool) -> Option<ObjectMarker> {
-    let prefix = &source[..item_start];
-    let line_start = prefix.rfind('\n').map_or(0, |index| index + 1);
-    let previous_end = line_start.saturating_sub(1);
-    let previous_start = source[..previous_end].rfind('\n').map_or(0, |index| index + 1);
-    let previous = source[previous_start..previous_end].trim();
-    if !marker_in_code || !previous.starts_with(OBJECT_MARKER) {
-        return None;
-    }
-    let hash_start = previous.find(HASH_PREFIX)? + HASH_PREFIX.len();
+/// The object marker nearest the function in its marker block, which it can
+/// share with a fingerprint marker in either order.
+fn object_marker_before(source: &str, marker_block: std::ops::Range<usize>) -> Option<ObjectMarker> {
+    let line = fingerprint::marker_lines(source, marker_block)
+        .filter(|line| line.text.starts_with(fingerprint::OBJECT_COMMENT_MARKER))
+        .last()?;
+    let hash_start = line.text.find(HASH_PREFIX)? + HASH_PREFIX.len();
     let stored_hash =
-        format!("b3:{}", previous[hash_start..].chars().take_while(char::is_ascii_hexdigit).collect::<String>());
+        format!("b3:{}", line.text[hash_start..].chars().take_while(char::is_ascii_hexdigit).collect::<String>());
     if stored_hash == "b3:" {
         return None;
     }
     Some(ObjectMarker {
-        start: previous_start,
-        end: if previous_end < source.len() {
-            previous_end + 1
-        } else {
-            previous_end
-        },
+        start: line.start,
+        end: line.end,
         stored_hash,
-        review: fingerprint::marker_value(previous, "review"),
-        evidence: fingerprint::marker_value(previous, "evidence"),
+        review: fingerprint::marker_value(line.text, "review"),
+        evidence: fingerprint::marker_value(line.text, "evidence"),
     })
 }
 

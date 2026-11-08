@@ -17,12 +17,20 @@ Comment markers work in stable Rust without adding an attribute macro:
 fn checked_transition(input: State) -> State { /* ... */ }
 ```
 
-Attribute markers are also recognized by the scanner:
+Attribute markers are also recognized by the scanner. The attribute must fit on
+one line; it is not hashed as one of the function's attributes:
 
 ```rust
 #[fingerprint("b3:<hash>", review = "safety-critical", evidence = "openspec/.../evidence/check.txt")]
 fn checked_transition(input: State) -> State { /* ... */ }
 ```
+
+A marker sits on the line directly above the function's first outer attribute,
+or above `fn` when there is none. Fingerprint markers and `// octet-object:`
+markers can share that position: a contiguous block of marker lines may hold one
+of each, in either order, and each command reads its own kind from the block.
+`fingerprint --write` and `object update` insert a new marker at the bottom of
+the block, so markers already there stay bound.
 
 Marker metadata is a list of `key=value` items separated by `;` or `,`. Keys
 match exactly: `preview=` does not supply `review`, and `review=macro=allow`

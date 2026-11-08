@@ -989,6 +989,12 @@ r[content_addressed_rust_evidence.object_markers] Octet MUST support inline obje
 - WHEN object support is added
 - THEN existing fingerprint check, write, update, and diff workflows continue to work without requiring object markers.
 
+#### Scenario: Fingerprint and object markers stay bound together
+
+- GIVEN a function whose marker block holds both a fingerprint marker and an object marker, in either order
+- WHEN fingerprint check, write, update, or diff runs, or object check or update runs
+- THEN each command binds its own marker to the function and new markers are inserted without detaching the other kind.
+
 ### Requirement: Name pointer registry
 
 r[content_addressed_rust_evidence.name_pointers] Octet MUST support a deterministic name-pointer manifest that maps mutable Rust semantic names to immutable object hashes and records pointer movement metadata.

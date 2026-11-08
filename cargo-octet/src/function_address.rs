@@ -1407,7 +1407,7 @@ mod tests {
             start: INVERTED_START_BYTE,
             end: INVERTED_END_BYTE,
             marker: None,
-            preceding_marker_in_code: false,
+            marker_block: 0..0,
             macro_calls: false,
         };
         let out_of_range = fingerprint::FunctionSpan {
@@ -1415,7 +1415,7 @@ mod tests {
             start: 0,
             end: OUT_OF_RANGE_END_BYTE,
             marker: None,
-            preceding_marker_in_code: false,
+            marker_block: 0..0,
             macro_calls: false,
         };
 
