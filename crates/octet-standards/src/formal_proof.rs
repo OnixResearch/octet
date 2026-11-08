@@ -35,7 +35,7 @@ const LITTLE_ENDIAN: &str = "little";
 const BIG_ENDIAN: &str = "big";
 const THEOREM_DECLARATION_PREFIX: &str = "theorem ";
 const THEOREM_BODY_SEPARATOR: &str = ":=";
-const THEOREM_TYPE_SEPARATOR: &str = ":";
+const THEOREM_TYPE_SEPARATOR: char = ':';
 const VACUOUS_THEOREM_IDENTIFIER: &str = "True";
 const FORBIDDEN_THEOREM_DECLARATIONS: &[&str] = &["admit", "sorry"];
 const AENEAS_PROVIDER_PROFILE_JSON: &str =
@@ -481,11 +481,9 @@ fn named_theorem_declaration(source: &str) -> Option<(&str, Option<String>)> {
 #[must_use]
 pub fn assess_aeneas_theorem_source(source: &str) -> AeneasTheoremAdequacy {
     let header = named_theorem_declaration(source).and_then(|(_, header)| header);
-    let statement = header
-        .as_deref()
-        .and_then(|header| header.rsplit_once(THEOREM_TYPE_SEPARATOR).map(|(_, value)| value.trim()));
+    let statement = header.as_deref().and_then(theorem_statement);
     let decision = match statement {
-        Some(value) if true_style_statement(value) => AeneasTheoremAdequacyDecision::Vacuous,
+        Some(value) if true_style_statement(strip_leading_binders(value)) => AeneasTheoremAdequacyDecision::Vacuous,
         Some(value) if !value.is_empty() => AeneasTheoremAdequacyDecision::NonVacuous,
         _ => AeneasTheoremAdequacyDecision::Rejected,
     };
@@ -502,6 +500,82 @@ pub fn assess_aeneas_theorem_source(source: &str) -> AeneasTheoremAdequacy {
         decision,
         forbidden_declarations,
     }
+}
+
+/// Return the theorem type: the text after the first `:` outside the declaration's binders.
+fn theorem_statement(header: &str) -> Option<&str> {
+    let separator = top_level_char_index(header, THEOREM_TYPE_SEPARATOR)?;
+    Some(header[separator + THEOREM_TYPE_SEPARATOR.len_utf8()..].trim())
+}
+
+/// Strip leading `∀ …,` quantifiers and `(…) →` binder or premise groups.
+///
+/// Both keep the statement trivially provable when the remaining conclusion is `True`-style.
+fn strip_leading_binders(statement: &str) -> &str {
+    let mut remaining = statement.trim();
+    loop {
+        let stripped = if let Some(body) = strip_universal_quantifier(remaining) {
+            top_level_char_index(body, ',').map(|comma| &body[comma + ','.len_utf8()..])
+        } else {
+            strip_leading_arrow_group(remaining)
+        };
+        match stripped {
+            Some(rest) => remaining = rest.trim(),
+            None => return remaining,
+        }
+    }
+}
+
+fn strip_universal_quantifier(statement: &str) -> Option<&str> {
+    statement.strip_prefix('∀').or_else(|| {
+        statement
+            .strip_prefix("forall")
+            .filter(|rest| rest.starts_with(|character: char| character.is_whitespace() || opening_bracket(character)))
+    })
+}
+
+fn strip_leading_arrow_group(statement: &str) -> Option<&str> {
+    if !statement.starts_with(opening_bracket) {
+        return None;
+    }
+    let mut depth = 0_usize;
+    let mut group_end = None;
+    for (index, character) in statement.char_indices() {
+        if opening_bracket(character) {
+            depth += 1;
+        } else if closing_bracket(character) {
+            depth = depth.saturating_sub(1);
+            if depth == 0 {
+                group_end = Some(index + character.len_utf8());
+                break;
+            }
+        }
+    }
+    let rest = statement[group_end?..].trim_start();
+    rest.strip_prefix('→').or_else(|| rest.strip_prefix("->"))
+}
+
+/// Return the byte index of the first `target` outside `()`, `[]`, `{}`, `⦃⦄`, and `⟨⟩`.
+fn top_level_char_index(text: &str, target: char) -> Option<usize> {
+    let mut depth = 0_usize;
+    for (index, character) in text.char_indices() {
+        if opening_bracket(character) {
+            depth += 1;
+        } else if closing_bracket(character) {
+            depth = depth.saturating_sub(1);
+        } else if depth == 0 && character == target {
+            return Some(index);
+        }
+    }
+    None
+}
+
+fn opening_bracket(character: char) -> bool {
+    matches!(character, '(' | '[' | '{' | '⦃' | '⟨')
+}
+
+fn closing_bracket(character: char) -> bool {
+    matches!(character, ')' | ']' | '}' | '⦄' | '⟩')
 }
 
 fn true_style_statement(statement: &str) -> bool {
@@ -2210,6 +2284,33 @@ mod tests {
             "theorem named_missing_body (x : Nat) : x = x\n\ntheorem helper (x : Nat) : x = x := by rfl\n";
         let rejected = assess_aeneas_theorem_source(unterminated);
         assert_eq!(rejected.decision, AeneasTheoremAdequacyDecision::Rejected);
+    }
+
+    // r[verify octet.aeneas_lean_proof_rail.theorem_adequacy]
+    #[test]
+    fn aeneas_theorem_source_assessment_sees_through_binder_colons() {
+        for source in [
+            "theorem t : ∀ n : Nat, True := fun _ => trivial",
+            "theorem t : (n : Nat) → True := fun _ => trivial",
+            "theorem t : forall (n : Nat) (m : Nat), True := fun _ _ => trivial",
+            "theorem t : ∀ n, ∀ m : Nat, (h : n = m) -> True := fun _ _ _ => trivial",
+            "theorem t {α : Type} (xs : List α) : ∀ x ∈ xs, True := fun _ _ => trivial",
+            "theorem t\n    (n : Nat) :\n    ∀ m : Nat, True ∧ True := by\n  simp\n",
+        ] {
+            let assessed = assess_aeneas_theorem_source(source);
+            assert_eq!(assessed.decision, AeneasTheoremAdequacyDecision::Vacuous, "source: {source}");
+        }
+
+        for source in [
+            "theorem t : ∀ n : Nat, n + 0 = n := by simp",
+            "theorem t : (n : Nat) → n = n := fun _ => rfl",
+            "theorem t {α : Type} (xs : List α) : (xs.map id : List α) = xs := by simp",
+            "theorem t : ∀ n : Nat, True ∧ n = n := by simp",
+            "theorem t : (True → False) → False := fun h => h trivial",
+        ] {
+            let assessed = assess_aeneas_theorem_source(source);
+            assert_eq!(assessed.decision, AeneasTheoremAdequacyDecision::NonVacuous, "source: {source}");
+        }
     }
 
     // r[verify octet.aeneas_lean_proof_rail.theorem_adequacy]
