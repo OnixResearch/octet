@@ -14,6 +14,7 @@ use clap::Parser;
 use clap::Subcommand;
 use clap::ValueEnum;
 use octet_standards::architecture::CARGO_METADATA_SOURCE_PATH;
+use octet_standards::architecture::crate_boundary_mechanism_active;
 use octet_standards::artifacts::ARTIFACT_MANIFEST_JSON_FILE;
 use octet_standards::artifacts::ArtifactManifest;
 use octet_standards::artifacts::CHECK_CONFIG_TOML_FILE;
@@ -301,7 +302,7 @@ fn run_check_command(args: CheckArgs) -> Result<bool, CliError> {
     };
     validate_family_selection(&registry, &selection)?;
     let mut sources = load_sources(&args.source)?;
-    append_cargo_metadata_source(&registry, &selection, &args.source, &mut sources);
+    let cargo_metadata_diagnostic = append_cargo_metadata_source(&registry, &selection, &args.source, &mut sources);
     if args.execute_proof_rails {
         let executed = execute_relevant_proof_rails(&registry, &sources, &selection, &args.source);
         if let Some(proof_artifact_dir) = &args.proof_artifact_dir {
@@ -315,11 +316,12 @@ fn run_check_command(args: CheckArgs) -> Result<bool, CliError> {
         });
         sources.extend(executed.receipts);
     }
-    let report = run_checks(&CheckInput {
+    let mut report = run_checks(&CheckInput {
         registry,
         sources,
         selection,
     });
+    report.diagnostics.extend(cargo_metadata_diagnostic);
     emit_report(args.output, &report)?;
     Ok(report.has_blocking_diagnostics())
 }
@@ -1151,35 +1153,64 @@ fn blake3_hex(text: &str) -> String {
     blake3::hash(text.as_bytes()).to_hex().to_string()
 }
 
+/// Adds `cargo metadata` output for the dependency-direction check.
+///
+/// Returns an error diagnostic when the active crate-boundary mechanism needs the crate graph but
+/// `cargo metadata` cannot run, exits non-zero, or prints non-UTF-8 output.
+// r[impl octet.dependency_direction.shell.metadata_failure]
 fn append_cargo_metadata_source(
     registry: &PolicyRegistry,
     selection: &FamilySelection,
     source_paths: &[PathBuf],
     sources: &mut Vec<SourceFile>,
-) {
-    if !selection.includes(ARCHITECTURE_FAMILY) || registry.policy_by_id(FCIS_POLICY_ID).is_none() {
-        return;
+) -> Option<Diagnostic> {
+    if !selection.includes(ARCHITECTURE_FAMILY) || !crate_boundary_mechanism_active(registry) {
+        return None;
     }
+    let policy = registry.policy_by_id(FCIS_POLICY_ID)?;
     if sources.iter().any(|source| source.path.ends_with(CARGO_METADATA_SOURCE_PATH)) {
-        return;
+        return None;
     }
-    let Some(working_dir) = cargo_metadata_working_dir(source_paths) else {
-        return;
-    };
-    let Ok(output) = ProcessCommand::new("cargo")
+    let working_dir = cargo_metadata_working_dir(source_paths)?;
+    match cargo_metadata_output(&working_dir) {
+        Ok(metadata) => {
+            sources.push(SourceFile::new(CARGO_METADATA_SOURCE_PATH, metadata));
+            None
+        }
+        Err(message) => Some(Diagnostic::new(DiagnosticInput {
+            policy_id: policy.policy_id.clone(),
+            source_section: policy.source_anchor.clone(),
+            path: working_dir.join(CARGO_MANIFEST_FILE).display().to_string(),
+            line: None,
+            severity: Severity::Error,
+            message: format!("{message}; the dependency-direction check has no crate graph"),
+            remediation: "make `cargo metadata --format-version 1` succeed from the checked workspace, or pass its output as a `__octet/cargo-metadata.json` source".to_owned(),
+        })),
+    }
+}
+
+fn cargo_metadata_output(working_dir: &Path) -> Result<String, String> {
+    let output = ProcessCommand::new("cargo")
         .args(["metadata", "--format-version", "1"])
-        .current_dir(&working_dir)
+        .current_dir(working_dir)
         .output()
-    else {
-        return;
-    };
+        .map_err(|error| {
+            format!("`cargo metadata --format-version 1` could not run in `{}`: {error}", working_dir.display())
+        })?;
     if !output.status.success() {
-        return;
+        return Err(format!(
+            "`cargo metadata --format-version 1` failed in `{}` with {}: {}",
+            working_dir.display(),
+            output.status,
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
     }
-    let Ok(metadata) = String::from_utf8(output.stdout) else {
-        return;
-    };
-    sources.push(SourceFile::new(CARGO_METADATA_SOURCE_PATH, metadata));
+    String::from_utf8(output.stdout).map_err(|error| {
+        format!(
+            "`cargo metadata --format-version 1` printed non-UTF-8 output in `{}`: {error}",
+            working_dir.display()
+        )
+    })
 }
 
 fn cargo_metadata_working_dir(source_paths: &[PathBuf]) -> Option<PathBuf> {
@@ -1196,8 +1227,14 @@ fn cargo_metadata_working_dir(source_paths: &[PathBuf]) -> Option<PathBuf> {
 fn nearest_manifest_directory(start: &Path) -> Option<PathBuf> {
     let mut current = Some(start);
     while let Some(directory) = current {
-        if directory.join(CARGO_MANIFEST_FILE).is_file() {
-            return Some(directory.to_path_buf());
+        // A relative walk ends at the empty path, which names the current directory.
+        let probe = if directory.as_os_str().is_empty() {
+            Path::new(".")
+        } else {
+            directory
+        };
+        if probe.join(CARGO_MANIFEST_FILE).is_file() {
+            return Some(probe.to_path_buf());
         }
         current = directory.parent();
     }

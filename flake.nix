@@ -2870,6 +2870,11 @@
               grep --fixed-strings "proof_rail_receipt_toolchain_digests" "$artifact_dir/octet-check-config.toml" >/dev/null
               grep --fixed-strings "50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8" "$artifact_dir/octet-check-config.toml" >/dev/null
 
+              cargo_metadata_dir=$(mktemp -d)
+              mkdir -p "$cargo_metadata_dir/__octet"
+              cargo_metadata_json="$cargo_metadata_dir/__octet/cargo-metadata.json"
+              cp standards/check-fixtures/architecture/dependency-direction/octet-layout.json "$cargo_metadata_json"
+
               octet-standards check \
                 --policy-artifacts-dir "$artifact_dir" \
                 --source standards/check-fixtures/suppressions/compliant \
@@ -2882,6 +2887,7 @@
                 --policy-artifacts-dir "$artifact_dir" \
                 --source standards/check-fixtures/architecture/compliant \
                 --source standards/check-fixtures/capability/clock-handler.txt \
+                --source "$cargo_metadata_json" \
                 --family architecture \
                 --output json > "$compliant_json"
               jq --exit-status '.diagnostics | length == 0' "$compliant_json" >/dev/null
@@ -2923,11 +2929,23 @@
                 --policy-artifacts-dir "$artifact_dir" \
                 --source standards/check-fixtures/architecture/advisory \
                 --source standards/check-fixtures/capability/clock-handler.txt \
+                --source "$cargo_metadata_json" \
                 --family architecture \
                 --output json > "$advisory_json"
               jq --exit-status '.diagnostics | length == 1' "$advisory_json" >/dev/null
               jq --exit-status '.diagnostics[0].policy_id == "tigerstyle.architecture.public-api-budget"' "$advisory_json" >/dev/null
               jq --exit-status '.diagnostics[0].severity == "warning"' "$advisory_json" >/dev/null
+
+              if octet-standards check \
+                --policy-artifacts-dir "$artifact_dir" \
+                --source standards/check-fixtures/architecture/compliant \
+                --source standards/check-fixtures/capability/clock-handler.txt \
+                --family architecture \
+                --output json > "$noncompliant_json"; then
+                echo "architecture check without a cargo metadata graph unexpectedly passed" >&2
+                exit 1
+              fi
+              jq --exit-status 'any(.diagnostics[]; .policy_id == "tigerstyle.architecture.fcis-crate-boundary" and .severity == "error" and (.message | contains("cargo metadata")))' "$noncompliant_json" >/dev/null
 
               if octet-standards check \
                 --policy-artifacts-dir "$artifact_dir" \
@@ -2943,6 +2961,7 @@
                 --policy-artifacts-dir "$artifact_dir" \
                 --source standards/check-fixtures/architecture/noncompliant \
                 --source standards/check-fixtures/capability/clock-handler.txt \
+                --source "$cargo_metadata_json" \
                 --family architecture \
                 --output json > "$noncompliant_json"; then
                 echo "noncompliant architecture fixtures unexpectedly passed" >&2

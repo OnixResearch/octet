@@ -980,6 +980,151 @@ fn execute_proof_rails_replaces_committed_receipt_at_receipt_path() {
     assert!(report.evaluated_policy_ids.iter().any(|policy_id| policy_id == PROOF_POLICY_ID));
 }
 
+#[cfg(unix)]
+#[test]
+fn architecture_check_reports_cargo_metadata_that_cannot_run() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry(&temp);
+    let workspace = write_cargo_workspace_fixture(&temp);
+    let empty_path = temp.path().join("empty-path");
+    std::fs::create_dir_all(&empty_path).expect("empty PATH dir should be created");
+
+    let output = run_architecture_check_with_path(&registry, &workspace, &empty_path);
+
+    assert_cargo_metadata_failure(&output, "`cargo metadata --format-version 1` could not run");
+}
+
+#[cfg(unix)]
+#[test]
+fn architecture_check_reports_cargo_metadata_nonzero_exit() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry(&temp);
+    let workspace = write_cargo_workspace_fixture(&temp);
+    let fake_bin = write_fake_cargo(&temp, "#!/bin/sh\necho 'error: failed to load manifest' >&2\nexit 101\n");
+
+    let output = run_architecture_check_with_path(&registry, &workspace, &fake_bin);
+
+    assert_cargo_metadata_failure(&output, "exit status: 101");
+    assert!(
+        parse_report(&output)
+            .diagnostics
+            .iter()
+            .any(|diagnostic| { diagnostic.message.contains("error: failed to load manifest") })
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn architecture_check_reports_cargo_metadata_non_utf8_output() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry(&temp);
+    let workspace = write_cargo_workspace_fixture(&temp);
+    let fake_bin = write_fake_cargo(&temp, "#!/bin/sh\nprintf '\\377\\376'\n");
+
+    let output = run_architecture_check_with_path(&registry, &workspace, &fake_bin);
+
+    assert_cargo_metadata_failure(&output, "non-UTF-8 output");
+}
+
+#[cfg(unix)]
+#[test]
+fn architecture_check_runs_cargo_metadata_for_relative_source_paths() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let mut registry_value = test_registry();
+    registry_value.policies[0].mechanisms[0].dependency_edge_kinds = vec!["normal".to_owned(), "build".to_owned()];
+    let registry = write_registry_value(&temp, &registry_value);
+    let workspace = write_cargo_workspace_fixture(&temp);
+    let fake_bin = write_fake_cargo(
+        &temp,
+        r#"#!/bin/sh
+printf '%s' '{"packages":[{"id":"core","name":"tigerstyle-core","manifest_path":"/w/crates/tigerstyle-core/Cargo.toml"},{"id":"tokio","name":"tokio","manifest_path":"/registry/tokio/Cargo.toml"}],"resolve":{"nodes":[{"id":"core","deps":[{"pkg":"tokio","dep_kinds":[{"kind":null}]}]}]},"workspace_members":["core"]}'
+"#,
+    );
+
+    let output = Command::new(binary_path())
+        .current_dir(&workspace)
+        .arg("check")
+        .arg("--registry")
+        .arg(&registry)
+        .arg("--source")
+        .arg("crates")
+        .arg("--family")
+        .arg(ARCHITECTURE_FAMILY)
+        .arg("--output")
+        .arg("json")
+        .env("PATH", &fake_bin)
+        .output()
+        .expect("standards checker should run");
+
+    assert_failure(&output);
+    let report = parse_report(&output);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| {
+            diagnostic.policy_id == FCIS_POLICY_ID
+                && diagnostic
+                    .message
+                    .contains("core crate `tigerstyle-core` depends on external infrastructure crate `tokio`")
+        }),
+        "{:?}",
+        report.diagnostics
+    );
+}
+
+fn write_cargo_workspace_fixture(temp: &TempDir) -> PathBuf {
+    let workspace = temp.path().join("workspace");
+    std::fs::create_dir_all(workspace.join("crates/tigerstyle-core/src")).expect("core crate dir should be created");
+    std::fs::write(workspace.join("Cargo.toml"), "[workspace]\nmembers = [\"crates/*\"]\n")
+        .expect("workspace manifest should be written");
+    std::fs::write(workspace.join("crates/tigerstyle-core/src/lib.rs"), "#![no_std]\n")
+        .expect("core crate root should be written");
+    workspace
+}
+
+#[cfg(unix)]
+fn write_fake_cargo(temp: &TempDir, script: &str) -> PathBuf {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    let fake_bin = temp.path().join("fake-bin");
+    std::fs::create_dir_all(&fake_bin).expect("fake cargo dir should be created");
+    let fake_cargo = fake_bin.join("cargo");
+    std::fs::write(&fake_cargo, script).expect("fake cargo should be written");
+    std::fs::set_permissions(&fake_cargo, std::fs::Permissions::from_mode(0o755))
+        .expect("fake cargo should be executable");
+    fake_bin
+}
+
+fn run_architecture_check_with_path(registry: &Path, source: &Path, path_env: &Path) -> Output {
+    Command::new(binary_path())
+        .arg("check")
+        .arg("--registry")
+        .arg(registry)
+        .arg("--source")
+        .arg(source)
+        .arg("--family")
+        .arg(ARCHITECTURE_FAMILY)
+        .arg("--output")
+        .arg("json")
+        .env("PATH", path_env)
+        .output()
+        .expect("standards checker should run")
+}
+
+fn assert_cargo_metadata_failure(output: &Output, expected_message: &str) {
+    assert_failure(output);
+    let report = parse_report(output);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| {
+            diagnostic.policy_id == FCIS_POLICY_ID
+                && diagnostic.severity == Severity::Error
+                && diagnostic.path.ends_with("workspace/Cargo.toml")
+                && diagnostic.message.contains("cargo metadata")
+                && diagnostic.message.contains(expected_message)
+        }),
+        "expected cargo metadata failure `{expected_message}`, got {:?}",
+        report.diagnostics
+    );
+}
+
 fn export_artifacts(registry: &Path, artifact_dir: &Path) {
     let output = Command::new(binary_path())
         .arg("export-artifacts")

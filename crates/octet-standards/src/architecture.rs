@@ -267,6 +267,13 @@ fn mechanism_field_or_fallback(
     )
 }
 
+/// Returns true when the registry activates the FCIS crate-boundary mechanism, whose
+/// dependency-direction check consumes `cargo metadata --format-version 1` output.
+#[must_use]
+pub fn crate_boundary_mechanism_active(registry: &PolicyRegistry) -> bool {
+    registry.policy_by_id(FCIS_POLICY_ID).and_then(CrateBoundaryObligations::from_policy).is_some()
+}
+
 /// Runs architecture policy checks over source files.
 #[must_use]
 pub fn check_architecture(
