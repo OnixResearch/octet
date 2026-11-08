@@ -32,6 +32,13 @@ baselines and warning budgets can see new stable IDs; refresh them deliberately.
   `assertion_density` counts `debug_assert!` once instead of twice.
 - `compound_assertion` ignores `&&`/`||` inside the panic message, and its
   split fix stays valid in match arms and closures.
+- `unchecked_division` matches zero guards to the divisor variable instead of
+  source text: an `== 0` check clears only its else-branch or code after an
+  early return, and a guard on another variable (`len` vs `n`) or an assert
+  after the division no longer hides a finding. `unchecked_narrowing` requires
+  a lower bound before accepting an upper-bound guard or `.min(..)` on a signed
+  value, honors `#[allow]`/`#[expect(clippy::cast_possible_truncation)]` on
+  impl and trait methods, and no longer treats `#[deny(...)]` as an allow.
 - `acronym_style` no longer flags one-letter words such as `XAxis` and checks
   every acronym against `acronym_allowlist`. `path_segment_repetition` and
   `renamed_imports` take their compatibility exemption only from the comment
