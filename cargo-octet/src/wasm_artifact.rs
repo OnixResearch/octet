@@ -1687,6 +1687,13 @@ fn validate_profiles(profiles: &[WasmArtifactProfile], diagnostics: &mut Vec<Str
                 profile.profile_id, profile.producer_metadata
             ));
         }
+        if !matches!(profile.duplicate_custom_sections.as_str(), "allow" | "reject") {
+            diagnostics.push(format!(
+                "Wasm artifact profile `{}` has unsupported duplicate custom section posture `{}`",
+                profile.profile_id, profile.duplicate_custom_sections
+            ));
+        }
+        validate_severities(profile, diagnostics);
         if profile.component_interface.as_deref().is_some_and(|format| format != "structural-v1") {
             diagnostics
                 .push(format!("Wasm artifact profile `{}` has unknown component interface format", profile.profile_id));
@@ -1718,6 +1725,30 @@ fn validate_profiles(profiles: &[WasmArtifactProfile], diagnostics: &mut Vec<Str
         if !matches!(profile.verification_role.as_str(), RECORDED_ONLY_ROLE | "boundary") {
             diagnostics.push(format!(
                 "Wasm artifact profile `{}` requests an unsupported verification role",
+                profile.profile_id
+            ));
+        }
+    }
+}
+
+fn validate_severities(profile: &WasmArtifactProfile, diagnostics: &mut Vec<String>) {
+    let severity = &profile.severity;
+    for (field, value) in [
+        ("malformed", &severity.malformed),
+        ("disallowed_kind", &severity.disallowed_kind),
+        ("disallowed_import", &severity.disallowed_import),
+        ("disallowed_world", &severity.disallowed_world),
+        ("resource_limit", &severity.resource_limit),
+        ("growth", &severity.growth),
+        ("start", &severity.start),
+        ("duplicate_metadata", &severity.duplicate_metadata),
+        ("abi_mismatch", &severity.abi_mismatch),
+        ("external_evidence", &severity.external_evidence),
+        ("cohort_drift", &severity.cohort_drift),
+    ] {
+        if !matches!(value.as_str(), "advisory" | "warning" | ERROR_SEVERITY) {
+            diagnostics.push(format!(
+                "Wasm artifact profile `{}` has unsupported {field} severity `{value}`",
                 profile.profile_id
             ));
         }
@@ -2931,6 +2962,24 @@ mod tests {
                 .iter()
                 .any(|diagnostic| diagnostic.contains("interface_identity does not match"))
         );
+    }
+
+    #[test]
+    fn registry_rejects_unknown_severity_and_duplicate_section_postures() {
+        let mut registry = valid_registry();
+        "Error".clone_into(&mut registry.profiles[0].severity.malformed);
+        "fatal".clone_into(&mut registry.profiles[0].severity.cohort_drift);
+        "Reject".clone_into(&mut registry.profiles[0].duplicate_custom_sections);
+
+        let diagnostics = validate_registry(&registry);
+
+        for expected in [
+            "unsupported malformed severity `Error`",
+            "unsupported cohort_drift severity `fatal`",
+            "unsupported duplicate custom section posture `Reject`",
+        ] {
+            assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains(expected)), "{expected}: {diagnostics:?}");
+        }
     }
 
     fn analyze(bytes: &[u8], registry: &WasmProfileRegistry, parents: &[String]) -> WasmArtifactEnvelope {
