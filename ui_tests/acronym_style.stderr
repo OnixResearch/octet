@@ -29,5 +29,20 @@ LL - enum SQLQuery {
 LL + enum SqlQuery {
    |
 
-warning: 2 warnings emitted
+warning: `HTTPRequestJSONBody` has acronym-style capitalization
+  --> $DIR/acronym_style.rs:32:8
+   |
+LL | struct HTTPRequestJSONBody {
+   |        ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Acronym Capitalization): capitalize acronyms like ordinary words in type and variant names Example: RpcHandler
+   = note: structured suggestion applicability: MaybeIncorrect
+   = note: see Tiger Style guide: Acronym Capitalization
+help: rename `HTTPRequestJSONBody` to `HttpRequestJsonBody`
+   |
+LL - struct HTTPRequestJSONBody {
+LL + struct HttpRequestJsonBody {
+   |
+
+warning: 3 warnings emitted
 
