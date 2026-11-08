@@ -394,7 +394,14 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
                 };
             integrated_closure_artifacts = Some(closure);
         }
-        let base_outcome = if architecture_error.is_some() {
+        // Every Cargo subprocess (including the integrated closure above) has finished; guard the lockfile
+        // before the bundle, summary, and exit code are settled so they all report the same final result.
+        let lockfile_error = if skip_lockfile_guard {
+            None
+        } else {
+            restore_changed_lockfile(&lockfile_path, &lockfile_before)?
+        };
+        let base_outcome = if architecture_error.is_some() || lockfile_error.is_some() {
             lint_outcome.force_integration_failure()
         } else if let Some(project) = &project_architecture_artifacts {
             match project.receipt.status {
@@ -415,6 +422,13 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
         } else {
             lint_outcome.clone()
         };
+        let run_error = [
+            architecture_error.or_else(|| terminated_run_error(&lint_outcome)),
+            lockfile_error,
+        ]
+        .into_iter()
+        .flatten()
+        .reduce(|primary, secondary| format!("{primary}; {secondary}"));
         let architecture_run_artifacts = ArchitectureRunArtifacts {
             compiler: architecture_artifacts,
             project: project_architecture_artifacts,
@@ -430,7 +444,7 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
             function_address_artifact,
             architecture_run_artifacts,
             &lint_outcome,
-            architecture_error,
+            run_error,
         )?;
 
         if let Some(structured_output) = finalized_run.run_artifacts.structured_output.as_ref() {
@@ -449,10 +463,7 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
         }
     })();
 
-    if !skip_lockfile_guard && lockfile_changed(&lockfile_path, &lockfile_before)? {
-        restore_lockfile(&lockfile_path, &lockfile_before)?;
-        let lockfile_error =
-            format!("cargo octet check modified {}; restored the original lockfile", lockfile_path.display());
+    if !skip_lockfile_guard && let Some(lockfile_error) = restore_changed_lockfile(&lockfile_path, &lockfile_before)? {
         return Err(match result {
             Err(error) => format!("{error}; {lockfile_error}"),
             Ok(_) => lockfile_error,
@@ -599,10 +610,8 @@ fn finalize_run(
     function_address_artifact: Option<StructuredArtifact>,
     architecture_artifacts: ArchitectureRunArtifacts,
     lint_outcome: &output::RunOutcome,
-    architecture_error: Option<String>,
+    run_error: Option<String>,
 ) -> Result<FinalizedRun, String> {
-    let terminated_error = architecture_error.or_else(|| terminated_run_error(&base_outcome));
-
     let Some(artifact_dir) = check.artifact_dir.as_deref() else {
         return Ok(FinalizedRun {
             outcome: base_outcome.clone(),
@@ -617,7 +626,7 @@ fn finalize_run(
                 architecture_artifacts,
                 lint_outcome,
             )?,
-            error: terminated_error,
+            error: run_error,
         });
     };
 
@@ -638,7 +647,7 @@ fn finalize_run(
                     architecture_artifacts,
                     lint_outcome,
                 )?,
-                error: Some(combine_errors(error, terminated_error)),
+                error: Some(combine_errors(error, run_error)),
             });
         }
     };
@@ -658,7 +667,7 @@ fn finalize_run(
         Ok(()) => Ok(FinalizedRun {
             outcome: base_outcome,
             run_artifacts: initial_artifacts,
-            error: terminated_error,
+            error: run_error,
         }),
         Err(error) => {
             let final_outcome = base_outcome.force_integration_failure();
@@ -678,7 +687,7 @@ fn finalize_run(
             Ok(FinalizedRun {
                 outcome: final_outcome,
                 run_artifacts: final_artifacts,
-                error: Some(combine_errors(error, terminated_error)),
+                error: Some(combine_errors(error, run_error)),
             })
         }
     }
@@ -1694,6 +1703,16 @@ fn restore_lockfile(path: &Path, before: &LockfileSnapshot) -> Result<(), String
             .map_err(|error| format!("remove {}: {error}", path.display())),
         LockfileSnapshot::Present(original) => write_bytes(path, original),
     }
+}
+
+/// Restores `Cargo.lock` when a Cargo subprocess changed it and returns the fail-closed error to
+/// report.
+fn restore_changed_lockfile(path: &Path, before: &LockfileSnapshot) -> Result<Option<String>, String> {
+    if !lockfile_changed(path, before)? {
+        return Ok(None);
+    }
+    restore_lockfile(path, before)?;
+    Ok(Some(format!("cargo octet check modified {}; restored the original lockfile", path.display())))
 }
 
 fn write_bytes(path: &Path, bytes: &[u8]) -> Result<(), String> {

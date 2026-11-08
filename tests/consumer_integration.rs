@@ -1128,6 +1128,65 @@ fn lockfile_mutation_restores_original_and_exits_two() {
 }
 
 #[test]
+fn lockfile_mutation_artifact_bundle_reports_final_exit_code() {
+    let fixture =
+        ConsumerFixture::new("lockfile-restore-artifact-dir", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let dir = artifact_dir(&fixture, "lockfile-mutation");
+    let stdout_file = write_json_stdout_file(&fixture, &[cargo_build_finished(true)]);
+    let output = fixture.run_with_launcher_and_env(
+        None,
+        &[("TS_STDOUT_FILE", stdout_file.to_str().expect("stdout file utf8"))],
+        &[
+            "--output-format",
+            SARIF_OUTPUT_FORMAT,
+            "--artifact-dir",
+            dir.to_str().expect("artifact dir utf8"),
+        ],
+        EXIT_CODE_SUCCESS,
+        true,
+        Some("nightly-2026-03-21-x86_64-unknown-linux-gnu"),
+        Some(fixture.driver_path.as_path()),
+        Some(fixture.lint_lib_path.as_path()),
+        None,
+    );
+
+    assert_eq!(
+        output.status.code(),
+        Some(EXIT_CODE_INTEGRATION_FAILURE),
+        "lockfile mutation should exit 2: stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(fixture.lockfile(), fixture.original_lockfile, "lockfile should be restored after mutation");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("restored the original lockfile"),
+        "lockfile mutation should report the restore: {stderr}"
+    );
+    assert!(
+        stderr.contains("Status: integration-failure"),
+        "lockfile mutation summary should report integration-failure: {stderr}"
+    );
+
+    let status = read_json_artifact(&dir.join(STATUS_JSON_FILE));
+    assert_eq!(status["status"], STATUS_INTEGRATION_FAILURE);
+    assert_eq!(status["exit_code"], output.status.code().expect("lockfile mutation exit code"));
+    let summary = read_artifact(&dir.join(SUMMARY_TXT_FILE));
+    assert!(
+        summary.contains("Status: integration-failure"),
+        "lockfile mutation summary.txt should report integration-failure: {summary}"
+    );
+    let sarif = read_json_artifact(&dir.join(RESULTS_SARIF_FILE));
+    assert_eq!(sarif["runs"][0]["properties"]["status"], STATUS_INTEGRATION_FAILURE);
+    assert_eq!(
+        sarif["runs"][0]["invocations"][0]["exitCode"],
+        output.status.code().expect("lockfile mutation exit code")
+    );
+    assert_eq!(sarif["runs"][0]["invocations"][0]["executionSuccessful"], false);
+    assert_provenance_matches_artifacts(&dir, SARIF_OUTPUT_FORMAT);
+}
+
+#[test]
 fn missing_lockfile_mutation_removes_generated_lockfile_and_exits_two() {
     let fixture = ConsumerFixture::new("missing-lockfile-restore", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
     fs::remove_file(fixture.repo.join("Cargo.lock")).expect("remove consumer Cargo.lock before test");
