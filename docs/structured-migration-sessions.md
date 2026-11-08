@@ -25,7 +25,7 @@ cargo octet migrate session status --session migration-session.json --output-for
 cargo octet migrate session verify --session migration-session.json --output-format json
 ```
 
-Verification fails closed for missing pointer identities, unknown migration kinds, unknown compatibility classes, unknown surface mutability, operation kinds, or safety classes, stale BLAKE3 pairs, missing alias coverage, missing removal boundaries, and archive/read-only rewrites. Every `rewrite` or `replace` operation must target a declared affected surface; a `mutable-archive` target also needs an `archive_mutation_rationale`.
+Verification fails closed for missing pointer identities, unknown migration kinds, unknown compatibility classes, unknown surface mutability, operation kinds, or safety classes, stale BLAKE3 pairs, missing alias coverage, missing removal boundaries, and archive/read-only rewrites. Each `affected_surfaces` locator may appear only once, so a `live` entry cannot shadow an `archive-read-only` entry for the same path. Every `rewrite` or `replace` operation must target a declared affected surface; a `mutable-archive` target also needs an `archive_mutation_rationale`.
 
 ## Guarded apply
 

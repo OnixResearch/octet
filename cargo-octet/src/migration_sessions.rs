@@ -1,5 +1,7 @@
 #![allow(clippy::module_name_repetitions)]
 
+use std::collections::BTreeSet;
+
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -388,6 +390,7 @@ fn validate_surfaces(session: &StructuredMigrationSession, diagnostics: &mut Vec
     if session.affected_surfaces.is_empty() {
         diagnostics.push("affected_surfaces missing".to_owned());
     }
+    let mut seen_locators = BTreeSet::new();
     for surface in &session.affected_surfaces {
         require_non_empty(&surface.surface_kind, "affected_surface.surface_kind", diagnostics);
         require_non_empty(&surface.locator, "affected_surface.locator", diagnostics);
@@ -398,6 +401,9 @@ fn validate_surfaces(session: &StructuredMigrationSession, diagnostics: &mut Vec
             &surface.locator,
             diagnostics,
         );
+        if !seen_locators.insert(surface.locator.as_str()) {
+            diagnostics.push(format!("affected_surface.duplicate_locator `{}`", surface.locator));
+        }
     }
 }
 
@@ -430,20 +436,23 @@ fn validate_mutating_operation(
     surfaces: &[MigrationAffectedSurface],
     diagnostics: &mut Vec<String>,
 ) {
-    let Some(surface) = surfaces.iter().find(|surface| surface.locator == operation.target_locator) else {
+    let mut targets = surfaces.iter().filter(|surface| surface.locator == operation.target_locator).peekable();
+    if targets.peek().is_none() {
         diagnostics.push(format!(
             "planned_operation.undeclared_target `{}` targets `{}` outside affected_surfaces",
             operation.operation_id, operation.target_locator
         ));
         return;
-    };
-    if surface.mutability == MUTABILITY_ARCHIVE_READ_ONLY {
+    }
+    let mutabilities: BTreeSet<&str> = targets.map(|surface| surface.mutability.as_str()).collect();
+    if mutabilities.contains(MUTABILITY_ARCHIVE_READ_ONLY) {
         diagnostics.push(format!(
             "archive_boundary.read_only_rewrite `{}` targets `{}`",
             operation.operation_id, operation.target_locator
         ));
     }
-    if surface.mutability == MUTABILITY_MUTABLE_ARCHIVE && blank_option(operation.archive_mutation_rationale.as_deref())
+    if mutabilities.contains(MUTABILITY_MUTABLE_ARCHIVE)
+        && blank_option(operation.archive_mutation_rationale.as_deref())
     {
         diagnostics
             .push(format!("archive_boundary.mutable_archive_rationale missing for `{}`", operation.operation_id));
@@ -593,6 +602,34 @@ mod tests {
                 .iter()
                 .any(|diagnostic| diagnostic.contains("archive_boundary.read_only_rewrite"))
         );
+    }
+
+    #[test]
+    fn archive_boundary_rejects_read_only_rewrite_shadowed_by_duplicate_live_locator() {
+        let mut session = valid_session();
+        session.affected_surfaces.insert(0, MigrationAffectedSurface {
+            surface_kind: "doc".to_owned(),
+            locator: ARCHIVE_DOC.to_owned(),
+            mutability: "live".to_owned(),
+            identity: None,
+        });
+        session
+            .planned_operations
+            .push(planned_operation("rewrite-archive", OPERATION_REWRITE, ARCHIVE_DOC));
+
+        let report = verify_report(&session);
+
+        assert!(!report.valid, "a live duplicate must not shadow the archive-read-only surface");
+        for expected in [
+            "affected_surface.duplicate_locator",
+            "archive_boundary.read_only_rewrite",
+        ] {
+            assert!(
+                report.diagnostics.iter().any(|diagnostic| diagnostic.contains(expected)),
+                "{expected}: {:?}",
+                report.diagnostics
+            );
+        }
     }
 
     #[test]
