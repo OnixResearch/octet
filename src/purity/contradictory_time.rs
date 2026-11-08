@@ -33,37 +33,42 @@ fn is_time_param_name(name: &str) -> bool {
     TIME_NAMES.contains(&name) || TIME_SUFFIXES.iter().any(|s| name.ends_with(s))
 }
 
+/// Def paths of the system-clock reads this lint recognizes.
+const SYSTEM_CLOCK_NOW_PATHS: &[&[&str]] = &[&["std", "time", "Instant", "now"], &[
+    "std",
+    "time",
+    "SystemTime",
+    "now",
+]];
+
 /// Visitor that checks if a function body contains `Instant::now()` or
 /// `SystemTime::now()` calls.
-struct TimeCallFinder {
+struct TimeCallFinder<'a, 'tcx> {
+    cx: &'a LateContext<'tcx>,
     found: Option<Span>,
 }
 
-fn qpath_calls_now(qpath: &hir::QPath<'_>) -> bool {
-    match qpath {
-        hir::QPath::Resolved(_, path) => {
-            path.segments.last().is_some_and(|segment| segment.ident.name.as_str() == "now")
-        }
-        hir::QPath::TypeRelative(_, segment) => segment.ident.name.as_str() == "now",
-    }
+fn calls_system_clock_now(cx: &LateContext<'_>, callee: &hir::Expr<'_>) -> bool {
+    let ExprKind::Path(qpath) = &callee.kind else {
+        return false;
+    };
+    let hir::def::Res::Def(_, did) = cx.typeck_results().qpath_res(qpath, callee.hir_id) else {
+        return false;
+    };
+    let def_path = cx.get_def_path(did);
+    SYSTEM_CLOCK_NOW_PATHS
+        .iter()
+        .any(|path| def_path.iter().copied().eq(path.iter().map(|segment| rustc_span::Symbol::intern(segment))))
 }
 
-impl<'tcx> Visitor<'tcx> for TimeCallFinder {
+impl<'tcx> Visitor<'tcx> for TimeCallFinder<'_, 'tcx> {
     fn visit_expr(&mut self, expr: &'tcx hir::Expr<'tcx>) {
         if self.found.is_some() {
             return;
         }
 
         if let ExprKind::Call(func, _) = &expr.kind
-            && let ExprKind::Path(qpath) = &func.kind
-            && qpath_calls_now(qpath)
-        {
-            self.found = Some(expr.span);
-            return;
-        }
-
-        if let ExprKind::MethodCall(segment, _, _, _) = &expr.kind
-            && segment.ident.name.as_str() == "now"
+            && calls_system_clock_now(self.cx, func)
         {
             self.found = Some(expr.span);
             return;
@@ -96,8 +101,8 @@ impl<'tcx> LateLintPass<'tcx> for ContradictoryTime {
             return;
         }
 
-        // Walk the body looking for .now() calls
-        let mut finder = TimeCallFinder { found: None };
+        // Walk the body looking for `Instant::now()` / `SystemTime::now()` calls
+        let mut finder = TimeCallFinder { cx, found: None };
         finder.visit_expr(body.value);
 
         if let Some(call_span) = finder.found {
