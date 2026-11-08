@@ -673,6 +673,11 @@ pub(crate) fn validate_receipt_details(
             diagnostics.push(format!("Wasm artifact {field} must be a BLAKE3 identity"));
         }
     }
+    if is_blake3_identity(&details.interface_identity)
+        && details.interface_identity != interface_identity(&details.facts)
+    {
+        diagnostics.push("Wasm artifact interface_identity does not match its recorded interface facts".to_owned());
+    }
     if details.input_artifact != INPUT_ARTIFACT_NAME {
         diagnostics.push(format!("Wasm artifact input must be `{INPUT_ARTIFACT_NAME}`"));
     }
@@ -2879,6 +2884,53 @@ mod tests {
                 evaluation.diagnostics
             );
         }
+    }
+
+    #[test]
+    fn receipt_validation_recomputes_interface_identity_from_facts() {
+        let registry = valid_registry();
+        let module = wat::parse_str("(module)").expect("module fixture");
+        let mut report = analyze(&module, &registry, &[]);
+        report.details.facts.imports.push(WasmInterfaceItem {
+            namespace: "env".to_owned(),
+            name: "injected".to_owned(),
+            kind: "func".to_owned(),
+        });
+
+        let evaluation = evaluate_envelope(&render_envelope(&report).expect("render envelope"));
+
+        assert_eq!(evaluation.status, WasmEvaluationStatus::Failed);
+        assert!(
+            evaluation
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("interface_identity does not match"))
+        );
+
+        let module =
+            wat::parse_str(include_str!("../../standards/wasm-artifact/spacewasm/fixtures/positive/mvp-module.wat"))
+                .expect("SpaceWasm module fixture");
+        let mut report = analyze_profile(&module, &registry, SPACEWASM_PROFILE_ID, &[]);
+        let untampered = evaluate_envelope(&render_envelope(&report).expect("render envelope"));
+        assert!(untampered.diagnostics.is_empty(), "{:?}", untampered.diagnostics);
+        report
+            .details
+            .facts
+            .function_abis
+            .first_mut()
+            .expect("SpaceWasm function ABI")
+            .results
+            .push("i64".to_owned());
+
+        let evaluation = evaluate_envelope(&render_envelope(&report).expect("render envelope"));
+
+        assert_eq!(evaluation.status, WasmEvaluationStatus::Failed);
+        assert!(
+            evaluation
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("interface_identity does not match"))
+        );
     }
 
     fn analyze(bytes: &[u8], registry: &WasmProfileRegistry, parents: &[String]) -> WasmArtifactEnvelope {

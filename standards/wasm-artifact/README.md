@@ -20,7 +20,7 @@ cargo octet evidence collect \
 cargo octet artifact verify --artifact-dir artifacts/wasm-artifact
 ```
 
-The bundle includes `wasm-artifact.bin`, exact-byte and normalized-interface identities, extracted facts, ordered JSON findings, a SARIF projection, profile/cohort identities, provenance, and explicit non-claims.
+The bundle includes `wasm-artifact.bin`, exact-byte and normalized-interface identities, extracted facts, ordered JSON findings, a SARIF projection, profile/cohort identities, provenance, and explicit non-claims. Verification recomputes the normalized-interface identity from the recorded facts and rejects a receipt whose stored identity differs.
 
 ## Molten effect surface
 
