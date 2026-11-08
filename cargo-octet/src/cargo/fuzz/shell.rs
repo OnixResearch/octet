@@ -124,6 +124,13 @@ pub fn run_with(
 ) -> Result<(String, i32), String> {
     let workspace_root = std::fs::canonicalize(workspace_root)
         .map_err(|error| format!("canonicalize cargo-fuzz workspace {}: {error}", workspace_root.display()))?;
+    // libFuzzer names crash files by content hash, so a rediscovered crash rewrites an earlier
+    // file; only an empty artifact directory proves every crash role came from this run.
+    if !snapshot(&workspace_root, ARTIFACT_DIRECTORY)?.is_empty() {
+        return Err(format!(
+            "cargo-fuzz artifact directory {ARTIFACT_DIRECTORY} must be empty before a run; move earlier crash artifacts aside"
+        ));
+    }
     let initial_corpus = snapshot(&workspace_root, CORPUS_DIRECTORY)?;
     let command_argv = command_argv();
     let args = command_argv
@@ -411,6 +418,37 @@ mod tests {
         let error = run_fixture(directory.path(), &tools, limits).expect_err("timed-out cargo-fuzz run must fail");
         assert!(error.contains("TimedOut"), "{error}");
         assert!(started.elapsed() < std::time::Duration::from_secs(FIXTURE_DEADLINE_SECONDS));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn earlier_run_artifacts_cannot_decide_the_outcome() {
+        let directory = tempfile::tempdir().expect("create cargo-fuzz stale artifact fixture");
+        let artifacts = directory.path().join(ARTIFACT_DIRECTORY);
+        std::fs::create_dir_all(&artifacts).expect("create artifact directory");
+        std::fs::write(artifacts.join(format!("{CRASH_PREFIX}old")), SEED_BYTES).expect("write stale crash");
+        std::fs::write(artifacts.join(format!("{MINIMIZED_PREFIX}old")), SEED_BYTES).expect("write stale reproducer");
+        let cargo = write_fixture_cargo(directory.path(), "exit 101\n");
+        let tools = RuntimeTools {
+            cargo,
+            environment: Vec::new(),
+        };
+        let error = run_fixture(directory.path(), &tools, run_limits().expect("limits"))
+            .expect_err("stale crash artifacts must not classify a build failure as a crash");
+        assert!(error.contains("artifact directory"), "{error}");
+
+        for name in [format!("{CRASH_PREFIX}old"), format!("{MINIMIZED_PREFIX}old")] {
+            std::fs::remove_file(artifacts.join(name)).expect("clear stale artifact");
+        }
+        write_fixture_cargo(
+            directory.path(),
+            &format!("printf new > {ARTIFACT_DIRECTORY}/{CRASH_PREFIX}new\nexit 1\n"),
+        );
+        let (rendered, _) =
+            run_fixture(directory.path(), &tools, run_limits().expect("limits")).expect("fresh crash run");
+        let details: ReceiptDetails = serde_json::from_str(&rendered).expect("parse cargo-fuzz receipt");
+        assert_eq!(details.outcome, "crash");
+        assert_eq!(details.crash_input.expect("fresh crash").path, format!("{ARTIFACT_DIRECTORY}/{CRASH_PREFIX}new"));
     }
 
     #[test]
