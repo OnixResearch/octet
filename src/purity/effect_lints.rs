@@ -721,10 +721,6 @@ fn span_snippet(cx: &LateContext<'_>, span: Span) -> Option<String> {
     cx.sess().source_map().span_to_snippet(span.source_callsite()).ok()
 }
 
-fn expr_snippet(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> Option<String> {
-    span_snippet(cx, expr.span)
-}
-
 fn fn_snippet(cx: &LateContext<'_>, body: &hir::Body<'_>, span: Span) -> Option<String> {
     span_snippet(cx, span).or_else(|| span_snippet(cx, body.value.span))
 }
@@ -937,10 +933,10 @@ impl<'tcx> LateLintPass<'tcx> for InteriorMutabilityInCore {
         {
             return;
         }
-        let Some(source) = expr_snippet(cx, expr) else {
+        let Some(callee) = direct_call_callee_snippet(cx, expr) else {
             return;
         };
-        if !contains_interior_mutability(&source) {
+        if !contains_interior_mutability(&callee) {
             return;
         }
         emit(
