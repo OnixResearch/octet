@@ -419,16 +419,19 @@ checks.${system}.octet-standards = octet.lib.mkPolicyArtifactConsumerCheck {
     "crates/my-shell"
   ];
   expectedDiagnostics = 0;
-  requiredPolicyIds = [ "octet.embedded.bounded-queues" ];
+  requiredPolicyIds = [ "tigerstyle.embedded.bounded-queues" ];
 };
 ```
 
 The helper exports and asserts the generated bundle files, copies the consumer
 source into the check sandbox, runs `octet-standards check
 --policy-artifacts-dir ...`, asserts the expected diagnostic count, and can
-assert required policy IDs are present in the policy-evaluation metadata. For
+assert required policy IDs are present in the policy-evaluation metadata. With
+`expectedDiagnostics = 0` the checker must exit 0; with a nonzero count, its
+blocking-findings exit is accepted only when the JSON report carries blocking
+diagnostics, so configuration or usage errors still fail the check. For
 `family = "embedded"`, the generated artifact drives the
-`octet.embedded.bounded-queues` structural gate: forbidden unbounded
+`tigerstyle.embedded.bounded-queues` structural gate: forbidden unbounded
 constructors fail, while approved bounded APIs or wrappers need explicit
 capacity/backpressure witnesses. Legacy `slotcar.*` policy IDs are compatibility
 aliases only when a specific policy contract says so.

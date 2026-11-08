@@ -41,7 +41,7 @@ checks.${system}.octet-standards-artifacts =
       "crates/aspen-rpc-handlers"
     ];
     expectedDiagnostics = 0;
-    requiredPolicyIds = [ "octet.embedded.bounded-queues" ];
+    requiredPolicyIds = [ "tigerstyle.embedded.bounded-queues" ];
   };
 ```
 
@@ -68,7 +68,7 @@ nix run .#octet-standards -- check \
   --output json > "$out_json"
 jq '{diagnostics:(.diagnostics|length), active_suppressions:(.active_suppressions|length), evaluated:(.evaluated_policy_ids|length), structural:any(.policy_evaluations[]; .target_enforcement_mode=="structural")}' "$out_json"
 jq --exit-status '.diagnostics | length == 0' "$out_json" >/dev/null
-jq --exit-status 'any(.policy_evaluations[]; .policy_id == "octet.embedded.bounded-queues" and .target_enforcement_mode == "structural")' "$out_json" >/dev/null
+jq --exit-status 'any(.policy_evaluations[]; .policy_id == "tigerstyle.embedded.bounded-queues" and .target_enforcement_mode == "structural")' "$out_json" >/dev/null
 ```
 
 ## Captured result
@@ -98,7 +98,7 @@ and the command exited successfully.
 - Aspen's selected production crates have zero `embedded` family diagnostics for
   the artifact-backed bounded-queue structural policy.
 - The JSON report still carries structural policy-evaluation metadata, including
-  `octet.embedded.bounded-queues` with `target_enforcement_mode =
+  `tigerstyle.embedded.bounded-queues` with `target_enforcement_mode =
   "structural"`.
 - The bounded-queue policy is now a hard structural gate: the generated bundle
   exports forbidden unbounded constructors, approved bounded APIs/wrapper scopes,
