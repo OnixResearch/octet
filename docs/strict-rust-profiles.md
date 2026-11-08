@@ -63,7 +63,7 @@ cargo octet check \
 cargo octet artifact verify --artifact-dir artifacts/octet
 ```
 
-An explicit operator mode stronger than a profile floor is preserved. Explicit function-address paths and baselines are also preserved; a profile only supplies paths when none were requested.
+An explicit operator mode stronger than a profile floor is preserved. Explicit function-address paths and baselines are also preserved; a profile only supplies paths when none were requested. `--function-address-path` and `--function-address-baseline` need `--function-addresses observe|warn|deny` or a strict profile (from `--profile` or an architecture admission binding), and each path must stay inside the workspace root; otherwise the check exits 2 before Cargo runs.
 
 Function-address evidence remains source-scanner identity. It does not establish HIR/MIR equivalence, semantic dependency closure, compiler correctness, whole-program safety, verifier soundness, or release eligibility.
 
