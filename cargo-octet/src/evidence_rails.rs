@@ -2935,20 +2935,29 @@ fn verifier_fixture_entry(item: &serde_json::Value) -> VerifierFixtureEntry {
     }
 }
 
-fn contains_verifier_fixture_overclaim(text: &str) -> bool {
-    for marker in [
+fn contains_verifier_fixture_overclaim(role: &str) -> bool {
+    contains_role_marker(role, &[
+        "formal proof",
         "verifier parity",
         "proof soundness",
         "solver soundness",
         "source correctness",
-        "whole-program safety",
+        "whole program safety",
         "release eligibility",
-    ] {
-        if text.contains(marker) {
-            return true;
-        }
-    }
-    false
+    ])
+}
+
+/// Matches space-separated lowercase `markers` against `role` after folding case and treating
+/// `_`, `-`, and whitespace runs as one separator, so `formal_proof`, `Formal Proof`, and
+/// `FORMAL-PROOF` all hit the `formal proof` marker.
+fn contains_role_marker(role: &str, markers: &[&str]) -> bool {
+    let normalized = role
+        .to_lowercase()
+        .split(|character: char| character == '_' || character == '-' || character.is_whitespace())
+        .filter(|word| !word.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ");
+    markers.iter().any(|marker| normalized.contains(marker))
 }
 
 fn verifier_fixture_finding(family: &str, severity: &str, message: &str) -> EvidenceRailFinding {
@@ -3134,21 +3143,16 @@ fn z4_diagnostic_severity(severity: &str) -> &str {
     }
 }
 
-fn contains_z4_overclaim(text: &str) -> bool {
-    for marker in [
+fn contains_z4_overclaim(role: &str) -> bool {
+    contains_role_marker(role, &[
         "formal proof",
         "proves correctness",
         "proves proof validity",
         "proves solver soundness",
         "proves requirement satisfaction",
         "release eligibility",
-        "whole-program correctness",
-    ] {
-        if text.contains(marker) {
-            return true;
-        }
-    }
-    false
+        "whole program correctness",
+    ])
 }
 
 fn z4_finding(family: &str, severity: &str, message: &str) -> EvidenceRailFinding {
@@ -6291,6 +6295,40 @@ mod tests {
         let mut drifted = unsat.clone();
         drifted.rail_id = EvidenceRailKind::DependencyAudit.as_str().to_owned();
         assert!(validate_receipt(&drifted).iter().any(|diagnostic| diagnostic.contains("only valid")));
+    }
+
+    #[test]
+    fn z4_and_verifier_fixture_role_promotion_is_rejected_regardless_of_spelling() {
+        for role in [
+            "formal_proof",
+            "Formal Proof",
+            "FORMAL-PROOF",
+            "proves_correctness",
+            "Release-Eligibility",
+        ] {
+            let mut value: serde_json::Value =
+                serde_json::from_str(include_str!("../tests/fixtures/evidence-rails/z4-solver-unsat-proof.json"))
+                    .expect("parse Z4 fixture");
+            value["verification_role"] = serde_json::Value::from(role);
+            let receipt = z4_receipt(&value.to_string());
+            assert_eq!(receipt.status, STATUS_FAILED, "{role}");
+            assert!(receipt.diagnostics.iter().any(|diagnostic| diagnostic.contains("overclaim")), "{role}");
+        }
+
+        for role in [
+            "formal_proof",
+            "Proof_Soundness regression input",
+            "VERIFIER-PARITY",
+            "whole_program_safety",
+        ] {
+            let mut value: serde_json::Value =
+                serde_json::from_str(include_str!("../tests/fixtures/evidence-rails/verifier-fixture-positive.json"))
+                    .expect("parse verifier fixture");
+            value["fixtures"][0]["fixture_role"] = serde_json::Value::from(role);
+            let receipt = verifier_fixture_receipt(&value.to_string());
+            assert_eq!(receipt.status, STATUS_FAILED, "{role}");
+            assert!(receipt.diagnostics.iter().any(|diagnostic| diagnostic.contains("overclaim")), "{role}");
+        }
     }
 
     #[test]
