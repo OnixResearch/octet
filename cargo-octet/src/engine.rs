@@ -969,25 +969,26 @@ fn update_lint_cache(workspace_root: &Path, findings: &mut [Finding]) -> Result<
         None => std::collections::BTreeSet::new(),
     };
 
-    let mut changed = false;
+    // Hit/miss is decided against the cache as read before this run; IDs first seen in this run are
+    // merged afterwards, so repeated semantic IDs within one cold run all report `miss`.
+    let mut new_ids = Vec::new();
     for finding in findings {
         if finding.identity_status != "computed" {
             finding.cache_status.clear();
             finding.cache_status.push_str("bypassed");
             continue;
         }
+        finding.cache_status.clear();
         if cached.contains(&finding.semantic_id) {
-            finding.cache_status.clear();
             finding.cache_status.push_str("hit");
         } else {
-            cached.insert(finding.semantic_id.clone());
-            finding.cache_status.clear();
             finding.cache_status.push_str("miss");
-            changed = true;
+            new_ids.push(finding.semantic_id.clone());
         }
     }
 
-    if changed {
+    if !new_ids.is_empty() {
+        cached.extend(new_ids);
         let mut rendered =
             serde_json::to_string_pretty(&cached).map_err(|error| format!("serialize lint cache: {error}"))?;
         rendered.push('\n');
@@ -1931,6 +1932,52 @@ mod tests {
                     .contains("escapes")
             );
         }
+    }
+
+    #[test]
+    fn lint_cache_labels_duplicate_semantic_ids_against_pre_run_cache() {
+        fn cached_finding(index: &str, semantic_id: &str) -> super::Finding {
+            super::Finding {
+                version: 2,
+                index: index.to_owned(),
+                stable_id: semantic_id.to_owned(),
+                semantic_id: semantic_id.to_owned(),
+                identity_status: "computed".to_owned(),
+                normalized_snippet_hash: "b3:snippet".to_owned(),
+                config_hash: "b3:config".to_owned(),
+                cache_status: "pending".to_owned(),
+                lint: "no_unwrap".to_owned(),
+                group: "octet::safety".to_owned(),
+                severity: "warning".to_owned(),
+                file: "src/lib.rs".to_owned(),
+                line: 1,
+                column: 1,
+                message: "use of `.unwrap()`".to_owned(),
+                suggestion: None,
+                applicability: None,
+                principle: "Safety".to_owned(),
+                effect_family: "failure".to_owned(),
+                evidence_tier: crate::evidence::EvidenceTier::StaticLint,
+                crate_name: "consumer".to_owned(),
+            }
+        }
+        let workspace = tempfile::tempdir().expect("lint cache workspace");
+        let run = || {
+            let mut findings = vec![
+                cached_finding("F1", "b3:shared"),
+                cached_finding("F2", "b3:shared"),
+                cached_finding("F3", "b3:unique"),
+            ];
+            super::update_lint_cache(workspace.path(), &mut findings).expect("update lint cache");
+            findings.into_iter().map(|finding| finding.cache_status).collect::<Vec<_>>()
+        };
+
+        assert_eq!(run(), ["miss", "miss", "miss"], "a cold cache has no hits, even for repeated semantic IDs");
+        assert_eq!(run(), ["hit", "hit", "hit"], "the second run reuses every ID merged by the first run");
+        let cached = std::fs::read_to_string(workspace.path().join(super::LINT_CACHE_DIR).join(super::LINT_CACHE_FILE))
+            .expect("read lint cache");
+        let cached = serde_json::from_str::<BTreeSet<String>>(&cached).expect("parse lint cache");
+        assert_eq!(cached, BTreeSet::from(["b3:shared".to_owned(), "b3:unique".to_owned()]));
     }
 
     #[cfg(unix)]
