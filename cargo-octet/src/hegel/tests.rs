@@ -165,6 +165,16 @@ fn profiled_summary_rejects_authority_drift_stale_identities_limits_and_overclai
 }
 
 #[test]
+fn receipt_identities_reject_lowercase_non_hex_letters() {
+    let (input, _) = valid_input();
+    let mut details =
+        request::evaluate(&request::render(&input).expect("render"), PROFILE_ID).details.expect("details");
+    details.cargo_lock_identity = format!("b3:{}", "z".repeat(blake3::OUT_LEN * 2));
+    details.projection_identity = prefixed_identity(&projection_bytes(&details).expect("projection bytes"));
+    assert_eq!(validate(&details), vec!["profiled Hegel receipt identity is not canonical BLAKE3".to_owned()]);
+}
+
+#[test]
 fn counterexample_contract_requires_matching_retained_bytes() {
     let (mut input, profile) = valid_input();
     let counterexample =

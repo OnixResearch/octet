@@ -203,7 +203,8 @@ fn validate_summary(summary: &ProducerSummary, input: &request::Input, profile: 
 
 fn validate_b3(value: &str, label: &str, diagnostics: &mut Vec<String>) {
     let valid = value.strip_prefix("b3:").is_some_and(|hex| {
-        hex.len() == blake3::OUT_LEN * 2 && hex.bytes().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
+        hex.len() == blake3::OUT_LEN * 2
+            && hex.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
     });
     if !valid {
         diagnostics.push(format!("{label} identity is not canonical BLAKE3"));
