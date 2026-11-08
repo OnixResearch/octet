@@ -2140,7 +2140,7 @@
             ''
               cd ${./.}
               generated=$(mktemp)
-              expected_identity=e221f5d35528e6979bb44ab58cc5e486109799cf99fb80fc4d85ab77a7082634
+              expected_identity=67ed0ffcd6a2d5a5561bb014fc99fa58a5234ed56b5a8a5cce52db722bca932c
               nickel typecheck standards/coverage/profiles.ncl
               nickel export --format json standards/coverage/profiles.ncl > "$generated"
               diff -u standards/coverage/profiles.json "$generated"
@@ -2153,6 +2153,7 @@
                 and .profiles[0].provider.version == "0.8.3"
                 and .profiles[0].evidence_tier == "transcript_assertion"
                 and .profiles[0].denominator_policy == "require_equal"
+                and (.profiles[0].command_argv | index("--branch")) != null
               ' "$generated" >/dev/null
               mkdir -p "$out"
             '';

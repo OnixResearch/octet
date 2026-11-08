@@ -12,6 +12,8 @@ const SUPPORTED_NATIVE_TYPE: &str = "llvm.coverage.json.export";
 const SUPPORTED_NATIVE_VERSION: &str = "2.0.1";
 const ADJACENT_PATH_COUNT: usize = 2;
 const HEX_CHARACTERS_PER_BYTE: usize = 2;
+const BRANCH_METRIC: &str = "branches";
+const NO_BRANCH_COUNTS_DIAGNOSTIC: &str = "coverage native report has no branch counts; run cargo llvm-cov with `--branch` so the branches metric is measured";
 
 pub(super) fn normalize(text: &str, profile: &Profile, source_identity: &str) -> Result<NativeReport, Vec<String>> {
     let Ok(report_bytes) = u64::try_from(text.len()) else {
@@ -37,7 +39,7 @@ pub(super) fn normalize(text: &str, profile: &Profile, source_identity: &str) ->
     let totals = data[0].get("totals").ok_or_else(|| vec!["coverage native report is missing totals".to_owned()])?;
     let counts = Counts {
         lines: metric(totals, "lines")?,
-        branches: metric(totals, "branches")?,
+        branches: metric(totals, BRANCH_METRIC)?,
         functions: metric(totals, "functions")?,
         regions: metric(totals, "regions")?,
     };
@@ -105,6 +107,9 @@ fn metric(totals: &serde_json::Value, name: &str) -> Result<MetricCount, Vec<Str
         .get("count")
         .and_then(serde_json::Value::as_u64)
         .ok_or_else(|| vec![format!("coverage native report {name} total count is missing")])?;
+    if name == BRANCH_METRIC && total == 0 {
+        return Err(vec![NO_BRANCH_COUNTS_DIAGNOSTIC.to_owned()]);
+    }
     let percentage_basis_points =
         comparison::basis_points(covered, total).map_err(|error| vec![format!("{name}: {error}")])?;
     Ok(MetricCount {

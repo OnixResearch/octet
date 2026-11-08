@@ -9,12 +9,14 @@ The `cargo-llvm-cov-octet-lib` profile selects these inputs:
 - cargo-llvm-cov 0.8.3 from the pinned nixpkgs revision
 - Rust `nightly-2026-03-21` with `llvm-tools-preview`
 - the `cargo-octet` library with all features
-- line, branch, function, and region counts
+- line, branch, function, and region counts; the fixed arguments pass `--branch` so cargo-llvm-cov measures branches
 - fixed offline arguments and bounded process limits
 - integer thresholds in basis points
 - equal-denominator and no-regression policies
 
-The checked profile identity is `b3:e221f5d35528e6979bb44ab58cc5e486109799cf99fb80fc4d85ab77a7082634`.
+The checked profile identity is `b3:67ed0ffcd6a2d5a5561bb014fc99fa58a5234ed56b5a8a5cce52db722bca932c`.
+
+A native report with a zero branch total fails with a diagnostic that names `--branch`. Without that flag, cargo-llvm-cov reports no branch counts, and Octet cannot compute the required branch metric.
 
 ## Import
 

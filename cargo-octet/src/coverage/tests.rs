@@ -26,6 +26,10 @@ fn profile_registry_and_identity_are_fresh() {
     assert_eq!(profile.metrics, ["lines", "branches", "functions", "regions"]);
     assert!(profile.command_argv.contains(&"--output-path".to_owned()));
     assert!(profile.command_argv.contains(&"--offline".to_owned()));
+    assert!(
+        profile.command_argv.contains(&"--branch".to_owned()),
+        "the branches metric needs cargo-llvm-cov branch instrumentation"
+    );
 }
 
 #[test]
@@ -91,6 +95,24 @@ fn exact_integer_precision_does_not_use_supplied_percentages() {
     let profile = selected_profile(PROFILE_ID).expect("coverage profile");
     let normalized = native::normalize(&report, &profile, SOURCE_IDENTITY).expect("normalize exact counts");
     assert_eq!(normalized.counts.lines.percentage_basis_points, EXPECTED_PRECISION_BASIS_POINTS);
+}
+
+#[test]
+fn report_without_branch_instrumentation_fails_with_branch_diagnostic() {
+    // r[verify octet.coverage_baseline.verification]
+    let mut report: serde_json::Value =
+        serde_json::from_str(&native_report(CURRENT_COVERED, TOTAL_COUNT, "cargo-octet/src/lib.rs"))
+            .expect("parse native coverage fixture");
+    report["data"][0]["totals"]["branches"] =
+        serde_json::json!({"count": 0, "covered": 0, "notcovered": 0, "percent": 0});
+    let report = serde_json::to_string(&report).expect("serialize zero-branch fixture");
+    let profile = selected_profile(PROFILE_ID).expect("coverage profile");
+    let diagnostics =
+        native::normalize(&report, &profile, SOURCE_IDENTITY).expect_err("zero branch totals are rejected");
+    assert_eq!(diagnostics, [
+        "coverage native report has no branch counts; run cargo llvm-cov with `--branch` so the branches metric is \
+         measured"
+    ]);
 }
 
 #[cfg(unix)]
