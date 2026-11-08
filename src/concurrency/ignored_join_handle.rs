@@ -16,12 +16,11 @@ const SUPPORTED_JOIN_HANDLE_CRATES: &[&str] = &["std", "tokio"];
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct IgnoredJoinHandleFacts {
     returns_supported_join_handle: bool,
-    is_explicit_discard: bool,
     is_in_test_context: bool,
 }
 
 fn classify_ignored_join_handle(facts: IgnoredJoinHandleFacts) -> bool {
-    facts.returns_supported_join_handle && facts.is_explicit_discard && !facts.is_in_test_context
+    facts.returns_supported_join_handle && !facts.is_in_test_context
 }
 
 declare_tool_lint! {
@@ -55,15 +54,9 @@ fn expr_returns_supported_join_handle(cx: &LateContext<'_>, expr: &hir::Expr<'_>
     supported_join_handle_type(cx, cx.typeck_results().expr_ty(expr))
 }
 
-fn ignored_join_handle_facts(
-    cx: &LateContext<'_>,
-    hir_id: hir::HirId,
-    expr: &hir::Expr<'_>,
-    is_explicit_discard: bool,
-) -> IgnoredJoinHandleFacts {
+fn ignored_join_handle_facts(cx: &LateContext<'_>, hir_id: hir::HirId, expr: &hir::Expr<'_>) -> IgnoredJoinHandleFacts {
     IgnoredJoinHandleFacts {
         returns_supported_join_handle: expr_returns_supported_join_handle(cx, expr),
-        is_explicit_discard,
         is_in_test_context: test_context::late_hir_id_is_in_test_context(cx, hir_id, expr.span),
     }
 }
@@ -87,7 +80,7 @@ impl<'tcx> LateLintPass<'tcx> for IgnoredJoinHandle {
             return;
         };
 
-        let facts = ignored_join_handle_facts(cx, local.hir_id, init, true);
+        let facts = ignored_join_handle_facts(cx, local.hir_id, init);
         if classify_ignored_join_handle(facts) {
             emit_ignored_join_handle(cx, init.span);
         }
@@ -98,7 +91,7 @@ impl<'tcx> LateLintPass<'tcx> for IgnoredJoinHandle {
             return;
         };
 
-        let facts = ignored_join_handle_facts(cx, stmt.hir_id, expr, true);
+        let facts = ignored_join_handle_facts(cx, stmt.hir_id, expr);
         if classify_ignored_join_handle(facts) {
             emit_ignored_join_handle(cx, expr.span);
         }
@@ -113,7 +106,6 @@ mod tests {
     fn discarded_join_handle() -> IgnoredJoinHandleFacts {
         IgnoredJoinHandleFacts {
             returns_supported_join_handle: true,
-            is_explicit_discard: true,
             is_in_test_context: false,
         }
     }
@@ -124,18 +116,13 @@ mod tests {
     }
 
     #[test]
-    fn skips_non_join_handle_or_named_lifecycle() {
+    fn skips_non_join_handle() {
         let not_join_handle = IgnoredJoinHandleFacts {
             returns_supported_join_handle: false,
             ..discarded_join_handle()
         };
-        let named_lifecycle = IgnoredJoinHandleFacts {
-            is_explicit_discard: false,
-            ..discarded_join_handle()
-        };
 
         assert!(!classify_ignored_join_handle(not_join_handle));
-        assert!(!classify_ignored_join_handle(named_lifecycle));
     }
 
     #[test]
