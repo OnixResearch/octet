@@ -13,5 +13,14 @@ LL | #![warn(type_accumulation)]
    |         ^^^^^^^^^^^^^^^^^
    = note: `#[warn(tigerstyle::type_accumulation)]` implied by `#[warn(type_accumulation)]`
 
-warning: 1 warning emitted
+warning: module exposes 13 public items (limit: 12) — split unrelated public surface into focused modules
+  --> $DIR/type_accumulation.rs:15:1
+   |
+LL | pub mod filebacked;
+   | ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Single Responsibility): split types and modules that accumulate unrelated responsibilities behind focused interfaces Example: mod billing_commands; mod billing_queries;
+   = note: see Tiger Style guide: Structure / Cohesion
+
+warning: 2 warnings emitted
 

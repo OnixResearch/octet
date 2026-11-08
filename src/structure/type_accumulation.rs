@@ -12,7 +12,6 @@ use crate::diagnostics::emit_tiger_style_lint;
 use crate::test_context;
 
 const LINT_NAME: &str = "type_accumulation";
-const PUBLIC_ITEM_TOKEN: &str = "pub ";
 
 declare_tool_lint! {
     /// Detects types/modules accumulating too many responsibilities.
@@ -44,8 +43,19 @@ fn span_snippet(cx: &LateContext<'_>, span: Span) -> String {
     cx.sess().source_map().span_to_snippet(span).unwrap_or_default()
 }
 
-fn public_item_count(cx: &LateContext<'_>, span: Span) -> usize {
-    span_snippet(cx, span).matches(PUBLIC_ITEM_TOKEN).count()
+/// Counts the module's own public free items, for inline and file-backed modules alike.
+/// Items inside nested modules, impl members, and struct fields are not counted.
+fn public_item_count(cx: &LateContext<'_>, module: &hir::Mod<'_>) -> usize {
+    module
+        .item_ids
+        .iter()
+        .filter(|item_id| {
+            // `use a::{B, C}` lowers to `use a::B; use a::C;` plus a `use a::{}` stem carrying the same
+            // visibility.
+            !matches!(cx.tcx.hir_item(**item_id).kind, hir::ItemKind::Use(_, hir::UseKind::ListStem))
+                && cx.tcx.visibility(item_id.owner_id.def_id).is_public()
+        })
+        .count()
 }
 
 impl<'tcx> LateLintPass<'tcx> for TypeAccumulation {
@@ -75,8 +85,8 @@ impl<'tcx> LateLintPass<'tcx> for TypeAccumulation {
                     );
                 }
             }
-            hir::ItemKind::Mod(..) => {
-                let count = public_item_count(cx, item.span);
+            hir::ItemKind::Mod(_, module) => {
+                let count = public_item_count(cx, module);
                 if count > self.module_pub_items_max {
                     emit_tiger_style_lint(
                         cx,
