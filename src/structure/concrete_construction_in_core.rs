@@ -43,42 +43,13 @@ enum ConstructedTypeOrigin {
     Unsupported,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ConstructionKind {
-    Direct,
-    Indirect,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct ConstructionFacts {
-    in_core_scope: bool,
-    from_expansion: bool,
-    in_test_context: bool,
-    kind: ConstructionKind,
-    type_origin: ConstructedTypeOrigin,
-}
-
-fn should_emit_construction(facts: ConstructionFacts) -> bool {
-    facts.in_core_scope
-        && !facts.from_expansion
-        && !facts.in_test_context
-        && facts.kind == ConstructionKind::Direct
-        && facts.type_origin == ConstructedTypeOrigin::External
-}
-
 fn path_is_in_core_scope(cx: &LateContext<'_>, span: rustc_span::Span, scopes: &[String]) -> bool {
-    if scopes.is_empty() {
-        return false;
-    }
     let filename = cx.sess().source_map().span_to_filename(span);
     let path = filename.prefer_local_unconditionally().to_string();
     scopes.iter().any(|scope| path.contains(scope))
 }
 
-fn direct_constructor_name(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> Option<String> {
-    let hir::ExprKind::Call(callee, _) = expr.kind else {
-        return None;
-    };
+fn direct_constructor_name(cx: &LateContext<'_>, callee: &hir::Expr<'_>) -> Option<String> {
     let snippet = cx.sess().source_map().span_to_snippet(callee.span).ok()?;
     let type_name = snippet
         .strip_suffix(NEW_CALLEE_SUFFIX)
@@ -90,8 +61,27 @@ fn direct_constructor_name(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> Option
     Some(type_name.to_owned())
 }
 
-fn constructed_type_origin(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> ConstructedTypeOrigin {
-    let ty::Adt(adt, _) = cx.typeck_results().expr_ty(expr).kind() else {
+/// The type a constructor call builds: the `Self` type of the called
+/// associated function, so fallible constructors returning `Result<T, _>` or
+/// `Option<T>` classify `T` rather than the standard wrapper. Other callees
+/// fall back to the call's result type.
+fn constructed_type<'tcx>(cx: &LateContext<'tcx>, expr: &hir::Expr<'_>, callee: &hir::Expr<'_>) -> ty::Ty<'tcx> {
+    if let hir::ExprKind::Path(qpath) = &callee.kind
+        && let hir::def::Res::Def(hir::def::DefKind::AssocFn, did) = cx.typeck_results().qpath_res(qpath, callee.hir_id)
+    {
+        if let Some(impl_did) = cx.tcx.associated_item(did).impl_container(cx.tcx) {
+            return cx.tcx.type_of(impl_did).instantiate_identity();
+        }
+        // Trait associated functions take `Self` as their first generic argument.
+        if let Some(self_ty) = cx.typeck_results().node_args(callee.hir_id).types().next() {
+            return self_ty;
+        }
+    }
+    cx.typeck_results().expr_ty(expr)
+}
+
+fn constructed_type_origin(cx: &LateContext<'_>, constructed: ty::Ty<'_>) -> ConstructedTypeOrigin {
+    let ty::Adt(adt, _) = constructed.kind() else {
         return ConstructedTypeOrigin::Unsupported;
     };
     if adt.did().is_local() {
@@ -110,24 +100,26 @@ fn constructed_type_origin(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> Constr
 
 impl<'tcx> LateLintPass<'tcx> for ConcreteConstructionInCore {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx hir::Expr<'tcx>) {
-        let constructor_name = direct_constructor_name(cx, expr);
-        let facts = ConstructionFacts {
-            in_core_scope: path_is_in_core_scope(cx, expr.span, &self.core_source_scopes),
-            from_expansion: expr.span.from_expansion(),
-            in_test_context: test_context::late_hir_id_is_in_test_context(cx, expr.hir_id, expr.span),
-            kind: if constructor_name.is_some() {
-                ConstructionKind::Direct
-            } else {
-                ConstructionKind::Indirect
-            },
-            type_origin: constructed_type_origin(cx, expr),
-        };
-        if !should_emit_construction(facts) {
+        // Cheapest gates first: most crates declare no core scopes, and most
+        // expressions are not direct `Type::new()` / `Type::default()` calls.
+        if self.core_source_scopes.is_empty() {
             return;
         }
-        let Some(type_name) = constructor_name else {
+        let hir::ExprKind::Call(callee, _) = expr.kind else {
             return;
         };
+        if expr.span.from_expansion() {
+            return;
+        }
+        let Some(type_name) = direct_constructor_name(cx, callee) else {
+            return;
+        };
+        if constructed_type_origin(cx, constructed_type(cx, expr, callee)) != ConstructedTypeOrigin::External
+            || !path_is_in_core_scope(cx, expr.span, &self.core_source_scopes)
+            || test_context::late_hir_id_is_in_test_context(cx, expr.hir_id, expr.span)
+        {
+            return;
+        }
 
         emit_tiger_style_lint(
             cx,
@@ -138,42 +130,5 @@ impl<'tcx> LateLintPass<'tcx> for ConcreteConstructionInCore {
             ),
             LINT_NAME,
         );
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn facts(type_origin: ConstructedTypeOrigin) -> ConstructionFacts {
-        ConstructionFacts {
-            in_core_scope: true,
-            from_expansion: false,
-            in_test_context: false,
-            kind: ConstructionKind::Direct,
-            type_origin,
-        }
-    }
-
-    #[test]
-    fn direct_external_constructor_is_reportable() {
-        assert!(should_emit_construction(facts(ConstructedTypeOrigin::External)));
-    }
-
-    #[test]
-    fn local_and_standard_value_constructors_are_not_reportable() {
-        assert!(!should_emit_construction(facts(ConstructedTypeOrigin::LocalDomain)));
-        assert!(!should_emit_construction(facts(ConstructedTypeOrigin::StandardValue)));
-    }
-
-    #[test]
-    fn indirect_parent_and_out_of_scope_shapes_are_not_reportable() {
-        let mut indirect = facts(ConstructedTypeOrigin::External);
-        indirect.kind = ConstructionKind::Indirect;
-        let mut out_of_scope = facts(ConstructedTypeOrigin::External);
-        out_of_scope.in_core_scope = false;
-
-        assert!(!should_emit_construction(indirect));
-        assert!(!should_emit_construction(out_of_scope));
     }
 }

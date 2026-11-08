@@ -31,7 +31,7 @@ Source-level Rust suppressions remain possible. Profiles include Octet's suppres
 
 The Nix-packaged runner includes Cargo, the pinned Rust toolchain, Dylint driver/library, and linker closure. A dependency-bearing consumer with build scripts or proc macros can therefore run the package directly; it does not need an ambient consumer dev shell merely to link dependencies.
 
-Within declared core scopes, `concrete_construction_in_core` classifies direct `Type::new()` and `Type::default()` calls. Local-domain and `core`/`alloc`/`std` result types are not external dependency construction, and one direct external call emits at most one finding even when nested in a larger expression. This remains a bounded HIR/source-shape heuristic: external factories with other names and semantic dependency behavior are outside its claim.
+Within declared core scopes, `concrete_construction_in_core` classifies direct `Type::new()` and `Type::default()` calls by the constructed `Self` type of the called associated function, so fallible constructors returning `Result<T, _>` or `Option<T>` are classified by `T`. Local-domain and `core`/`alloc`/`std` constructed types are not external dependency construction, and one direct external call emits at most one finding even when nested in a larger expression. This remains a bounded HIR/source-shape heuristic: external factories with other names and semantic dependency behavior are outside its claim.
 
 ## Bootstrap deterministic core
 
