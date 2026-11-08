@@ -74,14 +74,14 @@ r[octet.purity_effect_lints.global_state_in_core.flags_global]
 
 - GIVEN a Rust source file is inside a configured core source scope
 - WHEN it declares `static mut`, thread-local state, lazy initialization state, a global lock, or a global atomic value
-- THEN `global_state_in_core` MUST emit a diagnostic at the declaration.
+- THEN `global_state_in_core` MUST emit one diagnostic at the declaration, not again at an enclosing module or function.
 - AND the diagnostic MUST recommend explicit state threading or shell-owned state storage.
 
 #### Scenario: Explicit or immutable state stays clean
 
 r[octet.purity_effect_lints.global_state_in_core.allows_explicit_state]
 
-- GIVEN core code uses `const`, immutable static data without interior mutability, or explicit state parameters and return values
+- GIVEN core code uses `const`, immutable static data without interior mutability, `'static` lifetimes or borrows, local lock or atomic values, or explicit state parameters and return values
 - WHEN the lint runs
 - THEN `global_state_in_core` MUST NOT emit for that source shape.
 

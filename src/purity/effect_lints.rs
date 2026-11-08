@@ -7,8 +7,10 @@ use rustc_hir::intravisit::Visitor;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
 use rustc_lint::LintContext;
+use rustc_middle::hir::nested_filter::All;
 use rustc_middle::ty;
 use rustc_middle::ty::Ty;
+use rustc_middle::ty::TyCtxt;
 use rustc_session::declare_tool_lint;
 use rustc_session::impl_lint_pass;
 use rustc_span::Span;
@@ -116,20 +118,6 @@ const SPAWN_CALL_PATTERNS: &[&str] = &[
     "thread::spawn(",
     "tokio::spawn(",
     "tokio::task::spawn(",
-];
-const GLOBAL_STATE_PATTERNS: &[&str] = &[
-    "static mut ",
-    "thread_local!(",
-    "AtomicBool",
-    "AtomicI",
-    "AtomicPtr",
-    "AtomicU",
-    "LazyLock<",
-    "Mutex<",
-    "OnceLock<",
-    "RefCell<",
-    "RwLock<",
-    "UnsafeCell<",
 ];
 const INTERIOR_MUTABILITY_PATTERNS: &[&str] = &[
     "AtomicBool",
@@ -540,12 +528,74 @@ fn classify_effect(source: &str) -> Option<EffectClass> {
     None
 }
 
-fn contains_global_state(source: &str) -> bool {
-    let compact_source = compact(source);
-    if source.contains("static mut ") || compact_source.contains("thread_local!(") {
-        return true;
+/// Returns the span to report when `item` declares process-wide state: a
+/// `static mut`, a `static` whose type has interior mutability (locks, atomics,
+/// cells, lazy or once cells), or a `thread_local!` key. Statics generated
+/// inside a `thread_local!` expansion belong to that key's declaration.
+fn global_state_declaration_span(cx: &LateContext<'_>, item: &hir::Item<'_>) -> Option<Span> {
+    match item.kind {
+        hir::ItemKind::Static(mutability, ..) => {
+            if span_is_from_thread_local_macro(cx, item.span) {
+                return None;
+            }
+            let ty = cx.tcx.type_of(item.owner_id).instantiate_identity();
+            let interior_mutable = !ty.is_freeze(cx.tcx, ty::TypingEnv::fully_monomorphized());
+            (mutability.is_mut() || interior_mutable).then(|| item.span.source_callsite())
+        }
+        hir::ItemKind::Const(ident, ..) => {
+            let ty::Adt(adt, _) = cx.tcx.type_of(item.owner_id).instantiate_identity().kind() else {
+                return None;
+            };
+            let is_thread_local_key =
+                cx.tcx.get_diagnostic_name(adt.did()).is_some_and(|name| name.as_str() == "LocalKey");
+            is_thread_local_key.then_some(ident.span)
+        }
+        _ => None,
     }
-    source.contains("static ") && contains_any(&compact_source, GLOBAL_STATE_PATTERNS)
+}
+
+fn span_is_from_thread_local_macro(cx: &LateContext<'_>, span: Span) -> bool {
+    let mut current = span;
+    while current.from_expansion() {
+        let expn_data = current.ctxt().outer_expn_data();
+        let is_thread_local = expn_data
+            .macro_def_id
+            .and_then(|macro_def_id| cx.tcx.get_diagnostic_name(macro_def_id))
+            .is_some_and(|name| name.as_str() == "thread_local_macro");
+        if is_thread_local {
+            return true;
+        }
+        current = expn_data.call_site;
+    }
+    false
+}
+
+/// Finds global-state declarations among the items nested in a function body.
+struct GlobalStateFinder<'a, 'tcx> {
+    cx: &'a LateContext<'tcx>,
+    found: bool,
+}
+
+impl<'tcx> Visitor<'tcx> for GlobalStateFinder<'_, 'tcx> {
+    type NestedFilter = All;
+
+    fn maybe_tcx(&mut self) -> TyCtxt<'tcx> {
+        self.cx.tcx
+    }
+
+    fn visit_item(&mut self, item: &'tcx hir::Item<'tcx>) {
+        if global_state_declaration_span(self.cx, item).is_some() {
+            self.found = true;
+            return;
+        }
+        rustc_hir::intravisit::walk_item(self, item);
+    }
+}
+
+fn body_declares_global_state<'tcx>(cx: &LateContext<'tcx>, body: &'tcx hir::Body<'tcx>) -> bool {
+    let mut finder = GlobalStateFinder { cx, found: false };
+    finder.visit_body(body);
+    finder.found
 }
 
 fn contains_interior_mutability(source: &str) -> bool {
@@ -860,13 +910,14 @@ fn function_is_const_candidate(source: &str) -> bool {
 
 fn pure_contract_violation(
     function_source: &str,
-    resource_return: bool,
+    global_state: bool,
     mutating_input: bool,
+    resource_return: bool,
 ) -> Option<PureViolation> {
     if let Some(effect) = classify_effect(function_source) {
         return Some(PureViolation::DirectEffect(effect));
     }
-    if contains_global_state(function_source) {
+    if global_state {
         return Some(PureViolation::GlobalState);
     }
     if contains_interior_mutability(function_source) {
@@ -932,21 +983,18 @@ impl<'tcx> LateLintPass<'tcx> for AmbientRandom {
 
 impl<'tcx> LateLintPass<'tcx> for GlobalStateInCore {
     fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx hir::Item<'tcx>) {
-        if !source_is_in_core_scope(cx, item.span, &self.core_source_scopes)
-            || test_context::late_hir_id_is_in_test_context(cx, item.hir_id(), item.span)
-        {
-            return;
-        }
-        let Some(source) = span_snippet(cx, item.span) else {
+        let Some(report_span) = global_state_declaration_span(cx, item) else {
             return;
         };
-        if !contains_global_state(&source) {
+        if !source_is_in_core_scope(cx, report_span, &self.core_source_scopes)
+            || test_context::late_hir_id_is_in_test_context(cx, item.hir_id(), report_span)
+        {
             return;
         }
         emit(
             cx,
             GLOBAL_STATE_IN_CORE,
-            item.span,
+            report_span,
             "core scope declares process-wide mutable or lazy state; thread explicit state through inputs instead"
                 .to_owned(),
             GLOBAL_STATE_IN_CORE_LINT,
@@ -1161,9 +1209,10 @@ impl<'tcx> LateLintPass<'tcx> for PureAttrContract {
         let Some(source) = fn_snippet(cx, body, span) else {
             return;
         };
-        let resource_return = returned_resource_handle(cx, decl, def_id).is_some();
+        let global_state = body_declares_global_state(cx, body);
         let mutating_input = decl_inputs_contain_mutating_type(cx, decl).is_some();
-        let Some(violation) = pure_contract_violation(&source, resource_return, mutating_input) else {
+        let resource_return = returned_resource_handle(cx, decl, def_id).is_some();
+        let Some(violation) = pure_contract_violation(&source, global_state, mutating_input, resource_return) else {
             return;
         };
         emit(
@@ -1335,16 +1384,21 @@ mod tests {
     #[test]
     fn pure_contract_reports_direct_violation_and_accepts_clean_logic() {
         assert_eq!(
-            pure_contract_violation("#[tigerstyle::pure] fn read() { std::fs::read(\"x\"); }", false, false),
+            pure_contract_violation("#[tigerstyle::pure] fn read() { std::fs::read(\"x\"); }", false, false, false),
             Some(PureViolation::DirectEffect(EffectClass::Filesystem))
         );
         assert_eq!(
-            pure_contract_violation("#[tigerstyle::pure] fn open() -> std::fs::File { loop {} }", true, false),
+            pure_contract_violation("#[tigerstyle::pure] fn count() { static mut N: u8 = 0; }", true, false, false),
+            Some(PureViolation::GlobalState)
+        );
+        assert_eq!(
+            pure_contract_violation("#[tigerstyle::pure] fn open() -> std::fs::File { loop {} }", false, false, true),
             Some(PureViolation::ResourceReturn)
         );
         assert_eq!(
             pure_contract_violation(
-                "#[tigerstyle::pure] fn add(left: u32, right: u32) -> u32 { left + right }",
+                "#[tigerstyle::pure] fn label() -> &'static str { \"static mut\" }",
+                false,
                 false,
                 false
             ),
