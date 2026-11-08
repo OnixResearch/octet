@@ -596,20 +596,8 @@ fn ability_summary(findings_path: &Path) -> Result<i32, String> {
 fn ability_enforce(manifest_path: &Path, trace_path: &Path) -> Result<i32, String> {
     let manifest = read_json(manifest_path)?;
     let trace = read_json(trace_path)?;
-    let allowed: Vec<String> = manifest["allowed_effects"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(Value::as_str)
-        .map(str::to_owned)
-        .collect();
-    let effects: Vec<String> = trace["effects"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(Value::as_str)
-        .map(str::to_owned)
-        .collect();
+    let allowed = string_array(&manifest, "allowed_effects", manifest_path)?;
+    let effects = string_array(&trace, "effects", trace_path)?;
     let denied: Vec<String> = effects.iter().filter(|effect| !allowed.contains(effect)).cloned().collect();
     let status = if denied.is_empty() { "allowed" } else { "denied" };
     let report = serde_json::json!({
@@ -622,6 +610,23 @@ fn ability_enforce(manifest_path: &Path, trace_path: &Path) -> Result<i32, Strin
     });
     print_json(&report)?;
     Ok(i32::from(status != "allowed"))
+}
+
+/// `document[field]` as strings; a missing field, a non-array, or a non-string entry is an error.
+fn string_array(document: &Value, field: &str, path: &Path) -> Result<Vec<String>, String> {
+    let items = document
+        .get(field)
+        .and_then(Value::as_array)
+        .ok_or_else(|| format!("{}: {field} must be an array of strings", path.display()))?;
+    items
+        .iter()
+        .enumerate()
+        .map(|(index, item)| {
+            item.as_str()
+                .map(str::to_owned)
+                .ok_or_else(|| format!("{}: {field}[{index}] must be a string", path.display()))
+        })
+        .collect()
 }
 
 #[derive(Debug, Clone, Serialize, serde::Deserialize, Default)]

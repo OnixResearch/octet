@@ -13,7 +13,7 @@ $ cargo octet roadmap artifact replay --hash b3:<artifact> --store-dir store
 => fails closed when dependencies are missing and replays only when prerequisite hashes exist
 
 $ cargo octet roadmap ability enforce --manifest ability-manifest.json --trace effect-trace.json
-=> denies effects not declared by the ability manifest and reports denied_effects
+=> denies effects not declared by the ability manifest and reports denied_effects; allowed_effects and effects must be arrays of strings
 
 $ cargo octet roadmap pointer set --registry registry.json --name done-review --kind prompt --hash b3:<artifact> --receipt pointer-receipt.json
 => records name-to-hash updates with an old_hash rollback receipt

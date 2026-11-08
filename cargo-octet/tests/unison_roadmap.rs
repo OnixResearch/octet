@@ -908,3 +908,51 @@ fn session_migrate_rejects_non_object_sessions_without_panicking() {
         assert!(!migrated.exists(), "session={session_json} wrote migrated output");
     }
 }
+
+fn enforce(manifest: serde_json::Value, trace: serde_json::Value, cwd: &Path) -> std::process::Output {
+    let manifest_path = cwd.join("enforce-manifest.json");
+    let trace_path = cwd.join("enforce-trace.json");
+    write_json(&manifest_path, manifest);
+    write_json(&trace_path, trace);
+    run(
+        &[
+            "roadmap",
+            "ability",
+            "enforce",
+            "--manifest",
+            manifest_path.to_str().unwrap(),
+            "--trace",
+            trace_path.to_str().unwrap(),
+        ],
+        cwd,
+    )
+}
+
+#[test]
+fn ability_enforce_requires_string_arrays_for_manifest_and_trace() {
+    let temp = tempfile::tempdir().unwrap();
+    let manifest = serde_json::json!({"allowed_effects": ["FileRead"]});
+    for trace in [
+        serde_json::json!({"effects": [{"family": "network"}]}),
+        serde_json::json!({"effects": "network"}),
+        serde_json::json!({"effect": ["network"]}),
+        serde_json::json!({"effects": ["FileRead", null]}),
+    ] {
+        let output = enforce(manifest.clone(), trace.clone(), temp.path());
+        assert_eq!(output.status.code(), Some(2), "trace={trace} stdout={}", String::from_utf8_lossy(&output.stdout));
+        assert!(output.stdout.is_empty(), "trace={trace} printed a verdict");
+    }
+    for bad_manifest in [
+        serde_json::json!({"allowed": ["FileRead"]}),
+        serde_json::json!({"allowed_effects": "FileRead"}),
+        serde_json::json!({"allowed_effects": [1]}),
+    ] {
+        let output = enforce(bad_manifest.clone(), serde_json::json!({"effects": []}), temp.path());
+        assert_eq!(output.status.code(), Some(2), "manifest={bad_manifest}");
+    }
+
+    let allowed = stdout_json(&enforce(manifest.clone(), serde_json::json!({"effects": ["FileRead"]}), temp.path()));
+    assert_eq!(allowed["status"], "allowed");
+    let empty = stdout_json(&enforce(manifest, serde_json::json!({"effects": []}), temp.path()));
+    assert_eq!(empty["status"], "allowed");
+}
