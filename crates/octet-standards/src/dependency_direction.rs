@@ -409,13 +409,21 @@ fn packages_matching_declared_paths(metadata: &CargoMetadata, declared_paths: &[
 fn declared_path_matches_manifest(declared_path: &str, manifest_path: &str) -> bool {
     let normalized_declared = declared_path.replace('\\', "/");
     let normalized_manifest = manifest_path.replace('\\', "/");
-    if normalized_manifest.ends_with(&normalized_declared) {
+    if path_ends_with_components(&normalized_manifest, &normalized_declared) {
         return true;
     }
     let Some(crate_root) = normalized_declared.strip_suffix(RUST_LIB_SUFFIX) else {
         return false;
     };
-    normalized_manifest.ends_with(&format!("{crate_root}{CARGO_MANIFEST_SUFFIX}"))
+    path_ends_with_components(&normalized_manifest, &format!("{crate_root}{CARGO_MANIFEST_SUFFIX}"))
+}
+
+/// Returns true when `suffix` equals `path` or matches its trailing whole path components.
+fn path_ends_with_components(path: &str, suffix: &str) -> bool {
+    let Some(prefix) = path.strip_suffix(suffix) else {
+        return false;
+    };
+    prefix.is_empty() || prefix.ends_with('/') || suffix.starts_with('/')
 }
 
 #[cfg(test)]
@@ -542,6 +550,22 @@ mod tests {
 
         assert_eq!(violations.len(), EXPECTED_ONE_VIOLATION);
         assert_eq!(violations[0].kind, DependencyDirectionViolationKind::CoreToAdapter);
+    }
+
+    #[test]
+    fn declared_manifest_path_matches_whole_components() {
+        assert!(declared_path_matches_manifest("core/Cargo.toml", "/repo/crates/core/Cargo.toml"));
+        assert!(declared_path_matches_manifest("crates/core/Cargo.toml", "crates/core/Cargo.toml"));
+        assert!(declared_path_matches_manifest("crates\\core\\Cargo.toml", "C:\\repo\\crates\\core\\Cargo.toml"));
+        assert!(!declared_path_matches_manifest("core/Cargo.toml", "/repo/crates/hardcore/Cargo.toml"));
+        assert!(!declared_path_matches_manifest("Cargo.toml", "/repo/crates/core/MyCargo.toml"));
+    }
+
+    #[test]
+    fn declared_lib_path_matches_manifest_whole_components() {
+        assert!(declared_path_matches_manifest("core/src/lib.rs", "/repo/crates/core/Cargo.toml"));
+        assert!(declared_path_matches_manifest("crates/core/src/lib.rs", "crates/core/Cargo.toml"));
+        assert!(!declared_path_matches_manifest("core/src/lib.rs", "/repo/crates/hardcore/Cargo.toml"));
     }
 
     fn input_with_edges<const N: usize>(
