@@ -19,6 +19,9 @@ const DYLINT_NO_DEPS_ENABLED: &str = "1";
 const DIGEST_PREFIX: &str = "b3:";
 const BLAKE3_HEX_CHARS: usize = 64;
 const ENV_PATH: &str = "PATH";
+const RUSTC_RELEASE_KEY: &str = "release";
+const RUSTC_COMMIT_HASH_KEY: &str = "commit-hash";
+const UNKNOWN_IDENTITY: &str = "unknown";
 #[cfg(unix)]
 const EXECUTABLE_MODE_BITS: u32 = 0o111;
 const REQUIRED_WAIVER_FIELDS: &[&str] = &[
@@ -202,8 +205,8 @@ fn rustc_identity(path: &Path, search_path: Option<&std::ffi::OsStr>) -> Result<
     }
     let version_verbose =
         String::from_utf8(output.stdout).map_err(|error| format!("decode rustc -vV output: {error}"))?;
-    let release = metadata_line(&version_verbose, "release").unwrap_or("unknown").to_owned();
-    let commit_hash = metadata_line(&version_verbose, "commit-hash").unwrap_or("unknown").to_owned();
+    let release = required_metadata_line(&version_verbose, RUSTC_RELEASE_KEY, &executable)?;
+    let commit_hash = required_metadata_line(&version_verbose, RUSTC_COMMIT_HASH_KEY, &executable)?;
     let bytes =
         fs::read(&executable).map_err(|error| format!("read rustc executable {}: {error}", executable.display()))?;
     Ok(RustcIdentity {
@@ -308,10 +311,11 @@ fn print_json(manifest: &ProviderManifest) -> Result<i32, String> {
 fn validate_rustc_identity(identity: &RustcIdentity, issues: &mut Vec<String>) {
     require_non_empty(issues, "compatible_rustc.executable", &identity.executable);
     require_non_empty(issues, "compatible_rustc.version_verbose", &identity.version_verbose);
-    require_non_empty(issues, "compatible_rustc.release", &identity.release);
-    require_non_empty(issues, "compatible_rustc.commit_hash", &identity.commit_hash);
-    if let Some(digest) = &identity.executable_blake3 {
-        validate_digest("compatible_rustc.executable_blake3", digest, issues);
+    require_known(issues, "compatible_rustc.release", &identity.release);
+    require_known(issues, "compatible_rustc.commit_hash", &identity.commit_hash);
+    match &identity.executable_blake3 {
+        Some(digest) => validate_digest("compatible_rustc.executable_blake3", digest, issues),
+        None => issues.push("compatible_rustc.executable_blake3 must be present".to_owned()),
     }
 }
 
@@ -406,8 +410,24 @@ fn require_non_empty(issues: &mut Vec<String>, field: &str, actual: &str) {
     }
 }
 
+/// Like [`require_non_empty`], but also rejects the `unknown` placeholder, which does not bind an
+/// identity.
+fn require_known(issues: &mut Vec<String>, field: &str, actual: &str) {
+    require_non_empty(issues, field, actual);
+    if actual.trim() == UNKNOWN_IDENTITY {
+        issues.push(format!("{field} must not be `{UNKNOWN_IDENTITY}`"));
+    }
+}
+
 fn metadata_line<'a>(text: &'a str, key: &str) -> Option<&'a str> {
     text.lines().find_map(|line| line.strip_prefix(key)?.trim_start_matches(':').trim().into())
+}
+
+fn required_metadata_line(text: &str, key: &str, executable: &Path) -> Result<String, String> {
+    metadata_line(text, key)
+        .filter(|value| !value.is_empty() && *value != UNKNOWN_IDENTITY)
+        .map(ToOwned::to_owned)
+        .ok_or_else(|| format!("{} -vV did not report a known `{key}:` line", executable.display()))
 }
 
 fn sorted_unique(mut values: Vec<String>) -> Vec<String> {
@@ -616,6 +636,33 @@ mod tests {
         let error = rustc_identity(Path::new(DEFAULT_RUSTC), Some(temp.path().as_os_str()))
             .expect_err("rustc missing from the search path should fail");
         assert!(error.contains("no executable file found in PATH"));
+    }
+
+    #[test]
+    fn missing_rustc_executable_digest_fails_closed() {
+        let mut manifest = valid_manifest();
+        manifest.compatible_rustc.executable_blake3 = None;
+        let error = validate_manifest(&manifest).expect_err("missing rustc digest should fail");
+        assert!(error.contains("compatible_rustc.executable_blake3"));
+    }
+
+    #[test]
+    fn placeholder_rustc_release_and_commit_fail_closed() {
+        let mut manifest = valid_manifest();
+        manifest.compatible_rustc.release = "unknown".to_owned();
+        manifest.compatible_rustc.commit_hash = "unknown".to_owned();
+        let error = validate_manifest(&manifest).expect_err("placeholder rustc identity should fail");
+        assert!(error.contains("compatible_rustc.release"));
+        assert!(error.contains("compatible_rustc.commit_hash"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rustc_without_release_or_commit_metadata_fails_closed() {
+        let search_path = std::env::var_os(ENV_PATH);
+        let error = rustc_identity(Path::new("true"), search_path.as_deref())
+            .expect_err("rustc -vV output without release metadata should fail");
+        assert!(error.contains("release"));
     }
 
     struct ManifestFixture {
