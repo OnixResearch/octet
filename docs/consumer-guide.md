@@ -143,11 +143,20 @@ The baseline file records the current semantic/stable finding IDs plus enough
 finding context for review. Semantic IDs are derived from the lint, crate,
 message/suggestion, normalized snippet hash when available, config hash, and
 Octet tool version; file paths remain display metadata so simple renames do not
-create fresh debt. Future `--baseline` runs compare the current finding set to
-that accepted ID set. Fully accepted warning-only findings keep exit `0`; any new
-unaccepted stable ID fails the run with exit `1` and records `baseline` counts in
-`status.json` / SARIF properties. Stale accepted IDs are reported so teams can
-prune resolved debt without blocking the gate.
+create fresh debt. The config hash covers only lint-relevant configuration: the
+`dylint.toml` bytes, the canonical (key-order-independent) contents of the
+`[workspace.metadata.octet]` table and the legacy `[workspace.metadata.slotcar]` /
+`[workspace.metadata.tigerstyle]` tables in the root `Cargo.toml`, the effective
+scope and `cargo check` arguments, and the strict profile identity. Other
+manifest edits, such as dependency bumps, new workspace members, or `[package]`
+changes, keep finding IDs stable. A root `Cargo.toml` that cannot be parsed falls
+back to hashing its raw bytes. Releases before this rule hashed the whole root
+`Cargo.toml`, so upgrading re-keys existing baselines once; regenerate them with
+`--write-baseline` after upgrading. Future `--baseline` runs compare the current
+finding set to that accepted ID set. Fully accepted warning-only findings keep
+exit `0`; any new unaccepted stable ID fails the run with exit `1` and records
+`baseline` counts in `status.json` / SARIF properties. Stale accepted IDs are
+reported so teams can prune resolved debt without blocking the gate.
 
 Exit codes are stable for automation:
 
