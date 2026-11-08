@@ -368,8 +368,8 @@
         "module::total::Global"
       ],
       "allowed_imports": [
-        "molten::observe::Func(0)",
-        "molten::pause::Func(1)"
+        "molten::observe::Func",
+        "molten::pause::Func"
       ],
       "allowed_proposals": [
         "wasm1",

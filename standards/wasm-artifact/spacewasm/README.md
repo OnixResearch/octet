@@ -73,7 +73,9 @@ is required, but static shape does not prove the allocator or descriptor protoco
 
 `spacewasm-mvp-host-pilot` is a separate ChaosControl diagnostic profile:
 `molten.observe(i32)->()`, `molten.pause()->()`, `run()->()`, and mutable i32
-`total`. It does not replace the Molten ABI profile or prove continuation behavior.
+`total`. It does not replace the Molten ABI profile or prove continuation
+behavior. Both pilot profiles admit function imports by name and resolved
+signature; the core type index is immaterial.
 
 The persisted Rust-owned `evidence-rail-receipt.json` has schema
 `octet-evidence-rail-receipt/v1`; its `wasm_artifact` field binds exact artifact,

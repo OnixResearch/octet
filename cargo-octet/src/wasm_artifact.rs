@@ -1405,8 +1405,12 @@ fn push_interface_findings(
     profile: &WasmArtifactProfile,
     findings: &mut Vec<WasmArtifactFinding>,
 ) {
+    // SpaceWasm pilot profiles admit function imports by resolved signature
+    // (`push_spacewasm_abi_findings`), so the core type index is immaterial.
+    let signature_checked_imports =
+        matches!(profile.profile_id.as_str(), "spacewasm-mvp-host-pilot" | "spacewasm-molten-abi-pilot");
     for import in &facts.imports {
-        let identity = if profile.profile_id == "spacewasm-molten-abi-pilot" && import.kind.starts_with("Func(") {
+        let identity = if signature_checked_imports && import.kind.starts_with("Func(") {
             format!("{}::{}::Func", import.namespace, import.name)
         } else {
             import_identity(import)

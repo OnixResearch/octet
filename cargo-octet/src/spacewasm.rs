@@ -268,6 +268,39 @@ mod tests {
     }
 
     #[test]
+    fn pilot_admits_imports_by_signature_independent_of_core_type_order() {
+        let registry =
+            crate::wasm_artifact::parse_registry(include_str!("../../standards/wasm-artifact/generated/profiles.json"))
+                .unwrap();
+        let source = include_str!("../../standards/wasm-artifact/spacewasm/fixtures/positive/host-segments.wat");
+        // Declaring `() -> ()` first moves pause to type 0 and observe to type 1.
+        let reordered = source.replacen("(module", "(module (type (func))", 1);
+        let wrong_signature = reordered
+            .replace("(param i32)", "(param i64)")
+            .replace("call $observe", "i64.extend_i32_s call $observe");
+        for (source, denied) in [(reordered, false), (wrong_signature, true)] {
+            let bytes = wat::parse_str(&source).unwrap();
+            let report = crate::wasm_artifact::analyze_bytes(
+                &bytes,
+                &registry,
+                "spacewasm-mvp-host-pilot",
+                "b3:test".to_owned(),
+                &[],
+            )
+            .unwrap();
+            assert!(
+                report.details.facts.imports.iter().any(|import| import.name == "pause" && import.kind == "Func(0)")
+            );
+            assert_eq!(
+                report.details.findings.iter().any(|finding| finding.severity == "error"),
+                denied,
+                "{:?}",
+                report.details.findings
+            );
+        }
+    }
+
+    #[test]
     fn molten_abi_requires_bounded_memory_and_exact_host_contract() {
         let registry =
             crate::wasm_artifact::parse_registry(include_str!("../../standards/wasm-artifact/generated/profiles.json"))

@@ -53,6 +53,11 @@ exported mutable i32 total; a diagnostic receipt MUST NOT imply full actor admis
 - WHEN the diagnostic profile evaluates the bytes
 - THEN ABI conformance MUST deny.
 
+#### Scenario: Core type order differs
+- GIVEN observe and pause imports with the required signatures declared at different core type indices
+- WHEN the diagnostic profile evaluates the bytes
+- THEN the imports MUST be admitted by name and resolved signature, not by type index.
+
 ### Requirement: Parsing is bounded and features intersect reviewed support
 
 r[octet.spacewasm_pilot.bounded_intersection] Octet MUST bound artifact reads and
