@@ -2322,7 +2322,12 @@ fn run_pointer_set(
     if !available.contains(hash) {
         return Err(format!("pointer hash `{hash}` does not resolve to an object record"));
     }
-    let mut manifest = read_pointer_manifest(manifest_path)?;
+    // Only `pointer set` may create a manifest; every reader fails closed on a missing file.
+    let mut manifest = if manifest_path.exists() {
+        read_pointer_manifest(manifest_path)?
+    } else {
+        NamePointerManifest::default()
+    };
     manifest.schema_version = 1;
     let old_hash = manifest.pointers.get(name).map(|pointer| pointer.object_hash.clone());
     let diff_summary = match old_hash.as_deref() {
@@ -2517,9 +2522,6 @@ fn read_json(path: &Path) -> Result<serde_json::Value, String> {
 }
 
 fn read_pointer_manifest(path: &Path) -> Result<NamePointerManifest, String> {
-    if !path.exists() {
-        return Ok(NamePointerManifest::default());
-    }
     serde_json::from_value(read_json(path)?).map_err(|error| format!("parse pointer manifest: {error}"))
 }
 

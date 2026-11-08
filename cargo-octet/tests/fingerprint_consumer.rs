@@ -1089,6 +1089,59 @@ fn object_bundle_export_rejects_unknown_flags_before_writing() {
     assert!(!bundle_path.exists(), "rejected bundle export must not write a bundle");
 }
 
+#[test]
+fn object_pointer_validate_and_bundle_export_reject_missing_manifest() {
+    let temp = tempfile::tempdir().expect("create tempdir");
+    let objects_path = temp.path().join("objects.json");
+    write_object_records(&objects_path, &[("alpha", &blake3_hex(b"alpha input + 1"))]);
+    let missing_manifest = temp.path().join("typo-pointers.json");
+
+    let validate = Command::new(cargo_octet())
+        .args(["object", "pointer", "validate", "--manifest"])
+        .arg(&missing_manifest)
+        .args(["--objects"])
+        .arg(&objects_path)
+        .output()
+        .expect("validate missing pointer manifest");
+    assert!(
+        !validate.status.success(),
+        "missing manifest unexpectedly validated: {}",
+        String::from_utf8_lossy(&validate.stdout)
+    );
+    assert!(
+        String::from_utf8_lossy(&validate.stderr).contains("typo-pointers.json"),
+        "missing manifest was not named: {}",
+        String::from_utf8_lossy(&validate.stderr)
+    );
+
+    let bundle_path = temp.path().join("bundle.json");
+    let bundle = Command::new(cargo_octet())
+        .args(["object", "bundle", "export", "--objects"])
+        .arg(&objects_path)
+        .args(["--pointers"])
+        .arg(&missing_manifest)
+        .args(["--output"])
+        .arg(&bundle_path)
+        .args([
+            "--replay-command",
+            "cargo octet object emit --output-format=json lib.rs",
+        ])
+        .output()
+        .expect("export bundle with missing pointer manifest");
+    assert!(
+        !bundle.status.success(),
+        "bundle with a missing pointer manifest unexpectedly passed: {}",
+        String::from_utf8_lossy(&bundle.stdout)
+    );
+    assert!(
+        String::from_utf8_lossy(&bundle.stderr).contains("typo-pointers.json"),
+        "missing manifest was not named: {}",
+        String::from_utf8_lossy(&bundle.stderr)
+    );
+    assert!(!bundle_path.exists(), "rejected bundle export must not write a bundle");
+    assert!(!missing_manifest.exists(), "validate and export must not create the manifest");
+}
+
 const INTERNAL_OBJECT_CORPUS: &[&str] = &[
     "cargo-octet/src/baseline.rs",
     "cargo-octet/src/bin/cargo-slotcar.rs",

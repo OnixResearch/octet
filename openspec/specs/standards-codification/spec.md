@@ -1011,6 +1011,13 @@ r[content_addressed_rust_evidence.name_pointers] Octet MUST support a determinis
 - WHEN Octet validates the manifest
 - THEN every pointer hash resolves to a present object record or validation fails closed.
 
+#### Scenario: Missing pointer manifest fails closed
+
+- GIVEN a `--manifest` or `--pointers` path that names no existing file
+- WHEN Octet validates pointers, exports a bundle with pointers, or diffs objects against that pointer manifest
+- THEN the command exits non-zero and names the unreadable manifest instead of treating it as an empty manifest
+- AND only `object pointer set` may start a new manifest from a missing file.
+
 ### Requirement: Structured dependency and effect caveats
 
 r[content_addressed_rust_evidence.caveats] Octet MUST emit machine-readable dependency, macro, generated-code, and effect caveats using closed status values that distinguish source-token scanning from future HIR/MIR evidence.
