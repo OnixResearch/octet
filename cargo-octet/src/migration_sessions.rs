@@ -285,13 +285,11 @@ pub(crate) fn verify_report(session: &StructuredMigrationSession) -> MigrationVe
 
 pub(crate) fn operation_manifest(session: &StructuredMigrationSession, dry_run: bool) -> MigrationOperationManifest {
     let mut diagnostics = validate_session(session);
-    for operation in &session.planned_operations {
-        if operation.safety != SAFETY_SAFE || operation.operation_kind != OPERATION_RECORD_ONLY {
-            diagnostics.push(format!(
-                "apply.unsupported_operation `{}` requires safety=safe and operation_kind=record-only",
-                operation.operation_id
-            ));
-        }
+    for operation in session.planned_operations.iter().filter(|operation| !is_safe_record_only(operation)) {
+        diagnostics.push(format!(
+            "apply.unsupported_operation `{}` requires safety=safe and operation_kind=record-only",
+            operation.operation_id
+        ));
     }
     diagnostics.sort();
     diagnostics.dedup();
@@ -300,10 +298,16 @@ pub(crate) fn operation_manifest(session: &StructuredMigrationSession, dry_run: 
         session_id: session.session_id.clone(),
         dry_run,
         pre_write_manifest: true,
-        operations: sorted_operations(session.planned_operations.iter()),
+        operations: sorted_operations(
+            session.planned_operations.iter().filter(|operation| is_safe_record_only(operation)),
+        ),
         diagnostics,
         non_claim_boundary: MIGRATION_NON_CLAIM_BOUNDARY,
     }
+}
+
+fn is_safe_record_only(operation: &MigrationPlannedOperation) -> bool {
+    operation.safety == SAFETY_SAFE && operation.operation_kind == OPERATION_RECORD_ONLY
 }
 
 #[cfg(test)]
@@ -690,6 +694,30 @@ mod tests {
         assert_eq!(dry_run.operations, apply.operations);
         assert_eq!(apply, repeated_apply);
         assert!(apply.pre_write_manifest);
+    }
+
+    #[test]
+    fn apply_manifest_lists_only_safe_record_only_operations() {
+        let mut session = valid_session();
+        let mut manual_review = planned_operation("rewrite-live", OPERATION_REWRITE, LIVE_DOC);
+        manual_review.safety = SAFETY_MANUAL_REVIEW.to_owned();
+        session.planned_operations.push(manual_review);
+        session.planned_operations.push(planned_operation("replace-live", OPERATION_REPLACE, LIVE_DOC));
+
+        let manifest = operation_manifest(&session, false);
+
+        let listed = manifest.operations.iter().map(|operation| operation.operation_id.as_str()).collect::<Vec<_>>();
+        assert_eq!(listed, vec![OPERATION_ID]);
+        for unsupported in ["rewrite-live", "replace-live"] {
+            assert!(
+                manifest
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.contains(&format!("apply.unsupported_operation `{unsupported}`"))),
+                "{unsupported}: {:?}",
+                manifest.diagnostics
+            );
+        }
     }
 
     #[test]

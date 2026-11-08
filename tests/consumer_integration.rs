@@ -2493,6 +2493,64 @@ fn migrate_rejected_invocations_do_not_write_files() {
 }
 
 #[test]
+fn migrate_session_apply_writes_only_clean_safe_record_only_manifests() {
+    let fixture = ConsumerFixture::new("migration-session-apply", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let bin = built_cargo_octet_bin().expect("build cargo-octet binary");
+    let template_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("templates/structured-migration-session.json");
+    let template: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(template_path).expect("read session template"))
+            .expect("template json");
+    let apply = |session: &serde_json::Value, label: &str| {
+        let session_path = fixture.repo.join(format!("{label}-session.json"));
+        write_file(&session_path, &serde_json::to_string_pretty(session).expect("render session"));
+        let manifest = fixture.repo.join(format!("artifacts/migration/{label}-operation-manifest.json"));
+        let output = Command::new(&bin)
+            .args(["migrate", "session", "apply", "--session"])
+            .arg(&session_path)
+            .arg("--operation-manifest")
+            .arg(&manifest)
+            .args(["--output-format", JSON_OUTPUT_FORMAT])
+            .current_dir(&fixture.repo)
+            .output()
+            .expect("run migrate session apply");
+        (output, manifest)
+    };
+
+    let (clean, clean_manifest) = apply(&template, "clean");
+    assert_eq!(clean.status.code(), Some(EXIT_CODE_SUCCESS), "stderr={}", String::from_utf8_lossy(&clean.stderr));
+    assert_eq!(read_json_artifact(&clean_manifest)["operations"].as_array().map(Vec::len), Some(1));
+
+    let mut manual_review = template.clone();
+    manual_review["planned_operations"]
+        .as_array_mut()
+        .expect("planned operations")
+        .push(serde_json::json!({
+            "operation_id": "rewrite-release-doc",
+            "operation_kind": "rewrite",
+            "target_locator": "docs/release-candidate.md",
+            "safety": "manual-review",
+            "dry_run_preview": "rewrite cargo-slotcar mentions"
+        }));
+    let (rejected, rejected_manifest) = apply(&manual_review, "manual-review");
+    assert_eq!(rejected.status.code(), Some(EXIT_CODE_LINT_FAILURE));
+    assert!(!rejected_manifest.exists(), "apply with diagnostics must not write the operation manifest");
+    let report: serde_json::Value = serde_json::from_slice(&rejected.stdout).expect("apply report json");
+    let operations = report["operations"].as_array().expect("report operations");
+    assert!(
+        operations
+            .iter()
+            .all(|operation| operation["operation_kind"] == "record-only" && operation["safety"] == "safe"),
+        "{report}"
+    );
+    assert!(
+        report["diagnostics"].as_array().expect("report diagnostics").iter().any(|diagnostic| diagnostic
+            .as_str()
+            .is_some_and(|text| text.contains("apply.unsupported_operation `rewrite-release-doc`"))),
+        "{report}"
+    );
+}
+
+#[test]
 fn transcript_reports_content_hash_and_fails_closed() {
     let fixture = ConsumerFixture::new("transcript-report", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
     let good = fixture.repo.join("docs/good.md");

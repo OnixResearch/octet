@@ -40,6 +40,8 @@ cargo octet migrate session apply \
 
 Use `--dry-run` to render the same operation set without treating it as an apply decision. Repeated apply over the same session is deterministic and idempotent at the operation-manifest level.
 
+The manifest lists only operations with `safety: "safe"` and `operation_kind: "record-only"`. Any other planned operation is reported as `apply.unsupported_operation`; when the session has any diagnostic (validation failure or unsupported operation), apply prints the report, exits 1, and does not write the operation manifest.
+
 ## Boundary
 
 Structured migration sessions prove reviewed name-pointer and artifact linkage only. They do not prove behavioral correctness, semantic equivalence, source compatibility, or release safety without separate evidence.
