@@ -6,6 +6,11 @@ use std::path::PathBuf;
 
 use cap_std::ambient_authority;
 use cap_std::fs::Dir;
+use cap_std::fs::File;
+#[cfg(unix)]
+use cap_std::fs::OpenOptions;
+#[cfg(unix)]
+use cap_std::fs::OpenOptionsExt as _;
 
 const CURRENT_DIR: &str = ".";
 const PARENT_COMPONENT: &str = "..";
@@ -200,19 +205,20 @@ impl CapabilityRoot {
     }
 
     fn read(&self, relative: &RootRelativePath) -> Result<Vec<u8>, String> {
-        self.dir.read(relative.as_path()).map_err(|error| {
-            format!("read {kind} path `{locator}`: {error}", kind = self.kind, locator = relative.display())
-        })
+        let read_error =
+            |error| format!("read {kind} path `{locator}`: {error}", kind = self.kind, locator = relative.display());
+        let file = self.open_for_read(relative).map_err(read_error)?;
+        let len = self.require_regular_file(relative, &file)?;
+        let mut bytes = Vec::with_capacity(usize::try_from(len).unwrap_or(0));
+        (&file).read_to_end(&mut bytes).map_err(read_error)?;
+        Ok(bytes)
     }
 
     fn read_bounded(&self, relative: &RootRelativePath, max_bytes: u64) -> Result<Vec<u8>, String> {
-        let file = self.dir.open(relative.as_path()).map_err(|error| {
+        let file = self.open_for_read(relative).map_err(|error| {
             format!("open {kind} path `{locator}`: {error}", kind = self.kind, locator = relative.display())
         })?;
-        let metadata = file.metadata().map_err(|error| {
-            format!("inspect {kind} path `{locator}`: {error}", kind = self.kind, locator = relative.display())
-        })?;
-        if metadata.len() > max_bytes {
+        if self.require_regular_file(relative, &file)? > max_bytes {
             return Err(format!(
                 "{kind} path `{locator}` exceeds {max_bytes} byte limit",
                 kind = self.kind,
@@ -243,19 +249,63 @@ impl CapabilityRoot {
     }
 
     fn read_to_string(&self, relative: &RootRelativePath) -> Result<String, String> {
-        self.dir.read_to_string(relative.as_path()).map_err(|error| {
+        let file = self.open_for_read(relative).map_err(|error| {
             format!("read {kind} path `{locator}`: {error}", kind = self.kind, locator = relative.display())
-        })
+        })?;
+        self.read_regular_to_string(relative, &file)
     }
 
     fn read_to_string_optional(&self, relative: &RootRelativePath) -> Result<Option<String>, String> {
-        match self.dir.read_to_string(relative.as_path()) {
-            Ok(contents) => Ok(Some(contents)),
+        match self.open_for_read(relative) {
+            Ok(file) => self.read_regular_to_string(relative, &file).map(Some),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
             Err(error) => {
                 Err(format!("read {kind} path `{locator}`: {error}", kind = self.kind, locator = relative.display()))
             }
         }
+    }
+
+    /// Opens an in-root file for reading without blocking on special files.
+    ///
+    /// On Unix the open uses `O_NONBLOCK`, so a FIFO with no writer cannot
+    /// stall the shell before [`Self::require_regular_file`] rejects it. The
+    /// flag does not change reads from regular files.
+    fn open_for_read(&self, relative: &RootRelativePath) -> std::io::Result<File> {
+        #[cfg(unix)]
+        {
+            let mut options = OpenOptions::new();
+            options.read(true).custom_flags(libc::O_NONBLOCK);
+            self.dir.open_with(relative.as_path(), &options)
+        }
+        #[cfg(not(unix))]
+        {
+            self.dir.open(relative.as_path())
+        }
+    }
+
+    /// Inspects the opened handle and returns its length only for regular files.
+    fn require_regular_file(&self, relative: &RootRelativePath, file: &File) -> Result<u64, String> {
+        let metadata = file.metadata().map_err(|error| {
+            format!("inspect {kind} path `{locator}`: {error}", kind = self.kind, locator = relative.display())
+        })?;
+        if !metadata.is_file() {
+            return Err(format!(
+                "{kind} path `{locator}` is not a regular file",
+                kind = self.kind,
+                locator = relative.display()
+            ));
+        }
+        Ok(metadata.len())
+    }
+
+    fn read_regular_to_string(&self, relative: &RootRelativePath, file: &File) -> Result<String, String> {
+        let len = self.require_regular_file(relative, file)?;
+        let mut contents = String::with_capacity(usize::try_from(len).unwrap_or(0));
+        let mut reader = file;
+        reader.read_to_string(&mut contents).map_err(|error| {
+            format!("read {kind} path `{locator}`: {error}", kind = self.kind, locator = relative.display())
+        })?;
+        Ok(contents)
     }
 
     fn write(&self, relative: &RootRelativePath, bytes: &[u8]) -> Result<(), String> {
@@ -599,5 +649,61 @@ mod tests {
 
         assert!(error.contains("symlink"));
         assert!(error.contains("escape-link"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn capability_reads_reject_fifo_without_blocking() {
+        use std::time::Duration;
+        use std::time::Instant;
+
+        const ROOT_ENV: &str = "OCTET_CAP_FS_FIFO_TEST_ROOT";
+        const FIFO_FILE: &str = "blocked.fifo";
+        const READ_LIMIT: u64 = 1024;
+        if let Some(root_path) = std::env::var_os(ROOT_ENV) {
+            let root_path = Path::new(&root_path);
+            let locator = RootRelativePath::new(FIFO_FILE).expect("FIFO locator");
+            let source = SourceRoot::open_existing(root_path).expect("source root");
+            let cache = CacheRoot::open_or_create(root_path).expect("cache root");
+            let errors = [
+                source.read_bounded(&locator, READ_LIMIT).expect_err("bounded read rejects FIFO"),
+                source.read_to_string(&locator).expect_err("string read rejects FIFO"),
+                cache.read_to_string_optional(&locator).expect_err("optional read rejects FIFO"),
+            ];
+            for error in errors {
+                assert!(error.contains("not a regular file"), "{error}");
+            }
+            return;
+        }
+        let tempdir = tempfile::tempdir().expect("tempdir");
+        let fifo = tempdir.path().join(FIFO_FILE);
+        assert!(
+            std::process::Command::new("mkfifo").arg(&fifo).status().expect("create FIFO").success(),
+            "mkfifo must create the test input"
+        );
+        let mut child = std::process::Command::new(std::env::current_exe().expect("test executable"))
+            .args([
+                "--exact",
+                "cap_fs::tests::capability_reads_reject_fifo_without_blocking",
+                "--nocapture",
+            ])
+            .env(ROOT_ENV, tempdir.path())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .expect("run isolated FIFO read");
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            if let Some(status) = child.try_wait().expect("wait for FIFO read") {
+                assert!(status.success(), "isolated FIFO read failed: {status}");
+                break;
+            }
+            if Instant::now() >= deadline {
+                child.kill().expect("stop blocked FIFO read");
+                child.wait().expect("reap blocked FIFO read");
+                panic!("capability read blocked on a FIFO");
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
     }
 }
