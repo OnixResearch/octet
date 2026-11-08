@@ -50,3 +50,21 @@ mod cfg_test_only {
         let _ = val.unwrap();
     }
 }
+
+struct CfgTestMethodHost;
+
+impl CfgTestMethodHost {
+    #[cfg(test)]
+    fn unwrap_in_cfg_test_impl_method_is_allowed() {
+        let val: Result<u32, &str> = Ok(1);
+        let _ = val.unwrap();
+    }
+}
+
+trait CfgTestTraitHost {
+    #[cfg(test)]
+    fn unwrap_in_cfg_test_trait_method_is_allowed() {
+        let val: Result<u32, &str> = Ok(1);
+        let _ = val.unwrap();
+    }
+}

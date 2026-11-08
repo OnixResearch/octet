@@ -28,3 +28,19 @@ mod cfg_test_only {
         todo!("cfg-test-only todo");
     }
 }
+
+struct CfgTestMethodHost;
+
+impl CfgTestMethodHost {
+    #[cfg(test)]
+    fn todo_in_cfg_test_impl_method_is_allowed() {
+        todo!("cfg-test-only method todo");
+    }
+}
+
+trait CfgTestTraitHost {
+    #[cfg(test)]
+    fn todo_in_cfg_test_trait_method_is_allowed() {
+        todo!("cfg-test-only method todo");
+    }
+}

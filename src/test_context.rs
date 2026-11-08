@@ -55,11 +55,24 @@ pub(crate) fn hir_attrs_indicate_test(sess: &Session, attrs: &[hir::Attribute]) 
 
 pub(crate) fn late_hir_id_is_in_test_context(cx: &LateContext<'_>, hir_id: hir::HirId, _span: Span) -> bool {
     for (_, node) in cx.tcx.hir_parent_iter(hir_id) {
-        if let hir::Node::Item(item) = node
-            && (hir_attrs_indicate_test(cx.sess(), cx.tcx.hir_attrs(item.hir_id()))
-                || item_span_indicates_test(cx.sess(), item.span)
-                || item_is_harness_test_fn(cx, item))
-        {
+        let in_test = match node {
+            hir::Node::Item(item) => {
+                hir_attrs_indicate_test(cx.sess(), cx.tcx.hir_attrs(item.hir_id()))
+                    || item_span_indicates_test(cx.sess(), item.span)
+                    || item_is_harness_test_fn(cx, item)
+            }
+            // `#[test]` cannot annotate associated functions, so only cfg gates apply here.
+            hir::Node::ImplItem(impl_item) => {
+                hir_attrs_indicate_test(cx.sess(), cx.tcx.hir_attrs(impl_item.hir_id()))
+                    || item_span_indicates_test(cx.sess(), impl_item.span)
+            }
+            hir::Node::TraitItem(trait_item) => {
+                hir_attrs_indicate_test(cx.sess(), cx.tcx.hir_attrs(trait_item.hir_id()))
+                    || item_span_indicates_test(cx.sess(), trait_item.span)
+            }
+            _ => false,
+        };
+        if in_test {
             return true;
         }
     }

@@ -64,3 +64,19 @@ mod cfg_test_only {
         panic!("cfg-test-only panic");
     }
 }
+
+struct CfgTestMethodHost;
+
+impl CfgTestMethodHost {
+    #[cfg(test)]
+    fn panic_in_cfg_test_impl_method_is_allowed() {
+        panic!("cfg-test-only method panic");
+    }
+}
+
+trait CfgTestTraitHost {
+    #[cfg(test)]
+    fn panic_in_cfg_test_trait_method_is_allowed() {
+        panic!("cfg-test-only method panic");
+    }
+}
