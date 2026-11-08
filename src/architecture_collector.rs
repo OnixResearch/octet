@@ -456,11 +456,7 @@ impl ArchitectureCollector {
             from_expansion: span.from_expansion(),
         };
         record.span_id = octet_architecture_ir::source_span_identity(&record);
-        if self.spans.len() < self.context.limits.max_spans {
-            self.spans.entry(record.span_id.clone()).or_insert(record.clone());
-        } else {
-            self.incomplete = true;
-        }
+        self.record_span(&record);
         if external_source {
             if let SourceOrigin::ExternalGenerated { provenance_blake3 } = &record.origin {
                 self.push_unknown(
@@ -475,6 +471,18 @@ impl ArchitectureCollector {
             }
         }
         record.span_id
+    }
+
+    // A span already recorded costs nothing; only a new span can exceed the limit.
+    fn record_span(&mut self, record: &SourceSpan) {
+        if self.spans.contains_key(&record.span_id) {
+            return;
+        }
+        if self.spans.len() >= self.context.limits.max_spans {
+            self.incomplete = true;
+            return;
+        }
+        self.spans.insert(record.span_id.clone(), record.clone());
     }
 
     fn collect_expansion(&mut self, cx: &LateContext<'_>, span: Span, generated_span_id: &str) {
@@ -2178,5 +2186,73 @@ mod tests {
         assert_eq!(workspace_library_package(&ambiguous, "foo_bar"), None);
         let binary = [selected_unit("tool-cli", "tool_cli", "bin", false)];
         assert_eq!(workspace_library_package(&binary, "tool_cli"), None);
+    }
+
+    fn collector_with_span_limit(max_spans: usize) -> ArchitectureCollector {
+        const LIMIT: usize = 16;
+        let limits = octet_architecture_ir::ArchitectureCollectionLimits {
+            max_units: LIMIT,
+            max_shards: LIMIT,
+            max_modules: LIMIT,
+            max_items: LIMIT,
+            max_types: LIMIT,
+            max_traits: LIMIT,
+            max_implementations: LIMIT,
+            max_signatures: LIMIT,
+            max_calls: LIMIT,
+            max_constructors: LIMIT,
+            max_effects: LIMIT,
+            max_expansions: LIMIT,
+            max_configurations: LIMIT,
+            max_type_shapes: LIMIT,
+            max_function_safety_facts: LIMIT,
+            max_value_provenance_facts: LIMIT,
+            max_value_flow_bodies: LIMIT,
+            max_value_flow_steps: LIMIT,
+            max_value_flow_rounds: LIMIT,
+            max_unknowns: LIMIT,
+            max_spans,
+            max_span_bytes: LIMIT,
+            max_shard_bytes: LIMIT,
+            max_artifact_bytes: LIMIT,
+        };
+        let context = CompilerArchitectureCollectorContext {
+            schema_version: String::new(),
+            workspace_root: String::new(),
+            output_directory: String::new(),
+            limits,
+            selected_units: Vec::new(),
+            value_flow_selections: Vec::new(),
+            non_claims: Vec::new(),
+        };
+        ArchitectureCollector::new(context, selected_unit("fixture", "fixture", "rlib", false))
+    }
+
+    fn workspace_span(byte_start: u64) -> SourceSpan {
+        let mut span = SourceSpan {
+            span_id: String::new(),
+            origin: SourceOrigin::Workspace {
+                source_path: "src/lib.rs".to_owned(),
+            },
+            byte_start,
+            byte_end: byte_start + 1,
+            line_start: 1,
+            column_start: 1,
+            from_expansion: false,
+        };
+        span.span_id = octet_architecture_ir::source_span_identity(&span);
+        span
+    }
+
+    #[test]
+    fn recorded_spans_do_not_count_against_a_full_span_limit() {
+        let mut collector = collector_with_span_limit(1);
+        let recorded = workspace_span(0);
+        collector.record_span(&recorded);
+        collector.record_span(&recorded);
+        assert!(!collector.incomplete, "re-reading a recorded span must not exceed the limit");
+        collector.record_span(&workspace_span(1));
+        assert!(collector.incomplete, "a new span beyond the limit must mark the shard incomplete");
+        assert_eq!(collector.spans.keys().collect::<Vec<_>>(), [&recorded.span_id]);
     }
 }
