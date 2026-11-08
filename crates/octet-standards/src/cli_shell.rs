@@ -1073,9 +1073,16 @@ fn proof_receipt_verifier(rail: &octet_standards::model::ProofRail, sources: &[S
     if !verifier.verifier_build_closure.is_empty() {
         lines.push(format!("proof-verifier-build-closure: {}", verifier.verifier_build_closure));
     }
-    if !verifier.verifier_build_closure_digest.is_empty() {
-        let digest = build_closure_digest(&verifier.verifier_build_closure_paths, sources)
-            .unwrap_or_else(|| verifier.verifier_build_closure_digest.clone());
+    // Unmatched configured closure manifests omit the digest line; the checker reports the
+    // manifest error instead of accepting the configured digest.
+    if !verifier.verifier_build_closure_digest.is_empty()
+        && let Ok(digest) = octet_standards::proof_artifact::build_closure_digest(
+            &verifier.verifier_build_closure_paths,
+            sources,
+            octet_standards::proof_artifact::FIELD_BUILD_CLOSURE_PATHS,
+        )
+    {
+        let digest = digest.unwrap_or_else(|| verifier.verifier_build_closure_digest.clone());
         lines.push(format!("proof-verifier-build-closure-blake3: {digest}"));
     }
     if !verifier.verifier_nix_derivation.is_empty() {
@@ -1087,9 +1094,14 @@ fn proof_receipt_verifier(rail: &octet_standards::model::ProofRail, sources: &[S
     if !verifier.verifier_nix_closure.is_empty() {
         lines.push(format!("proof-verifier-nix-closure: {}", verifier.verifier_nix_closure));
     }
-    if !verifier.verifier_nix_closure_digest.is_empty() {
-        let digest = build_closure_digest(&verifier.verifier_nix_closure_paths, sources)
-            .unwrap_or_else(|| verifier.verifier_nix_closure_digest.clone());
+    if !verifier.verifier_nix_closure_digest.is_empty()
+        && let Ok(digest) = octet_standards::proof_artifact::build_closure_digest(
+            &verifier.verifier_nix_closure_paths,
+            sources,
+            octet_standards::proof_artifact::FIELD_NIX_CLOSURE_PATHS,
+        )
+    {
+        let digest = digest.unwrap_or_else(|| verifier.verifier_nix_closure_digest.clone());
         lines.push(format!("proof-verifier-nix-closure-blake3: {digest}"));
     }
     if !verifier.verifier_nix_closure_graph_digest.is_empty() {
@@ -1118,22 +1130,6 @@ fn proof_receipt_verifier(rail: &octet_standards::model::ProofRail, sources: &[S
         ) + "
 "
     }
-}
-
-fn build_closure_digest(paths: &[String], sources: &[SourceFile]) -> Option<String> {
-    if paths.is_empty() {
-        return None;
-    }
-    let mut matched_sources = matching_sources(paths, sources);
-    if matched_sources.is_empty() {
-        return None;
-    }
-    matched_sources.sort_by(|left, right| left.path.cmp(&right.path));
-    let mut manifest = String::new();
-    for source in matched_sources {
-        writeln!(manifest, "{}:{}", source.path, blake3_hex(&source.text)).expect("writing to string should not fail");
-    }
-    Some(blake3_hex(&manifest))
 }
 
 fn proof_receipt_binding(rail: &octet_standards::model::ProofRail, sources: &[SourceFile]) -> String {

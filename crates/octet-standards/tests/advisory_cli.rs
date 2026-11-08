@@ -589,6 +589,42 @@ fn execute_proof_rails_rejects_malformed_nix_closure_graph() {
 }
 
 #[test]
+fn execute_proof_rails_rejects_missing_build_closure_manifest() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry_value(&temp, &proof_registry());
+    let fixture = write_executable_proof_fixture(&temp, "missing-build-closure-proof-fixture");
+    std::fs::remove_file(fixture.join("proof-build-closure.txt")).expect("build closure manifest should be removed");
+
+    let output = run_executed_proof_check(&registry, &fixture);
+
+    assert_failure(&output);
+    let report = parse_report(&output);
+    assert!(report.diagnostics.iter().any(|diagnostic| {
+        diagnostic.policy_id == PROOF_POLICY_ID
+            && diagnostic.message.contains("verifier_build_closure_paths")
+            && diagnostic.message.contains("matches no checked closure manifest")
+    }));
+}
+
+#[test]
+fn execute_proof_rails_rejects_missing_nix_closure_manifest() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry_value(&temp, &proof_registry());
+    let fixture = write_executable_proof_fixture(&temp, "missing-nix-closure-proof-fixture");
+    std::fs::remove_file(fixture.join("proof-nix-closure.txt")).expect("Nix closure manifest should be removed");
+
+    let output = run_executed_proof_check(&registry, &fixture);
+
+    assert_failure(&output);
+    let report = parse_report(&output);
+    assert!(report.diagnostics.iter().any(|diagnostic| {
+        diagnostic.policy_id == PROOF_POLICY_ID
+            && diagnostic.message.contains("verifier_nix_closure_paths")
+            && diagnostic.message.contains("matches no checked closure manifest")
+    }));
+}
+
+#[test]
 fn receipt_only_proof_rail_rejects_unbound_stale_receipt() {
     let temp = TempDir::new().expect("temp dir should be created");
     let registry = write_registry_value(&temp, &proof_registry());

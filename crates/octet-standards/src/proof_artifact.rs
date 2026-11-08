@@ -9,6 +9,10 @@ use crate::source::SourceFile;
 /// Receipt binding mode that binds command text and matched source contents.
 pub const RECEIPT_BINDING_BLAKE3_COMMAND_AND_SOURCE: &str = "blake3-command-and-source";
 
+/// Receipt verifier field naming verifier build closure manifest paths.
+pub const FIELD_BUILD_CLOSURE_PATHS: &str = "verifier_build_closure_paths";
+/// Receipt verifier field naming Nix recursive closure manifest paths.
+pub const FIELD_NIX_CLOSURE_PATHS: &str = "verifier_nix_closure_paths";
 const FIELD_CLOSURE_GRAPH: &str = "verifier_nix_closure_graph_paths";
 
 /// Deterministic identity for a text artifact.
@@ -166,14 +170,24 @@ pub fn receipt_binding_text(rail: &ProofRail, sources: &[SourceFile]) -> String 
 }
 
 /// Build a BLAKE3 digest over matched closure manifest sources.
-#[must_use]
-pub fn build_closure_digest(paths: &[String], sources: &[SourceFile]) -> Option<String> {
+///
+/// Returns `Ok(None)` only when no manifest paths are configured.
+///
+/// # Errors
+///
+/// Returns a deterministic diagnostic naming `field_name` when configured paths match no checked
+/// manifest; callers must not fall back to a configured digest.
+pub fn build_closure_digest(
+    paths: &[String],
+    sources: &[SourceFile],
+    field_name: &str,
+) -> Result<Option<String>, String> {
     if paths.is_empty() {
-        return None;
+        return Ok(None);
     }
     let mut matched_sources = matching_sources(paths, sources);
     if matched_sources.is_empty() {
-        return None;
+        return Err(format!("{field_name} [{}] matches no checked closure manifest", paths.join(", ")));
     }
     matched_sources.sort_by(|left, right| left.path.cmp(&right.path));
     let mut manifest = String::new();
@@ -181,7 +195,7 @@ pub fn build_closure_digest(paths: &[String], sources: &[SourceFile]) -> Option<
         writeln!(manifest, "{}:{}", source.path, blake3_hex_text(&source.text))
             .expect("writing to string should not fail");
     }
-    Some(blake3_hex_text(&manifest))
+    Ok(Some(blake3_hex_text(&manifest)))
 }
 
 /// Build a BLAKE3 digest over canonical Nix exportReferencesGraph artifacts.
@@ -427,6 +441,18 @@ mod tests {
         assert!(error.contains(FIELD_CLOSURE_GRAPH));
         assert!(error.contains("matches no checked closure graph artifact"));
         assert_eq!(nix_closure_graph_digest(&[], &sources), Ok(None));
+    }
+
+    #[test]
+    fn closure_manifest_digest_rejects_unmatched_configured_paths() {
+        let sources = vec![SourceFile::new(SOURCE_PATH, SOURCE_TEXT)];
+
+        let error = build_closure_digest(&["artifacts/*.txt".to_owned()], &sources, FIELD_NIX_CLOSURE_PATHS)
+            .expect_err("missing manifest");
+
+        assert!(error.contains(FIELD_NIX_CLOSURE_PATHS));
+        assert!(error.contains("matches no checked closure manifest"));
+        assert_eq!(build_closure_digest(&[], &sources, FIELD_NIX_CLOSURE_PATHS), Ok(None));
     }
 
     #[test]
