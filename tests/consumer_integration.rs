@@ -1874,6 +1874,60 @@ printf 'DYLINT_RUSTFLAGS:%s\n' "${{DYLINT_RUSTFLAGS:-}}" >> "$TS_LOG"
     }
 }
 
+// Cargo aliases expand only to Cargo arguments, so the default-on gate ships as a wrapper script.
+#[test]
+fn octet_check_wrapper_template_runs_gate_before_cargo_check() {
+    let tmp = TempDir::new("octet-check-wrapper");
+    let shell = bash_path().expect("find bash");
+    let fakebin = tmp.path().join("bin");
+    let log_path = tmp.path().join("cargo.log");
+    write_executable(
+        &fakebin.join("cargo"),
+        &format!(
+            r#"#!{shell}
+printf '%s\n' "$*" >> "$TS_LOG"
+if [[ "${{1:-}}" == "octet" ]]; then
+  exit "${{TS_GATE_EXIT:?}}"
+fi
+"#,
+            shell = shell.display(),
+        ),
+    );
+    let template = Path::new(env!("CARGO_MANIFEST_DIR")).join("templates/octet-check.sh");
+    let template_source = fs::read_to_string(&template)
+        .unwrap_or_else(|error| panic!("read wrapper template {}: {error}", template.display()));
+    assert!(template_source.starts_with("#!/bin/sh\n"), "wrapper template must stay POSIX sh");
+    let path = format!("{}:{}", fakebin.display(), env::var("PATH").expect("PATH"));
+
+    for (gate_exit, expected_log) in [
+        (EXIT_CODE_SUCCESS, "octet check\ncheck --lib\n"),
+        (EXIT_CODE_LINT_FAILURE, "octet check\n"),
+        (EXIT_CODE_INTEGRATION_FAILURE, "octet check\n"),
+    ] {
+        let _ = fs::remove_file(&log_path);
+        let output = Command::new(&shell)
+            .arg(&template)
+            .arg("--lib")
+            .current_dir(tmp.path())
+            .env("PATH", &path)
+            .env("TS_LOG", &log_path)
+            .env("TS_GATE_EXIT", gate_exit.to_string())
+            .output()
+            .expect("run wrapper template");
+        assert_eq!(
+            output.status.code(),
+            Some(gate_exit),
+            "wrapper should return the gate status: stderr={}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(
+            fs::read_to_string(&log_path).unwrap_or_default(),
+            expected_log,
+            "gate exit {gate_exit} should run the gate first and stop before `cargo check` on failure"
+        );
+    }
+}
+
 #[test]
 fn thin_wrapper_fixture_delegates_without_policy_logic() {
     let fixture_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/consumer-integration/justfile");

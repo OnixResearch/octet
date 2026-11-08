@@ -22,7 +22,7 @@ r[octet.runner_self_check.execution] Octet SHALL retain deterministic evidence t
 #### Scenario: Canonical Nix app completes the self-check
 r[octet.runner_self_check.execution.pass]
 - GIVEN the pinned packaged runner, driver, lint library, toolchain, and checked-in root metadata
-- WHEN `nix run .#cargo-octet -- check` runs without scope overrides or `--allow-style-violations`
+- WHEN `nix run .#cargo-octet -- check` runs without scope overrides
 - THEN it SHALL exit `0` after a successful Cargo child process and SHALL emit a valid Octet human summary with no error-level findings.
 
 ### Requirement: Invalid metadata SHALL continue to fail before Cargo

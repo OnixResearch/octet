@@ -6,7 +6,8 @@
 #   - dylint.toml copied from templates/dylint.toml
 #   - [workspace.metadata.octet] configured in workspace Cargo.toml
 #
-# CI must not pass --allow-style-violations.
+# CI must always run this gate; Octet has no flag or environment variable that
+# skips it.
 
 steps:
   - name: Octet checked path
