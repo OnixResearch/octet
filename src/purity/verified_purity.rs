@@ -54,6 +54,51 @@ const IMPURE_PATHS: &[&str] = &[
     "async_std::",
 ];
 
+fn impure_message(path_str: &str) -> Option<&'static str> {
+    if !IMPURE_PATHS.iter().any(|impure| path_str.contains(impure)) {
+        return None;
+    }
+
+    Some(if path_str.contains("time") {
+        "system time access in verified module"
+    } else if path_str.contains("io") || path_str.contains("fs") {
+        "I/O operation in verified module"
+    } else if path_str.contains("net") {
+        "network operation in verified module"
+    } else if path_str.contains("process") {
+        "subprocess operation in verified module"
+    } else {
+        "impure operation in verified module"
+    })
+}
+
+/// Importing an impure path is itself the violation: later uses such as
+/// `Instant::now()` no longer spell the impure owner path.
+fn check_use_tree(cx: &EarlyContext<'_>, tree: &rustc_ast::UseTree) {
+    let mut pending = vec![(String::new(), tree)];
+    while let Some((mut path_str, tree)) = pending.pop() {
+        for segment in &tree.prefix.segments {
+            if !path_str.is_empty() {
+                path_str.push_str("::");
+            }
+            path_str.push_str(segment.ident.name.as_str());
+        }
+
+        match &tree.kind {
+            rustc_ast::UseTreeKind::Nested { items, .. } => {
+                pending.extend(items.iter().rev().map(|(nested, _)| (path_str.clone(), nested)));
+            }
+            rustc_ast::UseTreeKind::Simple(_) | rustc_ast::UseTreeKind::Glob => {
+                // A trailing separator lets module imports such as `use std::fs;` match `std::fs::`.
+                path_str.push_str("::");
+                if let Some(msg) = impure_message(&path_str) {
+                    emit_tiger_style_lint(cx, VERIFIED_PURITY, tree.span, msg, "verified_purity");
+                }
+            }
+        }
+    }
+}
+
 impl EarlyLintPass for VerifiedPurity {
     fn check_item(&mut self, cx: &EarlyContext<'_>, item: &Item) {
         if !is_in_verified_module(cx, item.span) {
@@ -64,17 +109,18 @@ impl EarlyLintPass for VerifiedPurity {
             return;
         }
 
-        // Check for async fn
-        if let ItemKind::Fn(func) = &item.kind
-            && func.sig.header.coroutine_kind.is_some()
-        {
-            emit_tiger_style_lint(
-                cx,
-                VERIFIED_PURITY,
-                item.span,
-                "async function in verified module",
-                "verified_purity",
-            );
+        match &item.kind {
+            ItemKind::Fn(func) if func.sig.header.coroutine_kind.is_some() => {
+                emit_tiger_style_lint(
+                    cx,
+                    VERIFIED_PURITY,
+                    item.span,
+                    "async function in verified module",
+                    "verified_purity",
+                );
+            }
+            ItemKind::Use(tree) => check_use_tree(cx, tree),
+            _ => {}
         }
     }
 
@@ -86,24 +132,8 @@ impl EarlyLintPass for VerifiedPurity {
         // Check for impure path references in expressions
         if let ExprKind::Path(_, path) = &expr.kind {
             let path_str: String = path.segments.iter().map(|s| s.ident.name.as_str()).collect::<Vec<_>>().join("::");
-
-            for impure in IMPURE_PATHS {
-                if path_str.contains(impure) {
-                    let msg = if path_str.contains("time") {
-                        "system time access in verified module"
-                    } else if path_str.contains("io") || path_str.contains("fs") {
-                        "I/O operation in verified module"
-                    } else if path_str.contains("net") {
-                        "network operation in verified module"
-                    } else if path_str.contains("process") {
-                        "subprocess operation in verified module"
-                    } else {
-                        "impure operation in verified module"
-                    };
-
-                    emit_tiger_style_lint(cx, VERIFIED_PURITY, expr.span, msg, "verified_purity");
-                    return;
-                }
+            if let Some(msg) = impure_message(&path_str) {
+                emit_tiger_style_lint(cx, VERIFIED_PURITY, expr.span, msg, "verified_purity");
             }
         }
     }
