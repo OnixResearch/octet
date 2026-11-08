@@ -2420,6 +2420,14 @@ fn parse_mutation_testing(input: &EvaluationInput<'_>) -> RailParseOutput {
         );
         push_aggregate_mutation_finding(
             &value,
+            "missed",
+            "survived-mutant",
+            "manual_review",
+            "missed mutant",
+            &mut findings,
+        );
+        push_aggregate_mutation_finding(
+            &value,
             "timeout",
             "timeout-mutant",
             "manual_review",
@@ -4658,13 +4666,17 @@ fn push_mutant_findings(
 
 fn push_outcome_mutant_findings(value: &serde_json::Value, findings: &mut Vec<EvidenceRailFinding>) {
     for outcome in array_field(value, "outcomes") {
-        let status = string_field(outcome, "status").or_else(|| string_field(outcome, "outcome"));
+        // Native cargo-mutants outcomes keep the outcome in `summary`, the mutant in `scenario.Mutant`.
+        let status = string_field(outcome, "status")
+            .or_else(|| string_field(outcome, "outcome"))
+            .or_else(|| string_field(outcome, "summary"));
+        let mutant = outcome.pointer("/scenario/Mutant").unwrap_or(outcome);
         match status {
-            Some("survived" | "missed") => {
-                findings.push(mutant_finding(outcome, "survived-mutant", "manual_review", "survived mutant"));
+            Some("survived" | "missed" | "MissedMutant") => {
+                findings.push(mutant_finding(mutant, "survived-mutant", "manual_review", "survived mutant"));
             }
-            Some("timeout" | "timed-out" | "timed_out") => {
-                findings.push(mutant_finding(outcome, "timeout-mutant", "manual_review", "timed-out mutant"));
+            Some("timeout" | "timed-out" | "timed_out" | "Timeout") => {
+                findings.push(mutant_finding(mutant, "timeout-mutant", "manual_review", "timed-out mutant"));
             }
             _ => {}
         }
@@ -6161,6 +6173,32 @@ mod tests {
         assert_eq!(survived.status, STATUS_MANUAL_REVIEW_REQUIRED);
         assert_eq!(survived.finding_counts.get("survived-mutant"), Some(&1));
         assert_eq!(survived.findings[0].line, Some(SURVIVED_MUTANT_LINE));
+    }
+
+    #[test]
+    fn unprofiled_mutation_import_reads_native_outcome_summaries_and_missed_count() {
+        let native = mutation_receipt(
+            r#"{"outcomes":[
+                {"scenario":"Baseline","summary":"Success"},
+                {"scenario":{"Mutant":{"name":"src/lib.rs:3:5: replace answer -> u32 with 0","file":"src/lib.rs"}},"summary":"MissedMutant"},
+                {"scenario":{"Mutant":{"name":"src/lib.rs:7:5: replace loop_forever with ()","file":"src/lib.rs"}},"summary":"Timeout"},
+                {"scenario":{"Mutant":{"name":"src/lib.rs:9:5: replace add with sub","file":"src/lib.rs"}},"summary":"CaughtMutant"}
+            ]}"#,
+        );
+        assert_eq!(native.status, STATUS_MANUAL_REVIEW_REQUIRED);
+        assert_eq!(native.finding_counts.get("survived-mutant"), Some(&1));
+        assert_eq!(native.finding_counts.get("timeout-mutant"), Some(&1));
+        let missed = native
+            .findings
+            .iter()
+            .find(|finding| finding.family == "survived-mutant")
+            .expect("missed mutant finding");
+        assert!(missed.message.contains("replace answer -> u32 with 0"), "{}", missed.message);
+        assert_eq!(missed.file.as_deref(), Some("src/lib.rs"));
+
+        let aggregate = mutation_receipt(r#"{"outcomes":[],"total_mutants":3,"missed":2,"caught":1,"timeout":0}"#);
+        assert_eq!(aggregate.status, STATUS_MANUAL_REVIEW_REQUIRED);
+        assert_eq!(aggregate.finding_counts.get("survived-mutant"), Some(&1));
     }
 
     #[test]

@@ -42,7 +42,7 @@ cargo octet evidence collect \
   --artifact-dir artifacts/mutation
 ```
 
-Without the hardened profile, existing normalized v1 inputs remain lower-authority transcript evidence.
+Without the hardened profile, existing normalized v1 inputs remain lower-authority transcript evidence. That unprofiled import also reads cargo-mutants' native `outcomes.json` shape: a `MissedMutant` or `Timeout` outcome `summary`, or a nonzero top-level `missed` or `timeout` count, keeps the receipt out of `passed` and requires manual review.
 
 ## Outcomes
 
