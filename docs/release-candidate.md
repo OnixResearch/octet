@@ -20,6 +20,7 @@ Run these from the repository root before tagging:
 ```bash
 nix build .#checks.x86_64-linux.release-candidate-smoke -L --no-link
 nix flake check -L
+cargo octet check --artifact-dir artifacts/octet
 cargo octet artifact verify --artifact-dir artifacts/octet
 ```
 
