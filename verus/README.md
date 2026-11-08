@@ -69,6 +69,14 @@ bundle. An earlier bundle is cleared before the new one is written, so no
 receipt, log, or evidence-log manifest from a previous run survives; any other
 non-empty directory is refused.
 
+Source locators, rail `proof_paths`, and the proof command's working directory
+are relative to one root: the Cargo workspace root of the `--source` arguments,
+found the way Cargo finds it (the nearest `[workspace]` that lists the source's
+package as a member, otherwise that package). Every `--source` must resolve to
+the same root regardless of argument order, a source outside it is rejected,
+`--source .` at the root selects the whole root, and overlapping arguments load
+each file once.
+
 ## Proof cards
 
 `proof-cards.json` contains one generated card per selected rail. A card names

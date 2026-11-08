@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::ffi::OsString;
 use std::fmt::Write as _;
@@ -51,6 +52,8 @@ use octet_standards::proof::VerusProofReceipt;
 use octet_standards::proof::VerusProofReceiptInput;
 use octet_standards::proof::build_verus_proof_receipt;
 use octet_standards::proof::validate_proof_receipt_with_identity;
+use octet_standards::proof_artifact::normalize_path;
+use octet_standards::proof_artifact::path_matches_pattern;
 use octet_standards::proof_artifact::path_pattern_diagnostics;
 use octet_standards::proof_artifact::receipt_paths as proof_artifact_receipt_paths;
 use octet_standards::source::SourceFile;
@@ -318,7 +321,7 @@ struct CommandOutcome {
 
 pub fn run(args: &ProveArgs) -> Result<i32, String> {
     let registry = load_registry(args)?;
-    let working_dir = proof_command_working_dir(&args.source);
+    let working_dir = proof_root(&args.source)?;
     let sources = load_sources(&args.source, &working_dir)?;
     let selection = prove_selection(&args.family);
     let rail_selection = prove_core::selected_rail_indices(&registry, &sources, &selection, &args.rail);
@@ -439,17 +442,18 @@ fn source_file_from_root_file(file: RootFile) -> Result<SourceFile, String> {
     Ok(SourceFile::new(file.locator, text))
 }
 
+/// Locates a `--source` argument under the proof root. The root itself is a valid source; a path
+/// outside it is rejected instead of being reinterpreted relative to the root.
 fn source_relative_path(path: &Path, root: &Path) -> Result<RootRelativePath, String> {
-    let absolute_root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
-    let absolute_path = path.canonicalize().unwrap_or_else(|_| {
-        if path.is_absolute() {
-            path.to_path_buf()
-        } else {
-            root.join(path)
-        }
-    });
-    let relative = absolute_path.strip_prefix(&absolute_root).unwrap_or(path);
-    RootRelativePath::new(relative)
+    let canonical = path.canonicalize().map_err(|error| format!("resolve proof source {}: {error}", path.display()))?;
+    let relative = canonical
+        .strip_prefix(root)
+        .map_err(|_| format!("proof source {} is outside the proof root {}", path.display(), root.display()))?;
+    if relative.as_os_str().is_empty() {
+        Ok(RootRelativePath::current())
+    } else {
+        RootRelativePath::new(relative)
+    }
 }
 
 fn read_workspace_file(path: &Path) -> Result<String, String> {
@@ -572,7 +576,10 @@ fn execute_proof(
     } else {
         let proof_source = SourceFile::new(receipt_locator.clone(), receipt_text.clone());
         let mut validation_sources = sources.to_vec();
-        validation_sources.extend(proof_sources);
+        // A source scope that contains the proof files (for example the workspace root) already
+        // loaded them; adding them again would make each proof path match twice.
+        validation_sources
+            .extend(proof_sources.into_iter().filter(|proof| !sources.iter().any(|source| source.path == proof.path)));
         diagnostics.extend(validate_proof_receipt_with_identity(
             selected.rail,
             Some(&selected.policy.policy_id),
@@ -1136,37 +1143,83 @@ fn load_proof_sources(rail: &ProofRail, working_dir: &Path) -> (Vec<SourceFile>,
     (sources, diagnostics)
 }
 
-fn proof_command_working_dir(source_paths: &[PathBuf]) -> PathBuf {
-    source_paths.first().map_or_else(
-        || PathBuf::from("."),
-        |path| {
-            let start = if path.is_dir() {
-                path.as_path()
-            } else {
-                path.parent().unwrap_or_else(|| Path::new("."))
-            };
-            nearest_manifest_directory(start).unwrap_or_else(|| start.to_path_buf())
-        },
-    )
-}
-
-fn nearest_manifest_directory(start: &Path) -> Option<PathBuf> {
-    let mut current = Some(start);
-    while let Some(directory) = current {
-        if directory.join(CARGO_MANIFEST_FILE).is_file() {
-            return Some(non_empty_directory(directory));
-        }
-        current = directory.parent();
-    }
-    None
-}
-
-fn non_empty_directory(directory: &Path) -> PathBuf {
-    if directory.as_os_str().is_empty() {
-        PathBuf::from(".")
+/// Resolves the one directory that source locators, proof paths, and proof commands are relative
+/// to. Each `--source` resolves to its Cargo workspace root (see `cargo_workspace_root`), and every
+/// source must resolve to the same root, so argument order cannot change the result. Without
+/// sources the current directory is resolved the same way.
+fn proof_root(source_paths: &[PathBuf]) -> Result<PathBuf, String> {
+    let current_directory = [PathBuf::from(".")];
+    let starts = if source_paths.is_empty() {
+        &current_directory[..]
     } else {
-        directory.to_path_buf()
+        source_paths
+    };
+    let mut roots = BTreeMap::<PathBuf, Vec<String>>::new();
+    for path in starts {
+        let canonical =
+            path.canonicalize().map_err(|error| format!("resolve proof source {}: {error}", path.display()))?;
+        let start = if canonical.is_dir() {
+            canonical.as_path()
+        } else {
+            canonical.parent().unwrap_or(&canonical)
+        };
+        roots.entry(cargo_workspace_root(start)?).or_default().push(path.display().to_string());
     }
+    let mut resolved = roots.keys();
+    if let (Some(root), None) = (resolved.next(), resolved.next()) {
+        return Ok(root.clone());
+    }
+    let found = roots
+        .iter()
+        .map(|(root, sources)| format!("`{}` for {}", root.display(), sources.join(", ")))
+        .collect::<Vec<_>>();
+    Err(format!("proof sources must share one Cargo workspace root; found {}", found.join("; ")))
+}
+
+/// Finds the Cargo workspace root for `start` the way Cargo does: the nearest package manifest
+/// belongs to the nearest enclosing `[workspace]` that lists it as a member and does not exclude
+/// it; a package outside every such workspace is its own root. Without any `Cargo.toml`, `start`
+/// is the root.
+fn cargo_workspace_root(start: &Path) -> Result<PathBuf, String> {
+    let Some(package_dir) = start.ancestors().find(|directory| directory.join(CARGO_MANIFEST_FILE).is_file()) else {
+        return Ok(start.to_path_buf());
+    };
+    for directory in package_dir.ancestors() {
+        if !directory.join(CARGO_MANIFEST_FILE).is_file() {
+            continue;
+        }
+        let manifest = WorkspaceRoot::open_existing(directory)?
+            .read_to_string(&RootRelativePath::new(CARGO_MANIFEST_FILE)?)?
+            .parse::<toml::Table>()
+            .map_err(|error| format!("parse {}: {error}", directory.join(CARGO_MANIFEST_FILE).display()))?;
+        let Some(workspace) = manifest.get("workspace").and_then(toml::Value::as_table) else {
+            continue;
+        };
+        let is_member = package_dir
+            .strip_prefix(directory)
+            .is_ok_and(|package| workspace_lists_member(workspace, &package.to_string_lossy()));
+        return Ok(if is_member { directory } else { package_dir }.to_path_buf());
+    }
+    Ok(package_dir.to_path_buf())
+}
+
+fn workspace_lists_member(workspace: &toml::Table, package: &str) -> bool {
+    let package = normalize_path(package);
+    if package.is_empty() {
+        return true;
+    }
+    let entries = |key: &str| {
+        workspace
+            .get(key)
+            .and_then(toml::Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(toml::Value::as_str)
+    };
+    let excluded = entries("exclude").map(normalize_path).any(|excluded| {
+        package == excluded || package.strip_prefix(&excluded).is_some_and(|rest| rest.starts_with('/'))
+    });
+    !excluded && entries("members").any(|member| path_matches_pattern(member, &package))
 }
 
 fn run_proof_command(rail: &ProofRail, working_dir: &Path) -> CommandOutcome {
@@ -3270,6 +3323,48 @@ mod tests {
 
         let summary = fs::read_to_string(artifact_dir.join(SUMMARY_ARTIFACT_NAME)).expect("read summary");
         assert_eq!(code, EXIT_PROOF_VALID, "overlapping sources must load once: {summary}");
+    }
+
+    #[test]
+    fn prove_resolves_one_source_root_independent_of_argument_order() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let source = write_fixture_source(temp.path());
+        write_fixture_proof(temp.path());
+        fs::write(
+            temp.path().join(CARGO_MANIFEST_FILE),
+            "[workspace]\nmembers = [\"crates/*\"]\n\n[package]\nname = \"proof-fixture\"\nversion = \"0.0.0\"\n",
+        )
+        .expect("write workspace manifest");
+        let member = temp.path().join("crates/helper");
+        fs::create_dir_all(member.join("src")).expect("create member crate");
+        fs::write(member.join(CARGO_MANIFEST_FILE), "[package]\nname = \"helper\"\nversion = \"0.0.0\"\n")
+            .expect("write member manifest");
+        let member_source = member.join("src/lib.rs");
+        fs::write(&member_source, "pub fn helper() {}\n").expect("write member source");
+        let registry = write_fixture_registry(temp.path(), PASS_SIGNAL, command_argv(PASS_SIGNAL));
+
+        let mut receipts = Vec::new();
+        for (label, sources) in [
+            ("member-first", vec![member_source.clone(), source.clone()]),
+            ("member-last", vec![source.clone(), member_source.clone()]),
+            ("root", vec![temp.path().to_path_buf()]),
+        ] {
+            let artifact_dir = temp.path().join(format!("artifacts-{label}"));
+            let code = run(&fixture_args(registry.clone(), sources, artifact_dir.clone())).expect("prove run");
+            let summary = fs::read_to_string(artifact_dir.join(SUMMARY_ARTIFACT_NAME)).expect("read summary");
+            assert_eq!(code, EXIT_PROOF_VALID, "`{label}` sources must resolve to the workspace root: {summary}");
+            receipts.push(
+                fs::read(artifact_dir.join(proof_artifact_locator(&fixture_policy_stub(), 0))).expect("read receipt"),
+            );
+            fs::remove_dir_all(&artifact_dir).expect("remove artifact directory before the next source scan");
+        }
+        assert_eq!(receipts[0], receipts[1], "argument order must not change the proof receipt");
+
+        let outside = tempfile::tempdir().expect("outside tempdir");
+        let outside_source = write_fixture_source(outside.path());
+        let error = run(&fixture_args(registry, vec![source, outside_source], temp.path().join("artifacts-outside")))
+            .expect_err("source outside the proof root must be rejected");
+        assert!(error.contains("must share one Cargo workspace root"), "unexpected error: {error}");
     }
 
     fn fixture_args(registry: PathBuf, source: Vec<PathBuf>, artifact_dir: PathBuf) -> ProveArgs {
