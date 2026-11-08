@@ -650,3 +650,32 @@ fn roadmap_error_paths_fail_closed_with_operator_context() {
     assert!(!cache.status.success());
     assert!(stderr_text(&cache).contains("cache key missing input_hashes"));
 }
+
+#[test]
+fn session_migrate_rejects_non_object_sessions_without_panicking() {
+    let temp = tempfile::tempdir().unwrap();
+    let migrated = temp.path().join("migrated.json");
+    for (index, session_json) in ["[]", "1", "\"x\"", "true", "null"].iter().enumerate() {
+        let session = temp.path().join(format!("session-{index}.json"));
+        fs::write(&session, session_json).unwrap();
+        let output = run(
+            &[
+                "roadmap",
+                "session",
+                "migrate",
+                "--input",
+                session.to_str().unwrap(),
+                "--output",
+                migrated.to_str().unwrap(),
+            ],
+            temp.path(),
+        );
+        assert_eq!(output.status.code(), Some(2), "session={session_json} stderr={}", stderr_text(&output));
+        assert!(
+            stderr_text(&output).contains("session must be a JSON object"),
+            "session={session_json} stderr={}",
+            stderr_text(&output)
+        );
+        assert!(!migrated.exists(), "session={session_json} wrote migrated output");
+    }
+}

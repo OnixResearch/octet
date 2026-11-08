@@ -627,16 +627,19 @@ fn session_check(input: &Path) -> Result<i32, String> {
 
 fn session_migrate(input: &Path, output: &Path) -> Result<i32, String> {
     let mut session = read_json(input)?;
-    let original_identity = session["identity"].as_str().unwrap_or("unknown").to_owned();
-    session["schema_version"] = Value::from(SCHEMA_VERSION);
-    session["migration_receipt"] = serde_json::json!({
-        "from_schema_version": session.get("original_schema_version").and_then(Value::as_u64).unwrap_or(0),
+    let object = session.as_object_mut().ok_or_else(|| "session must be a JSON object".to_owned())?;
+    let original_identity = object.get("identity").and_then(Value::as_str).unwrap_or("unknown").to_owned();
+    let from_schema_version = object.get("original_schema_version").and_then(Value::as_u64).unwrap_or(0);
+    let migration_receipt = serde_json::json!({
+        "from_schema_version": from_schema_version,
         "to_schema_version": SCHEMA_VERSION,
         "original_identity": original_identity,
         "identity_change": false,
     });
+    object.insert("schema_version".to_owned(), Value::from(SCHEMA_VERSION));
+    object.insert("migration_receipt".to_owned(), migration_receipt.clone());
     write_json(output, &session)?;
-    print_json(&session["migration_receipt"])?;
+    print_json(&migration_receipt)?;
     Ok(0)
 }
 
