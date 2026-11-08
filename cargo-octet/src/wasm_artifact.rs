@@ -69,6 +69,7 @@ const WIDE_VALUE_WORDS: u64 = 2;
 const SIMD_VALUE_WORDS: u64 = 4;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct WasmProfileRegistry {
     pub(crate) schema_version: String,
     pub(crate) cohort: WasmToolsCohort,
@@ -76,6 +77,7 @@ pub(crate) struct WasmProfileRegistry {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct WasmToolsCohort {
     pub(crate) cohort_id: String,
     pub(crate) identity: String,
@@ -83,6 +85,7 @@ pub(crate) struct WasmToolsCohort {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Ord, PartialOrd, Serialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct WasmToolsCohortMember {
     pub(crate) crate_name: String,
     pub(crate) version: String,
@@ -90,6 +93,7 @@ pub(crate) struct WasmToolsCohortMember {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct WasmArtifactProfile {
     pub(crate) profile_id: String,
     pub(crate) summary: String,
@@ -117,12 +121,14 @@ pub(crate) struct WasmArtifactProfile {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct TargetRuntimeCohort {
     pub(crate) cohort_identity: String,
     pub(crate) support_projection: RuntimeSupportProjection,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct RuntimeSupportProjection {
     pub(crate) schema_version: String,
     pub(crate) runtime_id: String,
@@ -144,6 +150,7 @@ pub(crate) struct RuntimeSupportProjection {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct WasmResourceLimits {
     #[serde(rename = "max_artifact_bytes")]
     pub(crate) artifact_bytes: u64,
@@ -172,6 +179,7 @@ pub(crate) struct WasmResourceLimits {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct WasmFindingSeverities {
     pub(crate) malformed: String,
     pub(crate) disallowed_kind: String,
@@ -1732,7 +1740,88 @@ fn validate_profiles(profiles: &[WasmArtifactProfile], diagnostics: &mut Vec<Str
                 profile.profile_id
             ));
         }
+        validate_profile_rules(profile, diagnostics);
     }
+}
+
+fn validate_profile_rules(profile: &WasmArtifactProfile, diagnostics: &mut Vec<String>) {
+    for (field, entries) in [
+        ("allowed_artifact_kinds", &profile.allowed_artifact_kinds),
+        ("allowed_proposals", &profile.allowed_proposals),
+        ("allowed_worlds", &profile.allowed_worlds),
+        ("allowed_imports", &profile.allowed_imports),
+        ("allowed_exports", &profile.allowed_exports),
+        ("required_imports", &profile.required_imports),
+        ("required_exports", &profile.required_exports),
+    ] {
+        let mut seen = BTreeSet::new();
+        for entry in entries {
+            if !seen.insert(entry.as_str()) {
+                diagnostics
+                    .push(format!("Wasm artifact profile `{}` repeats {field} entry `{entry}`", profile.profile_id));
+            }
+        }
+    }
+    for world in &profile.allowed_worlds {
+        if !is_wit_world_name(world) {
+            diagnostics.push(format!("Wasm artifact profile `{}` names invalid world `{world}`", profile.profile_id));
+        }
+    }
+}
+
+// A world is `namespace:package/name` with an optional `@semver` suffix; each
+// part is a component-model kebab-case label.
+fn is_wit_world_name(value: &str) -> bool {
+    let (name, version) = match value.split_once('@') {
+        Some((name, version)) => (name, Some(version)),
+        None => (value, None),
+    };
+    let Some((package, world)) = name.split_once(COMPONENT_WORLD_SEPARATOR) else {
+        return false;
+    };
+    let Some((namespace, package)) = package.split_once(':') else {
+        return false;
+    };
+    [namespace, package, world].into_iter().all(is_wit_label) && version.is_none_or(is_semver)
+}
+
+fn is_wit_label(label: &str) -> bool {
+    !label.is_empty()
+        && label.split('-').all(|fragment| {
+            let mut bytes = fragment.bytes();
+            match bytes.next() {
+                Some(first) if first.is_ascii_lowercase() => {
+                    bytes.all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
+                }
+                Some(first) if first.is_ascii_uppercase() => {
+                    bytes.all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit())
+                }
+                _ => false,
+            }
+        })
+}
+
+fn is_semver(version: &str) -> bool {
+    let (version, build) = match version.split_once('+') {
+        Some((version, build)) => (version, Some(build)),
+        None => (version, None),
+    };
+    let (core, prerelease) = match version.split_once('-') {
+        Some((core, prerelease)) => (core, Some(prerelease)),
+        None => (version, None),
+    };
+    let numeric = |part: &str| {
+        !part.is_empty() && part.bytes().all(|byte| byte.is_ascii_digit()) && (part == "0" || !part.starts_with('0'))
+    };
+    let identifiers = |text: &str| {
+        text.split('.')
+            .all(|part| !part.is_empty() && part.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'-'))
+    };
+    let mut parts = core.split('.');
+    parts.by_ref().take(3).filter(|part| numeric(part)).count() == 3
+        && parts.next().is_none()
+        && prerelease.is_none_or(identifiers)
+        && build.is_none_or(identifiers)
 }
 
 fn validate_severities(profile: &WasmArtifactProfile, diagnostics: &mut Vec<String>) {
@@ -2983,6 +3072,75 @@ mod tests {
             "unsupported duplicate custom section posture `Reject`",
         ] {
             assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains(expected)), "{expected}: {diagnostics:?}");
+        }
+    }
+
+    #[test]
+    fn registry_rejects_unknown_fields_duplicate_rules_and_invalid_worlds() {
+        let checked: Value = serde_json::from_str(PROFILE_JSON).expect("profile registry JSON");
+        let spacewasm = valid_registry()
+            .profiles
+            .iter()
+            .position(|profile| profile.profile_id == SPACEWASM_PROFILE_ID)
+            .expect("SpaceWasm profile");
+        let target = format!("/profiles/{spacewasm}/target_runtime");
+        let projection = format!("{target}/support_projection");
+        for pointer in [
+            "",
+            "/cohort",
+            "/cohort/members/0",
+            "/profiles/0",
+            "/profiles/0/resource_limits",
+            "/profiles/0/severity",
+            &target,
+            &projection,
+        ] {
+            let mut value = checked.clone();
+            value
+                .pointer_mut(pointer)
+                .and_then(Value::as_object_mut)
+                .expect("registry object")
+                .insert("unreviewed".to_owned(), Value::Bool(true));
+            let error = parse_registry(&value.to_string()).expect_err(pointer);
+            assert!(error.contains("unknown field `unreviewed`"), "{pointer}: {error}");
+        }
+
+        let mut registry = valid_registry();
+        let profile = &mut registry.profiles[0];
+        profile.allowed_proposals.push(WASM1_PROPOSAL.to_owned());
+        profile.allowed_imports = vec!["env::f::Func(0)".to_owned(), "env::f::Func(0)".to_owned()];
+        profile.required_imports = vec!["env::f::Func(0)".to_owned(), "env::f::Func(0)".to_owned()];
+        profile.required_exports = vec!["module::run::Func".to_owned(), "module::run::Func".to_owned()];
+        profile.allowed_worlds = vec![
+            "example:allowed/world".to_owned(),
+            "wasi:cli/command@0.2.0-rc.1+build.7".to_owned(),
+            "example:allowed/world".to_owned(),
+            "not a world".to_owned(),
+            "Example:mixedCase/world".to_owned(),
+            "example:pkg/world@1.0".to_owned(),
+            "example:pkg/nested/world".to_owned(),
+        ];
+        let diagnostics = validate_registry(&registry);
+        for expected in [
+            "repeats allowed_proposals entry `wasm1`",
+            "repeats allowed_imports entry `env::f::Func(0)`",
+            "repeats required_imports entry `env::f::Func(0)`",
+            "repeats required_exports entry `module::run::Func`",
+            "repeats allowed_worlds entry `example:allowed/world`",
+            "names invalid world `not a world`",
+            "names invalid world `Example:mixedCase/world`",
+            "names invalid world `example:pkg/world@1.0`",
+            "names invalid world `example:pkg/nested/world`",
+        ] {
+            assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains(expected)), "{expected}: {diagnostics:?}");
+        }
+        for valid in ["`example:allowed/world`", "`wasi:cli/command@0.2.0-rc.1+build.7`"] {
+            assert!(
+                !diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.contains("invalid world") && diagnostic.contains(valid)),
+                "{valid}: {diagnostics:?}"
+            );
         }
     }
 

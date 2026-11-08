@@ -6,7 +6,7 @@ The rail owns static fact extraction and policy decisions. Mantle and runtime co
 
 ## Profile and cohort
 
-`profiles.ncl` is the typed source of truth and `generated/profiles.json` is the checked runtime input. The profile binds the reviewed wasm-tools `0.253.0` cohort with a BLAKE3 identity. Cohort changes require replay of the positive and negative corpus. The runner also rejects a JSON registry whose `severity.*` values fall outside `advisory`, `warning`, and `error`, or whose `duplicate_custom_sections` is not `allow` or `reject`.
+`profiles.ncl` is the typed source of truth and `generated/profiles.json` is the checked runtime input. The profile binds the reviewed wasm-tools `0.253.0` cohort with a BLAKE3 identity. Cohort changes require replay of the positive and negative corpus. The runner also rejects a JSON registry with an unknown field at any level, a repeated entry in an allow/require list, an `allowed_worlds` entry that is not a `namespace:package/world[@semver]` name, `severity.*` values outside `advisory`, `warning`, and `error`, or a `duplicate_custom_sections` value other than `allow` or `reject`. The Nickel contract applies the same unique-list and world-name checks at export time.
 
 ## Standalone invocation
 
