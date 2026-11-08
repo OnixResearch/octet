@@ -305,7 +305,7 @@ r[octet.purity_effect_lints.resource_return_from_core] Octet MUST provide a `res
 r[octet.purity_effect_lints.resource_return_from_core.flags_resource_return]
 
 - GIVEN a function is declared inside a configured core source scope
-- WHEN its return type contains a known file, socket, process, command, task, channel, connection, or external-client handle
+- WHEN its resolved return type contains a known file, socket, process, command, task, channel, connection, or external-client handle type, including through type aliases, wrappers such as `Result` or tuples, and `async fn` outputs
 - THEN `resource_return_from_core` MUST emit a diagnostic at the return type.
 - AND the diagnostic MUST recommend returning domain values, command descriptions, or plans that a shell executes.
 
@@ -313,7 +313,7 @@ r[octet.purity_effect_lints.resource_return_from_core.flags_resource_return]
 
 r[octet.purity_effect_lints.resource_return_from_core.allows_descriptions]
 
-- GIVEN shell code returns resource handles or core code returns command-description enums, serializable plans, domain values, or port-independent data
+- GIVEN shell code returns resource handles or core code returns command-description enums, serializable plans, domain values, or port-independent data, including domain types whose names merely contain resource words such as `FileId`, `ClientId`, a local `Command` enum, or `std::net::SocketAddr`
 - WHEN the lint runs
 - THEN `resource_return_from_core` MUST NOT emit for that source shape.
 

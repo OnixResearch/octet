@@ -1,9 +1,14 @@
 use rustc_hir as hir;
+use rustc_hir::def::DefKind;
+use rustc_hir::def_id::DefId;
+use rustc_hir::def_id::LocalDefId;
 use rustc_hir::intravisit::FnKind;
 use rustc_hir::intravisit::Visitor;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
 use rustc_lint::LintContext;
+use rustc_middle::ty;
+use rustc_middle::ty::Ty;
 use rustc_session::declare_tool_lint;
 use rustc_session::impl_lint_pass;
 use rustc_span::Span;
@@ -159,32 +164,57 @@ const MUTATING_PARAM_PATTERNS: &[&str] = &[
     "RwLock<",
     "UnsafeCell<",
 ];
-const RESOURCE_RETURN_PATTERNS: &[&str] = &[
-    "Child",
-    "Client",
-    "Command",
-    "Connection",
-    "File",
-    "JoinHandle",
-    "Receiver<",
-    "Sender<",
-    "Socket",
-    "TcpListener",
-    "TcpStream",
-    "UdpSocket",
-    "UnixListener",
-    "UnixStream",
-];
-const RESOURCE_DESCRIPTION_ALLOW_PATTERNS: &[&str] = &[
-    "CommandDescription",
-    "CommandPlan",
-    "CommandSpec",
-    "Description",
-    "Descriptor",
-    "Plan",
-    "Port",
-    "Request",
-    "Spec",
+/// Concrete resource handles by defining crate and type name: files, sockets,
+/// processes and commands, task handles, channel endpoints, and external
+/// client or connection handles. Matching the resolved ADT keeps domain types
+/// such as `FileId` or a local `Command` enum, and std values such as
+/// `SocketAddr`, out of scope.
+const RESOURCE_HANDLE_TYPES: &[(&str, &[&str])] = &[
+    ("std", &[
+        "Child",
+        "ChildStderr",
+        "ChildStdin",
+        "ChildStdout",
+        "Command",
+        "File",
+        "JoinHandle",
+        "Receiver",
+        "ScopedJoinHandle",
+        "Sender",
+        "SyncSender",
+        "TcpListener",
+        "TcpStream",
+        "UdpSocket",
+        "UnixDatagram",
+        "UnixListener",
+        "UnixStream",
+    ]),
+    ("tokio", &[
+        "Child",
+        "ChildStderr",
+        "ChildStdin",
+        "ChildStdout",
+        "Command",
+        "File",
+        "JoinHandle",
+        "Receiver",
+        "Sender",
+        "TcpListener",
+        "TcpStream",
+        "UdpSocket",
+        "UnboundedReceiver",
+        "UnboundedSender",
+        "UnixDatagram",
+        "UnixListener",
+        "UnixStream",
+    ]),
+    ("crossbeam_channel", &["Receiver", "Sender"]),
+    ("flume", &["Receiver", "Sender"]),
+    ("postgres", &["Client"]),
+    ("redis", &["Client", "Connection"]),
+    ("reqwest", &["Client"]),
+    ("rusqlite", &["Connection"]),
+    ("tokio_postgres", &["Client"]),
 ];
 const CONST_INELIGIBLE_PATTERNS: &[&str] = &[
     " async fn ",
@@ -531,11 +561,67 @@ fn mutating_param_kind(source: &str) -> Option<&'static str> {
         .find(|pattern| source.contains(pattern) || compact_source.contains(pattern))
 }
 
-fn return_type_has_resource(source: &str) -> Option<&'static str> {
-    if contains_any(source, RESOURCE_DESCRIPTION_ALLOW_PATTERNS) {
+fn resource_handle_name(crate_name: &str, type_name: &str) -> Option<&'static str> {
+    RESOURCE_HANDLE_TYPES
+        .iter()
+        .filter(|(handle_crate, _)| *handle_crate == crate_name)
+        .flat_map(|(_, names)| names.iter().copied())
+        .find(|name| *name == type_name)
+}
+
+fn adt_resource_handle_name(cx: &LateContext<'_>, adt_def_id: DefId) -> Option<&'static str> {
+    let def_path = cx.get_def_path(adt_def_id);
+    resource_handle_name(def_path.first()?.as_str(), def_path.last()?.as_str())
+}
+
+/// Returns the first concrete resource handle in `ty`, looking through
+/// wrappers, tuples, references, type aliases, and the bounds of `impl Trait`
+/// types such as an `async fn`'s future output.
+fn type_resource_handle_name<'tcx>(cx: &LateContext<'tcx>, ty: Ty<'tcx>) -> Option<&'static str> {
+    let mut pending = vec![ty];
+    let mut visited_opaques = Vec::new();
+    while let Some(ty) = pending.pop() {
+        for inner in ty.walk().filter_map(ty::GenericArg::as_type) {
+            match inner.kind() {
+                ty::Adt(adt, _) => {
+                    if let Some(name) = adt_resource_handle_name(cx, adt.did()) {
+                        return Some(name);
+                    }
+                }
+                ty::Alias(ty::AliasTyKind::Opaque, alias) if !visited_opaques.contains(&alias.def_id) => {
+                    visited_opaques.push(alias.def_id);
+                    pending.extend(
+                        cx.tcx
+                            .explicit_item_bounds(alias.def_id)
+                            .iter_identity_copied()
+                            .filter_map(|(clause, _)| clause.as_projection_clause())
+                            .filter_map(|projection| projection.skip_binder().term.as_type()),
+                    );
+                }
+                _ => {}
+            }
+        }
+    }
+    None
+}
+
+/// Returns the resolved return type of a function or closure that spells out
+/// its return type.
+fn declared_return_ty<'tcx>(cx: &LateContext<'tcx>, decl: &hir::FnDecl<'_>, def_id: LocalDefId) -> Option<Ty<'tcx>> {
+    if matches!(decl.output, hir::FnRetTy::DefaultReturn(_)) {
         return None;
     }
-    RESOURCE_RETURN_PATTERNS.iter().copied().find(|pattern| source.contains(pattern))
+    if cx.tcx.def_kind(def_id) == DefKind::Closure {
+        let ty::Closure(_, args) = cx.tcx.type_of(def_id).instantiate_identity().kind() else {
+            return None;
+        };
+        return Some(args.as_closure().sig().output().skip_binder());
+    }
+    Some(cx.tcx.fn_sig(def_id).instantiate_identity().output().skip_binder())
+}
+
+fn returned_resource_handle(cx: &LateContext<'_>, decl: &hir::FnDecl<'_>, def_id: LocalDefId) -> Option<&'static str> {
+    type_resource_handle_name(cx, declared_return_ty(cx, decl, def_id)?)
 }
 
 fn source_has_panic(source: &str) -> bool {
@@ -724,13 +810,6 @@ fn fn_snippet(cx: &LateContext<'_>, body: &hir::Body<'_>, span: Span) -> Option<
     span_snippet(cx, span).or_else(|| span_snippet(cx, body.value.span))
 }
 
-fn return_type_snippet(cx: &LateContext<'_>, decl: &hir::FnDecl<'_>) -> Option<String> {
-    if let hir::FnRetTy::Return(ret_ty) = &decl.output {
-        return span_snippet(cx, ret_ty.span);
-    }
-    None
-}
-
 fn params_contain_mutating_input(cx: &LateContext<'_>, body: &hir::Body<'_>) -> Option<(Span, &'static str)> {
     body.params.iter().find_map(|param| {
         let source = span_snippet(cx, param.pat.span)?;
@@ -781,7 +860,7 @@ fn function_is_const_candidate(source: &str) -> bool {
 
 fn pure_contract_violation(
     function_source: &str,
-    return_source: Option<&str>,
+    resource_return: bool,
     mutating_input: bool,
 ) -> Option<PureViolation> {
     if let Some(effect) = classify_effect(function_source) {
@@ -799,7 +878,7 @@ fn pure_contract_violation(
     if source_has_panic(function_source) {
         return Some(PureViolation::Panic);
     }
-    if return_source.is_some_and(|source| return_type_has_resource(source).is_some()) {
+    if resource_return {
         return Some(PureViolation::ResourceReturn);
     }
     None
@@ -1082,9 +1161,9 @@ impl<'tcx> LateLintPass<'tcx> for PureAttrContract {
         let Some(source) = fn_snippet(cx, body, span) else {
             return;
         };
-        let return_source = return_type_snippet(cx, decl);
+        let resource_return = returned_resource_handle(cx, decl, def_id).is_some();
         let mutating_input = decl_inputs_contain_mutating_type(cx, decl).is_some();
-        let Some(violation) = pure_contract_violation(&source, return_source.as_deref(), mutating_input) else {
+        let Some(violation) = pure_contract_violation(&source, resource_return, mutating_input) else {
             return;
         };
         emit(
@@ -1156,17 +1235,14 @@ impl<'tcx> LateLintPass<'tcx> for ResourceReturnFromCore {
         decl: &'tcx hir::FnDecl<'tcx>,
         body: &'tcx hir::Body<'tcx>,
         span: Span,
-        _def_id: rustc_hir::def_id::LocalDefId,
+        def_id: rustc_hir::def_id::LocalDefId,
     ) {
         if !source_is_in_core_scope(cx, span, &self.core_source_scopes)
             || test_context::late_hir_id_is_in_test_context(cx, body.value.hir_id, span)
         {
             return;
         }
-        let Some(return_source) = return_type_snippet(cx, decl) else {
-            return;
-        };
-        let Some(resource) = return_type_has_resource(&return_source) else {
+        let Some(resource) = returned_resource_handle(cx, decl, def_id) else {
             return;
         };
         emit(
@@ -1214,7 +1290,7 @@ mod tests {
     use super::function_has_nondeterministic_output;
     use super::function_is_const_candidate;
     use super::pure_contract_violation;
-    use super::return_type_has_resource;
+    use super::resource_handle_name;
 
     #[test]
     fn env_classifier_accepts_direct_calls_and_rejects_explicit_config() {
@@ -1229,9 +1305,12 @@ mod tests {
     }
 
     #[test]
-    fn resource_return_classifier_allows_descriptions() {
-        assert_eq!(return_type_has_resource("std::fs::File"), Some("File"));
-        assert_eq!(return_type_has_resource("CommandSpec"), None);
+    fn resource_return_classifier_matches_handle_types_not_name_fragments() {
+        assert_eq!(resource_handle_name("std", "File"), Some("File"));
+        assert_eq!(resource_handle_name("tokio", "JoinHandle"), Some("JoinHandle"));
+        assert_eq!(resource_handle_name("std", "SocketAddr"), None);
+        assert_eq!(resource_handle_name("my_core", "Command"), None);
+        assert_eq!(resource_handle_name("my_core", "FileId"), None);
     }
 
     #[test]
@@ -1256,13 +1335,17 @@ mod tests {
     #[test]
     fn pure_contract_reports_direct_violation_and_accepts_clean_logic() {
         assert_eq!(
-            pure_contract_violation("#[tigerstyle::pure] fn read() { std::fs::read(\"x\"); }", None, false),
+            pure_contract_violation("#[tigerstyle::pure] fn read() { std::fs::read(\"x\"); }", false, false),
             Some(PureViolation::DirectEffect(EffectClass::Filesystem))
+        );
+        assert_eq!(
+            pure_contract_violation("#[tigerstyle::pure] fn open() -> std::fs::File { loop {} }", true, false),
+            Some(PureViolation::ResourceReturn)
         );
         assert_eq!(
             pure_contract_violation(
                 "#[tigerstyle::pure] fn add(left: u32, right: u32) -> u32 { left + right }",
-                None,
+                false,
                 false
             ),
             None
