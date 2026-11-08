@@ -1122,14 +1122,19 @@ in
       status = "existing",
       positive_fixtures = [
         "standards/external-schemas/fixtures/valid/dependency_audit_report.ncl",
+        "standards/external-schemas/fixtures/valid/dependency_audit_extra_fields.ncl",
         "standards/external-schemas/fixtures/valid/coverage_baseline_summary.ncl",
+        "standards/external-schemas/fixtures/valid/coverage_baseline_extra_fields.ncl",
       ],
       negative_fixtures = [
         "standards/external-schemas/fixtures/invalid/dependency_audit_missing_message.ncl",
+        "standards/external-schemas/fixtures/invalid/dependency_audit_missing_diagnostics.ncl",
         "standards/external-schemas/fixtures/invalid/dependency_audit_unsupported_version.ncl",
         "standards/external-schemas/fixtures/invalid/dependency_audit_wrong_type.ncl",
         "standards/external-schemas/fixtures/invalid/coverage_percent_out_of_range.ncl",
+        "standards/external-schemas/fixtures/invalid/coverage_missing_summary.ncl",
         "cargo-octet/src/external_schema_contracts.rs::unsupported_schema_dialect_is_rejected_before_generation",
+        "cargo-octet/src/external_schema_contracts.rs::unsupported_schema_keyword_is_rejected_before_generation",
       ],
     },
     {
