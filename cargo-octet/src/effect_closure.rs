@@ -809,6 +809,9 @@ pub fn verify_receipt_identity(receipt: &EffectClosureReceipt) -> Vec<String> {
     if receipt.status != expected_status {
         diagnostics.push("effect-closure receipt status does not match diagnostics".to_owned());
     }
+    if receipt.status == AdmissionStatus::Admitted {
+        diagnostics.extend(validate_admitted_closure(receipt));
+    }
     diagnostics.sort();
     diagnostics.dedup();
     diagnostics
@@ -955,6 +958,52 @@ fn validate_receipt_structure(receipt: &EffectClosureReceipt) -> Vec<String> {
     }
     diagnostics.sort();
     diagnostics.dedup();
+    diagnostics
+}
+
+/// Re-derives the admission facts an `admitted` status asserts from the receipt's own nodes, so a
+/// denied receipt cannot be relabelled admitted by dropping its diagnostics and recomputing the
+/// unkeyed identity.
+fn validate_admitted_closure(receipt: &EffectClosureReceipt) -> Vec<String> {
+    // Closure v1 only admits `deterministic-core`, which `validate_catalog` pins to `alloc` alone.
+    let allowed_effects = &EFFECT_ORDER[..DETERMINISTIC_ALLOWED_EFFECT_COUNT];
+    let closures = receipt
+        .nodes
+        .iter()
+        .map(|node| (node.function_address.as_str(), node.closure_effects.as_slice()))
+        .collect::<BTreeMap<_, _>>();
+    let mut diagnostics = Vec::new();
+    for node in &receipt.nodes {
+        for effect in node.closure_effects.iter().filter(|effect| !allowed_effects.contains(effect)) {
+            diagnostics.push(format!(
+                "admitted function `{}::{}` closure contains denied effect `{}`",
+                node.path,
+                node.name,
+                effect.as_str()
+            ));
+        }
+        for call in &node.calls {
+            if call.resolution == CallResolution::Unknown {
+                diagnostics.push(format!("admitted receipt has unknown call `{}`", call.call_site_id));
+            }
+            if call.effects.iter().any(|effect| !node.direct_effects.contains(effect)) {
+                diagnostics.push(format!(
+                    "effect-closure node `{}::{}` direct effects do not contain every call effect of `{}`",
+                    node.path, node.name, call.call_site_id
+                ));
+            }
+            let callee_closure = match (&call.resolution, call.callee_function_address.as_deref()) {
+                (CallResolution::Local, Some(address)) => closures.get(address).copied().unwrap_or_default(),
+                _ => &[],
+            };
+            if callee_closure.iter().any(|effect| !node.closure_effects.contains(effect)) {
+                diagnostics.push(format!(
+                    "effect-closure node `{}::{}` closure does not contain local callee closure of `{}`",
+                    node.path, node.name, call.call_site_id
+                ));
+            }
+        }
+    }
     diagnostics
 }
 
@@ -1828,6 +1877,7 @@ mod tests {
 
         assert_eq!(receipt.status, AdmissionStatus::Admitted);
         assert!(receipt.nodes.iter().all(|node| node.closure_effects == [Effect::Alloc]));
+        assert!(verify_receipt_identity(&receipt).is_empty());
     }
 
     // r[verify octet.effect_closure.dependency_summaries.invalid]
@@ -2038,5 +2088,58 @@ unsafe fn risky(values: &[u8]) -> u8 {
         receipt.nodes[0].closure_effects.clear();
         let diagnostics = verify_receipt_identity(&receipt);
         assert!(diagnostics.iter().any(|message| message.contains(DIAGNOSTIC_RECEIPT_IDENTITY)));
+    }
+
+    // r[verify octet.effect_closure.evidence.tamper]
+    #[test]
+    fn admitted_status_requires_rederivable_admission_facts() {
+        fn forge_admitted(mut receipt: EffectClosureReceipt) -> EffectClosureReceipt {
+            receipt.diagnostics.clear();
+            receipt.status = AdmissionStatus::Admitted;
+            finalize_receipt(receipt)
+        }
+        fn assert_rejected(receipt: &EffectClosureReceipt, expected: &str) {
+            let diagnostics = verify_receipt_identity(receipt);
+            assert!(
+                diagnostics.iter().any(|message| message.contains(expected)),
+                "expected `{expected}` in {diagnostics:?}"
+            );
+            assert!(!diagnostics.iter().any(|message| message.contains(DIAGNOSTIC_RECEIPT_IDENTITY)));
+        }
+
+        let panicking = compute_closure(input(
+            "fn root(value: u32) -> u32 { value + 1 }\n",
+            vec![address("root", 'a')],
+            policy(Vec::new()),
+        ));
+        assert_eq!(panicking.status, AdmissionStatus::Denied);
+        assert!(verify_receipt_identity(&panicking).is_empty());
+        assert_rejected(&forge_admitted(panicking), "closure contains denied effect `panic`");
+
+        let unknown =
+            compute_closure(input("fn root() { mystery(); }\n", vec![address("root", 'b')], policy(Vec::new())));
+        assert_eq!(unknown.status, AdmissionStatus::Denied);
+        assert!(verify_receipt_identity(&unknown).is_empty());
+        assert_rejected(&forge_admitted(unknown), "admitted receipt has unknown call");
+
+        let source = "fn leaf() { let _values: Vec<u8> = Vec::new(); }\nfn root() { leaf(); }\n";
+        let leaf_address = address("leaf", '4');
+        let (summary, provider) =
+            toolchain_summary(&leaf_address.function_address, "call:Vec::new", 0, "alloc", vec![Effect::Alloc]);
+        let mut closure_input = input(source, vec![leaf_address, address("root", '5')], policy(vec![summary]));
+        closure_input.resolved_providers.push(provider);
+        let admitted = compute_closure(closure_input);
+        assert_eq!(admitted.status, AdmissionStatus::Admitted);
+        assert!(verify_receipt_identity(&admitted).is_empty());
+
+        let mut dropped_callee_effects = admitted.clone();
+        let root = dropped_callee_effects.nodes.iter_mut().find(|node| node.name == "root").expect("root node");
+        root.closure_effects.clear();
+        assert_rejected(&finalize_receipt(dropped_callee_effects), "closure does not contain local callee");
+
+        let mut dropped_call_effects = admitted;
+        let leaf = dropped_call_effects.nodes.iter_mut().find(|node| node.name == "leaf").expect("leaf node");
+        leaf.direct_effects.clear();
+        assert_rejected(&finalize_receipt(dropped_call_effects), "direct effects do not contain every call effect");
     }
 }
