@@ -6,6 +6,20 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## Unreleased: test-context accuracy and speed
+
+- Lints that skip test code no longer treat production code as test code when
+  a `#[cfg(test)]`-gated one-line item, such as
+  `#[derive(Debug)] struct Probe;`, sits above it. `no_unwrap` and the other
+  test-skipping lints now report there, so baselines can see new stable IDs.
+  `#[cfg(test)] // reason` and several attributes on one line still mark the
+  item below as test code.
+- The test-context check no longer slows down with module size. On a
+  generated crate with 1500 functions and 1500 `#[test]` functions checked
+  under `--test`, the debug lint library took 1.60 s instead of 22.08 s
+  (multi-line functions) and 1.42 s instead of 92.08 s (one-line items), with
+  identical diagnostics.
+
 ## Unreleased: lint false-positive, migration, and evidence-rail fixes
 
 `unbounded_loop`, `multi_lock_ordering`, `fallible_int_fallback` (in
