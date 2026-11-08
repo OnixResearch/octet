@@ -106,6 +106,7 @@
     "newtype_invariant_bypass",
     "newtype_invariant_safe",
     "platform_dependent_cast",
+    "platform_dependent_cast_len_bounded",
     "platform_dependent_cast_machine_applicable",
     "primitive_domain_alias",
     "primitive_domain_alias_compat",

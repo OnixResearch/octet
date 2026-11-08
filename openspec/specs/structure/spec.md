@@ -195,7 +195,11 @@ The lint MUST NOT fire on `as usize` from types that are already
 platform-sized (e.g., array `.len()` which returns `usize`).
 
 The lint MUST NOT fire inside indexing expressions (`array[x as usize]`)
-when `x` is already bounded by a prior check against `array.len()`.
+when `x` is already bounded by a prior check against `array.len()`. The
+recognized checks compare the same cast with `array.len()` (`<` or `>`) in
+an enclosing `if` condition, the left operand of an enclosing `&&`, or an
+earlier `assert!` in an enclosing block. The cast inside such a check is
+exempt when it guards a later index of the same place.
 
 This lint exists because Tiger Style mandates explicitly sized types
 (`u32`, `i64`, not `usize`) for consistent cross-platform behavior.
