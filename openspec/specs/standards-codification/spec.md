@@ -245,7 +245,7 @@ The policy MUST state that fingerprints are identity and review gates, not corre
 
 The system MUST require review metadata for function fingerprints so each selected function records why content identity matters.
 
-At minimum, each fingerprint MUST name the hash value and review class. Supported review classes MUST include `verified`, `protocol-transition`, `security`, `capability-token`, `safety-arithmetic`, and `example-evidence`. Optional metadata MAY include owner, spec ID, evidence path, and macro allowance.
+At minimum, each fingerprint MUST name the hash value and review class. Supported review classes MUST include `verified`, `protocol-transition`, `security`, `capability-token`, `safety-arithmetic`, and `example-evidence`. Optional metadata MAY include owner, spec ID, evidence path, and macro allowance. A marker whose hash is empty or not hexadecimal, such as `b3:` or `b3:TODO`, MUST still mark its function, and validation MUST report it as missing rather than skip it.
 
 #### Scenario: Missing review class is rejected [r[function-fingerprint-metadata.scenario.missing-review-class]]
 

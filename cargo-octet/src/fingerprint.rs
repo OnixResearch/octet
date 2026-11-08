@@ -104,15 +104,17 @@ pub(crate) struct FunctionSpan {
 pub(crate) struct Marker {
     start: usize,
     end: usize,
-    stored_hash: String,
+    /// Hex digest after `b3:`; `None` when the marker has no hash yet, as in
+    /// `b3:` or `b3:TODO`, so the function reports `missing`.
+    stored_hash: Option<String>,
     review: Option<String>,
     evidence: Option<String>,
     macro_allowed: bool,
 }
 
 impl Marker {
-    pub(crate) fn stored_hash(&self) -> &str {
-        &self.stored_hash
+    pub(crate) fn stored_hash(&self) -> Option<&str> {
+        self.stored_hash.as_deref()
     }
 
     pub(crate) fn review(&self) -> Option<&str> {
@@ -159,7 +161,7 @@ pub fn run(args: &FingerprintArgs) -> Result<i32, String> {
             if !matches!(args.mode, FingerprintMode::Write) && marker.is_none() {
                 continue;
             }
-            let status = match marker.as_ref().map(|m| m.stored_hash.as_str()) {
+            let status = match marker.as_ref().and_then(|m| m.stored_hash.as_deref()) {
                 Some(stored) if stored == computed_hash => FingerprintStatus::Match,
                 Some(_) => FingerprintStatus::Mismatch,
                 None => FingerprintStatus::Missing,
@@ -168,7 +170,7 @@ pub fn run(args: &FingerprintArgs) -> Result<i32, String> {
             let record = FunctionRecord {
                 path: path.display().to_string(),
                 name: span.name.clone(),
-                stored_hash: marker.as_ref().map(|m| m.stored_hash.clone()),
+                stored_hash: marker.as_ref().and_then(|m| m.stored_hash.clone()),
                 computed_hash: computed_hash.clone(),
                 normalized_body_hash,
                 semantic_id,
@@ -741,7 +743,7 @@ fn preceding_marker(
     } else {
         previous_end
     };
-    (parse_marker(previous, previous_start, line_end), marker_in_code)
+    (Some(parse_marker(previous, previous_start, line_end)), marker_in_code)
 }
 
 /// Source-ordered functions share one lexical walk. Even if every function has
@@ -791,20 +793,21 @@ pub(crate) fn marker_insertion(source: &str, item_start: usize, line: String) ->
     }
 }
 
-fn parse_marker(line: &str, start: usize, end: usize) -> Option<Marker> {
-    let hash_start = line.find(HASH_PREFIX)? + HASH_PREFIX.len();
-    let hash = line[hash_start..].chars().take_while(char::is_ascii_hexdigit).collect::<String>();
-    if hash.is_empty() {
-        return None;
-    }
-    Some(Marker {
+/// A marker line always binds to its function. A missing, empty, or non-hex
+/// hash leaves `stored_hash` empty so the function reports `missing`.
+fn parse_marker(line: &str, start: usize, end: usize) -> Marker {
+    let stored_hash = line
+        .find(HASH_PREFIX)
+        .map(|index| line[index + HASH_PREFIX.len()..].chars().take_while(char::is_ascii_hexdigit).collect::<String>())
+        .filter(|hash| !hash.is_empty());
+    Marker {
         start,
         end,
-        stored_hash: hash,
+        stored_hash,
         review: value_after(line, REVIEW_KEY),
         evidence: value_after(line, EVIDENCE_KEY),
         macro_allowed: line.contains(MACRO_ALLOW_KEY),
-    })
+    }
 }
 
 fn value_after(line: &str, key: &str) -> Option<String> {
@@ -1321,6 +1324,22 @@ mod tests {
         assert_eq!(functions[0].name, "f");
         assert!(functions[0].marker.is_some());
         assert!(normalize_tokens(&source[functions[0].start..functions[0].end]).starts_with("fn f"));
+    }
+
+    #[test]
+    fn marker_without_a_hex_hash_still_binds_as_a_marker() {
+        for marker in [
+            "// octet-fingerprint: b3:; review=R; evidence=E",
+            "// octet-fingerprint: b3:TODO; review=R; evidence=E",
+            "// octet-fingerprint: review=R; evidence=E",
+            "#[fingerprint(\"b3:\", review = \"R\", evidence = \"E\")]",
+        ] {
+            let source = format!("{marker}\nfn f() -> u32 {{ 1 }}\n");
+            let functions = find_functions(&source);
+            assert_eq!(functions.len(), 1, "{source}");
+            let marker = functions[0].marker.as_ref().unwrap_or_else(|| panic!("marker not bound: {source}"));
+            assert_eq!((marker.review(), marker.evidence()), (Some("R"), Some("E")), "{source}");
+        }
     }
 
     #[test]

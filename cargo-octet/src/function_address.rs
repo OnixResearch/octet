@@ -669,8 +669,8 @@ fn is_blake3_identity(value: &str) -> bool {
     value.strip_prefix(BLAKE3_PREFIX).is_some_and(is_blake3_hex)
 }
 
-fn marker_function_address(marker: &fingerprint::Marker) -> String {
-    format!("{BLAKE3_PREFIX}{}", marker.stored_hash())
+fn marker_function_address(stored_hash: &str) -> String {
+    format!("{BLAKE3_PREFIX}{stored_hash}")
 }
 
 #[cfg(test)]
@@ -929,7 +929,7 @@ fn marker_finding_for_record(
     config_hash: &str,
 ) -> Option<output::Finding> {
     let marker = marker?;
-    if !is_blake3_hex(marker.stored_hash()) {
+    let Some(stored_hash) = marker.stored_hash().filter(|stored_hash| is_blake3_hex(stored_hash)) else {
         return Some(finding_for_record(
             record,
             mode,
@@ -937,8 +937,8 @@ fn marker_finding_for_record(
             "function-address marker contains a malformed BLAKE3 digest",
             config_hash,
         ));
-    }
-    if marker_function_address(marker) != record.function_address {
+    };
+    if marker_function_address(stored_hash) != record.function_address {
         return Some(finding_for_record(
             record,
             mode,

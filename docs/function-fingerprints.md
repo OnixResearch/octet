@@ -62,7 +62,9 @@ those marker changes.
 
    `--check` inspects marked functions only. It exits nonzero when any marked
    function is missing a hash, mismatches its stored hash, lacks required metadata,
-   or has an unallowed macro warning.
+   or has an unallowed macro warning. A marker whose hash is empty or not
+   hexadecimal, such as `b3:` or `b3:TODO`, still marks its function and reports
+   `missing`.
 
 3. Preview drift without rewriting markers:
 

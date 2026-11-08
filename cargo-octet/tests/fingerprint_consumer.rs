@@ -418,6 +418,58 @@ pub fn label() -> &'static str {
 }
 
 #[test]
+fn fingerprint_markers_without_a_hash_are_missing_and_fail_check() {
+    let temp = tempfile::tempdir().expect("create tempdir");
+    let fixture = temp.path().join("reviewed.rs");
+    fs::write(
+        &fixture,
+        "// octet-fingerprint: b3:; review=R-1; evidence=E-1\npub fn empty_hash() -> u32 { 1 }\n\n// octet-fingerprint: b3:TODO; review=R-1; evidence=E-1\npub fn placeholder_hash() -> u32 { 2 }\n",
+    )
+    .expect("write missing-hash fixture");
+    let run = |mode: &str| {
+        let output = Command::new(cargo_octet())
+            .args(["fingerprint", mode, "--output-format=json", "reviewed.rs"])
+            .current_dir(temp.path())
+            .output()
+            .expect("run fingerprint");
+        let json: serde_json::Value = serde_json::from_slice(&output.stdout).expect("fingerprint json");
+        let records = json["records"]
+            .as_array()
+            .expect("records array")
+            .iter()
+            .map(|record| {
+                (
+                    record["name"].as_str().expect("name").to_owned(),
+                    record["status"].as_str().expect("status").to_owned(),
+                    record["stored_hash"].is_null(),
+                )
+            })
+            .collect::<Vec<_>>();
+        (output.status.success(), records)
+    };
+
+    for mode in ["--check", "--diff"] {
+        assert_eq!(
+            run(mode),
+            (false, vec![
+                ("empty_hash".to_owned(), "missing".to_owned(), true),
+                ("placeholder_hash".to_owned(), "missing".to_owned(), true),
+            ]),
+            "{mode}"
+        );
+    }
+    let (updated, records) = run("--update");
+    assert!(updated);
+    assert!(records.iter().all(|(_, status, _)| status == "written"), "{records:?}");
+    let reviewed = fs::read_to_string(&fixture).expect("read updated fixture");
+    assert_eq!(reviewed.matches("// octet-fingerprint: b3:").count(), 2, "{reviewed}");
+    assert!(!reviewed.contains("b3:TODO") && !reviewed.contains("b3:;"), "{reviewed}");
+    let (checked, records) = run("--check");
+    assert!(checked, "{records:?}");
+    assert!(records.iter().all(|(_, status, _)| status == "match"), "{records:?}");
+}
+
+#[test]
 fn fingerprint_check_fails_on_review_warnings_even_when_hashes_match() {
     let temp = tempfile::tempdir().expect("create tempdir");
     let fixture = temp.path().join("reviewed.rs");
