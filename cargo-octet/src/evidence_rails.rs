@@ -703,6 +703,11 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
     });
     receipt.config_identity = identities.config;
     receipt.clippy_restrictions = prepared_clippy_run.as_ref().map(|prepared| prepared.details.clone());
+    if args.rail == EvidenceRailKind::ApiStability {
+        // `evaluate` sees only the baseline identity; argv names the `--baseline-root` path.
+        let baseline_path = args.baseline.as_ref().map(|path| path.display().to_string());
+        receipt.command_argv = command_argv(args.rail, None, baseline_path.as_deref(), None);
+    }
 
     let mut additional_artifacts = BTreeMap::new();
     if args.rail == EvidenceRailKind::WasmArtifact {
@@ -980,7 +985,7 @@ fn receipt_command_argv(
     {
         return Vec::new();
     }
-    command_argv(input.rail, input.config_path, input.baseline_identity.as_deref(), input.requested_command)
+    command_argv(input.rail, input.config_path, None, input.requested_command)
 }
 
 pub fn render_receipt_json(receipt: &EvidenceRailReceipt) -> Result<String, String> {
@@ -4250,7 +4255,7 @@ fn default_clippy_command_argv() -> Vec<String> {
 
 fn run_mode_command_argv(args: &EvidenceRailArgs) -> Result<Vec<String>, String> {
     let config_path = args.config.as_ref().map(|path| path.display().to_string());
-    let baseline_identity = args.baseline.as_ref().map(|path| path.display().to_string());
+    let baseline_path = args.baseline.as_ref().map(|path| path.display().to_string());
     if args.rail == EvidenceRailKind::ClippyCoReporting {
         return prepare_clippy_run(args)
             .map(|prepared| prepared.map_or_else(default_clippy_command_argv, |prepared| prepared.command_argv));
@@ -4309,18 +4314,13 @@ fn run_mode_command_argv(args: &EvidenceRailArgs) -> Result<Vec<String>, String>
                 .to_owned(),
         );
     }
-    Ok(command_argv(
-        args.rail,
-        config_path.as_deref(),
-        baseline_identity.as_deref(),
-        args.command.as_deref(),
-    ))
+    Ok(command_argv(args.rail, config_path.as_deref(), baseline_path.as_deref(), args.command.as_deref()))
 }
 
 fn command_argv(
     rail: EvidenceRailKind,
     config_path: Option<&str>,
-    baseline_identity: Option<&str>,
+    baseline_path: Option<&str>,
     requested_command: Option<&str>,
 ) -> Vec<String> {
     match rail {
@@ -4345,7 +4345,7 @@ fn command_argv(
         EvidenceRailKind::DependencyTrust => string_vec(&["cargo", "vet", "--output-format=json"]),
         EvidenceRailKind::ApiStability => {
             let mut argv = string_vec(&["cargo", "semver-checks", "check-release"]);
-            if let Some(baseline) = baseline_identity {
+            if let Some(baseline) = baseline_path {
                 argv.push("--baseline-root".to_owned());
                 argv.push(baseline.to_owned());
             }
@@ -4817,9 +4817,71 @@ fn status_from_error_findings(findings: &[EvidenceRailFinding]) -> String {
     }
 }
 
+const BASELINE_TREE_IDENTITY_DOMAIN: &[u8] = b"octet-evidence-baseline-tree/v1\0";
+
 fn path_identity(path: &Path) -> Result<String, String> {
+    let metadata =
+        fs::metadata(path).map_err(|error| format!("read {} for BLAKE3 identity: {error}", path.display()))?;
+    if metadata.is_dir() {
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(BASELINE_TREE_IDENTITY_DOMAIN);
+        hash_tree_entries(path, &mut hasher)?;
+        return Ok(format!("b3:{}", hasher.finalize().to_hex()));
+    }
     let bytes = fs::read(path).map_err(|error| format!("read {} for BLAKE3 identity: {error}", path.display()))?;
     Ok(prefixed_identity(&bytes))
+}
+
+/// Hashes a directory as tagged, name-sorted entries with fixed-width digest frames: files by
+/// content hash, symlinks by target, directories recursively. `target` and `.git` are build or VCS
+/// state, not baseline input.
+fn hash_tree_entries(directory: &Path, hasher: &mut blake3::Hasher) -> Result<(), String> {
+    let mut names = fs::read_dir(directory)
+        .map_err(|error| format!("read directory {} for BLAKE3 identity: {error}", directory.display()))?
+        .map(|entry| entry.map(|entry| entry.file_name()))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| format!("read directory entry in {} for BLAKE3 identity: {error}", directory.display()))?;
+    names.sort();
+    for name in names {
+        if name == "target" || name == ".git" {
+            continue;
+        }
+        let path = directory.join(&name);
+        let file_type = fs::symlink_metadata(&path)
+            .map_err(|error| format!("read {} for BLAKE3 identity: {error}", path.display()))?
+            .file_type();
+        let name_bytes = name.as_encoded_bytes();
+        if file_type.is_dir() {
+            update_tree_frame(hasher, b'd', name_bytes);
+            hash_tree_entries(&path, hasher)?;
+            hasher.update(b"e");
+        } else if file_type.is_file() {
+            update_tree_frame(hasher, b'f', name_bytes);
+            let file = fs::File::open(&path)
+                .map_err(|error| format!("open {} for BLAKE3 identity: {error}", path.display()))?;
+            let mut content = blake3::Hasher::new();
+            content
+                .update_reader(file)
+                .map_err(|error| format!("read {} for BLAKE3 identity: {error}", path.display()))?;
+            hasher.update(content.finalize().as_bytes());
+        } else if file_type.is_symlink() {
+            update_tree_frame(hasher, b'l', name_bytes);
+            let target = fs::read_link(&path)
+                .map_err(|error| format!("read symlink {} for BLAKE3 identity: {error}", path.display()))?;
+            update_tree_frame(hasher, b't', target.as_os_str().as_encoded_bytes());
+        } else {
+            return Err(format!(
+                "{} is not a file, directory, or symlink; cannot compute BLAKE3 identity",
+                path.display()
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn update_tree_frame(hasher: &mut blake3::Hasher, tag: u8, bytes: &[u8]) {
+    hasher.update(&[tag]);
+    hasher.update(blake3::hash(bytes).as_bytes());
 }
 
 fn path_identity_if_present(path: &Path) -> Result<Option<String>, String> {
@@ -5541,6 +5603,48 @@ mod tests {
         assert_eq!(removed.status, STATUS_FAILED);
         assert!(removed.diagnostics.iter().any(|diagnostic| diagnostic.contains("accepted baseline")));
         assert_eq!(removed.finding_counts.get("removed-public-item"), Some(&1));
+    }
+
+    #[test]
+    fn api_stability_receipt_records_baseline_path_and_directory_tree_identity() {
+        const BASELINE_ROOT: &str = "baseline-crate";
+
+        let directory = tempfile::tempdir().expect("create api-stability workspace");
+        let baseline = directory.path().join(BASELINE_ROOT);
+        fs::create_dir_all(baseline.join("src")).expect("create baseline crate");
+        fs::write(baseline.join("Cargo.toml"), "[package]\nname = \"fixture\"\n").expect("write baseline manifest");
+        fs::write(baseline.join("src/lib.rs"), "pub fn stable() {}\n").expect("write baseline source");
+        let input = directory.path().join("semver.json");
+        fs::write(&input, r#"{"breakages":[]}"#).expect("write semver report");
+        let artifacts = directory.path().join("artifacts");
+        let args = crate::cli::EvidenceRailArgs {
+            rail: EvidenceRailKind::ApiStability,
+            input: Some(input),
+            artifact_dir: artifacts.clone(),
+            config: None,
+            baseline: Some(std::path::PathBuf::from(BASELINE_ROOT)),
+            profile: None,
+            ..sarif_import_args(directory.path().to_path_buf())
+        };
+
+        assert_eq!(run(&args).expect("import api-stability with a baseline crate directory"), EXIT_SUCCESS);
+        let receipt = fs::read_to_string(artifacts.join(RECEIPT_ARTIFACT_NAME)).expect("read published receipt");
+        let parsed: EvidenceRailReceipt = serde_json::from_str(&receipt).expect("parse published receipt");
+        assert_eq!(parsed.command_argv, vec![
+            "cargo",
+            "semver-checks",
+            "check-release",
+            "--baseline-root",
+            BASELINE_ROOT
+        ]);
+        let identity = path_identity(&baseline).expect("baseline tree identity");
+        assert_eq!(parsed.baseline_identity.as_deref(), Some(identity.as_str()));
+
+        fs::create_dir_all(baseline.join("target")).expect("create baseline build output");
+        fs::write(baseline.join("target/build.log"), "ignored\n").expect("write baseline build output");
+        assert_eq!(path_identity(&baseline).expect("tree identity ignores target"), identity);
+        fs::write(baseline.join("src/lib.rs"), "pub fn changed() {}\n").expect("change baseline source");
+        assert_ne!(path_identity(&baseline).expect("changed tree identity"), identity);
     }
 
     #[test]

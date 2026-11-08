@@ -237,6 +237,8 @@ cargo octet artifact verify --artifact-dir artifacts/dependency-audit
 
 Relative `--config` and `--baseline` paths resolve against `--workspace-root` (default `.`), the directory where run mode starts the selected tool and where `Cargo.lock` is read, so the receipt identity always binds the same bytes the tool or profile check read. The `ast-grep`, `wasm-artifact`, `charon-semantic`, and profiled `clippy-co-reporting` rails, which read and verify their own `--config` profile, keep resolving it against the current directory. The `sarif-import` receipt binds the checked SARIF profile identity after verifying the `--config` bytes under the workspace root.
 
+The `api-stability` rail passes `--baseline` to `cargo semver-checks check-release --baseline-root`, and the receipt `command_argv` records that baseline path. A baseline crate directory gets a deterministic tree identity: name-sorted entries, file contents, symlink targets, and subdirectories are hashed recursively, while `target/` and `.git/` are skipped as build and VCS state.
+
 Read [`mutation-testing-evidence.md`](mutation-testing-evidence.md) for typed cargo-mutants profiles, complete outcome partitions, and retained diffs.
 
 Read [`coverage-baseline-evidence.md`](coverage-baseline-evidence.md) for the checked coverage profile, exact-count comparison, and baseline-envelope workflow.
