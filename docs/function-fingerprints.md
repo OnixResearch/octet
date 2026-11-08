@@ -215,7 +215,8 @@ and stable ID so two runs over the same source produce comparable manifests.
 ## Source-scanner boundaries
 
 The fingerprint command is a source scanner, not a macro-expansion analyzer.
-It intentionally skips `fn` tokens inside `macro_rules!` definitions and does not
+It intentionally skips `fn` tokens inside `macro_rules!` definitions, whether the
+definition body is delimited by braces, parentheses, or brackets, and does not
 claim to fingerprint functions generated after macro expansion. Fingerprint explicit
 source wrappers around generated code when a reviewed boundary is needed. The
 checked [`source-scanner example`](examples/function-fingerprint-source-scanner/transcript.md)

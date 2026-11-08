@@ -383,7 +383,7 @@ pub(crate) fn find_functions(source: &str) -> Vec<FunctionSpan> {
             }
             None => break,
         };
-        let Some(end) = matching_brace(&code, open_brace) else {
+        let Some(end) = matching_delimiter(&code, open_brace) else {
             break;
         };
         let item_start = function_item_start(source, &code, fn_pos);
@@ -414,15 +414,18 @@ pub(crate) fn find_functions(source: &str) -> Vec<FunctionSpan> {
     spans
 }
 
-fn macro_rules_ranges(source: &str) -> Vec<(usize, usize)> {
+/// `macro_rules!` definitions, from the keyword to the delimiter that closes
+/// the definition body. The body is delimited by `{}`, `()`, or `[]`; the
+/// first delimiter after the macro name opens it.
+fn macro_rules_ranges(code: &str) -> Vec<(usize, usize)> {
     let mut ranges = Vec::new();
     let mut cursor = 0;
-    while let Some(relative) = source[cursor..].find("macro_rules!") {
+    while let Some(relative) = code[cursor..].find("macro_rules!") {
         let macro_start = cursor + relative;
-        let Some(open_brace) = source[macro_start..].find('{').map(|offset| macro_start + offset) else {
+        let Some(open) = code[macro_start..].find(['{', '(', '[']).map(|offset| macro_start + offset) else {
             break;
         };
-        let Some(end) = matching_brace(source, open_brace) else {
+        let Some(end) = matching_delimiter(code, open) else {
             break;
         };
         ranges.push((macro_start, end));
@@ -818,18 +821,26 @@ fn value_after(line: &str, key: &str) -> Option<String> {
     (!value.is_empty() && value != "TODO").then_some(value)
 }
 
-fn matching_brace(source: &str, open: usize) -> Option<usize> {
+/// Offset just past the delimiter that closes the `{`, `(`, or `[` at `open`
+/// in a code view, where literals and comments are already blanked.
+fn matching_delimiter(code: &str, open: usize) -> Option<usize> {
+    let bytes = code.as_bytes();
+    let close = match bytes.get(open)? {
+        b'{' => b'}',
+        b'(' => b')',
+        b'[' => b']',
+        _ => return None,
+    };
+    let open_byte = bytes[open];
     let mut depth = 0u32;
-    for (offset, ch) in source[open..].char_indices() {
-        match ch {
-            '{' => depth += 1,
-            '}' => {
-                depth = depth.checked_sub(1)?;
-                if depth == 0 {
-                    return Some(open + offset + ch.len_utf8());
-                }
+    for (offset, byte) in bytes[open..].iter().enumerate() {
+        if *byte == open_byte {
+            depth += 1;
+        } else if *byte == close {
+            depth = depth.checked_sub(1)?;
+            if depth == 0 {
+                return Some(open + offset + 1);
             }
-            _ => {}
         }
     }
     None
@@ -1543,6 +1554,19 @@ pub fn sum() -> u8 { control() + foo() + bar() + baz() + r#type() + 漢字() }
         let functions = find_functions(source);
         assert_eq!(functions.len(), 1);
         assert_eq!(functions[0].name, "explicit_function");
+    }
+
+    #[test]
+    fn macro_rules_with_parenthesis_or_bracket_delimiters_end_at_their_own_closer() {
+        for source in [
+            "macro_rules! one ( () => ( 1 ) );\npub fn explicit() -> u32 { 2 }\n",
+            "macro_rules! two [ () => [ 2 ] ];\npub fn explicit() -> u32 { 2 }\n",
+            "macro_rules! pair ( () => ( fn first() {} fn second() {} ) );\npub fn explicit() -> u32 { 2 }\n",
+            "macro_rules! nested [ () => [ fn first() { [1][0] } fn second() {} ] ];\npub fn explicit() -> u32 { 2 }\n",
+        ] {
+            let names = find_functions(source).into_iter().map(|span| span.name).collect::<Vec<_>>();
+            assert_eq!(names, ["explicit"], "{source}");
+        }
     }
 
     #[test]
