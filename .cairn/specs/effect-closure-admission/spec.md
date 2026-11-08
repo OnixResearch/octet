@@ -100,7 +100,7 @@ r[octet.effect_closure.roles.invalid]
 
 ### Requirement: Exact dependency-call summaries
 
-r[octet.effect_closure.dependency_summaries] Every selected non-macro call not unambiguously resolved to a selected local function MUST require one exact call-site summary bound to its caller function address and resolved provider identity. V1 MUST NOT infer effect-free toolchain intrinsics from names such as `Ok`, `Some`, or `Vec`; macro calls remain directly `unknown` and cannot be summarized.
+r[octet.effect_closure.dependency_summaries] Every selected non-macro call not resolved to a selected local function by a call path that proves the target (a single-segment call to a free function in the caller's file and module, `Owner::name` to an inherent method of `Owner` in that scope, or `self.name()` from an inherent method to the same inherent owner in that scope) MUST require one exact call-site summary bound to its caller function address and resolved provider identity. V1 MUST NOT infer effect-free toolchain intrinsics from names such as `Ok`, `Some`, or `Vec`; macro calls remain directly `unknown` and cannot be summarized.
 
 #### Scenario: Exact summary resolves an external edge
 

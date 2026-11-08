@@ -57,7 +57,6 @@ const HASH_HEX_LENGTH: usize = 64;
 const BLAKE3_PREFIX: &str = "b3:";
 const EXTRA_FIXED_POINT_ITERATION: usize = 1;
 const DETERMINISTIC_ALLOWED_EFFECT_COUNT: usize = 1;
-const UNIQUE_LOCAL_CANDIDATE_COUNT: usize = 1;
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -326,11 +325,25 @@ pub struct EffectClosureReceipt {
 struct FunctionDraft {
     path: String,
     name: String,
-    owner: Option<String>,
+    module: Vec<String>,
+    container: FunctionContainer,
     attrs: Vec<syn::Attribute>,
     signature: syn::Signature,
     block: syn::Block,
     source_identity: String,
+}
+
+/// The item that holds a selected function. Local call resolution trusts only call paths that prove
+/// one of the resolvable containers.
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum FunctionContainer {
+    /// A free `fn` item in a file or inline module.
+    Module,
+    /// A method in an inherent `impl Owner` block.
+    InherentImpl(String),
+    /// A trait default body, trait-impl method, or inherent method without a single path owner;
+    /// v1 never resolves a call to one of these locally.
+    Dispatched,
 }
 
 #[derive(Clone)]
@@ -357,12 +370,14 @@ enum RawCallKind {
 #[derive(Default)]
 struct FunctionCollector {
     functions: Vec<CollectedFunction>,
+    module: Vec<String>,
 }
 
 #[derive(Clone)]
 struct CollectedFunction {
     name: String,
-    owner: Option<String>,
+    module: Vec<String>,
+    container: FunctionContainer,
     attrs: Vec<syn::Attribute>,
     signature: syn::Signature,
     block: syn::Block,
@@ -375,10 +390,17 @@ struct BodyScanner<'a> {
 }
 
 impl<'ast> Visit<'ast> for FunctionCollector {
+    fn visit_item_mod(&mut self, node: &'ast syn::ItemMod) {
+        self.module.push(node.ident.to_string());
+        syn::visit::visit_item_mod(self, node);
+        self.module.pop();
+    }
+
     fn visit_item_fn(&mut self, node: &'ast syn::ItemFn) {
         self.functions.push(CollectedFunction {
             name: node.sig.ident.to_string(),
-            owner: None,
+            module: self.module.clone(),
+            container: FunctionContainer::Module,
             attrs: node.attrs.clone(),
             signature: node.sig.clone(),
             block: (*node.block).clone(),
@@ -387,12 +409,16 @@ impl<'ast> Visit<'ast> for FunctionCollector {
     }
 
     fn visit_item_impl(&mut self, node: &'ast syn::ItemImpl) {
-        let owner = owner_from_type(&node.self_ty);
+        let container = match (&node.trait_, owner_from_type(&node.self_ty)) {
+            (None, Some(owner)) => FunctionContainer::InherentImpl(owner),
+            _ => FunctionContainer::Dispatched,
+        };
         for item in &node.items {
             if let syn::ImplItem::Fn(function) = item {
                 self.functions.push(CollectedFunction {
                     name: function.sig.ident.to_string(),
-                    owner: owner.clone(),
+                    module: self.module.clone(),
+                    container: container.clone(),
                     attrs: function.attrs.clone(),
                     signature: function.sig.clone(),
                     block: function.block.clone(),
@@ -406,7 +432,8 @@ impl<'ast> Visit<'ast> for FunctionCollector {
         if let Some(block) = &node.default {
             self.functions.push(CollectedFunction {
                 name: node.sig.ident.to_string(),
-                owner: None,
+                module: self.module.clone(),
+                container: FunctionContainer::Dispatched,
                 attrs: node.attrs.clone(),
                 signature: node.sig.clone(),
                 block: block.clone(),
@@ -1081,7 +1108,8 @@ fn parse_function_drafts(sources: &[SourceEnvelope], diagnostics: &mut Vec<Closu
                 drafts.extend(collector.functions.into_iter().map(|function| FunctionDraft {
                     path: source.path.clone(),
                     name: function.name,
-                    owner: function.owner,
+                    module: function.module,
+                    container: function.container,
                     attrs: function.attrs,
                     signature: function.signature,
                     block: function.block,
@@ -1429,43 +1457,43 @@ fn local_function_index(functions: &[AddressedFunction]) -> BTreeMap<String, Vec
     index
 }
 
+/// Resolves a call to a selected function only when its source path proves the target: a
+/// single-segment call names a free function in the caller's file and module, `Owner::name` names
+/// an inherent method of `impl Owner` in that scope, and `self.name()` from an inherent method
+/// names a method of the same inherent owner in that scope. Every other shape, including qualified
+/// module paths and trait dispatch, stays unresolved so it requires an exact summary or remains
+/// unknown.
 fn resolve_local_call<'a>(
     raw_call: &RawCall,
     caller: &AddressedFunction,
     local_names: &'a BTreeMap<String, Vec<&'a AddressedFunction>>,
 ) -> Option<&'a AddressedFunction> {
-    let name = raw_call.shape.rsplit(':').next()?;
-    let candidates = local_names.get(name)?;
-    if candidates.len() != UNIQUE_LOCAL_CANDIDATE_COUNT {
-        return None;
-    }
-    let candidate = candidates[0];
-    match raw_call.kind {
+    let expected_container = match raw_call.kind {
+        RawCallKind::Macro => return None,
         RawCallKind::Method => {
-            if raw_call.shape.starts_with("method:self:") && candidate.draft.owner == caller.draft.owner {
-                Some(candidate)
-            } else {
-                None
+            raw_call.shape.strip_prefix("method:self:")?;
+            match &caller.draft.container {
+                FunctionContainer::InherentImpl(owner) => FunctionContainer::InherentImpl(owner.clone()),
+                FunctionContainer::Module | FunctionContainer::Dispatched => return None,
             }
         }
-        RawCallKind::Macro => None,
         RawCallKind::Function => {
             let path = raw_call.shape.strip_prefix("call:")?;
-            let segments = path.split("::").collect::<Vec<_>>();
-            if segments.len() == EXTRA_FIXED_POINT_ITERATION
-                || matches!(segments.first().copied(), Some("self" | "super" | "crate"))
-                || candidate
-                    .draft
-                    .owner
-                    .as_ref()
-                    .is_some_and(|owner| segments.first().copied() == Some(owner.as_str()))
-            {
-                Some(candidate)
-            } else {
-                None
+            match path.split("::").collect::<Vec<_>>().as_slice() {
+                [_name] => FunctionContainer::Module,
+                [owner, _name] => FunctionContainer::InherentImpl((*owner).to_owned()),
+                _ => return None,
             }
         }
-    }
+    };
+    let name = raw_call.shape.rsplit(':').next()?;
+    let mut proven = local_names.get(name)?.iter().copied().filter(|candidate| {
+        candidate.draft.container == expected_container
+            && candidate.draft.path == caller.draft.path
+            && candidate.draft.module == caller.draft.module
+    });
+    let candidate = proven.next()?;
+    proven.next().is_none().then_some(candidate)
 }
 
 fn classify_path_call(path: &str, foreign_functions: &BTreeSet<String>) -> Option<BTreeSet<Effect>> {
@@ -1586,9 +1614,16 @@ fn collect_foreign_names(items: &[syn::Item], names: &mut BTreeSet<String>) {
     }
 }
 
+/// The owner name of an inherent `impl` self type, only when that type is a single in-scope path
+/// segment, so `Owner::name` in the same module provably names the same type.
 fn owner_from_type(node: &syn::Type) -> Option<String> {
     match node {
-        syn::Type::Path(path) => path.path.segments.last().map(|segment| segment.ident.to_string()),
+        syn::Type::Path(path) if path.qself.is_none() && path.path.leading_colon.is_none() => {
+            match path.path.segments.iter().collect::<Vec<_>>().as_slice() {
+                [segment] => Some(segment.ident.to_string()),
+                _ => None,
+            }
+        }
         syn::Type::Reference(reference) => owner_from_type(&reference.elem),
         _ => None,
     }
@@ -1995,7 +2030,11 @@ mod tests {
 
         let role_denied = compute_closure(closure_input);
         assert!(role_denied.diagnostics.iter().any(|diagnostic| diagnostic.code == DIAGNOSTIC_ROLE));
-        assert!(role_denied.diagnostics.iter().any(|diagnostic| diagnostic.code == DIAGNOSTIC_ROLE_EDGE));
+        // A single-segment call cannot prove a target in another file, so it is never a local
+        // cross-role edge; it stays unresolved instead.
+        let root = role_denied.nodes.iter().find(|node| node.name == "root").expect("root node");
+        assert_eq!(root.calls[0].resolution, CallResolution::Unknown);
+        assert!(role_denied.diagnostics.iter().any(|diagnostic| diagnostic.code == DIAGNOSTIC_CALL_UNKNOWN));
 
         let address_denied = compute_closure(input("fn root() {}\n", Vec::new(), policy(Vec::new())));
         assert!(address_denied.diagnostics.iter().any(|diagnostic| diagnostic.code == DIAGNOSTIC_ADDRESS_MISSING));
@@ -2147,5 +2186,67 @@ unsafe fn risky(values: &[u8]) -> u8 {
         let leaf = dropped_call_effects.nodes.iter_mut().find(|node| node.name == "leaf").expect("leaf node");
         leaf.direct_effects.clear();
         assert_rejected(&finalize_receipt(dropped_call_effects), "direct effects do not contain every call effect");
+    }
+
+    // r[verify octet.effect_closure.dependency_summaries.invalid]
+    // r[verify octet.effect_closure.verification.adversarial]
+    #[test]
+    fn local_resolution_requires_a_path_that_proves_the_target() {
+        let qualified =
+            "struct Tick;\nimpl Tick {\n    fn now() -> u8 { 0 }\n}\nfn root() -> u8 { crate::shell::now() }\n";
+        let receipt =
+            compute_closure(input(qualified, vec![address("now", '1'), address("root", '2')], policy(Vec::new())));
+        let root = receipt.nodes.iter().find(|node| node.name == "root").expect("root node");
+        assert_eq!(root.calls[0].shape, "call:crate::shell::now");
+        assert_eq!(root.calls[0].resolution, CallResolution::Unknown);
+        assert_eq!(receipt.status, AdmissionStatus::Denied);
+
+        let trait_default =
+            "trait Header {\n    fn header(&self) -> u8 { 0 }\n    fn render(&self) -> u8 { self.header() }\n}\n";
+        let receipt = compute_closure(input(
+            trait_default,
+            vec![address("header", '3'), address("render", '4')],
+            policy(Vec::new()),
+        ));
+        let render = receipt.nodes.iter().find(|node| node.name == "render").expect("render node");
+        assert_eq!(render.calls[0].shape, "method:self:header");
+        assert_eq!(render.calls[0].resolution, CallResolution::Unknown);
+        assert_eq!(receipt.status, AdmissionStatus::Denied);
+
+        let other_module = "mod inner {\n    pub fn helper() {}\n}\nuse other::helper;\nfn root() { helper(); }\n";
+        let receipt = compute_closure(input(
+            other_module,
+            vec![address("helper", '5'), address("root", '6')],
+            policy(Vec::new()),
+        ));
+        let root = receipt.nodes.iter().find(|node| node.name == "root").expect("root node");
+        assert_eq!(root.calls[0].resolution, CallResolution::Unknown);
+    }
+
+    // r[verify octet.effect_closure.roles.valid]
+    #[test]
+    fn proven_local_paths_resolve() {
+        let source = "struct Tick;\nimpl Tick {\n    fn zero() -> u8 { 0 }\n    fn read(&self) -> u8 { self.offset() }\n    fn offset(&self) -> u8 { Tick::zero() }\n}\nfn helper() -> u8 { Tick::zero() }\nfn root() -> u8 { helper() }\n";
+        let receipt = compute_closure(input(
+            source,
+            vec![
+                address("helper", '1'),
+                address("offset", '2'),
+                address("read", '3'),
+                address("root", '4'),
+                address("zero", '5'),
+            ],
+            policy(Vec::new()),
+        ));
+
+        assert_eq!(receipt.status, AdmissionStatus::Admitted, "{:?}", receipt.diagnostics);
+        assert!(
+            receipt
+                .nodes
+                .iter()
+                .flat_map(|node| &node.calls)
+                .all(|call| call.resolution == CallResolution::Local)
+        );
+        assert!(verify_receipt_identity(&receipt).is_empty());
     }
 }

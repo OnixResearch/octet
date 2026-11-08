@@ -99,6 +99,8 @@ Cargo/workspace summaries must match an exact provider in `cargo metadata --lock
 <!-- r[impl octet.effect_closure.transitive] -->
 <!-- r[verify octet.effect_closure.transitive.cycle] -->
 
+A call is a selected local edge only when its source path proves the target: a single-segment call such as `helper()` names a free function in the caller's file and inline module, `Owner::name()` names a method of an inherent `impl Owner` block in that same scope, and `self.name()` inside an inherent method names a method of that same inherent owner in that scope. Qualified module paths such as `crate::shell::now()`, trait default and trait-impl methods, `self` calls from trait bodies, and calls whose proven target is not unique remain unresolved and need an exact summary or stay `unknown`.
+
 Selected local calls form a canonically ordered graph. Each node begins with direct inferred and reviewed-summary effects. Octet repeatedly unions selected callee effects into callers until no finite effect set changes. Recursive cycles are retained and converge; this graph fact does not claim termination or runtime reachability.
 
 Admission succeeds only when there are no policy, address, role, edge, provider, inference, or denied-effect diagnostics.
