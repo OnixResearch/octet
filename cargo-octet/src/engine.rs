@@ -123,18 +123,7 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
     };
     let cargo_check_args = check.cargo_check_args.clone().unwrap_or(cfg.cargo_check_args.clone());
     let admission_binding = cfg.architecture_policy.as_ref().and_then(|policy| policy.policy.admission.as_ref());
-    if let (Some(requested), Some(binding)) = (check.profile.as_deref(), admission_binding)
-        && requested != binding.strict_profile
-    {
-        return Err(format!(
-            "architecture admission binds strict profile `{}`, but `--profile` selected `{requested}`",
-            binding.strict_profile
-        ));
-    }
-    let selected_profile_id = check
-        .profile
-        .as_deref()
-        .or_else(|| admission_binding.map(|binding| binding.strict_profile.as_str()));
+    let selected_profile_id = selected_strict_profile_id(check.profile.as_deref(), admission_binding)?;
     let selected_profile = crate::strict_profile::prepare_selected_profile(selected_profile_id, &cfg.workspace_root)?;
     let prepared_integrated_closure = admission_binding
         .map(|binding| crate::admit::prepare_integrated_closure(&cfg.workspace_root, binding))
@@ -147,7 +136,7 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
     let effective_function_addresses = crate::strict_profile::effective_function_address_check(
         selected_profile.as_ref(),
         &requested_function_addresses,
-    );
+    )?;
 
     if cargo_check_args.iter().any(|arg| arg.starts_with("--message-format")) {
         return Err("`--message-format` is managed by `--output-format`; remove it from passthrough args".to_owned());
@@ -842,6 +831,23 @@ fn write_run_artifacts(
     }
 
     Ok(())
+}
+
+/// The strict profile a check runs under: `--profile`, or else the profile the workspace's
+/// architecture admission binding selects. A `--profile` that disagrees with the binding fails.
+fn selected_strict_profile_id<'a>(
+    requested: Option<&'a str>,
+    admission_binding: Option<&'a octet_standards::project_architecture_policy::ArchitectureAdmissionBinding>,
+) -> Result<Option<&'a str>, String> {
+    if let (Some(requested), Some(binding)) = (requested, admission_binding)
+        && requested != binding.strict_profile
+    {
+        return Err(format!(
+            "architecture admission binds strict profile `{}`, but `--profile` selected `{requested}`",
+            binding.strict_profile
+        ));
+    }
+    Ok(requested.or_else(|| admission_binding.map(|binding| binding.strict_profile.as_str())))
 }
 
 /// Bundle pruning removes every `--artifact-dir` entry the run does not write, and any other entry
@@ -1963,6 +1969,50 @@ mod tests {
         assert_eq!(json_u64_to_u32(None), 1);
         assert_eq!(json_u64_to_u32(Some(0)), 1);
         assert_eq!(json_u64_to_u32(Some(42)), 42);
+    }
+
+    #[test]
+    fn admission_binding_profile_enables_explicit_function_address_options() {
+        use octet_standards::project_architecture_policy::ArchitectureAdmissionBinding;
+
+        use crate::function_address::FunctionAddressCheck;
+        use crate::function_address::FunctionAddressMode;
+
+        fn resolve(
+            workspace_root: &Path,
+            cli_profile: Option<&str>,
+            binding: Option<&ArchitectureAdmissionBinding>,
+            requested: &FunctionAddressCheck,
+        ) -> Result<FunctionAddressCheck, String> {
+            let profile_id = super::selected_strict_profile_id(cli_profile, binding)?;
+            let selected = crate::strict_profile::prepare_selected_profile(profile_id, workspace_root)?;
+            crate::strict_profile::effective_function_address_check(selected.as_ref(), requested)
+        }
+
+        let workspace = tempfile::tempdir().expect("workspace");
+        std::fs::write(workspace.path().join("dylint.toml"), "[octet]\ncore_source_scopes = [\"src\"]\n")
+            .expect("write core scopes");
+        let binding = ArchitectureAdmissionBinding {
+            strict_profile: "deterministic-core".to_owned(),
+            effect_closure_policy: "octet-effect-closure.json".to_owned(),
+        };
+        let requested = FunctionAddressCheck {
+            mode: FunctionAddressMode::Off,
+            paths: vec![std::path::PathBuf::from("src/lib.rs")],
+            baseline: None,
+        };
+
+        let effective = resolve(workspace.path(), None, Some(&binding), &requested)
+            .expect("a binding-selected profile accepts an explicit path without `--function-addresses`");
+        assert_eq!(effective.mode, FunctionAddressMode::Deny);
+        assert_eq!(effective.paths, requested.paths);
+
+        let unselected = resolve(workspace.path(), None, None, &requested)
+            .expect_err("no mode and no effective profile leaves the path inert");
+        assert!(unselected.contains("`--function-address-path`"), "{unselected}");
+        let mismatch = resolve(workspace.path(), Some("robust"), Some(&binding), &requested)
+            .expect_err("a `--profile` that disagrees with the binding fails");
+        assert!(mismatch.contains("architecture admission binds strict profile"), "{mismatch}");
     }
 
     #[test]

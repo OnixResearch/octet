@@ -944,22 +944,6 @@ fn parse_check(args: &[String], command_line: String) -> Result<CheckArgs, Strin
         }
     }
 
-    // A strict profile always raises the mode above `off`, so without one, `--function-addresses off`
-    // (the default) would silently ignore an explicit scope or baseline.
-    if !function_address_mode.is_enabled() && profile.is_none() {
-        for (flag, given) in [
-            ("--function-address-path", !function_address_paths.is_empty()),
-            ("--function-address-baseline", function_address_baseline.is_some()),
-        ] {
-            if given {
-                return Err(format!(
-                    "`{flag}` requires `--function-addresses observe|warn|deny` or a `--profile`; function-address \
-                     checks are off"
-                ));
-            }
-        }
-    }
-
     Ok(CheckArgs {
         scope_args,
         cargo_check_args,
@@ -2888,38 +2872,6 @@ mod tests {
         let error = parse(["cargo", "octet", "check", "--function-addresses=strict"].map(OsString::from))
             .expect_err("invalid mode fails");
         assert!(error.contains("unsupported function-address mode"));
-    }
-
-    #[test]
-    fn check_parse_rejects_function_address_options_without_enabled_mode_or_profile() {
-        let check = |flags: &[&str]| {
-            let argv = ["cargo", "octet", "check"].iter().chain(flags).map(OsString::from).collect::<Vec<_>>();
-            parse(argv)
-        };
-        for flags in [
-            &["--function-address-baseline", "missing.json"][..],
-            &["--function-address-baseline=missing.json"][..],
-            &["--function-address-path", "crates/core/src"][..],
-            &["--function-address-path=crates/core/src", "--function-addresses=off"][..],
-        ] {
-            let error = check(flags).expect_err("function-address options without a mode must fail");
-            assert!(error.contains("--function-addresses"), "{flags:?}: {error}");
-        }
-        for flags in [
-            &[
-                "--function-address-baseline",
-                "baseline.json",
-                "--function-addresses",
-                "observe",
-            ][..],
-            &[
-                "--function-address-path=crates/core/src",
-                "--profile",
-                "deterministic-core",
-            ][..],
-        ] {
-            check(flags).unwrap_or_else(|error| panic!("{flags:?}: {error}"));
-        }
     }
 
     #[test]

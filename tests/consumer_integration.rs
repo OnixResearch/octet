@@ -320,6 +320,22 @@ fn function_address_paths_outside_workspace_are_rejected_before_cargo() {
     }
 }
 
+#[test]
+fn function_address_options_without_mode_or_profile_are_rejected_before_cargo() {
+    let fixture =
+        ConsumerFixture::new("function-address-inert-options", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    for (flag, args) in [
+        ("--function-address-baseline", ["--function-address-baseline", "missing.json"]),
+        ("--function-address-path", ["--function-address-path", "src"]),
+    ] {
+        let output = run_with_check_args(&fixture, &args, &[cargo_build_finished(true)], EXIT_CODE_SUCCESS);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert_eq!(output.status.code(), Some(EXIT_CODE_INTEGRATION_FAILURE), "{flag}: stderr={stderr}");
+        assert!(stderr.contains(&format!("`{flag}`")), "{flag} should be named: {stderr}");
+        assert!(!fixture.log().contains("ARGS:check"), "{flag} must be rejected before Cargo runs");
+    }
+}
+
 // r[verify octet.effect_closure.cli.check_failure]
 #[test]
 fn effect_closure_admission_stops_after_failed_direct_check() {
