@@ -1080,7 +1080,8 @@ pub(crate) fn dependency_identity_status(function_source: &str) -> &'static str 
 /// Canonical token text: tokens joined by single spaces. Whitespace and
 /// ordinary comments do not change it. Joint punctuation and lexical literal
 /// boundaries stay intact, as does doc-comment text observable inside macros.
-/// Literal contents stay verbatim, including any `//` inside them.
+/// Literal contents stay verbatim, including any `//` inside them, except that
+/// CRLF line endings in literals and doc comments read as LF, as rustc does.
 pub(crate) fn normalize_tokens(source: &str) -> String {
     let mut normalized = String::with_capacity(source.len());
     let mut previous_end = 0;
@@ -1094,12 +1095,30 @@ pub(crate) fn normalize_tokens(source: &str) -> String {
         if !normalized.is_empty() && !joint {
             normalized.push(' ');
         }
-        normalized.push_str(token.text);
+        if token.is_literal {
+            push_with_lf_line_endings(&mut normalized, token.text);
+        } else {
+            normalized.push_str(token.text);
+        }
         previous_end = token.start + token.text.len();
         previous_punctuation = token.is_punctuation;
         previous_quote = token.is_punctuation && token.text == "'";
     }
     normalized
+}
+
+/// Appends `text` with each CRLF as LF. rustc normalizes CRLF line endings when
+/// it loads source, so a literal or doc comment spanning lines has the same
+/// tokens, and hash, in a CRLF checkout as in an LF one.
+fn push_with_lf_line_endings(normalized: &mut String, text: &str) {
+    let mut lines = text.split("\r\n");
+    if let Some(first) = lines.next() {
+        normalized.push_str(first);
+    }
+    for line in lines {
+        normalized.push('\n');
+        normalized.push_str(line);
+    }
 }
 
 /// One canonical source token, borrowed from the source text.
@@ -1250,8 +1269,16 @@ impl<'a> Iterator for SourceTokens<'a> {
                     });
                 }
                 if is_doc_comment(&self.source[start..end]) {
+                    // A line doc comment ends before its newline; drop the
+                    // `\r` of a CRLF line ending, which rustc never sees.
+                    let text = &self.source[start..end];
+                    let text = if self.source.as_bytes().get(end) == Some(&b'\n') {
+                        text.strip_suffix('\r').unwrap_or(text)
+                    } else {
+                        text
+                    };
                     return Some(SourceToken {
-                        text: &self.source[start..end],
+                        text,
                         is_literal: true,
                         is_punctuation: false,
                         start,

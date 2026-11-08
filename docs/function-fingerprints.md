@@ -54,7 +54,9 @@ and change identity, particularly inside macro inputs. Signature, attribute,
 visibility, or body token changes also change the hash. String,
 raw-string, byte, and character literals are hashed whole, so any change inside a
 literal changes the hash, and a `//` inside a literal does not hide the code after
-it. Macro calls anywhere in the item, including attributes such as
+it. Line endings inside literals and doc comments are read as LF, as rustc reads
+them, so a CRLF checkout, for example with `core.autocrlf=true`, hashes the same as
+an LF one. Macro calls anywhere in the item, including attributes such as
 `#[doc = include_str!("f.md")]` and the signature, produce a review warning unless
 the marker records an explicit macro review allowance such as `macro=allow`.
 

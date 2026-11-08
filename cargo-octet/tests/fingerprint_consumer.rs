@@ -1248,6 +1248,31 @@ fn fingerprint_macro_calls_anywhere_in_the_item_need_macro_review() {
 }
 
 #[test]
+fn fingerprint_hash_reads_crlf_line_endings_in_literals_and_doc_comments_as_lf() {
+    let temp = tempfile::tempdir().expect("create tempdir");
+    let fixture = temp.path().join("lib.rs");
+    fs::write(
+        &fixture,
+        "// octet-fingerprint: b3:; review=R-1; evidence=E-1\n#[inline]\n/// Returns the banner.\n/** Block\n    docs. */\npub fn banner() -> &'static str {\n    \"first\nsecond\"\n}\n",
+    )
+    .expect("write LF fixture");
+    let (code, _, stderr) = run_octet(temp.path(), &["fingerprint", "--update", "lib.rs"]);
+    assert_eq!(code, Some(0), "{stderr}");
+    let reviewed = fs::read_to_string(&fixture).expect("read reviewed LF fixture");
+    let check = |text: &str| {
+        fs::write(&fixture, text).expect("write fixture");
+        let (code, stdout, _) = run_octet(temp.path(), &["fingerprint", "--check", "--output-format=json", "lib.rs"]);
+        (code, parse_json(&stdout, "--check")["records"][0]["status"].clone())
+    };
+    let crlf = reviewed.replace('\n', "\r\n");
+    assert_eq!(check(&reviewed), (Some(0), serde_json::json!("match")));
+    assert_eq!(check(&crlf), (Some(0), serde_json::json!("match")), "CRLF checkout of the reviewed LF source");
+    for drift in [crlf.replace("second", "third"), crlf.replace("the banner", "a banner")] {
+        assert_eq!(check(&drift), (Some(1), serde_json::json!("mismatch")), "{drift:?}");
+    }
+}
+
+#[test]
 fn fingerprint_json_records_report_stored_and_computed_hashes_across_drift() {
     let temp = tempfile::tempdir().expect("create tempdir");
     let fixture = temp.path().join("reviewed.rs");
