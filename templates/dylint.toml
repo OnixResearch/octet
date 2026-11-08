@@ -89,6 +89,13 @@
 # disabled_lints = [
 #   "function_length",
 #   "acronym_style",
+#   "magic_number",
+#   "excessive_file_length",
+#   "module_file_count",
+#   "underscore_in_module_filename",
+#   "non_trait_imports",
+#   "renamed_imports",
+#   "path_segment_repetition",
 #   "numeric_units",
 #   "unbounded_loop",
 #   "compound_condition",
@@ -116,6 +123,8 @@
 #   "too_many_parameters",
 #   "fat_trait",
 #   "concrete_construction_in_core",
+#   "drop_must_use",
+#   "fallible_int_fallback",
 #   "type_accumulation",
 #   "bool_naming",
 #   "ignored_result",
@@ -142,6 +151,7 @@
 #   "no_todo",
 #   "unjustified_no_todo_allow",
 #   "no_recursion",
+#   "state_machine_exhaustiveness",
 # ]
 
 [octet.lint_levels]

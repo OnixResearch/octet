@@ -171,6 +171,13 @@ production crates.
 disabled_lints = [
   "function_length",
   "acronym_style",
+  "magic_number",
+  "excessive_file_length",
+  "module_file_count",
+  "underscore_in_module_filename",
+  "non_trait_imports",
+  "renamed_imports",
+  "path_segment_repetition",
   "numeric_units",
   "unbounded_loop",
   "compound_condition",
@@ -187,6 +194,7 @@ disabled_lints = [
   "pure_attr_contract",
   "resource_return_from_core",
   "spawn_in_core",
+  "zero_alloc_attr_contract",
   "unjustified_allow",
   "nested_conditionals",
   "assertion_density",
@@ -195,6 +203,10 @@ disabled_lints = [
   "unbounded_collection_growth",
   "sentinel_fallback",
   "too_many_parameters",
+  "fat_trait",
+  "concrete_construction_in_core",
+  "drop_must_use",
+  "fallible_int_fallback",
   "bool_naming",
   "ignored_result",
   "unchecked_narrowing",
@@ -214,12 +226,15 @@ disabled_lints = [
   "no_todo",
   "unjustified_no_todo_allow",
   "no_recursion",
+  "state_machine_exhaustiveness",
 ]
 ```
 
 That leaves `ambient_clock`, `compound_assertion`, `contradictory_time`,
 `explicit_defaults`, `unbounded_channel`, `usize_in_public_api`, and
-`negated_predicate` enabled.
+`negated_predicate` enabled. Allow-by-default lints stay off unless
+`lint_levels` raises them, so a new warn-by-default lint must join this list to
+keep the enabled set unchanged.
 
 For the Aspen-backed classification table and promotion evidence, see
 `downstream-rollout-evidence.md`.
@@ -228,13 +243,21 @@ For the Aspen-backed classification table and promotion evidence, see
 
 Inventory-only means one deferred lint family at a time, one scope slice at a
 time. Example: inventory only `no_unwrap` while keeping every other lint out of
-that run.
+that run. The list names every other lint whose default level is `warn` or
+`deny`; allow-by-default lints stay off unless `lint_levels` raises them.
 
 ```toml
 [octet]
 disabled_lints = [
   "compound_assertion",
   "function_length",
+  "magic_number",
+  "excessive_file_length",
+  "module_file_count",
+  "underscore_in_module_filename",
+  "non_trait_imports",
+  "renamed_imports",
+  "path_segment_repetition",
   "acronym_style",
   "numeric_units",
   "unbounded_loop",
@@ -252,6 +275,7 @@ disabled_lints = [
   "pure_attr_contract",
   "resource_return_from_core",
   "spawn_in_core",
+  "zero_alloc_attr_contract",
   "unjustified_allow",
   "nested_conditionals",
   "assertion_density",
@@ -263,6 +287,10 @@ disabled_lints = [
   "sentinel_fallback",
   "usize_in_public_api",
   "too_many_parameters",
+  "fat_trait",
+  "concrete_construction_in_core",
+  "drop_must_use",
+  "fallible_int_fallback",
   "negated_predicate",
   "bool_naming",
   "ignored_result",
@@ -284,6 +312,7 @@ disabled_lints = [
   "no_todo",
   "unjustified_no_todo_allow",
   "no_recursion",
+  "state_machine_exhaustiveness",
 ]
 
 [octet.lint_levels]
