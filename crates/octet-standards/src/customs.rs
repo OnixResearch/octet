@@ -93,7 +93,7 @@ pub struct PolicyPackageManifest {
     /// True only for packages whose validation explicitly needs remote fetching.
     #[serde(default)]
     pub remote_fetches_allowed: bool,
-    /// Rationale required when raw secrets or non-candidate material is present.
+    /// Exclusion rationale for secret-shaped material; honoured only for `non-candidate` packages.
     #[serde(default)]
     pub secret_exclusion_rationale: String,
 }
@@ -152,7 +152,7 @@ pub fn validate_policy_package(input: &CustomsInput<'_>) -> CustomsReport {
     validate_registry_coverage(input.package, input.registry, &mut diagnostics);
     validate_generated_artifacts(input, &mut diagnostics);
     validate_offline_boundary(input.package, &mut diagnostics);
-    validate_secret_boundary(input.package, input.sources, &mut diagnostics);
+    validate_secret_boundary(input, &mut diagnostics);
 
     let status = if diagnostics.is_empty() { "pass" } else { "fail" }.to_owned();
     let mut accepted_artifacts =
@@ -294,7 +294,7 @@ fn validate_generated_artifacts(input: &CustomsInput<'_>, diagnostics: &mut Vec<
     for artifact in &input.package.generated_artifacts {
         push_blank(&artifact.generation_command, &format!("{} generation_command", artifact.path), diagnostics);
         push_blank(&artifact.validation_command, &format!("{} validation_command", artifact.path), diagnostics);
-        let Some(text) = artifact_text(input.artifact_texts, &artifact.path) else {
+        let Some(text) = text_at(input.artifact_texts, &artifact.path) else {
             diagnostics.push(diagnostic(
                 &artifact.path,
                 format!("generated artifact `{}` is missing from artifact inventory", artifact.path),
@@ -359,22 +359,26 @@ fn validate_offline_boundary(package: &PolicyPackageManifest, diagnostics: &mut 
     }
 }
 
-fn validate_secret_boundary(
-    package: &PolicyPackageManifest,
-    sources: &[SourceFile],
-    diagnostics: &mut Vec<CustomsDiagnostic>,
-) {
-    if !package.secret_exclusion_rationale.trim().is_empty() {
+fn validate_secret_boundary(input: &CustomsInput<'_>, diagnostics: &mut Vec<CustomsDiagnostic>) {
+    let package = input.package;
+    if package.status == STATUS_NON_CANDIDATE && !package.secret_exclusion_rationale.trim().is_empty() {
         return;
     }
-    for path in &package.source_paths {
-        let Some(source) = sources.iter().find(|source| source.path == *path) else {
-            continue;
-        };
-        if contains_secret_marker(&source.text) {
+    let sources = package.source_paths.iter().map(|path| ("package source", path, input.sources));
+    let fixtures = package
+        .positive_fixtures
+        .iter()
+        .chain(&package.negative_fixtures)
+        .map(|path| ("package fixture", path, input.sources));
+    let artifacts = package
+        .generated_artifacts
+        .iter()
+        .map(|artifact| ("generated artifact", &artifact.path, input.artifact_texts));
+    for (label, path, texts) in sources.chain(fixtures).chain(artifacts) {
+        if text_at(texts, path).is_some_and(contains_secret_marker) {
             diagnostics.push(diagnostic(
                 path,
-                format!("package source `{path}` appears to contain raw secret material"),
+                format!("{label} `{path}` appears to contain raw secret material"),
                 REMEDIATION_SECRETS,
             ));
         }
@@ -393,8 +397,8 @@ fn source_exists(sources: &[SourceFile], path: &str) -> bool {
     sources.iter().any(|source| source.path == path)
 }
 
-fn artifact_text<'a>(artifacts: &'a [SourceFile], path: &str) -> Option<&'a str> {
-    artifacts.iter().find(|artifact| artifact.path == path).map(|artifact| artifact.text.as_str())
+fn text_at<'a>(texts: &'a [SourceFile], path: &str) -> Option<&'a str> {
+    texts.iter().find(|text| text.path == path).map(|text| text.text.as_str())
 }
 
 fn manifest_entry<'a>(manifest: &'a ArtifactManifest, path: &str) -> Option<&'a ArtifactManifestEntry> {
@@ -500,6 +504,63 @@ mod tests {
         assert_eq!(report.status, "fail");
         assert!(report.diagnostics.iter().any(|diagnostic| diagnostic.message.contains("remote fetch")));
         assert!(report.diagnostics.iter().any(|diagnostic| diagnostic.message.contains("raw secret material")));
+    }
+
+    #[test]
+    fn secret_exclusion_rationale_only_excuses_non_candidate_packages() {
+        let mut package = valid_package();
+        package.secret_exclusion_rationale = "fixture credentials are inert".to_owned();
+        let mut sources = valid_sources();
+        sources.push(SourceFile::new("secret-package.ncl", "token = \"do-not-commit\"\n"));
+        package.source_paths.push("secret-package.ncl".to_owned());
+        let registry = valid_registry();
+        let artifact_manifest = valid_manifest();
+        let artifacts = valid_artifacts();
+
+        let promotable = report_for(&package, &registry, &artifact_manifest, &sources, &artifacts);
+        assert!(
+            promotable.diagnostics.iter().any(|diagnostic| diagnostic.field == "secret-package.ncl"
+                && diagnostic.message.contains("raw secret material")),
+            "{:?}",
+            promotable.diagnostics
+        );
+
+        package.status = STATUS_NON_CANDIDATE.to_owned();
+        let excluded = report_for(&package, &registry, &artifact_manifest, &sources, &artifacts);
+        assert!(
+            !excluded.diagnostics.iter().any(|diagnostic| diagnostic.message.contains("raw secret material")),
+            "{:?}",
+            excluded.diagnostics
+        );
+    }
+
+    #[test]
+    fn secret_scan_covers_fixtures_and_generated_artifacts() {
+        let package = valid_package();
+        let secret_artifact = "{ password = \"do-not-commit\" }\n";
+        let sources = vec![
+            SourceFile::new(SOURCE_PATH, ARTIFACT_TEXT),
+            SourceFile::new(POSITIVE_FIXTURE, "api_key = \"do-not-commit\"\n"),
+            SourceFile::new(NEGATIVE_FIXTURE, "-----BEGIN PRIVATE KEY-----\n"),
+        ];
+        let artifacts = vec![SourceFile::new(SOURCE_PATH, secret_artifact)];
+        let identity = artifact_text_identity(SOURCE_PATH, secret_artifact);
+        let mut artifact_manifest = valid_manifest();
+        artifact_manifest.artifacts[0].blake3 = identity.blake3;
+        artifact_manifest.artifacts[0].bytes = identity.bytes;
+        let registry = valid_registry();
+
+        let report = report_for(&package, &registry, &artifact_manifest, &sources, &artifacts);
+
+        let secret_fields = report
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.message.contains("raw secret material"))
+            .map(|diagnostic| diagnostic.field.as_str())
+            .collect::<Vec<_>>();
+        assert!(secret_fields.contains(&POSITIVE_FIXTURE), "{:?}", report.diagnostics);
+        assert!(secret_fields.contains(&NEGATIVE_FIXTURE), "{:?}", report.diagnostics);
+        assert!(secret_fields.contains(&SOURCE_PATH), "{:?}", report.diagnostics);
     }
 
     fn report_for(
