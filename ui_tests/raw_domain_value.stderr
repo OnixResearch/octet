@@ -50,3 +50,4 @@ LL | fn current_session() -> String {
    = note: see Tiger Style guide: Explicit Interfaces
 
 warning: 5 warnings emitted
+

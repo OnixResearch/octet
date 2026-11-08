@@ -170,3 +170,4 @@ LL +     (value.max()).saturating_add(1)
    |
 
 warning: 11 warnings emitted
+
