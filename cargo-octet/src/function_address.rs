@@ -138,6 +138,29 @@ impl FunctionAddressCheck {
             self.paths.clone()
         }
     }
+
+    /// Rejects explicit `--function-address-path` scopes that escape the workspace root: a `..`
+    /// component, an absolute path outside the root, or a path whose canonical form (after
+    /// symlinks) leaves the root. Record paths are workspace-relative, so an escaping scope would
+    /// emit records that a later baseline comparison rejects as malformed.
+    pub fn validate_paths(&self, workspace_root: &Path) -> Result<(), String> {
+        let canonical_root = std::fs::canonicalize(workspace_root)
+            .map_err(|error| format!("canonicalize workspace root {}: {error}", workspace_root.display()))?;
+        for path in &self.paths {
+            let escapes = path.components().any(|component| component == std::path::Component::ParentDir)
+                || (path.is_absolute() && !path.starts_with(workspace_root))
+                || std::fs::canonicalize(workspace_root.join(path))
+                    .is_ok_and(|canonical| !canonical.starts_with(&canonical_root));
+            if escapes {
+                return Err(format!(
+                    "`--function-address-path` {} must stay within the workspace root {}",
+                    path.display(),
+                    workspace_root.display()
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 impl Default for FunctionAddressCheck {
@@ -282,6 +305,7 @@ pub fn collect_run(
     if !check.mode.is_enabled() {
         return Ok(None);
     }
+    check.validate_paths(workspace_root)?;
 
     let mut files = Vec::new();
     let mut scope_prefixes = Vec::new();
@@ -1337,6 +1361,48 @@ mod tests {
                 panic!("{named} must not pass as an empty function-address scope");
             };
             assert!(error.contains(named), "{named}: {error}");
+        }
+    }
+
+    #[test]
+    fn explicit_scope_outside_workspace_root_is_rejected() {
+        let temp = TempDir::new().expect("temp dir");
+        let workspace = temp.path().join("workspace");
+        let shared = temp.path().join("shared");
+        std::fs::create_dir_all(workspace.join("src")).expect("create workspace source");
+        std::fs::create_dir_all(shared.join("src")).expect("create shared source");
+        std::fs::write(workspace.join("src/lib.rs"), "fn inside() -> u32 { 1 }\n").expect("write inside source");
+        std::fs::write(shared.join("src/lib.rs"), "fn outside() -> u32 { 1 }\n").expect("write shared source");
+        std::os::unix::fs::symlink(&shared, workspace.join("linked")).expect("symlink shared into workspace");
+        let check_for = |path: PathBuf| FunctionAddressCheck {
+            mode: FunctionAddressMode::Observe,
+            paths: vec![path],
+            baseline: None,
+        };
+
+        for escaping in [
+            PathBuf::from("../shared/src"),
+            PathBuf::from("src/../../shared/src"),
+            shared.join("src"),
+            PathBuf::from("linked/src"),
+        ] {
+            let check = check_for(escaping.clone());
+            if let Ok(run) = collect_run(&check, &workspace, "config") {
+                let records = run.map(|run| artifact_value(&run)["records"].clone());
+                panic!("{} must not be collected; got records {records:?}", escaping.display());
+            }
+            let Err(error) = check.validate_paths(&workspace) else {
+                panic!("{} must be rejected before Cargo runs", escaping.display());
+            };
+            assert!(error.contains("--function-address-path"), "{}: {error}", escaping.display());
+        }
+
+        for inside in [PathBuf::from("src"), PathBuf::from("./src"), workspace.join("src")] {
+            let check = check_for(inside.clone());
+            check.validate_paths(&workspace).unwrap_or_else(|error| panic!("{}: {error}", inside.display()));
+            let run = collect_test_run(&check, &workspace, "config");
+            let artifact = artifact_value(&run);
+            assert_eq!(artifact["records"][0]["path"], "src/lib.rs", "{}", inside.display());
         }
     }
 

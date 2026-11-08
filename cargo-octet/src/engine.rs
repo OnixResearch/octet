@@ -139,6 +139,7 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
     let prepared_integrated_closure = admission_binding
         .map(|binding| crate::admit::prepare_integrated_closure(&cfg.workspace_root, binding))
         .transpose()?;
+    check.function_addresses.validate_paths(&cfg.workspace_root)?;
     let mut requested_function_addresses = check.function_addresses.clone();
     if let Some(prepared) = &prepared_integrated_closure {
         requested_function_addresses.baseline = Some(prepared.baseline_path.clone());

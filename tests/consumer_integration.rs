@@ -299,6 +299,27 @@ fn deterministic_core_uses_reviewed_core_scope_function_address_baseline() {
     assert!(fixture.log().contains("OCTET_STRICT_PROFILE=deterministic-core"));
 }
 
+#[test]
+fn function_address_paths_outside_workspace_are_rejected_before_cargo() {
+    let fixture =
+        ConsumerFixture::new("function-address-escaping-scope", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let shared = fixture.repo.parent().expect("fixture root").join("shared");
+    write_file(&shared.join("src/lib.rs"), "pub fn shared() -> u32 { 1 }\n");
+    let absolute_shared = shared.join("src");
+    for escaping in ["../shared/src", absolute_shared.to_str().expect("shared path utf8")] {
+        let output = run_with_check_args(
+            &fixture,
+            &["--function-addresses", "observe", "--function-address-path", escaping],
+            &[cargo_build_finished(true)],
+            EXIT_CODE_SUCCESS,
+        );
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert_eq!(output.status.code(), Some(EXIT_CODE_INTEGRATION_FAILURE), "{escaping}: stderr={stderr}");
+        assert!(stderr.contains("`--function-address-path`"), "{escaping} should name the flag: {stderr}");
+        assert!(!fixture.log().contains("ARGS:check"), "{escaping} must be rejected before Cargo runs");
+    }
+}
+
 // r[verify octet.effect_closure.cli.check_failure]
 #[test]
 fn effect_closure_admission_stops_after_failed_direct_check() {
