@@ -123,7 +123,7 @@ For `public_unsafe_api`, either add a safe wrapper or document the exception wit
 | `non_trait_imports` | `warn` | keep concrete owner types qualified at use sites; import traits only for method resolution |
 | `renamed_imports` | `warn` | avoid `use ... as ...` aliases that hide searchable item names |
 | `path_segment_repetition` | `warn` | avoid repeating crate or module path words in item names |
-| `float_for_currency` | `allow` | avoid `f64` in price, cost, or budget fields |
+| `float_for_currency` | `allow` | avoid `f64` in price, cost, or budget fields and function return types |
 
 ## Performance lints (`tigerstyle::performance`)
 

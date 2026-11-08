@@ -778,7 +778,7 @@ pub const LINT_METADATA: &[LintMetadata] = &[
         guide_section: "Integer Currency",
         domain_group: GROUP_NAMING,
         guidance: "store money as scaled integers, not floats",
-        docs_summary: "avoid `f64` in price, cost, or budget fields",
+        docs_summary: "avoid `f64` in price, cost, or budget fields and function return types",
         effect_family: EFFECT_UNKNOWN,
         example_mode: ExampleMode::Required,
         example_text: Some("let price_micros: i64 = 125_000;"),

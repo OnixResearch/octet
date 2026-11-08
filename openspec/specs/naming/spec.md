@@ -125,13 +125,18 @@ The lint MUST NOT fire on names that already end with a unit suffix.
 
 The lint MUST be able to warn on struct fields or function return types using
 `f32` or `f64` whose name contains `cost`, `price`, `budget`,
-`balance`, `amount`, `fee`, or `total_cost`.
+`balance`, `amount`, `fee`, or `total_cost`. For return types, the name is
+the function or method name; free functions, inherent methods, and trait
+method declarations are checked, while trait implementations inherit the
+trait's signature and are not reported again.
 
 The lint MUST suggest using integer types with explicit units
 (e.g., `cost_microdollars: u64` or a newtype wrapper).
 
-The lint MUST NOT fire on fields named `percentage`, `ratio`, or
-`factor` (those are legitimately floating point).
+The lint MUST NOT fire on names with a whole `_`-separated `percentage`,
+`ratio`, `factor`, or `rate` token (those are legitimately floating point).
+Skip words MUST NOT match inside other tokens, so `registration_fee`,
+`operation_cost`, and `corporate_budget` still warn.
 
 This lint exists because clankers' `CostTracker` uses `f64` for all
 cost calculations (`cost_usd: f64`, `total_cost: f64`), while
@@ -152,6 +157,18 @@ calls adds up.
 - GIVEN `pub struct Breakdown { pub percentage: f32 }`
 - WHEN the lint runs
 - THEN it does NOT fire
+
+#### Scenario: Skip word inside another token
+
+- GIVEN `pub struct Charges { pub registration_fee: f64 }`
+- WHEN the lint runs
+- THEN it warns, because `ratio` inside `registration` is not a whole token
+
+#### Scenario: Float return type of a currency function
+
+- GIVEN `fn total_cost() -> f64`
+- WHEN the lint runs
+- THEN it warns on the return type
 
 ### Requirement: Negated Predicate Detection
 

@@ -714,7 +714,7 @@
     "guide_section": "Integer Currency",
     "domain_group": "tigerstyle::naming",
     "guidance": "store money as scaled integers, not floats",
-    "docs_summary": "avoid `f64` in price, cost, or budget fields",
+    "docs_summary": "avoid `f64` in price, cost, or budget fields and function return types",
     "effect_family": "unknown",
     "example_mode": "required",
     "example_text": "let price_micros: i64 = 125_000;"
