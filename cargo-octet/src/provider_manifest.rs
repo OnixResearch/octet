@@ -18,6 +18,9 @@ const ENV_DYLINT_NO_DEPS: &str = "DYLINT_NO_DEPS";
 const DYLINT_NO_DEPS_ENABLED: &str = "1";
 const DIGEST_PREFIX: &str = "b3:";
 const BLAKE3_HEX_CHARS: usize = 64;
+const ENV_PATH: &str = "PATH";
+#[cfg(unix)]
+const EXECUTABLE_MODE_BITS: u32 = 0o111;
 const REQUIRED_WAIVER_FIELDS: &[&str] = &[
     "policy",
     "source",
@@ -138,7 +141,7 @@ pub fn build_manifest(input: ManifestInput<'_>) -> Result<ProviderManifest, Stri
         provider: PROVIDER.to_owned(),
         profile: input.profile.to_owned(),
         adapter_kind: ADAPTER_KIND.to_owned(),
-        compatible_rustc: rustc_identity(input.rustc)?,
+        compatible_rustc: rustc_identity(input.rustc, std::env::var_os(ENV_PATH).as_deref())?,
         driver: artifact_identity(input.driver)?,
         lint_library: artifact_identity(input.lint_library)?,
         config: artifact_identity(input.config)?,
@@ -188,26 +191,56 @@ fn artifact_identity(path: &Path) -> Result<ArtifactIdentity, String> {
     })
 }
 
-fn rustc_identity(path: &Path) -> Result<RustcIdentity, String> {
-    let output = Command::new(path)
+fn rustc_identity(path: &Path, search_path: Option<&std::ffi::OsStr>) -> Result<RustcIdentity, String> {
+    let executable = resolve_executable(path, search_path)?;
+    let output = Command::new(&executable)
         .arg("-vV")
         .output()
-        .map_err(|error| format!("run {} -vV: {error}", path.display()))?;
+        .map_err(|error| format!("run {} -vV: {error}", executable.display()))?;
     if !output.status.success() {
-        return Err(format!("{} -vV exited with {}", path.display(), output.status));
+        return Err(format!("{} -vV exited with {}", executable.display(), output.status));
     }
     let version_verbose =
         String::from_utf8(output.stdout).map_err(|error| format!("decode rustc -vV output: {error}"))?;
     let release = metadata_line(&version_verbose, "release").unwrap_or("unknown").to_owned();
     let commit_hash = metadata_line(&version_verbose, "commit-hash").unwrap_or("unknown").to_owned();
-    let executable_blake3 = fs::read(path).ok().map(|bytes| digest_bytes(&bytes));
+    let bytes =
+        fs::read(&executable).map_err(|error| format!("read rustc executable {}: {error}", executable.display()))?;
     Ok(RustcIdentity {
-        executable: normalize_path(path),
-        executable_blake3,
+        executable: normalize_path(&executable),
+        executable_blake3: Some(digest_bytes(&bytes)),
         version_verbose: version_verbose.trim().to_owned(),
         release,
         commit_hash,
     })
+}
+
+/// Resolves the executable once the way `execvp` would (paths with a directory component are used
+/// as given, bare names are searched in `search_path`, an empty entry meaning the current
+/// directory) so the file that is run is the file that is hashed.
+fn resolve_executable(path: &Path, search_path: Option<&std::ffi::OsStr>) -> Result<std::path::PathBuf, String> {
+    if path.components().nth(1).is_some() {
+        return Ok(path.to_path_buf());
+    }
+    search_path
+        .into_iter()
+        .flat_map(std::env::split_paths)
+        .map(|directory| Path::new(".").join(directory).join(path))
+        .find(|candidate| is_executable_file(candidate))
+        .ok_or_else(|| format!("resolve {}: no executable file found in {ENV_PATH}", path.display()))
+}
+
+#[cfg(unix)]
+fn is_executable_file(path: &Path) -> bool {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    fs::metadata(path)
+        .is_ok_and(|metadata| metadata.is_file() && metadata.permissions().mode() & EXECUTABLE_MODE_BITS != 0)
+}
+
+#[cfg(not(unix))]
+fn is_executable_file(path: &Path) -> bool {
+    path.is_file()
 }
 
 fn disabled_lints_from_config(path: &Path) -> Result<Vec<String>, String> {
@@ -548,6 +581,41 @@ mod tests {
 
         fs::write(&fixture.standards, "{\"changed\":true}\n").expect("change standards");
         assert_ne!(original_digest, manifest_digest(&fixture.build_manifest()));
+    }
+
+    #[test]
+    fn default_rustc_identity_hashes_the_executable_it_runs() {
+        let search_path = std::env::var_os(ENV_PATH);
+        let identity = rustc_identity(Path::new(DEFAULT_RUSTC), search_path.as_deref()).expect("rustc identity");
+        let bytes = fs::read(&identity.executable).expect("read reported rustc executable");
+        assert_eq!(identity.executable_blake3, Some(digest_bytes(&bytes)));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rustc_identity_skips_non_executable_path_entries_like_execvp() {
+        let temp = TempDir::new().expect("create temp dir");
+        let decoy = temp.path().join(DEFAULT_RUSTC);
+        fs::write(&decoy, "not the rustc that runs").expect("write decoy rustc");
+        let real_path = std::env::var_os(ENV_PATH).expect("PATH is set");
+        let search_path =
+            std::env::join_paths(std::iter::once(temp.path().to_path_buf()).chain(std::env::split_paths(&real_path)))
+                .expect("join search path");
+
+        let identity = rustc_identity(Path::new(DEFAULT_RUSTC), Some(&search_path)).expect("rustc identity");
+
+        assert_ne!(identity.executable, normalize_path(&decoy));
+        assert_ne!(identity.executable_blake3, Some(digest_bytes(b"not the rustc that runs")));
+        let bytes = fs::read(&identity.executable).expect("read reported rustc executable");
+        assert_eq!(identity.executable_blake3, Some(digest_bytes(&bytes)));
+    }
+
+    #[test]
+    fn unresolvable_rustc_fails_closed() {
+        let temp = TempDir::new().expect("create temp dir");
+        let error = rustc_identity(Path::new(DEFAULT_RUSTC), Some(temp.path().as_os_str()))
+            .expect_err("rustc missing from the search path should fail");
+        assert!(error.contains("no executable file found in PATH"));
     }
 
     struct ManifestFixture {
