@@ -6,6 +6,78 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## Unreleased: shard freshness, lint, config, proof, Wasm, and admission fixes
+
+Behaviour and format changes:
+
+- Command-line lint levels, such as the deny-all hook's `-D <lint>` flags,
+  now take precedence over `[octet.lint_levels]` in `dylint.toml`; a selected
+  strict profile's required denies still override both. Unknown keys in the
+  `[octet]` section now produce a `dylint.toml` warning.
+- `cargo octet prove` refuses a non-empty `--artifact-dir` that is not an
+  earlier prove bundle, and clears an earlier prove bundle before writing.
+  Check and prove bundles need separate directories; the prove examples now
+  use `artifacts/octet-proofs`.
+- Wasm artifact registries reject unknown fields, repeated allow/require
+  entries, and invalid `allowed_worlds`. The unused `severity.cohort_drift`
+  key is removed, so registries that still set it are rejected and every
+  profile identity changes.
+- Effect-closure admission treats a call as local only when its path proves
+  the target; `crate::…` paths, imports from other modules, and trait-default
+  `self` calls now need exact summaries.
+
+Fixes:
+
+- Compiler architecture collection keeps cached shards in step with Cargo's
+  freshness. Octet records the collector context and a per-unit stamp under
+  `.octet/compiler-architecture/unit-stamps/` in rustc dep-info. A lint-only
+  build before an architecture build, a deleted shard directory, or a policy
+  change now recompiles the affected units instead of reporting every unit
+  missing, and an unchanged rerun still recompiles nothing. When a dependency
+  change recompiles a unit whose identity is unchanged, the new shard replaces
+  the cached one instead of failing as a duplicate.
+- The collector records constructor facts for struct literals and unit
+  structs or variants, so `adapter-construction-outside-root` catches
+  `adapters::Http { base }` and `adapters::SystemClock`. Value-provenance
+  facts inside closures and arguments of another crate's type passed by
+  reference no longer invalidate shards. Build-script output under `target/`
+  is classified as external generated source, and re-reading a recorded span
+  at the span limit no longer marks a shard incomplete.
+- Lints: `deref_polymorphism` no longer flags generic guards
+  (`type Target = T`). `usize_in_public_api`, `public_unsafe_api`, and
+  `deref_polymorphism` use effective visibility, so `pub` items on private
+  types or in private modules are not reported. `float_for_currency` matches
+  skip words as whole name parts and checks float return types.
+  `unjustified_allow` accepts a non-empty `reason = "..."`.
+  `platform_dependent_cast` suggests a conversion that compiles where it is
+  used (a lossless `usize::from` for small sources is machine-applicable) and
+  skips an index already checked against `.len()`. `allocation_in_loop`
+  reports real allocations (`with_capacity`, `Box::new`, `String::from`,
+  `to_string`, `to_vec`) instead of empty `new()` calls.
+  `newtype_invariant_bypass` catches `From<&str>` and `Deref<Target = str>`
+  bypasses, and `clone_then_borrow` no longer suggests borrowing a value that
+  is mutated while the stored clone is in use.
+- With `nominal_domain_mode = "inventory"`, a `deny` for the nominal-domain
+  lints is lowered to `warn` with a config warning, and suffix-only
+  `primitive_domain_alias` candidates are skipped wherever the effective level
+  is above `warn`, so discovery candidates never fail a build.
+- `cargo octet prove` fails a rail whose verifier output exceeds its log
+  limit, `--list` exits non-zero for a malformed or unmatched `--rail`,
+  overlapping or root-level `--source` arguments resolve against one Cargo
+  workspace root, and Aeneas stage artifacts are written per rail under
+  `proofs/<policy>-rail-<N>.aeneas/`.
+- Wasm artifacts: `spacewasm-mvp-host-pilot` admits its `molten` imports by
+  signature whatever their core type order, parse-stage resource-limit and
+  ABI findings use their own severities, and the SARIF projection reports
+  `advisory` as `note` without an empty `region`.
+- `cargo octet admit verify` rejects admitted receipts that do not match the
+  bound function-address records and workspace-policy summaries, and resolves
+  a relative `--artifact-dir` against the workspace root like `admit`. `admit`
+  refuses a non-empty directory that is not an admission bundle instead of
+  deleting files in it. Nested `fn` items no longer cause a permanent
+  `function_address_missing` denial, and `cfg` on an enclosing `impl`, trait,
+  module, or file makes the function `unknown`.
+
 ## Unreleased: fingerprint, object, proof-reference, and architecture-gate fixes
 
 Format and invocation changes:
