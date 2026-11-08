@@ -35,5 +35,23 @@ LL |     eprintln!("doubled {doubled}");
    = help: Tiger Style (Functional Core): return events or diagnostics from core logic and let the shell own logging, stdout, and stderr Example: fn validate(input: Input) -> (Output, Vec<Event>)
    = note: see Tiger Style guide: Functional Core / Imperative Shell
 
-warning: 4 warnings emitted
+warning: core scope emits `print!(` directly; return events or diagnostics for the shell to log
+  --> $DIR/logging_in_core/logging_in_core.rs:21:5
+   |
+LL |     print!("value {value}");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Functional Core): return events or diagnostics from core logic and let the shell own logging, stdout, and stderr Example: fn validate(input: Input) -> (Output, Vec<Event>)
+   = note: see Tiger Style guide: Functional Core / Imperative Shell
+
+warning: core scope emits `eprint!(` directly; return events or diagnostics for the shell to log
+  --> $DIR/logging_in_core/logging_in_core.rs:22:5
+   |
+LL |     eprint!("value {value}");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Functional Core): return events or diagnostics from core logic and let the shell own logging, stdout, and stderr Example: fn validate(input: Input) -> (Output, Vec<Event>)
+   = note: see Tiger Style guide: Functional Core / Imperative Shell
+
+warning: 6 warnings emitted
 

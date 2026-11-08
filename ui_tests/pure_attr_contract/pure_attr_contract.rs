@@ -28,6 +28,16 @@ fn pure_logs(value: u64) {
 }
 
 #[tigerstyle::pure]
+fn pure_prints(value: u64) {
+    print!("{value}");
+}
+
+#[tigerstyle::pure]
+fn pure_eprints(value: u64) {
+    eprint!("{value}");
+}
+
+#[tigerstyle::pure]
 fn pure_spawns() {
     let _handle = std::thread::spawn(|| {});
 }

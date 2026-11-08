@@ -98,12 +98,14 @@ const TIME_CALL_PATTERNS: &[&str] = &[
 const RUNTIME_CALL_PATTERNS: &[&str] = &["tokio::runtime::", "Runtime::new(", "Builder::new_current_thread("];
 const LOGGING_CALL_PATTERNS: &[&str] = &[
     "dbg!(",
+    "eprint!(",
     "eprintln!(",
     "log::debug!(",
     "log::error!(",
     "log::info!(",
     "log::trace!(",
     "log::warn!(",
+    "print!(",
     "println!(",
     "tracing::debug!(",
     "tracing::error!(",
@@ -808,7 +810,9 @@ fn logging_macro_pattern(cx: &LateContext<'_>, macro_def_id: rustc_hir::def_id::
     if let Some(diagnostic_name) = cx.tcx.get_diagnostic_name(macro_def_id) {
         return match diagnostic_name.as_str() {
             "dbg_macro" => Some("dbg!("),
+            "eprint_macro" => Some("eprint!("),
             "eprintln_macro" => Some("eprintln!("),
+            "print_macro" => Some("print!("),
             "println_macro" => Some("println!("),
             _ => None,
         };
@@ -1397,6 +1401,12 @@ mod tests {
     fn effect_classifier_keeps_shell_port_calls_out_of_scope() {
         assert_eq!(classify_effect("std::fs::read_to_string(path)"), Some(EffectClass::Filesystem));
         assert_eq!(classify_effect("ports.read_file(path)"), None);
+    }
+
+    #[test]
+    fn effect_classifier_treats_print_and_eprint_as_logging() {
+        assert_eq!(classify_effect("print!(\"{value}\")"), Some(EffectClass::Logging));
+        assert_eq!(classify_effect("eprint!(\"{value}\")"), Some(EffectClass::Logging));
     }
 
     #[test]
