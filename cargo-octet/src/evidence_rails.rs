@@ -763,17 +763,26 @@ fn input_identities(
         Some(crate::benchmark::PROFILE_IDENTITY.to_owned())
     } else if is_profiled_hegel {
         Some(crate::hegel::PROFILE_IDENTITY.to_owned())
+    } else if args.rail == EvidenceRailKind::SarifImport {
+        // `analyze_sarif_input` already verified the workspace-root config bytes against this identity.
+        Some(crate::external::sarif::PROFILE_IDENTITY.to_owned())
     } else if let Some(prepared) = prepared_clippy_run {
         Some(prepared.config_identity.clone())
-    } else {
+    } else if matches!(
+        args.rail,
+        EvidenceRailKind::AstGrepStructural | EvidenceRailKind::WasmArtifact | EvidenceRailKind::CharonSemantic
+    ) {
+        // These rails read and verify `--config` themselves relative to the process cwd; hash those bytes.
         args.config.as_ref().map(|path| path_identity(path)).transpose()?
+    } else {
+        args.config.as_ref().map(|path| path_identity(&workspace_root.join(path))).transpose()?
     };
     let baseline = if is_profiled_coverage {
         crate::coverage::request::baseline_identity(import_text)
     } else if is_profiled_benchmark {
         crate::benchmark::request::baseline_identity(import_text)
     } else {
-        args.baseline.as_ref().map(|path| path_identity(path)).transpose()?
+        args.baseline.as_ref().map(|path| path_identity(&workspace_root.join(path))).transpose()?
     };
     Ok(InputIdentities {
         config,
@@ -5937,6 +5946,50 @@ mod tests {
         let size_error = analyze_sarif_input(&sarif_import_args(directory.path().to_path_buf()))
             .expect_err("oversized SARIF report is rejected");
         assert!(size_error.contains("exceeds"));
+    }
+
+    #[test]
+    fn sarif_import_binds_profile_identity_when_cwd_is_not_the_workspace_root() {
+        let directory = tempfile::tempdir().expect("create SARIF import workspace");
+        let report = include_str!("../tests/fixtures/evidence-rails/sarif-codeql.json");
+        fs::write(directory.path().join("report.json"), report).expect("write SARIF report fixture");
+        fs::write(directory.path().join("profiles.json"), include_bytes!("../../standards/sarif/profiles.json"))
+            .expect("write SARIF profile fixture");
+        let artifacts = directory.path().join("artifacts");
+        let args = crate::cli::EvidenceRailArgs {
+            artifact_dir: artifacts.clone(),
+            ..sarif_import_args(directory.path().to_path_buf())
+        };
+
+        run(&args).expect("import SARIF relative to the workspace root");
+        let receipt = fs::read_to_string(artifacts.join(RECEIPT_ARTIFACT_NAME)).expect("read published receipt");
+        let parsed: EvidenceRailReceipt = serde_json::from_str(&receipt).expect("parse published receipt");
+        assert_eq!(parsed.config_identity.as_deref(), Some(crate::external::sarif::PROFILE_IDENTITY));
+        assert!(validate_receipt(&parsed).is_empty(), "{:?}", validate_receipt(&parsed));
+    }
+
+    #[test]
+    fn external_tool_config_and_baseline_identities_resolve_against_workspace_root() {
+        const CONFIG_NAME: &str = "octet-fixture-deny.toml";
+        const BASELINE_NAME: &str = "octet-fixture-baseline.json";
+        const CONFIG_BYTES: &[u8] = b"[advisories]\nversion = 2\n";
+        const BASELINE_BYTES: &[u8] = b"{\"accepted\":[]}\n";
+
+        let directory = tempfile::tempdir().expect("create dependency-audit workspace");
+        fs::write(directory.path().join(CONFIG_NAME), CONFIG_BYTES).expect("write deny config fixture");
+        fs::write(directory.path().join(BASELINE_NAME), BASELINE_BYTES).expect("write baseline fixture");
+        let args = crate::cli::EvidenceRailArgs {
+            rail: EvidenceRailKind::DependencyAudit,
+            input: None,
+            config: Some(std::path::PathBuf::from(CONFIG_NAME)),
+            baseline: Some(std::path::PathBuf::from(BASELINE_NAME)),
+            profile: None,
+            ..sarif_import_args(directory.path().to_path_buf())
+        };
+
+        let identities = input_identities(&args, None, directory.path(), "").expect("workspace-relative identities");
+        assert_eq!(identities.config, Some(prefixed_identity(CONFIG_BYTES)));
+        assert_eq!(identities.baseline, Some(prefixed_identity(BASELINE_BYTES)));
     }
 
     #[test]
