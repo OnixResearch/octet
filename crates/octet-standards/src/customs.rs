@@ -32,6 +32,14 @@ const REMEDIATION_ARTIFACTS: &str = "regenerate package artifacts and refresh th
 const REMEDIATION_OFFLINE: &str = "use checked-in package sources, manifests, fixtures, and generated artifacts only";
 const REMEDIATION_SECRETS: &str = "remove raw secret material or record a non-candidate exclusion rationale";
 
+static PACKAGE_KINDS: &[&str] = &[
+    "policy",
+    "profile",
+    "template",
+    "proof-rail",
+    "generated-contract",
+    "contract",
+];
 static SECRET_MARKERS: &[&str] = &["BEGIN PRIVATE KEY", "password =", "token =", "secret =", "api_key ="];
 static REMOTE_FETCH_MARKERS: &[&str] = &["https://", "http://", "curl ", "wget ", "git clone"];
 
@@ -53,7 +61,7 @@ pub struct PolicyPackageManifest {
     pub schema_version: String,
     /// Stable package ID.
     pub package_id: String,
-    /// Package kind, such as policy, profile, template, proof-rail, or generated-contract.
+    /// Package kind: policy, profile, template, proof-rail, generated-contract, or contract.
     pub kind: String,
     /// Owning team, module, or source path.
     pub owner: String,
@@ -181,7 +189,13 @@ fn validate_package_shape(package: &PolicyPackageManifest, diagnostics: &mut Vec
         ));
     }
     push_blank(package.package_id.trim(), "package_id", diagnostics);
-    push_blank(package.kind.trim(), "kind", diagnostics);
+    if !is_known_kind(&package.kind) {
+        diagnostics.push(diagnostic(
+            "kind",
+            format!("unknown package kind `{}`; expected one of {}", package.kind, PACKAGE_KINDS.join(", ")),
+            REMEDIATION_FIX_PACKAGE,
+        ));
+    }
     push_blank(package.owner.trim(), "owner", diagnostics);
     push_blank(package.provenance.trim(), "provenance", diagnostics);
     push_blank(package.license_notes.trim(), "license_notes", diagnostics);
@@ -389,6 +403,10 @@ fn is_known_status(status: &str) -> bool {
     matches!(status, STATUS_PROMOTABLE | STATUS_EXISTING | STATUS_NON_CANDIDATE | STATUS_DRAFT)
 }
 
+fn is_known_kind(kind: &str) -> bool {
+    PACKAGE_KINDS.contains(&kind)
+}
+
 fn package_is_promotable(package: &PolicyPackageManifest) -> bool {
     matches!(package.status.as_str(), STATUS_PROMOTABLE | STATUS_EXISTING)
 }
@@ -561,6 +579,40 @@ mod tests {
         assert!(secret_fields.contains(&POSITIVE_FIXTURE), "{:?}", report.diagnostics);
         assert!(secret_fields.contains(&NEGATIVE_FIXTURE), "{:?}", report.diagnostics);
         assert!(secret_fields.contains(&SOURCE_PATH), "{:?}", report.diagnostics);
+    }
+
+    #[test]
+    fn package_kind_must_match_contract_enum() {
+        let registry = valid_registry();
+        let artifact_manifest = valid_manifest();
+        let sources = valid_sources();
+        let artifacts = valid_artifacts();
+        let mut package = valid_package();
+        for kind in [
+            "policy",
+            "profile",
+            "template",
+            "proof-rail",
+            "generated-contract",
+            "contract",
+        ] {
+            kind.clone_into(&mut package.kind);
+            let report = report_for(&package, &registry, &artifact_manifest, &sources, &artifacts);
+            assert!(report.diagnostics.is_empty(), "{kind}: {:?}", report.diagnostics);
+        }
+
+        package.kind = "plugin".to_owned();
+        let report = report_for(&package, &registry, &artifact_manifest, &sources, &artifacts);
+
+        assert_eq!(report.status, "fail");
+        assert!(
+            report
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.field == "kind" && diagnostic.message.contains("unknown package kind")),
+            "{:?}",
+            report.diagnostics
+        );
     }
 
     fn report_for(

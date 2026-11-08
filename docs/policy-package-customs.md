@@ -2,7 +2,7 @@
 
 The local customs gate checks policy/config/template/proof-rail/generated-contract packages before promotion.
 
-A package manifest uses `standards/policy-packages/contracts.ncl` and declares package ID, kind, owner, source paths, generated artifacts, registry family IDs, generation and validation commands, fixtures, provenance, license notes, non-claims, and manual review actions.
+A package manifest uses `standards/policy-packages/contracts.ncl` and declares package ID, kind, owner, source paths, generated artifacts, registry family IDs, generation and validation commands, fixtures, provenance, license notes, non-claims, and manual review actions. The gate rejects a `kind` outside the contract's `PackageKind` set: `policy`, `profile`, `template`, `proof-rail`, `generated-contract`, or `contract`.
 
 `octet-standards customs-gate` validates the manifest against:
 
