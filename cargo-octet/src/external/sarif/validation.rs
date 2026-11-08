@@ -1,4 +1,18 @@
-use super::*;
+use super::Evaluation;
+use super::Finding;
+use super::IdentityInput;
+use super::MAX_DIAGNOSTICS;
+use super::MIN_COORDINATE;
+use super::PROFILE_IDENTITY;
+use super::Profile;
+use super::RECEIPT_SCHEMA;
+use super::REQUIRED_NON_CLAIM;
+use super::ReceiptDetails;
+use super::SUPPORTED_VERSION;
+use super::finding_identity;
+use super::mapped_level;
+use super::prefixed_identity;
+use super::safe_path;
 
 struct Diagnostics {
     entries: Vec<String>,

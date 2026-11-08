@@ -1,11 +1,16 @@
 // r[impl octet.benchmark_evidence.performance_protocol]
 // r[impl octet.benchmark_evidence.resource_observation]
+use super::INPUT_SCHEMA;
+use super::Profile;
+use super::RunSet;
+use super::Sample;
+use super::WorkloadProfile;
+use super::request;
 pub(super) use super::resource_shell::read_allocation_file;
 pub(super) use super::resource_shell::scan_llvm_file;
 pub use super::runtime::RuntimeTools;
 use super::runtime::environment_observation;
 pub use super::runtime::production_tools;
-use super::*;
 
 const CACHE_ROOT: &str = ".octet/benchmark-cache";
 const HOME_ROOT: &str = ".octet/benchmark-home";

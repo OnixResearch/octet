@@ -1,7 +1,10 @@
 // r[impl octet.benchmark_evidence.signal_oracle]
 use std::collections::BTreeMap;
 
-use super::*;
+use super::OracleRecord;
+use super::SignalFinding;
+use super::SignalSummary;
+use super::resources;
 
 const EXPECTED_OUTCOMES: [&str; 4] = ["finding", "suppressed", "clean", "inconclusive"];
 

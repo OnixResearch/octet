@@ -1,4 +1,6 @@
-use super::*;
+use super::Profile;
+use super::prefixed_identity;
+use super::request;
 
 const CARGO_HOME_DIRECTORY: &str = ".octet/mutants-cargo-home";
 const TEMP_DIRECTORY: &str = ".octet/mutants-tmp";

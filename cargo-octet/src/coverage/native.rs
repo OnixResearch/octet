@@ -1,4 +1,12 @@
-use super::*;
+use super::Counts;
+use super::MetricCount;
+use super::NATIVE_SCHEMA;
+use super::NativeReport;
+use super::PROFILE_IDENTITY;
+use super::Profile;
+use super::SOURCE_IDENTITY_PREFIX;
+use super::comparison;
+use super::prefixed_identity;
 
 const SUPPORTED_NATIVE_TYPE: &str = "llvm.coverage.json.export";
 const SUPPORTED_NATIVE_VERSION: &str = "2.0.1";

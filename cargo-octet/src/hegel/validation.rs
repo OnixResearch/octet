@@ -1,6 +1,22 @@
 use std::collections::BTreeSet;
 
-use super::*;
+use super::Evaluation;
+use super::FileIdentity;
+use super::LAW_CATALOG_IDENTITY;
+use super::PROFILE_ID;
+use super::PROFILE_IDENTITY;
+use super::ProducerSummary;
+use super::Profile;
+use super::RECEIPT_SCHEMA;
+use super::REQUIRED_NON_CLAIM;
+use super::ReceiptDetails;
+use super::SUMMARY_SCHEMA;
+use super::law_catalog;
+use super::normalize_issue_codes;
+use super::prefixed_identity;
+use super::profile_validation;
+use super::projection_bytes;
+use super::request;
 
 const EXPECTED_COMMAND: [&str; 12] = [
     "cargo",

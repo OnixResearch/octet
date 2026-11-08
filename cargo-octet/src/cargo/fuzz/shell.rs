@@ -1,6 +1,25 @@
 use std::io::Read as _;
 
-use super::*;
+use super::ArtifactIdentity;
+use super::Budget;
+use super::ENGINE;
+use super::EVIDENCE_TIER;
+use super::EXPECTED_PROFILE_IDENTITY;
+use super::FIXED_SEED;
+use super::MAX_ARTIFACT_BYTES;
+use super::MAX_ARTIFACT_COUNT;
+use super::MAX_RECEIPT_BYTES;
+use super::MAX_RUNS;
+use super::MAX_TOTAL_TIME_SECONDS;
+use super::PROFILE_ID;
+use super::RECEIPT_SCHEMA_VERSION;
+use super::REQUIRED_NON_CLAIM;
+use super::ReceiptDetails;
+use super::SANITIZER;
+use super::TARGET;
+use super::TOOLCHAIN;
+use super::command_argv;
+use super::corpus_root;
 
 const CORPUS_DIRECTORY: &str = "fuzz/corpus/octet-profile-intake";
 const ARTIFACT_DIRECTORY: &str = "fuzz/artifacts/octet-profile-intake";

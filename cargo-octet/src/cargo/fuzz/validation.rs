@@ -1,4 +1,22 @@
-use super::*;
+use super::ArtifactIdentity;
+use super::CORPUS_DOMAIN;
+use super::ENGINE;
+use super::EVIDENCE_TIER;
+use super::EXPECTED_PROFILE_IDENTITY;
+use super::FIXED_SEED;
+use super::MAX_ARTIFACT_BYTES;
+use super::MAX_ARTIFACT_COUNT;
+use super::MAX_PATH_BYTES;
+use super::MAX_RUNS;
+use super::MAX_TOTAL_TIME_SECONDS;
+use super::PROFILE_ID;
+use super::RECEIPT_SCHEMA_VERSION;
+use super::REQUIRED_NON_CLAIM;
+use super::ReceiptDetails;
+use super::SANITIZER;
+use super::TARGET;
+use super::TOOLCHAIN;
+use super::command_argv;
 
 const MAX_DIAGNOSTIC_COUNT: usize = 32;
 

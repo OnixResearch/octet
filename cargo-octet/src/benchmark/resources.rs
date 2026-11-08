@@ -1,5 +1,8 @@
 // r[impl octet.benchmark_evidence.resource_observation]
-use super::*;
+use super::AllocationObservation;
+use super::CopyObservation;
+use super::ResourceSummary;
+use super::prefixed_identity;
 
 const BLAKE3_PREFIX: &str = "b3:";
 const BLAKE3_HEX_LENGTH: usize = 64;
