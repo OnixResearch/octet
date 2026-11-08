@@ -6,6 +6,61 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## Unreleased: lint false-positive, migration, and evidence-rail fixes
+
+`unbounded_loop`, `multi_lock_ordering`, `fallible_int_fallback` (in
+`#![no_std]` crates) and `concrete_construction_in_core` now report findings
+they previously missed, so baselines can see new stable IDs.
+
+- Crash: `sentinel_fallback` no longer crashes rustc when `Self::MAX` or
+  `Self::MIN` names an enum variant.
+- `unbounded_loop` sees exits from nested loops: a `return` inside an inner
+  loop or a `break 'outer` no longer warns. Breaks that only leave an inner
+  loop or a labelled block in the body (`break`, `break 'inner`,
+  `break 'block`) no longer count as exits.
+- `drop_must_use` no longer warns on `drop(option)` or `drop(&value)`.
+  `raw_arithmetic_overflow` skips `#[cfg(test)]` code. `fallible_int_fallback`
+  fires in `#![no_std]` crates. `multi_lock_ordering` accepts lock-order
+  documentation in the struct's doc comments, `#[doc]` attributes, or the
+  comment lines directly above it.
+- `borrowed_argument_types` skips `&mut` parameters. `fat_trait` counts the
+  trait's associated functions instead of `fn` text in default bodies, doc
+  comments and strings. `too_many_parameters` does not count explicit receivers
+  such as `self: Box<Self>`. `numeric_units` and `magic_number` match whole
+  words, so `proportion`, `report_lines` or `transport` no longer trigger them,
+  and `numeric_units` no longer asks for a unit suffix on `port`.
+- `contradictory_time` flags only `std::time::Instant::now` and
+  `std::time::SystemTime::now` (including through aliases), not injected
+  clocks or local `now()` functions. `compound_condition` still reports every
+  condition with three or more operators but offers its extract-predicates
+  rewrite only when the rewrite preserves evaluation order and short-circuit
+  guards. `concrete_construction_in_core` classifies constructors by the type
+  they build, so fallible external constructors such as `Finder::new(..)?` are
+  reported.
+- Project architecture gate: a waiver can no longer clear an input-integrity
+  finding such as incomplete compiler coverage; the finding stays open and
+  the waiver is reported as `unwaivable-integration-finding`. Receipt
+  constructors need exactly one approved observation origin. The compiler
+  collector records Cargo package names for workspace types, so hyphenated
+  adapter packages match their roles, and records crate-root private fields as
+  `restricted:<crate>`.
+- `cargo octet migrate` rejects flags that do not belong to the selected mode,
+  and SARIF output, before reading or writing any manifest. `migrate session
+  verify` accepts only the documented `mutability`, `operation_kind` and
+  `safety` (`safe` or `manual-review`) values and fails when a rewrite or
+  replace targets an undeclared surface. `migrate session apply` lists only
+  safe `record-only` operations and writes no operation manifest when the
+  session has diagnostics. `object pointer` and `object bundle export` reject
+  unknown flags and missing flag values.
+- Evidence rails: the benchmark copy census leaves runtime `llvm.memcpy`
+  lengths unknown and skips intrinsic declarations. `cargo-fuzz-libfuzzer
+  --run` runs under Bounded Exec with a cleared environment, a deadline,
+  process-group cleanup and output limits, and refuses to run while
+  `fuzz/artifacts/octet-profile-intake` holds earlier artifacts. Mutation
+  `--run` writes a receipt when cargo-mutants exits 3 (timeouts) or 4 (failed
+  baseline). Hegel identities must be lowercase hex, and MIRAI pilot receipts
+  with duplicate criteria are rejected.
+
 ## Unreleased: stable finding IDs, roadmap, and external evidence fixes
 
 - Finding IDs no longer change when unrelated parts of the root `Cargo.toml`
