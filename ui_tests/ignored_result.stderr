@@ -11,7 +11,7 @@ LL |     let _ = buf.write_all(b"hello");
 help: propagate the error with `?` instead of discarding
    |
 LL -     let _ = buf.write_all(b"hello");
-LL +     buf.write_all(b"hello")?
+LL +     buf.write_all(b"hello")?;
    |
 
 warning: `Result` value silently discarded in statement position

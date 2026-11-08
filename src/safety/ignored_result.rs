@@ -229,12 +229,16 @@ fn ignored_result_expr_suggestion(cx: &LateContext<'_>, expr: &hir::Expr<'_>) ->
 
 fn ignored_result_suggestion(cx: &LateContext<'_>, local: &hir::LetStmt<'_>) -> Option<LintSuggestion> {
     let init = local.init?;
+    // `local.span` includes the trailing `;`; replace only `let _ = <init>` so the statement keeps it.
+    if !local.span.contains(init.span) {
+        return None;
+    }
     let sm = cx.sess().source_map();
     let init_snippet = sm.span_to_snippet(init.span).ok()?;
     let replacement = format!("{init_snippet}?");
 
     Some(LintSuggestion::Single {
-        span: local.span,
+        span: local.span.with_hi(init.span.hi()),
         message: "propagate the error with `?` instead of discarding".to_owned(),
         replacement,
         applicability: Applicability::MaybeIncorrect,

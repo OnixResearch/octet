@@ -11,7 +11,7 @@ LL |     let _ = tx.try_send(1);
 help: propagate the error with `?` instead of discarding
    |
 LL -     let _ = tx.try_send(1);
-LL +     tx.try_send(1)?
+LL +     tx.try_send(1)?;
    |
 
 warning: `Result` value silently discarded with `let _ = ...`
@@ -26,7 +26,7 @@ LL |         let _ = self.tx.try_send(1);
 help: propagate the error with `?` instead of discarding
    |
 LL -         let _ = self.tx.try_send(1);
-LL +         self.tx.try_send(1)?
+LL +         self.tx.try_send(1)?;
    |
 
 warning: 2 warnings emitted
