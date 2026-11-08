@@ -1098,6 +1098,51 @@ impl<'tcx> LateLintPass<'tcx> for LoggingInCore {
     }
 }
 
+/// Trait methods and trait-impl methods cannot be declared `const fn` (E0379).
+fn fn_is_trait_method(cx: &LateContext<'_>, def_id: LocalDefId) -> bool {
+    matches!(cx.tcx.def_kind(cx.tcx.local_parent(def_id)), DefKind::Trait | DefKind::Impl { of_trait: true })
+}
+
+/// Finds a call or method call whose callee is not a `const fn` (including
+/// calls through function pointers, closures, and generic callables) in the
+/// function's own body.
+struct NonConstCallFinder<'a, 'tcx> {
+    tcx: TyCtxt<'tcx>,
+    typeck_results: &'a ty::TypeckResults<'tcx>,
+    found: bool,
+}
+
+impl<'tcx> Visitor<'tcx> for NonConstCallFinder<'_, 'tcx> {
+    fn visit_expr(&mut self, expr: &'tcx hir::Expr<'tcx>) {
+        let callee_is_const = match expr.kind {
+            hir::ExprKind::Call(callee, _) => match self.typeck_results.expr_ty(callee).kind() {
+                ty::FnDef(callee_def_id, _) => self.tcx.is_const_fn(*callee_def_id),
+                _ => false,
+            },
+            hir::ExprKind::MethodCall(..) => self
+                .typeck_results
+                .type_dependent_def_id(expr.hir_id)
+                .is_some_and(|callee_def_id| self.tcx.is_const_fn(callee_def_id)),
+            _ => true,
+        };
+        if !callee_is_const {
+            self.found = true;
+            return;
+        }
+        rustc_hir::intravisit::walk_expr(self, expr);
+    }
+}
+
+fn body_calls_non_const_fn<'tcx>(cx: &LateContext<'tcx>, body: &'tcx hir::Body<'tcx>) -> bool {
+    let mut finder = NonConstCallFinder {
+        tcx: cx.tcx,
+        typeck_results: cx.tcx.typeck_body(body.id()),
+        found: false,
+    };
+    finder.visit_expr(body.value);
+    finder.found
+}
+
 impl<'tcx> LateLintPass<'tcx> for MissingConstFn {
     fn check_fn(
         &mut self,
@@ -1106,7 +1151,7 @@ impl<'tcx> LateLintPass<'tcx> for MissingConstFn {
         _decl: &'tcx hir::FnDecl<'tcx>,
         body: &'tcx hir::Body<'tcx>,
         span: Span,
-        _def_id: rustc_hir::def_id::LocalDefId,
+        def_id: rustc_hir::def_id::LocalDefId,
     ) {
         if test_context::late_hir_id_is_in_test_context(cx, body.value.hir_id, span) {
             return;
@@ -1114,7 +1159,8 @@ impl<'tcx> LateLintPass<'tcx> for MissingConstFn {
         let Some(source) = fn_snippet(cx, body, span) else {
             return;
         };
-        if !function_is_const_candidate(&source) {
+        if !function_is_const_candidate(&source) || fn_is_trait_method(cx, def_id) || body_calls_non_const_fn(cx, body)
+        {
             return;
         }
         emit(
