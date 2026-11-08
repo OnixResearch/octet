@@ -150,7 +150,7 @@ fn same_receiver(lhs: &hir::Expr<'_>, rhs: &hir::Expr<'_>) -> bool {
 }
 
 fn guard_method_name(cx: &LateContext<'_>, receiver: &hir::Expr<'_>) -> Option<&'static str> {
-    let receiver_ty = cx.typeck_results().expr_ty(receiver);
+    let receiver_ty = cx.typeck_results().expr_ty_adjusted(receiver);
     if let ty::Adt(adt, _) = receiver_ty.kind() {
         let did = adt.did();
         if cx.tcx.is_diagnostic_item(sym::Option, did) {
@@ -234,8 +234,9 @@ impl<'tcx> LateLintPass<'tcx> for NoUnwrap {
             return;
         }
 
-        // Only fire when the receiver is Option or Result
-        let receiver_ty = cx.typeck_results().expr_ty(receiver);
+        // Only fire when the receiver is Option or Result. Use the adjusted type
+        // so auto-derefed receivers such as `&Option<T>` are covered too.
+        let receiver_ty = cx.typeck_results().expr_ty_adjusted(receiver);
         if !is_option_or_result(cx, receiver_ty) {
             return;
         }
