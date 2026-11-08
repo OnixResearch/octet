@@ -183,7 +183,13 @@ The lint MUST warn on `as usize` and `as isize` casts from fixed-width
 integer types (`u32`, `u64`, `i32`, `i64`, etc.).
 
 The lint MUST suggest keeping the fixed-width type or using an explicit
-conversion that handles the platform difference.
+conversion that handles the platform difference. The suggested conversion
+MUST fit the enclosing body: `<target>::from(x)` for conversions std
+provides losslessly on every platform, `<target>::try_from(x)?` only when the
+body returns a `Result` whose error converts from the `TryFrom` error,
+`<target>::try_from(x).ok()?` when it returns an `Option`, and a
+placeholder form marked `HasPlaceholders` otherwise. Const contexts get no
+structured suggestion.
 
 The lint MUST NOT fire on `as usize` from types that are already
 platform-sized (e.g., array `.len()` which returns `usize`).
@@ -202,6 +208,13 @@ platform assumptions throughout the codebase.
 - GIVEN `let size = u32::from_be_bytes(buf) as usize;`
 - WHEN the lint runs
 - THEN it warns: "`as usize` from u32 is platform-dependent — use explicit conversion"
+
+#### Scenario: Suggestion fits the enclosing body
+
+- GIVEN `fn len(x: u32) -> usize { x as usize }`
+- WHEN the lint runs
+- THEN it does NOT suggest `usize::try_from(x)?`, which would not compile
+- AND it suggests a placeholder `usize::try_from(x)` form marked `HasPlaceholders`
 
 #### Scenario: Len-bounded index
 

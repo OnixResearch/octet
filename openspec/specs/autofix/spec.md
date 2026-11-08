@@ -111,6 +111,13 @@ reported pattern:
   `contradictory_time`, and `usize_in_public_api` MUST use `MaybeIncorrect`
   when the suggested change may alter guards, control flow, error propagation,
   or type-width behavior
+- `platform_dependent_cast` MAY use `MachineApplicable` only for casts that
+  std converts losslessly on every platform (`u8`/`u16` to `usize`;
+  `i8`/`i16`/`u8` to `isize`), rewritten to `<target>::from(...)`; it MUST
+  suggest `<target>::try_from(...)?` only when the enclosing body returns a
+  `Result` whose error type converts from the cast's `TryFrom` error, MUST
+  suggest `.ok()?` for `Option` bodies, and MUST use `HasPlaceholders` when the
+  failure handling has to be written by the maintainer
 
 #### Scenario: Top-level conjunction gets machine-applicable split
 

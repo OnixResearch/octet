@@ -4,10 +4,12 @@ extern crate rustc_abi;
 extern crate rustc_ast;
 extern crate rustc_errors;
 extern crate rustc_hir;
+extern crate rustc_infer;
 extern crate rustc_lint;
 extern crate rustc_middle;
 extern crate rustc_session;
 extern crate rustc_span;
+extern crate rustc_trait_selection;
 
 mod architecture_collector;
 mod concurrency;
@@ -1530,7 +1532,12 @@ mod tests {
         "unbounded_collection_growth",
     ];
 
-    const MACHINE_APPLICABLE_AUTOFIX_LINTS: &[&str] = &["compound_assertion", "bool_naming", "negated_predicate"];
+    const MACHINE_APPLICABLE_AUTOFIX_LINTS: &[&str] = &[
+        "compound_assertion",
+        "bool_naming",
+        "negated_predicate",
+        "platform_dependent_cast",
+    ];
 
     const MACHINE_APPLICABLE_AUTOFIX_OUT_OF_SCOPE: &[AutofixOutOfScopeRationale] = &[];
 

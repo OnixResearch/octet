@@ -1,18 +1,132 @@
 warning: `as usize` from `u32` is platform-dependent
-  --> $DIR/platform_dependent_cast.rs:3:5
+  --> $DIR/platform_dependent_cast.rs:7:5
    |
 LL |     x as usize
    |     ^^^^^^^^^^
    |
    = help: Tiger Style (Explicit Types): use explicit-width types at boundaries instead of `usize` or `isize` conversions Example: let len: u32 = value.try_into()?;
-   = note: structured suggestion applicability: MaybeIncorrect
+   = note: structured suggestion applicability: HasPlaceholders
    = note: see Tiger Style guide: Explicit Types
    = note: `#[warn(tigerstyle::platform_dependent_cast)]` on by default
 help: replace with `usize::try_from(...)`
    |
 LL -     x as usize
-LL +     usize::try_from(x)?
+LL +     usize::try_from(x).unwrap_or_else(|_| /* handle out-of-range value */)
    |
 
-warning: 1 warning emitted
+warning: `as usize` from `u64` is platform-dependent
+  --> $DIR/platform_dependent_cast.rs:22:8
+   |
+LL |     Ok(x as usize)
+   |        ^^^^^^^^^^
+   |
+   = help: Tiger Style (Explicit Types): use explicit-width types at boundaries instead of `usize` or `isize` conversions Example: let len: u32 = value.try_into()?;
+   = note: structured suggestion applicability: MaybeIncorrect
+   = note: see Tiger Style guide: Explicit Types
+help: replace with `usize::try_from(...)`
+   |
+LL -     Ok(x as usize)
+LL +     Ok(usize::try_from(x)?)
+   |
+
+warning: `as isize` from `i64` is platform-dependent
+  --> $DIR/platform_dependent_cast.rs:27:8
+   |
+LL |     Ok(x as isize)
+   |        ^^^^^^^^^^
+   |
+   = help: Tiger Style (Explicit Types): use explicit-width types at boundaries instead of `usize` or `isize` conversions Example: let len: u32 = value.try_into()?;
+   = note: structured suggestion applicability: MaybeIncorrect
+   = note: see Tiger Style guide: Explicit Types
+help: replace with `isize::try_from(...)`
+   |
+LL -     Ok(x as isize)
+LL +     Ok(isize::try_from(x)?)
+   |
+
+warning: `as usize` from `u64` is platform-dependent
+  --> $DIR/platform_dependent_cast.rs:33:8
+   |
+LL |     Ok(x as usize)
+   |        ^^^^^^^^^^
+   |
+   = help: Tiger Style (Explicit Types): use explicit-width types at boundaries instead of `usize` or `isize` conversions Example: let len: u32 = value.try_into()?;
+   = note: structured suggestion applicability: HasPlaceholders
+   = note: see Tiger Style guide: Explicit Types
+help: replace with `usize::try_from(...)`
+   |
+LL -     Ok(x as usize)
+LL +     Ok(usize::try_from(x).map_err(|_| /* error */)?)
+   |
+
+warning: `as usize` from `u32` is platform-dependent
+  --> $DIR/platform_dependent_cast.rs:38:10
+   |
+LL |     Some(x as usize)
+   |          ^^^^^^^^^^
+   |
+   = help: Tiger Style (Explicit Types): use explicit-width types at boundaries instead of `usize` or `isize` conversions Example: let len: u32 = value.try_into()?;
+   = note: structured suggestion applicability: MaybeIncorrect
+   = note: see Tiger Style guide: Explicit Types
+help: replace with `usize::try_from(...)`
+   |
+LL -     Some(x as usize)
+LL +     Some(usize::try_from(x).ok()?)
+   |
+
+warning: `as usize` from `u32` is platform-dependent
+  --> $DIR/platform_dependent_cast.rs:43:55
+   |
+LL |     values.iter().map(|value| -> Option<usize> { Some(*value as usize) }).collect()
+   |                                                       ^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Explicit Types): use explicit-width types at boundaries instead of `usize` or `isize` conversions Example: let len: u32 = value.try_into()?;
+   = note: structured suggestion applicability: MaybeIncorrect
+   = note: see Tiger Style guide: Explicit Types
+help: replace with `usize::try_from(...)`
+   |
+LL -     values.iter().map(|value| -> Option<usize> { Some(*value as usize) }).collect()
+LL +     values.iter().map(|value| -> Option<usize> { Some(usize::try_from(*value).ok()?) }).collect()
+   |
+
+warning: `as usize` from `u16` is platform-dependent
+  --> $DIR/platform_dependent_cast.rs:48:6
+   |
+LL |     (x as usize, y as isize)
+   |      ^^^^^^^^^^
+   |
+   = help: Tiger Style (Explicit Types): use explicit-width types at boundaries instead of `usize` or `isize` conversions Example: let len: u32 = value.try_into()?;
+   = note: structured suggestion applicability: MachineApplicable
+   = note: see Tiger Style guide: Explicit Types
+help: replace with lossless `usize::from(...)`
+   |
+LL -     (x as usize, y as isize)
+LL +     (usize::from(x), y as isize)
+   |
+
+warning: `as isize` from `i8` is platform-dependent
+  --> $DIR/platform_dependent_cast.rs:48:18
+   |
+LL |     (x as usize, y as isize)
+   |                  ^^^^^^^^^^
+   |
+   = help: Tiger Style (Explicit Types): use explicit-width types at boundaries instead of `usize` or `isize` conversions Example: let len: u32 = value.try_into()?;
+   = note: structured suggestion applicability: MachineApplicable
+   = note: see Tiger Style guide: Explicit Types
+help: replace with lossless `isize::from(...)`
+   |
+LL -     (x as usize, y as isize)
+LL +     (x as usize, isize::from(y))
+   |
+
+warning: `as usize` from `u32` is platform-dependent
+  --> $DIR/platform_dependent_cast.rs:52:26
+   |
+LL | const CONST_LEN: usize = 4u32 as usize;
+   |                          ^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Explicit Types): use explicit-width types at boundaries instead of `usize` or `isize` conversions Example: let len: u32 = value.try_into()?;
+   = note: see Tiger Style guide: Explicit Types
+
+warning: 9 warnings emitted
 
