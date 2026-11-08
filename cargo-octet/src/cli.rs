@@ -528,7 +528,7 @@ Collects optional non-starter evidence from external tools or saved tool output 
 
 const FINGERPRINT_HELP: &str = "cargo octet fingerprint
 
-Modes: --check, --write, --update, --diff. Use --review-manifest PATH to save review records. Fingerprint receipts use stable semantic identity and BLAKE3 hashes.
+Modes (mutually exclusive; default --check): --check, --write, --update, --diff. Use --review-manifest PATH to save review records. Fingerprint receipts use stable semantic identity and BLAKE3 hashes.
 ";
 
 const MIGRATE_HELP: &str = "cargo octet migrate
@@ -1367,20 +1367,21 @@ fn parse_fingerprint(args: &[String]) -> Result<FingerprintArgs, String> {
     while index < args.len() {
         let arg = &args[index];
         match arg.as_str() {
-            "--check" => {
-                mode = Some(FingerprintMode::Check);
-                index += 1;
-            }
-            "--write" => {
-                mode = Some(FingerprintMode::Write);
-                index += 1;
-            }
-            "--update" => {
-                mode = Some(FingerprintMode::Update);
-                index += 1;
-            }
-            "--diff" => {
-                mode = Some(FingerprintMode::Diff);
+            "--check" | "--write" | "--update" | "--diff" => {
+                if let Some((previous, _)) = mode {
+                    return Err(if previous == arg.as_str() {
+                        format!("`{arg}` may be provided only once")
+                    } else {
+                        format!("`{previous}` and `{arg}` are mutually exclusive fingerprint modes")
+                    });
+                }
+                let selected = match arg.as_str() {
+                    "--check" => FingerprintMode::Check,
+                    "--write" => FingerprintMode::Write,
+                    "--update" => FingerprintMode::Update,
+                    _ => FingerprintMode::Diff,
+                };
+                mode = Some((arg.as_str(), selected));
                 index += 1;
             }
             "--output-format" => {
@@ -1410,7 +1411,7 @@ fn parse_fingerprint(args: &[String]) -> Result<FingerprintArgs, String> {
     }
 
     Ok(FingerprintArgs {
-        mode: mode.unwrap_or(FingerprintMode::Check),
+        mode: mode.map_or(FingerprintMode::Check, |(_, selected)| selected),
         paths,
         output_format,
         review_manifest,
@@ -3609,6 +3610,41 @@ mod tests {
                 assert_eq!(args.paths.len(), 1);
             }
             other => panic!("expected fingerprint args, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn fingerprint_parse_rejects_conflicting_or_repeated_modes() {
+        let fingerprint = |flags: &[&str]| {
+            let argv = ["cargo", "octet", "fingerprint"]
+                .iter()
+                .chain(flags)
+                .chain(&["src"])
+                .map(OsString::from)
+                .collect::<Vec<_>>();
+            parse(argv)
+        };
+        for (first, second) in [
+            ("--check", "--update"),
+            ("--write", "--check"),
+            ("--diff", "--write"),
+            ("--update", "--diff"),
+        ] {
+            let error = fingerprint(&[first, second]).expect_err("conflicting fingerprint modes must fail");
+            assert!(error.contains(first) && error.contains(second), "{first} {second}: {error}");
+        }
+        let repeated = fingerprint(&["--update", "--update"]).expect_err("repeated fingerprint mode must fail");
+        assert!(repeated.contains("--update"), "{repeated}");
+        for (flag, mode) in [
+            ("--check", FingerprintMode::Check),
+            ("--write", FingerprintMode::Write),
+            ("--update", FingerprintMode::Update),
+            ("--diff", FingerprintMode::Diff),
+        ] {
+            match fingerprint(&[flag]).unwrap_or_else(|error| panic!("{flag}: {error}")) {
+                CommandArgs::Fingerprint(args) => assert_eq!(args.mode, mode),
+                other => panic!("expected fingerprint args, got {other:?}"),
+            }
         }
     }
 
