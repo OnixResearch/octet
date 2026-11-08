@@ -162,13 +162,6 @@ example transcripts change, use this single CI/operator review gate:
 nix build .#checks.x86_64-linux.docs-examples --no-link -L
 ```
 
-The examples above still carry version-1 marker hashes and need owner re-review.
-Their transcript tests compared stored hashes and transcripts byte for byte, so
-they were removed rather than re-pinned. Until the owner regenerates the
-examples, `docs-examples`, the five `fingerprint-*-docs` checks, and
-`fingerprint-docs-downstream-smoke` fail closed. The rest of this section
-describes what the gate checks once the examples are restored.
-
 That `docs-examples` Nix check is part of `nix flake check` and is the aggregate
 home for executable docs/examples regressions. Treat it as the review command;
 use the narrower checks below only to debug a failing slice. It currently replays
@@ -245,8 +238,7 @@ definition body is delimited by braces, parentheses, or brackets, and does not
 claim to fingerprint functions generated after macro expansion. Fingerprint explicit
 source wrappers around generated code when a reviewed boundary is needed. The
 checked [`source-scanner example`](examples/function-fingerprint-source-scanner/transcript.md)
-shows that contract. Like the other examples, it awaits owner re-review and is no
-longer executed by a test.
+shows that contract, and the `fingerprint-source-scanner-docs` check replays it.
 
 The scanner ignores comments (line, doc, and nested block comments) and string,
 raw-string, byte, and character literals when it finds functions and their braces.

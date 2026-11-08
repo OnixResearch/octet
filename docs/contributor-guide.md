@@ -256,12 +256,11 @@ For fingerprint docs/examples, use one review command:
 nix build .#checks.x86_64-linux.docs-examples --no-link -L
 ```
 
-That command is temporarily blocked. The five `docs/examples/function-fingerprint-*`
-examples still carry pre-v2 marker hashes, and their transcript tests were removed
-as hash snapshots. The five `fingerprint-*-docs` rails therefore fail closed
-(no nonignored test selected), and `fingerprint-docs-downstream-smoke` fails on the
-stale markers, until an owner re-reviews and regenerates the examples. Do not
-rewrite the example markers just to obtain a pass.
+The five `fingerprint-*-docs` rails replay each documented command sequence in a
+scratch fixture and require every real stdout to appear verbatim in the checked-in
+transcript and the repaired fixture to equal `reviewed.rs`. When fingerprint
+output or hashing changes intentionally, regenerate the transcript blocks and
+`reviewed.rs` markers from the binary's real output; do not hand-edit hashes.
 
 For Valence object-evidence changes, use one aggregate operator command:
 
