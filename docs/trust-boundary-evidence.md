@@ -155,6 +155,11 @@ Reviewers use the existing commands at the matching stage:
   `formal_proof` provenance.
 - `cargo octet artifact verify` recomputes artifact identities and checks saved
   receipts plus provenance before an artifact directory is treated as evidence.
+  Evidence-rail provenance records must carry the receipt's `workspace_scope`,
+  and each `formal_proof` record in a prove bundle must carry the checked scope
+  its proof receipt records (or, for a receipt without one, its proof card's
+  `checked_rust_source_scope`), so a `fixture-only` proof cannot be relabelled
+  `production` by rewriting provenance.
   With `--emit-valence-provenance <path>`, it writes a Valence-ready export only
   after verification succeeds, and refuses a path that resolves inside the
   verified artifact directory. r[impl octet.evidence_provenance.valence_export.boundary]

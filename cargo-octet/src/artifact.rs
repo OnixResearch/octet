@@ -828,6 +828,27 @@ fn validate_aeneas_proof_card_envelope(card: &ValenceProofCard, file_map: &BTree
             card.proof_or_property_id
         ));
     }
+    for (locator, expected) in formal_proof_envelope_identities(envelope) {
+        if let Some(bytes) = file_map.get(locator) {
+            let observed = crate::evidence::artifact_blake3_hex(bytes);
+            if observed != *expected {
+                diagnostics.push(format!(
+                    "Aeneas proof card `{}` artifact `{locator}` BLAKE3 mismatch",
+                    card.proof_or_property_id
+                ));
+            }
+        }
+    }
+    diagnostics.sort();
+    diagnostics.dedup();
+    diagnostics
+}
+
+/// Every artifact locator and BLAKE3 identity a formal-proof envelope binds: source bindings,
+/// artifact identities, and for Aeneas the provider profile, package lock, and stage artifacts.
+fn formal_proof_envelope_identities(
+    envelope: &octet_standards::formal_proof::FormalProofEnvelope,
+) -> Vec<(&String, &String)> {
     let mut identities = envelope
         .source_bindings
         .iter()
@@ -842,20 +863,77 @@ fn validate_aeneas_proof_card_envelope(card: &ValenceProofCard, file_map: &BTree
             identities.extend(stage.output_artifacts.iter().map(|identity| (&identity.locator, &identity.blake3)));
         }
     }
-    for (locator, expected) in identities {
-        if let Some(bytes) = file_map.get(locator) {
-            let observed = crate::evidence::artifact_blake3_hex(bytes);
-            if observed != *expected {
-                diagnostics.push(format!(
-                    "Aeneas proof card `{}` artifact `{locator}` BLAKE3 mismatch",
-                    card.proof_or_property_id
-                ));
-            }
+    identities
+}
+
+/// Prove bundles label each `formal_proof` artifact with the checked scope its proof receipt
+/// records (or, for a receipt without one, its proof card), so a resealed `fixture-only` artifact
+/// cannot be relabelled `production`.
+// r[impl octet.artifact_bundle_verification.complete_bundle]
+fn validate_formal_proof_scopes(
+    file_map: &BTreeMap<String, Vec<u8>>,
+    records: &[ProvenanceRecord],
+    diagnostics: &mut Vec<String>,
+) {
+    let recorded = recorded_formal_proof_scopes(file_map, records);
+    for record in records.iter().filter(|record| record.evidence_tier == EvidenceTier::FormalProof) {
+        match recorded.get(&record.artifact_locator) {
+            Some(scopes) if scopes.contains(&record.checked_scope) => {}
+            Some(scopes) => diagnostics.push(format!(
+                "unexpected {FIELD_CHECKED_SCOPE} for artifact `{}`; expected `{}`, got `{}`",
+                record.artifact_locator,
+                scopes.iter().map(String::as_str).collect::<Vec<_>>().join("` or `"),
+                record.checked_scope
+            )),
+            None => diagnostics.push(format!(
+                "formal_proof artifact `{}` has no proof receipt or proof card recording its {FIELD_CHECKED_SCOPE}",
+                record.artifact_locator
+            )),
         }
     }
-    diagnostics.sort();
-    diagnostics.dedup();
-    diagnostics
+}
+
+/// Maps artifact locators to the checked scopes recorded for them. A formal-proof envelope receipt
+/// binds its own locator and every artifact it identifies; any other JSON receipt binds its own
+/// locator through its top-level `checked_scope`. Proof cards bind their `receipt_path` through
+/// `checked_rust_source_scope` only when no receipt records a scope.
+fn recorded_formal_proof_scopes(
+    file_map: &BTreeMap<String, Vec<u8>>,
+    records: &[ProvenanceRecord],
+) -> BTreeMap<String, std::collections::BTreeSet<String>> {
+    let mut scopes = BTreeMap::<String, std::collections::BTreeSet<String>>::new();
+    for record in records.iter().filter(|record| record.evidence_tier == EvidenceTier::FormalProof) {
+        let Some(bytes) = file_map.get(&record.artifact_locator) else {
+            continue;
+        };
+        if let Ok(envelope) = serde_json::from_slice::<octet_standards::formal_proof::FormalProofEnvelope>(bytes) {
+            let bound = formal_proof_envelope_identities(&envelope)
+                .into_iter()
+                .map(|(locator, _)| locator)
+                .chain(std::iter::once(&record.artifact_locator));
+            for locator in bound {
+                scopes.entry(locator.clone()).or_default().insert(envelope.checked_scope.clone());
+            }
+        } else if let Some(scope) = serde_json::from_slice::<Value>(bytes)
+            .ok()
+            .and_then(|receipt| receipt.get(FIELD_CHECKED_SCOPE).and_then(Value::as_str).map(str::to_owned))
+        {
+            scopes.entry(record.artifact_locator.clone()).or_default().insert(scope);
+        }
+    }
+    let cards = file_map
+        .get(PROOF_CARDS_ARTIFACT_NAME)
+        .and_then(|bytes| serde_json::from_slice::<Value>(bytes).ok());
+    for card in cards.iter().filter_map(|deck| deck.get("cards").and_then(Value::as_array)).flatten() {
+        let receipt_path = card.get("receipt_path").and_then(Value::as_str);
+        let scope = card.get("checked_rust_source_scope").and_then(Value::as_str);
+        if let (Some(receipt_path), Some(scope)) = (receipt_path, scope) {
+            scopes
+                .entry(receipt_path.to_owned())
+                .or_insert_with(|| std::collections::BTreeSet::from([scope.to_owned()]));
+        }
+    }
+    scopes
 }
 
 fn validate_valence_proof_cards(proof_cards: &[ValenceProofCard], file_map: &BTreeMap<String, Vec<u8>>) -> Vec<String> {
@@ -940,6 +1018,9 @@ pub fn verify_bundle(input: ArtifactBundleInput) -> ArtifactVerificationReport {
     validate_project_architecture_bundle(&file_map, &mut diagnostics);
     validate_integrated_effect_closure_bundle(&file_map, &mut diagnostics);
     validate_declared_phase_artifacts(&file_map, &mut diagnostics);
+    if status.bundle_kind == BundleKind::Prove {
+        validate_formal_proof_scopes(&file_map, &provenance_records, &mut diagnostics);
+    }
 
     let artifacts = verified_artifact_rows(&provenance_records, &expected_non_provenance);
     diagnostics.sort();
@@ -1429,6 +1510,12 @@ fn validate_evidence_rail_record_shapes(
         return;
     };
     for record in records {
+        if record.checked_scope != receipt.workspace_scope {
+            diagnostics.push(format!(
+                "unexpected {FIELD_CHECKED_SCOPE} for artifact `{}`; expected `{}`, got `{}`",
+                record.artifact_locator, receipt.workspace_scope, record.checked_scope
+            ));
+        }
         if record.artifact_locator == crate::evidence_rails::RECEIPT_ARTIFACT_NAME {
             if record.checker_id != receipt.checker_id {
                 diagnostics.push(format!(
@@ -1956,7 +2043,11 @@ mod tests {
     const EVIDENCE_LOG_REPLAY_COMMAND: &str = "cargo octet prove --registry policies.json --source src/lib.rs";
     const EVIDENCE_LOG_CAPTURE_SOURCE: &str = "octet.prove.stdout";
     const PROOF_RECEIPT_ARTIFACT_NAME: &str = "proofs/sample.receipt";
-    const PROOF_RECEIPT_CONTENTS: &[u8] = b"proof-result: pass sample\n";
+    const PROOF_CHECKED_SCOPE: &str = "formal-proof:fixture-only:proof.fixture#rail-0";
+    const PROOF_PRODUCTION_SCOPE: &str = "formal-proof:production:proof.fixture#rail-0";
+    const PROOF_RECEIPT_CONTENTS: &[u8] = br#"{"schema_version":"octet-verus-proof-receipt/v1","checked_scope":"formal-proof:fixture-only:proof.fixture#rail-0","status":"passed"}
+"#;
+    const PLAIN_PROOF_RECEIPT_CONTENTS: &[u8] = b"proof-result: pass sample\n";
     const PROOF_VERIFIER_IDENTITY: &str = "verus@fixture";
     const COMMAND_RECORD_INDEX: usize = 0;
     const STATUS_RECORD_INDEX: usize = 1;
@@ -2454,6 +2545,73 @@ mod tests {
         assert!(stale_report.diagnostics.iter().any(|diagnostic| diagnostic.contains("unexpected artifact")));
     }
 
+    // r[verify octet.artifact_bundle_verification.complete_bundle]
+    #[test]
+    fn evidence_rail_bundle_rejects_relabelled_checked_scope() {
+        const RELABELLED_SCOPE: &str = "profile:relabelled";
+        for locator in [
+            crate::evidence_rails::RECEIPT_ARTIFACT_NAME,
+            crate::evidence_rails::SUMMARY_ARTIFACT_NAME,
+        ] {
+            let mut input = valid_evidence_rail_input(Vec::new());
+            let mut records = provenance_records_of(&input);
+            let record = records.iter_mut().find(|record| record.artifact_locator == locator).expect("rail record");
+            RELABELLED_SCOPE.clone_into(&mut record.checked_scope);
+            replace_file(
+                &mut input,
+                crate::evidence_rails::PROVENANCE_ARTIFACT_NAME,
+                render_records(&records).into_bytes(),
+            );
+
+            let report = verify_bundle(input);
+
+            assert_eq!(report.status, STATUS_INVALID);
+            let expected = format!(
+                "unexpected checked_scope for artifact `{locator}`; expected `{CHECKED_SCOPE}`, got `{RELABELLED_SCOPE}`"
+            );
+            assert!(report.diagnostics.contains(&expected), "{:?}", report.diagnostics);
+        }
+    }
+
+    // r[verify octet.artifact_bundle_verification.complete_bundle]
+    #[test]
+    fn prove_bundle_binds_formal_proof_checked_scope_to_its_receipt_or_proof_card() {
+        let relabelled = format!(
+            "unexpected checked_scope for artifact `{PROOF_RECEIPT_ARTIFACT_NAME}`; expected `{PROOF_CHECKED_SCOPE}`, got `{PROOF_PRODUCTION_SCOPE}`"
+        );
+        let cases = [
+            (PROOF_RECEIPT_CONTENTS, None, PROOF_CHECKED_SCOPE, None),
+            (PROOF_RECEIPT_CONTENTS, None, PROOF_PRODUCTION_SCOPE, Some(relabelled.clone())),
+            (PLAIN_PROOF_RECEIPT_CONTENTS, Some(PROOF_CHECKED_SCOPE), PROOF_CHECKED_SCOPE, None),
+            (PLAIN_PROOF_RECEIPT_CONTENTS, Some(PROOF_CHECKED_SCOPE), PROOF_PRODUCTION_SCOPE, Some(relabelled)),
+            (
+                PLAIN_PROOF_RECEIPT_CONTENTS,
+                None,
+                PROOF_PRODUCTION_SCOPE,
+                Some(format!(
+                    "formal_proof artifact `{PROOF_RECEIPT_ARTIFACT_NAME}` has no proof receipt or proof card recording its checked_scope"
+                )),
+            ),
+        ];
+        for (receipt, card_scope, record_scope, expected) in cases {
+            let report = verify_bundle(prove_input(receipt, card_scope, record_scope));
+            match expected {
+                None => assert_eq!(report.status, STATUS_VALID, "{record_scope}: {:?}", report.diagnostics),
+                Some(expected) => {
+                    assert_eq!(report.status, STATUS_INVALID, "{record_scope}");
+                    assert!(report.diagnostics.contains(&expected), "{:?}", report.diagnostics);
+                }
+            }
+        }
+    }
+
+    fn provenance_records_of(input: &ArtifactBundleInput) -> Vec<ProvenanceRecord> {
+        let mut diagnostics = Vec::new();
+        let records = parse_provenance_records(&collect_file_map(input.files.clone()), &mut diagnostics);
+        assert!(diagnostics.is_empty(), "{diagnostics:?}");
+        records
+    }
+
     #[test]
     fn hash_mismatch_unknown_checker_invalid_tier_and_missing_manual_action_fail_closed() {
         let mut records = valid_records(OutputFormat::Json);
@@ -2616,19 +2774,31 @@ mod tests {
     }
 
     fn valid_prove_input() -> ArtifactBundleInput {
+        prove_input(PROOF_RECEIPT_CONTENTS, None, PROOF_CHECKED_SCOPE)
+    }
+
+    /// Builds a prove bundle around one formal-proof receipt; `card_scope` adds the proof card's
+    /// `checked_rust_source_scope` and `record_scope` labels the receipt's provenance record.
+    fn prove_input(receipt_contents: &[u8], card_scope: Option<&str>, record_scope: &str) -> ArtifactBundleInput {
         let proof_card =
             sample_valence_proof_card("octet-rerun", EvidenceTier::FormalProof.as_str(), PROOF_RECEIPT_ARTIFACT_NAME);
+        let mut proof_card = serde_json::to_value(&proof_card).expect("serialize proof card");
+        if let Some(scope) = card_scope {
+            proof_card["checked_rust_source_scope"] = serde_json::Value::from(scope);
+        }
         let proof_cards = serde_json::json!({
             "schema_version": "octet-proof-cards/v1",
             "cards": [proof_card],
         });
         let proof_cards_bytes = serde_json::to_vec_pretty(&proof_cards).expect("serialize proof cards");
+        let mut proof_record = formal_proof_record(receipt_contents);
+        record_scope.clone_into(&mut proof_record.checked_scope);
         let mut records = vec![
             record(COMMAND_ARTIFACT_NAME, COMMAND_CONTENTS, EvidenceTier::ManualReviewRequired),
             record(STATUS_ARTIFACT_NAME, prove_status_contents().as_bytes(), EvidenceTier::ManualReviewRequired),
             record(SUMMARY_ARTIFACT_NAME, SUMMARY_CONTENTS, EvidenceTier::ManualReviewRequired),
             record(PROOF_CARDS_ARTIFACT_NAME, &proof_cards_bytes, EvidenceTier::ManualReviewRequired),
-            formal_proof_record(),
+            proof_record,
         ];
         records.sort_by(|left, right| left.artifact_locator.cmp(&right.artifact_locator));
         ArtifactBundleInput {
@@ -2652,7 +2822,7 @@ mod tests {
                 },
                 BundleFile {
                     name: PROOF_RECEIPT_ARTIFACT_NAME.to_owned(),
-                    contents: PROOF_RECEIPT_CONTENTS.to_vec(),
+                    contents: receipt_contents.to_vec(),
                 },
                 BundleFile {
                     name: PROVENANCE_ARTIFACT_NAME.to_owned(),
@@ -2668,17 +2838,17 @@ mod tests {
             .replace("\n  \"metadata\"", "\n  \"bundle_kind\": \"prove\",\n  \"metadata\"")
     }
 
-    fn formal_proof_record() -> ProvenanceRecord {
+    fn formal_proof_record(receipt_contents: &[u8]) -> ProvenanceRecord {
         ProvenanceRecord {
             schema_version: crate::evidence::PROVENANCE_SCHEMA_VERSION.to_owned(),
             source_id: PROOF_SOURCE_ID.to_owned(),
             checker_id: CHECKER_OCTET_STANDARDS.to_owned(),
             evidence_tier: EvidenceTier::FormalProof,
             artifact_locator: PROOF_RECEIPT_ARTIFACT_NAME.to_owned(),
-            blake3: crate::evidence::artifact_blake3_hex(PROOF_RECEIPT_CONTENTS),
-            checked_scope: CHECKED_SCOPE.to_owned(),
+            blake3: crate::evidence::artifact_blake3_hex(receipt_contents),
+            checked_scope: PROOF_CHECKED_SCOPE.to_owned(),
             verifier_identity: Some(PROOF_VERIFIER_IDENTITY.to_owned()),
-            proof_artifact_identity: Some(crate::evidence::artifact_blake3_hex(PROOF_RECEIPT_CONTENTS)),
+            proof_artifact_identity: Some(crate::evidence::artifact_blake3_hex(receipt_contents)),
             human_action: None,
             parent_artifacts: vec![PROOF_CARDS_ARTIFACT_NAME.to_owned()],
         }
