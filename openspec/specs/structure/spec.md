@@ -324,7 +324,7 @@ The lint MUST remain advisory or allow-by-default until compliant, noncompliant,
 
 ### Requirement: Deref Polymorphism Lint [r[deref-polymorphism-lint]]
 
-The structure lint inventory MUST include an advisory `deref_polymorphism` lint that identifies public `Deref` implementations which make one public local type inherit a nominal target type's API surface.
+The structure lint inventory MUST include an advisory `deref_polymorphism` lint that identifies public `Deref` implementations which make one public local type inherit a nominal target type's API surface. A nominal target is a path that resolves to a struct, enum, union, or type alias definition; generic type parameters, associated types, and `Self` are not nominal targets.
 
 #### Scenario: Public Deref to nominal target warns [r[deref-polymorphism-lint.warn-public-nominal-target]]
 
@@ -334,7 +334,7 @@ The structure lint inventory MUST include an advisory `deref_polymorphism` lint 
 
 #### Scenario: Accepted Deref targets do not warn [r[deref-polymorphism-lint.accepted-targets]]
 
-- GIVEN private wrappers, non-`Deref` impls, `Deref<Target = str>`, or `Deref<Target = [T]>`
+- GIVEN private wrappers, non-`Deref` impls, `Deref<Target = str>`, `Deref<Target = [T]>`, or a generic guard such as `impl<T> Deref for Guard<'_, T> { type Target = T; }`
 - WHEN Tigerstyle analyzes the crate
 - THEN `tigerstyle::deref_polymorphism` MUST NOT warn for those accepted borrowed-view or non-public cases
 

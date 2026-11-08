@@ -70,7 +70,16 @@ fn target_is_accepted_borrowed_view(ty: &hir::Ty<'_>) -> bool {
 }
 
 fn target_is_nominal(ty: &hir::Ty<'_>) -> bool {
-    matches!(ty.kind, hir::TyKind::Path(hir::QPath::Resolved(_, _)))
+    let hir::TyKind::Path(hir::QPath::Resolved(_, path)) = &ty.kind else {
+        return false;
+    };
+    matches!(
+        path.res,
+        hir::def::Res::Def(
+            hir::def::DefKind::Struct | hir::def::DefKind::Enum | hir::def::DefKind::Union | hir::def::DefKind::TyAlias,
+            _
+        )
+    )
 }
 
 fn target_name(cx: &LateContext<'_>, ty: &hir::Ty<'_>) -> String {
