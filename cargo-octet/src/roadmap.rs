@@ -122,19 +122,28 @@ pub fn run(command: RoadmapCommand) -> Result<i32, String> {
 
 fn parse_artifact(args: &[String]) -> Result<RoadmapCommand, String> {
     match args.first().map(String::as_str) {
-        Some("store") => Ok(RoadmapCommand::ArtifactStore {
-            kind: required_value(args, "--kind")?,
-            input: PathBuf::from(required_value(args, "--input")?),
-            store_dir: PathBuf::from(required_value(args, "--store-dir")?),
-        }),
-        Some("inspect") => Ok(RoadmapCommand::ArtifactInspect {
-            hash: required_value(args, "--hash")?,
-            store_dir: PathBuf::from(required_value(args, "--store-dir")?),
-        }),
-        Some("replay") => Ok(RoadmapCommand::ArtifactReplay {
-            hash: required_value(args, "--hash")?,
-            store_dir: PathBuf::from(required_value(args, "--store-dir")?),
-        }),
+        Some("store") => {
+            let mut flags = RoadmapFlags::parse("artifact", args, &["--kind", "--input", "--store-dir"])?;
+            Ok(RoadmapCommand::ArtifactStore {
+                kind: flags.take("--kind")?,
+                input: flags.take_path("--input")?,
+                store_dir: flags.take_path("--store-dir")?,
+            })
+        }
+        Some("inspect") => {
+            let mut flags = RoadmapFlags::parse("artifact", args, &["--hash", "--store-dir"])?;
+            Ok(RoadmapCommand::ArtifactInspect {
+                hash: flags.take("--hash")?,
+                store_dir: flags.take_path("--store-dir")?,
+            })
+        }
+        Some("replay") => {
+            let mut flags = RoadmapFlags::parse("artifact", args, &["--hash", "--store-dir"])?;
+            Ok(RoadmapCommand::ArtifactReplay {
+                hash: flags.take("--hash")?,
+                store_dir: flags.take_path("--store-dir")?,
+            })
+        }
         Some(other) => Err(format!("unknown artifact action `{other}`")),
         None => Err("missing artifact action".to_owned()),
     }
@@ -142,17 +151,26 @@ fn parse_artifact(args: &[String]) -> Result<RoadmapCommand, String> {
 
 fn parse_capsule(args: &[String]) -> Result<RoadmapCommand, String> {
     match args.first().map(String::as_str) {
-        Some("capture") => Ok(RoadmapCommand::CapsuleCapture {
-            input: PathBuf::from(required_value(args, "--input")?),
-            capsule: PathBuf::from(required_value(args, "--capsule")?),
-        }),
-        Some("inspect") => Ok(RoadmapCommand::CapsuleInspect {
-            capsule: PathBuf::from(required_value(args, "--capsule")?),
-        }),
-        Some("replay") => Ok(RoadmapCommand::CapsuleReplay {
-            capsule: PathBuf::from(required_value(args, "--capsule")?),
-            observed: PathBuf::from(required_value(args, "--observed")?),
-        }),
+        Some("capture") => {
+            let mut flags = RoadmapFlags::parse("capsule", args, &["--input", "--capsule"])?;
+            Ok(RoadmapCommand::CapsuleCapture {
+                input: flags.take_path("--input")?,
+                capsule: flags.take_path("--capsule")?,
+            })
+        }
+        Some("inspect") => {
+            let mut flags = RoadmapFlags::parse("capsule", args, &["--capsule"])?;
+            Ok(RoadmapCommand::CapsuleInspect {
+                capsule: flags.take_path("--capsule")?,
+            })
+        }
+        Some("replay") => {
+            let mut flags = RoadmapFlags::parse("capsule", args, &["--capsule", "--observed"])?;
+            Ok(RoadmapCommand::CapsuleReplay {
+                capsule: flags.take_path("--capsule")?,
+                observed: flags.take_path("--observed")?,
+            })
+        }
         Some(other) => Err(format!("unknown capsule action `{other}`")),
         None => Err("missing capsule action".to_owned()),
     }
@@ -160,14 +178,23 @@ fn parse_capsule(args: &[String]) -> Result<RoadmapCommand, String> {
 
 fn parse_ability(args: &[String]) -> Result<RoadmapCommand, String> {
     match args.first().map(String::as_str) {
-        Some("registry") => Ok(RoadmapCommand::AbilityRegistry),
-        Some("summary") => Ok(RoadmapCommand::AbilitySummary {
-            findings: PathBuf::from(required_value(args, "--findings")?),
-        }),
-        Some("enforce") => Ok(RoadmapCommand::AbilityEnforce {
-            manifest: PathBuf::from(required_value(args, "--manifest")?),
-            trace: PathBuf::from(required_value(args, "--trace")?),
-        }),
+        Some("registry") => {
+            RoadmapFlags::parse("ability", args, &[])?;
+            Ok(RoadmapCommand::AbilityRegistry)
+        }
+        Some("summary") => {
+            let mut flags = RoadmapFlags::parse("ability", args, &["--findings"])?;
+            Ok(RoadmapCommand::AbilitySummary {
+                findings: flags.take_path("--findings")?,
+            })
+        }
+        Some("enforce") => {
+            let mut flags = RoadmapFlags::parse("ability", args, &["--manifest", "--trace"])?;
+            Ok(RoadmapCommand::AbilityEnforce {
+                manifest: flags.take_path("--manifest")?,
+                trace: flags.take_path("--trace")?,
+            })
+        }
         Some(other) => Err(format!("unknown ability action `{other}`")),
         None => Err("missing ability action".to_owned()),
     }
@@ -175,21 +202,31 @@ fn parse_ability(args: &[String]) -> Result<RoadmapCommand, String> {
 
 fn parse_pointer(args: &[String]) -> Result<RoadmapCommand, String> {
     match args.first().map(String::as_str) {
-        Some("set") => Ok(RoadmapCommand::PointerSet {
-            registry: PathBuf::from(required_value(args, "--registry")?),
-            name: required_value(args, "--name")?,
-            kind: required_value(args, "--kind")?,
-            hash: required_value(args, "--hash")?,
-            receipt: PathBuf::from(required_value(args, "--receipt")?),
-        }),
-        Some("inspect") => Ok(RoadmapCommand::PointerInspect {
-            registry: PathBuf::from(required_value(args, "--registry")?),
-            name: required_value(args, "--name")?,
-        }),
-        Some("rollback") => Ok(RoadmapCommand::PointerRollback {
-            registry: PathBuf::from(required_value(args, "--registry")?),
-            receipt: PathBuf::from(required_value(args, "--receipt")?),
-        }),
+        Some("set") => {
+            let mut flags =
+                RoadmapFlags::parse("pointer", args, &["--registry", "--name", "--kind", "--hash", "--receipt"])?;
+            Ok(RoadmapCommand::PointerSet {
+                registry: flags.take_path("--registry")?,
+                name: flags.take("--name")?,
+                kind: flags.take("--kind")?,
+                hash: flags.take("--hash")?,
+                receipt: flags.take_path("--receipt")?,
+            })
+        }
+        Some("inspect") => {
+            let mut flags = RoadmapFlags::parse("pointer", args, &["--registry", "--name"])?;
+            Ok(RoadmapCommand::PointerInspect {
+                registry: flags.take_path("--registry")?,
+                name: flags.take("--name")?,
+            })
+        }
+        Some("rollback") => {
+            let mut flags = RoadmapFlags::parse("pointer", args, &["--registry", "--receipt"])?;
+            Ok(RoadmapCommand::PointerRollback {
+                registry: flags.take_path("--registry")?,
+                receipt: flags.take_path("--receipt")?,
+            })
+        }
         Some(other) => Err(format!("unknown pointer action `{other}`")),
         None => Err("missing pointer action".to_owned()),
     }
@@ -197,16 +234,25 @@ fn parse_pointer(args: &[String]) -> Result<RoadmapCommand, String> {
 
 fn parse_session(args: &[String]) -> Result<RoadmapCommand, String> {
     match args.first().map(String::as_str) {
-        Some("check") => Ok(RoadmapCommand::SessionCheck {
-            input: PathBuf::from(required_value(args, "--input")?),
-        }),
-        Some("migrate") => Ok(RoadmapCommand::SessionMigrate {
-            input: PathBuf::from(required_value(args, "--input")?),
-            output: PathBuf::from(required_value(args, "--output")?),
-        }),
-        Some("todo") => Ok(RoadmapCommand::SessionTodo {
-            input: PathBuf::from(required_value(args, "--input")?),
-        }),
+        Some("check") => {
+            let mut flags = RoadmapFlags::parse("session", args, &["--input"])?;
+            Ok(RoadmapCommand::SessionCheck {
+                input: flags.take_path("--input")?,
+            })
+        }
+        Some("migrate") => {
+            let mut flags = RoadmapFlags::parse("session", args, &["--input", "--output"])?;
+            Ok(RoadmapCommand::SessionMigrate {
+                input: flags.take_path("--input")?,
+                output: flags.take_path("--output")?,
+            })
+        }
+        Some("todo") => {
+            let mut flags = RoadmapFlags::parse("session", args, &["--input"])?;
+            Ok(RoadmapCommand::SessionTodo {
+                input: flags.take_path("--input")?,
+            })
+        }
         Some(other) => Err(format!("unknown session action `{other}`")),
         None => Err("missing session action".to_owned()),
     }
@@ -216,19 +262,64 @@ fn parse_pure_cache(args: &[String]) -> Result<RoadmapCommand, String> {
     if !matches!(args.first().map(String::as_str), Some("check")) {
         return Err("pure-cache expects `check`".to_owned());
     }
+    let mut flags = RoadmapFlags::parse("pure-cache", args, &["--key", "--store-dir", "--output-hash"])?;
     Ok(RoadmapCommand::PureCacheCheck {
-        key: PathBuf::from(required_value(args, "--key")?),
-        store_dir: PathBuf::from(required_value(args, "--store-dir")?),
-        output_hash: required_value(args, "--output-hash")?,
+        key: flags.take_path("--key")?,
+        store_dir: flags.take_path("--store-dir")?,
+        output_hash: flags.take("--output-hash")?,
     })
 }
 
-fn required_value(args: &[String], flag: &str) -> Result<String, String> {
-    if let Some(value) = args.iter().find_map(|arg| arg.strip_prefix(&format!("{flag}="))) {
-        return Ok(value.to_owned());
+/// `--flag VALUE` / `--flag=VALUE` options of one roadmap action, each given at most once.
+struct RoadmapFlags {
+    values: BTreeMap<&'static str, String>,
+}
+
+impl RoadmapFlags {
+    /// Parses `args` (the action name followed by its options), rejecting flags outside `allowed`,
+    /// stray positional arguments, repeated flags, and missing values (including a following
+    /// `--flag`).
+    fn parse(surface: &str, args: &[String], allowed: &[&'static str]) -> Result<Self, String> {
+        let action = args.first().map_or("", String::as_str);
+        let mut values = BTreeMap::new();
+        let mut index = 1;
+        while let Some(arg) = args.get(index) {
+            let (name, inline_value) = match arg.split_once('=') {
+                Some((name, value)) if name.starts_with("--") => (name, Some(value)),
+                _ => (arg.as_str(), None),
+            };
+            let Some(flag) = allowed.iter().copied().find(|flag| *flag == name) else {
+                return Err(if arg.starts_with('-') {
+                    format!("unsupported roadmap {surface} {action} argument `{arg}`")
+                } else {
+                    format!("unexpected roadmap {surface} {action} argument `{arg}`")
+                });
+            };
+            let value = if let Some(value) = inline_value {
+                index += 1;
+                value
+            } else {
+                let value = args.get(index + 1).map_or("", String::as_str);
+                index += 2;
+                if value.starts_with("--") { "" } else { value }
+            };
+            if value.is_empty() {
+                return Err(format!("missing value after `{flag}`"));
+            }
+            if values.insert(flag, value.to_owned()).is_some() {
+                return Err(format!("`{flag}` may be provided only once"));
+            }
+        }
+        Ok(Self { values })
     }
-    let position = args.iter().position(|arg| arg == flag).ok_or_else(|| format!("missing `{flag}`"))?;
-    args.get(position + 1).cloned().ok_or_else(|| format!("missing value after `{flag}`"))
+
+    fn take(&mut self, flag: &str) -> Result<String, String> {
+        self.values.remove(flag).ok_or_else(|| format!("missing `{flag}`"))
+    }
+
+    fn take_path(&mut self, flag: &str) -> Result<PathBuf, String> {
+        self.take(flag).map(PathBuf::from)
+    }
 }
 
 #[derive(Serialize)]
@@ -828,5 +919,102 @@ mod tests {
             "output_hashes",
         ]);
         assert_eq!(capsule_mismatches(&Value::Null, &Value::Null).len(), 6);
+    }
+
+    fn args(values: &[&str]) -> Vec<String> {
+        values.iter().map(|value| (*value).to_owned()).collect()
+    }
+
+    #[test]
+    fn roadmap_parse_rejects_flag_in_value_position() {
+        let error = parse(&args(&[
+            "pointer",
+            "set",
+            "--registry",
+            "registry.json",
+            "--name",
+            "--kind",
+            "prompt",
+            "--hash",
+            "b3:x",
+            "--receipt",
+            "receipt.json",
+        ]))
+        .expect_err("flag in value position fails");
+        assert!(error.contains("missing value after `--name`"), "{error}");
+
+        let error = parse(&args(&["session", "check", "--input"])).expect_err("trailing flag fails");
+        assert!(error.contains("missing value after `--input`"), "{error}");
+
+        let error = parse(&args(&["session", "check", "--input="])).expect_err("empty inline value fails");
+        assert!(error.contains("missing value after `--input`"), "{error}");
+    }
+
+    #[test]
+    fn roadmap_parse_rejects_unknown_flags_and_stray_arguments() {
+        let error = parse(&args(&[
+            "artifact",
+            "store",
+            "--kind",
+            "prompt",
+            "--input",
+            "in.json",
+            "--store-dir",
+            "store",
+            "--bogus",
+            "x",
+        ]))
+        .expect_err("unknown flag fails");
+        assert!(error.contains("unsupported roadmap artifact store argument `--bogus`"), "{error}");
+
+        let error = parse(&args(&["ability", "registry", "--verbose"])).expect_err("registry takes no flags");
+        assert!(error.contains("unsupported roadmap ability registry argument `--verbose`"), "{error}");
+
+        let error = parse(&args(&["session", "check", "--input", "session.json", "extra"]))
+            .expect_err("stray positional fails");
+        assert!(error.contains("unexpected roadmap session check argument `extra`"), "{error}");
+
+        let error = parse(&args(&["capsule", "inspect", "--capsule", "c.json", "--observed", "o.json"]))
+            .expect_err("flag from another action fails");
+        assert!(error.contains("unsupported roadmap capsule inspect argument `--observed`"), "{error}");
+    }
+
+    #[test]
+    fn roadmap_parse_rejects_repeated_flags() {
+        let error = parse(&args(&["session", "check", "--input", "a.json", "--input", "b.json"]))
+            .expect_err("repeated flag fails");
+        assert!(error.contains("`--input` may be provided only once"), "{error}");
+
+        let error = parse(&args(&["session", "check", "--input=a.json", "--input", "b.json"]))
+            .expect_err("repeated mixed-form flag fails");
+        assert!(error.contains("`--input` may be provided only once"), "{error}");
+    }
+
+    #[test]
+    fn roadmap_parse_accepts_split_and_inline_values() {
+        let command = parse(&args(&["capsule", "replay", "--capsule=c.json", "--observed", "o.json"]))
+            .expect("valid capsule replay args");
+        assert!(
+            matches!(&command, RoadmapCommand::CapsuleReplay { capsule, observed }
+                if capsule == Path::new("c.json") && observed == Path::new("o.json")),
+            "{command:?}"
+        );
+        let command = parse(&args(&[
+            "pure-cache",
+            "check",
+            "--output-hash",
+            "b3:out",
+            "--store-dir",
+            "cache",
+            "--key",
+            "key.json",
+        ]))
+        .expect("valid pure-cache args");
+        assert!(
+            matches!(&command, RoadmapCommand::PureCacheCheck { key, store_dir, output_hash }
+                if key == Path::new("key.json") && store_dir == Path::new("cache") && output_hash == "b3:out"),
+            "{command:?}"
+        );
+        assert!(matches!(parse(&args(&["ability", "registry"])), Ok(RoadmapCommand::AbilityRegistry)));
     }
 }
