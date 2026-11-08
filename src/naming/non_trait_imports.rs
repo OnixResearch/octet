@@ -56,8 +56,19 @@ fn is_trait_res(res: Option<Res>) -> bool {
     matches!(res, Some(Res::Def(DefKind::Trait | DefKind::TraitAlias, _)))
 }
 
-fn imports_only_trait(path: &hir::UsePath<'_>) -> bool {
-    is_trait_res(path.res.type_ns) && path.res.value_ns.is_none() && path.res.macro_ns.is_none()
+fn is_derive_macro_res(res: Option<Res>) -> bool {
+    matches!(
+        res,
+        Some(Res::Def(DefKind::Macro(kinds), _)) if kinds == rustc_hir::def::MacroKinds::DERIVE
+    )
+}
+
+/// A trait import may also bring in the same-named derive macro (`std::hash::Hash`,
+/// `serde::Serialize`); it still imports the trait for method resolution.
+fn imports_trait(path: &hir::UsePath<'_>) -> bool {
+    is_trait_res(path.res.type_ns)
+        && path.res.value_ns.is_none()
+        && (path.res.macro_ns.is_none() || is_derive_macro_res(path.res.macro_ns))
 }
 
 fn is_unrelated_ui_fixture(cx: &LateContext<'_>, item: &hir::Item<'_>) -> bool {
@@ -87,7 +98,7 @@ impl<'tcx> LateLintPass<'tcx> for NonTraitImports {
             || is_unrelated_ui_fixture(cx, item)
             || is_generated_source_span(cx.sess().source_map(), item.span, &self.workspace_root, self.exceptions)
             || cx.tcx.visibility(item.owner_id.def_id).is_public()
-            || imports_only_trait(path)
+            || imports_trait(path)
             || is_canonical_rustc_private_alias(&path_segments(path), ident.name.as_str(), self.exceptions)
         {
             return;

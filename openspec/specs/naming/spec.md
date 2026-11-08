@@ -255,7 +255,7 @@ The system MUST provide a warn-by-default naming/import lint named `non_trait_im
 
 The lint MUST warn on `use` imports that bring non-trait items directly into local scope.
 
-The lint MUST allow trait imports, including trait imports renamed to `_` for method resolution.
+The lint MUST allow trait imports, including trait imports renamed to `_` for method resolution and trait imports that also bring in a same-named derive macro, such as `use std::hash::Hash;`.
 
 The lint MUST allow public owner-type re-exports when the imported item is intentionally part of the module's public API.
 
@@ -269,7 +269,7 @@ The lint MUST NOT warn on prelude imports or generated code.
 
 #### Scenario: Trait import for method resolution [r[non-trait-import-detection.scenario.trait-import]]
 
-- GIVEN production code with `use std::io::Write as _;`
+- GIVEN production code with `use std::io::Write as _;` or `use std::hash::Hash;` (a trait plus its same-named derive macro)
 - WHEN the lint runs
 - THEN `non_trait_imports` does NOT fire
 
