@@ -110,6 +110,7 @@ fn apply_baseline_gate(
 
 #[allow(clippy::too_many_lines)]
 pub fn run(check: &CheckArgs) -> Result<i32, String> {
+    reject_process_dylint_toml_override()?;
     let cwd = env::current_dir().map_err(|error| format!("current_dir: {error}"))?;
     let cfg = config::load(&cwd)?;
     if let Some(policy) = &cfg.architecture_policy {
@@ -1629,6 +1630,25 @@ fn process_env(name: &str) -> Option<OsString> {
     env::var_os(name)
 }
 
+/// Dylint reads `DYLINT_TOML` instead of `dylint.toml` when it is set, while Octet's config hash,
+/// strict-profile scopes, and finding IDs come from `dylint.toml`. Refuse the override so a run
+/// never reports a config identity its lints did not use.
+const DYLINT_TOML_ENV: &str = "DYLINT_TOML";
+
+pub(crate) fn reject_dylint_toml_override(lookup: &impl Fn(&str) -> Option<OsString>) -> Result<(), String> {
+    match lookup(DYLINT_TOML_ENV) {
+        Some(_) => Err(format!(
+            "environment variable `{DYLINT_TOML_ENV}` is set; Octet reads lint configuration only from the \
+             workspace `dylint.toml`. Unset `{DYLINT_TOML_ENV}` and put the configuration in `dylint.toml`"
+        )),
+        None => Ok(()),
+    }
+}
+
+pub(crate) fn reject_process_dylint_toml_override() -> Result<(), String> {
+    reject_dylint_toml_override(&process_env)
+}
+
 fn resolve_driver(toolchain: &str) -> Result<ManagedPath, String> {
     match select_driver_source(&process_env)? {
         DriverSource::Explicit(path) => Ok(ManagedPath::explicit(path)),
@@ -2561,6 +2581,16 @@ mod tests {
         let lookup = |name: &str| (name == LINT_LIB_ENV.name).then(|| OsString::from_vec(vec![0xff]));
         let error = select_runner_env(LINT_LIB_ENV, &lookup).expect_err("non-utf8 value is an error");
         assert!(error.contains(LINT_LIB_ENV.name), "{error}");
+    }
+
+    #[test]
+    fn dylint_toml_override_is_rejected_whenever_set() {
+        assert_eq!(super::reject_dylint_toml_override(&env_lookup(&[])), Ok(()));
+        for value in ["[octet]\ndisabled_lints = [\"no_unwrap\"]\n", ""] {
+            let error = super::reject_dylint_toml_override(&env_lookup(&[("DYLINT_TOML", value)]))
+                .expect_err("any DYLINT_TOML value is refused");
+            assert!(error.contains("`DYLINT_TOML`") && error.contains("dylint.toml"), "{error}");
+        }
     }
 
     #[test]

@@ -42,7 +42,7 @@ Declare the core paths in canonical consumer configuration:
 core_source_scopes = ["crates/domain-core/src/"]
 ```
 
-`deterministic-core` rejects a missing, empty, absolute, or workspace-escaping scope before Cargo runs. When no explicit `--function-address-path` is supplied, these paths also define its function-address universe.
+`deterministic-core` rejects a missing, empty, absolute, or workspace-escaping scope before Cargo runs. When no explicit `--function-address-path` is supplied, these paths also define its function-address universe. Octet reads these scopes, and every other lint setting, only from the workspace `dylint.toml`; `cargo octet check` and `cargo octet admit` exit 2 before Cargo runs if `DYLINT_TOML` is set, because Dylint would otherwise lint under that variable's config while the evidence names the file's.
 
 First produce and review a source-shape baseline without requesting strict admission:
 

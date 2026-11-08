@@ -336,6 +336,46 @@ fn function_address_options_without_mode_or_profile_are_rejected_before_cargo() 
     }
 }
 
+#[test]
+fn dylint_toml_env_override_is_rejected_before_any_cargo_invocation() {
+    let fixture = ConsumerFixture::new("dylint-toml-env-override", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    for value in ["[octet]\ndisabled_lints = [\"no_unwrap\"]\n", ""] {
+        let output = fixture.run_with_launcher_and_env(
+            None,
+            &[("DYLINT_TOML", value)],
+            &[],
+            EXIT_CODE_SUCCESS,
+            false,
+            Some("nightly-2026-03-21-x86_64-unknown-linux-gnu"),
+            Some(fixture.driver_path.as_path()),
+            Some(fixture.lint_lib_path.as_path()),
+            None,
+        );
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert_eq!(output.status.code(), Some(EXIT_CODE_INTEGRATION_FAILURE), "{value:?}: stderr={stderr}");
+        assert!(stderr.contains("`DYLINT_TOML`"), "{value:?} should name the variable: {stderr}");
+        assert!(stderr.contains("dylint.toml"), "{value:?} should point at dylint.toml: {stderr}");
+        assert!(!fixture.log().contains("ARGS:"), "{value:?} must be rejected before any Cargo invocation");
+    }
+
+    let output = fixture.run(
+        &[],
+        EXIT_CODE_SUCCESS,
+        false,
+        Some("nightly-2026-03-21-x86_64-unknown-linux-gnu"),
+        Some(fixture.driver_path.as_path()),
+        Some(fixture.lint_lib_path.as_path()),
+        None,
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(EXIT_CODE_SUCCESS),
+        "without DYLINT_TOML the check runs: stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(fixture.log().contains("ARGS:check"));
+}
+
 // r[verify octet.effect_closure.cli.check_failure]
 #[test]
 fn effect_closure_admission_stops_after_failed_direct_check() {

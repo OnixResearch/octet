@@ -81,6 +81,13 @@ Use the template comments when you need threshold overrides, allowlists,
 `disabled_lints`, or `[octet.lint_levels]`. Legacy `[slotcar]` config remains
 accepted only as a lower-precedence migration alias.
 
+The workspace `dylint.toml` is the only lint config source. Dylint itself would
+read the `DYLINT_TOML` environment variable instead of the file, but Octet's
+config hash, strict-profile scopes, and finding IDs come from the file. So
+`cargo octet check` and `cargo octet admit` exit `2` before running Cargo when
+`DYLINT_TOML` is set, even to an empty value. Unset it and put the
+configuration in `dylint.toml`.
+
 ### 2. Add runner policy to the workspace `Cargo.toml`
 
 ```toml

@@ -242,6 +242,7 @@ fn run_admission(
             effect_closure::DETERMINISTIC_CORE_PROFILE
         ));
     }
+    crate::engine::reject_process_dylint_toml_override()?;
 
     let cwd = env::current_dir().map_err(|error| format!("current_dir: {error}"))?;
     let workspace_config = crate::config::load(&cwd)?;
