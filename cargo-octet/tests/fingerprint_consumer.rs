@@ -1273,6 +1273,18 @@ fn fingerprint_hash_reads_crlf_line_endings_in_literals_and_doc_comments_as_lf()
 }
 
 #[test]
+fn object_update_rejects_sarif_before_rewriting_sources() {
+    let temp = tempfile::tempdir().expect("create tempdir");
+    let fixture = temp.path().join("lib.rs");
+    let source = "pub fn unmarked() -> u32 { 1 }\n";
+    fs::write(&fixture, source).expect("write sarif fixture");
+    let (code, _, stderr) = run_octet(temp.path(), &["object", "update", "--output-format=sarif", "lib.rs"]);
+    assert_eq!(code, Some(2), "stderr={stderr}");
+    assert!(stderr.contains("SARIF"), "stderr={stderr}");
+    assert_eq!(fs::read_to_string(&fixture).expect("reread fixture"), source, "object update rewrote the source");
+}
+
+#[test]
 fn fingerprint_json_records_report_stored_and_computed_hashes_across_drift() {
     let temp = tempfile::tempdir().expect("create tempdir");
     let fixture = temp.path().join("reviewed.rs");

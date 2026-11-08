@@ -2178,6 +2178,12 @@ fn corpus_replay_command(paths: &[PathBuf]) -> String {
 }
 
 fn run_marker(args: &ObjectArgs, update: bool) -> Result<i32, String> {
+    // Reject unsupported output before `update` touches any source.
+    let json_output = match args.output_format {
+        OutputFormat::Human => false,
+        OutputFormat::Json => true,
+        OutputFormat::Sarif => return Err("object marker does not support SARIF output; use human or json".to_owned()),
+    };
     let mut files = collect_files(&args.paths)?;
     let mut records = Vec::new();
     for path in files.drain(..) {
@@ -2233,10 +2239,10 @@ fn run_marker(args: &ObjectArgs, update: bool) -> Result<i32, String> {
         mode: if update { "update" } else { "check" },
         records,
     };
-    match args.output_format {
-        OutputFormat::Human => print_marker_human(&report),
-        OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&report).map_err(|error| error.to_string())?),
-        OutputFormat::Sarif => return Err("object marker does not support SARIF output; use human or json".to_owned()),
+    if json_output {
+        println!("{}", serde_json::to_string_pretty(&report).map_err(|error| error.to_string())?);
+    } else {
+        print_marker_human(&report);
     }
     let failing = !update
         && report
