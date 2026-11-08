@@ -61,7 +61,8 @@
 
 # Per-lint rollout controls
 # Omitted `disabled_lints` / `lint_levels` default to empty collections.
-# Unknown lint names and invalid level values warn and are ignored.
+# Unknown config keys, unknown lint names, and invalid level values warn and
+# are ignored.
 # If the same lint appears in both places, `disabled_lints` wins and the level
 # override is ignored.
 # Explicit command-line levels such as `-D numeric_units` in

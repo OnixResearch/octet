@@ -28,6 +28,7 @@
 //! no_unwrap = "deny"
 //! ```
 
+use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
 
@@ -71,6 +72,7 @@ impl LintLevel {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ConfigDiagnosticKind {
+    UnknownConfigKey,
     UnknownDisabledLint,
     UnknownIndexableExceptionClass,
     UnknownLintLevel,
@@ -82,6 +84,7 @@ impl ConfigDiagnosticKind {
     #[must_use]
     pub fn as_str(self) -> &'static str {
         match self {
+            Self::UnknownConfigKey => "unknown_config_key",
             Self::UnknownDisabledLint => "unknown_disabled_lint",
             Self::UnknownIndexableExceptionClass => "unknown_indexable_exception_class",
             Self::UnknownLintLevel => "unknown_lint_level",
@@ -196,6 +199,13 @@ pub struct Config {
     /// Raw per-lint severity overrides loaded from `dylint.toml`.
     pub lint_levels: HashMap<String, String>,
 
+    /// Unrecognized keys in the config section, reported as warnings.
+    #[serde(flatten)]
+    // serde's flatten catch-all must be a map; `IgnoredAny` keeps only the key
+    // names without buffering the unknown values.
+    #[allow(clippy::zero_sized_map_values)]
+    unknown_keys: BTreeMap<String, serde::de::IgnoredAny>,
+
     /// Validated per-lint severity overrides used during registration.
     #[serde(skip)]
     validated_lint_levels: HashMap<String, LintLevel>,
@@ -229,6 +239,7 @@ impl Default for Config {
             indexable_lint_exceptions: DEFAULT_INDEXABLE_EXCEPTIONS.iter().map(|class| (*class).to_owned()).collect(),
             nominal_domain_mode: None,
             lint_levels: HashMap::new(),
+            unknown_keys: BTreeMap::new(),
             validated_lint_levels: HashMap::new(),
             profile_floor_lints: BTreeSet::new(),
         }
@@ -337,7 +348,18 @@ impl Config {
     fn validate_diagnostics(&mut self) -> Vec<ConfigDiagnostic> {
         let known_lints = canonical_lint_names();
         let disabled_lints = self.disabled_lints.iter().map(String::as_str).collect::<BTreeSet<_>>();
-        let mut diagnostics = Vec::new();
+        let mut diagnostics = self
+            .unknown_keys
+            .keys()
+            .map(|key| {
+                ConfigDiagnostic::new(
+                    ConfigDiagnosticKind::UnknownConfigKey,
+                    "octet",
+                    key,
+                    format!("unknown octet config key in `dylint.toml`: `{key}`"),
+                )
+            })
+            .collect::<Vec<_>>();
         let mut unknown_disabled_lints = BTreeSet::new();
 
         for lint_name in &self.disabled_lints {
@@ -421,8 +443,9 @@ fn prefer_octet_or_legacy_config(octet: Option<Config>, slotcar: Option<Config>,
 /// # Panics
 ///
 /// Panics when Dylint returns malformed TOML for the Octet, Slotcar, or
-/// Tigerstyle config sections; invalid lint names and levels are reported as
-/// warnings instead of panics after parsing succeeds.
+/// Tigerstyle config sections; unknown config keys, invalid lint names, and
+/// invalid levels are reported as warnings instead of panics after parsing
+/// succeeds.
 pub fn load(sess: &rustc_session::Session) -> Config {
     let mut cfg = prefer_octet_or_legacy_config(
         dylint_linting::config::<Config>(env!("CARGO_PKG_NAME")).unwrap_or_else(|error| {
@@ -545,6 +568,34 @@ mod tests {
         let parsed = toml::from_str::<Wrapper>("[octet]\nnominal_domain_mode = \"enforce-everything\"\n");
 
         assert!(parsed.is_err());
+    }
+
+    #[test]
+    fn unknown_config_keys_warn_without_failing_validation() {
+        let (cfg, warnings) = parse_and_validate(
+            "[octet]\nmax_parameters = 6\ndisabled_lint = [\"no_unwrap\"]\n\n[octet.lint-levels]\nno_unwrap = \"deny\"\n",
+        );
+
+        assert_eq!(warnings, vec![
+            "unknown octet config key in `dylint.toml`: `disabled_lint`",
+            "unknown octet config key in `dylint.toml`: `lint-levels`",
+        ]);
+        assert_eq!(cfg.max_parameters, 6);
+        assert!(!cfg.lint_is_disabled("no_unwrap"));
+        assert_eq!(cfg.lint_level("no_unwrap"), None);
+    }
+
+    #[test]
+    fn unknown_config_keys_report_typed_diagnostics() {
+        let (_cfg, diagnostics) =
+            parse_and_validate_diagnostics("[octet]\nnot_a_key = 1\n\n[octet.lint_levels]\nno_unwrap = \"deny\"\n");
+
+        assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+        assert_eq!(diagnostics[0].kind, ConfigDiagnosticKind::UnknownConfigKey);
+        assert_eq!(diagnostics[0].kind.as_str(), "unknown_config_key");
+        assert_eq!(diagnostics[0].source, "dylint.toml");
+        assert_eq!(diagnostics[0].field, "octet");
+        assert_eq!(diagnostics[0].item, "not_a_key");
     }
 
     #[test]

@@ -79,7 +79,7 @@ Rules to keep straight:
 | `disabled_lints` | `[]` | all lints | bare lint names only; disabled lints do not register |
 | `[octet.lint_levels]` | `{}` | all lints | bare lint names mapped to `allow`, `warn`, or `deny` |
 
-Unknown lint names and invalid level values warn and are ignored.
+Unknown config keys (such as a misspelled `[octet.lint-levels]` table or `disabled_lint` key), unknown lint names, and invalid level values warn and are ignored.
 
 ## Safety lints (`tigerstyle::safety`)
 

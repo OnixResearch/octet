@@ -119,7 +119,8 @@ in two knobs:
 Per-lint config rules to preserve in every consumer example:
 
 - omitted `disabled_lints` / `lint_levels` default to empty collections
-- unknown lint names and invalid level values warn and are ignored
+- unknown config keys (such as a misspelled `[octet.lint-levels]` table),
+  unknown lint names, and invalid level values warn and are ignored
 - `disabled_lints` wins over `lint_levels` and source-level lint attrs because
   disabled lints are not registered
 - explicit command-line levels such as `-D numeric_units` in
@@ -339,7 +340,8 @@ The template separates four things that should stay consumer-owned:
 Rules for the per-lint controls:
 
 - omitted `disabled_lints` and `lint_levels` default to empty collections
-- unknown lint names and invalid level values warn and are ignored
+- unknown config keys, unknown lint names, and invalid level values warn and
+  are ignored
 - `disabled_lints` and `[octet.lint_levels]` keep bare lint-name keys such
   as `no_unwrap`; source attrs and group attrs use current live tool names such as
   `tigerstyle::no_unwrap` and `tigerstyle::safety`
