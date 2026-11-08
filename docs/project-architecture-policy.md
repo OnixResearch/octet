@@ -85,6 +85,8 @@ Every selected source root needs a role, including build scripts outside `src`. 
 
 Octet writes one content-bound shard for each selected compilation unit. The shard records resolved items, types, traits, implementations, signatures, calls, constructors, effects, expansions, and active configuration.
 
+Each unit identity binds its package source envelope: the package `Cargo.toml` and every `.rs` file below the package directory, including nested packages such as `fuzz/`. Build and evidence directory names such as `target` and `.octet` are excluded only in a directory that holds a `Cargo.toml`, so `fuzz/target/` is excluded while a module directory such as `src/target/` stays in the envelope. Non-`.rs` inputs, such as files read through `include_str!`, are not part of the envelope. Before collection, Octet keeps a cached shard only when it is the single cached shard for an expected unit; when one unit has several cached shards, all of them are discarded.
+
 Calls inside constant and static initializers retain their actual compiler-owned caller items.
 Named, associated, inline, and anonymous constants use the existing constant item kind.
 Only function item owners request function signatures. Expression owners have private visibility, without a named-item visibility query.

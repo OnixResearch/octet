@@ -441,13 +441,21 @@ fn prepare_shard_directory(
         clear_shard_directory(directory)?;
         return Ok(());
     }
-    let mut retained_unit_ids = std::collections::BTreeSet::new();
+    // A unit with several cached shards has no trustworthy cache entry, so every one of them is
+    // discarded.
+    let mut cached_units = Vec::with_capacity(paths.len());
+    let mut unit_shard_counts = BTreeMap::<&str, usize>::new();
     for path in paths {
-        let cached = read_cached_shard(&path, max_shard_bytes);
-        let keep = cached.is_ok_and(|shard| {
-            expected_unit_ids.contains(shard.unit.unit_id.as_str()) && retained_unit_ids.insert(shard.unit.unit_id)
-        });
-        if !keep {
+        let unit_id = read_cached_shard(&path, max_shard_bytes)
+            .ok()
+            .and_then(|shard| expected_unit_ids.get(shard.unit.unit_id.as_str()).copied());
+        if let Some(unit_id) = unit_id {
+            *unit_shard_counts.entry(unit_id).or_default() += 1;
+        }
+        cached_units.push((path, unit_id));
+    }
+    for (path, unit_id) in cached_units {
+        if unit_id.and_then(|unit_id| unit_shard_counts.get(unit_id)) != Some(&1) {
             remove_shard_entry(&path)?;
         }
     }
@@ -1040,6 +1048,10 @@ fn package_source_identity(
     ))
 }
 
+/// Collects `.rs` files below `directory`. Build and evidence directory names are excluded only
+/// beside a `Cargo.toml` (the package root or a nested package or workspace root such as `fuzz/`),
+/// so a module directory such as `src/target/` stays part of the source envelope while
+/// `fuzz/target/` does not.
 fn collect_rust_sources(
     directory: &Path,
     files: &mut Vec<PathBuf>,
@@ -1049,6 +1061,7 @@ fn collect_rust_sources(
     if !directory.exists() {
         return Ok(());
     }
+    let manifest_directory = directory.join("Cargo.toml").is_file();
     let mut paths = Vec::new();
     let entries = fs::read_dir(directory)
         .map_err(|error| format!("read package source directory {}: {error}", directory.display()))?;
@@ -1063,10 +1076,11 @@ fn collect_rust_sources(
     }
     paths.sort();
     for path in paths {
-        if path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .is_some_and(|name| SOURCE_BUILD_DIRECTORIES.contains(&name))
+        if manifest_directory
+            && path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| SOURCE_BUILD_DIRECTORIES.contains(&name))
         {
             continue;
         }
@@ -1221,7 +1235,7 @@ mod tests {
     }
 
     #[test]
-    fn cache_preparation_keeps_at_most_one_shard_per_expected_unit() {
+    fn cache_preparation_discards_every_shard_of_a_duplicated_unit() {
         let fixture = tempfile::tempdir().expect("create cache fixture");
         let first = cached_shard(FIXTURE_HASH_A, FIXTURE_HASH_B);
         let second = cached_shard(FIXTURE_HASH_A, FIXTURE_HASH_C);
@@ -1233,7 +1247,58 @@ mod tests {
             .expect("prepare duplicate cache");
 
         let retained = fs::read_dir(fixture.path()).expect("read prepared cache").count();
-        assert_eq!(retained, 1);
+        assert_eq!(retained, 0, "an ambiguous cached unit must not keep an arbitrary shard");
+    }
+
+    #[test]
+    fn cache_preparation_keeps_one_shard_per_expected_unit() {
+        let fixture = tempfile::tempdir().expect("create cache fixture");
+        write_cached_shard(fixture.path(), "kept.json", &cached_shard(FIXTURE_HASH_A, FIXTURE_HASH_B));
+        write_cached_shard(fixture.path(), "stale.json", &cached_shard(FIXTURE_HASH_C, FIXTURE_HASH_B));
+        let expected = std::collections::BTreeSet::from([FIXTURE_HASH_A]);
+
+        prepare_shard_directory(fixture.path(), &expected, MAX_INGESTION_FIXTURE_SHARDS, MAX_CACHE_FIXTURE_SHARD_BYTES)
+            .expect("prepare cache");
+
+        assert!(fixture.path().join("kept.json").is_file());
+        assert!(!fixture.path().join("stale.json").exists());
+    }
+
+    #[test]
+    fn source_identity_excludes_build_directories_only_beside_a_manifest() {
+        let workspace = tempfile::tempdir().expect("create source fixture");
+        let package = workspace.path().join("member");
+        for (relative, contents) in [
+            ("Cargo.toml", "[package]\nname = \"member\"\n"),
+            ("src/lib.rs", "mod target;\n"),
+            ("src/target/mod.rs", "pub fn nested() {}\n"),
+            ("target/debug/build/out.rs", "pub fn generated() {}\n"),
+            ("fuzz/Cargo.toml", "[package]\nname = \"member-fuzz\"\n"),
+            ("fuzz/fuzz_targets/parse.rs", "fn main() {}\n"),
+            ("fuzz/target/debug/out.rs", "pub fn fuzz_generated() {}\n"),
+        ] {
+            let path = package.join(relative);
+            fs::create_dir_all(path.parent().expect("fixture parent")).expect("create fixture parent");
+            fs::write(path, contents).expect("write source fixture");
+        }
+        let identity = || package_source_identity(workspace.path(), "member", 64, 4096).expect("source identity");
+        let original = identity();
+
+        fs::write(package.join("target/debug/build/out.rs"), "pub fn regenerated() {}\n")
+            .expect("change root build output");
+        assert_eq!(identity(), original, "package-root build output is not source");
+
+        fs::write(package.join("fuzz/target/debug/out.rs"), "pub fn fuzz_regenerated() {}\n")
+            .expect("change nested package build output");
+        assert_eq!(identity(), original, "nested package build output is not source");
+
+        fs::write(package.join("src/target/mod.rs"), "pub fn changed() {}\n").expect("change nested module");
+        let module_changed = identity();
+        assert_ne!(module_changed, original, "a module directory named like a build directory is source");
+
+        fs::write(package.join("fuzz/fuzz_targets/parse.rs"), "fn main() { let _ = 1; }\n")
+            .expect("change nested package source");
+        assert_ne!(identity(), module_changed, "nested package sources stay in the envelope");
     }
 
     #[test]
