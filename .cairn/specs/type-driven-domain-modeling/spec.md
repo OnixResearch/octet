@@ -142,6 +142,7 @@ r[octet.type_driven_domain_modeling.wrapper_contract.bypass]
 - GIVEN a refined digest, path, token, secret, or bounded identifier has a public inner field or unrestricted primitive `From` conversion
 - WHEN `newtype_invariant_bypass` checks the wrapper
 - THEN Octet MUST report the unchecked construction path.
+- AND a `From` input or `Deref` target that borrows the raw representation (`&String`, `str`, or `&str` for `String` storage; `Path` or `&Path` for `PathBuf` storage) MUST count as that representation.
 
 #### Scenario: Explicit checked wrapper passes
 
