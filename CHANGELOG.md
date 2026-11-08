@@ -6,6 +6,62 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## Unreleased: cache inputs, runner variables, CLI flags, and proof receipt fixes
+
+Behaviour and format changes:
+
+- The runner reads `OCTET_DRIVER_PATH`, `OCTET_LINT_LIB`, `OCTET_TOOLCHAIN`,
+  and `OCTET_DYLINT_REV`, as the consumer guide documents. The `TIGERSTYLE_*`
+  names remain aliases, used only when the `OCTET_*` name is unset; an empty or
+  non-UTF-8 value is an error and never falls back to the alias. The Nix-wrapped
+  binaries now set the `OCTET_*` names.
+- `cargo octet check` exits `2` before Cargo runs when `--function-address-path`
+  leaves the workspace root (a `..` component, an absolute path elsewhere, or a
+  symlink out of the root), or when `--function-address-path` or
+  `--function-address-baseline` is given while function-address checks are off:
+  no `--function-addresses observe|warn|deny` and no strict profile from
+  `--profile` or the workspace's architecture admission binding.
+- `cargo octet fingerprint` rejects conflicting or repeated mode flags
+  (`--check`, `--write`, `--update`, `--diff`).
+- `cargo octet prove` writes to `artifacts/octet-proofs` by default and refuses
+  an unsuitable `--artifact-dir` before running any verifier.
+- `cargo octet evidence-index` actions reject flags that belong to another
+  action; `codebase query --output q.json`, for example, used to print to
+  stdout and never write the file.
+- `octet-standards` proof receipts fail when configured
+  `verifier_build_closure_paths` or `verifier_nix_closure_paths` match no
+  checked file, instead of trusting the configured digest, and Verus package
+  locks derive their Nix closure digest from those files. Proof-rail path
+  patterns that are absolute or contain `..` are rejected and bind nothing.
+- Aeneas consumer receipts must carry exactly the five stage-artifact roles,
+  with `rust-source` and `maintained-theorem` bound to the selected source and
+  approved theorem.
+- `export-artifacts --verification-command` records those commands with the new
+  status `recorded`, not `passed`, because it never runs them.
+- `lib.mkPolicyArtifactConsumerCheck` can assert a nonzero
+  `expectedDiagnostics`; it accepts exit `1` only when the report carries
+  blocking diagnostics, so config and usage errors still fail.
+
+Fixes:
+
+- Octet records `OCTET_STRICT_PROFILE` and `DYLINT_RUSTFLAGS` as compile
+  inputs. A `--profile` run after a plain `cargo octet check`, or the deny-all
+  hook on a warm `target/`, used to replay cached warnings and exit `0`.
+- `cargo run --manifest-path <octet>/cargo-octet/Cargo.toml -- check` picks the
+  `cargo-octet` binary instead of failing.
+- `evidence-index codebase build` skips its own `--output` file during
+  directory scans, and the docs write the index outside the check bundle so
+  `cargo octet artifact verify` stays valid.
+- Aeneas theorem checks catch `True` statements behind binders such as
+  `∀ n : Nat, True`.
+- Docs: the consumer policy-check examples use the registry ID
+  `tigerstyle.embedded.bounded-queues`; the rollout examples and starter
+  `dylint.toml` disable every newer warn-by-default lint so they enable exactly
+  the lints they name; the config reference lists `excessive_file_length_max`,
+  `module_file_count_max`, and `max_parameters`; the release, Verus `prove`,
+  and Nickel manifest commands run as written; `cargo octet transcript` is
+  described as a structural check that runs no commands.
+
 ## Unreleased: exit codes, evidence rails, verify, standards, and purity lint fixes
 
 Behaviour and format changes:
