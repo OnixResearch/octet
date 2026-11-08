@@ -61,6 +61,21 @@ fn consumer_receipt_tampering_cannot_survive_formal_or_valence_validation() {
 }
 
 #[test]
+fn consumer_receipt_missing_stage_artifact_roles_cannot_survive_validation() {
+    let mut llbc_only = checked_envelope();
+    let consumer = llbc_only.consumer.as_mut().expect("consumer");
+    consumer.stage_artifacts.retain(|artifact| artifact.role == "llbc");
+    refresh_consumer_identity(&mut llbc_only);
+
+    let diagnostics = validate_formal_proof_envelope(&llbc_only);
+
+    assert!(
+        diagnostics.iter().any(|diagnostic| diagnostic.contains("stage artifacts")),
+        "receipt missing required stage roles must fail: {diagnostics:?}"
+    );
+}
+
+#[test]
 fn consumer_receipt_schema_rejects_unknown_fields() {
     let mut value: serde_json::Value = serde_json::from_str(CHECKED_RECEIPT).expect("checked receipt JSON");
     value["consumer"]["unknown_authority"] = serde_json::Value::Bool(true);

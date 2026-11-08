@@ -311,6 +311,50 @@ fn incomplete_blocker_and_receipt_tampering_cannot_promote() {
 }
 
 #[test]
+fn receipt_stage_artifacts_must_cover_exact_roles_and_bound_identities() {
+    let profile = selected_profile().expect("profile");
+    let llbc = llbc();
+    let translation = translation();
+    let valid = build_binding(&profile, PROFILE_IDENTITY, &input(&llbc, &translation), ConsumerOutcome::Supported)
+        .expect("valid receipt");
+    assert_eq!(validate_receipt(&valid), Vec::<String>::new());
+
+    let mut missing_role = valid.clone();
+    missing_role.stage_artifacts.retain(|artifact| artifact.role != "generated-lean");
+
+    let mut extra_role = valid.clone();
+    extra_role.stage_artifacts.push(ConsumerArtifactIdentity {
+        role: "invented-stage".to_owned(),
+        blake3: DIAGNOSTIC.to_owned(),
+    });
+
+    let mut source_drift = valid.clone();
+    source_drift.stage_artifacts[0].blake3 = DIAGNOSTIC.to_owned();
+
+    let mut theorem_drift = valid;
+    let theorem = theorem_drift
+        .stage_artifacts
+        .iter_mut()
+        .find(|artifact| artifact.role == "maintained-theorem")
+        .expect("maintained theorem artifact");
+    theorem.blake3 = DIAGNOSTIC.to_owned();
+
+    for (name, mut receipt) in [
+        ("missing role", missing_role),
+        ("extra role", extra_role),
+        ("rust-source drift", source_drift),
+        ("maintained-theorem drift", theorem_drift),
+    ] {
+        receipt.receipt_identity = receipt_identity(&receipt).expect("receipt identity");
+        let diagnostics = validate_receipt(&receipt);
+        assert!(
+            diagnostics.iter().any(|diagnostic| diagnostic.contains("stage artifacts")),
+            "{name} must fail stage artifact validation: {diagnostics:?}"
+        );
+    }
+}
+
+#[test]
 fn profile_json_rejects_unknown_fields() {
     let text = include_str!("../../../../standards/proof-rails/aeneas-lean/generated/consumer-profile.json");
     let mut value: serde_json::Value = serde_json::from_str(text).expect("profile JSON");

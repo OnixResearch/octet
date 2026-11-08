@@ -246,17 +246,18 @@ fn generated_declaration_present(generated_name: &str, text: &str) -> bool {
 }
 
 fn stage_artifacts(input: &ObservationInput<'_>) -> Vec<ConsumerArtifactIdentity> {
-    [
-        ("rust-source", input.source_text),
-        ("llbc", input.llbc_text),
-        ("translation-manifest", input.translation_text),
-        ("generated-lean", input.generated_lean_text),
-        ("maintained-theorem", input.theorem_text),
-    ]
-    .into_iter()
-    .map(|(role, text)| ConsumerArtifactIdentity {
-        role: role.to_owned(),
-        blake3: super::prefixed_identity(text.as_bytes()),
-    })
-    .collect()
+    super::STAGE_ARTIFACT_ROLES
+        .into_iter()
+        .zip([
+            input.source_text,
+            input.llbc_text,
+            input.translation_text,
+            input.generated_lean_text,
+            input.theorem_text,
+        ])
+        .map(|(role, text)| ConsumerArtifactIdentity {
+            role: role.to_owned(),
+            blake3: super::prefixed_identity(text.as_bytes()),
+        })
+        .collect()
 }

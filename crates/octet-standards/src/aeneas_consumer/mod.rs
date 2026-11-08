@@ -45,6 +45,20 @@ pub const REQUIRED_NON_CLAIMS: [&str; 5] = [
     "does not establish release eligibility",
 ];
 
+const STAGE_ROLE_RUST_SOURCE: &str = "rust-source";
+const STAGE_ROLE_LLBC: &str = "llbc";
+const STAGE_ROLE_TRANSLATION_MANIFEST: &str = "translation-manifest";
+const STAGE_ROLE_GENERATED_LEAN: &str = "generated-lean";
+const STAGE_ROLE_MAINTAINED_THEOREM: &str = "maintained-theorem";
+/// Exact stage-artifact roles every consumer receipt binds, in emission order.
+const STAGE_ARTIFACT_ROLES: [&str; 5] = [
+    STAGE_ROLE_RUST_SOURCE,
+    STAGE_ROLE_LLBC,
+    STAGE_ROLE_TRANSLATION_MANIFEST,
+    STAGE_ROLE_GENERATED_LEAN,
+    STAGE_ROLE_MAINTAINED_THEOREM,
+];
+
 const PROFILE_JSON: &str =
     include_str!("../../../../standards/proof-rails/aeneas-lean/generated/consumer-profile.json");
 const BLAKE3_HEX_LENGTH: usize = 64;
