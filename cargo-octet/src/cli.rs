@@ -468,7 +468,7 @@ Usage:
   cargo octet object supplement check --family hir|thir|mir [--spike rustc-hir-fixture|rustc-thir-fixture|rustc-mir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow|call-return] --receipt RECEIPT.json [--function NAME] [PATHS...]
   cargo octet provider-manifest export --driver PATH --lint-library PATH --config PATH [--standards-policy PATH]
   cargo octet provider-manifest validate --manifest PATH
-  cargo octet prove --policy-artifacts-dir PATH --source PATH --artifact-dir PATH [--rail POLICY[#rail-N]] [--list] [--explain] [--output-format human|json]
+  cargo octet prove --policy-artifacts-dir PATH --source PATH [--artifact-dir artifacts/octet-proofs] [--rail POLICY[#rail-N]] [--list] [--explain] [--output-format human|json]
   cargo octet proof-ref validate --proof-cards PATH --ref PATH [--output-format human|json]
   cargo octet proof-ref scaffold --proof-cards PATH --proof-or-property-id ID --reference-id ID --consumer-context TEXT --consumer-source PATH --anchor TEXT [--output PATH]
   cargo octet roadmap <artifact|capsule|ability|pointer|session|pure-cache> ...
@@ -578,7 +578,7 @@ Exports or validates the deterministic Octet compiler-policy provider manifest c
 
 const PROVE_HELP: &str = "cargo octet prove
 
-Options: --registry PATH or --policy-artifacts-dir PATH, --source PATH (repeatable), --family NAME, --rail POLICY[#rail-N], --artifact-dir PATH, --list, --explain, --output-format human|json.
+Options: --registry PATH or --policy-artifacts-dir PATH, --source PATH (repeatable), --family NAME, --rail POLICY[#rail-N], --artifact-dir PATH (default artifacts/octet-proofs), --list, --explain, --output-format human|json.
 
 Runs selected standards proof rails through argv-based commands, writes structured proof receipts under the artifact directory, emits formal_proof provenance only for validated receipts with verifier identity and proof artifact identity, and keeps ordinary cargo octet check behavior unchanged. Use --rail to narrow selection to one policy or property ID, --list to show selected rails without executing them, and --explain to prefix failure diagnostics with remediation context.
 ";
@@ -2316,7 +2316,7 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
         source,
         family,
         rail,
-        artifact_dir: artifact_dir.unwrap_or_else(|| PathBuf::from("artifacts/octet")),
+        artifact_dir: artifact_dir.unwrap_or_else(|| PathBuf::from("artifacts/octet-proofs")),
         output_format,
         command_line,
         list,
@@ -3769,6 +3769,30 @@ mod tests {
                     "octet.verus_proof_rails.ordering-reflexive-production".to_owned(),
                 ]);
                 assert_eq!(args.output_format, OutputFormat::Json);
+            }
+            other => panic!("expected prove args, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn prove_parse_defaults_artifact_dir_to_proof_bundle_directory() {
+        let parsed = parse(
+            [
+                "cargo",
+                "octet",
+                "prove",
+                "--registry",
+                "octet-policies.json",
+                "--source",
+                "src/verified",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse prove args without artifact dir");
+
+        match parsed {
+            CommandArgs::Prove(args) => {
+                assert_eq!(args.artifact_dir, std::path::PathBuf::from("artifacts/octet-proofs"));
             }
             other => panic!("expected prove args, got {other:?}"),
         }

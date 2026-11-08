@@ -342,6 +342,7 @@ pub fn run(args: &ProveArgs) -> Result<i32, String> {
         });
     }
 
+    ensure_artifact_dir_reusable(&args.artifact_dir)?;
     let mut diagnostics = rail_selection.diagnostics;
     if selected_rails.is_empty() {
         diagnostics.push("no selected proof rails matched the provided sources".to_owned());
@@ -1548,28 +1549,42 @@ fn failed_receipt_text(policy_id: &str, rail_index: usize, diagnostics: &[String
     format!("{}\n", serde_json::to_string_pretty(&value).expect("failed receipt json"))
 }
 
+/// Refuses an artifact directory `prepare_artifact_dir` would reject, without creating or pruning
+/// it, so a foreign directory fails before any verifier runs rather than after every selected rail.
+fn ensure_artifact_dir_reusable(artifact_dir: &Path) -> Result<(), String> {
+    let exists = artifact_dir
+        .try_exists()
+        .map_err(|error| format!("inspect artifact directory {}: {error}", artifact_dir.display()))?;
+    if exists {
+        reusable_artifact_entries(&ArtifactRoot::open_existing(artifact_dir)?, artifact_dir)?;
+    }
+    Ok(())
+}
+
 /// Opens the artifact directory the way `cargo octet check` does: only an empty directory or an
 /// earlier prove bundle may be reused. An earlier bundle is cleared first, so receipts, logs,
 /// Aeneas stage artifacts, or an evidence-log manifest from a previous run cannot survive into this
 /// one.
 fn prepare_artifact_dir(artifact_dir: &Path) -> Result<ArtifactRoot, String> {
     let artifact_root = ArtifactRoot::open_or_create(artifact_dir)?;
-    let entries = artifact_root.read_entry_names()?;
-    if entries.is_empty() {
-        return Ok(artifact_root);
-    }
-    if !is_existing_prove_bundle(&artifact_root)? {
-        return Err(format!(
-            "refusing to use artifact directory {}: it is not empty and is not an existing `cargo octet prove` bundle \
-             (missing `{PROVENANCE_ARTIFACT_NAME}` or a `{STATUS_ARTIFACT_NAME}` with bundle_kind `{BUNDLE_KIND_PROVE}`); \
-             choose a new or empty directory",
-            artifact_dir.display()
-        ));
-    }
-    for entry in entries {
+    for entry in reusable_artifact_entries(&artifact_root, artifact_dir)? {
         artifact_root.remove_file_or_dir_all(&RootRelativePath::new(entry.as_str())?)?;
     }
     Ok(artifact_root)
+}
+
+/// The entries of an empty directory or an earlier prove bundle; any other directory is refused.
+fn reusable_artifact_entries(artifact_root: &ArtifactRoot, artifact_dir: &Path) -> Result<Vec<String>, String> {
+    let entries = artifact_root.read_entry_names()?;
+    if entries.is_empty() || is_existing_prove_bundle(artifact_root)? {
+        return Ok(entries);
+    }
+    Err(format!(
+        "refusing to use artifact directory {}: it is not empty and is not an existing `cargo octet prove` bundle \
+         (missing `{PROVENANCE_ARTIFACT_NAME}` or a `{STATUS_ARTIFACT_NAME}` with bundle_kind `{BUNDLE_KIND_PROVE}`); \
+         choose a new or empty directory",
+        artifact_dir.display()
+    ))
 }
 
 fn is_existing_prove_bundle(artifact_root: &ArtifactRoot) -> Result<bool, String> {
@@ -3307,21 +3322,28 @@ mod tests {
     }
 
     #[test]
-    fn prove_refuses_non_empty_artifact_directory_that_is_not_a_prove_bundle() {
+    fn prove_refuses_non_empty_artifact_directory_that_is_not_a_prove_bundle_before_running_rails() {
         let temp = tempfile::tempdir().expect("tempdir");
         let source = write_fixture_source(temp.path());
         write_fixture_proof(temp.path());
-        let registry = write_fixture_registry(temp.path(), PASS_SIGNAL, command_argv(PASS_SIGNAL));
+        let rail_marker = temp.path().join("rail-ran");
+        let script = format!(": > '{}'; printf '%s\\n' '{PASS_SIGNAL}'", rail_marker.display());
+        let registry = write_fixture_registry(temp.path(), PASS_SIGNAL, vec!["sh".to_owned(), "-c".to_owned(), script]);
         let artifact_dir = temp.path().join("artifacts-foreign");
         fs::create_dir_all(&artifact_dir).expect("create foreign directory");
         fs::write(artifact_dir.join("notes.txt"), "operator notes\n").expect("write foreign file");
 
-        let error = run(&fixture_args(registry, vec![source], artifact_dir.clone()))
+        let error = run(&fixture_args(registry.clone(), vec![source.clone()], artifact_dir.clone()))
             .expect_err("foreign artifact directory must be refused");
 
         assert!(error.contains("refusing to use artifact directory"), "unexpected error: {error}");
+        assert!(!rail_marker.exists(), "proof rails must not run before the artifact directory is accepted");
         assert!(artifact_dir.join("notes.txt").is_file(), "foreign files must not be removed");
         assert!(!artifact_dir.join(STATUS_ARTIFACT_NAME).exists());
+
+        let fresh_dir = temp.path().join("artifacts-fresh");
+        assert_eq!(run(&fixture_args(registry, vec![source], fresh_dir)).expect("prove run"), EXIT_PROOF_VALID);
+        assert!(rail_marker.is_file(), "the fixture rail runs once the artifact directory is acceptable");
     }
 
     #[test]
