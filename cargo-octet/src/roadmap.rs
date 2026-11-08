@@ -551,6 +551,9 @@ struct PointerReceipt {
     schema_version: u32,
     name: String,
     target_kind: String,
+    /// Artifact kind of the replaced target; absent in receipts written before it was recorded.
+    #[serde(default)]
+    old_kind: Option<String>,
     old_hash: Option<String>,
     new_hash: String,
     rollback_hint: String,
@@ -559,6 +562,7 @@ struct PointerReceipt {
 fn pointer_set(registry_path: &Path, name: &str, kind: &str, hash: &str, receipt_path: &Path) -> Result<i32, String> {
     let mut registry = read_registry(registry_path)?;
     let old_target = registry.pointers.get(name).cloned();
+    let old_kind = old_target.as_ref().map(|target| target.artifact_kind.clone());
     let old_hash = old_target.as_ref().map(|target| target.hash.clone());
     if let Some(target) = old_target {
         registry.history.entry(name.to_owned()).or_default().push(target);
@@ -572,6 +576,7 @@ fn pointer_set(registry_path: &Path, name: &str, kind: &str, hash: &str, receipt
         schema_version: SCHEMA_VERSION,
         name: name.to_owned(),
         target_kind: kind.to_owned(),
+        old_kind,
         old_hash,
         new_hash: hash.to_owned(),
         rollback_hint: format!(
@@ -605,26 +610,49 @@ fn pointer_inspect(registry_path: &Path, name: &str) -> Result<i32, String> {
 fn pointer_rollback(registry_path: &Path, receipt_path: &Path) -> Result<i32, String> {
     let receipt: PointerReceipt =
         serde_json::from_value(read_json(receipt_path)?).map_err(|error| format!("parse receipt: {error}"))?;
+    let Some(old_hash) = receipt.old_hash.clone() else {
+        return Err("receipt has no old_hash; cannot rollback initial pointer creation".to_owned());
+    };
     let mut registry = read_registry(registry_path)?;
-    if let Some(old_hash) = receipt.old_hash.clone() {
-        if let Some(current) = registry.pointers.get(&receipt.name).cloned() {
-            registry.history.entry(receipt.name.clone()).or_default().push(current);
-        }
-        registry.pointers.insert(receipt.name.clone(), PointerTarget {
-            artifact_kind: receipt.target_kind.clone(),
-            hash: old_hash.clone(),
-        });
-        write_json(registry_path, &registry)?;
-        print_json(&serde_json::json!({
-            "schema_version": SCHEMA_VERSION,
-            "status": "rolled-back",
-            "name": receipt.name,
-            "restored_hash": old_hash,
-        }))?;
-        Ok(0)
-    } else {
-        Err("receipt has no old_hash; cannot rollback initial pointer creation".to_owned())
+    let name = receipt.name.clone();
+    let current = registry
+        .pointers
+        .get(&name)
+        .cloned()
+        .ok_or_else(|| format!("name `{name}` is not registered; cannot roll back receipt"))?;
+    if current.hash != receipt.new_hash || current.artifact_kind != receipt.target_kind {
+        return Err(format!(
+            "pointer `{name}` currently targets {} `{}`, not the receipt's {} `{}`; refusing to roll back a receipt superseded by a later update",
+            current.artifact_kind, current.hash, receipt.target_kind, receipt.new_hash
+        ));
     }
+    let old_kind = match receipt.old_kind {
+        Some(old_kind) => old_kind,
+        None => registry
+            .history
+            .get(&name)
+            .and_then(|history| history.iter().rev().find(|target| target.hash == old_hash))
+            .map(|target| target.artifact_kind.clone())
+            .ok_or_else(|| {
+                format!(
+                    "receipt has no old_kind and history for `{name}` has no `{old_hash}` target; cannot restore the previous artifact kind"
+                )
+            })?,
+    };
+    registry.history.entry(name.clone()).or_default().push(current);
+    registry.pointers.insert(name.clone(), PointerTarget {
+        artifact_kind: old_kind.clone(),
+        hash: old_hash.clone(),
+    });
+    write_json(registry_path, &registry)?;
+    print_json(&serde_json::json!({
+        "schema_version": SCHEMA_VERSION,
+        "status": "rolled-back",
+        "name": name,
+        "restored_hash": old_hash,
+        "restored_artifact_kind": old_kind,
+    }))?;
+    Ok(0)
 }
 
 fn session_check(input: &Path) -> Result<i32, String> {

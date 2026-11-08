@@ -569,6 +569,114 @@ fn name_pointer_updates_are_rollbackable() {
     assert_eq!(rolled_back["target_hash"], "b3:old");
 }
 
+fn pointer_set(registry: &Path, kind: &str, hash: &str, receipt: &Path, cwd: &Path) -> serde_json::Value {
+    stdout_json(&run(
+        &[
+            "roadmap",
+            "pointer",
+            "set",
+            "--registry",
+            registry.to_str().unwrap(),
+            "--name",
+            "done-review",
+            "--kind",
+            kind,
+            "--hash",
+            hash,
+            "--receipt",
+            receipt.to_str().unwrap(),
+        ],
+        cwd,
+    ))
+}
+
+fn pointer_rollback(registry: &Path, receipt: &Path, cwd: &Path) -> std::process::Output {
+    run(
+        &[
+            "roadmap",
+            "pointer",
+            "rollback",
+            "--registry",
+            registry.to_str().unwrap(),
+            "--receipt",
+            receipt.to_str().unwrap(),
+        ],
+        cwd,
+    )
+}
+
+fn pointer_inspect(registry: &Path, cwd: &Path) -> serde_json::Value {
+    stdout_json(&run(
+        &[
+            "roadmap",
+            "pointer",
+            "inspect",
+            "--registry",
+            registry.to_str().unwrap(),
+            "--name",
+            "done-review",
+        ],
+        cwd,
+    ))
+}
+
+#[test]
+fn pointer_rollback_restores_previous_artifact_kind() {
+    let temp = tempfile::tempdir().unwrap();
+    let registry = temp.path().join("registry.json");
+    let receipt1 = temp.path().join("receipt1.json");
+    let receipt2 = temp.path().join("receipt2.json");
+    pointer_set(&registry, "prompt", "b3:old", &receipt1, temp.path());
+    let update = pointer_set(&registry, "policy", "b3:new", &receipt2, temp.path());
+    assert_eq!(update["old_kind"], "prompt");
+
+    stdout_json(&pointer_rollback(&registry, &receipt2, temp.path()));
+    let rolled_back = pointer_inspect(&registry, temp.path());
+    assert_eq!(rolled_back["target_hash"], "b3:old");
+    assert_eq!(rolled_back["target_artifact_kind"], "prompt");
+}
+
+#[test]
+fn pointer_rollback_recovers_previous_kind_for_receipts_without_old_kind() {
+    let temp = tempfile::tempdir().unwrap();
+    let registry = temp.path().join("registry.json");
+    let receipt1 = temp.path().join("receipt1.json");
+    let receipt2 = temp.path().join("receipt2.json");
+    pointer_set(&registry, "prompt", "b3:old", &receipt1, temp.path());
+    pointer_set(&registry, "policy", "b3:new", &receipt2, temp.path());
+    let mut legacy_receipt: serde_json::Value = serde_json::from_str(&fs::read_to_string(&receipt2).unwrap()).unwrap();
+    legacy_receipt.as_object_mut().unwrap().remove("old_kind");
+    write_json(&receipt2, legacy_receipt);
+
+    stdout_json(&pointer_rollback(&registry, &receipt2, temp.path()));
+    let rolled_back = pointer_inspect(&registry, temp.path());
+    assert_eq!(rolled_back["target_hash"], "b3:old");
+    assert_eq!(rolled_back["target_artifact_kind"], "prompt");
+}
+
+#[test]
+fn pointer_rollback_rejects_receipts_superseded_by_later_updates() {
+    let temp = tempfile::tempdir().unwrap();
+    let registry = temp.path().join("registry.json");
+    let receipt1 = temp.path().join("receipt1.json");
+    let receipt2 = temp.path().join("receipt2.json");
+    let receipt3 = temp.path().join("receipt3.json");
+    pointer_set(&registry, "prompt", "b3:old", &receipt1, temp.path());
+    pointer_set(&registry, "prompt", "b3:new", &receipt2, temp.path());
+    pointer_set(&registry, "prompt", "b3:newer", &receipt3, temp.path());
+    let registry_before = fs::read_to_string(&registry).unwrap();
+
+    let stale = pointer_rollback(&registry, &receipt2, temp.path());
+    assert_eq!(stale.status.code(), Some(2), "stdout={}", String::from_utf8_lossy(&stale.stdout));
+    assert!(stderr_text(&stale).contains("b3:newer"), "stderr={}", stderr_text(&stale));
+    assert!(stderr_text(&stale).contains("b3:new`"), "stderr={}", stderr_text(&stale));
+    assert_eq!(fs::read_to_string(&registry).unwrap(), registry_before);
+    assert_eq!(pointer_inspect(&registry, temp.path())["target_hash"], "b3:newer");
+
+    stdout_json(&pointer_rollback(&registry, &receipt3, temp.path()));
+    assert_eq!(pointer_inspect(&registry, temp.path())["target_hash"], "b3:new");
+}
+
 #[test]
 fn session_records_todos_and_migrations_are_typed() {
     let temp = tempfile::tempdir().unwrap();
