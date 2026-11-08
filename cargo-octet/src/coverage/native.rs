@@ -9,7 +9,11 @@ use super::comparison;
 use super::prefixed_identity;
 
 const SUPPORTED_NATIVE_TYPE: &str = "llvm.coverage.json.export";
-const SUPPORTED_NATIVE_VERSION: &str = "2.0.1";
+// 2.0.1 matched the archived cargo-llvm-cov 0.8.3 probe; 3.1.0 is what cargo-llvm-cov 0.8.3 emits
+// with the pinned nightly-2026-03-21 LLVM tools. Both carry the same `data[0].files[].filename` and
+// `data[0].totals.{lines,branches,functions,regions}.{covered,count}` fields that normalization
+// reads.
+const SUPPORTED_NATIVE_VERSIONS: [&str; 2] = ["2.0.1", "3.1.0"];
 const ADJACENT_PATH_COUNT: usize = 2;
 const HEX_CHARACTERS_PER_BYTE: usize = 2;
 const BRANCH_METRIC: &str = "branches";
@@ -65,7 +69,7 @@ fn validate_header(value: &serde_json::Value) -> Result<(), Vec<String>> {
         return Err(vec!["coverage native report type is unsupported".to_owned()]);
     }
     let observed_version = value.get("version").and_then(serde_json::Value::as_str);
-    if observed_version != Some(SUPPORTED_NATIVE_VERSION) {
+    if !observed_version.is_some_and(|version| SUPPORTED_NATIVE_VERSIONS.contains(&version)) {
         return Err(vec!["coverage native report version is unsupported".to_owned()]);
     }
     Ok(())

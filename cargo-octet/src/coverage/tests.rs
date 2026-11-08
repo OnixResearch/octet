@@ -15,6 +15,9 @@ const COVERED_FIELD: &str = "\"covered\":90";
 const PERCENTAGE_ONLY_FIELD: &str = "\"percent\":90.0";
 const TINY_LOG_LIMIT: usize = 2;
 const TOOL_FAILURE_EXIT: i32 = 7;
+const REAL_LLVM_COV_REPORT: &str =
+    include_str!("../../tests/fixtures/evidence-rails/coverage-native-llvm-cov-0.8.3.json");
+const REAL_REPORT_FILE_COUNT: usize = 2;
 
 #[test]
 fn profile_registry_and_identity_are_fresh() {
@@ -30,6 +33,29 @@ fn profile_registry_and_identity_are_fresh() {
         profile.command_argv.contains(&"--branch".to_owned()),
         "the branches metric needs cargo-llvm-cov branch instrumentation"
     );
+}
+
+#[test]
+fn real_cargo_llvm_cov_export_versions_normalize_and_unknown_versions_fail() {
+    // r[verify octet.coverage_baseline.verification]
+    let profile = selected_profile(PROFILE_ID).expect("coverage profile");
+    let normalized =
+        native::normalize(REAL_LLVM_COV_REPORT, &profile, SOURCE_IDENTITY).expect("normalize real export 3.1.0 report");
+    assert_eq!(normalized.file_count, REAL_REPORT_FILE_COUNT);
+    let counts = |metric: MetricCount| (metric.covered, metric.total);
+    assert_eq!(counts(normalized.counts.lines), (3, 4));
+    assert_eq!(counts(normalized.counts.branches), (2, 4));
+    assert_eq!(counts(normalized.counts.functions), (3, 4));
+    assert_eq!(counts(normalized.counts.regions), (14, 19));
+
+    let legacy = native_report(CURRENT_COVERED, TOTAL_COUNT, "cargo-octet/src/lib.rs");
+    assert!(legacy.contains("\"version\":\"2.0.1\""));
+    assert!(native::normalize(&legacy, &profile, SOURCE_IDENTITY).is_ok());
+
+    let unknown = REAL_LLVM_COV_REPORT.replace("\"version\":\"3.1.0\"", "\"version\":\"3.2.0\"");
+    assert_ne!(unknown, REAL_LLVM_COV_REPORT);
+    let diagnostics = native::normalize(&unknown, &profile, SOURCE_IDENTITY).expect_err("unknown version rejected");
+    assert_eq!(diagnostics, ["coverage native report version is unsupported"]);
 }
 
 #[test]

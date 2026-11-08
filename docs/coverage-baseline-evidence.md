@@ -64,6 +64,8 @@ Octet rejects `--command`. The profile owns all cargo-llvm-cov arguments.
 
 Octet reads native covered and total counts. It ignores producer percentages when it makes policy decisions.
 
+Octet accepts `llvm.coverage.json.export` reports with export version `2.0.1` or `3.1.0`. cargo-llvm-cov 0.8.3 with the pinned Rust nightly emits `3.1.0`. Octet rejects other export versions.
+
 The core calculates display percentages with integer basis points and floor rounding. Threshold and regression decisions use exact cross multiplication.
 
 The baseline and current reports must match these identities:
