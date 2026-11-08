@@ -6,6 +6,79 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## Unreleased: admission, fingerprint, roadmap, proof-ref, and contract fixes
+
+Behaviour and format changes:
+
+- Effect-closure admission links a call to a local function only when the path
+  proves the target. `<Type>::name()`, `<Type as Trait>::name()`, and
+  `::name()` never resolve locally, and neither do paths whose first segment
+  is a parameter, local binding, generic parameter, or a `use` or item declared
+  inside the function. A function or other path used as a value, such as
+  `run(std::process::abort)` or `None`, is a `value:` edge that needs a local
+  proof or an exact summary. Policies may need new summaries for constants and
+  variants used as values, and summaries for later calls in those functions may
+  go stale.
+- `cargo octet fingerprint` reports markers that bind to no function (between
+  attributes and `fn`, above a doc comment, or a `#[fingerprint(...)]` among
+  other attributes): `--check` and `--diff` exit `1` and name each line, and
+  `--write` and `--update` refuse to rewrite anything until they move. Macro
+  calls in attributes or the signature now raise the macro review warning.
+- `cargo octet prove` no longer emits `formal_proof` provenance for a rail
+  whose proof goal is blocked, such as a demoted proof card or a provenance
+  digest that disagrees with the receipt bytes; that rail's records become
+  `manual_review_required` and the run fails. A blocked goal prints a runnable
+  `--explain` command.
+- `cargo octet check` and `cargo octet admit` exit `2` before running Cargo
+  when `DYLINT_TOML` is set: Dylint would lint under that config while finding
+  IDs described `dylint.toml`. The consumer guide lists exactly what feeds
+  finding IDs and says baselines must be written and checked with the same
+  scope, cargo-check arguments, config, profile, and `cargo-octet` version.
+- `cargo octet provider-manifest` treats a required lint set to `allow` under
+  `lint_levels` as disabled, requires every `--required-lint` to name an Octet
+  lint, and rejects a missing rustc executable digest or an `unknown` rustc
+  release or commit hash.
+- `cargo octet roadmap` fails closed on malformed input: `ability enforce`
+  needs string arrays, artifact `inspect` and `replay` accept only full `b3:`
+  hashes, re-hash every record, and check the whole dependency chain, and
+  `session migrate` reads `schema_version` and requires an `identity`. Artifact
+  and capsule identities drop secret-like fields and replace absolute-path
+  values with `<absolute-path>`, so such artifacts get new hashes. A
+  `pure-cache` miss reports `miss_reason` and `changed_key_components` instead
+  of `changed_key_component`, and a hit with a different `--output-hash` exits
+  `1`.
+- The `cargo-fuzz-libfuzzer` profile pins `rustc_commit_hash` instead of a
+  compiler label, and the run withholds `RUSTUP_TOOLCHAIN` and `RUSTC`,
+  observes `rustc -vV`, and refuses another commit; the profile identity
+  changes. libFuzzer `leak-*`, `oom-*`, and `timeout-*` artifacts are bound as
+  findings.
+- ast-grep import refuses an envelope whose embedded profile differs from the
+  checked-in profile.
+- The cargo-deny and cargo-llvm-cov external schema contracts are generated
+  from their pinned schemas: required fields have no defaults and extra fields
+  the schemas allow are accepted.
+
+Fixes:
+
+- The `EvidenceRailReceiptV1` and `FindingV2` contracts accept what Octet
+  emits: receipts with `finding_counts`, `findings`, and per-rail details, and
+  findings whose `suggestion` and `applicability` are `null`.
+- `cargo octet proof-ref` judges overclaims one mention at a time, so Aeneas
+  cards scaffold again and a positive claim beside a negated one is rejected.
+  It fails when a proof ID matches more than one card and refuses an `--output`
+  that points at its own deck or consumer source.
+- Fingerprints of literals and doc comments are the same in CRLF and LF
+  checkouts; existing LF markers still match. `object update` rejects SARIF
+  before writing and replaces a hashless `// octet-object:` marker in place.
+- `migrate session verify` rejects duplicate `affected_surfaces` locators, so a
+  `live` entry cannot hide an `archive-read-only` one.
+- Capability-root reads reject FIFOs and other non-regular files instead of
+  hanging.
+- The function-fingerprint docs examples are verified again: the five
+  `*_docs_fixture_matches_transcript` tests the docs rails select had been
+  deleted, so those rails and `docs-examples` always failed. The transcripts
+  and `reviewed.rs` markers are regenerated from real output.
+
 ## Unreleased: cache inputs, runner variables, CLI flags, and proof receipt fixes
 
 Behaviour and format changes:
