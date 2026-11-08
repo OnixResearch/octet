@@ -453,8 +453,13 @@ fn project_sources(translated: &Value, diagnostics: &mut Vec<String>) -> Vec<Sou
             })
         })
         .collect::<Vec<_>>();
+    let mut paths = BTreeSet::new();
+    for source in &sources {
+        if !paths.insert(source.path.as_str()) {
+            diagnostics.push(format!("Charon snapshot contains duplicate source path `{}`", source.path));
+        }
+    }
     sources.sort_by(|left, right| left.path.cmp(&right.path));
-    sources.dedup();
     sources
 }
 
@@ -1099,6 +1104,25 @@ mod tests {
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("borrow checking")));
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("target metadata")));
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("source identity mismatch")));
+    }
+
+    #[test]
+    fn rejects_duplicate_source_paths_in_either_order() {
+        let profile = profile();
+        let original = snapshot()["translated"]["files"][0].clone();
+        let mut drifted = original.clone();
+        drifted["id"] = Value::from(1_u64);
+        drifted["contents"] = Value::String("// drift\n// drift\n// drift\n".to_owned());
+        for files in [vec![drifted.clone(), original.clone()], vec![original, drifted]] {
+            let mut value = snapshot();
+            value["translated"]["files"] = Value::Array(files);
+            let diagnostics =
+                analyze_snapshot(&profile, &rendered(&value)).expect_err("duplicate source path must fail");
+            assert!(
+                diagnostics.iter().any(|diagnostic| diagnostic.contains("duplicate source path `src/lib.rs`")),
+                "{diagnostics:?}"
+            );
+        }
     }
 
     #[test]
