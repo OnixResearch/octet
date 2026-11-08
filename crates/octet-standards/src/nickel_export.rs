@@ -644,16 +644,18 @@ mod tests {
 
     #[test]
     fn manifest_verification_rejects_identity_metadata_drift_and_duplicate_outputs() {
+        type Mutation<'a> = &'a dyn Fn(&mut NickelExportManifest);
+
         let spec = json_spec();
         let fresh = manifest_for_exports(&[export_input(&spec, OUTPUT_TEXT)]).expect("valid observation");
         assert!(verify_manifest(&fresh, &[export_input(&spec, OUTPUT_TEXT)]).is_empty());
 
-        let drifted = |mutate: &dyn Fn(&mut NickelExportManifest)| {
+        let drifted = |mutate: Mutation<'_>| {
             let mut manifest = fresh.clone();
             mutate(&mut manifest);
             verify_manifest(&manifest, &[export_input(&spec, OUTPUT_TEXT)])
         };
-        let cases: [(&str, &dyn Fn(&mut NickelExportManifest)); 10] = [
+        let cases: [(&str, Mutation<'_>); 10] = [
             ("nickel identity", &|manifest| manifest.nickel_identity = "nickel-substituted".to_owned()),
             ("generator", &|manifest| manifest.generator = "other-generator".to_owned()),
             ("family", &|manifest| manifest.exports[0].family_id = "octet.other-family".to_owned()),

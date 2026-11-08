@@ -140,8 +140,15 @@ impl Marker {
     }
 }
 
-#[allow(clippy::too_many_lines)]
 pub fn run(args: &FingerprintArgs) -> Result<i32, String> {
+    let root = std::env::current_dir().map_err(|error| format!("read current directory: {error}"))?;
+    run_in(&root, args)
+}
+
+/// [`run`] with `root` as the directory that relative `args.paths` resolve
+/// against; recorded paths are relative to it and paths outside it are rejected.
+#[allow(clippy::too_many_lines)]
+pub(crate) fn run_in(root: &Path, args: &FingerprintArgs) -> Result<i32, String> {
     // Reject unsupported output before `--write`/`--update` touch any source
     // or the review manifest.
     let json_output = match args.output_format {
@@ -154,15 +161,14 @@ pub fn run(args: &FingerprintArgs) -> Result<i32, String> {
     } else {
         args.paths.clone()
     };
-    let root = std::env::current_dir().map_err(|error| format!("read current directory: {error}"))?;
-    let input_paths = paths.iter().map(|path| record_path(&root, path)).collect::<Result<Vec<_>, _>>()?;
+    let input_paths = paths.iter().map(|path| record_path(root, path)).collect::<Result<Vec<_>, _>>()?;
     let mut files = Vec::new();
     for path in paths {
         collect_rust_files(&path, &mut files)?;
     }
     let mut files = files
         .into_iter()
-        .map(|path| record_path(&root, &path).map(|record_path| (record_path, path)))
+        .map(|path| record_path(root, &path).map(|record_path| (record_path, path)))
         .collect::<Result<Vec<_>, _>>()?;
     files.sort();
     files.dedup_by(|right, left| right.0 == left.0);

@@ -689,12 +689,13 @@ fn function_record_path(workspace_root: &Path, file: &Path) -> Result<String, St
 /// The function-address marker for a span, if any. `cargo octet fingerprint`
 /// writes the same `// octet-fingerprint:` syntax with its token hash; a marker
 /// holding that hash is fingerprint evidence, not a reviewed function address,
-/// so it neither satisfies nor stales the function-address check.
+/// so it neither satisfies nor stales the function-address check. A marker with
+/// no hash stays a function-address marker and is reported as malformed.
 fn function_address_marker<'a>(
     marker: Option<&'a fingerprint::Marker>,
     normalized: &str,
 ) -> Option<&'a fingerprint::Marker> {
-    marker.filter(|marker| marker.stored_hash() != fingerprint::function_hash(normalized))
+    marker.filter(|marker| marker.stored_hash() != Some(fingerprint::function_hash(normalized).as_str()))
 }
 
 fn function_address_record(
@@ -1860,7 +1861,7 @@ mod tests {
         let source = temp.path().join("lib.rs");
         let baseline = temp.path().join("function-addresses.json");
         std::fs::write(&source, "fn f() -> u32 { 1 }\n").expect("write source");
-        let written = fingerprint::run(&crate::cli::FingerprintArgs {
+        let written = fingerprint::run_in(temp.path(), &crate::cli::FingerprintArgs {
             mode: crate::cli::FingerprintMode::Write,
             paths: vec![source.clone()],
             output_format: crate::cli::OutputFormat::Json,
