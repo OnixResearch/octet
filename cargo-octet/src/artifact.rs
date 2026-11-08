@@ -1126,6 +1126,18 @@ fn validate_project_architecture_status(
     if !status_matches {
         diagnostics.push("project architecture receipt phase status does not match status.json".to_owned());
     }
+    // The runner writes `phases.effect_closure` from the receipt's closure link (`null` when the
+    // project has none), so a flipped `admitted` flag or a dropped link cannot verify.
+    let closure_matches = status.as_ref().is_none_or(|value| {
+        serde_json::to_value(&receipt.effect_closure).is_ok_and(|expected| {
+            value.pointer("/phases/effect_closure").unwrap_or(&serde_json::Value::Null) == &expected
+        })
+    });
+    if !closure_matches {
+        diagnostics.push(format!(
+            "project architecture receipt effect-closure link does not match {STATUS_ARTIFACT_NAME} phases.effect_closure"
+        ));
+    }
 }
 
 fn validate_integrated_effect_closure_bundle(file_map: &BTreeMap<String, Vec<u8>>, diagnostics: &mut Vec<String>) {

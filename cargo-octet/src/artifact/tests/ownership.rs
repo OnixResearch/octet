@@ -320,6 +320,40 @@ fn declared_effect_closure_phase_without_closure_artifacts_fails_closed() {
     let invalid = verify_bundle(reseal_bundle(files));
     assert_eq!(invalid.status, STATUS_INVALID);
     assert_eq!(invalid.diagnostics, [
+        STATUS_EFFECT_CLOSURE_MISMATCH.to_owned(),
         "status.json declares phases.effect_closure but the integrated effect-closure artifacts are missing".to_owned()
     ]);
+}
+
+const STATUS_EFFECT_CLOSURE_MISMATCH: &str =
+    "project architecture receipt effect-closure link does not match status.json phases.effect_closure";
+
+#[test]
+fn status_effect_closure_phase_must_match_the_project_receipt_link() {
+    let files = synthetic_files();
+    let mut receipt: gate::ProjectArchitectureReceipt =
+        serde_json::from_slice(&files[PROJECT_ARCHITECTURE_RECEIPT_ARTIFACT_NAME]).expect("receipt");
+    receipt.effect_closure = Some(gate::EffectClosureParent {
+        receipt_id: "b3:closure".to_owned(),
+        admitted: false,
+        evidence_tier: EvidenceTier::PolicyCheck.as_str().to_owned(),
+        non_claims: vec!["closure non-claim".to_owned()],
+    });
+    reseal_receipt(&mut receipt);
+    let linked = serde_json::to_value(&receipt.effect_closure).expect("closure link JSON");
+    let mut flipped = linked.clone();
+    flipped["admitted"] = serde_json::Value::Bool(true);
+    for (phase, expect_mismatch) in [(linked, false), (flipped, true), (serde_json::Value::Null, true)] {
+        let mut files = files.clone();
+        store_receipt(&mut files, &receipt);
+        set_status_phase(&mut files, "effect_closure", phase.clone());
+        let report = verify_bundle(reseal_bundle(files));
+        assert_eq!(report.status, STATUS_INVALID, "closure artifacts are absent from this fixture");
+        assert_eq!(
+            report.diagnostics.iter().any(|diagnostic| diagnostic == STATUS_EFFECT_CLOSURE_MISMATCH),
+            expect_mismatch,
+            "phase {phase}: {:?}",
+            report.diagnostics
+        );
+    }
 }
