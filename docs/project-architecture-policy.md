@@ -189,7 +189,11 @@ Admission runs these phases in order:
 2. the project architecture gate;
 3. the existing selected-source effect-closure rail.
 
-A later phase does not run after an earlier phase fails. Passing one phase does not change another phase status or evidence tier.
+The architecture gate still runs when the lint phase reports findings, as long as
+compiler architecture facts are complete; its receipt records the lint status.
+Effect closure runs only after the lint phase is clean and the architecture gate
+has no open policy findings. Passing one phase does not change another phase
+status or evidence tier.
 
 The policy must contain this explicit binding:
 
