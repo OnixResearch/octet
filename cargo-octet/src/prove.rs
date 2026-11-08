@@ -1607,7 +1607,7 @@ fn write_artifacts(args: &ProveArgs, report: &ProveReport, executions: &[Execute
 
     let command_text = format!("{}\n", args.command_line);
     let status_text = status_text(args.output_format, report)?;
-    let summary_text = summary_text(report, &args.command_line, executions);
+    let summary_text = summary_text(report, args, executions);
     let proof_cards_text = proof_cards_text(executions)?;
     let provenance_text = provenance_text(&command_text, &status_text, &summary_text, &proof_cards_text, executions)?;
     let evidence_log_manifest_text = evidence_log_manifest_text(&args.command_line, executions)?;
@@ -1646,7 +1646,8 @@ fn status_text(output_format: OutputFormat, report: &ProveReport) -> Result<Stri
     json_text(&artifact)
 }
 
-fn summary_text(report: &ProveReport, replay_command: &str, executions: &[ExecutedProof]) -> String {
+fn summary_text(report: &ProveReport, args: &ProveArgs, executions: &[ExecutedProof]) -> String {
+    let replay_command = &args.command_line;
     let mut text = format!(
         "octet prove status={} proofs={} diagnostics={}\n",
         report.status,
@@ -1670,7 +1671,7 @@ fn summary_text(report: &ProveReport, replay_command: &str, executions: &[Execut
         )
         .expect("write proof summary to string");
     }
-    for goal_state in executions.iter().map(proof_goal_state_for_execution) {
+    for goal_state in executions.iter().map(|execution| proof_goal_state_for_execution(args, execution)) {
         writeln!(
             &mut text,
             "proof_goal_state schema_version={} goal_id={} claim_id={} satisfied_evidence={} missing_obligations={} blockers={} emits_formal_proof={}",
@@ -1718,8 +1719,10 @@ fn summary_text(report: &ProveReport, replay_command: &str, executions: &[Execut
     text
 }
 
-fn proof_goal_state_for_execution(execution: &ExecutedProof) -> ProofGoalState {
+fn proof_goal_state_for_execution(args: &ProveArgs, execution: &ExecutedProof) -> ProofGoalState {
     let row = &execution.row;
+    let goal_id = proof_or_property_id(&row.policy_id, row.rail_index);
+    let explain_command = proof_goal_explain_command(args, &goal_id);
     let expected_receipt_blake3 = execution.formal_provenance.as_ref().map_or_else(
         || crate::evidence::artifact_blake3_hex(execution.receipt_text.as_bytes()),
         |provenance| provenance.blake3.clone(),
@@ -1740,7 +1743,7 @@ fn proof_goal_state_for_execution(execution: &ExecutedProof) -> ProofGoalState {
     let boundary_wording = non_claims.join("; ");
 
     build_proof_goal_state(ProofGoalInput {
-        goal_id: proof_or_property_id(&row.policy_id, row.rail_index),
+        goal_id,
         claim_id: row.policy_id.clone(),
         checked_scope: row.checked_scope.clone(),
         assumptions: proof_goal_assumptions(row),
@@ -1754,7 +1757,40 @@ fn proof_goal_state_for_execution(execution: &ExecutedProof) -> ProofGoalState {
         non_claims,
         boundary_wording,
         remediation_commands: vec![ARTIFACT_VERIFY_COMMAND.to_owned()],
+        explain_command,
     })
+}
+
+/// Builds a runnable `cargo octet prove --explain` rerun for one goal from the run's registry
+/// and source inputs. The rerun writes beside the reviewed bundle rather than over it.
+fn proof_goal_explain_command(args: &ProveArgs, goal_id: &str) -> String {
+    let mut words = vec!["octet".to_owned(), "prove".to_owned()];
+    if let Some(registry) = &args.registry {
+        words.extend(["--registry".to_owned(), registry.display().to_string()]);
+    }
+    if let Some(policy_artifacts_dir) = &args.policy_artifacts_dir {
+        words.extend([
+            "--policy-artifacts-dir".to_owned(),
+            policy_artifacts_dir.display().to_string(),
+        ]);
+    }
+    for source in &args.source {
+        words.extend(["--source".to_owned(), source.display().to_string()]);
+    }
+    words.extend([
+        "--rail".to_owned(),
+        goal_id.to_owned(),
+        "--artifact-dir".to_owned(),
+        explain_artifact_dir(&args.artifact_dir).display().to_string(),
+        "--explain".to_owned(),
+    ]);
+    crate::cli::format_command_line("cargo", &words)
+}
+
+fn explain_artifact_dir(artifact_dir: &Path) -> PathBuf {
+    let mut name = artifact_dir.file_name().unwrap_or(std::ffi::OsStr::new("octet-proofs")).to_os_string();
+    name.push("-explain");
+    artifact_dir.with_file_name(name)
 }
 
 fn proof_goal_assumptions(row: &ProofReportRow) -> Vec<String> {
@@ -3059,6 +3095,42 @@ mod tests {
 
         let timeout = run_fixture_with_timeout(temp.path(), &source, vec!["sleep".to_owned(), "1".to_owned()]);
         assert!(timeout.contains("timed out"));
+    }
+
+    #[test]
+    fn blocked_goal_state_explain_remediation_is_a_runnable_prove_command() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let source = write_fixture_source(temp.path());
+        write_fixture_proof(temp.path());
+
+        let summary = run_fixture_with_command(temp.path(), &source, vec!["false".to_owned()]);
+        let explain = summary
+            .lines()
+            .filter_map(|line| line.strip_prefix("proof_goal_state remediation: "))
+            .find(|command| command.starts_with("cargo octet prove "))
+            .expect("blocked goal state names a prove --explain remediation");
+        let shell_words = std::process::Command::new("sh")
+            .arg("-c")
+            .arg(format!("printf '%s\\0' {explain}"))
+            .output()
+            .expect("split remediation with sh");
+        assert!(shell_words.status.success(), "sh could not split `{explain}`");
+        let shell_argv = String::from_utf8(shell_words.stdout).expect("utf-8 shell words");
+        let parsed = crate::cli::parse(shell_argv.trim_end_matches('\0').split('\0').map(std::ffi::OsString::from))
+            .unwrap_or_else(|error| panic!("remediation `{explain}` must parse: {error}"));
+
+        let crate::cli::CommandArgs::Prove(args) = parsed else {
+            panic!("remediation `{explain}` must parse as prove")
+        };
+        assert!(args.explain);
+        assert_eq!(args.rail, vec![proof_or_property_id(POLICY_ID, 0)]);
+        assert_eq!(args.registry, Some(temp.path().join("registry.json")));
+        assert_eq!(args.source, vec![source]);
+        assert!(
+            args.artifact_dir.to_string_lossy().ends_with("-explain"),
+            "explain rerun must not overwrite the reviewed bundle: {}",
+            args.artifact_dir.display()
+        );
     }
 
     #[test]

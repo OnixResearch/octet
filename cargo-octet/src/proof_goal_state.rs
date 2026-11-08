@@ -14,7 +14,7 @@ const FIELD_CLAIM_ID: &str = "claim_id";
 const FIELD_CHECKED_SCOPE: &str = "checked_scope";
 const FIELD_REQUIRED_ARTIFACTS: &str = "required_artifacts";
 const FIELD_NON_CLAIMS: &str = "non_claims";
-const DEFAULT_EXPLAIN_COMMAND_PREFIX: &str = "cargo octet prove --rail";
+const FIELD_EXPLAIN_COMMAND: &str = "explain_command";
 const ARTIFACT_VERIFY_COMMAND: &str = "cargo octet artifact verify --artifact-dir <artifact-dir>";
 const NON_CLAIM_NO_LEAN_RUNTIME: &str = "not Lean execution";
 const NON_CLAIM_NO_SOLVER_COMPLETENESS: &str = "not solver completeness";
@@ -54,6 +54,8 @@ pub struct ProofGoalInput {
     pub non_claims: Vec<String>,
     pub boundary_wording: String,
     pub remediation_commands: Vec<String>,
+    /// Runnable command that re-explains this goal; added to remediation when the goal is blocked.
+    pub explain_command: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -116,7 +118,7 @@ pub fn build_proof_goal_state(input: ProofGoalInput) -> ProofGoalState {
 
     let mut remediation_commands = input.remediation_commands;
     if !blockers.is_empty() {
-        remediation_commands.push(format!("{DEFAULT_EXPLAIN_COMMAND_PREFIX} {} --explain", input.goal_id));
+        remediation_commands.push(input.explain_command);
         remediation_commands.push(ARTIFACT_VERIFY_COMMAND.to_owned());
     }
 
@@ -146,6 +148,7 @@ fn shape_blockers(input: &ProofGoalInput) -> Vec<String> {
     push_blank(&mut blockers, FIELD_GOAL_ID, &input.goal_id);
     push_blank(&mut blockers, FIELD_CLAIM_ID, &input.claim_id);
     push_blank(&mut blockers, FIELD_CHECKED_SCOPE, &input.checked_scope);
+    push_blank(&mut blockers, FIELD_EXPLAIN_COMMAND, &input.explain_command);
     if input.required_artifacts.is_empty() {
         blockers.push(format!("missing required goal field `{FIELD_REQUIRED_ARTIFACTS}`"));
     }
@@ -316,6 +319,8 @@ mod tests {
     const CARD_HASH: &str = "card-blake3";
     const PROVENANCE_HASH: &str = "provenance-blake3";
     const STALE_HASH: &str = "stale-blake3";
+    const EXPLAIN_COMMAND: &str =
+        "cargo octet prove --registry registry.json --source src/lib.rs --rail octet.policy.bounds#rail-0 --explain";
     const DOCS_TEXT: &str = include_str!("../../docs/proof-goal-state-feedback.md");
 
     #[test]
@@ -366,8 +371,22 @@ mod tests {
         assert_contains(&state.blockers, "unsupported evidence tier");
         assert_contains(&state.blockers, "missing required artifact `provenance.jsonl`");
         assert_contains(&state.blockers, "unmatched proof ref");
-        assert_contains(&state.remediation_commands, DEFAULT_EXPLAIN_COMMAND_PREFIX);
+        assert_contains(&state.remediation_commands, EXPLAIN_COMMAND);
         assert_contains(&state.remediation_commands, ARTIFACT_VERIFY_COMMAND);
+    }
+
+    #[test]
+    fn goal_state_requires_an_explain_command_for_remediation() {
+        let satisfied = build_proof_goal_state(satisfied_input());
+        let mut input = satisfied_input();
+        input.explain_command = " ".to_owned();
+
+        let blank = build_proof_goal_state(input);
+
+        assert!(satisfied.emits_formal_proof);
+        assert!(satisfied.remediation_commands.is_empty());
+        assert!(!blank.emits_formal_proof);
+        assert_contains(&blank.blockers, "missing required goal field `explain_command`");
     }
 
     #[test]
@@ -448,6 +467,7 @@ mod tests {
             boundary_wording: "Lean-inspired obligation feedback only; not Lean execution and not solver completeness."
                 .to_owned(),
             remediation_commands: Vec::new(),
+            explain_command: EXPLAIN_COMMAND.to_owned(),
         }
     }
 

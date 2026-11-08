@@ -12,6 +12,11 @@ provenance identity, proof-ref diagnostics, artifact verification diagnostics,
 and verifier outcome. Missing receipts, stale source or proof bindings, missing
 proof cards, unsupported evidence tiers, unmatched proof refs, or overbroad claim
 wording become blockers. A blocked goal emits no `formal_proof` provenance.
+Its remediation commands include a runnable `cargo octet prove --explain` rerun
+that carries the run's `--registry` or `--policy-artifacts-dir` and `--source`
+paths, selects the goal with `--rail <policy-id>#rail-<N>`, and writes to a
+sibling `<artifact-dir>-explain` directory so the reviewed bundle is not
+overwritten.
 
 This is operator feedback, not a theorem-prover runtime. Its non-claims are:
 not Lean execution; not solver completeness; not whole-program correctness; not

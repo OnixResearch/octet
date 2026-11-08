@@ -2607,7 +2607,7 @@ fn parse_output_format(value: &str) -> Result<OutputFormat, String> {
     }
 }
 
-fn format_command_line(program: &str, args: &[String]) -> String {
+pub(crate) fn format_command_line(program: &str, args: &[String]) -> String {
     std::iter::once(program)
         .chain(args.iter().map(String::as_str))
         .map(shell_quote)
