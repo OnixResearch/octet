@@ -70,6 +70,19 @@ struct FingerprintReport {
     schema_version: u32,
     mode: &'static str,
     records: Vec<FunctionRecord>,
+    /// Fingerprint markers that bind to no function; omitted when empty.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    unbound_markers: Vec<UnboundMarker>,
+}
+
+/// A fingerprint marker in code that no function binds, for example one
+/// between a function's attributes and `fn`. Check and diff fail on it, and
+/// write and update refuse to rewrite sources while it exists.
+#[derive(Debug, Serialize)]
+struct UnboundMarker {
+    path: String,
+    /// 1-based line of the marker.
+    line: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -174,9 +187,15 @@ pub(crate) fn run_in(root: &Path, args: &FingerprintArgs) -> Result<i32, String>
     files.dedup_by(|right, left| right.0 == left.0);
 
     let mut records = Vec::new();
+    let mut unbound_markers = Vec::new();
+    let mut rewrites = Vec::new();
     for (record_path, path) in files {
         let source = fs::read_to_string(&path).map_err(|error| format!("read {}: {error}", path.display()))?;
         let spans = find_functions(&source);
+        unbound_markers.extend(unbound_marker_lines(&source, &spans).into_iter().map(|line| UnboundMarker {
+            path: record_path.clone(),
+            line,
+        }));
         let mut replacements = Vec::new();
         for span in spans {
             let function_source = &source[span.start..span.end];
@@ -250,14 +269,23 @@ pub(crate) fn run_in(root: &Path, args: &FingerprintArgs) -> Result<i32, String>
             for (start, end, replacement) in replacements.into_iter().rev() {
                 updated.replace_range(start..end, &replacement);
             }
-            fs::write(&path, updated).map_err(|error| format!("write {}: {error}", path.display()))?;
+            rewrites.push((path, updated));
         }
+    }
+    // A rewrite next to an unbound marker would add a second marker for the
+    // same function, so refuse before touching any source.
+    if !unbound_markers.is_empty() && matches!(args.mode, FingerprintMode::Write | FingerprintMode::Update) {
+        return Err(unbound_markers_error(&unbound_markers));
+    }
+    for (path, updated) in rewrites {
+        fs::write(&path, updated).map_err(|error| format!("write {}: {error}", path.display()))?;
     }
 
     let report = FingerprintReport {
         schema_version: 1,
         mode: mode_name(args.mode),
         records,
+        unbound_markers,
     };
     if let Some(path) = args.review_manifest.as_deref() {
         write_review_manifest(path, &report, input_paths)?;
@@ -268,14 +296,23 @@ pub(crate) fn run_in(root: &Path, args: &FingerprintArgs) -> Result<i32, String>
         print_human(&report);
     }
 
-    let failing = report.records.iter().any(|record| {
-        matches!(args.mode, FingerprintMode::Check | FingerprintMode::Diff)
-            && (record.status != FingerprintStatus::Match
-                || record.macro_warning
-                || record.review.is_none()
-                || record.evidence.is_none())
-    });
+    let failing = matches!(args.mode, FingerprintMode::Check | FingerprintMode::Diff)
+        && (!report.unbound_markers.is_empty()
+            || report.records.iter().any(|record| {
+                record.status != FingerprintStatus::Match
+                    || record.macro_warning
+                    || record.review.is_none()
+                    || record.evidence.is_none()
+            }));
     Ok(i32::from(failing))
+}
+
+fn unbound_markers_error(markers: &[UnboundMarker]) -> String {
+    let locations = markers.iter().map(|marker| format!("{}:{}", marker.path, marker.line)).collect::<Vec<_>>();
+    format!(
+        "fingerprint markers bind to no function at {}; move each directly above its function's first outer attribute, or above `fn`, or delete it; no source was rewritten",
+        locations.join(", ")
+    )
 }
 
 fn write_review_manifest(path: &Path, report: &FingerprintReport, input_paths: Vec<String>) -> Result<(), String> {
@@ -743,12 +780,13 @@ fn function_item_start(source: &str, code: &str, fn_pos: usize) -> usize {
             continue;
         }
         if code[previous_start..previous_end].trim_start().starts_with("#[") {
-            // The historical fingerprint attribute is a review marker, not
-            // one of the attributes hashed as part of the function item.
-            if source[previous_start..previous_end].trim_start().starts_with(ATTR_MARKER) {
-                return item_start;
+            // A fingerprint attribute above the first outer attribute is the
+            // item's marker and stays outside the hashed span. Probe past it:
+            // an outer attribute above it still belongs to the item, which
+            // leaves the marker inside the span and bound to nothing.
+            if !source[previous_start..previous_end].trim_start().starts_with(ATTR_MARKER) {
+                item_start = previous_start;
             }
-            item_start = previous_start;
             line_start = previous_start;
             continue;
         }
@@ -869,6 +907,26 @@ pub(crate) fn marker_lines(source: &str, block: Range<usize>) -> impl Iterator<I
             text: line.trim(),
         })
     })
+}
+
+/// 1-based lines of fingerprint markers in code that no function in `spans`
+/// binds: a marker between a function's attributes and `fn`, above a doc
+/// comment or other non-marker line, inside a function body, stacked over
+/// another fingerprint marker, or above no function at all.
+fn unbound_marker_lines(source: &str, spans: &[FunctionSpan]) -> Vec<usize> {
+    let mut bound = spans.iter().filter_map(|span| span.marker.as_ref().map(|marker| marker.start)).collect::<Vec<_>>();
+    bound.sort_unstable();
+    let mut marker_cursor = MarkerLexicalCursor::new(source);
+    marker_lines(source, 0..source.len())
+        .enumerate()
+        .filter(|(_, line)| FINGERPRINT_MARKER_PREFIXES.iter().any(|prefix| line.text.starts_with(prefix)))
+        .filter(|(_, line)| {
+            let raw = &source[line.start..line.end];
+            marker_cursor.in_code(line.start + raw.len() - raw.trim_start().len())
+        })
+        .filter(|(_, line)| bound.binary_search(&line.start).is_err())
+        .map(|(index, _)| index + 1)
+        .collect()
 }
 
 /// Source-ordered functions share one lexical walk. Even if every function has
@@ -1314,6 +1372,12 @@ fn print_human(report: &FingerprintReport) {
             record.review.as_deref().unwrap_or("<missing>"),
             record.evidence.as_deref().unwrap_or("<missing>"),
             record.macro_warning,
+        );
+    }
+    for marker in &report.unbound_markers {
+        println!(
+            "{}:{} unbound-marker: binds to no function; place it directly above the function's first outer attribute, or above `fn`",
+            marker.path, marker.line,
         );
     }
 

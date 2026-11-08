@@ -1135,6 +1135,85 @@ pub fn missing_gate_metadata(limit: u32) -> u32 {
     );
 }
 
+/// Runs cargo-octet in `root`, returning the exit code, stdout, and stderr.
+fn run_octet(root: &Path, args: &[&str]) -> (Option<i32>, String, String) {
+    let output = Command::new(cargo_octet()).args(args).current_dir(root).output().expect("run cargo-octet");
+    (
+        output.status.code(),
+        String::from_utf8_lossy(&output.stdout).into_owned(),
+        String::from_utf8_lossy(&output.stderr).into_owned(),
+    )
+}
+
+fn parse_json(stdout: &str, context: &str) -> serde_json::Value {
+    serde_json::from_str(stdout).unwrap_or_else(|error| panic!("{context}: {error}; stdout={stdout}"))
+}
+
+#[test]
+fn fingerprint_markers_that_bind_to_no_function_fail_check_and_block_rewrites() {
+    let marker = "// octet-fingerprint: b3:deadbeef; review=R-1; evidence=E-1";
+    let attribute = "#[fingerprint(\"b3:deadbeef\", review = \"R-1\", evidence = \"E-1\")]";
+    for (source, line) in [
+        (format!("#[inline]\n{marker}\npub fn between_attribute_and_fn() -> u32 {{ 1 }}\n"), 2),
+        (format!("{marker}\n/// Docs.\npub fn above_doc_comment() -> u32 {{ 1 }}\n"), 1),
+        (
+            format!("#[must_use]\n{attribute}\npub fn attribute_marker_between_attributes() -> u32 {{ 1 }}\n"),
+            2,
+        ),
+        (format!("pub fn inside_body() -> u32 {{\n    {marker}\n    1\n}}\n"), 2),
+    ] {
+        let temp = tempfile::tempdir().expect("create tempdir");
+        let fixture = temp.path().join("lib.rs");
+        fs::write(&fixture, &source).expect("write misplaced marker");
+        for mode in ["--check", "--diff"] {
+            let (code, stdout, _) = run_octet(temp.path(), &["fingerprint", mode, "--output-format=json", "lib.rs"]);
+            assert_eq!(code, Some(1), "{mode}: {source}");
+            let report = parse_json(&stdout, mode);
+            assert_eq!(report["unbound_markers"], serde_json::json!([{ "path": "lib.rs", "line": line }]), "{source}");
+            assert_eq!(report["records"], serde_json::json!([]), "{mode}: {source}");
+            let (code, stdout, _) = run_octet(temp.path(), &["fingerprint", mode, "lib.rs"]);
+            assert_eq!(code, Some(1), "{mode}: {source}");
+            assert!(stdout.contains(&format!("lib.rs:{line} unbound-marker")), "{mode}: {stdout}");
+        }
+        for mode in ["--write", "--update"] {
+            let (code, _, stderr) = run_octet(temp.path(), &["fingerprint", mode, "lib.rs"]);
+            assert_eq!(code, Some(2), "{mode}: {source}");
+            assert!(stderr.contains(&format!("lib.rs:{line}")), "{mode}: {stderr}");
+            assert_eq!(fs::read_to_string(&fixture).expect("reread fixture"), source, "{mode} rewrote the source");
+        }
+    }
+
+    // Markers directly above the first outer attribute bind, and the hash
+    // covers the attributes below them.
+    for source in [
+        format!("{marker}\n#[must_use]\npub fn comment_marker() -> u32 {{ 1 }}\n"),
+        format!("/// Docs.\n{attribute}\n#[must_use]\npub fn attribute_marker() -> u32 {{ 1 }}\n"),
+    ] {
+        let temp = tempfile::tempdir().expect("create tempdir");
+        let fixture = temp.path().join("lib.rs");
+        fs::write(&fixture, &source).expect("write placed marker");
+        let (code, stdout, _) = run_octet(temp.path(), &["fingerprint", "--update", "--output-format=json", "lib.rs"]);
+        assert_eq!(code, Some(0), "{source}");
+        let report = parse_json(&stdout, "--update");
+        assert_eq!(report["records"][0]["status"], "written", "{source}");
+        assert!(report.get("unbound_markers").is_none(), "{report}");
+        let reviewed = fs::read_to_string(&fixture).expect("read updated fixture");
+        assert_eq!(reviewed.matches("octet-fingerprint:").count(), 1, "{reviewed}");
+        assert!(!reviewed.contains("#[fingerprint("), "{reviewed}");
+        assert!(reviewed.contains("evidence=E-1\n#[must_use]\n"), "{reviewed}");
+
+        let check = |text: &str| {
+            fs::write(&fixture, text).expect("write reviewed fixture");
+            let (code, stdout, _) =
+                run_octet(temp.path(), &["fingerprint", "--check", "--output-format=json", "lib.rs"]);
+            (code, parse_json(&stdout, "--check")["records"][0]["status"].clone())
+        };
+        assert_eq!(check(&reviewed), (Some(0), serde_json::json!("match")), "{reviewed}");
+        let attribute_drift = reviewed.replace("#[must_use]", "#[must_use = \"use the value\"]");
+        assert_eq!(check(&attribute_drift), (Some(1), serde_json::json!("mismatch")), "{attribute_drift}");
+    }
+}
+
 #[test]
 fn fingerprint_json_records_report_stored_and_computed_hashes_across_drift() {
     let temp = tempfile::tempdir().expect("create tempdir");

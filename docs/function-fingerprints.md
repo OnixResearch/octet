@@ -32,6 +32,15 @@ of each, in either order, and each command reads its own kind from the block.
 `fingerprint --write` and `object update` insert a new marker at the bottom of
 the block, so markers already there stay bound.
 
+Any other line between a marker and its function, including a blank line or a
+doc comment, leaves the marker bound to no function; put doc comments above the
+marker. A fingerprint marker between attributes and `fn`, inside a function
+body, or stacked over another fingerprint marker is also unbound. `--check` and
+`--diff` report each unbound fingerprint marker with its file and line and exit
+nonzero. `--write` and `--update` refuse to rewrite any source while one exists,
+so they never add a second marker next to a misplaced one; move or delete it
+first.
+
 Marker metadata is a list of `key=value` items separated by `;` or `,`. Keys
 match exactly: `preview=` does not supply `review`, and `review=macro=allow`
 records the review class `macro=allow` without granting a macro allowance.
@@ -80,9 +89,9 @@ or `--diff`) per command; with none, the command runs `--check`.
 
    `--check` inspects marked functions only. It exits nonzero when any marked
    function is missing a hash, mismatches its stored hash, lacks required metadata,
-   or has an unallowed macro warning. A marker whose hash is empty or not
-   hexadecimal, such as `b3:` or `b3:TODO`, still marks its function and reports
-   `missing`.
+   or has an unallowed macro warning, and when any fingerprint marker binds to no
+   function. A marker whose hash is empty or not hexadecimal, such as `b3:` or
+   `b3:TODO`, still marks its function and reports `missing`.
 
 3. Preview drift without rewriting markers:
 
@@ -125,6 +134,9 @@ Use the summary line for quick operator decisions:
   `macro=allow` marker after reviewing the macro expansion risk.
 - `metadata_missing > 0`: add `review=...` and `evidence=...` metadata before using
   the marker as a review gate.
+- A `<path>:<line> unbound-marker` line: a fingerprint marker binds to no function
+  and is not counted in the summary. Move it directly above its function's first
+  outer attribute, or delete it.
 
 A clean check has every marked function in `match` status and a summary like:
 
@@ -194,7 +206,9 @@ cargo octet fingerprint --check path/to/file-or-directory --output-format=json
 
 The JSON report contains the mode and one record per marked function, including the
 path, function name, stored hash, computed hash, status, review metadata, evidence
-metadata, and macro-warning flag. Record paths are relative to the current
+metadata, and macro-warning flag. When a fingerprint marker binds to no function,
+the report also has an `unbound_markers` array of `{"path", "line"}` entries;
+the key is absent otherwise. Record paths are relative to the current
 directory with `/` separators, even when the command names an absolute path, so
 run the command from a directory that contains every scanned path; a path
 outside it is rejected before any marker is read or written. Common script
