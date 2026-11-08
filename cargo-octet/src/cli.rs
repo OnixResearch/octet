@@ -509,7 +509,7 @@ const EVIDENCE_INDEX_HELP: &str = "cargo octet evidence-index
 
 Subcommands:
   render --payload-commit HASH --capture-time RFC3339
-  check [--page docs/current-head-valence-evidence.md]
+  check [--page docs/current-head-valence-evidence.md] [--payload-commit HASH] [--capture-time RFC3339]
   codebase build --artifact PATH [--artifact-dir DIR] [--output PATH] [--advisory]
   codebase query --index PATH --identity ID
   codebase html --index PATH [--output PATH]
@@ -974,6 +974,52 @@ fn parse_evidence_index(args: &[String]) -> Result<EvidenceIndexArgs, String> {
     }
 }
 
+const EVIDENCE_INDEX_FLAGS: &[&str] = &[
+    "--page",
+    "--payload-commit",
+    "--capture-time",
+    "--index",
+    "--identity",
+    "--artifact",
+    "--artifact-dir",
+    "--output",
+    "--advisory",
+];
+
+fn evidence_index_command_name(mode: EvidenceIndexMode) -> &'static str {
+    match mode {
+        EvidenceIndexMode::Render => "render",
+        EvidenceIndexMode::Check => "check",
+        EvidenceIndexMode::CodebaseBuild => "codebase build",
+        EvidenceIndexMode::CodebaseQuery => "codebase query",
+        EvidenceIndexMode::CodebaseHtml => "codebase html",
+    }
+}
+
+fn evidence_index_flag_applies(mode: EvidenceIndexMode, flag: &str) -> bool {
+    match flag {
+        "--page" => mode == EvidenceIndexMode::Check,
+        "--payload-commit" | "--capture-time" => matches!(mode, EvidenceIndexMode::Render | EvidenceIndexMode::Check),
+        "--index" => matches!(mode, EvidenceIndexMode::CodebaseQuery | EvidenceIndexMode::CodebaseHtml),
+        "--identity" => mode == EvidenceIndexMode::CodebaseQuery,
+        "--artifact" | "--artifact-dir" | "--advisory" => mode == EvidenceIndexMode::CodebaseBuild,
+        "--output" => matches!(mode, EvidenceIndexMode::CodebaseBuild | EvidenceIndexMode::CodebaseHtml),
+        _ => false,
+    }
+}
+
+fn reject_unsupported_evidence_index_arg(mode: EvidenceIndexMode, arg: &str) -> Result<(), String> {
+    let flag = arg.split_once('=').map_or(arg, |(flag, _)| flag);
+    if !EVIDENCE_INDEX_FLAGS.contains(&flag) || evidence_index_flag_applies(mode, flag) {
+        return Ok(());
+    }
+    Err(unsupported_evidence_index_arg(mode, flag))
+}
+
+fn unsupported_evidence_index_arg(mode: EvidenceIndexMode, arg: &str) -> String {
+    format!("unsupported evidence-index {} argument `{arg}`", evidence_index_command_name(mode))
+}
+
 fn parse_valence_evidence_index(mode: EvidenceIndexMode, args: &[String]) -> Result<EvidenceIndexArgs, String> {
     const FLAG_AND_VALUE_ARGS: usize = 2;
 
@@ -984,6 +1030,7 @@ fn parse_valence_evidence_index(mode: EvidenceIndexMode, args: &[String]) -> Res
 
     while index < args.len() {
         let arg = &args[index];
+        reject_unsupported_evidence_index_arg(mode, arg)?;
         match arg.as_str() {
             "--page" => {
                 page = Some(PathBuf::from(required_arg_at(args, index, arg)?));
@@ -1009,7 +1056,7 @@ fn parse_valence_evidence_index(mode: EvidenceIndexMode, args: &[String]) -> Res
                 capture_time = Some(arg.trim_start_matches("--capture-time=").to_owned());
                 index += 1;
             }
-            _ => return Err(format!("unsupported evidence-index argument `{arg}`")),
+            _ => return Err(unsupported_evidence_index_arg(mode, arg)),
         }
     }
 
@@ -1050,6 +1097,7 @@ fn parse_codebase_evidence_index(args: &[String]) -> Result<EvidenceIndexArgs, S
 
     while cursor < args.len() {
         let arg = &args[cursor];
+        reject_unsupported_evidence_index_arg(mode, arg)?;
         match arg.as_str() {
             "--index" => {
                 index_path = Some(PathBuf::from(required_arg_at(args, cursor, arg)?));
@@ -1095,7 +1143,7 @@ fn parse_codebase_evidence_index(args: &[String]) -> Result<EvidenceIndexArgs, S
                 output = Some(PathBuf::from(arg.trim_start_matches("--output=")));
                 cursor += 1;
             }
-            _ => return Err(format!("unsupported evidence-index codebase argument `{arg}`")),
+            _ => return Err(unsupported_evidence_index_arg(mode, arg)),
         }
     }
 
@@ -2985,6 +3033,151 @@ mod tests {
         )
         .expect_err("query requires identity");
         assert!(query_error.contains("requires `--index PATH --identity ID`"));
+    }
+
+    fn parse_evidence_index_argv(args: &[&str]) -> Result<super::EvidenceIndexArgs, String> {
+        let command = ["cargo", "octet", "evidence-index"].iter().chain(args).map(OsString::from).collect::<Vec<_>>();
+        match parse(command)? {
+            CommandArgs::EvidenceIndex(args) => Ok(args),
+            other => panic!("expected evidence index args, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn evidence_index_parse_accepts_each_action_own_flags() {
+        let render = parse_evidence_index_argv(&[
+            "render",
+            "--payload-commit",
+            "abc",
+            "--capture-time=2026-05-23T12:00:00Z",
+        ])
+        .expect("render accepts payload commit and capture time");
+        assert_eq!(render.mode, EvidenceIndexMode::Render);
+        assert_eq!(render.payload_commit.as_deref(), Some("abc"));
+        assert_eq!(render.capture_time.as_deref(), Some("2026-05-23T12:00:00Z"));
+
+        let check = parse_evidence_index_argv(&[
+            "check",
+            "--page=page.md",
+            "--payload-commit",
+            "abc",
+            "--capture-time",
+            "2026-05-23T12:00:00Z",
+        ])
+        .expect("check accepts page and expected values");
+        assert_eq!(check.mode, EvidenceIndexMode::Check);
+        assert_eq!(check.page, Some(std::path::PathBuf::from("page.md")));
+        assert_eq!(check.payload_commit.as_deref(), Some("abc"));
+
+        let build = parse_evidence_index_argv(&[
+            "codebase",
+            "build",
+            "--artifact=a.json",
+            "--artifact-dir",
+            "bundle",
+            "--output=index.json",
+            "--advisory",
+        ])
+        .expect("build accepts artifact, artifact-dir, output, and advisory");
+        assert_eq!(build.mode, EvidenceIndexMode::CodebaseBuild);
+        assert_eq!(build.output, Some(std::path::PathBuf::from("index.json")));
+        assert!(build.advisory);
+
+        let query = parse_evidence_index_argv(&["codebase", "query", "--index=index.json", "--identity", "X"])
+            .expect("query accepts index and identity");
+        assert_eq!(query.mode, EvidenceIndexMode::CodebaseQuery);
+        assert_eq!(query.identity.as_deref(), Some("X"));
+
+        let html = parse_evidence_index_argv(&["codebase", "html", "--index", "index.json", "--output", "index.html"])
+            .expect("html accepts index and output");
+        assert_eq!(html.mode, EvidenceIndexMode::CodebaseHtml);
+        assert_eq!(html.output, Some(std::path::PathBuf::from("index.html")));
+    }
+
+    #[test]
+    fn evidence_index_parse_rejects_other_actions_flags() {
+        let cases: &[(&[&str], &str, &str)] = &[
+            (
+                &[
+                    "render",
+                    "--payload-commit",
+                    "abc",
+                    "--capture-time",
+                    "t",
+                    "--page",
+                    "p.md",
+                ],
+                "render",
+                "--page",
+            ),
+            (&["check", "--output=out.json"], "check", "--output"),
+            (&["codebase", "build", "--artifact", "a.json", "--index", "i.json"], "codebase build", "--index"),
+            (&["codebase", "build", "--artifact", "a.json", "--identity=X"], "codebase build", "--identity"),
+            (&["codebase", "build", "--artifact", "a.json", "--page", "p.md"], "codebase build", "--page"),
+            (
+                &[
+                    "codebase",
+                    "query",
+                    "--index",
+                    "i.json",
+                    "--identity",
+                    "X",
+                    "--output",
+                    "q.json",
+                ],
+                "codebase query",
+                "--output",
+            ),
+            (
+                &[
+                    "codebase",
+                    "query",
+                    "--index",
+                    "i.json",
+                    "--identity",
+                    "X",
+                    "--advisory",
+                ],
+                "codebase query",
+                "--advisory",
+            ),
+            (
+                &[
+                    "codebase",
+                    "query",
+                    "--index",
+                    "i.json",
+                    "--identity",
+                    "X",
+                    "--artifact=a.json",
+                ],
+                "codebase query",
+                "--artifact",
+            ),
+            (
+                &[
+                    "codebase",
+                    "query",
+                    "--index",
+                    "i.json",
+                    "--identity",
+                    "X",
+                    "--artifact-dir",
+                    "d",
+                ],
+                "codebase query",
+                "--artifact-dir",
+            ),
+            (&["codebase", "html", "--index", "i.json", "--advisory"], "codebase html", "--advisory"),
+            (&["codebase", "html", "--index", "i.json", "--identity", "X"], "codebase html", "--identity"),
+            (&["codebase", "html", "--index", "i.json", "--artifact", "a.json"], "codebase html", "--artifact"),
+            (&["codebase", "html", "--index", "i.json", "--artifact-dir=d"], "codebase html", "--artifact-dir"),
+        ];
+        for (args, action, flag) in cases {
+            let error = parse_evidence_index_argv(args).expect_err("flag from another action must be rejected");
+            assert!(error.contains(&format!("unsupported evidence-index {action} argument")), "{args:?}: {error}");
+            assert!(error.contains(&format!("`{flag}`")), "{args:?}: {error}");
+        }
     }
 
     #[test]
