@@ -311,6 +311,78 @@ mod tests {
     }
 
     #[test]
+    fn custom_boundary_checks_reject_forbidden_dependency_in_dotted_key_or_table_header() {
+        for (manifest, expected_line) in [
+            ("[package]\nname = \"tokio-free\"\n\n[dependencies]\ntokio.workspace = true\n", 5),
+            ("[package]\nname = \"tokio-free\"\n\n[dependencies.tokio]\nversion = \"1\"\n", 4),
+            ("[target.'cfg(unix)'.dependencies]\n\"tokio\" = { version = \"1\" }\n", 2),
+        ] {
+            let sources = vec![SourceFile::new("domain-core/Cargo.toml", manifest)];
+            let diagnostics = check_architecture(
+                &sample_custom_boundary_registry(),
+                &sources,
+                &FamilySelection::from_families(["architecture"]),
+            );
+
+            assert_eq!(diagnostics.len(), 1, "manifest: {manifest}");
+            assert!(diagnostics[0].message.contains("forbidden dependency `tokio`"));
+            assert_eq!(diagnostics[0].line, Some(expected_line), "manifest: {manifest}");
+        }
+    }
+
+    #[test]
+    fn custom_boundary_checks_ignore_forbidden_names_outside_dependency_tables() {
+        let sources = vec![SourceFile::new(
+            "domain-core/Cargo.toml",
+            "[dependencies]\nsnafu = \"0.8\"\n\n[features]\ntokio = []\n\n[build-dependencies]\nreqwest = \"0.12\"\n",
+        )];
+        let diagnostics = check_architecture(
+            &sample_custom_boundary_registry(),
+            &sources,
+            &FamilySelection::from_families(["architecture"]),
+        );
+
+        assert!(diagnostics.is_empty(), "{diagnostics:?}");
+    }
+
+    #[test]
+    fn custom_boundary_checks_accept_shell_core_dependency_in_dotted_key_or_table_header() {
+        for shell_manifest in [
+            "[dependencies]\ndomain-core.workspace = true\n",
+            "[dependencies.domain-core]\npath = \"../domain-core\"\n",
+        ] {
+            let sources = vec![
+                SourceFile::new("domain-core/src/lib.rs", "#![no_std]\n"),
+                SourceFile::new("infrastructure-shell/Cargo.toml", shell_manifest),
+                SourceFile::new("infrastructure-shell/src/lib.rs", "pub fn shell() {}\n"),
+            ];
+            let diagnostics = check_architecture(
+                &sample_custom_boundary_registry(),
+                &sources,
+                &FamilySelection::from_families(["architecture"]),
+            );
+
+            assert!(diagnostics.is_empty(), "manifest: {shell_manifest}\n{diagnostics:?}");
+        }
+    }
+
+    #[test]
+    fn custom_boundary_checks_reject_shell_core_name_only_in_features() {
+        let sources = vec![SourceFile::new(
+            "infrastructure-shell/Cargo.toml",
+            "[dependencies]\nserde = \"1\"\n\n[features]\ndomain-core = []\n",
+        )];
+        let diagnostics = check_architecture(
+            &sample_custom_boundary_registry(),
+            &sources,
+            &FamilySelection::from_families(["architecture"]),
+        );
+
+        assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+        assert!(diagnostics[0].message.contains("shell crate must depend on core crate `domain-core`"));
+    }
+
+    #[test]
     fn architecture_checks_reject_missing_core_no_std() {
         let sources = vec![SourceFile::new(
             "crates/tigerstyle-core/src/lib.rs",

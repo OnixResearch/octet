@@ -33,8 +33,6 @@ const RUST_SOURCE_EXTENSION: &str = ".rs";
 const ROOT_LIB_PATH_SUFFIX: &str = "src/lib.rs";
 const ROOT_MAIN_PATH_SUFFIX: &str = "src/main.rs";
 const NO_STD_ATTRIBUTE: &str = "#![no_std]";
-const CORE_DEPENDENCIES_SECTION: &str = "[dependencies]";
-const DEV_DEPENDENCIES_SECTION: &str = "[dev-dependencies]";
 
 /// Synthetic source path used by the CLI shell for `cargo metadata --format-version 1` output.
 pub const CARGO_METADATA_SOURCE_PATH: &str = "__octet/cargo-metadata.json";
@@ -346,13 +344,12 @@ fn check_core_forbidden_dependencies(
         return;
     };
     for source in sources_by_suffix(sources, &boundary.core_manifest_path_suffix) {
-        let dependency_section = dependency_section(&source.text);
         for dependency in &boundary.core_forbidden_dependencies {
-            if dependency_section_contains(dependency_section, dependency) {
+            if let Some(line) = dependency_declaration_line(&source.text, dependency) {
                 diagnostics.push(policy_diagnostic(
                     policy,
                     source,
-                    line_for_text(&source.text, dependency),
+                    Some(line),
                     &format!("core crate depends on forbidden dependency `{dependency}`"),
                     "move runtime, async, logging, CLI, or I/O dependencies to the shell crate",
                 ));
@@ -403,8 +400,7 @@ fn check_shell_depends_on_core(
     let manifest_suffix = boundary.std_manifest_path_suffix.as_str();
     let core_dep = boundary.core_crate_dependency.as_str();
     for source in sources_by_suffix(sources, manifest_suffix) {
-        let dependency_section = dependency_section(&source.text);
-        if dependency_section_contains(dependency_section, core_dep) {
+        if dependency_declaration_line(&source.text, core_dep).is_some() {
             continue;
         }
         diagnostics.push(policy_diagnostic(
@@ -1029,34 +1025,69 @@ fn type_state_sources<'a>(
     })
 }
 
-fn dependency_section(manifest: &str) -> &str {
-    let Some((_, after_dependencies)) = manifest.split_once(CORE_DEPENDENCIES_SECTION) else {
-        return "";
-    };
-    match after_dependencies.split_once(DEV_DEPENDENCIES_SECTION) {
-        Some((dependencies, _)) => dependencies,
-        None => after_dependencies,
-    }
-}
-
-fn dependency_section_contains(dependency_section: &str, dependency_name: &str) -> bool {
-    dependency_section
-        .lines()
-        .map(str::trim_start)
-        .any(|line| line_has_dependency_name(line, dependency_name))
-}
-
-fn line_has_dependency_name(line: &str, dependency_name: &str) -> bool {
-    if !line.starts_with(dependency_name) {
-        return false;
-    }
-    matches!(line[dependency_name.len()..].chars().next(), Some(' ' | '='))
-}
-
-fn line_for_text(text: &str, needle: &str) -> Option<u32> {
-    for (line_index, line) in text.lines().enumerate() {
-        if line.contains(needle) {
+/// Returns the 1-based manifest line declaring `dependency_name` in a normal `[dependencies]`
+/// table.
+///
+/// Accepts `name = ...` and dotted `name.workspace = true` entries, `[dependencies.name]` table
+/// headers, and their `[target.<cfg>.…]` forms. Every table header ends the previous table, so
+/// `[features]`, `[build-dependencies]`, and `[dev-dependencies]` entries never count.
+fn dependency_declaration_line(manifest: &str, dependency_name: &str) -> Option<u32> {
+    let mut table_path = Vec::new();
+    for (line_index, line) in manifest.lines().enumerate() {
+        let line = line.trim();
+        let declares = if let Some(header) = line.strip_prefix('[') {
+            let header = unquoted_find(header, ']').map_or(header, |end| &header[..end]);
+            table_path = toml_key_segments(header);
+            path_declares_dependency(&table_path, &[], dependency_name)
+        } else if let Some(key_end) = unquoted_find(line, '=') {
+            path_declares_dependency(&table_path, &toml_key_segments(&line[..key_end]), dependency_name)
+        } else {
+            false
+        };
+        if declares {
             return Some(line_number_from_index(line_index));
+        }
+    }
+    None
+}
+
+fn path_declares_dependency(table_path: &[&str], key_path: &[&str], dependency_name: &str) -> bool {
+    let mut path = table_path.iter().chain(key_path).copied().peekable();
+    if path.next_if_eq(&"target").is_some() {
+        path.next();
+    }
+    path.next() == Some("dependencies") && path.next() == Some(dependency_name)
+}
+
+/// Splits a TOML dotted key such as `target."cfg(unix)".dependencies` into unquoted segments.
+fn toml_key_segments(key: &str) -> Vec<&str> {
+    let mut segments = Vec::new();
+    let mut rest = key;
+    loop {
+        let Some(dot) = unquoted_find(rest, '.') else {
+            segments.push(unquote_toml_key(rest.trim()));
+            return segments;
+        };
+        segments.push(unquote_toml_key(rest[..dot].trim()));
+        rest = &rest[dot + 1..];
+    }
+}
+
+fn unquote_toml_key(segment: &str) -> &str {
+    ['"', '\'']
+        .into_iter()
+        .find_map(|quote| segment.strip_prefix(quote)?.strip_suffix(quote))
+        .unwrap_or(segment)
+}
+
+fn unquoted_find(text: &str, needle: char) -> Option<usize> {
+    let mut open_quote = None;
+    for (index, character) in text.char_indices() {
+        match open_quote {
+            Some(quote) if character == quote => open_quote = None,
+            None if character == '"' || character == '\'' => open_quote = Some(character),
+            None if character == needle => return Some(index),
+            Some(_) | None => {}
         }
     }
     None
