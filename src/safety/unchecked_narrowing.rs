@@ -72,7 +72,9 @@ fn is_target_const_expr<'tcx>(
     normalized == format!("{target_name}::{const_name}") || normalized == format!("<{target_name}>::{const_name}")
 }
 
-fn same_checked_expr(lhs: &hir::Expr<'_>, rhs: &hir::Expr<'_>) -> bool {
+/// Check whether two expressions name the same local/path (by resolution) or
+/// the same field projection of one.
+pub(crate) fn same_checked_expr(lhs: &hir::Expr<'_>, rhs: &hir::Expr<'_>) -> bool {
     match (&lhs.kind, &rhs.kind) {
         (ExprKind::Path(hir::QPath::Resolved(_, lhs_path)), ExprKind::Path(hir::QPath::Resolved(_, rhs_path))) => {
             lhs_path.res == rhs_path.res
