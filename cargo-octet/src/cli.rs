@@ -3506,7 +3506,7 @@ mod tests {
                 "proof-ref",
                 "validate",
                 "--proof-cards",
-                "artifacts/octet/proof-cards.json",
+                "artifacts/octet-proofs/proof-cards.json",
                 "--ref=proof-ref.json",
                 "--output-format",
                 "json",
@@ -3518,7 +3518,10 @@ mod tests {
         match parsed {
             CommandArgs::ProofRef(args) => match args.mode {
                 ProofRefMode::Validate(validate_args) => {
-                    assert_eq!(validate_args.proof_cards, std::path::PathBuf::from("artifacts/octet/proof-cards.json"));
+                    assert_eq!(
+                        validate_args.proof_cards,
+                        std::path::PathBuf::from("artifacts/octet-proofs/proof-cards.json")
+                    );
                     assert_eq!(validate_args.reference, std::path::PathBuf::from("proof-ref.json"));
                     assert_eq!(validate_args.output_format, OutputFormat::Json);
                 }
@@ -3537,7 +3540,7 @@ mod tests {
                 "proof-ref",
                 "scaffold",
                 "--proof-cards",
-                "artifacts/octet/proof-cards.json",
+                "artifacts/octet-proofs/proof-cards.json",
                 "--proof-or-property-id=octet.verus#rail-0",
                 "--reference-id",
                 "unchecked-narrowing-range-proof",
@@ -3556,7 +3559,10 @@ mod tests {
         match parsed {
             CommandArgs::ProofRef(args) => match args.mode {
                 ProofRefMode::Scaffold(scaffold_args) => {
-                    assert_eq!(scaffold_args.proof_cards, std::path::PathBuf::from("artifacts/octet/proof-cards.json"));
+                    assert_eq!(
+                        scaffold_args.proof_cards,
+                        std::path::PathBuf::from("artifacts/octet-proofs/proof-cards.json")
+                    );
                     assert_eq!(scaffold_args.proof_or_property_id, "octet.verus#rail-0");
                     assert_eq!(scaffold_args.reference_id, "unchecked-narrowing-range-proof");
                     assert_eq!(scaffold_args.consumer_source, std::path::PathBuf::from("src/codec.rs"));

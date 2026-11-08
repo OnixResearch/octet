@@ -67,7 +67,9 @@ everything the verifier printed.
 The artifact directory must be empty or hold an earlier `cargo octet prove`
 bundle. An earlier bundle is cleared before the new one is written, so no
 receipt, log, or evidence-log manifest from a previous run survives; any other
-non-empty directory is refused.
+non-empty directory, including a `cargo octet check` bundle, is refused. Give
+check and prove bundles separate directories, such as `artifacts/octet` and
+`artifacts/octet-proofs`.
 
 Source locators, rail `proof_paths`, and the proof command's working directory
 are relative to one root: the Cargo workspace root of the `--source` arguments,
@@ -88,7 +90,7 @@ origin, evidence tier, status, trust-boundary notes, non-claims, and
 receipt/provenance evidence, not standalone evidence.
 
 Current selected positive rails produce cards with these stable identities when
-run through `cargo octet prove --source src/verified --artifact-dir artifacts/octet`:
+run through `cargo octet prove --source src/verified --artifact-dir artifacts/octet-proofs`:
 
 | Proof/property ID | Mode | Source scope | Proof target | Receipt path |
 | --- | --- | --- | --- | --- |
@@ -149,7 +151,7 @@ Scaffold and validate a reference against a saved proof-card deck:
 
 ```bash
 cargo octet proof-ref scaffold \
-  --proof-cards artifacts/octet/proof-cards.json \
+  --proof-cards artifacts/octet-proofs/proof-cards.json \
   --proof-or-property-id octet.verus_proof_rails.addition-bound-production#rail-0 \
   --reference-id unchecked-narrowing-range-proof \
   --consumer-context 'allow tigerstyle::unchecked_narrowing at src/codec.rs:42' \
@@ -158,7 +160,7 @@ cargo octet proof-ref scaffold \
   --output proof-ref.json
 
 cargo octet proof-ref validate \
-  --proof-cards artifacts/octet/proof-cards.json \
+  --proof-cards artifacts/octet-proofs/proof-cards.json \
   --ref proof-ref.json
 ```
 

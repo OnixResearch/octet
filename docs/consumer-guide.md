@@ -196,9 +196,13 @@ source selector; it demonstrates non-zero Verus rejection, `verifier-failure`
 diagnostics, bounded receipt/log identities, and no `formal_proof` provenance.
 
 ```bash
-cargo octet prove --policy-artifacts-dir artifacts/policy --source src/verified --artifact-dir artifacts/octet
-cargo octet artifact verify --artifact-dir artifacts/octet
+cargo octet prove --policy-artifacts-dir artifacts/policy --source src/verified --artifact-dir artifacts/octet-proofs
+cargo octet artifact verify --artifact-dir artifacts/octet-proofs
 ```
+
+`cargo octet check` and `cargo octet prove` write separate bundles, so give each
+its own artifact directory; `cargo octet prove` refuses a directory that holds a
+`check` bundle.
 
 External Aeneas consumers use a closed Nickel profile. The receipt binds the
 provider cohort, exact source and span, generated artifacts, theorem,

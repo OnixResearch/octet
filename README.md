@@ -258,9 +258,9 @@ cargo octet prove \
   --policy-artifacts-dir artifacts/policy \
   --source src/verified \
   --rail octet.verus_proof_rails.addition-bound-production#rail-0 \
-  --artifact-dir artifacts/octet
+  --artifact-dir artifacts/octet-proofs
 cargo octet proof-ref scaffold \
-  --proof-cards artifacts/octet/proof-cards.json \
+  --proof-cards artifacts/octet-proofs/proof-cards.json \
   --proof-or-property-id octet.verus_proof_rails.addition-bound-production#rail-0 \
   --reference-id unchecked-narrowing-range-proof \
   --consumer-context 'allow tigerstyle::unchecked_narrowing at src/codec.rs:42' \
@@ -268,10 +268,14 @@ cargo octet proof-ref scaffold \
   --anchor 'octet-proof-ref: unchecked-narrowing-range-proof -> octet.verus_proof_rails.addition-bound-production#rail-0' \
   --output proof-ref.json
 cargo octet proof-ref validate \
-  --proof-cards artifacts/octet/proof-cards.json \
+  --proof-cards artifacts/octet-proofs/proof-cards.json \
   --ref proof-ref.json
-cargo octet artifact verify --artifact-dir artifacts/octet
+cargo octet artifact verify --artifact-dir artifacts/octet-proofs
 ```
+
+`cargo octet check` and `cargo octet prove` write separate bundles, so give each
+its own artifact directory; `cargo octet prove` refuses a directory that holds a
+`check` bundle.
 
 The reusable Aeneas consumer profile binds exact downstream source, generated
 artifacts, a maintained theorem, and the existing pinned provider. See
