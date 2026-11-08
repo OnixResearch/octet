@@ -314,6 +314,11 @@ cargo octet migrate apply-safe --manifest .octet/migrations/starter.json
 `status` reports accepted/fixed/deferred/manual/unresolved counts. `apply-safe`
 only records safe-apply state and preserves manual-review buckets; code edits
 still flow through the existing machine-applicable cargo-fix rails.
+Each subcommand accepts only its own flags: `--profile` is `start`-only,
+`--manifest` belongs to `start`/`status`/`apply-safe`, `--session` to
+`migrate session`, and `--operation-manifest`/`--dry-run` to
+`migrate session apply`. SARIF output is rejected too; rejected invocations
+exit 2 before any manifest is read or written.
 
 ### 3f. Verify executable documentation transcripts
 

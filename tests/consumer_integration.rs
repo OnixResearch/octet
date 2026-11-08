@@ -2427,6 +2427,72 @@ fn migration_manifest_commands_are_deterministic_and_safe() {
 }
 
 #[test]
+fn migrate_rejected_invocations_do_not_write_files() {
+    let fixture = ConsumerFixture::new("migration-rejected", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let manifest = fixture.repo.join(".octet/migrations/starter.json");
+    let manifest_arg = manifest.to_str().expect("manifest utf8");
+    let bin = built_cargo_octet_bin().expect("build cargo-octet binary");
+    let run = |args: &[&str]| Command::new(&bin).args(args).current_dir(&fixture.repo).output().expect("run migrate");
+
+    let start = run(&["migrate", "start", "--profile", "starter", "--manifest", manifest_arg]);
+    assert_eq!(start.status.code(), Some(EXIT_CODE_SUCCESS), "stderr={}", String::from_utf8_lossy(&start.stderr));
+    let mut reviewed = read_json_artifact(&manifest);
+    reviewed["accepted_findings"] = serde_json::json!(["finding-accepted"]);
+    reviewed["deferred_findings"] = serde_json::json!(["finding-b", "finding-a"]);
+    write_file(&manifest, &format!("{}\n", serde_json::to_string_pretty(&reviewed).expect("render manifest")));
+    let before = fs::read_to_string(&manifest).expect("read reviewed manifest");
+
+    for args in [
+        ["migrate", "start", "--dry-run", "--manifest", manifest_arg].as_slice(),
+        ["migrate", "apply-safe", "--dry-run", "--manifest", manifest_arg].as_slice(),
+        [
+            "migrate",
+            "start",
+            "--manifest",
+            manifest_arg,
+            "--output-format",
+            "sarif",
+        ]
+        .as_slice(),
+        [
+            "migrate",
+            "apply-safe",
+            "--manifest",
+            manifest_arg,
+            "--output-format",
+            "sarif",
+        ]
+        .as_slice(),
+    ] {
+        let output = run(args);
+        assert_eq!(output.status.code(), Some(EXIT_CODE_INTEGRATION_FAILURE), "{args:?} must be rejected");
+        assert_eq!(
+            fs::read_to_string(&manifest).expect("read manifest"),
+            before,
+            "{args:?} must not rewrite the reviewed manifest"
+        );
+    }
+
+    let session = fixture.repo.join("migration-session.json");
+    let template = Path::new(env!("CARGO_MANIFEST_DIR")).join("templates/structured-migration-session.json");
+    write_file(&session, &fs::read_to_string(template).expect("read session template"));
+    let operation_manifest = fixture.repo.join("artifacts/migration/operation-manifest.json");
+    let rejected_apply = run(&[
+        "migrate",
+        "session",
+        "apply",
+        "--session",
+        session.to_str().expect("session utf8"),
+        "--operation-manifest",
+        operation_manifest.to_str().expect("operation manifest utf8"),
+        "--output-format",
+        "sarif",
+    ]);
+    assert_eq!(rejected_apply.status.code(), Some(EXIT_CODE_INTEGRATION_FAILURE));
+    assert!(!operation_manifest.exists(), "rejected session apply must not write the operation manifest");
+}
+
+#[test]
 fn transcript_reports_content_hash_and_fails_closed() {
     let fixture = ConsumerFixture::new("transcript-report", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
     let good = fixture.repo.join("docs/good.md");

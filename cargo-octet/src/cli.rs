@@ -533,7 +533,13 @@ Modes: --check, --write, --update, --diff. Use --review-manifest PATH to save re
 
 const MIGRATE_HELP: &str = "cargo octet migrate
 
-Subcommands: start, status, apply-safe, session plan, session status, session verify, session apply.
+Subcommands:
+  start [--profile NAME] [--manifest PATH] [--output-format human|json]
+  status|apply-safe [--manifest PATH] [--output-format human|json]
+  session plan|status|verify --session PATH [--output-format human|json]
+  session apply --session PATH --operation-manifest PATH [--dry-run] [--output-format human|json]
+
+Flags outside the selected subcommand and SARIF output are rejected before any file is read or written.
 
 Migration manifests and structured migration sessions are deterministic and safe-reviewable before applying. Session plan/status/verify are non-mutating; session apply writes a pre-write operation manifest for selected safe record-only operations and preserves non-claims about semantic equivalence and correctness.
 ";
@@ -1341,21 +1347,15 @@ fn parse_fingerprint(args: &[String]) -> Result<FingerprintArgs, String> {
 
 fn parse_migrate(args: &[String]) -> Result<MigrateArgs, String> {
     match args.first().map(String::as_str) {
-        Some("start") => parse_legacy_migrate(MigrateMode::Start, &args[1..]),
-        Some("status") => parse_legacy_migrate(MigrateMode::Status, &args[1..]),
-        Some("apply-safe") => parse_legacy_migrate(MigrateMode::ApplySafe, &args[1..]),
+        Some("start") => parse_migrate_common(MigrateMode::Start, &args[1..]),
+        Some("status") => parse_migrate_common(MigrateMode::Status, &args[1..]),
+        Some("apply-safe") => parse_migrate_common(MigrateMode::ApplySafe, &args[1..]),
         Some("session") => parse_migrate_session(&args[1..]),
         Some(other) => Err(format!(
             "unknown migrate subcommand `{other}`; expected `start`, `status`, `apply-safe`, or `session`"
         )),
         None => Err("missing migrate subcommand; expected `start`, `status`, `apply-safe`, or `session`".to_owned()),
     }
-}
-
-fn parse_legacy_migrate(mode: MigrateMode, args: &[String]) -> Result<MigrateArgs, String> {
-    let mut parsed = parse_migrate_common(args)?;
-    parsed.mode = mode;
-    Ok(parsed)
 }
 
 fn parse_migrate_session(args: &[String]) -> Result<MigrateArgs, String> {
@@ -1373,8 +1373,7 @@ fn parse_migrate_session(args: &[String]) -> Result<MigrateArgs, String> {
             return Err("missing migrate session action; expected `plan`, `status`, `verify`, or `apply`".to_owned());
         }
     };
-    let mut parsed = parse_migrate_common(&args[1..])?;
-    parsed.mode = mode;
+    let parsed = parse_migrate_common(mode, &args[1..])?;
     if parsed.session.is_none() {
         return Err("migrate session requires `--session PATH`".to_owned());
     }
@@ -1384,7 +1383,41 @@ fn parse_migrate_session(args: &[String]) -> Result<MigrateArgs, String> {
     Ok(parsed)
 }
 
-fn parse_migrate_common(args: &[String]) -> Result<MigrateArgs, String> {
+const MIGRATE_FLAGS: &[&str] = &[
+    "--profile",
+    "--format",
+    "--output-format",
+    "--manifest",
+    "--session",
+    "--operation-manifest",
+    "--dry-run",
+];
+
+fn migrate_command_name(mode: MigrateMode) -> &'static str {
+    match mode {
+        MigrateMode::Start => "migrate start",
+        MigrateMode::Status => "migrate status",
+        MigrateMode::ApplySafe => "migrate apply-safe",
+        MigrateMode::SessionPlan => "migrate session plan",
+        MigrateMode::SessionStatus => "migrate session status",
+        MigrateMode::SessionVerify => "migrate session verify",
+        MigrateMode::SessionApply => "migrate session apply",
+    }
+}
+
+fn migrate_flag_applies(mode: MigrateMode, flag: &str) -> bool {
+    let legacy = matches!(mode, MigrateMode::Start | MigrateMode::Status | MigrateMode::ApplySafe);
+    match flag {
+        "--format" | "--output-format" => true,
+        "--profile" => mode == MigrateMode::Start,
+        "--manifest" => legacy,
+        "--session" => !legacy,
+        "--operation-manifest" | "--dry-run" => mode == MigrateMode::SessionApply,
+        _ => false,
+    }
+}
+
+fn parse_migrate_common(mode: MigrateMode, args: &[String]) -> Result<MigrateArgs, String> {
     const FLAG_AND_VALUE_ARGS: usize = 2;
 
     let mut profile = None;
@@ -1396,6 +1429,10 @@ fn parse_migrate_common(args: &[String]) -> Result<MigrateArgs, String> {
     let mut index = 0;
     while index < args.len() {
         let arg = &args[index];
+        let flag = arg.split_once('=').map_or(arg.as_str(), |(flag, _)| flag);
+        if MIGRATE_FLAGS.contains(&flag) && !migrate_flag_applies(mode, flag) {
+            return Err(format!("`{flag}` is not supported by `{}`", migrate_command_name(mode)));
+        }
         match arg.as_str() {
             "--profile" => {
                 profile = Some(required_arg_at(args, index, arg)?);
@@ -1448,8 +1485,11 @@ fn parse_migrate_common(args: &[String]) -> Result<MigrateArgs, String> {
             _ => return Err(format!("unsupported migrate argument `{arg}`")),
         }
     }
+    if output_format == OutputFormat::Sarif {
+        return Err("migrate does not support SARIF output; use human or json".to_owned());
+    }
     Ok(MigrateArgs {
-        mode: MigrateMode::Start,
+        mode,
         profile,
         output_format,
         manifest,
@@ -3049,6 +3089,100 @@ mod tests {
         )
         .expect_err("apply requires operation manifest");
         assert!(missing_manifest.contains("migrate session apply requires `--operation-manifest PATH`"));
+    }
+
+    #[test]
+    fn migrate_parse_rejects_flags_outside_selected_mode() {
+        let cases: &[(&[&str], &str)] = &[
+            (&["migrate", "start", "--dry-run"], "`--dry-run` is not supported by `migrate start`"),
+            (&["migrate", "apply-safe", "--dry-run"], "`--dry-run` is not supported by `migrate apply-safe`"),
+            (&["migrate", "status", "--session", "s.json"], "`--session` is not supported by `migrate status`"),
+            (
+                &["migrate", "start", "--operation-manifest=m.json"],
+                "`--operation-manifest` is not supported by `migrate start`",
+            ),
+            (&["migrate", "status", "--profile", "starter"], "`--profile` is not supported by `migrate status`"),
+            (
+                &["migrate", "session", "verify", "--session", "s.json", "--dry-run"],
+                "`--dry-run` is not supported by `migrate session verify`",
+            ),
+            (
+                &[
+                    "migrate",
+                    "session",
+                    "plan",
+                    "--session",
+                    "s.json",
+                    "--manifest",
+                    "m.json",
+                ],
+                "`--manifest` is not supported by `migrate session plan`",
+            ),
+            (
+                &[
+                    "migrate",
+                    "session",
+                    "status",
+                    "--session",
+                    "s.json",
+                    "--operation-manifest",
+                    "m.json",
+                ],
+                "`--operation-manifest` is not supported by `migrate session status`",
+            ),
+            (
+                &[
+                    "migrate",
+                    "session",
+                    "apply",
+                    "--session",
+                    "s.json",
+                    "--operation-manifest",
+                    "m.json",
+                    "--profile=x",
+                ],
+                "`--profile` is not supported by `migrate session apply`",
+            ),
+        ];
+        for (args, expected) in cases {
+            let argv = ["cargo", "octet"].iter().chain(args.iter()).map(OsString::from);
+            let error = parse(argv).expect_err("inapplicable migrate flag must fail");
+            assert!(error.contains(expected), "{args:?}: {error}");
+        }
+    }
+
+    #[test]
+    fn migrate_parse_rejects_sarif_before_any_write() {
+        let cases: &[&[&str]] = &[
+            &["migrate", "start", "--output-format", "sarif"],
+            &["migrate", "status", "--format=sarif"],
+            &["migrate", "apply-safe", "--output-format=sarif"],
+            &[
+                "migrate",
+                "session",
+                "verify",
+                "--session",
+                "s.json",
+                "--output-format",
+                "sarif",
+            ],
+            &[
+                "migrate",
+                "session",
+                "apply",
+                "--session",
+                "s.json",
+                "--operation-manifest",
+                "m.json",
+                "--format",
+                "sarif",
+            ],
+        ];
+        for args in cases {
+            let argv = ["cargo", "octet"].iter().chain(args.iter()).map(OsString::from);
+            let error = parse(argv).expect_err("migrate SARIF must fail at parse time");
+            assert!(error.contains("migrate does not support SARIF output"), "{args:?}: {error}");
+        }
     }
 
     #[test]
