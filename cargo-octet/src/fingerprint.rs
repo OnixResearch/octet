@@ -1,4 +1,5 @@
 use std::fs;
+use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -134,16 +135,21 @@ pub fn run(args: &FingerprintArgs) -> Result<i32, String> {
     } else {
         args.paths.clone()
     };
-    let input_paths: Vec<String> = paths.iter().map(|path| determinism::normalize_path(path)).collect();
+    let root = std::env::current_dir().map_err(|error| format!("read current directory: {error}"))?;
+    let input_paths = paths.iter().map(|path| record_path(&root, path)).collect::<Result<Vec<_>, _>>()?;
     let mut files = Vec::new();
     for path in paths {
         collect_rust_files(&path, &mut files)?;
     }
+    let mut files = files
+        .into_iter()
+        .map(|path| record_path(&root, &path).map(|record_path| (record_path, path)))
+        .collect::<Result<Vec<_>, _>>()?;
     files.sort();
-    files.dedup();
+    files.dedup_by(|right, left| right.0 == left.0);
 
     let mut records = Vec::new();
-    for path in files {
+    for (record_path, path) in files {
         let source = fs::read_to_string(&path).map_err(|error| format!("read {}: {error}", path.display()))?;
         let spans = find_functions(&source);
         let mut replacements = Vec::new();
@@ -169,7 +175,7 @@ pub fn run(args: &FingerprintArgs) -> Result<i32, String> {
             };
             let macro_warning = span.macro_calls && !marker.as_ref().is_some_and(|m| m.macro_allowed);
             let record = FunctionRecord {
-                path: path.display().to_string(),
+                path: record_path.clone(),
                 name: span.name.clone(),
                 stored_hash: marker.as_ref().and_then(|m| m.stored_hash.clone()),
                 computed_hash: computed_hash.clone(),
@@ -322,6 +328,48 @@ fn write_review_manifest_provenance(path: &Path, contents: &[u8], input_paths: &
 
 fn fingerprint_record_stable_id(record: &FunctionRecord) -> String {
     record.semantic_id.clone()
+}
+
+/// Path written to fingerprint records and review manifests: relative to
+/// `root` (the current directory) with `/` separators, `.` for `root` itself.
+/// A path outside `root`, lexically and after resolving symlinks, is rejected
+/// so machine output never carries absolute or `..` paths.
+fn record_path(root: &Path, path: &Path) -> Result<String, String> {
+    let lexical = lexically_normalized(&root.join(path));
+    let relative = match lexical.strip_prefix(root) {
+        Ok(relative) => relative.to_path_buf(),
+        Err(_) => fs::canonicalize(path)
+            .ok()
+            .zip(fs::canonicalize(root).ok())
+            .and_then(|(path, root)| path.strip_prefix(root).ok().map(Path::to_path_buf))
+            .ok_or_else(|| {
+                format!(
+                    "fingerprint path `{}` is outside the current directory `{}`; run from a directory that contains it",
+                    path.display(),
+                    root.display()
+                )
+            })?,
+    };
+    if relative.as_os_str().is_empty() {
+        return Ok(".".to_owned());
+    }
+    Ok(determinism::normalize_path(&relative))
+}
+
+/// `path` with `.` dropped and each `..` removing the preceding component,
+/// without touching the file system.
+fn lexically_normalized(path: &Path) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                normalized.pop();
+            }
+            other => normalized.push(other),
+        }
+    }
+    normalized
 }
 
 /// Collects the Rust files a user-named path selects. The named path must

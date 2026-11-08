@@ -187,7 +187,7 @@ Attribute form MUST support `#[fingerprint("b3:...", review = "...")]` or an equ
 
 The system MUST provide deterministic machine-readable output for fingerprint validation results when requested.
 
-Machine output MUST include the schema version, function name, relative file path, review class, stored hash, computed hash, status, macro allowance state, and optional evidence or spec reference. It MUST NOT include absolute paths, timestamps, local usernames, or environment dumps.
+Machine output MUST include the schema version, function name, relative file path, review class, stored hash, computed hash, status, macro allowance state, and optional evidence or spec reference. It MUST NOT include absolute paths, timestamps, local usernames, or environment dumps. File paths in records and review-manifest input paths MUST be relative to the current directory; a scanned path outside it MUST be rejected before any source is rewritten.
 
 #### Scenario: Machine output captures mismatch identity [r[fingerprint-machine-output.scenario.mismatch-identity]]
 

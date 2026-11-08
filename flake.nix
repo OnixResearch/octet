@@ -642,6 +642,9 @@
             cp "$repo_root/docs/examples/function-fingerprint-source-scanner/reviewed.rs" "$scratch/consumer/src/source_scanner.rs"
             cp "$repo_root/docs/examples/function-fingerprint-warning-summary/reviewed.rs" "$scratch/consumer/src/warning_summary.rs"
             chmod -R u+w "$scratch/consumer"
+            # Fingerprint records carry paths relative to the working directory,
+            # which must contain every scanned path.
+            cd "$scratch"
 
             set +e
             ${cargoOctetUnwrapped}/bin/cargo-octet fingerprint --check --output-format=json "$scratch/consumer/src" > "$scratch/check.json" 2> "$scratch/check.err"

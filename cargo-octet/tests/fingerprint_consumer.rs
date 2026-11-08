@@ -264,6 +264,53 @@ fn fingerprint_review_manifest_is_stable_and_sorted() {
 }
 
 #[test]
+fn fingerprint_records_and_manifest_use_relative_paths_and_reject_outside_paths() {
+    let temp = tempfile::tempdir().expect("create tempdir");
+    write_consumer_fixture(temp.path());
+    let absolute_source = temp.path().join("src/lib.rs");
+    let output = Command::new(cargo_octet())
+        .args([
+            "fingerprint",
+            "--check",
+            "--output-format=json",
+            "--review-manifest",
+            "manifest.json",
+        ])
+        .arg(&absolute_source)
+        .current_dir(temp.path())
+        .output()
+        .expect("run fingerprint with absolute path");
+    assert_eq!(output.status.code(), Some(1), "stderr={}", String::from_utf8_lossy(&output.stderr));
+    let report: serde_json::Value = serde_json::from_slice(&output.stdout).expect("fingerprint json");
+    let manifest: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(temp.path().join("manifest.json")).expect("read manifest"))
+            .expect("parse manifest");
+    assert_eq!(manifest["input_paths"], serde_json::json!(["src/lib.rs"]));
+    for records in [&report["records"], &manifest["records"]] {
+        let paths =
+            records.as_array().expect("records").iter().map(|record| record["path"].clone()).collect::<Vec<_>>();
+        assert_eq!(paths, [serde_json::json!("src/lib.rs"), serde_json::json!("src/lib.rs")]);
+    }
+
+    let outside = tempfile::tempdir().expect("create outside tempdir");
+    write_consumer_fixture(outside.path());
+    let outside_source = outside.path().join("src/lib.rs");
+    let before = fs::read_to_string(&outside_source).expect("read outside source");
+    let escaping = format!("../{}/src/lib.rs", outside.path().file_name().expect("tempdir name").to_string_lossy());
+    for named in [outside_source.to_str().expect("utf8 path"), escaping.as_str()] {
+        let output = Command::new(cargo_octet())
+            .args(["fingerprint", "--update", named])
+            .current_dir(temp.path())
+            .output()
+            .expect("run fingerprint with outside path");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert_eq!(output.status.code(), Some(2), "{named}: stderr={stderr}");
+        assert!(stderr.contains("outside the current directory"), "{named}: stderr={stderr}");
+    }
+    assert_eq!(fs::read_to_string(&outside_source).expect("reread outside source"), before);
+}
+
+#[test]
 fn fingerprint_write_then_check_works_for_external_crate_file() {
     let temp = tempfile::tempdir().expect("create tempdir");
     write_consumer_fixture(temp.path());
@@ -272,6 +319,7 @@ fn fingerprint_write_then_check_works_for_external_crate_file() {
     let write = Command::new(cargo_octet())
         .args(["fingerprint", "--write"])
         .arg(&fixture)
+        .current_dir(temp.path())
         .output()
         .expect("run fingerprint write");
     assert!(write.status.success(), "write stderr: {}", String::from_utf8_lossy(&write.stderr));
@@ -279,6 +327,7 @@ fn fingerprint_write_then_check_works_for_external_crate_file() {
     let check = Command::new(cargo_octet())
         .args(["fingerprint", "--check", "--output-format=json"])
         .arg(&fixture)
+        .current_dir(temp.path())
         .output()
         .expect("run fingerprint check");
     assert!(check.status.success(), "check stderr: {}", String::from_utf8_lossy(&check.stderr));
@@ -300,6 +349,7 @@ fn fingerprint_update_then_check_only_tracks_marked_functions() {
     let update = Command::new(cargo_octet())
         .args(["fingerprint", "--update"])
         .arg(&fixture)
+        .current_dir(temp.path())
         .output()
         .expect("run fingerprint update");
     assert!(update.status.success(), "update stderr: {}", String::from_utf8_lossy(&update.stderr));
@@ -307,6 +357,7 @@ fn fingerprint_update_then_check_only_tracks_marked_functions() {
     let check = Command::new(cargo_octet())
         .args(["fingerprint", "--check", "--output-format=json"])
         .arg(&fixture)
+        .current_dir(temp.path())
         .output()
         .expect("run fingerprint check");
     assert!(check.status.success(), "check stderr: {}", String::from_utf8_lossy(&check.stderr));
@@ -328,6 +379,7 @@ fn fingerprint_write_skips_functions_inside_macro_rules_definitions() {
     let write = Command::new(cargo_octet())
         .args(["fingerprint", "--write", "--output-format=json"])
         .arg(&fixture)
+        .current_dir(temp.path())
         .output()
         .expect("run fingerprint write");
     assert!(write.status.success(), "write stderr: {}", String::from_utf8_lossy(&write.stderr));
@@ -345,6 +397,7 @@ fn fingerprint_write_skips_functions_inside_macro_rules_definitions() {
     let check = Command::new(cargo_octet())
         .args(["fingerprint", "--check", "--output-format=json"])
         .arg(&fixture)
+        .current_dir(temp.path())
         .output()
         .expect("run fingerprint check");
     assert!(check.status.success(), "check stderr: {}", String::from_utf8_lossy(&check.stderr));
@@ -359,6 +412,7 @@ fn fingerprint_marker_detects_code_after_quoted_slashes() {
     let write = Command::new(cargo_octet())
         .args(["fingerprint", "--write"])
         .arg(&fixture)
+        .current_dir(temp.path())
         .output()
         .expect("run fingerprint write");
     assert!(write.status.success(), "write stderr: {}", String::from_utf8_lossy(&write.stderr));
@@ -370,6 +424,7 @@ fn fingerprint_marker_detects_code_after_quoted_slashes() {
         let output = Command::new(cargo_octet())
             .args(["fingerprint", "--check", "--output-format=json"])
             .arg(&fixture)
+            .current_dir(temp.path())
             .output()
             .expect("run fingerprint check");
         let json: serde_json::Value = serde_json::from_slice(&output.stdout).expect("check json");
@@ -404,6 +459,7 @@ pub fn label() -> &'static str {
     let check = Command::new(cargo_octet())
         .args(["fingerprint", "--check", "--output-format=json"])
         .arg(&fixture)
+        .current_dir(temp.path())
         .output()
         .expect("run fingerprint check");
     assert!(!check.status.success(), "untagged v1 markers must fail closed");
@@ -593,6 +649,7 @@ fn fingerprint_update_check_and_diff_walk_directory_tree() {
     let update = Command::new(cargo_octet())
         .args(["fingerprint", "--update", "--output-format=json"])
         .arg(temp.path())
+        .current_dir(temp.path())
         .output()
         .expect("run fingerprint update");
     assert!(update.status.success(), "update stderr: {}", String::from_utf8_lossy(&update.stderr));
@@ -610,6 +667,7 @@ fn fingerprint_update_check_and_diff_walk_directory_tree() {
     let check = Command::new(cargo_octet())
         .args(["fingerprint", "--check", "--output-format=json"])
         .arg(temp.path())
+        .current_dir(temp.path())
         .output()
         .expect("run fingerprint check");
     assert!(check.status.success(), "check stderr: {}", String::from_utf8_lossy(&check.stderr));
@@ -618,6 +676,7 @@ fn fingerprint_update_check_and_diff_walk_directory_tree() {
     let diff = Command::new(cargo_octet())
         .args(["fingerprint", "--diff", "--output-format=json"])
         .arg(temp.path())
+        .current_dir(temp.path())
         .output()
         .expect("run fingerprint diff");
     assert!(diff.status.success(), "diff stderr: {}", String::from_utf8_lossy(&diff.stderr));
@@ -644,6 +703,7 @@ fn fingerprint_check_reports_single_directory_drift() {
     let update = Command::new(cargo_octet())
         .args(["fingerprint", "--update", "--output-format=json"])
         .arg(temp.path())
+        .current_dir(temp.path())
         .output()
         .expect("run fingerprint update");
     assert!(update.status.success(), "update stderr: {}", String::from_utf8_lossy(&update.stderr));
@@ -656,6 +716,7 @@ fn fingerprint_check_reports_single_directory_drift() {
     let check = Command::new(cargo_octet())
         .args(["fingerprint", "--check", "--output-format=json"])
         .arg(temp.path())
+        .current_dir(temp.path())
         .output()
         .expect("run fingerprint check");
     assert!(!check.status.success(), "drift check should fail");
@@ -663,6 +724,7 @@ fn fingerprint_check_reports_single_directory_drift() {
     let human_check = Command::new(cargo_octet())
         .args(["fingerprint", "--check"])
         .arg(temp.path())
+        .current_dir(temp.path())
         .output()
         .expect("run human fingerprint check");
     assert!(!human_check.status.success(), "human drift check should fail");
@@ -676,6 +738,7 @@ fn fingerprint_check_reports_single_directory_drift() {
     let diff = Command::new(cargo_octet())
         .args(["fingerprint", "--diff", "--output-format=json"])
         .arg(temp.path())
+        .current_dir(temp.path())
         .output()
         .expect("run fingerprint drift diff");
     assert!(!diff.status.success(), "drift diff should fail");
@@ -687,6 +750,7 @@ fn fingerprint_check_reports_single_directory_drift() {
     let repair = Command::new(cargo_octet())
         .args(["fingerprint", "--update"])
         .arg(temp.path())
+        .current_dir(temp.path())
         .output()
         .expect("run fingerprint repair update");
     assert!(repair.status.success(), "repair stderr: {}", String::from_utf8_lossy(&repair.stderr));
@@ -696,6 +760,7 @@ fn fingerprint_check_reports_single_directory_drift() {
     let repaired_check = Command::new(cargo_octet())
         .args(["fingerprint", "--check", "--output-format=json"])
         .arg(temp.path())
+        .current_dir(temp.path())
         .output()
         .expect("run repaired fingerprint check");
     assert!(
@@ -719,6 +784,7 @@ fn fingerprint_check_reports_single_directory_drift() {
     let repaired_diff = Command::new(cargo_octet())
         .args(["fingerprint", "--diff", "--output-format=json"])
         .arg(temp.path())
+        .current_dir(temp.path())
         .output()
         .expect("run repaired fingerprint diff");
     assert!(
@@ -773,6 +839,7 @@ fn object_support_does_not_require_fingerprint_markers() {
     let fingerprint = Command::new(cargo_octet())
         .args(["fingerprint", "--check", "--output-format=json"])
         .arg(temp.path())
+        .current_dir(temp.path())
         .output()
         .expect("run fingerprint check");
     assert!(!fingerprint.status.success(), "zeroed fixture should report fingerprint mismatches");

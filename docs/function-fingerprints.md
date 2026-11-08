@@ -189,7 +189,11 @@ cargo octet fingerprint --check path/to/file-or-directory --output-format=json
 
 The JSON report contains the mode and one record per marked function, including the
 path, function name, stored hash, computed hash, status, review metadata, evidence
-metadata, and macro-warning flag. Common script checks are:
+metadata, and macro-warning flag. Record paths are relative to the current
+directory with `/` separators, even when the command names an absolute path, so
+run the command from a directory that contains every scanned path; a path
+outside it is rejected before any marker is read or written. Common script
+checks are:
 
 ```bash
 # Count mismatched functions.
@@ -215,7 +219,8 @@ cargo octet fingerprint --check src --review-manifest artifacts/fingerprint-revi
 ```
 
 The manifest records the tool name/version, input paths, mode, a BLAKE3
-`manifest_hash`, and sorted records. Each record includes a stable content ID,
+`manifest_hash`, and sorted records. Input and record paths are relative to the
+current directory, like JSON record paths. Each record includes a stable content ID,
 path, function name, computed/stored hash, review/evidence metadata, macro
 warning state, and `requires_review` boolean. Sorting is by path, function name,
 and stable ID so two runs over the same source produce comparable manifests.
