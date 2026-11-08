@@ -276,7 +276,7 @@ impl ArchitectureCollector {
         self.push_fact(fact);
         self.collect_function_safety(cx, def_id, item_kind, &item_id, &qualified_path, &span_id);
         self.remember_selected_type(cx, def_id, item_kind, &qualified_path, &span_id);
-        self.collect_module(&qualified_path, item_kind, &span_id);
+        self.collect_module(cx, def_id, item_kind, &span_id);
         if span.from_expansion() {
             self.collect_expansion(cx, span, &span_id);
         }
@@ -389,15 +389,22 @@ impl ArchitectureCollector {
         type_id
     }
 
-    fn collect_module(&mut self, qualified_path: &str, item_kind: ItemKind, span_id: &str) {
-        let module_path = if item_kind == ItemKind::Module {
-            qualified_path
+    // Items nested in impl blocks, functions, or derive-generated anonymous
+    // constants are not modules. Use the compiler's containing module rather
+    // than truncating the item path, which turned each such parent into a
+    // pseudo-module and exhausted `max_modules` on derive-heavy crates.
+    fn collect_module(&mut self, cx: &LateContext<'_>, def_id: LocalDefId, item_kind: ItemKind, span_id: &str) {
+        let module_def_id = if item_kind == ItemKind::Module {
+            def_id
         } else {
-            let Some((module_path, _)) = qualified_path.rsplit_once("::") else {
-                return;
-            };
-            module_path
+            cx.tcx.parent_module_from_def_id(def_id).to_local_def_id()
         };
+        let module_path = if module_def_id == rustc_hir::def_id::CRATE_DEF_ID {
+            cx.tcx.crate_name(rustc_hir::def_id::LOCAL_CRATE).to_string()
+        } else {
+            qualified_definition(cx, module_def_id.to_def_id())
+        };
+        let module_path = module_path.as_str();
         if self.module_paths.contains(module_path) {
             return;
         }
