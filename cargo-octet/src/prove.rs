@@ -5,12 +5,6 @@ use std::fmt::Write as _;
 use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
-use std::process::Command;
-use std::process::ExitStatus;
-use std::process::Stdio;
-use std::thread;
-use std::time::Duration;
-use std::time::Instant;
 
 use octet_standards::artifacts::POLICIES_JSON_FILE;
 use octet_standards::formal_proof::AENEAS_LEAN_PROVIDER_ID;
@@ -151,6 +145,12 @@ const CARGO_MANIFEST_FILE: &str = "Cargo.toml";
 const DEFAULT_PROOF_TIMEOUT_MS: u64 = 30_000;
 const DEFAULT_LOG_MAX_BYTES: usize = 4_096;
 const PROCESS_POLL_INTERVAL_MS: u64 = 10;
+const PROCESS_TEARDOWN_TIMEOUT_MS: u64 = 5_000;
+const PROCESS_STDIN_MAX_BYTES: usize = 1;
+const PROCESS_SUCCESS_EXIT_CODE: i32 = 0;
+#[cfg(unix)]
+const EXECUTABLE_MODE_BITS: u32 = 0o111;
+const PATH_ENVIRONMENT_NAME: &str = "PATH";
 const COMMAND_STDOUT_SUFFIX: &str = "stdout";
 const COMMAND_STDERR_SUFFIX: &str = "stderr";
 const COMMAND_ARGV_FIELD: &str = "command_argv";
@@ -1181,17 +1181,17 @@ fn run_proof_command(rail: &ProofRail, working_dir: &Path) -> CommandOutcome {
             };
         }
     };
-    let output = spawn_and_wait(&spec, working_dir);
+    let stdout_limit = configured_log_limit(rail.stdout_max_bytes);
+    let stderr_limit = configured_log_limit(rail.stderr_max_bytes);
+    let output = spawn_and_wait(&spec, working_dir, stdout_limit, stderr_limit);
     let command_blake3 = command_blake3(&spec.argv);
     match output {
         Ok(output) => {
-            let stdout_limit = configured_log_limit(rail.stdout_max_bytes);
-            let stderr_limit = configured_log_limit(rail.stderr_max_bytes);
-            let bounded_stdout = bounded_utf8(&output.stdout, stdout_limit);
-            let bounded_stderr = bounded_utf8(&output.stderr, stderr_limit);
+            let bounded_stdout = bounded_utf8(output.stdout);
+            let bounded_stderr = bounded_utf8(output.stderr);
             CommandOutcome {
-                command_succeeded: output.status.is_some_and(|status| status.success()) && !output.timed_out,
-                timed_out: output.timed_out,
+                command_succeeded: output.disposition == bounded_exec::Disposition::Succeeded,
+                timed_out: output.completion == bounded_exec::Completion::TimedOut,
                 stdout_text: bounded_stdout.text,
                 stdout_original_bytes: bounded_stdout.original_bytes,
                 stdout_truncated: bounded_stdout.truncated,
@@ -1199,7 +1199,7 @@ fn run_proof_command(rail: &ProofRail, working_dir: &Path) -> CommandOutcome {
                 stderr_original_bytes: bounded_stderr.original_bytes,
                 stderr_truncated: bounded_stderr.truncated,
                 command_blake3,
-                diagnostics: output.diagnostics,
+                diagnostics: Vec::new(),
                 aeneas_summary: None,
             }
         }
@@ -1241,65 +1241,83 @@ fn proof_command_spec(rail: &ProofRail) -> Result<CommandSpec, String> {
     })
 }
 
-struct CommandOutput {
-    status: Option<ExitStatus>,
-    timed_out: bool,
-    stdout: Vec<u8>,
-    stderr: Vec<u8>,
-    diagnostics: Vec<String>,
+/// Runs the proof command with both output pipes drained concurrently into bounded buffers, so
+/// verbose verifiers cannot stall on a full pipe. The command runs in its own process group, which
+/// is killed on timeout and after exit, so descendants that inherited the pipes cannot keep
+/// teardown waiting.
+fn spawn_and_wait(
+    spec: &CommandSpec,
+    working_dir: &Path,
+    stdout_max_bytes: usize,
+    stderr_max_bytes: usize,
+) -> Result<bounded_exec::ExecutionOutput, String> {
+    let command_line = spec.argv.join(" ");
+    let current_dir = std::path::absolute(working_dir).map_err(|error| {
+        format!("resolve proof command `{command_line}` working directory {}: {error}", working_dir.display())
+    })?;
+    let environment = allowed_environment(&spec.environment_allowlist)
+        .into_iter()
+        .map(|(name, value)| (OsString::from(name), value))
+        .collect::<Vec<_>>();
+    let search_path = environment.iter().find(|(name, _)| name == PATH_ENVIRONMENT_NAME).map(|(_, value)| value);
+    let program = resolve_program(&spec.executable, &current_dir, search_path).ok_or_else(|| {
+        format!("spawn proof command `{command_line}`: executable `{}` was not found", spec.executable)
+    })?;
+    let outcome_policy = bounded_exec::OutcomePolicy::new(vec![PROCESS_SUCCESS_EXIT_CODE], false, false)
+        .map_err(|error| format!("construct proof command outcome policy: {error:?}"))?;
+    bounded_exec::run(bounded_exec::RunRequest {
+        command: bounded_exec::CommandSpec {
+            program,
+            args: spec.args.iter().map(OsString::from).collect(),
+            current_dir,
+            environment_mode: bounded_exec::EnvironmentMode::Clear,
+            environment,
+            input: bounded_exec::Input::Null,
+        },
+        limits: bounded_exec::ExecutionLimits {
+            timeout_ms: spec.timeout_ms,
+            stdin_max_bytes: PROCESS_STDIN_MAX_BYTES,
+            stdout_max_bytes,
+            stderr_max_bytes,
+            poll_interval_ms: PROCESS_POLL_INTERVAL_MS.min(spec.timeout_ms),
+            teardown_timeout_ms: PROCESS_TEARDOWN_TIMEOUT_MS,
+        },
+        termination_scope: bounded_exec::TerminationScope::ProcessGroup,
+        outcome_policy,
+    })
+    .map_err(|error| match error {
+        bounded_exec::RunError::Io {
+            operation: bounded_exec::Operation::Spawn,
+            error,
+        } => {
+            format!("spawn proof command `{command_line}`: {error}")
+        }
+        error => format!("run proof command `{command_line}`: {error}"),
+    })
 }
 
-fn spawn_and_wait(spec: &CommandSpec, working_dir: &Path) -> Result<CommandOutput, String> {
-    let mut command = Command::new(&spec.executable);
-    command
-        .args(&spec.args)
-        .current_dir(working_dir)
-        .env_clear()
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-    for (name, value) in allowed_environment(&spec.environment_allowlist) {
-        command.env(name, value);
+/// Resolves the executable the way `execvp` would for the child: paths containing `/` are relative
+/// to the child's working directory, bare names are searched in the child's `PATH`.
+fn resolve_program(executable: &str, current_dir: &Path, search_path: Option<&OsString>) -> Option<PathBuf> {
+    if executable.contains('/') {
+        return Some(current_dir.join(executable));
     }
-    let mut child =
-        command.spawn().map_err(|error| format!("spawn proof command `{}`: {error}", spec.argv.join(" ")))?;
-    let timeout = Duration::from_millis(spec.timeout_ms);
-    let poll_interval = Duration::from_millis(PROCESS_POLL_INTERVAL_MS);
-    let started = Instant::now();
-    loop {
-        match child.try_wait() {
-            Ok(Some(status)) => {
-                let output = child
-                    .wait_with_output()
-                    .map_err(|error| format!("collect proof command `{}` output: {error}", spec.argv.join(" ")))?;
-                return Ok(CommandOutput {
-                    status: Some(status),
-                    timed_out: false,
-                    stdout: output.stdout,
-                    stderr: output.stderr,
-                    diagnostics: Vec::new(),
-                });
-            }
-            Ok(None) if started.elapsed() >= timeout => {
-                let mut diagnostics = Vec::new();
-                if let Err(error) = child.kill() {
-                    diagnostics.push(format!("kill timed-out proof command `{}`: {error}", spec.argv.join(" ")));
-                }
-                let output = child.wait_with_output().map_err(|error| {
-                    format!("collect timed-out proof command `{}` output: {error}", spec.argv.join(" "))
-                })?;
-                return Ok(CommandOutput {
-                    status: Some(output.status),
-                    timed_out: true,
-                    stdout: output.stdout,
-                    stderr: output.stderr,
-                    diagnostics,
-                });
-            }
-            Ok(None) => thread::sleep(poll_interval),
-            Err(error) => return Err(format!("poll proof command `{}`: {error}", spec.argv.join(" "))),
-        }
-    }
+    std::env::split_paths(search_path?)
+        .map(|directory| current_dir.join(directory).join(executable))
+        .find(|candidate| is_executable_file(candidate))
+}
+
+#[cfg(unix)]
+fn is_executable_file(path: &Path) -> bool {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    std::fs::metadata(path)
+        .is_ok_and(|metadata| metadata.is_file() && metadata.permissions().mode() & EXECUTABLE_MODE_BITS != 0)
+}
+
+#[cfg(not(unix))]
+fn is_executable_file(path: &Path) -> bool {
+    path.is_file()
 }
 
 fn proof_environment_allowlist(rail: &ProofRail) -> Vec<String> {
@@ -1320,12 +1338,13 @@ struct BoundedText {
     truncated: bool,
 }
 
-fn bounded_utf8(bytes: &[u8], max_bytes: usize) -> BoundedText {
-    let captured_len = bytes.len().min(max_bytes);
+fn bounded_utf8(captured: bounded_exec::CapturedOutput) -> BoundedText {
+    let text = String::from_utf8(captured.bytes)
+        .unwrap_or_else(|error| String::from_utf8_lossy(error.as_bytes()).into_owned());
     BoundedText {
-        text: String::from_utf8_lossy(&bytes[..captured_len]).to_string(),
-        original_bytes: bytes.len(),
-        truncated: bytes.len() > captured_len,
+        text,
+        original_bytes: captured.observed_bytes,
+        truncated: captured.truncated,
     }
 }
 
@@ -2410,6 +2429,9 @@ mod tests {
     const SHORT_TIMEOUT_MS: u64 = 1;
     const TEST_TIMEOUT_MS: u64 = 1_000;
     const TEST_LOG_LIMIT_BYTES: usize = 128;
+    const PIPE_OVERFLOW_BYTES: usize = 200_000;
+    const DESCENDANT_SLEEP_SECS: u64 = 20;
+    const DESCENDANT_TEARDOWN_BOUND_SECS: u64 = 10;
     const AENEAS_CONSUMER_TRUST_BOUNDARY: &str =
         "the external consumer proves only its named theorem over exact bound inputs";
     const VERUS_V1_RECEIPT_GOLDEN_BLAKE3: &str = "adc4998ee90cf9a1165c456dd2c0696f447e9c743c97bb27bbac4582cfda5cf8";
@@ -2877,6 +2899,51 @@ mod tests {
 
         let timeout = run_fixture_with_timeout(temp.path(), &source, vec!["sleep".to_owned(), "1".to_owned()]);
         assert!(timeout.contains("timed out"));
+    }
+
+    #[test]
+    fn prove_drains_verifier_output_larger_than_pipe_buffer() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let script = format!(
+            "printf '%s\\n' '{PASS_SIGNAL}'; head -c {PIPE_OVERFLOW_BYTES} /dev/zero; head -c {PIPE_OVERFLOW_BYTES} /dev/zero >&2"
+        );
+        let rail = fixture_rail(temp.path(), PASS_SIGNAL, vec!["sh".to_owned(), "-c".to_owned(), script]);
+
+        let outcome = run_proof_command(&rail, temp.path());
+
+        assert!(!outcome.timed_out, "large verifier output must not stall until timeout: {:?}", outcome.diagnostics);
+        assert!(outcome.command_succeeded, "unexpected diagnostics: {:?}", outcome.diagnostics);
+        assert!(outcome.stdout_text.contains(PASS_SIGNAL));
+        assert_eq!(outcome.stdout_original_bytes, PASS_SIGNAL.len() + 1 + PIPE_OVERFLOW_BYTES);
+        assert!(outcome.stdout_truncated);
+        assert_eq!(outcome.stdout_text.len(), TEST_LOG_LIMIT_BYTES);
+        assert_eq!(outcome.stderr_original_bytes, PIPE_OVERFLOW_BYTES);
+        assert!(outcome.stderr_truncated);
+        assert_eq!(outcome.stderr_text.len(), TEST_LOG_LIMIT_BYTES);
+    }
+
+    #[test]
+    fn prove_teardown_does_not_wait_for_descendants_holding_output_pipes() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let exits_with_background_child = format!("sleep {DESCENDANT_SLEEP_SECS} & printf '%s\\n' '{PASS_SIGNAL}'");
+        let times_out_waiting_for_child = format!("sleep {DESCENDANT_SLEEP_SECS} & wait");
+
+        for (script, expect_timeout) in [
+            (exits_with_background_child, false),
+            (times_out_waiting_for_child, true),
+        ] {
+            let rail = fixture_rail(temp.path(), PASS_SIGNAL, vec!["sh".to_owned(), "-c".to_owned(), script.clone()]);
+            let started = std::time::Instant::now();
+
+            let outcome = run_proof_command(&rail, temp.path());
+
+            assert!(
+                started.elapsed() < std::time::Duration::from_secs(DESCENDANT_TEARDOWN_BOUND_SECS),
+                "`{script}` teardown waited for a descendant holding the output pipes"
+            );
+            assert_eq!(outcome.timed_out, expect_timeout, "`{script}`: {:?}", outcome.diagnostics);
+            assert_eq!(outcome.command_succeeded, !expect_timeout, "`{script}`: {:?}", outcome.diagnostics);
+        }
     }
 
     #[test]
