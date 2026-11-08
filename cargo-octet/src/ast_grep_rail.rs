@@ -18,6 +18,8 @@ const CODEMOD_MODE_DRY_RUN: &str = "dry-run-only";
 const CODEMOD_MODE_INTERACTIVE: &str = "interactive";
 const INVENTORY_LANE: &str = "inventory";
 const ERROR_SEVERITY: &str = "error";
+const SEVERITY_POSTURES: &[&str] = &[INVENTORY_LANE, "advisory", "warning", ERROR_SEVERITY];
+const PROMOTION_LANES: &[&str] = &[INVENTORY_LANE, "advisory", "warning", ERROR_SEVERITY, "migration"];
 const SOURCE_COORDINATE_OFFSET: u64 = 1;
 const MINIMUM_SOURCE_COORDINATE: u64 = 1;
 const SUCCESS_EXIT_CODE: i32 = 0;
@@ -156,6 +158,16 @@ pub(crate) fn validate_profile(profile: &AstGrepProfile) -> Vec<String> {
     validate_path("sgconfig_path", &profile.sgconfig_path, &mut diagnostics);
     validate_paths("bundle_inputs", &profile.bundle_inputs, &mut diagnostics);
     validate_paths("scan_scope.paths", &profile.scan_scope.paths, &mut diagnostics);
+    if profile.scan_scope.globs.iter().any(|glob| glob.trim().is_empty()) {
+        diagnostics.push("ast-grep scan_scope.globs must not contain empty globs".to_owned());
+    }
+    if !SEVERITY_POSTURES.contains(&profile.severity_posture.as_str()) {
+        diagnostics.push(format!(
+            "ast-grep severity_posture `{}` is not one of {}",
+            profile.severity_posture,
+            SEVERITY_POSTURES.join(", ")
+        ));
+    }
     if !profile.bundle_inputs.iter().any(|path| path == &profile.sgconfig_path) {
         diagnostics.push("ast-grep bundle_inputs must include sgconfig_path".to_owned());
     }
@@ -345,8 +357,12 @@ fn validate_promotion_lanes(profile: &AstGrepProfile, diagnostics: &mut Vec<Stri
     }
     let mut lane_names = BTreeSet::new();
     for lane in &profile.promotion_lanes {
-        if lane.lane.trim().is_empty() {
-            diagnostics.push("ast-grep promotion lane must not be empty".to_owned());
+        if !PROMOTION_LANES.contains(&lane.lane.as_str()) {
+            diagnostics.push(format!(
+                "ast-grep promotion lane `{}` is not one of {}",
+                lane.lane,
+                PROMOTION_LANES.join(", ")
+            ));
         }
         if !lane_names.insert(lane.lane.as_str()) {
             diagnostics.push(format!("duplicate ast-grep promotion lane `{}`", lane.lane));
@@ -627,6 +643,28 @@ mod tests {
         let diagnostics = validate_profile(&profile);
 
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("mode `automatic` is unsafe")));
+    }
+
+    #[test]
+    fn profile_rejects_values_outside_the_nickel_contract() {
+        let mut profile = valid_profile();
+        profile.severity_posture = "blocking".to_owned();
+        profile.promotion_lanes[1].lane = "experimental".to_owned();
+        profile.rule_coverage[0].lane = "experimental".to_owned();
+        profile.scan_scope.globs.push(String::new());
+
+        let diagnostics = validate_profile(&profile);
+
+        assert!(
+            diagnostics.iter().any(|diagnostic| diagnostic.contains("severity_posture `blocking`")),
+            "{diagnostics:?}"
+        );
+        assert!(
+            diagnostics.iter().any(|diagnostic| diagnostic.contains("promotion lane `experimental`")),
+            "{diagnostics:?}"
+        );
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("scan_scope.globs")), "{diagnostics:?}");
+        assert!(validate_profile(&valid_profile()).is_empty());
     }
 
     #[test]

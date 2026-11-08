@@ -4,7 +4,7 @@ This rule pack emits syntax-aware candidate evidence. It does not replace Dylint
 
 ## Profiles and promotion
 
-`profile.ncl` is the typed source of truth. `generated/profile.json` is the runtime export. The profile declares inventory, advisory, warning, error, and migration lanes. Every rule outside inventory requires positive and negative rule tests.
+`profile.ncl` is the typed source of truth. `generated/profile.json` is the runtime export. The profile declares inventory, advisory, warning, error, and migration lanes. Every rule outside inventory requires positive and negative rule tests. Because `--config` loads the raw JSON export, `cargo octet` re-checks the `contracts.ncl` constraints it relies on: lane names, `severity_posture` (inventory, advisory, warning, or error), and non-empty scan globs.
 
 The bundle BLAKE3 binds `sgconfig.yml`, declared rule and test files, and the ordered scan paths/globs. Each list (bundle inputs, scan paths, globs) is hashed with its entry count, so moving an entry between scan paths and globs changes the identity. `cargo octet evidence collect --rail ast-grep --run --config standards/ast-grep/generated/profile.json` recomputes that identity before running the pinned ast-grep cohort.
 
