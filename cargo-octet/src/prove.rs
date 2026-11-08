@@ -1079,6 +1079,18 @@ fn proof_failure_diagnostics(rail: &ProofRail, outcome: &CommandOutcome) -> Vec<
             command_display(rail)
         ));
     }
+    for (stream, truncated, configured_limit) in [
+        (COMMAND_STDOUT_SUFFIX, outcome.stdout_truncated, rail.stdout_max_bytes),
+        (COMMAND_STDERR_SUFFIX, outcome.stderr_truncated, rail.stderr_max_bytes),
+    ] {
+        if truncated {
+            diagnostics.push(format!(
+                "{DIAGNOSTIC_VERIFIER_FAILURE}: proof command `{}` {stream} exceeded a bounded log limit of {} bytes",
+                command_display(rail),
+                configured_log_limit(configured_limit)
+            ));
+        }
+    }
     if !outcome.stdout_text.contains(&rail.pass_signal) {
         diagnostics.push(format!("proof command stdout missing pass signal `{}`", rail.pass_signal));
     }
@@ -3105,6 +3117,47 @@ mod tests {
 
         assert_eq!(code, EXIT_PROOF_VALID);
         assert!(!artifact_dir.exists(), "list mode should not write artifact bundles");
+    }
+
+    // r[verify octet.verus_proof_rails.safe_execution.failures]
+    #[test]
+    fn prove_fails_closed_when_verifier_output_exceeds_log_limit() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let source = write_fixture_source(temp.path());
+        write_fixture_proof(temp.path());
+        let script = format!("printf '%s\\n' '{PASS_SIGNAL}'; head -c {PIPE_OVERFLOW_BYTES} /dev/zero");
+        let argv = vec!["sh".to_owned(), "-c".to_owned(), script];
+        let registry = write_fixture_registry(temp.path(), PASS_SIGNAL, argv.clone());
+        let artifact_dir = temp.path().join("artifacts-truncated");
+
+        let code = run(&fixture_args(registry, vec![source], artifact_dir.clone())).expect("prove run");
+
+        assert_eq!(code, EXIT_PROOF_INVALID);
+        let summary = fs::read_to_string(artifact_dir.join(SUMMARY_ARTIFACT_NAME)).expect("read summary");
+        assert!(
+            summary.contains(&format!(
+                "{DIAGNOSTIC_VERIFIER_FAILURE}: proof command `{}` stdout exceeded a bounded log limit of {TEST_LOG_LIMIT_BYTES} bytes",
+                argv.join(" ")
+            )),
+            "missing truncation diagnostic: {summary}"
+        );
+        let provenance = fs::read_to_string(artifact_dir.join(PROVENANCE_ARTIFACT_NAME)).expect("read provenance");
+        assert!(!provenance.contains("formal_proof"));
+    }
+
+    fn fixture_args(registry: PathBuf, source: Vec<PathBuf>, artifact_dir: PathBuf) -> ProveArgs {
+        ProveArgs {
+            registry: Some(registry),
+            policy_artifacts_dir: None,
+            source,
+            family: Vec::new(),
+            rail: Vec::new(),
+            artifact_dir,
+            output_format: OutputFormat::Human,
+            command_line: "cargo octet prove fixture".to_owned(),
+            list: false,
+            explain: false,
+        }
     }
 
     fn run_fixture_with_command(root: &Path, source: &Path, argv: Vec<String>) -> String {

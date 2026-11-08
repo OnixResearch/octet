@@ -147,7 +147,8 @@ Reviewers use the existing commands at the matching stage:
   unbacked proof claims.
 - `cargo octet prove` runs the configured verifier command, writes bounded logs
   and structured receipts, and emits `formal_proof` provenance only for a
-  validated scoped receipt.
+  validated scoped receipt. Verifier output that exceeds the bounded log
+  capture fails the rail.
 - `cargo octet proof-ref scaffold` computes a consumer source BLAKE3 identity and
   emits linkage JSON copied from a saved proof card; `cargo octet proof-ref
   validate` checks that saved linkage without rerunning Verus or emitting new

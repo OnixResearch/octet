@@ -58,7 +58,10 @@ artifacts, writes structured JSON receipts under the selected artifact directory
 emits `proof-cards.json` as a human review index, and emits `formal_proof`
 provenance only after the receipt validates its pass signal, source binding,
 proof binding, verifier/solver/toolchain identity, trust-boundary entries,
-checked scope, and proof artifact identity.
+checked scope, and proof artifact identity. Verifier output that exceeds the
+rail's `stdout_max_bytes` or `stderr_max_bytes` fails the rail with a
+`verifier-failure` diagnostic, because the retained log no longer shows
+everything the verifier printed.
 
 ## Proof cards
 
