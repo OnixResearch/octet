@@ -130,6 +130,13 @@ impl Marker {
 
 #[allow(clippy::too_many_lines)]
 pub fn run(args: &FingerprintArgs) -> Result<i32, String> {
+    // Reject unsupported output before `--write`/`--update` touch any source
+    // or the review manifest.
+    let json_output = match args.output_format {
+        OutputFormat::Human => false,
+        OutputFormat::Json => true,
+        OutputFormat::Sarif => return Err("fingerprint does not support SARIF output; use human or json".to_owned()),
+    };
     let paths = if args.paths.is_empty() {
         vec![PathBuf::from(".")]
     } else {
@@ -237,10 +244,10 @@ pub fn run(args: &FingerprintArgs) -> Result<i32, String> {
     if let Some(path) = args.review_manifest.as_deref() {
         write_review_manifest(path, &report, input_paths)?;
     }
-    match args.output_format {
-        OutputFormat::Human => print_human(&report),
-        OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&report).map_err(|error| error.to_string())?),
-        OutputFormat::Sarif => return Err("fingerprint does not support SARIF output; use human or json".to_owned()),
+    if json_output {
+        println!("{}", serde_json::to_string_pretty(&report).map_err(|error| error.to_string())?);
+    } else {
+        print_human(&report);
     }
 
     let failing = report.records.iter().any(|record| {

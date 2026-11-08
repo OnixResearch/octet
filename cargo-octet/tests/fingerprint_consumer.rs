@@ -436,6 +436,33 @@ fn fingerprint_marker_detects_code_after_quoted_slashes() {
 }
 
 #[test]
+fn fingerprint_rejects_sarif_before_rewriting_sources_or_manifest() {
+    let temp = tempfile::tempdir().expect("create tempdir");
+    let fixture = temp.path().join("reviewed.rs");
+    let source = "// octet-fingerprint: b3:0; review=R-1; evidence=E-1\npub fn marked() -> u32 { 1 }\n\npub fn unmarked() -> u32 { 2 }\n";
+    fs::write(&fixture, source).expect("write sarif fixture");
+    for mode in ["--write", "--update"] {
+        let output = Command::new(cargo_octet())
+            .args([
+                "fingerprint",
+                mode,
+                "--output-format=sarif",
+                "--review-manifest",
+                "manifest.json",
+                "reviewed.rs",
+            ])
+            .current_dir(temp.path())
+            .output()
+            .expect("run fingerprint with sarif");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert_eq!(output.status.code(), Some(2), "{mode}: stderr={stderr}");
+        assert!(stderr.contains("SARIF"), "{mode}: stderr={stderr}");
+        assert_eq!(fs::read_to_string(&fixture).expect("reread fixture"), source, "{mode} rewrote the source");
+        assert!(!temp.path().join("manifest.json").exists(), "{mode} wrote the review manifest");
+    }
+}
+
+#[test]
 fn fingerprint_rejects_untagged_v1_markers() {
     // v1 marker hashes were untagged BLAKE3 over token text that split literal
     // contents into tokens, so `"batch=1"` hashed like `" batch = 1 "`.
