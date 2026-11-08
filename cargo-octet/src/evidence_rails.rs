@@ -3623,6 +3623,9 @@ fn input_text(
     if args.rail == EvidenceRailKind::CharonSemantic {
         return analyze_charon_semantic_input(args);
     }
+    if args.rail == EvidenceRailKind::AstGrepStructural && !args.run {
+        return analyze_ast_grep_import(args).map(|envelope| (MODE_IMPORT, envelope, None));
+    }
     if args.rail == EvidenceRailKind::SarifImport {
         return analyze_sarif_input(args).map(|report| (MODE_IMPORT, report, None));
     }
@@ -4060,31 +4063,21 @@ fn run_tool(args: &EvidenceRailArgs, prepared_clippy_run: Option<&PreparedClippy
     })
 }
 
+fn analyze_ast_grep_import(args: &EvidenceRailArgs) -> Result<String, String> {
+    let input = args
+        .input
+        .as_deref()
+        .ok_or_else(|| "evidence collect requires `--input PATH` or `--run`".to_owned())?;
+    let (profile, bundle_files) = checked_ast_grep_bundle(args)?;
+    let text =
+        fs::read_to_string(input).map_err(|error| format!("read evidence input {}: {error}", input.display()))?;
+    crate::ast_grep_rail::verify_envelope_bundle(&text, &profile, &bundle_files)?;
+    Ok(text)
+}
+
 fn run_ast_grep_tool(args: &EvidenceRailArgs) -> Result<ToolOutput, String> {
-    let profile = load_ast_grep_profile(args)?;
+    let (profile, _) = checked_ast_grep_bundle(args)?;
     let workspace_root = args.workspace_root.as_deref().unwrap_or_else(|| Path::new("."));
-    let canonical_root = fs::canonicalize(workspace_root)
-        .map_err(|error| format!("canonicalize ast-grep workspace root {}: {error}", workspace_root.display()))?;
-    let mut bundle_files = BTreeMap::new();
-    for relative in &profile.bundle_inputs {
-        let path = workspace_root.join(relative);
-        let canonical_path = fs::canonicalize(&path)
-            .map_err(|error| format!("canonicalize ast-grep bundle input {}: {error}", path.display()))?;
-        if !canonical_path.starts_with(&canonical_root) {
-            return Err(format!("ast-grep bundle input `{relative}` escapes the workspace root"));
-        }
-        let bytes = fs::read(&canonical_path)
-            .map_err(|error| format!("read ast-grep bundle input {}: {error}", canonical_path.display()))?;
-        bundle_files.insert(relative.clone(), bytes);
-    }
-    let observed_identity = crate::ast_grep_rail::compute_bundle_identity(&profile, &bundle_files)
-        .map_err(|diagnostics| format!("invalid ast-grep rule bundle:\n- {}", diagnostics.join("\n- ")))?;
-    if observed_identity != profile.bundle_identity {
-        return Err(format!(
-            "stale ast-grep rule bundle identity; expected `{}`, observed `{observed_identity}`",
-            profile.bundle_identity
-        ));
-    }
 
     let version_output = Command::new("ast-grep")
         .arg("--version")
@@ -4129,11 +4122,41 @@ fn run_ast_grep_tool(args: &EvidenceRailArgs) -> Result<ToolOutput, String> {
     })
 }
 
+fn checked_ast_grep_bundle(
+    args: &EvidenceRailArgs,
+) -> Result<(crate::ast_grep_rail::AstGrepProfile, BTreeMap<String, Vec<u8>>), String> {
+    let profile = load_ast_grep_profile(args)?;
+    let workspace_root = args.workspace_root.as_deref().unwrap_or_else(|| Path::new("."));
+    let canonical_root = fs::canonicalize(workspace_root)
+        .map_err(|error| format!("canonicalize ast-grep workspace root {}: {error}", workspace_root.display()))?;
+    let mut bundle_files = BTreeMap::new();
+    for relative in &profile.bundle_inputs {
+        let path = workspace_root.join(relative);
+        let canonical_path = fs::canonicalize(&path)
+            .map_err(|error| format!("canonicalize ast-grep bundle input {}: {error}", path.display()))?;
+        if !canonical_path.starts_with(&canonical_root) {
+            return Err(format!("ast-grep bundle input `{relative}` escapes the workspace root"));
+        }
+        let bytes = fs::read(&canonical_path)
+            .map_err(|error| format!("read ast-grep bundle input {}: {error}", canonical_path.display()))?;
+        bundle_files.insert(relative.clone(), bytes);
+    }
+    let observed_identity = crate::ast_grep_rail::compute_bundle_identity(&profile, &bundle_files)
+        .map_err(|diagnostics| format!("invalid ast-grep rule bundle:\n- {}", diagnostics.join("\n- ")))?;
+    if observed_identity != profile.bundle_identity {
+        return Err(format!(
+            "stale ast-grep rule bundle identity; expected `{}`, observed `{observed_identity}`",
+            profile.bundle_identity
+        ));
+    }
+    Ok((profile, bundle_files))
+}
+
 fn load_ast_grep_profile(args: &EvidenceRailArgs) -> Result<crate::ast_grep_rail::AstGrepProfile, String> {
     let path = args
         .config
         .as_deref()
-        .ok_or_else(|| "ast-grep run requires `--config PATH` to a generated structural profile".to_owned())?;
+        .ok_or_else(|| "ast-grep evidence requires `--config PATH` to a generated structural profile".to_owned())?;
     let text = fs::read_to_string(path)
         .map_err(|error| format!("read ast-grep structural profile {}: {error}", path.display()))?;
     let profile = crate::ast_grep_rail::parse_profile(&text)?;
@@ -5271,6 +5294,68 @@ mod tests {
 
         receipt.ast_grep.as_mut().expect("ast-grep details").verification_role = "formal_proof".to_owned();
         assert!(validate_receipt(&receipt).iter().any(|diagnostic| diagnostic.contains("recorded_only")));
+    }
+
+    #[test]
+    fn ast_grep_import_rejects_envelopes_for_a_changed_rule_bundle() {
+        const PROFILE_PATH: &str = "standards/ast-grep/generated/profile.json";
+        const RULE_PATH: &str = "standards/ast-grep/rules/unsafe-block-review.yml";
+        let checkout = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let workspace = tempfile::tempdir().expect("create ast-grep import workspace");
+        let profile =
+            crate::ast_grep_rail::parse_profile(include_str!("../../standards/ast-grep/generated/profile.json"))
+                .expect("ast-grep profile");
+        for relative in profile.bundle_inputs.iter().map(String::as_str).chain([PROFILE_PATH]) {
+            let destination = workspace.path().join(relative);
+            fs::create_dir_all(destination.parent().expect("bundle input parent")).expect("create bundle input parent");
+            fs::copy(checkout.join(relative), destination).expect("copy checked-in bundle input");
+        }
+        let write_envelope = |profile: crate::ast_grep_rail::AstGrepProfile| {
+            let envelope = crate::ast_grep_rail::render_scan_envelope(
+                profile,
+                "0.41.1".to_owned(),
+                serde_json::json!([]),
+                String::new(),
+                0,
+            )
+            .expect("ast-grep envelope");
+            fs::write(workspace.path().join("scan.json"), envelope).expect("write ast-grep envelope");
+        };
+        let args = crate::cli::EvidenceRailArgs {
+            rail: EvidenceRailKind::AstGrepStructural,
+            input: Some(workspace.path().join("scan.json")),
+            artifact_dir: workspace.path().join("artifacts"),
+            workspace_root: Some(workspace.path().to_path_buf()),
+            config: Some(workspace.path().join(PROFILE_PATH)),
+            baseline: None,
+            profile: None,
+            command: None,
+            parent_artifacts: Vec::new(),
+            external_reports: Vec::new(),
+            output_format: OutputFormat::Human,
+            locked: false,
+            update_advisory_database: false,
+            run: false,
+            command_line: "cargo octet evidence collect --rail ast-grep --input scan.json".to_owned(),
+        };
+
+        write_envelope(profile.clone());
+        let (mode, _, _) = input_text(&args, None).expect("fresh envelope imports");
+        assert_eq!(mode, MODE_IMPORT);
+
+        let mut rescoped = profile.clone();
+        rescoped.scan_scope.paths.push("tests".to_owned());
+        write_envelope(rescoped);
+        let scope_error = input_text(&args, None).expect_err("envelope with a different scan scope is stale");
+        assert!(scope_error.contains("stale ast-grep scan envelope"), "{scope_error}");
+
+        write_envelope(profile);
+        let rule = workspace.path().join(RULE_PATH);
+        let mut rule_bytes = fs::read(&rule).expect("read copied rule");
+        rule_bytes.extend_from_slice(b"\n# rule changed after the scan\n");
+        fs::write(&rule, rule_bytes).expect("change copied rule");
+        let rule_error = input_text(&args, None).expect_err("envelope captured before the rule changed is stale");
+        assert!(rule_error.contains("stale ast-grep rule bundle identity"), "{rule_error}");
     }
 
     #[test]

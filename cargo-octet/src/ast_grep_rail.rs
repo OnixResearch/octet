@@ -58,6 +58,9 @@ pub(crate) struct AstGrepScanScope {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub(crate) struct AstGrepPromotionLane {
     pub(crate) lane: String,
+    /// Declared lane policy, recorded in receipts. Receipt status fails only on
+    /// `error`-severity findings; the structural-rails spec does not make a
+    /// blocking lane override finding severity.
     pub(crate) blocking: bool,
 }
 
@@ -230,6 +233,37 @@ pub(crate) fn compute_bundle_identity(
         update_hash_field(&mut hasher, glob.as_bytes()).map_err(|error| vec![error])?;
     }
     Ok(format!("{BLAKE3_IDENTITY_PREFIX}{}", hasher.finalize().to_hex()))
+}
+
+/// Rejects an imported scan envelope whose rule bundle is not the checked-in one.
+///
+/// `files` must hold the checked-in bundle inputs, already verified against
+/// `checked.bundle_identity`. The identity is recomputed from the envelope's
+/// declared bundle inputs and scan scope over those files, so a changed rule
+/// file or scan scope makes the envelope's findings stale. Envelopes that do not
+/// parse or carry an invalid profile are left to [`evaluate_envelope`], which
+/// fails the receipt with those diagnostics.
+pub(crate) fn verify_envelope_bundle(
+    text: &str,
+    checked: &AstGrepProfile,
+    files: &BTreeMap<String, Vec<u8>>,
+) -> Result<(), String> {
+    let Ok(envelope) = serde_json::from_str::<AstGrepScanEnvelope>(text) else {
+        return Ok(());
+    };
+    if !validate_profile(&envelope.profile).is_empty() {
+        return Ok(());
+    }
+    let recomputed = compute_bundle_identity(&envelope.profile, files).ok();
+    if envelope.profile.bundle_identity == checked.bundle_identity
+        && recomputed.as_deref() == Some(checked.bundle_identity.as_str())
+    {
+        return Ok(());
+    }
+    Err(format!(
+        "stale ast-grep scan envelope; it records rule bundle `{}`, but the checked-in profile and rule files give `{}`; capture a fresh scan receipt",
+        envelope.profile.bundle_identity, checked.bundle_identity
+    ))
 }
 
 pub(crate) fn scan_command_argv(profile: &AstGrepProfile) -> Vec<String> {
