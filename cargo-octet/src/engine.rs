@@ -58,6 +58,11 @@ const RUNNER_MANUAL_REVIEW_ACTION: &str =
 const TERMINATED_WITHOUT_EXIT_CODE_ERROR: &str = "cargo check terminated without an exit code";
 const LINT_CACHE_DIR: &str = ".octet/cache";
 const LINT_CACHE_FILE: &str = "findings.json";
+const RUSTC_WARNING_LEVEL: &str = "warning";
+const RUSTC_ERROR_LEVEL: &str = "error";
+const RUSTC_NOTE_LEVEL: &str = "note";
+const RUSTC_HELP_LEVEL: &str = "help";
+const RUSTC_FAILURE_NOTE_LEVEL: &str = "failure-note";
 
 #[derive(Debug, Clone)]
 struct StructuredArtifact {
@@ -243,6 +248,10 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
                         && let Some(rendered) = message["rendered"].as_str()
                     {
                         let _ = write!(stderr_lock, "{rendered}");
+                    }
+
+                    if is_informational_compiler_level(message["level"].as_str()) {
+                        continue;
                     }
 
                     let code = message["code"]["code"].as_str().unwrap_or("");
@@ -1004,6 +1013,23 @@ fn normalize_lint_name(code: &str) -> String {
     }
 }
 
+/// rustc forwards trailers such as "For more information about this error, try `rustc --explain
+/// E0425`." (`failure-note`) and internal-compiler-error notes as top-level diagnostics. They
+/// describe another diagnostic and are not findings of their own.
+fn is_informational_compiler_level(level: Option<&str>) -> bool {
+    matches!(level, Some(RUSTC_NOTE_LEVEL | RUSTC_HELP_LEVEL | RUSTC_FAILURE_NOTE_LEVEL))
+}
+
+/// Maps a non-informational rustc level onto the finding severity domain. Internal compiler
+/// errors (`error: internal compiler error`) and any unrecognized level fail closed as errors;
+/// rustc also exits nonzero on an ICE, so such runs stay integration failures.
+fn compiler_finding_severity(level: Option<&str>) -> &'static str {
+    match level {
+        None | Some(RUSTC_WARNING_LEVEL) => RUSTC_WARNING_LEVEL,
+        Some(_) => RUSTC_ERROR_LEVEL,
+    }
+}
+
 fn json_u64_to_u32(value: Option<u64>) -> u32 {
     value.and_then(|line| u32::try_from(line).ok()).filter(|line| *line > 0).unwrap_or(1)
 }
@@ -1252,7 +1278,7 @@ fn build_finding(
 
     let msg_text =
         normalize_finding_message(&diagnostic_paths.reported_root, message["message"].as_str().unwrap_or(""));
-    let severity = message["level"].as_str().unwrap_or("warning").to_owned();
+    let severity = compiler_finding_severity(message["level"].as_str()).to_owned();
     let crate_name = cargo_msg["target"]["name"].as_str().unwrap_or("unknown").to_owned();
 
     let (suggestion, applicability) = extract_suggestion(message);
@@ -1704,7 +1730,9 @@ mod tests {
     use super::STATUS_ARTIFACT_NAME;
     #[cfg(unix)]
     use super::build_finding;
+    use super::compiler_finding_severity;
     use super::embedded_source;
+    use super::is_informational_compiler_level;
     use super::json_u64_to_u32;
     use super::normalize_finding_message;
     use super::normalize_lint_name;
@@ -1732,6 +1760,29 @@ mod tests {
         assert_eq!(json_u64_to_u32(None), 1);
         assert_eq!(json_u64_to_u32(Some(0)), 1);
         assert_eq!(json_u64_to_u32(Some(42)), 42);
+    }
+
+    #[test]
+    fn rustc_failure_notes_are_informational_and_ices_stay_errors() {
+        // Captured from `cargo check --message-format=json` on a crate with an E0425 error.
+        const FAILURE_NOTE_LINE: &str = r#"{"reason":"compiler-message","package_id":"path+file:///tmp/rs-failnote#failnote@0.1.0","manifest_path":"/tmp/rs-failnote/Cargo.toml","target":{"kind":["lib"],"crate_types":["lib"],"name":"failnote","src_path":"/tmp/rs-failnote/src/lib.rs","edition":"2021","doc":true,"doctest":true,"test":true},"message":{"rendered":"For more information about this error, try `rustc --explain E0425`.\n","$message_type":"diagnostic","children":[],"level":"failure-note","message":"For more information about this error, try `rustc --explain E0425`.","spans":[],"code":null}}"#;
+        let failure_note: serde_json::Value = serde_json::from_str(FAILURE_NOTE_LINE).expect("captured failure-note");
+        assert!(is_informational_compiler_level(failure_note["message"]["level"].as_str()));
+        assert!(is_informational_compiler_level(Some("note")));
+        assert!(is_informational_compiler_level(Some("help")));
+
+        for level in [
+            None,
+            Some("warning"),
+            Some("error"),
+            Some("error: internal compiler error"),
+        ] {
+            assert!(!is_informational_compiler_level(level), "{level:?} must stay a finding");
+        }
+        assert_eq!(compiler_finding_severity(None), "warning");
+        assert_eq!(compiler_finding_severity(Some("warning")), "warning");
+        assert_eq!(compiler_finding_severity(Some("error")), "error");
+        assert_eq!(compiler_finding_severity(Some("error: internal compiler error")), "error");
     }
 
     #[test]

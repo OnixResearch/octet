@@ -1745,6 +1745,7 @@ const EXIT_CODE_LINT_FAILURE: i32 = 1;
 const EXIT_CODE_INTEGRATION_FAILURE: i32 = 2;
 const WARNING_LEVEL: &str = "warning";
 const ERROR_LEVEL: &str = "error";
+const CARGO_COMPILE_FAILURE_EXIT: i32 = 101;
 const JSON_OUTPUT_FORMAT: &str = "json";
 const SARIF_OUTPUT_FORMAT: &str = "sarif";
 const STATUS_CLEAN: &str = "clean";
@@ -1809,6 +1810,12 @@ fn cargo_compiler_message_with_source_text(
 
 fn cargo_build_finished(success: bool) -> String {
     format!(r#"{{"reason":"build-finished","success":{success}}}"#)
+}
+
+fn cargo_top_level_diagnostic(target_name: &str, level: &str, message: &str) -> String {
+    format!(
+        r#"{{"reason":"compiler-message","package_id":"path+file:///fake#{target_name}@0.1.0","manifest_path":"/fake/Cargo.toml","target":{{"kind":["lib"],"crate_types":["lib"],"name":"{target_name}","src_path":"/fake/src/lib.rs","edition":"2024","doc":true,"doctest":true,"test":true}},"message":{{"rendered":"{level}: {message}\n","$message_type":"diagnostic","children":[],"level":"{level}","message":"{message}","spans":[],"code":null}}}}"#
+    )
 }
 
 fn cargo_compiler_artifact(target_name: &str, fresh: bool) -> String {
@@ -3457,6 +3464,103 @@ fn artifact_directory_refuses_non_bundle_directory_without_deleting() {
     assert_eq!(read_artifact(&cache_tag), "Signature: 8a477f597d28d172789f06886806bc55\n");
     assert_eq!(read_artifact(&fingerprint), "fingerprint\n");
     assert!(!dir.join(STATUS_JSON_FILE).exists(), "refused artifact directory must not receive sidecars");
+}
+
+#[test]
+fn rustc_failure_note_keeps_structured_compile_failure_report() {
+    let fixture = ConsumerFixture::new("rustc-failure-note", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let lines = vec![
+        cargo_compiler_message_with_level(
+            "consumer",
+            "E0425",
+            ERROR_LEVEL,
+            "cannot find value `missing_value` in this scope",
+            "src/lib.rs",
+            1,
+            21,
+            None,
+        ),
+        cargo_top_level_diagnostic(
+            "consumer",
+            "failure-note",
+            "For more information about this error, try `rustc --explain E0425`.",
+        ),
+        cargo_build_finished(false),
+    ];
+
+    for output_format in [JSON_OUTPUT_FORMAT, SARIF_OUTPUT_FORMAT] {
+        let output = run_with_output_format(&fixture, output_format, &lines, CARGO_COMPILE_FAILURE_EXIT);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert_eq!(
+            output.status.code(),
+            Some(EXIT_CODE_INTEGRATION_FAILURE),
+            "compile error with failure-note should exit 2 in {output_format} mode: stdout={stdout} stderr={stderr}"
+        );
+        assert!(!stderr.contains("invalid finding domain values"), "failure-note must not abort rendering: {stderr}");
+        assert!(stderr.contains("Status: integration-failure"), "{output_format} summary: {stderr}");
+        assert!(stderr.contains("Findings: 1"), "only the E0425 error is a finding: {stderr}");
+        assert_structured_compile_failure(output_format, &stdout, &[("E0425", ERROR_LEVEL)]);
+    }
+}
+
+#[test]
+fn internal_compiler_error_stays_structured_integration_failure() {
+    let fixture = ConsumerFixture::new("rustc-ice", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let lines = vec![
+        cargo_top_level_diagnostic("consumer", "error: internal compiler error", "unexpected panic"),
+        cargo_top_level_diagnostic("consumer", "note", "we would appreciate a bug report"),
+        cargo_build_finished(false),
+    ];
+
+    for output_format in [JSON_OUTPUT_FORMAT, SARIF_OUTPUT_FORMAT] {
+        let output = run_with_output_format(&fixture, output_format, &lines, CARGO_COMPILE_FAILURE_EXIT);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert_eq!(
+            output.status.code(),
+            Some(EXIT_CODE_INTEGRATION_FAILURE),
+            "ICE should exit 2 in {output_format} mode: stdout={stdout} stderr={stderr}"
+        );
+        assert!(!stderr.contains("invalid finding domain values"), "ICE must not abort rendering: {stderr}");
+        assert!(stderr.contains("Status: integration-failure"), "{output_format} summary: {stderr}");
+        assert_structured_compile_failure(output_format, &stdout, &[("compiler_error", ERROR_LEVEL)]);
+    }
+}
+
+fn assert_structured_compile_failure(output_format: &str, stdout: &str, expected: &[(&str, &str)]) {
+    let observed: Vec<(String, String)> = match output_format {
+        JSON_OUTPUT_FORMAT => stdout
+            .lines()
+            .map(|line| {
+                let finding: serde_json::Value = serde_json::from_str(line).expect("JSON finding line");
+                (
+                    finding["lint"].as_str().expect("lint").to_owned(),
+                    finding["severity"].as_str().expect("severity").to_owned(),
+                )
+            })
+            .collect(),
+        SARIF_OUTPUT_FORMAT => {
+            let sarif: serde_json::Value = serde_json::from_str(stdout).expect("parse compile-failure SARIF");
+            assert_eq!(sarif["runs"][0]["properties"]["status"], STATUS_INTEGRATION_FAILURE);
+            assert_eq!(sarif["runs"][0]["properties"]["exitCode"], EXIT_CODE_INTEGRATION_FAILURE);
+            sarif["runs"][0]["results"]
+                .as_array()
+                .expect("SARIF results")
+                .iter()
+                .map(|result| {
+                    (
+                        result["ruleId"].as_str().expect("ruleId").to_owned(),
+                        result["level"].as_str().expect("level").to_owned(),
+                    )
+                })
+                .collect()
+        }
+        _ => unreachable!("structured output formats are exhaustively covered"),
+    };
+    let expected: Vec<(String, String)> =
+        expected.iter().map(|(lint, level)| ((*lint).to_owned(), (*level).to_owned())).collect();
+    assert_eq!(observed, expected, "{output_format} findings");
 }
 
 #[test]
