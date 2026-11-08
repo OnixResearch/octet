@@ -328,7 +328,8 @@ fn run_admission(
 }
 
 fn run_verification(args: &AdmissionArgs) -> Result<i32, String> {
-    let report = verify_bundle(&args.artifact_dir)?;
+    let cwd = env::current_dir().map_err(|error| format!("current_dir: {error}"))?;
+    let report = verify_bundle(&verification_artifact_dir(&cwd, &args.artifact_dir)?)?;
     match args.output_format {
         OutputFormat::Human => {
             eprintln!("Effect closure admission verification: {}", report.status);
@@ -352,6 +353,16 @@ fn run_verification(args: &AdmissionArgs) -> Result<i32, String> {
     } else {
         EXIT_DENIED
     })
+}
+
+/// Resolves `admit verify --artifact-dir` the same way `admit` does: an absolute path is used as
+/// given and a relative path is relative to the workspace root, not the current directory.
+fn verification_artifact_dir(cwd: &Path, artifact_dir: &Path) -> Result<PathBuf, String> {
+    if artifact_dir.is_absolute() {
+        return Ok(artifact_dir.to_path_buf());
+    }
+    let workspace_root = crate::config::load(cwd)?.workspace_root;
+    Ok(absolute_from_workspace(&workspace_root, artifact_dir))
 }
 
 pub(crate) fn prepare_integrated_closure(
@@ -1555,5 +1566,26 @@ mod tests {
         prepare_artifact_root(&interrupted).expect("run stopped after its direct check is accepted");
         assert!(!interrupted.join(COMMAND_FILE).exists());
         assert!(interrupted.join(CHECK_STATUS_ARTIFACT).is_file());
+    }
+
+    #[test]
+    fn verification_resolves_relative_artifact_dir_against_workspace_root() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let workspace = temp.path().canonicalize().expect("canonical workspace");
+        fs::write(
+            workspace.join("Cargo.toml"),
+            "[workspace]\n\n[workspace.metadata.octet]\ndefault_scope = []\ncargo_check_args = []\n",
+        )
+        .expect("workspace manifest");
+        let nested = workspace.join("crates/member");
+        fs::create_dir_all(&nested).expect("nested directory");
+
+        let relative = Path::new("target/octet-admission");
+        assert_eq!(
+            verification_artifact_dir(&nested, relative).expect("relative artifact dir"),
+            workspace.join(relative)
+        );
+        let absolute = workspace.join("elsewhere");
+        assert_eq!(verification_artifact_dir(&nested, &absolute).expect("absolute artifact dir"), absolute);
     }
 }

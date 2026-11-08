@@ -119,7 +119,7 @@ cargo octet admit --profile deterministic-core --closure \
   -- --target x86_64-unknown-linux-gnu
 ```
 
-The default artifact directory is `target/octet-admission`; `--artifact-dir` may select another location. The directory must be missing, empty, or an earlier admission bundle; Octet refuses any other non-empty directory before deleting anything. A completed closure attempt writes:
+The default artifact directory is `target/octet-admission`; `--artifact-dir` may select another location. Both `admit` and `admit verify` resolve a relative `--artifact-dir` against the workspace root, not the current directory. The directory must be missing, empty, or an earlier admission bundle; Octet refuses any other non-empty directory before deleting anything. A completed closure attempt writes:
 
 - `check/` — the existing strict-profile parent bundle;
 - `command.txt` — normalized admission invocation;
