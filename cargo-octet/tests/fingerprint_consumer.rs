@@ -2222,6 +2222,7 @@ fn object_supplement_receipt_rejects_invalid_shapes() {
             "schema_version",
         ),
         ("family.json", serde_json::to_vec(&wrong_family).expect("json"), "family-mismatch", "family"),
+        ("empty.json", br#"{"supplements":[]}"#.to_vec(), "empty-receipt", "supplements"),
     ] {
         let output = check(name, &receipt);
         assert_eq!(output.status.code(), Some(1), "{name}: {}", String::from_utf8_lossy(&output.stderr));

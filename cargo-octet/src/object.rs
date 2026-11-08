@@ -686,7 +686,14 @@ fn run_supplement_check(
             return Ok(1);
         }
     };
-    let expected = supplement_receipt_entries(expected_value, receipt_path)?;
+    let expected = match supplement_receipt_entries(expected_value, receipt_path) {
+        Ok(entries) => entries,
+        Err(error) => {
+            let report = invalid_supplement_check_report(receipt_path_string, family, scope, vec![error]);
+            print_supplement_check_report(&report, output_format)?;
+            return Ok(1);
+        }
+    };
     let errors = expected
         .iter()
         .flat_map(|entry| validate_supplement_receipt_shape(entry, family))
@@ -1075,10 +1082,17 @@ struct SupplementCheckError {
 
 /// Returns every supplement in a receipt: the `supplements` list of an emit report, or a bare
 /// supplement record.
-fn supplement_receipt_entries(value: serde_json::Value, path: &Path) -> Result<Vec<serde_json::Value>, String> {
+fn supplement_receipt_entries(
+    value: serde_json::Value,
+    path: &Path,
+) -> Result<Vec<serde_json::Value>, SupplementCheckError> {
     if let Some(supplements) = value.get("supplements").and_then(serde_json::Value::as_array) {
         if supplements.is_empty() {
-            return Err(format!("{} has no supplements", path.display()));
+            return Err(supplement_check_error(
+                "empty-receipt",
+                Some("supplements"),
+                format!("{} has no supplements", path.display()),
+            ));
         }
         return Ok(supplements.clone());
     }

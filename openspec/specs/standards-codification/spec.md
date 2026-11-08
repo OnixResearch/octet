@@ -1553,7 +1553,7 @@ Supplement receipt checks MUST fail closed for malformed JSON, missing replay-cr
 
 #### Scenario: Supplement compatibility rejects invalid receipts [r[hir-mir-supplement-pilot.scenario.supplement-compat-invalid-receipts]]
 
-- GIVEN malformed, missing-field, unsupported-future-version, or wrong-family supplement receipt inputs
+- GIVEN malformed, missing-field, unsupported-future-version, wrong-family, or empty (`"supplements": []`) supplement receipt inputs
 - WHEN `cargo octet object supplement check --output-format json` validates them
 - THEN the command exits non-zero with `status = "invalid"`
 - AND the report contains typed errors naming the failing kind and field while preserving non-proof boundary fields
