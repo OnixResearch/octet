@@ -57,6 +57,10 @@ cargo fuzz run octet-profile-intake -- -max_total_time=60 -runs=100000 -seed=1
 
 Octet rejects `--command` for this profile. It binds the exact target, libFuzzer engine, nightly toolchain, address sanitizer, budgets, corpus roots, dictionary identity, crash input, minimized reproducer, replay command, and bounded log identity.
 
+With `--run`, Octet executes that command through Bounded Exec in a fresh process group. The child starts from a cleared environment and receives only these variables when they are set: `PATH`, `HOME`, `CARGO_HOME`, `RUSTUP_HOME`, `RUSTUP_TOOLCHAIN`, `RUSTC`, `LD_LIBRARY_PATH`, `TMPDIR`, `CC`, `CXX`, `SSL_CERT_FILE`, and `NIX_SSL_CERT_FILE`. Octet resolves `cargo` from that `PATH`.
+
+The run deadline is the 60-second libFuzzer budget plus a 14-minute build allowance. Stdout and stderr each retain at most half of the 1 MiB receipt log limit. A timeout or an output overflow stops the whole process group and fails the run without a receipt.
+
 Corpus rows use safe relative paths, lengths, and BLAKE3 identities. The canonical root sorts rows and uses the `octet-cargo-fuzz-corpus-v1` framing domain. Hash-only rows reduce disclosure, but hashes can still reveal known sensitive inputs. Do not put credentials, production records, or personal data in a corpus.
 
 A clean receipt means only that one target found no crash under the selected seed and budget. A crash receipt remains failed evidence. It must retain both the original crash input and minimized reproducer identity. Reviewers must reproduce the crash with the recorded replay argv before they use it in a decision.
