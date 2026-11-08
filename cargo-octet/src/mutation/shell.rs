@@ -6,7 +6,10 @@ const CARGO_CONFIG_NAME: &str = "config.toml";
 const MAX_CARGO_CONFIG_BYTES: u64 = 65_536;
 const STDIN_MAX_BYTES: usize = 1;
 const LOG_STREAM_COUNT: usize = 2;
-const ACCEPTED_EXIT_CODES: [i32; 2] = [0, 2];
+// cargo-mutants 27 exits 0 (all caught), 2 (missed), 3 (timeout), or 4 (baseline failed) after it
+// writes `outcomes.json`; the receipt gate status comes from those outcomes, not from the exit
+// code.
+const ACCEPTED_EXIT_CODES: [i32; 4] = [0, 2, 3, 4];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RuntimeTools {
