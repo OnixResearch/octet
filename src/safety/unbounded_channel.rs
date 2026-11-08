@@ -80,25 +80,34 @@ fn bounded_suggestion(
     expr: &hir::Expr<'_>,
     did: rustc_hir::def_id::DefId,
 ) -> Option<LintSuggestion> {
+    let ExprKind::Call(callee, _) = &expr.kind else {
+        return None;
+    };
+    if !expr.span.contains(callee.span) {
+        return None;
+    }
     let sm = cx.sess().source_map();
-    let snippet = sm.span_to_snippet(expr.span).ok()?;
+    let callee_snippet = sm.span_to_snippet(callee.span).ok()?;
 
-    let replacement = if match_def_path(cx, did, &["std", "sync", "mpsc", "channel"]) {
-        snippet.replacen("channel", "sync_channel", 1).replace("()", "(/* CAPACITY */)")
+    // Rename only the callee; unbounded constructors take no arguments, so the
+    // argument list becomes the capacity placeholder. Generic args like `::<()>` stay intact.
+    let bounded_callee = if match_def_path(cx, did, &["std", "sync", "mpsc", "channel"]) {
+        callee_snippet.replacen("channel", "sync_channel", 1)
     } else if match_def_path(cx, did, &["crossbeam_channel", "channel", "unbounded"]) {
-        snippet.replacen("unbounded", "bounded", 1).replace("()", "(/* CAPACITY */)")
+        callee_snippet.replacen("unbounded", "bounded", 1)
     } else if match_def_path(cx, did, &["tokio", "sync", "mpsc", "unbounded", "unbounded_channel"])
         || match_def_path(cx, did, &["tokio", "sync", "mpsc", "unbounded_channel"])
     {
-        snippet.replacen("unbounded_channel", "channel", 1).replace("()", "(/* CAPACITY */)")
+        callee_snippet.replacen("unbounded_channel", "channel", 1)
     } else {
         return None;
     };
 
-    // Only emit if we actually changed something
-    if replacement == snippet {
+    // Only emit if we actually renamed the constructor
+    if bounded_callee == callee_snippet {
         return None;
     }
+    let replacement = format!("{bounded_callee}(/* CAPACITY */)");
 
     Some(LintSuggestion::Single {
         span: expr.span,

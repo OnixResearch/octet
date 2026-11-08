@@ -44,5 +44,20 @@ LL -     let _ = tokio_unbounded_channel::<u8>();
 LL +     let _ = tokio_channel::<u8>(/* CAPACITY */);
    |
 
-warning: 3 warnings emitted
+warning: unbounded channel — use a bounded channel with explicit capacity
+  --> $DIR/unbounded_channel/unbounded_channel.rs:24:13
+   |
+LL |     let _ = std::sync::mpsc::channel::<()>();
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Bounded Queues): use bounded channels with explicit capacity instead of unbounded queues Example: let (tx, rx) = tokio::sync::mpsc::channel(128);
+   = note: structured suggestion applicability: HasPlaceholders
+   = note: see Tiger Style guide: Bounded Queues
+help: use bounded channel with explicit capacity
+   |
+LL -     let _ = std::sync::mpsc::channel::<()>();
+LL +     let _ = std::sync::mpsc::sync_channel::<()>(/* CAPACITY */);
+   |
+
+warning: 4 warnings emitted
 

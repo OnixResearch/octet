@@ -19,9 +19,15 @@ fn tokio_bounded_is_allowed() {
     let _ = tokio::sync::mpsc::channel::<u8>(32);
 }
 
+fn std_unbounded_unit_turbofish() {
+    // Only the argument list gains the capacity placeholder, not `::<()>`.
+    let _ = std::sync::mpsc::channel::<()>();
+}
+
 fn main() {
     std_unbounded();
     crossbeam_unbounded_ctor();
     tokio_unbounded_ctor();
     tokio_bounded_is_allowed();
+    std_unbounded_unit_turbofish();
 }
