@@ -67,9 +67,11 @@ impl<'tcx> LateLintPass<'tcx> for BoolNaming {
             }
         } else {
             let body = use_site_collector::enclosing_body(cx, local.hir_id);
-            if let Some(use_sites) = use_site_collector::collect_local_use_sites(cx, body, binding_hir_id) {
+            if let Some(use_sites) =
+                use_site_collector::collect_local_use_sites(cx, body, binding_hir_id, &suggested_name)
+            {
                 let mut parts = vec![(ident.span, suggested_name.clone())];
-                parts.extend(use_sites.into_iter().map(|span| (span, suggested_name.clone())));
+                parts.extend(use_sites);
                 LintSuggestion::Multipart {
                     message: format!("rename binding to `{suggested_name}`"),
                     parts,

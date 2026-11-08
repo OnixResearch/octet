@@ -16,5 +16,51 @@ LL ~     let _b = is_ready;
 LL ~     let _c = !is_ready;
    |
 
-warning: 1 warning emitted
+warning: negated predicate name `is_not_empty` — prefer a positive form like `is_empty`
+  --> $DIR/negated_predicate_local_rename.rs:9:9
+   |
+LL |     let is_not_empty = true;
+   |         ^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Positive Predicates): prefer positive predicate names over negated forms like `is_not_ready` or `no_capacity` Example: fn is_ready(state: &State) -> bool
+   = note: structured suggestion applicability: MachineApplicable
+   = note: see Tiger Style guide: Positive Predicates
+help: rename to `is_empty`
+   |
+LL ~     let is_empty = true;
+LL |     let values = [1, 2, 3];
+LL ~     values.iter().filter(|_| is_empty).count()
+   |
+
+warning: negated predicate name `is_not_done` — prefer a positive form like `is_done`
+  --> $DIR/negated_predicate_local_rename.rs:15:9
+   |
+LL |     let is_not_done = true;
+   |         ^^^^^^^^^^^
+   |
+   = help: Tiger Style (Positive Predicates): prefer positive predicate names over negated forms like `is_not_ready` or `no_capacity` Example: fn is_ready(state: &State) -> bool
+   = note: structured suggestion applicability: MachineApplicable
+   = note: see Tiger Style guide: Positive Predicates
+help: rename to `is_done`
+   |
+LL ~     let is_done = true;
+LL ~     let _future = async move { is_done };
+   |
+
+warning: negated predicate name `is_not_hidden` — prefer a positive form like `is_hidden`
+  --> $DIR/negated_predicate_local_rename.rs:24:9
+   |
+LL |     let is_not_hidden = true;
+   |         ^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Positive Predicates): prefer positive predicate names over negated forms like `is_not_ready` or `no_capacity` Example: fn is_ready(state: &State) -> bool
+   = note: structured suggestion applicability: MachineApplicable
+   = note: see Tiger Style guide: Positive Predicates
+help: rename to `is_hidden`
+   |
+LL ~     let is_hidden = true;
+LL ~     let flags = Flags { is_not_hidden: is_hidden };
+   |
+
+warning: 4 warnings emitted
 

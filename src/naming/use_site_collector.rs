@@ -7,24 +7,51 @@ use rustc_span::Span;
 struct UseSiteCollector<'cx, 'tcx> {
     cx: &'cx LateContext<'tcx>,
     target: hir::HirId,
-    use_sites: Vec<Span>,
+    replacement: &'cx str,
+    use_sites: Vec<(Span, String)>,
     has_expansion: bool,
 }
 
+impl UseSiteCollector<'_, '_> {
+    fn is_target_path(&self, expr: &hir::Expr<'_>) -> bool {
+        matches!(
+            expr.kind,
+            hir::ExprKind::Path(hir::QPath::Resolved(None, path))
+                if path.res == hir::def::Res::Local(self.target)
+        )
+    }
+
+    fn record(&mut self, span: Span, replacement: String) {
+        if span.from_expansion() {
+            self.has_expansion = true;
+        }
+        self.use_sites.push((span, replacement));
+    }
+}
+
 impl<'tcx> Visitor<'tcx> for UseSiteCollector<'_, 'tcx> {
+    // Closures and async blocks are nested bodies; uses inside them must be
+    // renamed too or the rewritten code no longer resolves.
+    type NestedFilter = rustc_middle::hir::nested_filter::OnlyBodies;
+
+    fn maybe_tcx(&mut self) -> Self::MaybeTyCtxt {
+        self.cx.tcx
+    }
+
     fn visit_expr(&mut self, expr: &'tcx hir::Expr<'tcx>) {
-        if let hir::ExprKind::Path(ref qpath) = expr.kind {
-            let res = self.cx.typeck_results().qpath_res(qpath, expr.hir_id);
-            if let hir::def::Res::Local(hir_id) = res
-                && hir_id == self.target
-            {
-                if expr.span.from_expansion() {
-                    self.has_expansion = true;
-                }
-                self.use_sites.push(expr.span);
-            }
+        if self.is_target_path(expr) {
+            self.record(expr.span, self.replacement.to_owned());
         }
         intravisit::walk_expr(self, expr);
+    }
+
+    fn visit_expr_field(&mut self, field: &'tcx hir::ExprField<'tcx>) {
+        // `S { name }` must become `S { name: new_name }`, not `S { new_name }`.
+        if field.is_shorthand && self.is_target_path(field.expr) {
+            self.record(field.expr.span, format!("{}: {}", field.ident, self.replacement));
+            return;
+        }
+        intravisit::walk_expr_field(self, field);
     }
 }
 
@@ -33,14 +60,19 @@ pub(crate) fn enclosing_body<'tcx>(cx: &LateContext<'tcx>, hir_id: hir::HirId) -
     cx.tcx.hir_body_owned_by(body_owner)
 }
 
+/// Collects every use of the local `binding_hir_id` inside `body` (including
+/// closures and async blocks) paired with the source text that renames it to
+/// `replacement`. Returns `None` when a use comes from a macro expansion.
 pub(crate) fn collect_local_use_sites<'tcx>(
     cx: &LateContext<'tcx>,
     body: &'tcx hir::Body<'tcx>,
     binding_hir_id: hir::HirId,
-) -> Option<Vec<Span>> {
+    replacement: &str,
+) -> Option<Vec<(Span, String)>> {
     let mut collector = UseSiteCollector {
         cx,
         target: binding_hir_id,
+        replacement,
         use_sites: Vec::new(),
         has_expansion: false,
     };
