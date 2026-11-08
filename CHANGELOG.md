@@ -6,6 +6,16 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## Unreleased: Cargo plans with build-script dependency copies
+
+`cargo octet check` with an active architecture policy no longer exits 2 with
+"Cargo feature plan has ambiguous duplicate unit identities" when resolver 2
+plans a package twice with equal descriptions, as it does when a build script
+and the library resolve different features for a shared dependency (Octet's own
+`toml`/`serde_core` graph is one example). Plan identities now bind each unit's
+complete dependency subgraph, so such copies stay distinct, while units with
+identical subgraphs and dependency cycles still fail closed.
+
 ## Unreleased: Exact SpaceWasm pilot ABI facts
 
 SpaceWasm analysis now resolves core function export/import signatures and binds

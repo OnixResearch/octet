@@ -32,34 +32,70 @@ struct Dependency {
 // r[impl octet.architecture.features.rejection]
 pub(super) fn identity(bytes: &[u8]) -> Result<String, String> {
     let graph: Graph = serde_json::from_slice(bytes).map_err(|error| format!("parse complete Cargo plan: {error}"))?;
-    let identities = graph.units.iter().map(unit_identity).collect::<Result<Vec<_>, _>>()?;
-    if identities.is_empty() || graph.roots.is_empty() {
+    if graph.units.is_empty() || graph.roots.is_empty() {
         return Err("Cargo feature plan has an empty selection".to_owned());
     }
-    if identities.iter().collect::<BTreeSet<_>>().len() != identities.len() {
+    let identities = subgraph_identities(&graph.units)?;
+    let units = identities.iter().map(String::as_str).collect::<BTreeSet<_>>();
+    if units.len() != identities.len() {
         return Err("Cargo feature plan has ambiguous duplicate unit identities".to_owned());
     }
-    let mut units = Vec::with_capacity(graph.units.len());
-    for (unit, identity) in graph.units.iter().zip(&identities) {
-        let mut edges = Vec::with_capacity(unit.dependencies.len());
-        for edge in &unit.dependencies {
-            let destination = referenced_identity(&identities, edge.index)?;
-            edges.push(octet_architecture_ir::canonical_identity(
-                "octet.cargo-feature-plan.edge/v1",
-                &(destination, &edge.description),
-            )?);
-        }
-        edges.sort();
-        units.push((identity, edges));
-    }
-    units.sort();
     let mut roots = graph
         .roots
         .iter()
         .map(|index| referenced_identity(&identities, *index))
         .collect::<Result<Vec<_>, _>>()?;
-    roots.sort();
-    octet_architecture_ir::canonical_identity("octet.cargo-feature-plan/v1", &(graph.properties, units, roots))
+    roots.sort_unstable();
+    octet_architecture_ir::canonical_identity("octet.cargo-feature-plan/v2", &(graph.properties, units, roots))
+}
+
+/// Cargo plans one package twice with equal descriptions when only the features
+/// of its dependencies differ, as resolver 2 does for a build-script copy. Each
+/// identity therefore binds the unit's complete dependency subgraph, computed
+/// leaves first. Units on a dependency cycle never resolve and fail closed.
+fn subgraph_identities(units: &[Unit]) -> Result<Vec<String>, String> {
+    let mut unresolved_dependencies = Vec::with_capacity(units.len());
+    let mut dependents = vec![Vec::new(); units.len()];
+    for (index, unit) in units.iter().enumerate() {
+        unresolved_dependencies.push(unit.dependencies.len());
+        for edge in &unit.dependencies {
+            dependents
+                .get_mut(edge.index)
+                .ok_or_else(|| "Cargo feature plan has an invalid unit reference".to_owned())?
+                .push(index);
+        }
+    }
+    let mut ready = Vec::with_capacity(units.len());
+    ready.extend((0..units.len()).filter(|index| unresolved_dependencies[*index] == 0));
+    let mut identities: Vec<Option<String>> = vec![None; units.len()];
+    while let Some(index) = ready.pop() {
+        let unit = &units[index];
+        let mut edges = Vec::with_capacity(unit.dependencies.len());
+        for edge in &unit.dependencies {
+            let destination = identities[edge.index]
+                .as_deref()
+                .ok_or_else(|| "Cargo feature plan resolved a unit before its dependency".to_owned())?;
+            edges.push(octet_architecture_ir::canonical_identity(
+                "octet.cargo-feature-plan.edge/v2",
+                &(destination, &edge.description),
+            )?);
+        }
+        edges.sort_unstable();
+        identities[index] = Some(octet_architecture_ir::canonical_identity(
+            "octet.cargo-feature-plan.subgraph/v1",
+            &(unit_identity(unit)?, edges),
+        )?);
+        for dependent in &dependents[index] {
+            unresolved_dependencies[*dependent] -= 1;
+            if unresolved_dependencies[*dependent] == 0 {
+                ready.push(*dependent);
+            }
+        }
+    }
+    identities
+        .into_iter()
+        .collect::<Option<Vec<_>>>()
+        .ok_or_else(|| "Cargo feature plan has a dependency cycle".to_owned())
 }
 
 fn unit_identity(unit: &Unit) -> Result<String, String> {
@@ -131,7 +167,6 @@ mod tests {
         for (pointer, replacement) in [
             ("/units/0/features", json!(["base"])),
             ("/units/0/dependencies", json!([])),
-            ("/units/0/dependencies/0/index", json!(0)),
             ("/units/0/dependencies/0/extern_crate_name", json!("renamed")),
             ("/units/0/dependencies/0/public", json!(true)),
             ("/units/0/mode", json!("build")),
@@ -145,6 +180,44 @@ mod tests {
         let mut extra_field = original.clone();
         extra_field["units"][0]["future_cargo_field"] = json!("must remain bound");
         assert_ne!(identity(&extra_field).expect("extra field"), expected);
+
+        let mut redirected = original.clone();
+        redirected["units"]
+            .as_array_mut()
+            .expect("units")
+            .push(json!({"pkg_id": "other", "features": [], "mode": "build", "dependencies": []}));
+        let before_redirect = identity(&redirected).expect("plan with another leaf");
+        redirected["units"][0]["dependencies"][0]["index"] = json!(2);
+        assert_ne!(identity(&redirected).expect("redirected edge"), before_redirect);
+    }
+
+    // r[verify octet.architecture.features.equivalence]
+    #[test]
+    fn units_distinguished_only_by_dependency_subgraphs_remain_distinct() {
+        // Resolver 2 plans a build-script copy of `toml` whose `serde_core` dependency
+        // resolves fewer features; both `toml` units carry equal descriptions.
+        let plan = json!({"version": 1, "units": [
+            {"pkg_id": "toml", "features": ["std"], "mode": "build",
+             "dependencies": [{"index": 2, "extern_crate_name": "serde_core", "public": false}]},
+            {"pkg_id": "toml", "features": ["std"], "mode": "build",
+             "dependencies": [{"index": 3, "extern_crate_name": "serde_core", "public": false}]},
+            {"pkg_id": "serde_core", "features": ["std"], "mode": "build", "dependencies": []},
+            {"pkg_id": "serde_core", "features": ["result", "std"], "mode": "build", "dependencies": []}
+        ], "roots": [0, 1]});
+        identity(&plan).expect("dependency-distinguished units are unambiguous");
+
+        let mut transitive = plan.clone();
+        transitive["units"][3]["features"] = json!(["std"]);
+        transitive["units"].as_array_mut().expect("units").push(json!(
+            {"pkg_id": "serde_derive", "features": [], "mode": "build", "dependencies": []}
+        ));
+        transitive["units"][3]["dependencies"] =
+            json!([{"index": 4, "extern_crate_name": "serde_derive", "public": false}]);
+        identity(&transitive).expect("units distinguished two dependency levels down are unambiguous");
+
+        let mut collapsed = plan.clone();
+        collapsed["units"][1]["dependencies"][0]["index"] = json!(2);
+        assert!(identity(&collapsed).expect_err("equal subgraphs").contains("duplicate"));
     }
 
     // r[verify octet.architecture.features.rejection]
@@ -152,6 +225,8 @@ mod tests {
     fn incomplete_or_ambiguous_plans_fail_closed() {
         for (pointer, replacement) in [
             ("/units/0/dependencies/0/index", json!(2)),
+            ("/units/0/dependencies/0/index", json!(0)),
+            ("/units/1/dependencies", json!([{"index": 0, "extern_crate_name": "app", "public": false}])),
             ("/units/0/dependencies/0/index", json!(-1)),
             ("/roots", json!([2])),
             ("/roots", json!([])),
@@ -164,7 +239,8 @@ mod tests {
             assert!(identity(&altered).is_err(), "{pointer}");
         }
         let mut duplicate = graph();
-        duplicate["units"][1] = duplicate["units"][0].clone();
+        let helper = duplicate["units"][1].clone();
+        duplicate["units"].as_array_mut().expect("units").push(helper);
         assert!(identity(&duplicate).expect_err("ambiguous units").contains("duplicate"));
         for field in ["dependencies", "features"] {
             let mut missing = graph();
