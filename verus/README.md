@@ -90,7 +90,7 @@ origin, evidence tier, status, trust-boundary notes, non-claims, and
 receipt/provenance evidence, not standalone evidence.
 
 Current selected positive rails produce cards with these stable identities when
-run through `cargo octet prove --source src/verified --artifact-dir artifacts/octet-proofs`:
+run through `cargo octet prove --policy-artifacts-dir artifacts/policy --source src/verified --artifact-dir artifacts/octet-proofs`:
 
 | Proof/property ID | Mode | Source scope | Proof target | Receipt path |
 | --- | --- | --- | --- | --- |
