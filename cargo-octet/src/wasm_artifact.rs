@@ -474,11 +474,7 @@ pub(crate) fn analyze_bytes_with_external(
         .into_iter()
         .map(|diagnostic| WasmArtifactFinding {
             issue_code: diagnostic.issue_code.to_owned(),
-            severity: if diagnostic.issue_code == DISALLOWED_PROPOSAL_ISSUE {
-                profile.severity.disallowed_kind.clone()
-            } else {
-                profile.severity.malformed.clone()
-            },
+            severity: parse_issue_severity(&profile.severity, diagnostic.issue_code).to_owned(),
             message: diagnostic.message,
             byte_offset: diagnostic.byte_offset,
         })
@@ -527,6 +523,17 @@ pub(crate) fn analyze_bytes_with_external(
         },
         non_claims: profile.non_claims.clone(),
     })
+}
+
+// Parse-stage diagnostics share issue codes with policy findings, so each takes
+// the severity the profile declares for its issue class.
+fn parse_issue_severity<'a>(severities: &'a WasmFindingSeverities, issue_code: &str) -> &'a str {
+    match issue_code {
+        DISALLOWED_PROPOSAL_ISSUE => &severities.disallowed_kind,
+        RESOURCE_LIMIT_ISSUE => &severities.resource_limit,
+        ABI_MISMATCH_ISSUE => &severities.abi_mismatch,
+        _ => &severities.malformed,
+    }
 }
 
 pub(crate) fn render_envelope(envelope: &WasmArtifactEnvelope) -> Result<String, String> {
@@ -3142,6 +3149,37 @@ mod tests {
                 "{valid}: {diagnostics:?}"
             );
         }
+    }
+
+    #[test]
+    fn parse_stage_findings_use_their_issue_severity() {
+        let mut registry = valid_registry();
+        for profile in &mut registry.profiles {
+            "advisory".clone_into(&mut profile.severity.malformed);
+            "warning".clone_into(&mut profile.severity.resource_limit);
+            "warning".clone_into(&mut profile.severity.abi_mismatch);
+        }
+        let severity_of = |report: &WasmArtifactEnvelope, issue_code: &str| {
+            report
+                .details
+                .findings
+                .iter()
+                .find(|finding| finding.issue_code == issue_code)
+                .map(|finding| finding.severity.clone())
+        };
+
+        // Instantiating an imported core module cannot be resource-bounded.
+        let unbounded = wat::parse_str("(component (import \"m\" (core module $m)) (core instance (instantiate $m)))")
+            .expect("unbounded instantiation fixture");
+        let report = analyze(&unbounded, &registry, &[]);
+        assert_eq!(severity_of(&report, RESOURCE_LIMIT_ISSUE).as_deref(), Some("warning"), "{report:?}");
+
+        // Exporting a missing function fails validation and ABI resolution.
+        let mut missing_export = b"\0asm\x01\0\0\0".to_vec();
+        missing_export.extend_from_slice(&[7, 7, 1, 3, b'r', b'u', b'n', 0, 0]);
+        let report = analyze_profile(&missing_export, &registry, SPACEWASM_PROFILE_ID, &[]);
+        assert_eq!(severity_of(&report, ABI_MISMATCH_ISSUE).as_deref(), Some("warning"), "{report:?}");
+        assert_eq!(severity_of(&report, MALFORMED_ISSUE).as_deref(), Some("advisory"), "{report:?}");
     }
 
     fn analyze(bytes: &[u8], registry: &WasmProfileRegistry, parents: &[String]) -> WasmArtifactEnvelope {
