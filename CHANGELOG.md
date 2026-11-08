@@ -139,7 +139,7 @@ checked artifact or the matched graph is malformed, instead of accepting the
 configured digest; the bundled deterministic-effect-handlers rail now points at
 `standards/check-fixtures/verification/*/proof-nix-closure.graph`.
 
-## Unreleased: Cargo plans with build-script dependency copies
+## Unreleased: architecture planning and collection fixes
 
 `cargo octet check` with an active architecture policy no longer exits 2 with
 "Cargo feature plan has ambiguous duplicate unit identities" when resolver 2
@@ -148,6 +148,13 @@ and the library resolve different features for a shared dependency (Octet's own
 `toml`/`serde_core` graph is one example). Plan identities now bind each unit's
 complete dependency subgraph, so such copies stay distinct, while units with
 identical subgraphs and dependency cycles still fail closed.
+
+The compiler architecture collector now records each item's real containing
+module. It used to turn every impl block, function, and derive-generated
+constant that contains items into a pseudo-module, which exhausted
+`max_modules` on derive-heavy crates and made coverage incomplete (exit 2).
+Module facts and IR identities change accordingly. Octet's own policy now
+covers `cargo-octet/build.rs` and allows 128 MiB shards.
 
 ## Unreleased: Exact SpaceWasm pilot ABI facts
 
