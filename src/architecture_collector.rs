@@ -93,13 +93,13 @@ const EFFECT_PATHS: &[(&str, CapabilityFamily)] = &[
     ("std::time::SystemTime::now", CapabilityFamily::Time),
 ];
 
-fn load_collector_context() -> Result<Option<CompilerArchitectureCollectorContext>, String> {
+fn load_collector_context() -> Result<Option<(PathBuf, CompilerArchitectureCollectorContext)>, String> {
     load_collector_context_at(std::env::var_os(octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_ENV))
 }
 
 fn load_collector_context_at(
     context_path: Option<std::ffi::OsString>,
-) -> Result<Option<CompilerArchitectureCollectorContext>, String> {
+) -> Result<Option<(PathBuf, CompilerArchitectureCollectorContext)>, String> {
     let Some(context_path) = context_path else {
         return Ok(None);
     };
@@ -121,11 +121,13 @@ fn load_collector_context_at(
         return Err(format!("unsupported compiler architecture collector context schema `{}`", context.schema_version));
     }
     octet_architecture_ir::validate_collector_units(&context.selected_units).map_err(|error| error.to_string())?;
-    Ok(Some(context))
+    Ok(Some((context_path, context)))
 }
 
+/// Selects the architecture unit compiled by this session and records its freshness stamp in
+/// rustc dep-info, so Cargo recompiles the unit whenever the runner rewrites or removes the stamp.
 pub(crate) fn active_collector(sess: &rustc_session::Session) -> Result<Option<ArchitectureCollector>, String> {
-    let Some(context) = load_collector_context()? else {
+    let Some((context_path, context)) = load_collector_context()? else {
         return Ok(None);
     };
     let workspace_root = fs::canonicalize(&context.workspace_root)
@@ -172,7 +174,15 @@ pub(crate) fn active_collector(sess: &rustc_session::Session) -> Result<Option<A
     )
     .map_err(|error| error.to_string())?
     .cloned();
-    Ok(selected.map(|unit| ArchitectureCollector::new(context, unit)))
+    let Some(selected) = selected else {
+        return Ok(None);
+    };
+    let stamp_path = octet_architecture_ir::compilation_unit_stamp_path(&context_path, &selected.unit);
+    let stamp_path = stamp_path
+        .to_str()
+        .ok_or_else(|| format!("compiler architecture unit stamp path is not UTF-8: {}", stamp_path.display()))?;
+    sess.file_depinfo.lock().insert(rustc_span::Symbol::intern(stamp_path));
+    Ok(Some(ArchitectureCollector::new(context, selected)))
 }
 
 pub(crate) fn validate_compiler_session(

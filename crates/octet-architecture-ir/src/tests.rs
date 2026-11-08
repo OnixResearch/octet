@@ -608,6 +608,31 @@ fn changed_collector_changes_unit_identity() {
 }
 
 #[test]
+fn unit_stamp_follows_the_stable_locator_not_volatile_hashes() {
+    let context = Path::new("/workspace/.octet/compiler-architecture/collector-context.json");
+    let first = unit();
+    let mut volatile = first.clone();
+    volatile.policy_blake3 = HASH_C.to_owned();
+    volatile.source_blake3 = HASH_C.to_owned();
+    volatile.invocation_blake3 = HASH_C.to_owned();
+    volatile.unit_id = compilation_unit_identity(&volatile);
+    let mut relocated = first.clone();
+    relocated.target_kind = format!("{}+test", relocated.target_kind);
+
+    assert_ne!(volatile.unit_id, first.unit_id);
+    assert_eq!(compilation_unit_stamp_name(&volatile), compilation_unit_stamp_name(&first));
+    assert_ne!(compilation_unit_stamp_name(&relocated), compilation_unit_stamp_name(&first));
+    assert_eq!(
+        compilation_unit_stamp_path(context, &first),
+        Path::new("/workspace/.octet/compiler-architecture/unit-stamps").join(compilation_unit_stamp_name(&first))
+    );
+    assert_eq!(
+        compilation_unit_stamp_directory(context),
+        compilation_unit_stamp_path(context, &first).parent().unwrap()
+    );
+}
+
+#[test]
 fn generated_nickel_contract_is_fresh() {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().and_then(Path::parent).expect("repo root");
     let path = repo_root.join(COMPILER_ARCHITECTURE_CONTRACT_PATH);

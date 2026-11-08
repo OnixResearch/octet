@@ -7,6 +7,7 @@ mod membership;
 mod model;
 mod roles;
 mod selection;
+mod stamp;
 
 pub use core::compilation_unit_identity;
 pub use core::coverage_identity;
@@ -32,6 +33,9 @@ pub use selection::CompilerUnitObservation;
 pub use selection::UnitSelectionError;
 pub use selection::select_compilation_unit;
 pub use selection::validate_collector_units;
+pub use stamp::compilation_unit_stamp_directory;
+pub use stamp::compilation_unit_stamp_name;
+pub use stamp::compilation_unit_stamp_path;
 
 #[cfg(test)]
 mod tests;

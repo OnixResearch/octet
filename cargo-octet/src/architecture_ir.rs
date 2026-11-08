@@ -108,6 +108,8 @@ pub(crate) struct PreparedCollector {
     pub expected_units: Vec<ExpectedCompilationUnit>,
     pub cargo_graph: ArchitectureCargoGraph,
     pub non_claims: Vec<String>,
+    /// Cached shard kept for each expected unit before Cargo ran, keyed by unit identity.
+    pub retained_shards: BTreeMap<String, PathBuf>,
 }
 
 #[derive(Clone)]
@@ -280,7 +282,7 @@ pub(crate) fn prepare_collector(
         return Err("activated architecture policy selected no Cargo compilation units".to_owned());
     }
     let shard_directory = workspace_root.join(ARCHITECTURE_SHARD_DIRECTORY);
-    prepare_shard_directory(
+    let retained_shards = prepare_shard_directory(
         &shard_directory,
         &expected_unit_ids(&selected_units),
         policy.policy.collection_limits.max_shards,
@@ -290,6 +292,11 @@ pub(crate) fn prepare_collector(
         .parent()
         .expect("architecture shard directory has a parent")
         .join("collector-context.json");
+    refresh_unit_stamps(
+        &octet_architecture_ir::compilation_unit_stamp_directory(&context_path),
+        &selected_units,
+        &retained_shards,
+    )?;
     let expected_units = selected_units
         .iter()
         .map(|selected| ExpectedCompilationUnit {
@@ -319,6 +326,7 @@ pub(crate) fn prepare_collector(
         expected_units,
         cargo_graph,
         non_claims: policy.policy.non_claims.clone(),
+        retained_shards,
     })
 }
 
@@ -377,6 +385,12 @@ fn protected_value_flow_selections(
 }
 
 pub(crate) fn normalize_collected_shards(prepared: &PreparedCollector) -> Result<ArchitectureArtifacts, String> {
+    supersede_cached_shards(
+        &prepared.shard_directory,
+        &prepared.retained_shards,
+        prepared.limits.max_shards,
+        prepared.limits.max_shard_bytes,
+    )?;
     let ingestion =
         read_shards(&prepared.shard_directory, prepared.limits.max_shards, prepared.limits.max_shard_bytes)?;
     let outcome = octet_architecture_ir::normalize_architecture_shards(NormalizationInput {
@@ -431,18 +445,20 @@ fn expected_unit_ids(selected_units: &[CollectorCompilationUnit]) -> std::collec
     selected_units.iter().map(|selected| selected.unit.unit_id.as_str()).collect()
 }
 
+/// Keeps a cached shard only when it is the single cached shard of an expected unit and returns the
+/// kept shard path of each such unit.
 fn prepare_shard_directory(
     directory: &Path,
     expected_unit_ids: &std::collections::BTreeSet<&str>,
     max_shards: usize,
     max_shard_bytes: usize,
-) -> Result<(), String> {
+) -> Result<BTreeMap<String, PathBuf>, String> {
     fs::create_dir_all(directory)
         .map_err(|error| format!("create architecture shard directory {}: {error}", directory.display()))?;
     let (paths, count_overflow) = bounded_shard_paths(directory, max_shards)?;
     if count_overflow {
         clear_shard_directory(directory)?;
-        return Ok(());
+        return Ok(BTreeMap::new());
     }
     // A unit with several cached shards has no trustworthy cache entry, so every one of them is
     // discarded.
@@ -457,12 +473,106 @@ fn prepare_shard_directory(
         }
         cached_units.push((path, unit_id));
     }
+    let mut retained = BTreeMap::new();
     for (path, unit_id) in cached_units {
-        if unit_id.and_then(|unit_id| unit_shard_counts.get(unit_id)) != Some(&1) {
-            remove_shard_entry(&path)?;
+        match unit_id {
+            Some(unit_id) if unit_shard_counts.get(unit_id) == Some(&1) => {
+                retained.insert(unit_id.to_owned(), path);
+            }
+            _ => remove_shard_entry(&path)?,
         }
     }
     remove_non_json_shard_entries(directory)?;
+    Ok(retained)
+}
+
+/// Writes each expected unit's freshness stamp, whose content is the unit identity, and removes
+/// stamps of units that are no longer expected.
+///
+/// The collector records a unit's stamp in rustc dep-info. An untouched stamp lets Cargo keep the
+/// unit fresh beside its retained cached shard; a rewritten or removed stamp makes Cargo recompile
+/// the unit so the collector writes a new shard.
+fn refresh_unit_stamps(
+    stamp_directory: &Path,
+    selected_units: &[CollectorCompilationUnit],
+    retained_shards: &BTreeMap<String, PathBuf>,
+) -> Result<(), String> {
+    fs::create_dir_all(stamp_directory)
+        .map_err(|error| format!("create architecture unit stamp directory {}: {error}", stamp_directory.display()))?;
+    let mut expected_names = std::collections::BTreeSet::new();
+    for selected in selected_units {
+        let unit_id = &selected.unit.unit_id;
+        let name = octet_architecture_ir::compilation_unit_stamp_name(&selected.unit);
+        let path = stamp_directory.join(&name);
+        if unit_stamp_needs_write(&path, unit_id, retained_shards.contains_key(unit_id)) {
+            fs::write(&path, unit_id)
+                .map_err(|error| format!("write architecture unit stamp {}: {error}", path.display()))?;
+        }
+        expected_names.insert(name);
+    }
+    let entries = fs::read_dir(stamp_directory)
+        .map_err(|error| format!("read architecture unit stamp directory {}: {error}", stamp_directory.display()))?;
+    for entry in entries {
+        let entry = entry.map_err(|error| format!("read architecture unit stamp entry: {error}"))?;
+        if !entry.file_name().to_str().is_some_and(|name| expected_names.contains(name)) {
+            let path = entry.path();
+            let removed = if path.is_dir() {
+                fs::remove_dir_all(&path)
+            } else {
+                fs::remove_file(&path)
+            };
+            removed.map_err(|error| format!("remove stale architecture unit stamp {}: {error}", path.display()))?;
+        }
+    }
+    Ok(())
+}
+
+/// A stamp is rewritten when the unit has no retained cached shard or when the stamp does not
+/// already hold exactly the unit identity.
+fn unit_stamp_needs_write(path: &Path, unit_id: &str, has_retained_shard: bool) -> bool {
+    if !has_retained_shard {
+        return true;
+    }
+    let holds_unit_id = fs::metadata(path).is_ok_and(|metadata| {
+        metadata.is_file() && u64::try_from(unit_id.len()).is_ok_and(|length| metadata.len() == length)
+    }) && fs::read(path).is_ok_and(|bytes| bytes == unit_id.as_bytes());
+    !holds_unit_id
+}
+
+/// Removes each retained cached shard whose unit also received a shard during this run.
+///
+/// Cargo can recompile a unit whose identity is unchanged, for example after a workspace
+/// dependency changed; the shard written by that compilation supersedes the cached one.
+fn supersede_cached_shards(
+    directory: &Path,
+    retained_shards: &BTreeMap<String, PathBuf>,
+    max_shards: usize,
+    max_shard_bytes: usize,
+) -> Result<(), String> {
+    if retained_shards.is_empty() {
+        return Ok(());
+    }
+    let (paths, count_overflow) = bounded_shard_paths(directory, max_shards)?;
+    if count_overflow {
+        return Ok(());
+    }
+    let retained_paths = retained_shards.values().collect::<std::collections::BTreeSet<_>>();
+    let mut superseded = std::collections::BTreeSet::new();
+    for path in paths.iter().filter(|path| !retained_paths.contains(path)) {
+        if let Ok(shard) = read_cached_shard(path, max_shard_bytes)
+            && let Some(cached) = retained_shards.get(&shard.unit.unit_id)
+        {
+            superseded.insert(cached);
+        }
+    }
+    for path in superseded {
+        match fs::remove_file(path) {
+            Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
+                return Err(format!("remove superseded architecture shard {}: {error}", path.display()));
+            }
+            _ => {}
+        }
+    }
     Ok(())
 }
 
@@ -1256,11 +1366,135 @@ mod tests {
         write_cached_shard(fixture.path(), "stale.json", &cached_shard(FIXTURE_HASH_C, FIXTURE_HASH_B));
         let expected = std::collections::BTreeSet::from([FIXTURE_HASH_A]);
 
-        prepare_shard_directory(fixture.path(), &expected, MAX_INGESTION_FIXTURE_SHARDS, MAX_CACHE_FIXTURE_SHARD_BYTES)
-            .expect("prepare cache");
+        let retained = prepare_shard_directory(
+            fixture.path(),
+            &expected,
+            MAX_INGESTION_FIXTURE_SHARDS,
+            MAX_CACHE_FIXTURE_SHARD_BYTES,
+        )
+        .expect("prepare cache");
 
         assert!(fixture.path().join("kept.json").is_file());
         assert!(!fixture.path().join("stale.json").exists());
+        assert_eq!(retained, BTreeMap::from([(FIXTURE_HASH_A.to_owned(), fixture.path().join("kept.json"))]));
+    }
+
+    fn collector_unit(unit_id: &str, target_kind: &str) -> CollectorCompilationUnit {
+        let mut unit = cached_shard(unit_id, FIXTURE_HASH_B).unit;
+        unit.target_kind = target_kind.to_owned();
+        CollectorCompilationUnit {
+            rustc_crate_name: "fixture".to_owned(),
+            manifest_dir: String::new(),
+            source_path: unit.source_path.clone(),
+            test_configuration: false,
+            source_roles: Vec::new(),
+            unit,
+        }
+    }
+
+    fn modified(path: &Path) -> std::time::SystemTime {
+        fs::metadata(path).and_then(|metadata| metadata.modified()).expect("stamp modification time")
+    }
+
+    fn age(path: &Path) {
+        fs::File::options()
+            .write(true)
+            .open(path)
+            .and_then(|file| file.set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(1)))
+            .expect("age stamp fixture");
+    }
+
+    #[test]
+    fn unit_stamp_is_rewritten_only_without_a_retained_shard_or_matching_identity() {
+        let fixture = tempfile::tempdir().expect("create stamp fixture");
+        let stamp = fixture.path().join("unit.stamp");
+
+        assert!(unit_stamp_needs_write(&stamp, FIXTURE_HASH_A, true), "a missing stamp is written");
+        fs::write(&stamp, FIXTURE_HASH_A).expect("write stamp fixture");
+        assert!(!unit_stamp_needs_write(&stamp, FIXTURE_HASH_A, true), "a current stamp keeps Cargo fresh");
+        assert!(unit_stamp_needs_write(&stamp, FIXTURE_HASH_A, false), "a unit without a cached shard recompiles");
+        assert!(unit_stamp_needs_write(&stamp, FIXTURE_HASH_C, true), "a changed identity recompiles");
+        fs::write(&stamp, format!("{FIXTURE_HASH_A}\n")).expect("write padded stamp fixture");
+        assert!(unit_stamp_needs_write(&stamp, FIXTURE_HASH_A, true), "only the exact identity is current");
+    }
+
+    #[test]
+    fn unit_stamp_refresh_touches_only_units_that_must_recompile() {
+        let fixture = tempfile::tempdir().expect("create stamp fixture");
+        let directory = fixture.path().join("unit-stamps");
+        let cached = collector_unit(FIXTURE_HASH_A, "lib");
+        let uncached = collector_unit(FIXTURE_HASH_C, "bin");
+        let units = [cached.clone(), uncached.clone()];
+        let retained = BTreeMap::from([(FIXTURE_HASH_A.to_owned(), fixture.path().join("cached.json"))]);
+        let cached_stamp = directory.join(octet_architecture_ir::compilation_unit_stamp_name(&cached.unit));
+        let uncached_stamp = directory.join(octet_architecture_ir::compilation_unit_stamp_name(&uncached.unit));
+
+        refresh_unit_stamps(&directory, &units, &retained).expect("write initial stamps");
+        assert_eq!(fs::read_to_string(&cached_stamp).expect("cached stamp"), FIXTURE_HASH_A);
+        assert_eq!(fs::read_to_string(&uncached_stamp).expect("uncached stamp"), FIXTURE_HASH_C);
+        fs::write(directory.join("removed-unit.stamp"), FIXTURE_HASH_B).expect("write stale stamp");
+        age(&cached_stamp);
+        age(&uncached_stamp);
+        let aged = modified(&cached_stamp);
+
+        refresh_unit_stamps(&directory, &units, &retained).expect("refresh stamps");
+
+        assert_eq!(modified(&cached_stamp), aged, "a cached unit with a current stamp stays fresh");
+        assert!(modified(&uncached_stamp) > aged, "a unit without a cached shard is recompiled");
+        assert!(!directory.join("removed-unit.stamp").exists(), "stamps of removed units are deleted");
+
+        let mut changed = cached.clone();
+        changed.unit.unit_id = FIXTURE_HASH_B.to_owned();
+        let retained = BTreeMap::from([(FIXTURE_HASH_B.to_owned(), fixture.path().join("cached.json"))]);
+        refresh_unit_stamps(&directory, &[changed], &retained).expect("refresh changed identity");
+
+        assert_eq!(fs::read_to_string(&cached_stamp).expect("rewritten stamp"), FIXTURE_HASH_B);
+        assert!(modified(&cached_stamp) > aged, "a changed identity is recompiled");
+        assert!(!uncached_stamp.exists());
+    }
+
+    #[test]
+    fn shard_written_this_run_supersedes_the_cached_shard_of_its_unit() {
+        let fixture = tempfile::tempdir().expect("create cache fixture");
+        write_cached_shard(fixture.path(), "cached.json", &cached_shard(FIXTURE_HASH_A, FIXTURE_HASH_B));
+        write_cached_shard(fixture.path(), "kept.json", &cached_shard(FIXTURE_HASH_C, FIXTURE_HASH_B));
+        let expected = std::collections::BTreeSet::from([FIXTURE_HASH_A, FIXTURE_HASH_C]);
+        let retained = prepare_shard_directory(
+            fixture.path(),
+            &expected,
+            MAX_COUNT_OVERFLOW_FIXTURE_SHARDS,
+            MAX_CACHE_FIXTURE_SHARD_BYTES,
+        )
+        .expect("prepare cache");
+        supersede_cached_shards(
+            fixture.path(),
+            &retained,
+            MAX_COUNT_OVERFLOW_FIXTURE_SHARDS,
+            MAX_CACHE_FIXTURE_SHARD_BYTES,
+        )
+        .expect("supersede without new shards");
+        assert!(fixture.path().join("cached.json").is_file(), "a cached shard without a new shard stays");
+
+        write_cached_shard(fixture.path(), "recompiled.json", &cached_shard(FIXTURE_HASH_A, FIXTURE_HASH_C));
+        supersede_cached_shards(
+            fixture.path(),
+            &retained,
+            MAX_COUNT_OVERFLOW_FIXTURE_SHARDS,
+            MAX_CACHE_FIXTURE_SHARD_BYTES,
+        )
+        .expect("supersede recompiled unit");
+
+        assert!(!fixture.path().join("cached.json").exists(), "the recompiled unit drops its cached shard");
+        assert!(fixture.path().join("recompiled.json").is_file());
+        assert!(fixture.path().join("kept.json").is_file(), "other units keep their cached shard");
+        supersede_cached_shards(
+            fixture.path(),
+            &retained,
+            MAX_COUNT_OVERFLOW_FIXTURE_SHARDS,
+            MAX_CACHE_FIXTURE_SHARD_BYTES,
+        )
+        .expect("superseding is repeatable");
+        assert!(fixture.path().join("recompiled.json").is_file());
     }
 
     #[test]

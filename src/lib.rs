@@ -415,6 +415,13 @@ pub extern "Rust" fn register_lints(sess: &rustc_session::Session, lint_store: &
     apply_lint_level_overrides(sess, &cfg);
     register_inventory(lint_store, &cfg, &nominal_domain_catalog);
     register_no_todo_bundle(lint_store, &cfg);
+    // Cargo rebuilds a workspace unit when this value changes, so switching between lint-only and
+    // architecture runs always gives the collector a compilation to observe.
+    let collector_context = std::env::var(octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_ENV).ok();
+    sess.env_depinfo.lock().insert((
+        rustc_span::Symbol::intern(octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_ENV),
+        collector_context.as_deref().map(rustc_span::Symbol::intern),
+    ));
     match architecture_collector::active_collector(sess) {
         Ok(Some(collector)) => {
             if let Err(error) = architecture_collector::validate_compiler_session(sess, &collector) {

@@ -14,6 +14,7 @@ use super::SelectedProjectArchitecturePolicy;
 
 mod body_owners;
 mod forged_question;
+mod freshness;
 mod randomness;
 
 const TOOLCHAIN: &str = "nightly-2026-03-21";
