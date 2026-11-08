@@ -139,7 +139,10 @@ failure; it caps `[octet.lint_levels]` denies for `primitive_domain_alias`,
 config warning when it lowers one. Use `warn` for exact findings only. Use
 `deny` only after saved positive, negative, compatibility, bypass,
 compile-fail, and pilot evidence is accepted. Suffix candidates never enter
-warning or deny mode.
+warning or deny mode, and they never fail a build: when the effective
+`primitive_domain_alias` level is above `warn` (for example the deny-all
+hook's `-D primitive_domain_alias` in inventory mode), candidates are skipped
+while exact findings keep that level.
 
 ### breaking-change: migrate `todo!()` escapes from `no_panic` to `no_todo`
 

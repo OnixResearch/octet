@@ -288,9 +288,12 @@ The deny-all behavior comes from `DYLINT_RUSTFLAGS`: the hook appends
 lint. This activates allow-by-default Octet lints and promotes warning lints to
 hard errors without promoting unrelated rustc warnings. Explicit command-line
 lint levels win over `[octet.lint_levels]`, so a consumer `numeric_units =
-"warn"` entry cannot weaken the hook's `-D numeric_units`. Do not use
-`disabled_lints` with this strict hook; disabled Octet lints are intentionally
-fail-closed because their command-line deny name is no longer registered.
+"warn"` entry cannot weaken the hook's `-D numeric_units`. Under the hook,
+exact nominal-domain findings are denied, while suffix-only
+`primitive_domain_alias` discovery candidates are skipped rather than failing
+the build. Do not use `disabled_lints` with this strict hook; disabled Octet
+lints are intentionally fail-closed because their command-line deny name is no
+longer registered.
 Prefer narrow source `allow` attributes with reasons for reviewable exceptions.
 
 If a consumer cannot use Nix but already installed `cargo-octet`, set
