@@ -33,6 +33,10 @@ Every saved dynamic evidence artifact must include:
 6. Link back to the OpenSpec scenario or review checklist row.
 7. For unsafe/FFI profiles, link the `UNSAFE-TRUST-BOUNDARY:` record and state the selected command, fixture, transcript or artifact, and acceptance signal.
 
+## Miri and Loom profiles
+
+`cargo octet evidence collect --rail dynamic-evidence` accepts the built-in `miri-unsafe-boundary` (alias `miri`) and `loom-concurrency` (alias `loom`) profiles, in both `--run` and `--input` modes. The profile comes from `--profile` or, for imports, the input's `profile` field. The allowed command (`cargo miri test` or `cargo test --cfg loom`) and the expected acceptance signal (`passed`) come from the built-in profile. Octet ignores `known_profiles`, `allowed_commands`, and `expected_signal` fields in imported JSON. A missing or unknown profile, a different command, or any other observed signal fails the receipt.
+
 ## Cargo-fuzz libFuzzer profile
 
 The `cargo-fuzz-libfuzzer` profile is optional. Starter `cargo octet check` does not resolve or run cargo-fuzz.
