@@ -13,8 +13,8 @@ use crate::diagnostics::emit_tiger_style_lint;
 
 declare_tool_lint! {
     /// Detects `if`/`match` nesting deeper than a configurable limit
-    /// (default: 3) inside a function body. Deep nesting buries the
-    /// important logic and makes control flow hard to follow. An
+    /// (default: 3) inside a function or method body. Deep nesting buries
+    /// the important logic and makes control flow hard to follow. An
     /// `else if` continues its chain at the same depth.
     ///
     /// Configure in `dylint.toml`:
@@ -109,22 +109,36 @@ impl<'ast> Visitor<'ast> for NestingVisitor<'_, '_> {
     }
 }
 
+fn check_fn_body(cx: &EarlyContext<'_>, max_depth: usize, func: &rustc_ast::Fn) {
+    let Some(body) = &func.body else {
+        return;
+    };
+
+    let mut visitor = NestingVisitor {
+        cx,
+        depth: 0,
+        max_depth,
+        reported: false,
+    };
+    visit::walk_block(&mut visitor, body);
+}
+
 impl EarlyLintPass for NestedConditionals {
     fn check_item(&mut self, cx: &EarlyContext<'_>, item: &Item) {
-        let ItemKind::Fn(func) = &item.kind else {
-            return;
-        };
+        if let ItemKind::Fn(func) = &item.kind {
+            check_fn_body(cx, self.max_depth, func);
+        }
+    }
 
-        let Some(body) = &func.body else {
-            return;
-        };
+    fn check_impl_item(&mut self, cx: &EarlyContext<'_>, item: &rustc_ast::AssocItem) {
+        if let rustc_ast::AssocItemKind::Fn(func) = &item.kind {
+            check_fn_body(cx, self.max_depth, func);
+        }
+    }
 
-        let mut visitor = NestingVisitor {
-            cx,
-            depth: 0,
-            max_depth: self.max_depth,
-            reported: false,
-        };
-        visit::walk_block(&mut visitor, body);
+    fn check_trait_item(&mut self, cx: &EarlyContext<'_>, item: &rustc_ast::AssocItem) {
+        if let rustc_ast::AssocItemKind::Fn(func) = &item.kind {
+            check_fn_body(cx, self.max_depth, func);
+        }
     }
 }

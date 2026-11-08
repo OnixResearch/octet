@@ -48,3 +48,42 @@ fn nested_inside_chain(value: u32) -> bool {
         true
     }
 }
+
+struct Router;
+
+impl Router {
+    // Should warn: inherent methods are checked like free functions
+    fn nested_method(&self, value: u32) -> bool {
+        if value > 0 {
+            if value > 1 {
+                if value > 2 {
+                    if value > 3 {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        false
+    }
+}
+
+trait NestedDefault {
+    // Should NOT warn: required trait methods have no body
+    fn required_method(&self, value: u32) -> bool;
+
+    // Should warn: provided trait methods have a body
+    fn nested_default_method(&self, value: u32) -> bool {
+        if value > 0 {
+            if value > 1 {
+                if value > 2 {
+                    if value > 3 {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        false
+    }
+}

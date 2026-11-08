@@ -88,3 +88,62 @@ fn single_debug_assert(data: &[u8]) -> usize {
     let t = s + 19;
     t
 }
+
+struct Parser;
+
+impl Parser {
+    // Should warn: inherent methods are checked like free functions
+    fn sparse_method(&self, data: &[u8]) -> usize {
+        let a = data.len();
+        let b = a + 1;
+        let c = b + 2;
+        let d = c + 3;
+        let e = d + 4;
+        let f = e + 5;
+        let g = f + 6;
+        let h = g + 7;
+        let i = h + 8;
+        let j = i + 9;
+        let k = j + 10;
+        let l = k + 11;
+        let m = l + 12;
+        let n = m + 13;
+        let o = n + 14;
+        let p = o + 15;
+        let q = p + 16;
+        let r = q + 17;
+        let s = r + 18;
+        let t = s + 19;
+        t
+    }
+}
+
+trait SparseDefault {
+    // Should NOT warn: required trait methods have no body
+    fn required_method(&self, data: &[u8]) -> usize;
+
+    // Should warn: provided trait methods have a body
+    fn sparse_default_method(&self, data: &[u8]) -> usize {
+        let a = data.len();
+        let b = a + 1;
+        let c = b + 2;
+        let d = c + 3;
+        let e = d + 4;
+        let f = e + 5;
+        let g = f + 6;
+        let h = g + 7;
+        let i = h + 8;
+        let j = i + 9;
+        let k = j + 10;
+        let l = k + 11;
+        let m = l + 12;
+        let n = m + 13;
+        let o = n + 14;
+        let p = o + 15;
+        let q = p + 16;
+        let r = q + 17;
+        let s = r + 18;
+        let t = s + 19;
+        t
+    }
+}

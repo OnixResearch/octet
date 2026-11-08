@@ -11,8 +11,8 @@ use rustc_span::sym;
 use crate::diagnostics::emit_tiger_style_lint;
 
 declare_tool_lint! {
-    /// Detects functions whose body exceeds a configurable number of
-    /// non-blank, non-comment lines (default: 70). Long functions are
+    /// Detects functions and methods whose body exceeds a configurable number
+    /// of non-blank, non-comment lines (default: 70). Long functions are
     /// hard to reason about and typically indicate missing decomposition.
     ///
     /// Configure in `dylint.toml`:
@@ -80,13 +80,9 @@ fn count_code_lines(source: &str) -> usize {
     count
 }
 
-impl EarlyLintPass for FunctionLength {
-    fn check_item(&mut self, cx: &EarlyContext<'_>, item: &Item) {
-        let ItemKind::Fn(func) = &item.kind else {
-            return;
-        };
-
-        if is_test_function(&item.attrs) {
+impl FunctionLength {
+    fn check_function(&self, cx: &EarlyContext<'_>, attrs: &[Attribute], func: &rustc_ast::Fn) {
+        if is_test_function(attrs) {
             return;
         }
 
@@ -111,6 +107,26 @@ impl EarlyLintPass for FunctionLength {
                 format!("function `{name}` is {code_lines} lines (limit: {max})"),
                 "function_length",
             );
+        }
+    }
+}
+
+impl EarlyLintPass for FunctionLength {
+    fn check_item(&mut self, cx: &EarlyContext<'_>, item: &Item) {
+        if let ItemKind::Fn(func) = &item.kind {
+            self.check_function(cx, &item.attrs, func);
+        }
+    }
+
+    fn check_impl_item(&mut self, cx: &EarlyContext<'_>, item: &rustc_ast::AssocItem) {
+        if let rustc_ast::AssocItemKind::Fn(func) = &item.kind {
+            self.check_function(cx, &item.attrs, func);
+        }
+    }
+
+    fn check_trait_item(&mut self, cx: &EarlyContext<'_>, item: &rustc_ast::AssocItem) {
+        if let rustc_ast::AssocItemKind::Fn(func) = &item.kind {
+            self.check_function(cx, &item.attrs, func);
         }
     }
 }

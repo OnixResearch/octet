@@ -36,5 +36,37 @@ LL | | }
    = help: Tiger Style (Assertion Density): add enough assertions to make local invariants visible near the logic they defend
    = note: see Tiger Style guide: Assertion Density
 
-warning: 2 warnings emitted
+warning: function `sparse_method` has 0 assertion(s) in 23 lines (need 2+)
+  --> $DIR/assertion_density.rs:96:51
+   |
+LL |       fn sparse_method(&self, data: &[u8]) -> usize {
+   |  ___________________________________________________^
+LL | |         let a = data.len();
+LL | |         let b = a + 1;
+LL | |         let c = b + 2;
+...  |
+LL | |         t
+LL | |     }
+   | |_____^
+   |
+   = help: Tiger Style (Assertion Density): add enough assertions to make local invariants visible near the logic they defend
+   = note: see Tiger Style guide: Assertion Density
+
+warning: function `sparse_default_method` has 0 assertion(s) in 23 lines (need 2+)
+  --> $DIR/assertion_density.rs:126:59
+   |
+LL |       fn sparse_default_method(&self, data: &[u8]) -> usize {
+   |  ___________________________________________________________^
+LL | |         let a = data.len();
+LL | |         let b = a + 1;
+LL | |         let c = b + 2;
+...  |
+LL | |         t
+LL | |     }
+   | |_____^
+   |
+   = help: Tiger Style (Assertion Density): add enough assertions to make local invariants visible near the logic they defend
+   = note: see Tiger Style guide: Assertion Density
+
+warning: 4 warnings emitted
 

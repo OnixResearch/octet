@@ -73,29 +73,41 @@ fn has_comment_nearby(cx: &EarlyContext<'_>, attr: &Attribute) -> bool {
     false
 }
 
+fn check_attrs(cx: &EarlyContext<'_>, attrs: &[Attribute]) {
+    // Skip items in #[cfg(test)] blocks
+    if attrs.iter().any(|a| a.has_name(sym::test)) {
+        return;
+    }
+
+    for attr in attrs {
+        if is_clippy_allow_attr(attr) && !has_comment_nearby(cx, attr) {
+            emit_tiger_style_lint_with_suggestion(
+                cx,
+                UNJUSTIFIED_ALLOW,
+                attr.span,
+                "`#[allow(...)]` without justification comment",
+                "unjustified_allow",
+                LintSuggestion::Single {
+                    span: attr.span.shrink_to_lo(),
+                    message: "add a local justification comment".to_owned(),
+                    replacement: justification_stub(cx, attr),
+                    applicability: Applicability::HasPlaceholders,
+                },
+            );
+        }
+    }
+}
+
 impl EarlyLintPass for UnjustifiedAllow {
     fn check_item(&mut self, cx: &EarlyContext<'_>, item: &Item) {
-        // Skip items in #[cfg(test)] blocks
-        if item.attrs.iter().any(|a| a.has_name(sym::test)) {
-            return;
-        }
+        check_attrs(cx, &item.attrs);
+    }
 
-        for attr in &item.attrs {
-            if is_clippy_allow_attr(attr) && !has_comment_nearby(cx, attr) {
-                emit_tiger_style_lint_with_suggestion(
-                    cx,
-                    UNJUSTIFIED_ALLOW,
-                    attr.span,
-                    "`#[allow(...)]` without justification comment",
-                    "unjustified_allow",
-                    LintSuggestion::Single {
-                        span: attr.span.shrink_to_lo(),
-                        message: "add a local justification comment".to_owned(),
-                        replacement: justification_stub(cx, attr),
-                        applicability: Applicability::HasPlaceholders,
-                    },
-                );
-            }
-        }
+    fn check_impl_item(&mut self, cx: &EarlyContext<'_>, item: &rustc_ast::AssocItem) {
+        check_attrs(cx, &item.attrs);
+    }
+
+    fn check_trait_item(&mut self, cx: &EarlyContext<'_>, item: &rustc_ast::AssocItem) {
+        check_attrs(cx, &item.attrs);
     }
 }

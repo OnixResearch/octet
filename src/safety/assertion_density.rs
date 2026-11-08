@@ -12,9 +12,10 @@ use rustc_span::sym;
 use crate::diagnostics::emit_tiger_style_lint;
 
 declare_tool_lint! {
-    /// Warns on functions exceeding a configurable line count (default: 20)
-    /// that contain fewer than a required number of assertions (default: 2).
-    /// Functions without assertions lack documentation of their invariants.
+    /// Warns on functions and methods exceeding a configurable line count
+    /// (default: 20) that contain fewer than a required number of assertions
+    /// (default: 2). Functions without assertions lack documentation of their
+    /// invariants.
     ///
     /// Configure in `dylint.toml`:
     /// ```toml
@@ -131,19 +132,15 @@ fn is_single_expression_body(body: &Block) -> bool {
     false
 }
 
-impl EarlyLintPass for AssertionDensity {
-    fn check_item(&mut self, cx: &EarlyContext<'_>, item: &Item) {
-        let ItemKind::Fn(func) = &item.kind else {
-            return;
-        };
-
+impl AssertionDensity {
+    fn check_function(&self, cx: &EarlyContext<'_>, attrs: &[rustc_ast::Attribute], func: &rustc_ast::Fn) {
         // Skip test functions
-        if item.attrs.iter().any(|a| a.has_name(sym::test)) {
+        if attrs.iter().any(|a| a.has_name(sym::test)) {
             return;
         }
 
         // Skip #[cfg(test)] items
-        if item.attrs.iter().any(|attr| {
+        if attrs.iter().any(|attr| {
             if attr.has_name(sym::cfg) {
                 let source = format!("{attr:?}");
                 source.contains("test")
@@ -186,6 +183,26 @@ impl EarlyLintPass for AssertionDensity {
             format!("function `{}` has {assertions} assertion(s) in {lines} lines (need {min_a}+)", func.ident.name),
             "assertion_density",
         );
+    }
+}
+
+impl EarlyLintPass for AssertionDensity {
+    fn check_item(&mut self, cx: &EarlyContext<'_>, item: &Item) {
+        if let ItemKind::Fn(func) = &item.kind {
+            self.check_function(cx, &item.attrs, func);
+        }
+    }
+
+    fn check_impl_item(&mut self, cx: &EarlyContext<'_>, item: &rustc_ast::AssocItem) {
+        if let rustc_ast::AssocItemKind::Fn(func) = &item.kind {
+            self.check_function(cx, &item.attrs, func);
+        }
+    }
+
+    fn check_trait_item(&mut self, cx: &EarlyContext<'_>, item: &rustc_ast::AssocItem) {
+        if let rustc_ast::AssocItemKind::Fn(func) = &item.kind {
+            self.check_function(cx, &item.attrs, func);
+        }
     }
 }
 
