@@ -349,24 +349,29 @@ Each subcommand accepts only its own flags: `--profile` is `start`-only,
 `migrate session apply`. SARIF output is rejected too; rejected invocations
 exit 2 before any manifest is read or written.
 
-### 3f. Verify executable documentation transcripts
+### 3f. Check documentation transcript structure
 
 Markdown examples can carry fenced transcript blocks with `$ ` command lines and
-`=> ` expected-output assertions:
+`=> ` expected-output lines:
 
 ```octet-transcript
 $ cargo octet check --output-format json
 => {"version":1
 ```
 
-Verify a document with:
+Check a document's structure with:
 
 ```bash
 cargo octet transcript docs/examples/my-transcript.md --format json
 ```
 
-The transcript report is content-addressed with `transcript_hash` so docs can be
-stored as deterministic regression evidence.
+`cargo octet transcript` is a structural check only. It confirms that every
+fence holding `$ ` lines uses `octet-transcript`, `slotcar-transcript`,
+`console`, or `sh`, that no fence is left open, and that the document has at
+least one `$ ` command line and one `=> ` expected-output line. It does not run
+the commands or compare their output with the `=> ` lines. The report records
+the document's BLAKE3 as `transcript_hash`, so a reviewer can pin the exact
+transcript bytes; behavior claims still need a gate that runs the commands.
 
 ### 4. Tune rollout controls in `dylint.toml`
 

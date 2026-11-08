@@ -46,7 +46,7 @@ format carries tier data:
 - `policy_check` — a standards or registry policy evaluation.
 - `ui_fixture` — a checked UI fixture or diagnostic snapshot.
 - `autofix_verified` — an autofix replay that rechecks cleanly.
-- `transcript_assertion` — an executable transcript assertion with expected output.
+- `transcript_assertion` — an executable transcript assertion with expected output. Rails that run their commands, such as the coverage, benchmark, Hegel, and mutation rails, record this tier; `cargo octet transcript` also records it, but for a structural check only: it confirms `$ ` command and `=> ` expected-output lines and records the transcript BLAKE3, and it runs nothing.
 - `formal_proof` — a scoped proof result with verifier, solver/toolchain, command argv, checked source/proof paths, receipt path, and proof artifact identity.
 - `manual_review_required` — a boundary where a named human action is still required.
 

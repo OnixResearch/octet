@@ -294,6 +294,8 @@ Use these surfaces for a bounded release smoke:
 - `cargo octet migrate start --manifest artifacts/octet-migration.json`
 - `cargo octet transcript docs/examples/release-operator-smoke/transcript.md`
 
+`cargo octet transcript` checks transcript structure only: fences holding `$ ` command lines must use a supported fence language, and the file must contain `$ ` command lines and `=> ` expected-output lines. It records the transcript BLAKE3 but runs no command and compares no output.
+
 Function-address modes are `observe`, `warn`, and `deny`. They produce source-envelope records, function spans, review fields, diagnostics, and Kamacite handoff data.
 
 A reviewed baseline entry whose function was deleted or renamed away reports `function_address_stale`. Entries outside the checked `--function-address-path` scope are not checked.
