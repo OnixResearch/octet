@@ -55,6 +55,8 @@ The artifact verifier recomputes every file hash, checks exact provenance covera
 
 `standards/charon-semantic/comparison/legacy-source-token-receipt.ncl` models an independent legacy source-token analysis receipt. Its generated receipt identity is configured into `comparison-parent.ncl`; the Nix check recomputes that parent identity before accepting the adapter. Comparison requires the same source identity and records `agree`, `disagree`, `charon-only`, `source-token-only`, or `unknown` per fact. It never overwrites either parent and always sets `authority_merged` to `false`.
 
+Multi-valued facts, such as several `local-call` or `item-dependency` edges or several `effect-candidate` values for one item, compare as one row whose value is the sorted, de-duplicated value set joined with `, `. A parent records a multi-valued fact as repeated entries with the same `item` and `fact` and distinct `value`s; an exactly repeated entry is rejected. A parent that lists only some of the values records `disagree`.
+
 ## Downstream boundary
 
 Valence may ingest the typed receipt and role-separated artifacts as external evidence. Kamacite may transport their exact identities. Neither layer becomes a compiler-IR or semantic-analysis authority. Downstream consumers must preserve the transcript evidence tier and all non-claims; they may not reinterpret this bundle as `formal_proof`, property evidence, complete closure, semantic equivalence, or release readiness.
