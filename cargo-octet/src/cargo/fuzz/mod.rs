@@ -1,12 +1,14 @@
 // r[impl octet.dynamic_evidence.cargo_fuzz_profile]
 // r[impl octet.dynamic_evidence.cargo_fuzz_receipt]
 pub const PROFILE_ID: &str = "cargo-fuzz-libfuzzer";
-pub const EXPECTED_PROFILE_IDENTITY: &str = "b3:7ad698ddebaaac2640a51e5f58871ac026b4b32653fb95bf971ec491560b48d6";
+pub const EXPECTED_PROFILE_IDENTITY: &str = "b3:681403b55dd508d9638cde9e8678bd8c92a2a2c6892a72f630d1a6c03956eaf5";
 pub const RECEIPT_SCHEMA_VERSION: &str = "octet-cargo-fuzz-receipt/v1";
 pub const EVIDENCE_TIER: &str = "transcript_assertion";
 pub const ENGINE: &str = "libfuzzer";
 pub const TARGET: &str = "octet-profile-intake";
 pub const TOOLCHAIN: &str = "nightly-2026-03-21";
+/// `commit-hash` that `rustc -vV` reports for [`TOOLCHAIN`]; run mode refuses any other compiler.
+pub const RUSTC_COMMIT_HASH: &str = "ac7f9ec7da74d37fd28667c86bf117a39ba5b02a";
 pub const SANITIZER: &str = "address";
 pub const MAX_TOTAL_TIME_SECONDS: u64 = 60;
 pub const MAX_RUNS: u64 = 100_000;
@@ -120,6 +122,7 @@ pub fn evaluate_envelope(text: &str) -> Evaluation {
 
 pub(crate) mod shell;
 mod validation;
+pub use validation::compiler_identity;
 pub use validation::corpus_root;
 pub use validation::validate;
 

@@ -2104,7 +2104,7 @@
             ''
               cd ${./.}
               generated=$(mktemp)
-              expected_profile_identity=7ad698ddebaaac2640a51e5f58871ac026b4b32653fb95bf971ec491560b48d6
+              expected_profile_identity=681403b55dd508d9638cde9e8678bd8c92a2a2c6892a72f630d1a6c03956eaf5
               expected_profile_count=1
               expected_max_time_seconds=60
               expected_max_runs=100000

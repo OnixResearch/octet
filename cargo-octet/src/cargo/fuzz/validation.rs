@@ -12,6 +12,7 @@ use super::MAX_TOTAL_TIME_SECONDS;
 use super::PROFILE_ID;
 use super::RECEIPT_SCHEMA_VERSION;
 use super::REQUIRED_NON_CLAIM;
+use super::RUSTC_COMMIT_HASH;
 use super::ReceiptDetails;
 use super::SANITIZER;
 use super::TARGET;
@@ -20,6 +21,7 @@ use super::command_argv;
 use super::is_finding_artifact;
 
 const MAX_DIAGNOSTIC_COUNT: usize = 32;
+const RUSTC_COMMIT_HASH_FIELD: &str = "commit-hash: ";
 
 struct Diagnostics {
     entries: Vec<String>,
@@ -67,6 +69,23 @@ pub fn corpus_root(rows: &[ArtifactIdentity]) -> String {
         hash_framed(&mut hasher, row.blake3.as_bytes());
     }
     format!("b3:{}", hasher.finalize().to_hex())
+}
+
+/// Binds an observed `rustc -vV` report to the reviewed toolchain.
+///
+/// Returns the BLAKE3 identity of the whole report when its `commit-hash` line names the
+/// profile's reviewed rustc commit, and refuses any other compiler.
+pub fn compiler_identity(version_verbose: &str) -> Result<String, String> {
+    let commit_hash = version_verbose
+        .lines()
+        .find_map(|line| line.strip_prefix(RUSTC_COMMIT_HASH_FIELD))
+        .ok_or_else(|| "cargo-fuzz compiler report from `rustc -vV` has no commit-hash line".to_owned())?;
+    if commit_hash != RUSTC_COMMIT_HASH {
+        return Err(format!(
+            "cargo-fuzz compiler commit `{commit_hash}` is not the reviewed {TOOLCHAIN} commit `{RUSTC_COMMIT_HASH}`; select the reviewed toolchain before running"
+        ));
+    }
+    Ok(format!("b3:{}", blake3::hash(version_verbose.as_bytes()).to_hex()))
 }
 
 fn check_exact_fields(details: &ReceiptDetails, diagnostics: &mut Diagnostics) {

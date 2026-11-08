@@ -19,24 +19,26 @@ use super::SANITIZER;
 use super::TARGET;
 use super::TOOLCHAIN;
 use super::command_argv;
+use super::compiler_identity;
 use super::corpus_root;
 use super::is_finding_artifact;
 
 const CORPUS_DIRECTORY: &str = "fuzz/corpus/octet-profile-intake";
 const ARTIFACT_DIRECTORY: &str = "fuzz/artifacts/octet-profile-intake";
-const COMPILER_PROFILE: &str = "nix:fenix-nightly-2026-03-21-x86_64-unknown-linux-gnu";
 const MINIMIZED_PREFIX: &str = "minimized-";
 const INTEGRATION_FAILURE_EXIT: i32 = 2;
 const ACCEPTED_EXIT_CODE: i32 = 0;
 const CARGO_PROGRAM: &str = "cargo";
+const RUSTC_PROGRAM: &str = "rustc";
+const COMPILER_REPORT_ARGUMENT: &str = "-vV";
 const PATH_ENVIRONMENT: &str = "PATH";
-const ENVIRONMENT_ALLOWLIST: [&str; 12] = [
+// `RUSTUP_TOOLCHAIN` and `RUSTC` are withheld: either one could point cargo-fuzz at a compiler
+// other than the `rustc` that the compiler probe observes.
+const ENVIRONMENT_ALLOWLIST: [&str; 10] = [
     PATH_ENVIRONMENT,
     "HOME",
     "CARGO_HOME",
     "RUSTUP_HOME",
-    "RUSTUP_TOOLCHAIN",
-    "RUSTC",
     "LD_LIBRARY_PATH",
     "TMPDIR",
     "CC",
@@ -50,6 +52,8 @@ const BUILD_ALLOWANCE_SECONDS: u64 = 840;
 const MILLISECONDS_PER_SECOND: u64 = 1_000;
 const POLL_INTERVAL_MS: u64 = 25;
 const TEARDOWN_TIMEOUT_MS: u64 = 5_000;
+const COMPILER_PROBE_TIMEOUT_MS: u64 = 30_000;
+const COMPILER_REPORT_MAX_BYTES: usize = 64 * 1_024;
 
 struct Snapshot {
     entries: Vec<ArtifactIdentity>,
@@ -102,16 +106,23 @@ pub fn production_tools() -> Result<RuntimeTools, String> {
         .iter()
         .filter_map(|name| std::env::var_os(name).map(|value| (std::ffi::OsString::from(name), value)))
         .collect::<Vec<_>>();
+    let cargo = resolve_program(&environment, CARGO_PROGRAM)?;
+    Ok(RuntimeTools { cargo, environment })
+}
+
+fn resolve_program(
+    environment: &[(std::ffi::OsString, std::ffi::OsString)],
+    program: &str,
+) -> Result<std::path::PathBuf, String> {
     let search_path = environment
         .iter()
         .find(|(name, _)| name == PATH_ENVIRONMENT)
         .map(|(_, value)| value)
         .ok_or_else(|| "cargo-fuzz runtime is missing PATH".to_owned())?;
-    let cargo = std::env::split_paths(search_path)
-        .map(|directory| directory.join(CARGO_PROGRAM))
+    std::env::split_paths(search_path)
+        .map(|directory| directory.join(program))
         .find(|candidate| candidate.is_absolute() && candidate.is_file())
-        .ok_or_else(|| "cargo-fuzz runtime cannot find an absolute cargo on PATH".to_owned())?;
-    Ok(RuntimeTools { cargo, environment })
+        .ok_or_else(|| format!("cargo-fuzz runtime cannot find an absolute {program} on PATH"))
 }
 
 /// Bounds the run by the receipt budget: the libFuzzer time budget plus a build allowance, and
@@ -150,6 +161,7 @@ pub fn run_with(
             "cargo-fuzz artifact directory {ARTIFACT_DIRECTORY} must be empty before a run; move earlier crash artifacts aside"
         ));
     }
+    let compiler_identity = compiler_identity(&observe_compiler(&workspace_root, &tools.environment)?)?;
     let initial_corpus = snapshot(&workspace_root, CORPUS_DIRECTORY)?;
     let command_argv = command_argv();
     let args = command_argv
@@ -201,7 +213,7 @@ pub fn run_with(
         target: TARGET.to_owned(),
         engine: ENGINE.to_owned(),
         toolchain: TOOLCHAIN.to_owned(),
-        compiler_identity: prefixed_identity(COMPILER_PROFILE.as_bytes()),
+        compiler_identity,
         sanitizer: SANITIZER.to_owned(),
         command_argv,
         budget: Budget {
@@ -226,6 +238,46 @@ pub fn run_with(
     let rendered =
         serde_json::to_string(&details).map_err(|error| format!("serialize cargo-fuzz run receipt: {error}"))?;
     Ok((rendered, exit_code))
+}
+
+/// Runs `rustc -vV` from the run's `PATH`, cleared environment, and working directory, so the
+/// report names the compiler that cargo-fuzz resolves.
+fn observe_compiler(
+    workspace_root: &std::path::Path,
+    environment: &[(std::ffi::OsString, std::ffi::OsString)],
+) -> Result<String, String> {
+    let output = bounded_exec::run(bounded_exec::RunRequest {
+        command: bounded_exec::CommandSpec {
+            program: resolve_program(environment, RUSTC_PROGRAM)?,
+            args: vec![std::ffi::OsString::from(COMPILER_REPORT_ARGUMENT)],
+            current_dir: workspace_root.to_path_buf(),
+            environment_mode: bounded_exec::EnvironmentMode::Clear,
+            environment: environment.to_vec(),
+            input: bounded_exec::Input::Null,
+        },
+        limits: bounded_exec::ExecutionLimits {
+            timeout_ms: COMPILER_PROBE_TIMEOUT_MS,
+            stdin_max_bytes: STDIN_MAX_BYTES,
+            stdout_max_bytes: COMPILER_REPORT_MAX_BYTES,
+            stderr_max_bytes: COMPILER_REPORT_MAX_BYTES,
+            poll_interval_ms: POLL_INTERVAL_MS,
+            teardown_timeout_ms: TEARDOWN_TIMEOUT_MS,
+        },
+        termination_scope: bounded_exec::TerminationScope::ProcessGroup,
+        outcome_policy: bounded_exec::OutcomePolicy::new(vec![ACCEPTED_EXIT_CODE], true, true)
+            .map_err(|error| format!("construct cargo-fuzz compiler probe policy: {error:?}"))?,
+    })
+    .map_err(|error| format!("run bounded cargo-fuzz compiler probe: {error}"))?;
+    if output.disposition != bounded_exec::Disposition::Succeeded {
+        return Err(format!(
+            "cargo-fuzz compiler probe `{RUSTC_PROGRAM} {COMPILER_REPORT_ARGUMENT}` failed: {:?}: {}",
+            output.disposition,
+            String::from_utf8_lossy(&output.stderr.bytes).trim()
+        ));
+    }
+    String::from_utf8(output.stdout.bytes).map_err(|error| {
+        format!("cargo-fuzz compiler report from `{RUSTC_PROGRAM} {COMPILER_REPORT_ARGUMENT}` is not UTF-8: {error}")
+    })
 }
 
 fn snapshot(workspace_root: &std::path::Path, relative: &str) -> Result<Vec<ArtifactIdentity>, String> {
@@ -344,7 +396,7 @@ mod tests {
     const FIXTURE_POLL_MS: u64 = 10;
     const FIXTURE_TEARDOWN_MS: u64 = 1_000;
     const FIXTURE_DEADLINE_SECONDS: u64 = 10;
-    const REVIEWED_COMMIT: &str = "ac7f9ec7da74d37fd28667c86bf117a39ba5b02a";
+    const REVIEWED_COMMIT: &str = super::super::RUSTC_COMMIT_HASH;
     const CRASH_PREFIX: &str = "crash-";
 
     #[test]
@@ -387,27 +439,27 @@ mod tests {
     fn bounded_run_clears_ambient_environment_and_passes_fixed_argv() {
         assert!(std::env::vars_os().next().is_some(), "test process has an ambient environment");
         let directory = tempfile::tempdir().expect("create cargo-fuzz run fixture");
-        let cargo = write_fixture_cargo(
+        let mut tools = fixture_tools(
             directory.path(),
             "export -p > child-env.txt\nfor arg in \"$@\"; do printf '%s\\n' \"$arg\"; done > child-args.txt\n",
+            &rustc_version_verbose(REVIEWED_COMMIT),
         );
-        let tools = RuntimeTools {
-            cargo,
-            environment: vec![(SELECTED_VARIABLE.into(), "selected".into())],
-        };
+        tools.environment.push((SELECTED_VARIABLE.into(), "selected".into()));
         let (rendered, exit_code) = run_with(directory.path(), tools, run_limits().expect("limits")).expect("run");
         assert_eq!(exit_code, ACCEPTED_EXIT_CODE);
         let details: ReceiptDetails = serde_json::from_str(&rendered).expect("parse cargo-fuzz receipt");
         assert_eq!(details.outcome, "clean");
-        let environment = std::fs::read_to_string(directory.path().join("child-env.txt")).expect("read child env");
-        let mut names = environment
-            .lines()
-            .filter_map(|line| line.strip_prefix("export ").or_else(|| line.strip_prefix("declare -x ")))
-            .filter_map(|line| line.split('=').next())
-            .filter(|name| !SHELL_MANAGED_VARIABLES.contains(name))
-            .collect::<Vec<_>>();
-        names.sort_unstable();
-        assert_eq!(names, vec![SELECTED_VARIABLE]);
+        for capture in ["child-env.txt", "rustc-env.txt"] {
+            let environment = std::fs::read_to_string(directory.path().join(capture)).expect("read captured env");
+            let mut names = environment
+                .lines()
+                .filter_map(|line| line.strip_prefix("export ").or_else(|| line.strip_prefix("declare -x ")))
+                .filter_map(|line| line.split('=').next())
+                .filter(|name| !SHELL_MANAGED_VARIABLES.contains(name))
+                .collect::<Vec<_>>();
+            names.sort_unstable();
+            assert_eq!(names, vec![SELECTED_VARIABLE, PATH_ENVIRONMENT], "{capture}");
+        }
         let args = std::fs::read_to_string(directory.path().join("child-args.txt")).expect("read child args");
         assert_eq!(
             args.lines().collect::<Vec<_>>(),
@@ -419,7 +471,7 @@ mod tests {
     #[test]
     fn bounded_run_times_out_and_kills_the_process_group() {
         let directory = tempfile::tempdir().expect("create cargo-fuzz timeout fixture");
-        let cargo = write_fixture_cargo(directory.path(), "(while :; do :; done) &\nwhile :; do :; done\n");
+        let cargo_body = "(while :; do :; done) &\nwhile :; do :; done\n";
         let limits = bounded_exec::ExecutionLimits {
             timeout_ms: FIXTURE_TIMEOUT_MS,
             poll_interval_ms: FIXTURE_POLL_MS,
@@ -427,10 +479,7 @@ mod tests {
             ..run_limits().expect("limits")
         };
         let started = std::time::Instant::now();
-        let tools = RuntimeTools {
-            cargo,
-            environment: Vec::new(),
-        };
+        let tools = fixture_tools(directory.path(), cargo_body, &rustc_version_verbose(REVIEWED_COMMIT));
         let error = run_with(directory.path(), tools, limits).expect_err("timed-out cargo-fuzz run must fail");
         assert!(error.contains("TimedOut"), "{error}");
         assert!(started.elapsed() < std::time::Duration::from_secs(FIXTURE_DEADLINE_SECONDS));
@@ -444,11 +493,7 @@ mod tests {
         std::fs::create_dir_all(&artifacts).expect("create artifact directory");
         std::fs::write(artifacts.join(format!("{CRASH_PREFIX}old")), SEED_BYTES).expect("write stale crash");
         std::fs::write(artifacts.join(format!("{MINIMIZED_PREFIX}old")), SEED_BYTES).expect("write stale reproducer");
-        let cargo = write_fixture_cargo(directory.path(), "exit 101\n");
-        let tools = RuntimeTools {
-            cargo,
-            environment: Vec::new(),
-        };
+        let tools = fixture_tools(directory.path(), "exit 101\n", &rustc_version_verbose(REVIEWED_COMMIT));
         let error = run_with(directory.path(), tools.clone(), run_limits().expect("limits"))
             .expect_err("stale crash artifacts must not classify a build failure as a crash");
         assert!(error.contains("artifact directory"), "{error}");
@@ -464,6 +509,24 @@ mod tests {
         let details: ReceiptDetails = serde_json::from_str(&rendered).expect("parse cargo-fuzz receipt");
         assert_eq!(details.outcome, "crash");
         assert_eq!(details.crash_input.expect("fresh crash").path, format!("{ARTIFACT_DIRECTORY}/{CRASH_PREFIX}new"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn receipt_binds_the_observed_compiler_and_refuses_another_toolchain() {
+        let directory = tempfile::tempdir().expect("create cargo-fuzz compiler fixture");
+        let reviewed = rustc_version_verbose(REVIEWED_COMMIT);
+        let tools = fixture_tools(directory.path(), "printf ran > cargo-ran.txt\n", &reviewed);
+        let (rendered, _) = run_with(directory.path(), tools, run_limits().expect("limits")).expect("reviewed run");
+        let details: ReceiptDetails = serde_json::from_str(&rendered).expect("parse cargo-fuzz receipt");
+        assert_eq!(details.compiler_identity, prefixed_identity(reviewed.as_bytes()));
+        assert!(directory.path().join("cargo-ran.txt").is_file());
+
+        std::fs::remove_file(directory.path().join("cargo-ran.txt")).expect("clear cargo marker");
+        let other = rustc_version_verbose("0123456789abcdef0123456789abcdef01234567");
+        let tools = fixture_tools(directory.path(), "printf ran > cargo-ran.txt\n", &other);
+        assert!(run_with(directory.path(), tools, run_limits().expect("limits")).is_err());
+        assert!(!directory.path().join("cargo-ran.txt").exists(), "another toolchain must not run cargo-fuzz");
     }
 
     #[cfg(unix)]
@@ -506,7 +569,7 @@ mod tests {
         std::fs::create_dir_all(&bin).expect("create fixture bin directory");
         crate::test_support::write_executable_script(
             &bin.join("rustc"),
-            &format!("#!/bin/sh\nprintf '%s' '{rustc_output}'\n"),
+            &format!("#!/bin/sh\nexport -p > rustc-env.txt\nprintf '%s' '{rustc_output}'\n"),
         );
         RuntimeTools {
             cargo: write_fixture_cargo(directory, cargo_body),
@@ -514,6 +577,7 @@ mod tests {
         }
     }
 
+    #[cfg(unix)]
     fn rustc_version_verbose(commit_hash: &str) -> String {
         format!(
             "rustc 1.96.0-nightly (ac7f9ec7d 2026-03-20)\nbinary: rustc\ncommit-hash: {commit_hash}\ncommit-date: 2026-03-20\nhost: x86_64-unknown-linux-gnu\nrelease: 1.96.0-nightly\nLLVM version: 22.1.0\n"

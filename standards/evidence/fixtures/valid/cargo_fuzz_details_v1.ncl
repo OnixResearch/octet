@@ -2,7 +2,7 @@ let contracts = import "../../contracts/generated.ncl" in
 {
   schema_version = "octet-cargo-fuzz-receipt/v1",
   profile_id = "cargo-fuzz-libfuzzer",
-  profile_identity = "b3:7ad698ddebaaac2640a51e5f58871ac026b4b32653fb95bf971ec491560b48d6",
+  profile_identity = "b3:681403b55dd508d9638cde9e8678bd8c92a2a2c6892a72f630d1a6c03956eaf5",
   target = "octet-profile-intake",
   engine = "libfuzzer",
   toolchain = "nightly-2026-03-21",

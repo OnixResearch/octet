@@ -25,7 +25,7 @@ let CargoFuzzProfile = {
   engine | std.contract.from_predicate (fun value => value == "libfuzzer"),
   target | std.contract.from_predicate (fun value => value == "octet-profile-intake"),
   toolchain | std.contract.from_predicate (fun value => value == "nightly-2026-03-21"),
-  compiler_identity | NonEmptyString,
+  rustc_commit_hash | std.contract.from_predicate (fun value => value == "ac7f9ec7da74d37fd28667c86bf117a39ba5b02a"),
   sanitizer | std.contract.from_predicate (fun value => value == "address"),
   command_argv | Array NonEmptyString,
   max_total_time_seconds | PositiveNumber,
@@ -82,7 +82,7 @@ let CargoFuzzProfile = {
       engine = "libfuzzer",
       target = "octet-profile-intake",
       toolchain = "nightly-2026-03-21",
-      compiler_identity = "nix:fenix-nightly-2026-03-21-x86_64-unknown-linux-gnu",
+      rustc_commit_hash = "ac7f9ec7da74d37fd28667c86bf117a39ba5b02a",
       sanitizer = "address",
       command_argv = [
         "cargo",

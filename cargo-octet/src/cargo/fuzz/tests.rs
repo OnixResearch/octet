@@ -65,6 +65,16 @@ fn crash_receipts_bind_named_libfuzzer_finding_artifacts() {
 }
 
 #[test]
+fn compiler_identity_binds_only_the_reviewed_rustc_commit() {
+    let reviewed = format!("rustc 1.96.0-nightly\ncommit-hash: {RUSTC_COMMIT_HASH}\nhost: x86_64-unknown-linux-gnu\n");
+    assert_eq!(compiler_identity(&reviewed), Ok(format!("b3:{}", blake3::hash(reviewed.as_bytes()).to_hex())));
+
+    let other = reviewed.replace(RUSTC_COMMIT_HASH, "0123456789abcdef0123456789abcdef01234567");
+    assert!(compiler_identity(&other).is_err());
+    assert!(compiler_identity("rustc 1.96.0-nightly\nhost: x86_64-unknown-linux-gnu\n").is_err());
+}
+
+#[test]
 fn checked_in_clean_crash_and_invalid_fixtures_are_classified() {
     let clean = evaluate_envelope(include_str!("../../../tests/fixtures/evidence-rails/cargo-fuzz-clean.json"));
     assert!(clean.diagnostics.is_empty(), "{:?}", clean.diagnostics);
@@ -90,6 +100,7 @@ fn generated_nickel_profile_is_fresh_and_matches_rust_policy() {
     assert_eq!(profile["engine"], ENGINE);
     assert_eq!(profile["target"], TARGET);
     assert_eq!(profile["toolchain"], TOOLCHAIN);
+    assert_eq!(profile["rustc_commit_hash"], RUSTC_COMMIT_HASH);
     assert_eq!(profile["sanitizer"], SANITIZER);
     assert_eq!(profile["command_argv"], serde_json::json!(command_argv()));
     assert_eq!(profile["max_total_time_seconds"], MAX_TOTAL_TIME_SECONDS);
