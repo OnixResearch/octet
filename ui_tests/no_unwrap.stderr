@@ -74,5 +74,20 @@ LL -     values.iter().map(|value| value.unwrap()).collect()
 LL +     values.iter().map(|value| value?).collect()
    |
 
-warning: 5 warnings emitted
+warning: `.unwrap()` in production code will panic on failure
+  --> $DIR/no_unwrap.rs:78:5
+   |
+LL |     val.unwrap()
+   |     ^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Error Handling): propagate or handle absence explicitly instead of panicking with `unwrap` or `expect` Example: let value = maybe?;
+   = note: structured suggestion applicability: MaybeIncorrect
+   = note: see Tiger Style guide: Error Handling
+help: propagate the error with `?` instead of panicking
+   |
+LL -     val.unwrap()
+LL +     val?
+   |
+
+warning: 6 warnings emitted
 

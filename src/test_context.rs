@@ -165,16 +165,69 @@ pub(crate) fn item_span_indicates_test(sess: &Session, span: Span) -> bool {
         }
 
         if trimmed.starts_with("#[") || trimmed.starts_with("#![") {
-            if cfg_attr_source_requires_test(trimmed) {
-                return true;
+            match attribute_line_requires_test(trimmed) {
+                Some(true) => return true,
+                Some(false) => continue,
+                None => break,
             }
-            continue;
         }
 
         break;
     }
 
     false
+}
+
+/// Whether a line that starts with `#[` holds only attributes (plus an optional trailing line
+/// comment), and if so whether one of them requires `cfg(test)`. A line such as
+/// `#[test] fn case() {}` is a previous item rather than attributes of the scanned item, so it
+/// yields `None` and ends the upward scan.
+fn attribute_line_requires_test(line: &str) -> Option<bool> {
+    let mut rest = line;
+    let mut requires_test = false;
+    while !rest.is_empty() && !rest.starts_with("//") {
+        let body = rest.strip_prefix("#![").or_else(|| rest.strip_prefix("#["))?;
+        let (inner, after) = body.split_at(attribute_close(body)?);
+        requires_test |= cfg_attr_source_requires_test(inner);
+        rest = after.strip_prefix(']')?.trim_start();
+    }
+    Some(requires_test)
+}
+
+/// Byte offset in `body` of the `]` that closes an attribute whose `[` precedes `body`.
+fn attribute_close(body: &str) -> Option<usize> {
+    let mut depth = 1usize;
+    let mut in_string = false;
+    let mut escaped = false;
+
+    for (idx, ch) in body.char_indices() {
+        if in_string {
+            if escaped {
+                escaped = false;
+                continue;
+            }
+            match ch {
+                '\\' => escaped = true,
+                '"' => in_string = false,
+                _ => {}
+            }
+            continue;
+        }
+
+        match ch {
+            '"' => in_string = true,
+            '[' => depth += 1,
+            ']' => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    return Some(idx);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    None
 }
 
 fn hir_attr_indicates_test(sess: &Session, attr: &hir::Attribute) -> bool {
@@ -286,6 +339,7 @@ fn split_cfg_args(source: &str) -> Vec<&str> {
 
 #[cfg(test)]
 mod tests {
+    use super::attribute_line_requires_test;
     use super::cfg_attr_source_requires_test;
     use super::cfg_expr_truth;
 
@@ -306,5 +360,18 @@ mod tests {
     fn cfg_not_test_can_still_be_true_without_test() {
         assert!(cfg_expr_truth("not(test)", false).can_be_true);
         assert!(!cfg_expr_truth("all(test, feature = \"bench\")", false).can_be_true);
+    }
+
+    #[test]
+    fn attribute_lines_continue_the_scan_but_one_line_items_end_it() {
+        assert_eq!(attribute_line_requires_test("#[cfg(test)]"), Some(true));
+        assert_eq!(attribute_line_requires_test("#![cfg(test)]"), Some(true));
+        assert_eq!(attribute_line_requires_test("#[cfg(test)] // fixtures only"), Some(true));
+        assert_eq!(attribute_line_requires_test("#[allow(dead_code)] #[cfg(test)]"), Some(true));
+        assert_eq!(attribute_line_requires_test("#[derive(Debug)]"), Some(false));
+        assert_eq!(attribute_line_requires_test("#[doc = \"see http://example.com/[x]\"]"), Some(false));
+        assert_eq!(attribute_line_requires_test("#[test] fn case() {}"), None);
+        assert_eq!(attribute_line_requires_test("#[cfg(test)] mod tests;"), None);
+        assert_eq!(attribute_line_requires_test("#[cfg(all("), None);
     }
 }

@@ -68,3 +68,12 @@ trait CfgTestTraitHost {
         let _ = val.unwrap();
     }
 }
+
+#[cfg(test)]
+#[derive(Debug)] struct OneLineTestProbe;
+
+// The `#[cfg(test)]` above belongs to the one-line item, not to this function.
+fn unwrap_below_one_line_test_item_is_reported() -> u32 {
+    let val: Option<u32> = Some(1);
+    val.unwrap()
+}
