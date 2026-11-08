@@ -6,8 +6,12 @@ use super::TOOLCHAIN;
 use super::required_artifact;
 
 const STRICT_PROFILE: &str = octet_lint_metadata::strict_profile::STRICT_PROFILE_ENV;
+const DYLINT_RUSTFLAGS: &str = "DYLINT_RUSTFLAGS";
 /// Environment variables that change lint levels inside rustc.
-const LINT_LEVEL_ENV: &[&str] = &[STRICT_PROFILE];
+const LINT_LEVEL_ENV: &[&str] = &[STRICT_PROFILE, DYLINT_RUSTFLAGS];
+// The deny-all hook passes lint levels in this whitespace-separated form.
+const DENY_NO_UNWRAP: &str = "-D no_unwrap";
+const ALLOW_NO_UNWRAP: &str = "-A no_unwrap";
 
 struct LintCheck {
     succeeded: bool,
@@ -72,8 +76,9 @@ fn assert_denies(check: &LintCheck, step: &str) {
     assert_eq!(check.no_unwrap_levels, ["error"], "{step}: no_unwrap is raised to an error");
 }
 
-// Cargo reuses a check unit unless an input it tracks changes. Strict-profile selection changes
-// lint levels only inside rustc, so it must invalidate the unit.
+// Cargo reuses a check unit unless an input it tracks changes. Strict-profile selection and
+// hook-injected Dylint flags change lint levels only inside rustc, so they must invalidate the
+// unit.
 #[test]
 #[ignore = "requires current OCTET_UI_LIBRARY and pinned OCTET_UI_DRIVER"]
 fn real_cargo_lint_level_inputs_invalidate_cached_checks() {
@@ -97,4 +102,17 @@ fn real_cargo_lint_level_inputs_invalidate_cached_checks() {
     assert_denies(&check(&[(STRICT_PROFILE, "robust")]), "robust profile after a cached default run");
 
     assert_warns(&check(&[]), "default run after the profile", false);
+    assert_denies(&check(&[(DYLINT_RUSTFLAGS, DENY_NO_UNWRAP)]), "deny-all hook flags after a cached default run");
+
+    let allowed_run = check(&[(DYLINT_RUSTFLAGS, ALLOW_NO_UNWRAP)]);
+    assert!(allowed_run.succeeded && allowed_run.no_unwrap_levels.is_empty(), "allowed no_unwrap is silent");
+    assert_eq!(allowed_run.fresh, Some(false), "changed Dylint flags rebuild the unit");
+    let allowed_rerun = check(&[(DYLINT_RUSTFLAGS, ALLOW_NO_UNWRAP)]);
+    assert_eq!(allowed_rerun.fresh, Some(true), "unchanged Dylint flags keep the unit fresh");
+    assert!(
+        allowed_rerun.succeeded && allowed_rerun.no_unwrap_levels.is_empty(),
+        "allowed no_unwrap stays silent"
+    );
+
+    assert_warns(&check(&[]), "default run after removing Dylint flags", false);
 }

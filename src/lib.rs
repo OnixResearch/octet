@@ -27,6 +27,9 @@ use config::Config;
 
 dylint_linting::dylint_library!();
 
+/// Extra rustc flags the Dylint driver reads from the environment.
+const DYLINT_RUSTFLAGS_ENV: &str = "DYLINT_RUSTFLAGS";
+
 pub(crate) struct LintInventoryEntry {
     pub name: &'static str,
     #[cfg_attr(not(test), allow(dead_code))]
@@ -417,11 +420,13 @@ pub extern "Rust" fn register_lints(sess: &rustc_session::Session, lint_store: &
     register_no_todo_bundle(lint_store, &cfg);
     // Cargo rebuilds a workspace unit when a recorded value changes. The collector context switches
     // between lint-only and architecture runs, so the collector always gets a compilation to
-    // observe. The strict-profile selection changes lint levels only inside rustc and is not
-    // recorded by Cargo, so without it a cached unit would replay warnings the profile denies.
+    // observe. The strict-profile selection and the Dylint driver's `DYLINT_RUSTFLAGS` (which the
+    // deny-all hook uses) change lint levels only inside rustc and are not recorded by Cargo or the
+    // driver, so without them a cached unit would replay warnings that the new levels deny.
     for variable in [
         octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_ENV,
         octet_lint_metadata::strict_profile::STRICT_PROFILE_ENV,
+        DYLINT_RUSTFLAGS_ENV,
     ] {
         let value = std::env::var(variable).ok();
         sess.env_depinfo
