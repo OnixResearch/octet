@@ -39,3 +39,30 @@ trait Allowed {
         return 1;
     }
 }
+
+// Should NOT warn: `reason = "..."` carries its own justification. The blank
+// line keeps this fixture note from counting as a nearby `//` justification.
+
+#[allow(clippy::needless_return, reason = "early return mirrors the protocol state table")]
+fn reasoned_allow() -> u32 {
+    return 3;
+}
+
+// Should warn: an empty reason is not a justification.
+
+#[allow(clippy::needless_return, reason = "  ")]
+fn empty_reason_allow() -> u32 {
+    return 4;
+}
+
+impl Counter {
+    // Should NOT warn: `reason = "..."` on a method allow.
+
+    #[allow(
+        clippy::needless_return,
+        reason = "early return keeps the branch shape aligned with `bare_method_allow`"
+    )]
+    fn reasoned_method_allow(&self) -> u32 {
+        return 5;
+    }
+}

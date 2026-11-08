@@ -174,7 +174,7 @@
     "guide_section": "Documented Suppression",
     "domain_group": "tigerstyle::structure",
     "guidance": "every lint suppression needs a local reason tied to the code shape",
-    "docs_summary": "require local justification for `#[allow(clippy::...)]`",
+    "docs_summary": "require a local `//` comment or a non-empty `reason` for `#[allow(clippy::...)]`",
     "effect_family": "resource",
     "example_mode": "required",
     "example_text": "// Verified casts: Verus checks every narrowing in this module.\n#[allow(clippy::cast_possible_truncation)]"

@@ -230,7 +230,7 @@ pub const LINT_METADATA: &[LintMetadata] = &[
         guide_section: "Documented Suppression",
         domain_group: GROUP_STRUCTURE,
         guidance: "every lint suppression needs a local reason tied to the code shape",
-        docs_summary: "require local justification for `#[allow(clippy::...)]`",
+        docs_summary: "require a local `//` comment or a non-empty `reason` for `#[allow(clippy::...)]`",
         effect_family: EFFECT_RESOURCE,
         example_mode: ExampleMode::Required,
         example_text: Some(

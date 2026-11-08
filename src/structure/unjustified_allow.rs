@@ -12,13 +12,14 @@ use crate::diagnostics::LintSuggestion;
 use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
 
 declare_tool_lint! {
-    /// Detects `#[allow(clippy::...)]` attributes without an accompanying
-    /// comment explaining why the lint is suppressed. Unjustified suppressions
-    /// hide real bugs — verified-logic documents every `#[allow(...)]` with
-    /// a rationale.
+    /// Detects `#[allow(clippy::...)]` attributes without a justification.
+    /// A `//` comment on the attribute line or the line above it, or a
+    /// non-empty `reason = "..."` argument inside the attribute, counts as
+    /// the justification. Unjustified suppressions hide real bugs —
+    /// verified-logic documents every `#[allow(...)]` with a rationale.
     pub tigerstyle::UNJUSTIFIED_ALLOW,
     Allow,
-    "`#[allow]` attribute without justification comment"
+    "`#[allow]` attribute without justification comment or reason"
 }
 
 declare_lint_pass!(UnjustifiedAllow => [UNJUSTIFIED_ALLOW]);
@@ -37,6 +38,17 @@ fn justification_stub(cx: &EarlyContext<'_>, attr: &Attribute) -> String {
     let indent_width = source_map.lookup_char_pos(attr.span.lo()).col.0;
     let indent = " ".repeat(indent_width);
     format!("// TODO(octet): explain why this allow is safe here\n{indent}")
+}
+
+fn has_reason_argument(attr: &Attribute) -> bool {
+    attr.meta_item_list().is_some_and(|items| {
+        items.iter().any(|item| {
+            item.meta_item()
+                .filter(|meta| meta.has_name(sym::reason))
+                .and_then(rustc_ast::MetaItem::value_str)
+                .is_some_and(|reason| !reason.as_str().trim().is_empty())
+        })
+    })
 }
 
 fn has_comment_nearby(cx: &EarlyContext<'_>, attr: &Attribute) -> bool {
@@ -80,7 +92,7 @@ fn check_attrs(cx: &EarlyContext<'_>, attrs: &[Attribute]) {
     }
 
     for attr in attrs {
-        if is_clippy_allow_attr(attr) && !has_comment_nearby(cx, attr) {
+        if is_clippy_allow_attr(attr) && !has_reason_argument(attr) && !has_comment_nearby(cx, attr) {
             emit_tiger_style_lint_with_suggestion(
                 cx,
                 UNJUSTIFIED_ALLOW,

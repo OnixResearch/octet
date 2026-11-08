@@ -139,6 +139,10 @@ is suppressed.
 The lint MUST accept a comment on the same line or the line immediately
 preceding the attribute.
 
+The lint MUST also accept a non-empty `reason = "..."` argument inside the
+attribute (stable `lint_reasons` syntax since Rust 1.81) as the
+justification. An empty or whitespace-only reason MUST NOT count.
+
 The lint MUST NOT fire on `#[allow(dead_code)]` in `#[cfg(test)]` blocks.
 
 The lint MUST NOT fire on workspace-level lint configuration in
@@ -163,6 +167,13 @@ a `# ---` section comment. Unjustified suppression hides real bugs.
   // Verified casts: Verus checks every narrowing in this module.
   #[allow(clippy::cast_possible_truncation)]
   ```
+- WHEN the lint runs
+- THEN it does NOT fire
+
+#### Scenario: Allow with reason argument
+
+- GIVEN `#[allow(clippy::needless_return, reason = "early return mirrors the protocol state table")]`
+  with no preceding comment
 - WHEN the lint runs
 - THEN it does NOT fire
 
