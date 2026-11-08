@@ -23,8 +23,6 @@ declare_tool_lint! {
 
 declare_lint_pass!(UnboundedLoop => [UNBOUNDED_LOOP]);
 
-const COUNTER_MARKERS: &[&str] = &["MAX_RETRIES", "max_retries", "max_attempts", "attempt", "remaining"];
-
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum TokioReceiverKind {
     Bounded,
@@ -55,7 +53,6 @@ struct LoopBoundsFacts {
     source_kind: LoopSourceKind,
     expansion_origin: ExpansionOrigin,
     has_explicit_exit: bool,
-    has_structural_counter_bound: bool,
     has_cancellation_path: bool,
     receiver_kind: Option<TokioReceiverKind>,
     iteration_kind: IterationKind,
@@ -68,14 +65,9 @@ fn classify_unbounded_loop(facts: LoopBoundsFacts) -> bool {
 
     match facts.source_kind {
         LoopSourceKind::For => false,
-        LoopSourceKind::ExplicitLoop => {
-            !(facts.has_explicit_exit || facts.has_structural_counter_bound || facts.has_cancellation_path)
-        }
+        LoopSourceKind::ExplicitLoop => !(facts.has_explicit_exit || facts.has_cancellation_path),
         LoopSourceKind::While => {
-            if facts.has_explicit_exit
-                || facts.has_structural_counter_bound
-                || facts.receiver_kind == Some(TokioReceiverKind::Bounded)
-            {
+            if facts.has_explicit_exit || facts.receiver_kind == Some(TokioReceiverKind::Bounded) {
                 return false;
             }
             facts.receiver_kind == Some(TokioReceiverKind::Unbounded)
@@ -98,14 +90,6 @@ fn match_def_path(cx: &LateContext<'_>, did: rustc_hir::def_id::DefId, path: &[&
 
 fn normalized_without_whitespace(snippet: &str) -> String {
     snippet.chars().filter(|ch| !ch.is_whitespace()).collect()
-}
-
-fn loop_has_counter_marker(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
-    let Ok(snippet) = cx.sess().source_map().span_to_snippet(expr.span.source_callsite()) else {
-        return false;
-    };
-
-    COUNTER_MARKERS.iter().any(|marker| snippet.contains(marker))
 }
 
 struct ExplicitExitVisitor {
@@ -154,10 +138,6 @@ fn block_has_explicit_exit<'tcx>(block: &'tcx hir::Block<'tcx>) -> bool {
     };
     visitor.visit_block(block);
     visitor.found
-}
-
-fn loop_has_structural_counter_bound(cx: &LateContext<'_>, expr: &hir::Expr<'_>, block: &hir::Block<'_>) -> bool {
-    block_has_explicit_exit(block) && loop_has_counter_marker(cx, expr)
 }
 
 fn span_comes_from_tokio_select(cx: &LateContext<'_>, span: Span) -> bool {
@@ -322,7 +302,6 @@ fn loop_bounds_facts<'tcx>(
             ExpansionOrigin::Authored
         },
         has_explicit_exit: block_has_explicit_exit(body),
-        has_structural_counter_bound: loop_has_structural_counter_bound(cx, expr, body),
         has_cancellation_path: block_contains_tokio_select(cx, body),
         receiver_kind,
         iteration_kind: if header_is_iter_next_while_let(cx, header_span) {
@@ -364,7 +343,6 @@ mod tests {
             source_kind: LoopSourceKind::ExplicitLoop,
             expansion_origin: ExpansionOrigin::Authored,
             has_explicit_exit: false,
-            has_structural_counter_bound: false,
             has_cancellation_path: false,
             receiver_kind: None,
             iteration_kind: IterationKind::Other,
@@ -389,16 +367,6 @@ mod tests {
 
         assert!(!classify_unbounded_loop(with_exit));
         assert!(!classify_unbounded_loop(with_cancellation));
-    }
-
-    #[test]
-    fn marker_name_without_structural_bound_still_warns() {
-        let marker_only = LoopBoundsFacts {
-            has_structural_counter_bound: false,
-            ..explicit_loop()
-        };
-
-        assert!(classify_unbounded_loop(marker_only));
     }
 
     #[test]

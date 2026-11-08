@@ -17,7 +17,7 @@ fn marker_only_runaway_loop() {
 }
 
 fn counter_loop() {
-    // Should NOT warn: contains "attempt"
+    // Should NOT warn: the counter guards a structural `break`.
     let mut attempt = 0;
     loop {
         attempt += 1;
@@ -28,7 +28,7 @@ fn counter_loop() {
 }
 
 fn max_retries_loop() {
-    // Should NOT warn: contains MAX_RETRIES
+    // Should NOT warn: the MAX_RETRIES bound guards a structural `break`.
     const MAX_RETRIES: u32 = 3;
     let mut i = 0;
     loop {
