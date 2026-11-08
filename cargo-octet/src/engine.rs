@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::env;
+use std::ffi::OsString;
 use std::fs;
 use std::io::BufRead;
 use std::io::BufReader;
@@ -1551,22 +1552,80 @@ impl ManagedPath {
     }
 }
 
-fn resolve_driver(toolchain: &str) -> Result<ManagedPath, String> {
-    match env::var("TIGERSTYLE_DRIVER_PATH") {
-        Ok(value) if !value.is_empty() => Ok(ManagedPath::explicit(value)),
-        Ok(_) => Err("environment variable `TIGERSTYLE_DRIVER_PATH` must not be empty".to_owned()),
-        Err(env::VarError::NotPresent) => match env::var("TIGERSTYLE_DYLINT_REV") {
-            Ok(rev) if !rev.is_empty() => bootstrap_driver(&rev, toolchain),
-            Ok(_) => Err("environment variable `TIGERSTYLE_DYLINT_REV` must not be empty".to_owned()),
-            Err(env::VarError::NotPresent) => Err(
-                "missing required environment variable `TIGERSTYLE_DRIVER_PATH` or bootstrap revision `TIGERSTYLE_DYLINT_REV`"
-                    .to_owned(),
-            ),
-            Err(env::VarError::NotUnicode(_)) => {
-                Err("non-utf8 `TIGERSTYLE_DYLINT_REV` is not supported".to_owned())
-            }
+/// A runner setting read from its canonical `OCTET_*` name or its `TIGERSTYLE_*` compatibility
+/// alias.
+#[derive(Clone, Copy)]
+struct RunnerEnvVar {
+    name: &'static str,
+    alias: &'static str,
+}
+
+const TOOLCHAIN_ENV: RunnerEnvVar = RunnerEnvVar {
+    name: "OCTET_TOOLCHAIN",
+    alias: "TIGERSTYLE_TOOLCHAIN",
+};
+const DRIVER_PATH_ENV: RunnerEnvVar = RunnerEnvVar {
+    name: "OCTET_DRIVER_PATH",
+    alias: "TIGERSTYLE_DRIVER_PATH",
+};
+const DYLINT_REV_ENV: RunnerEnvVar = RunnerEnvVar {
+    name: "OCTET_DYLINT_REV",
+    alias: "TIGERSTYLE_DYLINT_REV",
+};
+const LINT_LIB_ENV: RunnerEnvVar = RunnerEnvVar {
+    name: "OCTET_LINT_LIB",
+    alias: "TIGERSTYLE_LINT_LIB",
+};
+
+/// Selects the canonical name when it is set and otherwise the alias. The selected variable must be
+/// non-empty UTF-8; an unusable canonical value never falls back to the alias.
+fn select_runner_env(var: RunnerEnvVar, lookup: &impl Fn(&str) -> Option<OsString>) -> Result<Option<String>, String> {
+    let (value, label) = match lookup(var.name) {
+        Some(value) => (value, format!("`{}`", var.name)),
+        None => match lookup(var.alias) {
+            Some(value) => (value, format!("`{}` (compatibility alias for `{}`)", var.alias, var.name)),
+            None => return Ok(None),
         },
-        Err(env::VarError::NotUnicode(_)) => Err("non-utf8 `TIGERSTYLE_DRIVER_PATH` is not supported".to_owned()),
+    };
+    match value.into_string() {
+        Ok(value) if !value.is_empty() => Ok(Some(value)),
+        Ok(_) => Err(format!("environment variable {label} must not be empty")),
+        Err(_) => Err(format!("non-utf8 {label} is not supported")),
+    }
+}
+
+fn describe_runner_env(var: RunnerEnvVar) -> String {
+    format!("`{}` (or compatibility alias `{}`)", var.name, var.alias)
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum DriverSource {
+    Explicit(String),
+    Bootstrap { rev: String },
+}
+
+fn select_driver_source(lookup: &impl Fn(&str) -> Option<OsString>) -> Result<DriverSource, String> {
+    if let Some(path) = select_runner_env(DRIVER_PATH_ENV, lookup)? {
+        return Ok(DriverSource::Explicit(path));
+    }
+    match select_runner_env(DYLINT_REV_ENV, lookup)? {
+        Some(rev) => Ok(DriverSource::Bootstrap { rev }),
+        None => Err(format!(
+            "missing required environment variable {} or bootstrap revision {}",
+            describe_runner_env(DRIVER_PATH_ENV),
+            describe_runner_env(DYLINT_REV_ENV)
+        )),
+    }
+}
+
+fn process_env(name: &str) -> Option<OsString> {
+    env::var_os(name)
+}
+
+fn resolve_driver(toolchain: &str) -> Result<ManagedPath, String> {
+    match select_driver_source(&process_env)? {
+        DriverSource::Explicit(path) => Ok(ManagedPath::explicit(path)),
+        DriverSource::Bootstrap { rev } => bootstrap_driver(&rev, toolchain),
     }
 }
 
@@ -1622,11 +1681,9 @@ fn main() {
 }
 
 fn resolve_lint_lib(toolchain: &str) -> Result<ManagedPath, String> {
-    match env::var("TIGERSTYLE_LINT_LIB") {
-        Ok(value) if !value.is_empty() => Ok(ManagedPath::explicit(value)),
-        Ok(_) => Err("environment variable `TIGERSTYLE_LINT_LIB` must not be empty".to_owned()),
-        Err(env::VarError::NotPresent) => build_lint_lib(toolchain),
-        Err(env::VarError::NotUnicode(_)) => Err("non-utf8 `TIGERSTYLE_LINT_LIB` is not supported".to_owned()),
+    match select_runner_env(LINT_LIB_ENV, &process_env)? {
+        Some(path) => Ok(ManagedPath::explicit(path)),
+        None => build_lint_lib(toolchain),
     }
 }
 
@@ -1664,11 +1721,9 @@ fn build_lint_lib(toolchain: &str) -> Result<ManagedPath, String> {
 }
 
 fn resolve_toolchain() -> Result<String, String> {
-    match env::var("TIGERSTYLE_TOOLCHAIN") {
-        Ok(value) if !value.is_empty() => Ok(value),
-        Ok(_) => Err("environment variable `TIGERSTYLE_TOOLCHAIN` must not be empty".to_owned()),
-        Err(env::VarError::NotPresent) => derive_embedded_toolchain(),
-        Err(env::VarError::NotUnicode(_)) => Err("non-utf8 `TIGERSTYLE_TOOLCHAIN` is not supported".to_owned()),
+    match select_runner_env(TOOLCHAIN_ENV, &process_env)? {
+        Some(toolchain) => Ok(toolchain),
+        None => derive_embedded_toolchain(),
     }
 }
 
@@ -1852,6 +1907,7 @@ fn copy_file(from: &Path, to: &Path) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeSet;
+    use std::ffi::OsString;
     #[cfg(unix)]
     use std::fs;
     use std::path::Path;
@@ -1861,10 +1917,14 @@ mod tests {
     #[cfg(unix)]
     use serde_json::json;
 
+    use super::DRIVER_PATH_ENV;
     #[cfg(unix)]
     use super::DiagnosticPaths;
+    use super::DriverSource;
+    use super::LINT_LIB_ENV;
     use super::PROVENANCE_ARTIFACT_NAME;
     use super::STATUS_ARTIFACT_NAME;
+    use super::TOOLCHAIN_ENV;
     #[cfg(unix)]
     use super::build_finding;
     use super::compiler_finding_severity;
@@ -1878,6 +1938,8 @@ mod tests {
     use super::remove_extra_artifact_paths;
     #[cfg(unix)]
     use super::resolve_through_existing_ancestor;
+    use super::select_driver_source;
+    use super::select_runner_env;
 
     const REQUIRED_EMBEDDED_PATHS: &[&str] = &[
         "Cargo.toml",
@@ -2398,5 +2460,85 @@ mod tests {
 
         assert_eq!(paths.len(), unique.len(), "embedded source paths must be unique");
         assert!(paths.iter().all(|path| !path.starts_with('/') && !path.contains("../")));
+    }
+
+    fn env_lookup(vars: &[(&str, &str)]) -> impl Fn(&str) -> Option<OsString> + use<> {
+        let vars: Vec<(String, OsString)> =
+            vars.iter().map(|(name, value)| ((*name).to_owned(), OsString::from(value))).collect();
+        move |name| vars.iter().find(|(key, _)| key == name).map(|(_, value)| value.clone())
+    }
+
+    #[test]
+    fn runner_env_prefers_octet_name_and_falls_back_to_tigerstyle_alias() {
+        for var in [TOOLCHAIN_ENV, DRIVER_PATH_ENV, LINT_LIB_ENV] {
+            let both = env_lookup(&[(var.name, "canonical"), (var.alias, "alias")]);
+            assert_eq!(select_runner_env(var, &both), Ok(Some("canonical".to_owned())), "{}", var.name);
+
+            let canonical_over_empty_alias = env_lookup(&[(var.name, "canonical"), (var.alias, "")]);
+            assert_eq!(
+                select_runner_env(var, &canonical_over_empty_alias),
+                Ok(Some("canonical".to_owned())),
+                "{}",
+                var.name
+            );
+
+            let alias_only = env_lookup(&[(var.alias, "alias")]);
+            assert_eq!(select_runner_env(var, &alias_only), Ok(Some("alias".to_owned())), "{}", var.alias);
+
+            assert_eq!(select_runner_env(var, &env_lookup(&[])), Ok(None), "{}", var.name);
+        }
+    }
+
+    #[test]
+    fn runner_env_rejects_empty_selected_value_without_falling_back() {
+        for var in [TOOLCHAIN_ENV, DRIVER_PATH_ENV, LINT_LIB_ENV] {
+            let empty_canonical = env_lookup(&[(var.name, ""), (var.alias, "alias")]);
+            let error = select_runner_env(var, &empty_canonical).expect_err("empty canonical value is an error");
+            assert!(error.contains(var.name), "{error}");
+
+            let empty_alias = env_lookup(&[(var.alias, "")]);
+            let error = select_runner_env(var, &empty_alias).expect_err("empty alias value is an error");
+            assert!(error.contains(var.alias) && error.contains(var.name), "{error}");
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn runner_env_rejects_non_utf8_selected_value() {
+        use std::os::unix::ffi::OsStringExt;
+
+        let lookup = |name: &str| (name == LINT_LIB_ENV.name).then(|| OsString::from_vec(vec![0xff]));
+        let error = select_runner_env(LINT_LIB_ENV, &lookup).expect_err("non-utf8 value is an error");
+        assert!(error.contains(LINT_LIB_ENV.name), "{error}");
+    }
+
+    #[test]
+    fn driver_source_prefers_explicit_path_then_bootstrap_revision() {
+        let explicit = env_lookup(&[("TIGERSTYLE_DRIVER_PATH", "/alias/driver"), ("OCTET_DYLINT_REV", "rev")]);
+        assert_eq!(select_driver_source(&explicit), Ok(DriverSource::Explicit("/alias/driver".to_owned())));
+
+        let canonical_rev = env_lookup(&[
+            ("OCTET_DYLINT_REV", "canonical-rev"),
+            ("TIGERSTYLE_DYLINT_REV", "alias-rev"),
+        ]);
+        assert_eq!(
+            select_driver_source(&canonical_rev),
+            Ok(DriverSource::Bootstrap {
+                rev: "canonical-rev".to_owned()
+            })
+        );
+
+        let empty_rev = env_lookup(&[("OCTET_DYLINT_REV", ""), ("TIGERSTYLE_DYLINT_REV", "alias-rev")]);
+        assert!(select_driver_source(&empty_rev).is_err());
+
+        let missing = select_driver_source(&env_lookup(&[])).expect_err("missing driver settings are an error");
+        for name in [
+            "OCTET_DRIVER_PATH",
+            "TIGERSTYLE_DRIVER_PATH",
+            "OCTET_DYLINT_REV",
+            "TIGERSTYLE_DYLINT_REV",
+        ] {
+            assert!(missing.contains(name), "{missing}");
+        }
     }
 }

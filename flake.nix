@@ -153,9 +153,9 @@
             cp -r ${src} source
             chmod -R u+w source
             cd source
-            export TIGERSTYLE_DRIVER_PATH="${driverPkg}/bin/dylint-driver"
-            export TIGERSTYLE_LINT_LIB="${octetDylintLibPath}"
-            export TIGERSTYLE_TOOLCHAIN="${tsRustupToolchain}"
+            export OCTET_DRIVER_PATH="${driverPkg}/bin/dylint-driver"
+            export OCTET_LINT_LIB="${octetDylintLibPath}"
+            export OCTET_TOOLCHAIN="${tsRustupToolchain}"
             ${pkgs.lib.optionalString (consumerVendorDir != null) ''
               export CARGO_HOME="$PWD/.cargo-home"
               mkdir -p "$CARGO_HOME"
@@ -1591,9 +1591,9 @@
             wrapProgram "$out/bin/cargo-octet" \
               --prefix PATH : "${cargoOctetRuntimePath}/bin" \
               --prefix LD_LIBRARY_PATH : "${rustToolchainLibPath}" \
-              --set TIGERSTYLE_TOOLCHAIN "${rustupToolchain}" \
-              --set TIGERSTYLE_DRIVER_PATH "${dylintDriver}/bin/dylint-driver" \
-              --set TIGERSTYLE_LINT_LIB "${octetUiLibrary}/lib/${octetUiLibraryName}" \
+              --set OCTET_TOOLCHAIN "${rustupToolchain}" \
+              --set OCTET_DRIVER_PATH "${dylintDriver}/bin/dylint-driver" \
+              --set OCTET_LINT_LIB "${octetUiLibrary}/lib/${octetUiLibraryName}" \
               --set OCTET_COVERAGE_CARGO "${cargo-shim}/bin/cargo" \
               --set OCTET_COVERAGE_PATH "${cargoOctetRuntimePath}/bin" \
               --set OCTET_COVERAGE_CARGO_CONFIG "${cargoVendorDir}/config.toml" \
@@ -1609,9 +1609,9 @@
             wrapProgram "$out/bin/cargo-slotcar" \
               --prefix PATH : "${cargoOctetRuntimePath}/bin" \
               --prefix LD_LIBRARY_PATH : "${rustToolchainLibPath}" \
-              --set TIGERSTYLE_TOOLCHAIN "${rustupToolchain}" \
-              --set TIGERSTYLE_DRIVER_PATH "${dylintDriver}/bin/dylint-driver" \
-              --set TIGERSTYLE_LINT_LIB "${octetUiLibrary}/lib/${octetUiLibraryName}" \
+              --set OCTET_TOOLCHAIN "${rustupToolchain}" \
+              --set OCTET_DRIVER_PATH "${dylintDriver}/bin/dylint-driver" \
+              --set OCTET_LINT_LIB "${octetUiLibrary}/lib/${octetUiLibraryName}" \
               --set OCTET_COVERAGE_CARGO "${cargo-shim}/bin/cargo" \
               --set OCTET_COVERAGE_PATH "${cargoOctetRuntimePath}/bin" \
               --set OCTET_COVERAGE_CARGO_CONFIG "${cargoVendorDir}/config.toml" \
@@ -1627,9 +1627,9 @@
             wrapProgram "$out/bin/cargo-tigerstyle" \
               --prefix PATH : "${cargoOctetRuntimePath}/bin" \
               --prefix LD_LIBRARY_PATH : "${rustToolchainLibPath}" \
-              --set TIGERSTYLE_TOOLCHAIN "${rustupToolchain}" \
-              --set TIGERSTYLE_DRIVER_PATH "${dylintDriver}/bin/dylint-driver" \
-              --set TIGERSTYLE_LINT_LIB "${octetUiLibrary}/lib/${octetUiLibraryName}" \
+              --set OCTET_TOOLCHAIN "${rustupToolchain}" \
+              --set OCTET_DRIVER_PATH "${dylintDriver}/bin/dylint-driver" \
+              --set OCTET_LINT_LIB "${octetUiLibrary}/lib/${octetUiLibraryName}" \
               --set OCTET_COVERAGE_CARGO "${cargo-shim}/bin/cargo" \
               --set OCTET_COVERAGE_PATH "${cargoOctetRuntimePath}/bin" \
               --set OCTET_COVERAGE_CARGO_CONFIG "${cargoVendorDir}/config.toml" \

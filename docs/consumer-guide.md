@@ -463,9 +463,14 @@ Current canonical names that appear in wrappers and support tooling:
 - `OCTET_TOOLCHAIN`
 - `OCTET_DYLINT_REV` for driver bootstrap and replay helpers
 
-The previous `TIGERSTYLE_*` variables are compatibility aliases while Dylint
-bootstrap wiring migrates. `TIGERSTYLE_PATH` belongs to historical wrapper-based
-replay flows, not the current recommended onboarding path.
+The previous `TIGERSTYLE_*` variables (`TIGERSTYLE_DRIVER_PATH`,
+`TIGERSTYLE_LINT_LIB`, `TIGERSTYLE_TOOLCHAIN`, `TIGERSTYLE_DYLINT_REV`) are
+compatibility aliases while Dylint bootstrap wiring migrates. The runner reads
+each `OCTET_*` name first and uses the alias only when the `OCTET_*` name is
+unset. An empty or non-UTF-8 value in the variable the runner reads is an
+error; it does not fall back to the alias. `TIGERSTYLE_PATH` belongs to
+historical wrapper-based replay flows, not the current recommended onboarding
+path.
 
 ## Migration note: `todo!()` escapes moved to `no_todo`
 

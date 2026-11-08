@@ -1041,6 +1041,72 @@ fn explicit_empty_tigerstyle_env_vars_exit_with_integration_failure_code() {
     );
 }
 
+#[test]
+fn octet_runner_env_names_take_precedence_over_tigerstyle_aliases() {
+    const TOOLCHAIN: &str = "nightly-2026-03-21-x86_64-unknown-linux-gnu";
+    let run_with_env = |label: &str, env: &dyn Fn(&ConsumerFixture) -> Vec<(String, String)>| {
+        let fixture = ConsumerFixture::new(label, &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+        let env = env(&fixture);
+        let env: Vec<(&str, &str)> = env.iter().map(|(key, value)| (key.as_str(), value.as_str())).collect();
+        let output = fixture.run_with_launcher_and_env(None, &env, &[], 0, false, None, None, None, None);
+        (fixture, output)
+    };
+    let canonical_env = |fixture: &ConsumerFixture| {
+        vec![
+            ("OCTET_TOOLCHAIN".to_owned(), TOOLCHAIN.to_owned()),
+            ("OCTET_DRIVER_PATH".to_owned(), fixture.driver_path.display().to_string()),
+            ("OCTET_LINT_LIB".to_owned(), fixture.lint_lib_path.display().to_string()),
+        ]
+    };
+
+    for (label, alias_value) in [("octet-env-only", None), ("octet-env-over-empty-aliases", Some(""))] {
+        let (fixture, output) = run_with_env(label, &|fixture| {
+            let mut env = canonical_env(fixture);
+            if let Some(alias_value) = alias_value {
+                for alias in ["TIGERSTYLE_TOOLCHAIN", "TIGERSTYLE_DRIVER_PATH", "TIGERSTYLE_LINT_LIB"] {
+                    env.push((alias.to_owned(), alias_value.to_owned()));
+                }
+            }
+            env
+        });
+        let log = fixture.log();
+        assert!(
+            output.status.success(),
+            "{label}: OCTET_* runner env should configure the check: stdout={} stderr={} log={log}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(
+            log.contains(&format!("RUSTUP_TOOLCHAIN={TOOLCHAIN}\n")),
+            "{label}: toolchain from OCTET_TOOLCHAIN: {log}"
+        );
+        assert!(
+            log.contains(&format!("RUSTC_WORKSPACE_WRAPPER={}\n", fixture.driver_path.display())),
+            "{label}: driver from OCTET_DRIVER_PATH: {log}"
+        );
+        assert!(
+            log.contains(&format!("DYLINT_LIBS=[\"{}\"]\n", fixture.lint_lib_path.display())),
+            "{label}: lint library from OCTET_LINT_LIB: {log}"
+        );
+    }
+
+    let (fixture, output) = run_with_env("empty-octet-driver-over-valid-alias", &|fixture| {
+        let mut env = canonical_env(fixture);
+        env[1].1 = String::new();
+        env.push(("TIGERSTYLE_DRIVER_PATH".to_owned(), fixture.driver_path.display().to_string()));
+        env
+    });
+    assert_eq!(
+        output.status.code(),
+        Some(2),
+        "an explicit empty OCTET_DRIVER_PATH must not fall back to its alias: stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let log = fixture.log();
+    assert!(!log.contains("ARGS:"), "empty OCTET_DRIVER_PATH should fail before invoking cargo: {log}");
+}
+
 // rustc fails a compile that hit an error-level lint, so real Cargo exits 101 for denied findings.
 #[test]
 fn error_level_lint_findings_exit_with_code_one() {

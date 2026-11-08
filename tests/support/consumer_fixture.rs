@@ -19,6 +19,15 @@ const COMPILED_CARGO_OCTET_BIN: Option<&str> = option_env!("CARGO_OCTET_BIN");
 static BASH_PATH: OnceLock<Result<PathBuf, String>> = OnceLock::new();
 static BUILT_CARGO_OCTET_BIN: OnceLock<Result<PathBuf, String>> = OnceLock::new();
 
+/// Canonical runner names; the fixture's env knobs drive the `TIGERSTYLE_*` aliases, so ambient
+/// canonical values must not outrank them. Tests opt into canonical names through `extra_env`.
+const OCTET_RUNNER_ENV: [&str; 4] = [
+    "OCTET_TOOLCHAIN",
+    "OCTET_DRIVER_PATH",
+    "OCTET_LINT_LIB",
+    "OCTET_DYLINT_REV",
+];
+
 pub(crate) struct TempDir {
     path: PathBuf,
 }
@@ -190,6 +199,10 @@ edition = "2024"
 
         fs::write(&self.log_path, format!("LAUNCHER:{}\nPATH:{}\n", command.get_program().to_string_lossy(), path))
             .expect("seed cargo log");
+
+        for name in OCTET_RUNNER_ENV {
+            command.env_remove(name);
+        }
 
         match lint_lib_env {
             Some(value) => {
@@ -382,6 +395,10 @@ edition = "2024"
 
         fs::write(&self.log_path, format!("LAUNCHER:{}\nPATH:{}\n", command.get_program().to_string_lossy(), path))
             .expect("seed cargo log");
+
+        for name in OCTET_RUNNER_ENV {
+            command.env_remove(name);
+        }
 
         match lint_lib_env {
             Some(value) => {
