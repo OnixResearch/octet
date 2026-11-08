@@ -956,3 +956,46 @@ fn ability_enforce_requires_string_arrays_for_manifest_and_trace() {
     let empty = stdout_json(&enforce(manifest, serde_json::json!({"effects": []}), temp.path()));
     assert_eq!(empty["status"], "allowed");
 }
+
+fn migrate_session(session: serde_json::Value, cwd: &Path) -> (std::process::Output, std::path::PathBuf) {
+    let input = cwd.join("migrate-input.json");
+    let output = cwd.join("migrate-output.json");
+    let _ = fs::remove_file(&output);
+    write_json(&input, session);
+    let result = run(
+        &[
+            "roadmap",
+            "session",
+            "migrate",
+            "--input",
+            input.to_str().unwrap(),
+            "--output",
+            output.to_str().unwrap(),
+        ],
+        cwd,
+    );
+    (result, output)
+}
+
+#[test]
+fn session_migrate_reads_schema_version_and_requires_identity() {
+    let temp = tempfile::tempdir().unwrap();
+    let (current, written) = migrate_session(serde_json::json!({"identity": "b3:s", "schema_version": 1}), temp.path());
+    assert_eq!(stdout_json(&current)["from_schema_version"], 1);
+    assert!(written.exists());
+    let (legacy, _) =
+        migrate_session(serde_json::json!({"identity": "b3:s", "original_schema_version": 0}), temp.path());
+    assert_eq!(stdout_json(&legacy)["from_schema_version"], 0);
+
+    for session in [
+        serde_json::json!({"identity": "b3:s", "schema_version": 2}),
+        serde_json::json!({"identity": "b3:s", "original_schema_version": 7}),
+        serde_json::json!({"identity": "b3:s", "schema_version": "1"}),
+        serde_json::json!({"schema_version": 1}),
+        serde_json::json!({"identity": 42, "schema_version": 1}),
+    ] {
+        let (output, written) = migrate_session(session.clone(), temp.path());
+        assert_eq!(output.status.code(), Some(2), "session={session}");
+        assert!(!written.exists(), "session={session} wrote migrated output");
+    }
+}

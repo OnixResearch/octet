@@ -25,7 +25,7 @@ $ cargo octet roadmap session check --input session.json
 => verifies typed/versioned session records with identity and redaction metadata
 
 $ cargo octet roadmap session migrate --input session-v0.json --output session-v1.json
-=> writes a schema_version migration receipt without changing the original session identity
+=> reads schema_version (or legacy original_schema_version), refuses newer schemas and sessions without a string identity, and writes a migration receipt without changing that identity
 
 $ cargo octet roadmap session todo --input session.json
 => summarizes structured todo kinds, statuses, sources, next actions, and blockers

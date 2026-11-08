@@ -777,8 +777,17 @@ fn session_check(input: &Path) -> Result<i32, String> {
 fn session_migrate(input: &Path, output: &Path) -> Result<i32, String> {
     let mut session = read_json(input)?;
     let object = session.as_object_mut().ok_or_else(|| "session must be a JSON object".to_owned())?;
-    let original_identity = object.get("identity").and_then(Value::as_str).unwrap_or("unknown").to_owned();
-    let from_schema_version = object.get("original_schema_version").and_then(Value::as_u64).unwrap_or(0);
+    let original_identity = object
+        .get("identity")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "session identity must be a string".to_owned())?
+        .to_owned();
+    let from_schema_version = session_schema_version(object)?;
+    if from_schema_version > u64::from(SCHEMA_VERSION) {
+        return Err(format!(
+            "session schema_version {from_schema_version} is newer than supported schema_version {SCHEMA_VERSION}"
+        ));
+    }
     let migration_receipt = serde_json::json!({
         "from_schema_version": from_schema_version,
         "to_schema_version": SCHEMA_VERSION,
@@ -789,6 +798,17 @@ fn session_migrate(input: &Path, output: &Path) -> Result<i32, String> {
     object.insert("migration_receipt".to_owned(), migration_receipt.clone());
     write_json(output, &session)?;
     print_json(&migration_receipt)?;
+    Ok(0)
+}
+
+/// The session's current schema version: `schema_version`, else the legacy
+/// `original_schema_version`, else 0 for an unversioned legacy session.
+fn session_schema_version(session: &serde_json::Map<String, Value>) -> Result<u64, String> {
+    for field in ["schema_version", "original_schema_version"] {
+        if let Some(value) = session.get(field) {
+            return value.as_u64().ok_or_else(|| format!("session {field} must be a non-negative integer"));
+        }
+    }
     Ok(0)
 }
 
