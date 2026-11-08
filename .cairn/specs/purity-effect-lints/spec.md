@@ -52,7 +52,7 @@ r[octet.purity_effect_lints.ambient_random.flags_random]
 
 r[octet.purity_effect_lints.ambient_random.allows_injected_randomness]
 
-- GIVEN code receives an RNG trait object, seed value, nonce bytes, or generated identifier as an explicit input
+- GIVEN code receives an RNG trait object, seed value, nonce bytes, or generated identifier as an explicit input, or builds a generator from an explicit seed such as `fastrand::Rng::with_seed(seed)`
 - WHEN the lint runs
 - THEN `ambient_random` MUST NOT emit for that source shape.
 

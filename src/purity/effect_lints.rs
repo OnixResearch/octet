@@ -46,8 +46,39 @@ const ENV_CALLS: &[&str] = &[
     "vars",
     "vars_os",
 ];
+/// Ambient randomness entry points. `fastrand` lists only the free functions
+/// that draw from or expose the thread-local generator, plus the entropy-seeded
+/// `Rng` constructors; `fastrand::Rng::with_seed(seed)` and `fastrand::seed(seed)`
+/// take an explicit seed and stay clean.
 const RANDOM_CALL_PATTERNS: &[&str] = &[
-    "fastrand::",
+    "fastrand::Rng::default(",
+    "fastrand::Rng::new(",
+    "fastrand::alphabetic(",
+    "fastrand::alphanumeric(",
+    "fastrand::bool(",
+    "fastrand::char(",
+    "fastrand::choice(",
+    "fastrand::choose_multiple(",
+    "fastrand::digit(",
+    "fastrand::f32(",
+    "fastrand::f64(",
+    "fastrand::fill(",
+    "fastrand::get_seed(",
+    "fastrand::i128(",
+    "fastrand::i16(",
+    "fastrand::i32(",
+    "fastrand::i64(",
+    "fastrand::i8(",
+    "fastrand::isize(",
+    "fastrand::lowercase(",
+    "fastrand::shuffle(",
+    "fastrand::u128(",
+    "fastrand::u16(",
+    "fastrand::u32(",
+    "fastrand::u64(",
+    "fastrand::u8(",
+    "fastrand::uppercase(",
+    "fastrand::usize(",
     "getrandom::fill(",
     "getrandom::getrandom(",
     "rand::random(",
@@ -1385,6 +1416,7 @@ mod tests {
     use super::EffectClass;
     use super::PureViolation;
     use super::classify_effect;
+    use super::classify_random_call;
     use super::contains_env_call;
     use super::function_has_nondeterministic_output;
     use super::function_is_const_candidate;
@@ -1395,6 +1427,14 @@ mod tests {
     fn env_classifier_accepts_direct_calls_and_rejects_explicit_config() {
         assert_eq!(contains_env_call("std::env::var(\"HOME\")"), Some("var"));
         assert_eq!(contains_env_call("config.home_dir.clone()"), None);
+    }
+
+    #[test]
+    fn random_classifier_flags_ambient_fastrand_and_allows_seeded_rng() {
+        assert_eq!(classify_random_call("fastrand::u64("), Some("fastrand::u64("));
+        assert_eq!(classify_random_call("fastrand::Rng::new("), Some("fastrand::Rng::new("));
+        assert_eq!(classify_random_call("fastrand::Rng::with_seed("), None);
+        assert_eq!(classify_random_call("fastrand::seed("), None);
     }
 
     #[test]
