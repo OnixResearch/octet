@@ -172,8 +172,11 @@ compiler error) or a Cargo process ended by a signal stays exit `2`.
 `--write-baseline` records only a complete scan, one where `cargo check`
 itself succeeded. Denied lints make Cargo fail and stop before every crate is
 checked, so such a run writes no baseline and exits `2` with an error naming
-the cause; lower those lints to `warn` for the baseline run. A baseline cannot
-make error-level findings pass in any case.
+the cause; lower those lints to `warn` for the baseline run. Lower them outside
+`dylint.toml`, for example by running without the deny-all hook or with
+`-W <lint>` in `DYLINT_RUSTFLAGS`: the `dylint.toml` bytes are part of every
+finding ID, so a baseline written under an edited `dylint.toml` would not match
+later runs. A baseline cannot make error-level findings pass in any case.
 
 SARIF invocations record the same `exitCode`. `executionSuccessful` is `false`
 only for exit `2`; a complete scan that fails on error-level findings or new
