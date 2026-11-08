@@ -114,6 +114,7 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
     if let Some(policy) = &cfg.architecture_policy {
         policy.validate_loaded_binding()?;
     }
+    reject_paths_inside_artifact_dir(&cwd, check, &cfg.workspace_root)?;
     let scope_args = if check.scope_args.is_empty() {
         cfg.default_scope.clone()
     } else {
@@ -828,6 +829,58 @@ fn write_run_artifacts(
     }
 
     Ok(())
+}
+
+/// Bundle pruning removes every `--artifact-dir` entry the run does not write, and any other entry
+/// makes a new directory look like a foreign one. A baseline file or the `--cache` directory inside
+/// the artifact directory would be deleted or would poison the bundle, so those combinations fail
+/// before Cargo runs.
+fn reject_paths_inside_artifact_dir(cwd: &Path, check: &CheckArgs, workspace_root: &Path) -> Result<(), String> {
+    let Some(artifact_dir) = check.artifact_dir.as_deref() else {
+        return Ok(());
+    };
+    let resolved_artifact_dir = resolve_through_existing_ancestor(&cwd.join(artifact_dir));
+    let cache_dir = check.cache.then(|| workspace_root.join(LINT_CACHE_DIR));
+    for (flag, path) in [
+        ("--baseline", check.baseline.as_deref()),
+        ("--write-baseline", check.write_baseline.as_deref()),
+        ("--cache", cache_dir.as_deref()),
+    ] {
+        let Some(path) = path else {
+            continue;
+        };
+        if resolve_through_existing_ancestor(&cwd.join(path)).starts_with(&resolved_artifact_dir) {
+            return Err(format!(
+                "`{flag}` path {} is inside `--artifact-dir` {}, whose unexpected entries are pruned when the \
+                 bundle is written; choose paths that do not overlap",
+                path.display(),
+                artifact_dir.display()
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Resolves symlinks and `..` through the longest existing ancestor of an absolute `path`, then
+/// applies the remaining components lexically, so paths that do not exist yet still compare like
+/// the files the run will create.
+fn resolve_through_existing_ancestor(path: &Path) -> PathBuf {
+    for ancestor in path.ancestors() {
+        let (Ok(mut resolved), Ok(remainder)) = (fs::canonicalize(ancestor), path.strip_prefix(ancestor)) else {
+            continue;
+        };
+        for component in remainder.components() {
+            match component {
+                Component::ParentDir => {
+                    resolved.pop();
+                }
+                Component::Normal(name) => resolved.push(name),
+                Component::CurDir | Component::RootDir | Component::Prefix(_) => {}
+            }
+        }
+        return resolved;
+    }
+    path.to_path_buf()
 }
 
 fn prepare_artifact_dir(artifact_dir: &Path) -> Result<ArtifactRoot, String> {
@@ -1812,6 +1865,8 @@ mod tests {
     use super::normalize_lint_name;
     use super::prepare_artifact_dir;
     use super::remove_extra_artifact_paths;
+    #[cfg(unix)]
+    use super::resolve_through_existing_ancestor;
 
     const REQUIRED_EMBEDDED_PATHS: &[&str] = &[
         "Cargo.toml",
@@ -1869,6 +1924,23 @@ mod tests {
         assert!(!is_rustc_abort_summary(&coded));
         let uncoded = serde_json::json!({"level": "error", "message": "cannot find macro", "code": null, "spans": []});
         assert!(!is_rustc_abort_summary(&uncoded));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn path_resolution_sees_through_symlinks_and_parent_components_of_missing_paths() {
+        let temporary = tempfile::tempdir().expect("resolution fixture");
+        let root = std::fs::canonicalize(temporary.path()).expect("canonical fixture root");
+        let artifacts = root.join("artifacts");
+        std::fs::create_dir(&artifacts).expect("artifact dir");
+        std::os::unix::fs::symlink(&artifacts, root.join("linked")).expect("artifact symlink");
+
+        assert_eq!(
+            resolve_through_existing_ancestor(&root.join("linked/missing/../baseline.json")),
+            artifacts.join("baseline.json")
+        );
+        assert_eq!(resolve_through_existing_ancestor(&root.join("absent/./nested/..")), root.join("absent"));
+        assert!(!resolve_through_existing_ancestor(&root.join("artifacts-baseline.json")).starts_with(&artifacts));
     }
 
     #[test]

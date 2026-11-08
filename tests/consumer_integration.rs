@@ -3336,6 +3336,72 @@ fn artifact_directory_captures_json_run() {
 }
 
 #[test]
+fn baseline_and_cache_paths_inside_artifact_dir_are_rejected_before_cargo() {
+    let fixture = ConsumerFixture::new("artifact-dir-owned-paths", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let dir = artifact_dir(&fixture, "owned-paths");
+    let dir_arg = dir.to_str().expect("artifact dir utf8");
+    let outside_baseline = fixture.repo.join("artifacts/owned-paths-baseline.json");
+    let outside_baseline_arg = outside_baseline.to_str().expect("baseline path utf8");
+
+    // A sibling whose name merely shares the artifact directory's prefix stays allowed.
+    let accepted = run_with_check_args(
+        &fixture,
+        &[
+            "--output-format",
+            JSON_OUTPUT_FORMAT,
+            "--artifact-dir",
+            dir_arg,
+            "--write-baseline",
+            outside_baseline_arg,
+        ],
+        &three_finding_json_lines(),
+        EXIT_CODE_SUCCESS,
+    );
+    assert_eq!(
+        accepted.status.code(),
+        Some(EXIT_CODE_SUCCESS),
+        "baseline beside the artifact directory should be accepted: stdout={} stderr={}",
+        String::from_utf8_lossy(&accepted.stdout),
+        String::from_utf8_lossy(&accepted.stderr)
+    );
+    let inside_baseline = dir.join("accepted-baseline.json");
+    fs::copy(&outside_baseline, &inside_baseline).expect("place baseline inside the existing bundle");
+    let inside_baseline_arg = inside_baseline.to_str().expect("baseline path utf8");
+    let dotted_write_baseline = format!("{dir_arg}/../owned-paths/new-baseline.json");
+
+    for (flag, args) in [
+        ("--baseline", vec!["--artifact-dir", dir_arg, "--baseline", inside_baseline_arg]),
+        ("--write-baseline", vec![
+            "--artifact-dir",
+            dir_arg,
+            "--write-baseline",
+            dotted_write_baseline.as_str(),
+        ]),
+        ("--write-baseline", vec!["--artifact-dir", dir_arg, "--write-baseline", dir_arg]),
+        ("--cache", vec!["--artifact-dir", "./.octet", "--cache"]),
+    ] {
+        let mut check_args = vec!["--output-format", JSON_OUTPUT_FORMAT];
+        check_args.extend(args.iter().copied());
+        let output = run_with_check_args(&fixture, &check_args, &three_finding_json_lines(), EXIT_CODE_SUCCESS);
+        assert_eq!(
+            output.status.code(),
+            Some(EXIT_CODE_INTEGRATION_FAILURE),
+            "{args:?} must be rejected: stdout={} stderr={}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains(&format!("`{flag}`")) && stderr.contains("inside `--artifact-dir`"),
+            "{args:?} should name the conflicting flag: {stderr}"
+        );
+        assert!(!fixture.log().contains("ARGS:check"), "{args:?} must be rejected before Cargo runs");
+        assert!(inside_baseline.is_file(), "{args:?} must not prune the accepted baseline");
+    }
+    assert!(!fixture.repo.join(".octet").exists(), "a rejected cache run must not create the cache directory");
+}
+
+#[test]
 fn artifact_directory_records_integration_failure_cleanly() {
     let fixture = ConsumerFixture::new("artifact-dir-error", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
     let dir = artifact_dir(&fixture, "integration-failure");
