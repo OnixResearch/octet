@@ -238,9 +238,16 @@ struct BaselineRecord {
 
 #[derive(Debug, Default)]
 struct BaselineIndex {
-    addresses: BTreeMap<String, String>,
+    addresses: BTreeMap<String, BaselineAddress>,
     source_identities: BTreeMap<String, String>,
     issues: Vec<BaselineIssue>,
+}
+
+#[derive(Debug)]
+struct BaselineAddress {
+    path: String,
+    name: String,
+    function_address: String,
 }
 
 #[derive(Debug)]
@@ -274,6 +281,7 @@ pub fn collect_run(
     }
 
     let mut files = Vec::new();
+    let mut scope_prefixes = Vec::new();
     for path in check.enabled_paths(workspace_root) {
         let absolute = if path.is_absolute() {
             path
@@ -281,6 +289,7 @@ pub fn collect_run(
             workspace_root.join(path)
         };
         fingerprint::collect_rust_files(&absolute, &mut files)?;
+        scope_prefixes.extend(checked_scope_prefix(workspace_root, &absolute));
     }
     files.sort();
     files.dedup();
@@ -321,8 +330,8 @@ pub fn collect_run(
             {
                 findings.push(marker_finding);
             }
-            if let Some(expected_address) = baseline.addresses.get(&locator) {
-                if expected_address != &record.function_address {
+            if let Some(expected) = baseline.addresses.get(&locator) {
+                if expected.function_address != record.function_address {
                     findings.push(finding_for_record(
                         &record,
                         check.mode,
@@ -361,6 +370,18 @@ pub fn collect_run(
                 ));
             }
             records.push(record);
+        }
+    }
+    for (locator, expected) in &baseline.addresses {
+        if !seen_locators.contains_key(locator) && path_in_checked_scope(&expected.path, &scope_prefixes) {
+            let issue = BaselineIssue {
+                lint: LINT_FUNCTION_ADDRESS_STALE,
+                path: expected.path.clone(),
+                name: expected.name.clone(),
+                function_address: canonical_hash_identity(&expected.function_address),
+                message: "reviewed baseline function is no longer present in the checked scope; it was deleted or renamed, so update the reviewed receipt or inspect the change",
+            };
+            findings.push(finding_for_baseline_issue(&issue, check.mode, config_hash));
         }
     }
 
@@ -519,7 +540,14 @@ fn load_baseline(path: Option<&Path>, workspace_root: &Path) -> Result<BaselineI
         if let Some(source_identity) = record.source_identity.as_ref() {
             source_identities.insert(locator.clone(), source_identity.clone());
         }
-        if addresses.insert(locator, record.function_address.clone()).is_some() {
+        if addresses
+            .insert(locator, BaselineAddress {
+                path: normalized_path.clone(),
+                name: record.name.clone(),
+                function_address: record.function_address.clone(),
+            })
+            .is_some()
+        {
             issues.push(BaselineIssue {
                 lint: LINT_FUNCTION_ADDRESS_DUPLICATE_LOCATOR,
                 path: normalized_path,
@@ -558,6 +586,31 @@ fn load_baseline(path: Option<&Path>, workspace_root: &Path) -> Result<BaselineI
 
 fn function_locator(path: &str, name: &str) -> String {
     format!("{path}{LOCATOR_SEPARATOR}{name}")
+}
+
+/// Workspace-relative prefix of one checked scope path; empty means the whole
+/// workspace. Scopes outside the workspace or with `..` cannot hold baseline
+/// entries and yield `None`.
+fn checked_scope_prefix(workspace_root: &Path, scope: &Path) -> Option<String> {
+    let relative = scope.strip_prefix(workspace_root).ok()?;
+    let mut segments = Vec::new();
+    for component in relative.components() {
+        match component {
+            std::path::Component::Normal(segment) => segments.push(segment.to_str()?),
+            std::path::Component::CurDir => {}
+            _ => return None,
+        }
+    }
+    Some(segments.join("/"))
+}
+
+fn path_in_checked_scope(path: &str, scope_prefixes: &[String]) -> bool {
+    scope_prefixes.iter().any(|prefix| {
+        prefix.is_empty()
+            || path
+                .strip_prefix(prefix.as_str())
+                .is_some_and(|rest| rest.is_empty() || rest.starts_with(PATH_SEPARATOR))
+    })
 }
 
 fn normalize_baseline_record_path(
@@ -1535,6 +1588,76 @@ mod tests {
     }
 
     #[test]
+    fn baseline_reports_deleted_or_renamed_function_as_stale() {
+        let temp = TempDir::new().expect("temp dir");
+        let source = temp.path().join("lib.rs");
+        let baseline = temp.path().join("function-addresses.json");
+        std::fs::write(&source, "fn f() -> u32 { 1 }\nfn g() -> u32 { 2 }\n").expect("write source");
+        let observe = FunctionAddressCheck {
+            mode: FunctionAddressMode::Observe,
+            paths: vec![PathBuf::from("lib.rs")],
+            baseline: None,
+        };
+        let baseline_run = collect_test_run(&observe, temp.path(), "config");
+        let reviewed_g = artifact_value(&baseline_run)["records"][1]["function_address"]
+            .as_str()
+            .expect("reviewed address for g")
+            .to_owned();
+        std::fs::write(&baseline, baseline_run.artifact_json).expect("write baseline");
+        for mode in [FunctionAddressMode::Warn, FunctionAddressMode::Deny] {
+            let check = FunctionAddressCheck {
+                mode,
+                paths: vec![PathBuf::from("lib.rs")],
+                baseline: Some(baseline.clone()),
+            };
+            for edited in [
+                "// g deleted\nfn f() -> u32 { 1 }\n",
+                "// g renamed\nfn f() -> u32 { 1 }\nfn h() -> u32 { 2 }\n",
+            ] {
+                std::fs::write(&source, edited).expect("write edited source");
+
+                let findings = collect_test_findings(&check, temp.path(), "config");
+
+                let removed =
+                    findings.iter().filter(|finding| finding.message.contains("function=g ")).collect::<Vec<_>>();
+                assert_eq!(removed.len(), 1, "{edited}: {findings:#?}");
+                assert_eq!(removed[0].lint, LINT_FUNCTION_ADDRESS_STALE);
+                assert_eq!(removed[0].severity, severity_for_mode(mode));
+                assert_eq!(removed[0].file, "lib.rs");
+                assert!(removed[0].message.contains("no longer present"));
+                assert!(removed[0].message.contains(&reviewed_g));
+                output::render_json_lines(&findings).expect("stale baseline entry renders");
+            }
+        }
+    }
+
+    #[test]
+    fn baseline_entries_outside_checked_scope_are_not_reported_stale() {
+        let temp = TempDir::new().expect("temp dir");
+        let core = temp.path().join("core/lib.rs");
+        let shell = temp.path().join("shell/lib.rs");
+        let baseline = temp.path().join("function-addresses.json");
+        for path in [&core, &shell] {
+            std::fs::create_dir_all(path.parent().expect("source parent")).expect("create source dir");
+            std::fs::write(path, "fn f() -> u32 { 1 }\n").expect("write source");
+        }
+        let observe = FunctionAddressCheck {
+            mode: FunctionAddressMode::Observe,
+            paths: Vec::new(),
+            baseline: None,
+        };
+        let baseline_run = collect_test_run(&observe, temp.path(), "config");
+        std::fs::write(&baseline, baseline_run.artifact_json).expect("write baseline");
+        let core_only = FunctionAddressCheck {
+            mode: FunctionAddressMode::Deny,
+            paths: vec![PathBuf::from("core/")],
+            baseline: Some(baseline),
+        };
+
+        assert!(collect_test_findings(&core_only, temp.path(), "config").is_empty());
+    }
+
+    #[test]
     fn baseline_receipt_missing_non_claims_reports_overclaim_boundary() {
         let temp = TempDir::new().expect("temp dir");
         let baseline = temp.path().join("function-addresses.json");
@@ -1892,8 +2015,9 @@ mod tests {
 
         let findings = collect_test_findings(&check, temp.path(), "config");
 
-        assert_eq!(findings.len(), 1);
-        assert_eq!(findings[0].lint, LINT_FUNCTION_ADDRESS_DUPLICATE_LOCATOR);
+        let lints = findings.iter().map(|finding| finding.lint.as_str()).collect::<Vec<_>>();
+        assert_eq!(lints, [LINT_FUNCTION_ADDRESS_DUPLICATE_LOCATOR, LINT_FUNCTION_ADDRESS_STALE]);
+        assert!(findings[1].message.contains("no longer present"));
     }
 
     #[test]
@@ -1995,9 +2119,9 @@ mod tests {
 
         let findings = collect_test_findings(&check, temp.path(), "config");
 
-        assert_eq!(findings.len(), 1);
-        assert_eq!(findings[0].lint, LINT_FUNCTION_ADDRESS_DUPLICATE_LOCATOR);
-        assert_eq!(findings[0].file, "src/lib.rs");
+        let lints = findings.iter().map(|finding| finding.lint.as_str()).collect::<Vec<_>>();
+        assert_eq!(lints, [LINT_FUNCTION_ADDRESS_DUPLICATE_LOCATOR, LINT_FUNCTION_ADDRESS_STALE]);
+        assert!(findings.iter().all(|finding| finding.file == "src/lib.rs"));
     }
 
     #[test]
@@ -2025,11 +2149,11 @@ mod tests {
         let warn_findings = collect_test_findings(&warn, temp.path(), "config");
         let deny_findings = collect_test_findings(&deny, temp.path(), "config");
 
-        assert_eq!(warn_findings.len(), 1);
-        assert_eq!(warn_findings[0].lint, LINT_FUNCTION_ADDRESS_MALFORMED);
-        assert_eq!(warn_findings[0].severity, WARNING_SEVERITY);
-        assert_eq!(deny_findings.len(), 1);
-        assert_eq!(deny_findings[0].severity, ERROR_SEVERITY);
+        let lints = warn_findings.iter().map(|finding| finding.lint.as_str()).collect::<Vec<_>>();
+        assert_eq!(lints, [LINT_FUNCTION_ADDRESS_MALFORMED, LINT_FUNCTION_ADDRESS_STALE]);
+        assert!(warn_findings.iter().all(|finding| finding.severity == WARNING_SEVERITY));
+        assert_eq!(deny_findings.len(), lints.len());
+        assert!(deny_findings.iter().all(|finding| finding.severity == ERROR_SEVERITY));
         output::render_json_lines(&warn_findings).expect("warn findings render");
         output::render_json_lines(&deny_findings).expect("deny findings render");
     }

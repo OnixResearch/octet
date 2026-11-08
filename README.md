@@ -292,6 +292,8 @@ Use these surfaces for a bounded release smoke:
 
 Function-address modes are `observe`, `warn`, and `deny`. They produce source-envelope records, function spans, review fields, diagnostics, and Kamacite handoff data.
 
+A reviewed baseline entry whose function was deleted or renamed away reports `function_address_stale`. Entries outside the checked `--function-address-path` scope are not checked.
+
 Kamacite-owned Preserves bytes are the portable receipt authority. The JSON file is an operator projection.
 
 <!--
