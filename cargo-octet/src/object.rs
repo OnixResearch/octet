@@ -686,8 +686,11 @@ fn run_supplement_check(
             return Ok(1);
         }
     };
-    let expected = select_supplement_receipt(expected_value, receipt_path)?;
-    let errors = validate_supplement_receipt_shape(&expected, family);
+    let expected = supplement_receipt_entries(expected_value, receipt_path)?;
+    let errors = expected
+        .iter()
+        .flat_map(|entry| validate_supplement_receipt_shape(entry, family))
+        .collect::<Vec<_>>();
     if !errors.is_empty() {
         let report = invalid_supplement_check_report(receipt_path_string, family, scope, errors);
         print_supplement_check_report(&report, output_format)?;
@@ -695,8 +698,10 @@ fn run_supplement_check(
     }
 
     let current = supplement_records(paths, function, family, scope)?;
-    let current_first = current.first().ok_or_else(|| "no functions matched supplement check selection".to_owned())?;
-    let comparisons = supplement_comparisons(&expected, current_first);
+    if current.is_empty() {
+        return Err("no functions matched supplement check selection".to_owned());
+    }
+    let comparisons = supplement_comparisons(&expected, &current);
     let status = if comparisons.iter().all(|comparison| comparison.status == "match") {
         "pass"
     } else {
@@ -1047,10 +1052,18 @@ struct SupplementCheckReport {
 
 #[derive(Debug, Clone, Serialize)]
 struct SupplementComparison {
+    /// Entry identity for per-supplement fields; `None` for receipt-level comparisons.
+    supplement: Option<SupplementEntryKey>,
     field: &'static str,
     status: &'static str,
     expected: serde_json::Value,
     current: serde_json::Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+struct SupplementEntryKey {
+    source_path: serde_json::Value,
+    function_name: serde_json::Value,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1060,11 +1073,16 @@ struct SupplementCheckError {
     message: String,
 }
 
-fn select_supplement_receipt(value: serde_json::Value, path: &Path) -> Result<serde_json::Value, String> {
+/// Returns every supplement in a receipt: the `supplements` list of an emit report, or a bare
+/// supplement record.
+fn supplement_receipt_entries(value: serde_json::Value, path: &Path) -> Result<Vec<serde_json::Value>, String> {
     if let Some(supplements) = value.get("supplements").and_then(serde_json::Value::as_array) {
-        return supplements.first().cloned().ok_or_else(|| format!("{} has no supplements", path.display()));
+        if supplements.is_empty() {
+            return Err(format!("{} has no supplements", path.display()));
+        }
+        return Ok(supplements.clone());
     }
-    Ok(value)
+    Ok(vec![value])
 }
 
 const SUPPLEMENT_REPLAY_COMPARED_FIELDS: &[&str] = &[
@@ -1166,11 +1184,62 @@ fn validate_supplement_receipt_shape(
     errors
 }
 
+fn supplement_entry_key(value: &serde_json::Value) -> SupplementEntryKey {
+    SupplementEntryKey {
+        source_path: value.get("source_path").cloned().unwrap_or(serde_json::Value::Null),
+        function_name: value.get("function_name").cloned().unwrap_or(serde_json::Value::Null),
+    }
+}
+
+/// Compares every receipt supplement with the current selection.
+///
+/// Entries pair by `source_path` and `function_name`; entries without a keyed partner pair in order
+/// so a tampered identity still reports field-level mismatches, and any unpaired entry compares
+/// against `null`.
 fn supplement_comparisons(
-    expected: &serde_json::Value,
-    current: &FunctionObjectSupplementV1,
+    expected: &[serde_json::Value],
+    current: &[FunctionObjectSupplementV1],
 ) -> Vec<SupplementComparison> {
-    let current = serde_json::to_value(current).expect("serialize current supplement");
+    let mut comparisons = vec![SupplementComparison {
+        supplement: None,
+        field: "supplement_count",
+        status: comparison_status(expected.len() == current.len()),
+        expected: serde_json::json!(expected.len()),
+        current: serde_json::json!(current.len()),
+    }];
+    let mut unpaired_current = current
+        .iter()
+        .map(|supplement| Some(serde_json::to_value(supplement).expect("serialize current supplement")))
+        .collect::<Vec<_>>();
+    let mut paired_current = expected
+        .iter()
+        .map(|entry| {
+            let key = supplement_entry_key(entry);
+            unpaired_current
+                .iter_mut()
+                .find(|slot| slot.as_ref().is_some_and(|candidate| supplement_entry_key(candidate) == key))
+                .and_then(Option::take)
+        })
+        .collect::<Vec<_>>();
+    let mut leftover_current = unpaired_current.into_iter().flatten();
+    for slot in paired_current.iter_mut().filter(|slot| slot.is_none()) {
+        *slot = leftover_current.next();
+    }
+    for (entry, current_entry) in expected.iter().zip(&paired_current) {
+        let current_entry = current_entry.as_ref().unwrap_or(&serde_json::Value::Null);
+        comparisons.extend(supplement_entry_comparisons(entry, current_entry));
+    }
+    for current_entry in leftover_current {
+        comparisons.extend(supplement_entry_comparisons(&serde_json::Value::Null, &current_entry));
+    }
+    comparisons
+}
+
+fn supplement_entry_comparisons(
+    expected: &serde_json::Value,
+    current: &serde_json::Value,
+) -> Vec<SupplementComparison> {
+    let key = supplement_entry_key(if expected.is_null() { current } else { expected });
     SUPPLEMENT_REPLAY_COMPARED_FIELDS
         .iter()
         .copied()
@@ -1178,17 +1247,18 @@ fn supplement_comparisons(
             let expected_value = expected.get(field).cloned().unwrap_or(serde_json::Value::Null);
             let current_value = current.get(field).cloned().unwrap_or(serde_json::Value::Null);
             SupplementComparison {
+                supplement: Some(key.clone()),
                 field,
-                status: if expected_value == current_value {
-                    "match"
-                } else {
-                    "mismatch"
-                },
+                status: comparison_status(expected_value == current_value),
                 expected: expected_value,
                 current: current_value,
             }
         })
         .collect()
+}
+
+fn comparison_status(matches: bool) -> &'static str {
+    if matches { "match" } else { "mismatch" }
 }
 
 fn print_hir_fixture_inventory_human(report: &HirFixtureInventoryReport) {
@@ -1238,7 +1308,13 @@ fn print_supplement_check_report(report: &SupplementCheckReport, output_format: 
             );
             println!("receipt_path={}", report.receipt_path);
             for comparison in &report.comparisons {
-                println!("{}={}", comparison.field, comparison.status);
+                match &comparison.supplement {
+                    Some(key) => println!(
+                        "{}={} source_path={} function_name={}",
+                        comparison.field, comparison.status, key.source_path, key.function_name
+                    ),
+                    None => println!("{}={}", comparison.field, comparison.status),
+                }
             }
             println!("claims_correctness={}", report.boundary.claims_correctness);
             println!("claims_semantic_equivalence={}", report.boundary.claims_semantic_equivalence);
@@ -2816,7 +2892,7 @@ mod tests {
         let mut expected = serde_json::to_value(&current).expect("serialize expected supplement");
         expected["rustc_version"] = serde_json::json!("different-rustc");
 
-        let comparisons = supplement_comparisons(&expected, &current);
+        let comparisons = supplement_comparisons(std::slice::from_ref(&expected), std::slice::from_ref(&current));
         let rustc = comparisons
             .iter()
             .find(|comparison| comparison.field == "rustc_version")
@@ -2843,7 +2919,7 @@ mod tests {
         expected["observation_hash"] = serde_json::json!("b3:tampered");
         expected["extraction_caveats"][0]["detail"] = serde_json::json!("tampered caveat");
 
-        let comparisons = supplement_comparisons(&expected, &current);
+        let comparisons = supplement_comparisons(std::slice::from_ref(&expected), std::slice::from_ref(&current));
         for field in [
             "source_path",
             "function_name",

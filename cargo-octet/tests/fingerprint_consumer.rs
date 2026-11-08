@@ -1917,6 +1917,87 @@ fn object_supplement_compatibility_marker_and_bounded_families_reject_tamper() {
     }
 }
 
+#[test]
+fn object_supplement_check_compares_every_pilot_supplement() {
+    let temp = tempfile::tempdir().expect("create tempdir");
+    fs::write(
+        temp.path().join("lib.rs"),
+        "pub fn first(input: u32) -> u32 { input + 1 }\n\npub fn second(input: u32) -> u32 { input * 2 }\n",
+    )
+    .expect("write source");
+    let emitted = object_v2_command(temp.path(), &[
+        "object",
+        "supplement",
+        "emit",
+        "--family",
+        "hir",
+        "--output-format=json",
+        "lib.rs",
+    ]);
+    let supplements = emitted["supplements"].as_array().expect("pilot supplements");
+    assert_eq!(supplements.len(), 2, "pilot scope emits one supplement per function: {emitted:#?}");
+    let second_key = serde_json::json!({
+        "source_path": supplements[1]["source_path"],
+        "function_name": supplements[1]["function_name"],
+    });
+    assert_eq!(second_key["function_name"], "second");
+
+    let receipt = temp.path().join("hir-supplement.json");
+    let check = |value: &serde_json::Value| {
+        fs::write(&receipt, serde_json::to_vec(value).expect("serialize receipt")).expect("write receipt");
+        let output = Command::new(cargo_octet())
+            .args(["object", "supplement", "check", "--family", "hir", "--receipt"])
+            .arg(&receipt)
+            .args(["--output-format=json", "lib.rs"])
+            .current_dir(temp.path())
+            .output()
+            .expect("check pilot supplement receipt");
+        let report: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap_or_else(|error| {
+            panic!("supplement check json ({error}): stderr={}", String::from_utf8_lossy(&output.stderr))
+        });
+        (output.status.code(), report)
+    };
+
+    let (code, report) = check(&emitted);
+    assert_eq!(code, Some(0), "{report:#?}");
+    assert_eq!(report["status"], "pass");
+
+    let mut reordered = emitted.clone();
+    reordered["supplements"].as_array_mut().expect("supplements").reverse();
+    let (code, report) = check(&reordered);
+    assert_eq!(code, Some(0), "entries are keyed by source path and function: {report:#?}");
+    assert_eq!(report["status"], "pass");
+
+    let mut tampered = emitted.clone();
+    tampered["supplements"][1]["observation_hash"] = serde_json::json!(blake3_hex(b"tampered second"));
+    let (code, report) = check(&tampered);
+    assert_eq!(code, Some(1), "{report:#?}");
+    assert_eq!(report["status"], "fail");
+    assert!(
+        report["comparisons"].as_array().expect("comparisons").iter().any(|comparison| {
+            comparison["field"] == "observation_hash"
+                && comparison["status"] == "mismatch"
+                && comparison["supplement"] == second_key
+        }),
+        "tampered second supplement was not flagged: {report:#?}"
+    );
+
+    let mut truncated = emitted;
+    truncated["supplements"].as_array_mut().expect("supplements").truncate(1);
+    let (code, report) = check(&truncated);
+    assert_eq!(code, Some(1), "{report:#?}");
+    assert_eq!(report["status"], "fail");
+    assert!(
+        report["comparisons"].as_array().expect("comparisons").iter().any(|comparison| {
+            comparison["field"] == "supplement_count"
+                && comparison["status"] == "mismatch"
+                && comparison["expected"] == 1
+                && comparison["current"] == 2
+        }),
+        "dropped supplement was not flagged: {report:#?}"
+    );
+}
+
 fn selected_fixture_supplement(root: &Path, family: &str, shape: &str) -> (String, serde_json::Value) {
     let spike = format!("rustc-{family}-fixture");
     let inventory = object_v2_command(root, &[

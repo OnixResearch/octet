@@ -1565,6 +1565,13 @@ Supplement receipt checks MUST fail closed for malformed JSON, missing replay-cr
 - THEN the command exits non-zero with `status = "fail"`
 - AND the comparison list names the `boundary` field as a mismatch
 
+#### Scenario: Supplement check compares every receipt supplement
+
+- GIVEN a supplement receipt that carries one supplement per selected function
+- WHEN `cargo octet object supplement check --output-format json` replays it with the matching selector
+- THEN Octet compares the supplement count and every supplement, paired by source path and function name, against the current selection
+- AND any count mismatch or per-supplement field mismatch exits non-zero with `status = "fail"` and names the mismatched supplement in its comparison.
+
 ### Requirement: Rustc-backed HIR extractor spike [r[rustc-hir-extractor-spike]]
 
 Octet MUST provide bounded, fixture-backed rustc HIR extractor spike evidence for selected Function Object v1 records while preserving the v1 object hash as the canonical review/provenance identity. Each supported HIR spike fixture shape MUST be checked in and explicitly selected with rustc/toolchain identity, extractor identity, schema version, fixture context, observation hash, and non-proof boundaries. Octet MUST expose closed fixture-shape inventory without accepting arbitrary HIR inputs.
