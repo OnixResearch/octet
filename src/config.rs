@@ -78,6 +78,7 @@ pub enum ConfigDiagnosticKind {
     UnknownLintLevel,
     ConflictingDisabledLintLevel,
     InvalidLintLevel,
+    NominalInventoryLevelCapped,
 }
 
 impl ConfigDiagnosticKind {
@@ -90,6 +91,7 @@ impl ConfigDiagnosticKind {
             Self::UnknownLintLevel => "unknown_lint_level",
             Self::ConflictingDisabledLintLevel => "conflicting_disabled_lint_level",
             Self::InvalidLintLevel => "invalid_lint_level",
+            Self::NominalInventoryLevelCapped => "nominal_inventory_level_capped",
         }
     }
 }
@@ -289,7 +291,7 @@ impl Config {
         self.nominal_domain_mode.unwrap_or(octet_lint_metadata::nominal_domain::EnforcementMode::Warn)
     }
 
-    fn apply_nominal_domain_mode(&mut self) {
+    fn apply_nominal_domain_mode(&mut self, diagnostics: &mut Vec<ConfigDiagnostic>) {
         let Some(mode) = self.nominal_domain_mode else {
             return;
         };
@@ -303,7 +305,21 @@ impl Config {
                 octet_lint_metadata::nominal_domain::EnforcementMode::Deny => LintLevel::Deny,
             };
             let level = self.validated_lint_levels.entry((*lint_name).to_owned()).or_insert(selected);
-            if selected == LintLevel::Deny || *level == LintLevel::Allow {
+            // Inventory findings include suffix-only candidates, so inventory
+            // mode never lets a consumer level turn them into hard errors.
+            let capped =
+                mode == octet_lint_metadata::nominal_domain::EnforcementMode::Inventory && *level == LintLevel::Deny;
+            if capped {
+                diagnostics.push(ConfigDiagnostic::new(
+                    ConfigDiagnosticKind::NominalInventoryLevelCapped,
+                    "octet.lint_levels",
+                    *lint_name,
+                    format!(
+                        "octet `nominal_domain_mode = \"inventory\"` caps `{lint_name}` at `warn`; ignoring `deny` from `dylint.toml` lint_levels"
+                    ),
+                ));
+            }
+            if capped || selected == LintLevel::Deny || *level == LintLevel::Allow {
                 *level = selected;
             }
         }
@@ -428,7 +444,7 @@ impl Config {
 
             self.validated_lint_levels.insert(lint_name.clone(), level);
         }
-        self.apply_nominal_domain_mode();
+        self.apply_nominal_domain_mode(&mut diagnostics);
 
         diagnostics
     }
@@ -568,6 +584,38 @@ mod tests {
         let parsed = toml::from_str::<Wrapper>("[octet]\nnominal_domain_mode = \"enforce-everything\"\n");
 
         assert!(parsed.is_err());
+    }
+
+    #[test]
+    fn inventory_mode_caps_consumer_nominal_denies_at_warn() {
+        let (cfg, warnings) = parse_and_validate(
+            "[octet]\nnominal_domain_mode = \"inventory\"\n\n[octet.lint_levels]\nprimitive_domain_alias = \"deny\"\nraw_domain_value = \"allow\"\n",
+        );
+
+        assert_eq!(warnings, vec![
+            "octet `nominal_domain_mode = \"inventory\"` caps `primitive_domain_alias` at `warn`; ignoring `deny` from `dylint.toml` lint_levels"
+        ]);
+        for lint_name in NOMINAL_DOMAIN_LINTS {
+            assert_eq!(cfg.lint_level(lint_name), Some(LintLevel::Warn), "{lint_name}");
+        }
+    }
+
+    #[test]
+    fn inventory_cap_reports_typed_diagnostic_and_warn_mode_keeps_consumer_deny() {
+        let (_cfg, diagnostics) = parse_and_validate_diagnostics(
+            "[octet]\nnominal_domain_mode = \"inventory\"\n\n[octet.lint_levels]\nnewtype_invariant_bypass = \"deny\"\n",
+        );
+        assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+        assert_eq!(diagnostics[0].kind, ConfigDiagnosticKind::NominalInventoryLevelCapped);
+        assert_eq!(diagnostics[0].kind.as_str(), "nominal_inventory_level_capped");
+        assert_eq!(diagnostics[0].field, "octet.lint_levels");
+        assert_eq!(diagnostics[0].item, "newtype_invariant_bypass");
+
+        let (cfg, warnings) = parse_and_validate(
+            "[octet]\nnominal_domain_mode = \"warn\"\n\n[octet.lint_levels]\nprimitive_domain_alias = \"deny\"\n",
+        );
+        assert!(warnings.is_empty(), "unexpected warnings: {warnings:?}");
+        assert_eq!(cfg.lint_level("primitive_domain_alias"), Some(LintLevel::Deny));
     }
 
     #[test]

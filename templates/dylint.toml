@@ -39,7 +39,8 @@
 
 # Nominal-domain rollout mode
 # Omit this key until the workspace owns a reviewed policy inventory.
-# `inventory` warns for exact findings and suffix candidates.
+# `inventory` warns for exact findings and suffix candidates, and caps any
+# `lint_levels` deny for the nominal-domain lints at `warn`.
 # `warn` warns only for exact policy rows. `deny` denies only exact rows.
 # nominal_domain_mode = "inventory"
 

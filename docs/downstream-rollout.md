@@ -134,9 +134,12 @@ nominal_domain_mode = "inventory"
 ```
 
 Use `inventory` to review exact findings and suffix candidates without a hard
-failure. Use `warn` for exact findings only. Use `deny` only after saved
-positive, negative, compatibility, bypass, compile-fail, and pilot evidence is
-accepted. Suffix candidates never enter warning or deny mode.
+failure; it caps `[octet.lint_levels]` denies for `primitive_domain_alias`,
+`raw_domain_value`, and `newtype_invariant_bypass` at `warn` and reports a
+config warning when it lowers one. Use `warn` for exact findings only. Use
+`deny` only after saved positive, negative, compatibility, bypass,
+compile-fail, and pilot evidence is accepted. Suffix candidates never enter
+warning or deny mode.
 
 ### breaking-change: migrate `todo!()` escapes from `no_panic` to `no_todo`
 

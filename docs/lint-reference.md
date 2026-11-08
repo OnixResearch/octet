@@ -68,7 +68,7 @@ Rules to keep straight:
 | `impl_blocks_max` | `4` | `type_accumulation` | maximum inherent impl blocks per type before advisory |
 | `module_pub_items_max` | `12` | `type_accumulation` | maximum public items per module before advisory |
 | `core_source_scopes` | `[]` | `concrete_construction_in_core`, `global_state_in_core`, `impure_call_in_core`, `interior_mutability_in_core`, `logging_in_core`, `mutating_input_in_pure`, `resource_return_from_core`, `spawn_in_core` | source path scopes where core-boundary checks run |
-| `nominal_domain_mode` | omitted | `primitive_domain_alias`, `raw_domain_value`, `newtype_invariant_bypass` | `inventory` warns for exact and heuristic findings, `warn` reports exact findings only, and `deny` denies exact findings only |
+| `nominal_domain_mode` | omitted | `primitive_domain_alias`, `raw_domain_value`, `newtype_invariant_bypass` | `inventory` warns for exact and heuristic findings and caps `lint_levels` denies for these lints at `warn` (with a config warning), `warn` reports exact findings only, and `deny` denies exact findings only |
 | `sealed_enum_marker` | `"octet::sealed_enum"` | `fragile_exhaustive_enum_match` | attribute marker that suppresses fragile local exhaustive enum-match diagnostics |
 | `state_machine_core_marker` | `"octet::state_machine_core"` | `state_machine_exhaustiveness` | attribute marker that opts transition functions into explicit state/event matrix checks |
 | `state_machine_enum_marker` | `"octet::state_machine_enum"` | `fragile_exhaustive_enum_match`, `state_machine_exhaustiveness` | required marker for deliberately closed FSM state/event enums; missing markers fail closed in FSM transition cores |
