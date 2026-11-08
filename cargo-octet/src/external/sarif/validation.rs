@@ -131,7 +131,7 @@ fn parse_run(run: &serde_json::Value, profile: &Profile, diagnostics: &mut Diagn
         diagnostics.push("SARIF driver does not match selected producer profile");
     }
     let rules = driver.get("rules").and_then(serde_json::Value::as_array).map_or(&[][..], Vec::as_slice);
-    let rule_ids = declared_rules(rules, profile, diagnostics);
+    let rule_levels = declared_rules(rules, profile, diagnostics);
     let artifacts = run.get("artifacts").and_then(serde_json::Value::as_array).map_or(&[][..], Vec::as_slice);
     if artifacts.len() > profile.max_artifacts {
         diagnostics.push("SARIF artifact count exceeds profile limit");
@@ -143,47 +143,70 @@ fn parse_run(run: &serde_json::Value, profile: &Profile, diagnostics: &mut Diagn
         return findings;
     }
     for result in results {
-        if let Some(finding) = parse_result(result, profile, &rule_ids, artifacts, diagnostics) {
+        if let Some(finding) = parse_result(result, profile, &rule_levels, artifacts, diagnostics) {
             findings.push(finding);
         }
     }
     findings
 }
 
-fn declared_rules(
-    rules: &[serde_json::Value],
+/// Maps each declared rule id to its `defaultConfiguration.level`, when present.
+fn declared_rules<'a>(
+    rules: &'a [serde_json::Value],
     profile: &Profile,
     diagnostics: &mut Diagnostics,
-) -> std::collections::BTreeSet<String> {
-    let mut ids = std::collections::BTreeSet::new();
+) -> std::collections::BTreeMap<&'a str, Option<&'a str>> {
+    let mut levels = std::collections::BTreeMap::new();
     if rules.len() > profile.max_rules {
         diagnostics.push("SARIF rule count exceeds profile limit");
-        return ids;
+        return levels;
     }
     for rule in rules {
         let id = rule.get("id").and_then(serde_json::Value::as_str).unwrap_or_default();
+        let default_level = rule.pointer("/defaultConfiguration/level").and_then(serde_json::Value::as_str);
         if id.is_empty() {
             diagnostics.push("SARIF rule declaration is missing id");
-        } else if !ids.insert(id.to_owned()) {
+        } else if levels.insert(id, default_level).is_some() {
             diagnostics.push(format!("duplicate SARIF rule id `{id}`"));
         }
     }
-    ids
+    levels
 }
 
 fn parse_result(
     result: &serde_json::Value,
     profile: &Profile,
-    rule_ids: &std::collections::BTreeSet<String>,
+    rule_levels: &std::collections::BTreeMap<&str, Option<&str>>,
     artifacts: &[serde_json::Value],
     diagnostics: &mut Diagnostics,
 ) -> Option<Finding> {
     let rule_id = result.get("ruleId").and_then(serde_json::Value::as_str).unwrap_or_default();
-    if rule_id.is_empty() || !rule_ids.contains(rule_id) {
+    let Some(default_level) = rule_levels.get(rule_id) else {
         diagnostics.push("SARIF result ruleId is missing or undeclared");
         return None;
+    };
+    let explicit_level = result.get("level").and_then(serde_json::Value::as_str);
+    // SARIF 2.1.0 §3.27.9: an absent kind means `fail`; only `fail` results are findings.
+    match result.get("kind").and_then(serde_json::Value::as_str).unwrap_or("fail") {
+        "fail" => {}
+        kind @ ("pass" | "notApplicable" | "informational") => {
+            if explicit_level.is_some_and(|level| level != "none") {
+                diagnostics.push(format!("SARIF result `{rule_id}` of kind `{kind}` has a level other than `none`"));
+            }
+            return None;
+        }
+        kind @ ("review" | "open") => {
+            diagnostics.push(format!("SARIF result `{rule_id}` has undecided kind `{kind}`"));
+            return None;
+        }
+        kind => {
+            diagnostics.push(format!("SARIF result `{rule_id}` has unsupported kind `{kind}`"));
+            return None;
+        }
     }
-    let level = result.get("level").and_then(serde_json::Value::as_str).unwrap_or("warning");
+    // SARIF 2.1.0 §3.27.10: an absent level takes the rule's `defaultConfiguration.level`, then
+    // `warning`.
+    let level = explicit_level.or(*default_level).unwrap_or("warning");
     let Some(gate_severity) = mapped_level(level, &profile.source_levels) else {
         diagnostics.push(format!("SARIF result `{rule_id}` has unsupported level `{level}`"));
         return None;

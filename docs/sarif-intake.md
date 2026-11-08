@@ -25,7 +25,9 @@ A report contains one local run. The run contains a declared driver, declared ru
 
 Octet preserves the driver, rule ID, source level, message, path, line, and column. The normalized finding stores source level separately from Octet gate severity.
 
-Octet rejects malformed JSON, unsupported versions, unknown drivers, undeclared or duplicate rules, unsupported levels, remote URIs, absolute paths, traversal, bad indexes, missing regions, duplicate normalized findings, and over-limit input.
+Octet follows SARIF 2.1.0 result `kind` and `level` defaults. A result without `kind` is a `fail` result. A `fail` result without `level` takes the declared rule's `defaultConfiguration.level`, then `warning`. Octet does not import `pass`, `notApplicable`, or `informational` results and does not gate on them; such a result must omit `level` or set it to `none`. Octet rejects reports with undecided `review` or `open` results and with unknown kinds, because it cannot decide whether they should gate.
+
+Octet rejects malformed JSON, unsupported versions, unknown drivers, undeclared or duplicate rules, unsupported levels or kinds, remote URIs, absolute paths, traversal, bad indexes, missing regions, duplicate normalized findings, and over-limit input.
 
 ## Artifacts and privacy
 

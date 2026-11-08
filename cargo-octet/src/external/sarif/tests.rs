@@ -101,6 +101,63 @@ fn duplicate_overlimit_and_unsupported_severity_fail_closed() {
 }
 
 #[test]
+fn missing_result_level_uses_rule_default_configuration() {
+    let error_default = CODEQL_REPORT
+        .replace(
+            "{\"id\":\"rust/sql-injection\"}",
+            "{\"id\":\"rust/sql-injection\",\"defaultConfiguration\":{\"level\":\"error\"}}",
+        )
+        .replace("\"level\":\"warning\",", "");
+    let evaluation = evaluate(&error_default, "codeql-local");
+    assert!(evaluation.diagnostics.is_empty(), "{:?}", evaluation.diagnostics);
+    let details = evaluation.details.expect("rule-default details");
+    assert_eq!(details.findings[0].source_level, "error");
+    assert_eq!(details.findings[0].gate_severity, "error");
+
+    let explicit_wins = error_default.replace("\"ruleId\"", "\"level\":\"note\",\"ruleId\"");
+    let details = evaluate(&explicit_wins, "codeql-local").details.expect("explicit-level details");
+    assert_eq!(details.findings[0].source_level, "note");
+
+    let no_default = CODEQL_REPORT.replace("\"level\":\"warning\",", "");
+    let details = evaluate(&no_default, "codeql-local").details.expect("fallback details");
+    assert_eq!(details.findings[0].source_level, "warning");
+
+    let unsupported_default = error_default.replace("\"level\":\"error\"", "\"level\":\"critical\"");
+    assert!(evaluate(&unsupported_default, "codeql-local").details.is_none());
+}
+
+#[test]
+fn non_fail_result_kinds_do_not_gate_and_undecided_kinds_fail_closed() {
+    let with_kind = |kind: &str| {
+        CODEQL_REPORT.replace("\"level\":\"warning\",", &format!("\"kind\":\"{kind}\",")).replace(
+            "{\"id\":\"rust/sql-injection\"}",
+            "{\"id\":\"rust/sql-injection\",\"defaultConfiguration\":{\"level\":\"error\"}}",
+        )
+    };
+    for kind in ["pass", "notApplicable", "informational"] {
+        let evaluation = evaluate(&with_kind(kind), "codeql-local");
+        assert!(evaluation.diagnostics.is_empty(), "{kind}: {:?}", evaluation.diagnostics);
+        assert!(evaluation.details.expect("non-gating details").findings.is_empty(), "{kind} result was imported");
+    }
+    let explicit_none = with_kind("pass").replace("\"kind\"", "\"level\":\"none\",\"kind\"");
+    assert!(evaluate(&explicit_none, "codeql-local").details.expect("pass details").findings.is_empty());
+
+    let fail = evaluate(&with_kind("fail"), "codeql-local").details.expect("fail details");
+    assert_eq!(fail.findings[0].gate_severity, "error");
+
+    for invalid in [
+        with_kind("review"),
+        with_kind("open"),
+        with_kind("unexpected"),
+        with_kind("pass").replace("\"kind\"", "\"level\":\"error\",\"kind\""),
+    ] {
+        let evaluation = evaluate(&invalid, "codeql-local");
+        assert!(evaluation.details.is_none(), "invalid report passed: {invalid}");
+        assert!(!evaluation.diagnostics.is_empty());
+    }
+}
+
+#[test]
 fn profile_registry_and_projection_identity_are_fresh() {
     assert_eq!(prefixed_identity(PROFILE_JSON.as_bytes()), PROFILE_IDENTITY);
     for id in ["codeql-local", "semgrep-local"] {
