@@ -6,7 +6,21 @@ fn split_three(a: u32, b: u32, c: u32) {
     assert!(a > 0 && b > 0 && c > 0);
 }
 
+fn split_in_match_arm(v: Option<u32>) {
+    match v {
+        Some(x) => assert!(x > 0 && x < 9),
+        None => {}
+    }
+}
+
+fn split_in_closure(a: bool, b: bool) {
+    let check = || assert!(a && b);
+    check();
+}
+
 fn main() {
     split_pair(1, 2);
     split_three(1, 2, 3);
+    split_in_match_arm(Some(1));
+    split_in_closure(true, true);
 }

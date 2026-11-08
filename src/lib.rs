@@ -139,7 +139,7 @@ lint_inventory! {
     // Early passes (post-expansion, syntax-only).
     // compound_assertion detects the expanded `if !(a && b) { panic(..) }` pattern.
     "compound_assertion", safety::compound_assertion::COMPOUND_ASSERTION => |lint_store, _cfg| {
-        lint_store.register_early_pass(|| Box::new(safety::compound_assertion::CompoundAssertion));
+        lint_store.register_early_pass(|| Box::new(safety::compound_assertion::CompoundAssertion::default()));
     },
     "function_length", structure::function_length::FUNCTION_LENGTH => |lint_store, cfg| {
         let fl_max = cfg.function_length_max;

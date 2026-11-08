@@ -24,10 +24,22 @@ fn check_assert_eq(a: u32, b: u32) {
     assert_eq!(a, b);
 }
 
+fn check_message_literal(ready: bool) {
+    // Should NOT warn: `&&` only appears inside the panic message literal
+    assert!(ready, "left && right must hold");
+}
+
+fn check_message_args(ready: bool, a: bool, b: bool) {
+    // Should NOT warn: `||` only appears in the panic message arguments
+    assert!(ready, "state {}", a || b);
+}
+
 fn main() {
     check_bounds(1, 2);
     check_either(1, 2);
     check_ok(1, 2);
     check_closure(vec![1, 2, 3]);
     check_assert_eq(1, 1);
+    check_message_literal(true);
+    check_message_args(true, true, false);
 }

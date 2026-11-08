@@ -4,8 +4,8 @@ use rustc_errors::Applicability;
 use rustc_lint::EarlyContext;
 use rustc_lint::EarlyLintPass;
 use rustc_lint::LintContext;
-use rustc_session::declare_lint_pass;
 use rustc_session::declare_tool_lint;
+use rustc_session::impl_lint_pass;
 use rustc_span::Span;
 
 use crate::diagnostics::LintSuggestion;
@@ -22,7 +22,15 @@ declare_tool_lint! {
     "compound assertion should be split into separate assertions"
 }
 
-declare_lint_pass!(CompoundAssertion => [COMPOUND_ASSERTION]);
+#[derive(Default)]
+pub struct CompoundAssertion {
+    /// Expression of the statement entered most recently. The early lint visitor
+    /// runs `check_stmt` immediately before `check_expr` on that expression, so a
+    /// matching id means the expanded `assert!` sits in statement position.
+    statement_expr: Option<rustc_ast::NodeId>,
+}
+
+impl_lint_pass!(CompoundAssertion => [COMPOUND_ASSERTION]);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum TopLevelBooleanOp {
@@ -37,7 +45,78 @@ struct TopLevelAssertionSplit {
     has_trailing_semicolon: bool,
 }
 
-/// Scan a macro-call snippet for top-level `&&` or `||` inside `assert!(...)`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum TopLevelToken {
+    Op(TopLevelBooleanOp),
+    Comma,
+}
+
+/// Whether the text after an opening `'` starts a char literal rather than a lifetime.
+fn is_char_literal_start(rest: &str) -> bool {
+    let mut chars = rest.chars();
+    match chars.next() {
+        Some('\\') => true,
+        Some(_) => chars.next() == Some('\''),
+        None => false,
+    }
+}
+
+/// Scan for top-level `&&`, `||`, and `,` tokens outside nested delimiters and
+/// string/char literals. Scanning stops at the first unmatched closing delimiter,
+/// which ends a macro's arguments when `text` starts right after its opening `(`.
+/// Returns the tokens with their byte offsets plus the offset where scanning
+/// stopped, or `None` when a literal or delimiter is left open.
+fn scan_top_level_tokens(text: &str) -> Option<(Vec<(usize, TopLevelToken)>, usize)> {
+    let mut depth = 0usize;
+    let mut tokens = Vec::new();
+    let mut chars = text.char_indices().peekable();
+    let mut in_string = false;
+    let mut in_char = false;
+    let mut escaped = false;
+
+    while let Some((idx, ch)) = chars.next() {
+        if in_string || in_char {
+            if escaped {
+                escaped = false;
+            } else {
+                match ch {
+                    '\\' => escaped = true,
+                    '"' if in_string => in_string = false,
+                    '\'' if in_char => in_char = false,
+                    _ => {}
+                }
+            }
+            continue;
+        }
+
+        match ch {
+            '"' => in_string = true,
+            '\'' => in_char = is_char_literal_start(&text[idx + 1..]),
+            '(' | '[' | '{' => depth += 1,
+            ')' | ']' | '}' => {
+                let Some(outer) = depth.checked_sub(1) else {
+                    return Some((tokens, idx));
+                };
+                depth = outer;
+            }
+            ',' if depth == 0 => tokens.push((idx, TopLevelToken::Comma)),
+            '&' | '|' if depth == 0 && chars.peek().is_some_and(|&(_, next)| next == ch) => {
+                chars.next();
+                let op = if ch == '&' {
+                    TopLevelBooleanOp::And
+                } else {
+                    TopLevelBooleanOp::Or
+                };
+                tokens.push((idx, TopLevelToken::Op(op)));
+            }
+            _ => {}
+        }
+    }
+
+    (!in_string && !in_char && depth == 0).then_some((tokens, text.len()))
+}
+
+/// Scan a macro-call snippet for top-level `&&` or `||` in the condition of `assert!(...)`.
 ///
 /// We work from the callsite source text because Dylint does not reliably run
 /// pre-expansion passes. The expanded AST still carries the original macro
@@ -46,26 +125,15 @@ fn has_top_level_compound_assertion(snippet: &str) -> bool {
     let Some(rest) = snippet.strip_prefix("assert!(") else {
         return false;
     };
+    let Some((tokens, _)) = scan_top_level_tokens(rest) else {
+        return false;
+    };
 
-    let mut depth = 1usize;
-    let mut chars = rest.chars().peekable();
-
-    while let Some(ch) = chars.next() {
-        match ch {
-            '(' | '[' | '{' => depth += 1,
-            ')' | ']' | '}' => {
-                depth = depth.saturating_sub(1);
-                if depth == 0 {
-                    break;
-                }
-            }
-            '&' if depth == 1 && chars.peek() == Some(&'&') => return true,
-            '|' if depth == 1 && chars.peek() == Some(&'|') => return true,
-            _ => {}
-        }
-    }
-
-    false
+    // The condition ends at the first top-level comma; the rest is the panic message.
+    tokens
+        .iter()
+        .take_while(|(_, token)| *token != TopLevelToken::Comma)
+        .any(|(_, token)| matches!(token, TopLevelToken::Op(_)))
 }
 
 fn top_level_assertion_split(snippet: &str) -> Option<TopLevelAssertionSplit> {
@@ -89,76 +157,25 @@ fn top_level_assertion_split(snippet: &str) -> Option<TopLevelAssertionSplit> {
 }
 
 fn parse_top_level_boolean_clauses(body: &str) -> Option<(TopLevelBooleanOp, Vec<String>)> {
-    let mut depth = 0usize;
+    let (tokens, end) = scan_top_level_tokens(body)?;
+    if end != body.len() {
+        return None;
+    }
+
     let mut start = 0usize;
     let mut op = None;
     let mut clauses = Vec::new();
-    let mut chars = body.char_indices().peekable();
-    let mut in_string = false;
-    let mut in_char = false;
-    let mut escaped = false;
-
-    while let Some((idx, ch)) = chars.next() {
-        if in_string {
-            if escaped {
-                escaped = false;
-            } else {
-                match ch {
-                    '\\' => escaped = true,
-                    '"' => in_string = false,
-                    _ => {}
-                }
-            }
-            continue;
+    for (idx, token) in tokens {
+        // A top-level comma means a custom panic message follows the condition.
+        let TopLevelToken::Op(token_op) = token else {
+            return None;
+        };
+        if op.is_some_and(|current| current != token_op) {
+            return None;
         }
-
-        if in_char {
-            if escaped {
-                escaped = false;
-            } else {
-                match ch {
-                    '\\' => escaped = true,
-                    '\'' => in_char = false,
-                    _ => {}
-                }
-            }
-            continue;
-        }
-
-        match ch {
-            '"' => in_string = true,
-            '\'' => in_char = true,
-            '(' | '[' | '{' => depth += 1,
-            ')' | ']' | '}' => depth = depth.checked_sub(1)?,
-            ',' if depth == 0 => return None,
-            '&' if depth == 0 => {
-                if let Some((next_idx, '&')) = chars.peek().copied() {
-                    chars.next();
-                    if matches!(op, Some(TopLevelBooleanOp::Or)) {
-                        return None;
-                    }
-                    op = Some(TopLevelBooleanOp::And);
-                    clauses.push(body[start..idx].trim().to_owned());
-                    start = next_idx + 1;
-                }
-            }
-            '|' if depth == 0 => {
-                if let Some((next_idx, '|')) = chars.peek().copied() {
-                    chars.next();
-                    if matches!(op, Some(TopLevelBooleanOp::And)) {
-                        return None;
-                    }
-                    op = Some(TopLevelBooleanOp::Or);
-                    clauses.push(body[start..idx].trim().to_owned());
-                    start = next_idx + 1;
-                }
-            }
-            _ => {}
-        }
-    }
-
-    if in_string || in_char || depth != 0 {
-        return None;
+        op = Some(token_op);
+        clauses.push(body[start..idx].trim().to_owned());
+        start = idx + 2;
     }
 
     let op = op?;
@@ -170,25 +187,45 @@ fn parse_top_level_boolean_clauses(body: &str) -> Option<(TopLevelBooleanOp, Vec
     Some((op, clauses))
 }
 
-fn compound_assertion_suggestion(cx: &EarlyContext<'_>, callsite: Span, snippet: &str) -> Option<LintSuggestion> {
+fn compound_assertion_suggestion(
+    cx: &EarlyContext<'_>,
+    callsite: Span,
+    snippet: &str,
+    is_statement: bool,
+) -> Option<LintSuggestion> {
     let split = top_level_assertion_split(snippet)?;
     if split.op != TopLevelBooleanOp::And || split.clauses.len() < 2 {
         return None;
     }
 
-    let indent = " ".repeat(cx.sess().source_map().lookup_char_pos(callsite.lo()).col.0);
-    let replacement = format!("assert!({})", split.clauses[0]);
-    let mut tail = String::new();
-    for (index, clause) in split.clauses.iter().enumerate().skip(1) {
-        tail.push_str(";\n");
-        tail.push_str(&indent);
-        tail.push_str("assert!(");
-        tail.push_str(clause);
-        tail.push(')');
-        if index + 1 == split.clauses.len() && split.has_trailing_semicolon {
-            tail.push(';');
+    let (replacement, tail) = if is_statement {
+        let indent = " ".repeat(cx.sess().source_map().lookup_char_pos(callsite.lo()).col.0);
+        let replacement = format!("assert!({})", split.clauses[0]);
+        let mut tail = String::new();
+        for (index, clause) in split.clauses.iter().enumerate().skip(1) {
+            tail.push_str(";\n");
+            tail.push_str(&indent);
+            tail.push_str("assert!(");
+            tail.push_str(clause);
+            tail.push(')');
+            if index + 1 == split.clauses.len() && split.has_trailing_semicolon {
+                tail.push(';');
+            }
         }
-    }
+        (replacement, tail)
+    } else {
+        // Outside statement position (match arm, closure body, ...) no `;` may follow
+        // the call, so keep a single unit-typed block expression.
+        let replacement = format!("{{ assert!({})", split.clauses[0]);
+        let mut tail = String::new();
+        for clause in split.clauses.iter().skip(1) {
+            tail.push_str("; assert!(");
+            tail.push_str(clause);
+            tail.push(')');
+        }
+        tail.push_str(" }");
+        (replacement, tail)
+    };
 
     Some(LintSuggestion::Multipart {
         message: "split into separate assertions".to_owned(),
@@ -198,6 +235,13 @@ fn compound_assertion_suggestion(cx: &EarlyContext<'_>, callsite: Span, snippet:
 }
 
 impl EarlyLintPass for CompoundAssertion {
+    fn check_stmt(&mut self, _cx: &EarlyContext<'_>, stmt: &rustc_ast::Stmt) {
+        self.statement_expr = match &stmt.kind {
+            rustc_ast::StmtKind::Expr(expr) | rustc_ast::StmtKind::Semi(expr) => Some(expr.id),
+            _ => None,
+        };
+    }
+
     fn check_expr(&mut self, cx: &EarlyContext<'_>, expr: &Expr) {
         // Only inspect expressions originating from macro expansion.
         if !expr.span.from_expansion() {
@@ -225,7 +269,8 @@ impl EarlyLintPass for CompoundAssertion {
             return;
         }
 
-        if let Some(suggestion) = compound_assertion_suggestion(cx, callsite, trimmed) {
+        let is_statement = self.statement_expr == Some(expr.id);
+        if let Some(suggestion) = compound_assertion_suggestion(cx, callsite, trimmed, is_statement) {
             emit_tiger_style_lint_with_suggestion(
                 cx,
                 COMPOUND_ASSERTION,
@@ -260,6 +305,16 @@ mod tests {
         assert!(!has_top_level_compound_assertion("assert!(a)"));
         assert!(!has_top_level_compound_assertion("assert!(items.iter().all(|x| x > 0 && x < 10))"));
         assert!(!has_top_level_compound_assertion("debug_assert!(a && b)"));
+    }
+
+    #[test]
+    fn scans_only_the_condition_outside_literals() {
+        assert!(!has_top_level_compound_assertion("assert!(ready, \"left && right must hold\")"));
+        assert!(!has_top_level_compound_assertion("assert!(ready, \"state {}\", a || b)"));
+        assert!(!has_top_level_compound_assertion("assert!(c == '|' , \"pipe\")"));
+        assert!(has_top_level_compound_assertion("assert!(a && b, \"bounds broke\")"));
+        assert!(has_top_level_compound_assertion("assert!(c == '\"' && d)"));
+        assert!(has_top_level_compound_assertion("assert!(f::<'static>() && b)"));
     }
 
     #[test]
