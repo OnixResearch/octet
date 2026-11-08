@@ -111,6 +111,22 @@ impl Deref for AliasHandle {
     }
 }
 
+mod private_mod {
+    use std::ops::Deref;
+
+    pub struct HiddenHandle {
+        pub(super) inner: super::Engine,
+    }
+
+    impl Deref for HiddenHandle {
+        type Target = super::Engine;
+
+        fn deref(&self) -> &Self::Target {
+            &self.inner
+        }
+    }
+}
+
 fn main() {
     let handle = EngineHandle {
         inner: Engine { value: 1 },

@@ -34,7 +34,7 @@ LL + pub fn platform_len() -> u64 {
    |
 
 warning: `usize` in public API — use `u32` or `u64` for cross-platform consistency
-  --> $DIR/usize_in_public_api.rs:16:5
+  --> $DIR/usize_in_public_api.rs:32:5
    |
 LL | /     pub fn slot(&self, idx: usize) -> usize {
 LL | |         idx

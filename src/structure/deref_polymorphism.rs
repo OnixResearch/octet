@@ -44,7 +44,7 @@ fn self_type_is_public_local(cx: &LateContext<'_>, self_ty: &hir::Ty<'_>) -> boo
         return false;
     };
 
-    cx.tcx.visibility(local_def_id).is_public()
+    cx.effective_visibilities.is_exported(local_def_id)
 }
 
 fn target_type<'tcx>(cx: &LateContext<'tcx>, impl_block: &hir::Impl<'tcx>) -> Option<&'tcx hir::Ty<'tcx>> {

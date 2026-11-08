@@ -217,7 +217,10 @@ signature is dictated by the trait, including but not limited to `Index`,
 `IndexMut`, `Iterator::nth`, and `Read::read`.
 
 The lint MUST NOT fire on private functions or on restricted-visibility items
-such as `pub(crate)` and `pub(super)`.
+such as `pub(crate)` and `pub(super)`. Visibility is the item's effective
+visibility: a `pub fn` in a private module that is not re-exported, or a
+`pub fn` method on a private type, is not part of the public API and MUST NOT
+fire, while crate-root `pub` items and public re-exports still do.
 
 #### Scenario: Public function with usize parameter
 
@@ -334,7 +337,7 @@ The structure lint inventory MUST include an advisory `deref_polymorphism` lint 
 
 #### Scenario: Accepted Deref targets do not warn [r[deref-polymorphism-lint.accepted-targets]]
 
-- GIVEN private wrappers, non-`Deref` impls, `Deref<Target = str>`, `Deref<Target = [T]>`, or a generic guard such as `impl<T> Deref for Guard<'_, T> { type Target = T; }`
+- GIVEN private wrappers (including `pub` wrappers in private modules that are not re-exported), non-`Deref` impls, `Deref<Target = str>`, `Deref<Target = [T]>`, or a generic guard such as `impl<T> Deref for Guard<'_, T> { type Target = T; }`
 - WHEN Tigerstyle analyzes the crate
 - THEN `tigerstyle::deref_polymorphism` MUST NOT warn for those accepted borrowed-view or non-public cases
 

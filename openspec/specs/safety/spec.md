@@ -959,9 +959,9 @@ and block completion until the docs are corrected.
 
 The lint MUST be able to warn when normal Rust public APIs expose `unsafe fn` directly instead of containing the unsafe operation behind a safe public wrapper and a small private unsafe helper.
 
-The first implementation MUST cover public free functions and public inherent methods declared `unsafe fn` when the signature uses the normal Rust ABI.
+The first implementation MUST cover public free functions and public inherent methods declared `unsafe fn` when the signature uses the normal Rust ABI. "Public" means exported from the crate (effective visibility): a `pub` item at the crate root or re-exported through public paths is public, while a `pub` item on a private type or in a private module that is not re-exported is not.
 
-The lint MUST NOT warn on private unsafe functions, trait-dictated methods, FFI or exported `extern` shims, macro-generated signatures, or test-context fixtures in the first implementation scope.
+The lint MUST NOT warn on private or restricted-visibility unsafe functions (including `pub` items that are not exported from the crate), trait-dictated methods, FFI or exported `extern` shims, macro-generated signatures, or test-context fixtures in the first implementation scope.
 
 The lint MUST emit advisory or warning-level diagnostics without a machine-applicable suggestion because removing `unsafe` or wrapping the API requires human review of the safety contract.
 
@@ -982,6 +982,12 @@ The lint MUST emit advisory or warning-level diagnostics without a machine-appli
 - GIVEN a safe public wrapper that delegates to a private `unsafe fn` helper
 - WHEN the lint runs
 - THEN it does NOT warn because the unsafe obligation is contained inside the module boundary
+
+#### Scenario: Unexported pub unsafe function is accepted [r[public-unsafe-api-lint.scenario.unexported-pub-accepted]]
+
+- GIVEN `mod raw { pub unsafe fn read_raw(ptr: *const u8) -> u8 { ... } }` with no public re-export, or `pub unsafe fn` on a private type
+- WHEN the lint runs
+- THEN it does NOT warn because the function is not exported from the crate
 
 #### Scenario: FFI shim is accepted [r[public-unsafe-api-lint.scenario.ffi-shim-accepted]]
 
