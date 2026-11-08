@@ -31,7 +31,7 @@ The Nickel source of truth is `standards/effect-closure/catalog.ncl`; runtime Ru
 | `ffi` | foreign function boundary | denied |
 | `unknown` | opaque or unresolved source shape | denied |
 
-Direct effects cannot be erased by a call summary. Every macro invocation remains `unknown` in v1 because `syn` does not expand or recursively analyze arbitrary macro tokens; known allocation or panic macros also retain their obvious effect. Conditional compilation, async/await, ambiguous calls, unsupported syntax, and other opaque shapes remain fail-closed. A future HIR/MIR resolver must use a new evidence version rather than silently broadening this claim.
+Direct effects cannot be erased by a call summary. Every macro invocation remains `unknown` in v1 because `syn` does not expand or recursively analyze arbitrary macro tokens; known allocation or panic macros also retain their obvious effect. Conditional compilation, async/await, ambiguous calls, unsupported syntax, and other opaque shapes remain fail-closed. `cfg` or `cfg_attr` on a function, inside its body, or on an enclosing `impl`, trait, inline module, or file (`#![cfg(...)]`) makes that function `unknown`. A future HIR/MIR resolver must use a new evidence version rather than silently broadening this claim.
 
 ## Workspace policy
 

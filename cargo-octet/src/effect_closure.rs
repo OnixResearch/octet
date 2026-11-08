@@ -327,6 +327,7 @@ struct FunctionDraft {
     name: String,
     module: Vec<String>,
     container: FunctionContainer,
+    conditional: bool,
     attrs: Vec<syn::Attribute>,
     signature: syn::Signature,
     block: syn::Block,
@@ -371,6 +372,8 @@ enum RawCallKind {
 struct FunctionCollector {
     functions: Vec<CollectedFunction>,
     module: Vec<String>,
+    /// Whether an enclosing file, module, impl, or trait carries `cfg`/`cfg_attr`.
+    conditional: bool,
 }
 
 #[derive(Clone)]
@@ -378,6 +381,7 @@ struct CollectedFunction {
     name: String,
     module: Vec<String>,
     container: FunctionContainer,
+    conditional: bool,
     attrs: Vec<syn::Attribute>,
     signature: syn::Signature,
     block: syn::Block,
@@ -393,10 +397,25 @@ struct BodyScanner<'a> {
 // items and does not descend into function bodies. Items nested in a body belong to the enclosing
 // function, whose body scan already covers their tokens.
 impl<'ast> Visit<'ast> for FunctionCollector {
+    fn visit_file(&mut self, node: &'ast syn::File) {
+        self.conditional |= has_conditional_compilation(&node.attrs);
+        syn::visit::visit_file(self, node);
+    }
+
     fn visit_item_mod(&mut self, node: &'ast syn::ItemMod) {
+        let enclosing_conditional = self.conditional;
+        self.conditional |= has_conditional_compilation(&node.attrs);
         self.module.push(node.ident.to_string());
         syn::visit::visit_item_mod(self, node);
         self.module.pop();
+        self.conditional = enclosing_conditional;
+    }
+
+    fn visit_item_trait(&mut self, node: &'ast syn::ItemTrait) {
+        let enclosing_conditional = self.conditional;
+        self.conditional |= has_conditional_compilation(&node.attrs);
+        syn::visit::visit_item_trait(self, node);
+        self.conditional = enclosing_conditional;
     }
 
     fn visit_item_fn(&mut self, node: &'ast syn::ItemFn) {
@@ -404,6 +423,7 @@ impl<'ast> Visit<'ast> for FunctionCollector {
             name: node.sig.ident.to_string(),
             module: self.module.clone(),
             container: FunctionContainer::Module,
+            conditional: self.conditional,
             attrs: node.attrs.clone(),
             signature: node.sig.clone(),
             block: (*node.block).clone(),
@@ -415,12 +435,14 @@ impl<'ast> Visit<'ast> for FunctionCollector {
             (None, Some(owner)) => FunctionContainer::InherentImpl(owner),
             _ => FunctionContainer::Dispatched,
         };
+        let conditional = self.conditional || has_conditional_compilation(&node.attrs);
         for item in &node.items {
             if let syn::ImplItem::Fn(function) = item {
                 self.functions.push(CollectedFunction {
                     name: function.sig.ident.to_string(),
                     module: self.module.clone(),
                     container: container.clone(),
+                    conditional,
                     attrs: function.attrs.clone(),
                     signature: function.sig.clone(),
                     block: function.block.clone(),
@@ -435,12 +457,21 @@ impl<'ast> Visit<'ast> for FunctionCollector {
                 name: node.sig.ident.to_string(),
                 module: self.module.clone(),
                 container: FunctionContainer::Dispatched,
+                conditional: self.conditional,
                 attrs: node.attrs.clone(),
                 signature: node.sig.clone(),
                 block: block.clone(),
             });
         }
     }
+}
+
+fn has_conditional_compilation(attrs: &[syn::Attribute]) -> bool {
+    attrs.iter().any(is_conditional_compilation)
+}
+
+fn is_conditional_compilation(attribute: &syn::Attribute) -> bool {
+    attribute.path().is_ident("cfg") || attribute.path().is_ident("cfg_attr")
 }
 
 impl<'a> BodyScanner<'a> {
@@ -460,7 +491,7 @@ impl<'a> BodyScanner<'a> {
 
 impl<'ast> Visit<'ast> for BodyScanner<'_> {
     fn visit_attribute(&mut self, node: &'ast syn::Attribute) {
-        if node.path().is_ident("cfg") || node.path().is_ident("cfg_attr") {
+        if is_conditional_compilation(node) {
             self.direct_effects.insert(Effect::Unknown);
         }
         syn::visit::visit_attribute(self, node);
@@ -1110,6 +1141,7 @@ fn parse_function_drafts(sources: &[SourceEnvelope], diagnostics: &mut Vec<Closu
                     name: function.name,
                     module: function.module,
                     container: function.container,
+                    conditional: function.conditional,
                     attrs: function.attrs,
                     signature: function.signature,
                     block: function.block,
@@ -1240,7 +1272,7 @@ fn build_nodes(
 
     for function in functions {
         let mut scanner = BodyScanner::new(&foreign_functions);
-        if function.draft.signature.asyncness.is_some() {
+        if function.draft.conditional || function.draft.signature.asyncness.is_some() {
             scanner.direct_effects.insert(Effect::Unknown);
         }
         if function.draft.signature.unsafety.is_some() {
@@ -2269,5 +2301,22 @@ unsafe fn risky(values: &[u8]) -> u8 {
         assert!(!panicking.diagnostics.iter().any(|diagnostic| diagnostic.code == DIAGNOSTIC_ADDRESS_MISSING));
         assert_eq!(panicking.nodes.len(), 1);
         assert!(panicking.nodes[0].direct_effects.contains(&Effect::Panic));
+    }
+
+    // r[verify octet.effect_closure.inference.unknown]
+    #[test]
+    fn enclosing_conditional_compilation_makes_functions_unknown() {
+        for source in [
+            "#![cfg(feature = \"special\")]\nfn root() {}\n",
+            "#[cfg(feature = \"special\")]\nmod gated {\n    fn root() {}\n}\n",
+            "mod gated {\n    #![cfg(test)]\n    fn root() {}\n}\n",
+            "struct Tick;\n#[cfg(feature = \"special\")]\nimpl Tick {\n    fn root() {}\n}\n",
+            "struct Tick;\n#[cfg_attr(test, allow(dead_code))]\nimpl Tick {\n    fn root() {}\n}\n",
+            "#[cfg(test)]\ntrait Gate {\n    fn root(&self) {}\n}\n",
+        ] {
+            let receipt = compute_closure(input(source, vec![address("root", '1')], policy(Vec::new())));
+            assert_eq!(receipt.status, AdmissionStatus::Denied, "{source}");
+            assert!(receipt.nodes[0].direct_effects.contains(&Effect::Unknown), "{source}");
+        }
     }
 }
