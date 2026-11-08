@@ -6,6 +6,60 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## Unreleased: exit codes, evidence rails, verify, standards, and purity lint fixes
+
+Behaviour and format changes:
+
+- `cargo octet check` exits `1`, as documented, when denied Octet lints make
+  rustc fail the compile. Any other compiler error, an internal compiler error,
+  or a signal still exits `2`. `--write-baseline` writes only from a complete
+  scan: when denied lints stop Cargo it writes nothing and exits `2`.
+- `--baseline`, `--write-baseline`, and the `--cache` directory must lie
+  outside `--artifact-dir`, and `check` reuses only an earlier check bundle,
+  never a prove or admission bundle.
+- `templates/cargo-alias.toml`, which Cargo cannot run, is replaced by a
+  `templates/octet-check.sh` wrapper; the gate-posture docs no longer describe
+  bypass flags that do not exist.
+- The `cargo-llvm-cov-octet-lib` coverage profile passes `--branch`, so its
+  identity changes; cargo-llvm-cov export versions 2.0.1 and 3.1.0 are
+  accepted.
+- `benchmark-evidence` requires `--profile`, `dynamic-evidence` imports take
+  their command and signal from the built-in Miri and Loom profiles, and
+  Clippy run mode rejects `--command` even without a profile.
+
+Fixes:
+
+- Lines that are not JSON on Cargo's stdout, such as proc-macro output, no
+  longer abort `cargo octet check`.
+- Evidence rails resolve relative `--config` and `--baseline` paths against
+  `--workspace-root`, record the api-stability `--baseline-root` path (baseline
+  directories get a tree identity), read cargo-mutants' native missed-mutant
+  fields, reject role promotion such as `formal_proof` in any spelling, and
+  reject empty verifier-fixture sets. A failing Hegel property under `--run`
+  produces a failed receipt with a bounded counterexample.
+- `cargo octet artifact verify` refuses a `--emit-valence-provenance` path
+  inside the verified bundle, checks `status.json` `phases.effect_closure`
+  against the receipt, binds evidence-rail and `formal_proof` records to the
+  scope their receipt records, and honours `evidence-log-manifest.json` only in
+  prove bundles.
+- `octet-standards check` fails closed when the architecture family cannot get
+  a crate graph from `cargo metadata`, fails executed proof receipts with a
+  non-zero exit status, checks every declared core and shell crate, treats an
+  empty dependency-edge scope as normal plus build dependencies,
+  requires `--execute-proof-rails` for `--proof-artifact-dir`, and skips files
+  that are not UTF-8 during directory walks.
+- Purity lints: `zero_alloc_attr_contract` no longer crashes rustc on nested
+  constants, array lengths with calls, or nested functions.
+  `resource_return_from_core` checks resolved return types, so `SocketAddr` or
+  a local `Command` enum stay clean and a `File` in a tuple or alias is caught.
+  `global_state_in_core` flags `static` and `thread_local!` declarations once
+  each, `missing_const_fn` skips trait methods and functions that call non-const
+  code, `logging_in_core` catches `print!` and `eprint!`, and `ambient_random`
+  accepts `fastrand::Rng::with_seed(seed)`.
+- `multi_lock_ordering` recognises `parking_lot` locks and locks behind `Arc`,
+  and `non_trait_imports` treats `use std::hash::Hash;`-style trait plus derive
+  imports as trait imports.
+
 ## Unreleased: shard freshness, lint, config, proof, Wasm, and admission fixes
 
 Behaviour and format changes:
