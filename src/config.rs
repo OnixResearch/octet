@@ -199,6 +199,10 @@ pub struct Config {
     /// Validated per-lint severity overrides used during registration.
     #[serde(skip)]
     validated_lint_levels: HashMap<String, LintLevel>,
+
+    /// Lints whose validated level is a selected strict-profile floor.
+    #[serde(skip)]
+    profile_floor_lints: BTreeSet<String>,
 }
 
 impl Default for Config {
@@ -226,6 +230,7 @@ impl Default for Config {
             nominal_domain_mode: None,
             lint_levels: HashMap::new(),
             validated_lint_levels: HashMap::new(),
+            profile_floor_lints: BTreeSet::new(),
         }
     }
 }
@@ -243,6 +248,29 @@ impl Config {
     #[must_use]
     pub fn lint_level(&self, lint_name: &str) -> Option<LintLevel> {
         self.validated_lint_levels.get(lint_name).copied()
+    }
+
+    /// Merges config-owned lint levels into rustc's command-line lint options.
+    ///
+    /// rustc applies `lint_opts` in order and the last entry for a lint wins.
+    /// Consumer `lint_levels` and the nominal-domain mode go before the
+    /// existing options, so explicit command-line `-A`/`-W`/`-D` flags win over
+    /// `dylint.toml`. Selected strict-profile denies go after them, so the
+    /// profile floor stays authoritative.
+    pub(crate) fn merge_into_lint_opts(&self, lint_opts: &mut Vec<(String, rustc_lint::Level)>) {
+        let mut consumer_levels = Vec::new();
+        for lint in crate::LINT_INVENTORY {
+            let Some(level) = self.lint_level(lint.name) else {
+                continue;
+            };
+            let option = (lint.name.to_owned(), level.rustc_level());
+            if self.profile_floor_lints.contains(lint.name) {
+                lint_opts.push(option);
+            } else {
+                consumer_levels.push(option);
+            }
+        }
+        lint_opts.splice(0..0, consumer_levels);
     }
 
     #[must_use]
@@ -288,6 +316,7 @@ impl Config {
         }
         for lint_name in &profile.required_lints {
             self.validated_lint_levels.insert(lint_name.clone(), LintLevel::Deny);
+            self.profile_floor_lints.insert(lint_name.clone());
         }
         Ok(())
     }
@@ -924,6 +953,48 @@ function_length = "warn"
         for lint_name in NOMINAL_DOMAIN_LINTS {
             assert_eq!(cfg.lint_level(lint_name), Some(LintLevel::Deny));
         }
+    }
+
+    fn command_line_level(lint_opts: &[(String, rustc_lint::Level)], lint_name: &str) -> Option<rustc_lint::Level> {
+        lint_opts.iter().rev().find(|(name, _)| name == lint_name).map(|(_, level)| *level)
+    }
+
+    #[test]
+    fn explicit_command_line_levels_win_over_consumer_lint_levels() {
+        let (cfg, warnings) =
+            parse_and_validate("[octet.lint_levels]\nnumeric_units = \"warn\"\nno_unwrap = \"deny\"\n");
+        assert!(warnings.is_empty(), "unexpected warnings: {warnings:?}");
+        let mut lint_opts = vec![
+            ("unknown_lints".to_owned(), rustc_lint::Level::Deny),
+            ("numeric_units".to_owned(), rustc_lint::Level::Deny),
+        ];
+
+        cfg.merge_into_lint_opts(&mut lint_opts);
+
+        assert_eq!(command_line_level(&lint_opts, "numeric_units"), Some(rustc_lint::Level::Deny));
+        assert_eq!(command_line_level(&lint_opts, "no_unwrap"), Some(rustc_lint::Level::Deny));
+        assert_eq!(lint_opts[2..], [
+            ("unknown_lints".to_owned(), rustc_lint::Level::Deny),
+            ("numeric_units".to_owned(), rustc_lint::Level::Deny),
+        ]);
+    }
+
+    #[test]
+    fn strict_profile_floor_wins_over_command_line_weakening() {
+        let mut cfg = parse_config("[octet.lint_levels]\nno_panic = \"allow\"\nfunction_length = \"warn\"\n");
+        let diagnostics = cfg.validate_diagnostics();
+        assert!(diagnostics.is_empty(), "fixture config should validate: {diagnostics:?}");
+        let profile = octet_lint_metadata::strict_profile::strict_profile("robust").expect("robust profile");
+        cfg.apply_strict_profile(&profile).expect("robust profile should apply");
+        let mut lint_opts = vec![
+            ("no_panic".to_owned(), rustc_lint::Level::Allow),
+            ("function_length".to_owned(), rustc_lint::Level::Allow),
+        ];
+
+        cfg.merge_into_lint_opts(&mut lint_opts);
+
+        assert_eq!(command_line_level(&lint_opts, "no_panic"), Some(rustc_lint::Level::Deny));
+        assert_eq!(command_line_level(&lint_opts, "function_length"), Some(rustc_lint::Level::Allow));
     }
 
     #[test]

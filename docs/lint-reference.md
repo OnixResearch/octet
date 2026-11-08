@@ -46,6 +46,7 @@ Rules to keep straight:
 - source attrs and domain groups currently use `tigerstyle::...` until the namespace migration lands
 - `disabled_lints` and `[octet.lint_levels]` use bare lint names
 - `disabled_lints` wins over `lint_levels`
+- explicit command-line levels such as `-D numeric_units` in `DYLINT_RUSTFLAGS` win over `lint_levels`; a selected strict profile's required denies win over both
 - allow-by-default lints can be turned on with `#![warn(...)]` or a lint-level override
 - standalone raw-rustc crates and UI fixtures that use tool-scoped attrs need:
 

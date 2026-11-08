@@ -103,6 +103,7 @@
     "nominal_domain_compile_pass",
     "nondeterministic_output",
     "numeric_units",
+    "numeric_units_cli_deny_custom/numeric_units_cli_deny_custom",
     "newtype_invariant_bypass",
     "newtype_invariant_safe",
     "platform_dependent_cast",
@@ -170,6 +171,7 @@
     "no_unwrap_deny_custom/no_unwrap_deny_custom",
     "no_unwrap_tool_attr",
     "nominal_domain_compile_fail",
+    "numeric_units_cli_deny_custom/numeric_units_cli_deny_custom",
     "verified/verified_purity"
   ],
   "canonical_tool_group_fixtures": [
@@ -205,6 +207,7 @@
     "no_unwrap_deny_custom/no_unwrap_deny_custom",
     "no_unwrap_default_custom/no_unwrap_default_custom",
     "no_unwrap_disabled_deny_custom/no_unwrap_disabled_deny_custom",
-    "no_unwrap_disabled_source_attr_custom/no_unwrap_disabled_source_attr_custom"
+    "no_unwrap_disabled_source_attr_custom/no_unwrap_disabled_source_attr_custom",
+    "numeric_units_cli_deny_custom/numeric_units_cli_deny_custom"
   ]
 }

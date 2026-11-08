@@ -122,6 +122,8 @@ Per-lint config rules to preserve in every consumer example:
 - unknown lint names and invalid level values warn and are ignored
 - `disabled_lints` wins over `lint_levels` and source-level lint attrs because
   disabled lints are not registered
+- explicit command-line levels such as `-D numeric_units` in
+  `DYLINT_RUSTFLAGS` win over `lint_levels`
 
 Nominal domains use one additional staged control:
 

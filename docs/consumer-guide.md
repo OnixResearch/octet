@@ -286,7 +286,9 @@ repos:
 The deny-all behavior comes from `DYLINT_RUSTFLAGS`: the hook appends
 `-D unknown_lints` plus `-D <lint-name>` for every current Octet/Tiger Style
 lint. This activates allow-by-default Octet lints and promotes warning lints to
-hard errors without promoting unrelated rustc warnings. Do not use
+hard errors without promoting unrelated rustc warnings. Explicit command-line
+lint levels win over `[octet.lint_levels]`, so a consumer `numeric_units =
+"warn"` entry cannot weaken the hook's `-D numeric_units`. Do not use
 `disabled_lints` with this strict hook; disabled Octet lints are intentionally
 fail-closed because their command-line deny name is no longer registered.
 Prefer narrow source `allow` attributes with reasons for reviewable exceptions.
@@ -350,6 +352,10 @@ disabled_lints = ["no_unwrap"]
 [octet.lint_levels]
 numeric_units = "warn"
 ```
+
+Explicit command-line lint levels, such as `-D numeric_units` in
+`DYLINT_RUSTFLAGS`, win over `[octet.lint_levels]`. A selected strict
+profile's required denies win over both.
 
 Source attrs and group attrs stay canonical in Rust code:
 

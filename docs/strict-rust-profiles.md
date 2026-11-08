@@ -25,7 +25,7 @@ cargo octet check --profile robust --artifact-dir artifacts/octet
 cargo octet artifact verify --artifact-dir artifacts/octet
 ```
 
-A selected profile is authoritative for its required lint set. If consumer `dylint.toml` disables a required lint or assigns it `allow` or `warn`, Octet strengthens the effective level to `deny`. Unrelated thresholds, allowlists, disabled lints, and levels remain consumer-owned.
+A selected profile is authoritative for its required lint set. If consumer `dylint.toml` disables a required lint or assigns it `allow` or `warn`, Octet strengthens the effective level to `deny`. The profile denies are applied after command-line lint options, so `-A` or `-W` flags in `DYLINT_RUSTFLAGS` cannot weaken them either. Unrelated thresholds, allowlists, disabled lints, and levels remain consumer-owned; explicit command-line levels win over consumer `lint_levels`.
 
 Source-level Rust suppressions remain possible. Profiles include Octet's suppression-governance lints, so an escape hatch remains an explicit source diff with the existing justification requirements; profiles do not add a silent assume mechanism.
 

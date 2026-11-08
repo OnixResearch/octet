@@ -292,6 +292,7 @@ fn extra_rustc_args(name: &str) -> &'static [&'static str] {
         | "sentinel_fallback"
         | "raw_arithmetic_overflow" => &["--cfg", "test"],
         "ambient_clock_test_harness" | "no_unwrap_test_harness" => &["--test"],
+        "numeric_units_cli_deny_custom/numeric_units_cli_deny_custom" => &["-D", "numeric_units"],
         _ => &[],
     }
 }

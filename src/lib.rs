@@ -81,14 +81,10 @@ fn apply_lint_level_overrides(sess: &rustc_session::Session, cfg: &Config) {
     // SAFETY: rustc calls `register_lints` during lint-store initialization,
     // before lint levels are computed from `sess.opts.lint_opts`. The API only
     // provides `&Session`, so the only way to feed config-owned per-lint levels
-    // into rustc's normal lint-level machinery is to append to `lint_opts`
-    // through a raw pointer at this setup point.
+    // into rustc's normal lint-level machinery is to edit `lint_opts` through a
+    // raw pointer at this setup point.
     unsafe {
-        for lint in LINT_INVENTORY {
-            if let Some(level) = cfg.lint_level(lint.name) {
-                (*opts).lint_opts.push((lint.name.to_owned(), level.rustc_level()));
-            }
-        }
+        cfg.merge_into_lint_opts(&mut (*opts).lint_opts);
     }
 }
 

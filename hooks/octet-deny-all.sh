@@ -3,7 +3,9 @@ set -eu
 
 # Reusable pre-commit entry point for strict Octet/Tiger Style adoption.
 # It runs from the consumer repository root, derives the pinned hook checkout,
-# and asks the Dylint driver to treat every Octet lint as deny.
+# and asks the Dylint driver to treat every Octet lint as deny. Command-line
+# lint levels win over consumer `[octet.lint_levels]`, so `dylint.toml` cannot
+# weaken these denies.
 
 script_path=$0
 case "$script_path" in
