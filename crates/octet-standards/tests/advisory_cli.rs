@@ -965,6 +965,29 @@ fn execute_proof_rails_rejects_failing_execution_despite_valid_committed_receipt
 }
 
 #[test]
+fn check_skips_non_utf8_files_in_source_directories_but_rejects_named_ones() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry(&temp);
+    let source_dir = temp.path().join("binary-asset-fixture");
+    std::fs::create_dir_all(source_dir.join("src")).expect("source dir should be created");
+    std::fs::create_dir_all(source_dir.join("assets")).expect("asset dir should be created");
+    std::fs::write(source_dir.join("src/lib.rs"), "pub fn small() {}\n").expect("source should be written");
+    let binary_asset = source_dir.join("assets/logo.bin");
+    std::fs::write(&binary_asset, [0xff, 0xfe, 0x00, 0x01]).expect("binary asset should be written");
+
+    let walked = run_architecture_check(&registry, &source_dir);
+
+    assert_success(&walked);
+    assert!(parse_report(&walked).diagnostics.is_empty());
+
+    let named = run_architecture_check(&registry, &binary_asset);
+
+    assert_failure(&named);
+    let stderr = String::from_utf8_lossy(&named.stderr);
+    assert!(stderr.contains("failed to read") && stderr.contains("logo.bin"), "stderr was: {stderr}");
+}
+
+#[test]
 fn proof_artifact_dir_requires_execute_proof_rails() {
     let temp = TempDir::new().expect("temp dir should be created");
     let registry = write_registry_value(&temp, &proof_registry());

@@ -109,7 +109,7 @@ struct CheckArgs {
     #[arg(long)]
     policy_artifacts_dir: Option<PathBuf>,
 
-    /// Source files or directories to inspect.
+    /// Source files or directories to inspect. Directory walks skip files that are not valid UTF-8.
     #[arg(long, required = true)]
     source: Vec<PathBuf>,
 
@@ -190,7 +190,8 @@ struct CustomsGateArgs {
     #[arg(long)]
     artifact_manifest: Option<PathBuf>,
 
-    /// Checked-in source or fixture path. Repeatable; directories are read recursively.
+    /// Checked-in source or fixture path. Repeatable; directories are read recursively, skipping
+    /// files that are not valid UTF-8.
     #[arg(long)]
     source: Vec<PathBuf>,
 
@@ -1271,7 +1272,16 @@ fn append_sources_from_directory(directory: &Path, sources: &mut Vec<SourceFile>
         })?;
     entries.sort_by_key(std::fs::DirEntry::path);
     for entry in entries {
-        append_sources_from_path(&entry.path(), sources)?;
+        let path = entry.path();
+        if path.is_dir() {
+            append_sources_from_directory(&path, sources)?;
+            continue;
+        }
+        match append_source_file(&path, sources) {
+            // Walked directories may hold binary assets; only files named directly must be text.
+            Err(CliError::Read { source, .. }) if source.kind() == io::ErrorKind::InvalidData => {}
+            result => result?,
+        }
     }
     Ok(())
 }
