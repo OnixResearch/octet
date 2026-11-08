@@ -235,33 +235,25 @@ pub(crate) fn compute_bundle_identity(
     Ok(format!("{BLAKE3_IDENTITY_PREFIX}{}", hasher.finalize().to_hex()))
 }
 
-/// Rejects an imported scan envelope whose rule bundle is not the checked-in one.
+/// Rejects an imported scan envelope whose embedded profile is not the checked-in one.
 ///
-/// `files` must hold the checked-in bundle inputs, already verified against
-/// `checked.bundle_identity`. The identity is recomputed from the envelope's
-/// declared bundle inputs and scan scope over those files, so a changed rule
-/// file or scan scope makes the envelope's findings stale. Envelopes that do not
-/// parse or carry an invalid profile are left to [`evaluate_envelope`], which
-/// fails the receipt with those diagnostics.
-pub(crate) fn verify_envelope_bundle(
-    text: &str,
-    checked: &AstGrepProfile,
-    files: &BTreeMap<String, Vec<u8>>,
-) -> Result<(), String> {
+/// The caller has already verified the checked-in rule files against
+/// `checked.bundle_identity`. Evaluation reads the tool version, rule coverage,
+/// promotion lanes, severity posture, codemod policy, and non-claims from the
+/// envelope's embedded profile, and the bundle identity binds none of them, so
+/// the whole embedded profile must equal the checked one. Run mode embeds the
+/// checked profile verbatim. Envelopes that do not parse or carry an invalid
+/// profile are left to [`evaluate_envelope`], which fails the receipt with
+/// those diagnostics.
+pub(crate) fn verify_envelope_bundle(text: &str, checked: &AstGrepProfile) -> Result<(), String> {
     let Ok(envelope) = serde_json::from_str::<AstGrepScanEnvelope>(text) else {
         return Ok(());
     };
-    if !validate_profile(&envelope.profile).is_empty() {
-        return Ok(());
-    }
-    let recomputed = compute_bundle_identity(&envelope.profile, files).ok();
-    if envelope.profile.bundle_identity == checked.bundle_identity
-        && recomputed.as_deref() == Some(checked.bundle_identity.as_str())
-    {
+    if !validate_profile(&envelope.profile).is_empty() || envelope.profile == *checked {
         return Ok(());
     }
     Err(format!(
-        "stale ast-grep scan envelope; it records rule bundle `{}`, but the checked-in profile and rule files give `{}`; capture a fresh scan receipt",
+        "stale ast-grep scan envelope; its embedded profile (rule bundle `{}`) differs from the checked-in profile (rule bundle `{}`); capture a fresh scan receipt",
         envelope.profile.bundle_identity, checked.bundle_identity
     ))
 }

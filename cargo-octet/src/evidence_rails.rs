@@ -4097,10 +4097,10 @@ fn analyze_ast_grep_import(args: &EvidenceRailArgs) -> Result<String, String> {
         .input
         .as_deref()
         .ok_or_else(|| "evidence collect requires `--input PATH` or `--run`".to_owned())?;
-    let (profile, bundle_files) = checked_ast_grep_bundle(args)?;
+    let (profile, _) = checked_ast_grep_bundle(args)?;
     let text =
         fs::read_to_string(input).map_err(|error| format!("read evidence input {}: {error}", input.display()))?;
-    crate::ast_grep_rail::verify_envelope_bundle(&text, &profile, &bundle_files)?;
+    crate::ast_grep_rail::verify_envelope_bundle(&text, &profile)?;
     Ok(text)
 }
 
@@ -5404,7 +5404,7 @@ mod tests {
     }
 
     #[test]
-    fn ast_grep_import_rejects_envelopes_for_a_changed_rule_bundle() {
+    fn ast_grep_import_rejects_envelopes_for_a_changed_rule_bundle_or_profile() {
         const PROFILE_PATH: &str = "standards/ast-grep/generated/profile.json";
         const RULE_PATH: &str = "standards/ast-grep/rules/unsafe-block-review.yml";
         let checkout = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
@@ -5445,6 +5445,46 @@ mod tests {
             run: false,
             command_line: "cargo octet evidence collect --rail ast-grep --input scan.json".to_owned(),
         };
+
+        let mut drifted_profiles = Vec::new();
+        let mut retooled = profile.clone();
+        retooled.tool.version = "0.0.1".to_owned();
+        drifted_profiles.push(("tool.version", retooled));
+        let mut recovered = profile.clone();
+        recovered.rule_coverage.push(crate::ast_grep_rail::AstGrepRuleCoverage {
+            rule_id: "undeclared-candidate".to_owned(),
+            lane: "error".to_owned(),
+            positive_cases: 1,
+            negative_cases: 1,
+        });
+        drifted_profiles.push(("rule_coverage", recovered));
+        let mut relaned = profile.clone();
+        relaned.promotion_lanes.iter_mut().for_each(|lane| lane.blocking = false);
+        drifted_profiles.push(("promotion_lanes", relaned));
+        let mut reposed = profile.clone();
+        reposed.severity_posture = "inventory".to_owned();
+        drifted_profiles.push(("severity_posture", reposed));
+        let mut reclaimed = profile.clone();
+        reclaimed.non_claims.truncate(1);
+        drifted_profiles.push(("non_claims", reclaimed));
+        let mut recodemodded = profile.clone();
+        recodemodded.codemod_policy.mode = "interactive".to_owned();
+        drifted_profiles.push(("codemod_policy", recodemodded));
+        for (field, drifted) in drifted_profiles {
+            assert!(crate::ast_grep_rail::validate_profile(&drifted).is_empty(), "{field}: drift stays valid");
+            let observed_version = drifted.tool.version.clone();
+            let envelope = crate::ast_grep_rail::render_scan_envelope(
+                drifted,
+                observed_version,
+                serde_json::json!([]),
+                String::new(),
+                0,
+            )
+            .expect("ast-grep envelope");
+            fs::write(workspace.path().join("scan.json"), envelope).expect("write drifted ast-grep envelope");
+            let profile_error = input_text(&args, None).expect_err("envelope with a different embedded profile");
+            assert!(profile_error.contains("stale ast-grep scan envelope"), "{field}: {profile_error}");
+        }
 
         write_envelope(profile.clone());
         let (mode, _, _) = input_text(&args, None).expect("fresh envelope imports");
