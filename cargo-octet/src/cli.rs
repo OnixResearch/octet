@@ -475,7 +475,7 @@ Usage:
   cargo octet transcript <PATH>
   cargo octet --version
 
-Release smoke surfaces: fingerprint identity review, migrate manifests, check --cache lint-cache status, effect-summary output in summaries/artifacts, and executable transcript validation.
+Release smoke surfaces: fingerprint identity review, migrate manifests, check --cache lint-cache status, effect-summary output in summaries/artifacts, and transcript structure checks.
 
 Nix: nix run path:/path/to/octet#cargo-octet -- check
 ";
@@ -607,7 +607,7 @@ Actions:
 
 const TRANSCRIPT_HELP: &str = "cargo octet transcript <PATH>
 
-Validates executable transcript command blocks and expected-output assertions for docs-example and release smoke artifacts.
+Checks transcript structure for docs-example and release smoke artifacts: every fence closes, fences with `$ ` command lines use octet-transcript, slotcar-transcript, console, or sh, and the transcript has at least one `$ ` command line and one `=> ` expected-output line. Records the transcript BLAKE3 identity. It does not run commands or compare their output.
 ";
 
 // Flag parsing is one linear match over the subcommand's flags; splitting it would hide which flags
