@@ -5,6 +5,7 @@ const BLAKE3_PREFIX: &str = "b3:";
 const BLAKE3_HEX_LENGTH: usize = 64;
 const COPY_INTRINSIC: &str = "@llvm.memcpy";
 const LENGTH_TYPES: [&str; 2] = ["i64", "i32"];
+const CALL_INSTRUCTIONS: [&str; 2] = ["call", "invoke"];
 
 pub(super) fn summarize(
     allocations: &[AllocationObservation],
@@ -88,7 +89,7 @@ pub(super) fn scan_llvm_copy_sites(
     let llvm_artifact_identity = prefixed_identity(llvm_text.as_bytes());
     let mut observations = Vec::new();
     for (line_index, line) in llvm_text.lines().enumerate() {
-        if !line.contains(COPY_INTRINSIC) {
+        if !is_copy_call(line) {
             continue;
         }
         let site_id = copy_site_identity(&llvm_artifact_identity, line_index, line)?;
@@ -164,19 +165,22 @@ fn validate_copies(observations: &[CopyObservation]) -> Vec<String> {
     diagnostics
 }
 
+fn is_copy_call(line: &str) -> bool {
+    line.find(COPY_INTRINSIC)
+        .and_then(|intrinsic| line.get(..intrinsic))
+        .is_some_and(|prefix| prefix.split_ascii_whitespace().any(|token| CALL_INSTRUCTIONS.contains(&token)))
+}
+
 fn copy_length(line: &str) -> Option<u64> {
     let intrinsic = line.find(COPY_INTRINSIC)?;
     let suffix = line.get(intrinsic..)?;
     let tokens: Vec<&str> = suffix.split_ascii_whitespace().collect();
-    for pair in tokens.windows(LENGTH_TYPES.len()) {
-        if LENGTH_TYPES.contains(&pair[0]) {
-            let value = pair[1].trim_matches(|character: char| !character.is_ascii_digit());
-            if !value.is_empty() {
-                return value.parse().ok();
-            }
-        }
+    let pair = tokens.windows(LENGTH_TYPES.len()).find(|pair| LENGTH_TYPES.contains(&pair[0]))?;
+    let value = pair[1].strip_suffix(',').unwrap_or(pair[1]);
+    if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
     }
-    None
+    value.parse().ok()
 }
 
 fn copy_site_identity(artifact_identity: &str, line_index: usize, line: &str) -> Result<String, String> {

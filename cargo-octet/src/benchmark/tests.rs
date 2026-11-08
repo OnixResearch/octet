@@ -216,6 +216,26 @@ fn capability_rooted_resource_inputs_preserve_constant_unknown_and_allocation_ob
 }
 
 #[test]
+fn copy_census_keeps_runtime_lengths_unknown_and_skips_intrinsic_declarations() {
+    let llvm = "declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg)\n\
+                call void @llvm.memcpy.p0.p0.i64(ptr %a, ptr %b, i64 %5, i1 false)\n\
+                tail call void @llvm.memcpy.p0.p0.i64(ptr %a, ptr %b, i64 %_7, i1 false)\n\
+                call void @llvm.memcpy.p0.p0.i32(ptr %a, ptr %b, i32 %src.1, i1 false)\n\
+                invoke void @llvm.memcpy.p0.p0.i64(ptr %a, ptr %b, i64 32, i1 false)\n";
+    let observations = resources::scan_llvm_copy_sites(
+        "workload",
+        llvm,
+        &b3(COMPILER_IDENTITY_INPUT),
+        "x86_64-unknown-linux-gnu",
+        "release",
+    )
+    .expect("copy census");
+    let lengths: Vec<Option<u64>> = observations.iter().map(|observation| observation.constant_length_bytes).collect();
+    assert_eq!(lengths, vec![None, None, None, Some(KNOWN_COPY_BYTES)]);
+    assert!(observations.iter().all(|observation| !observation.context.starts_with("declare")));
+}
+
+#[test]
 fn bounded_shell_uses_fixed_profile_command_and_clear_environment() {
     let profile = selected_profile(PROFILE_ID).expect("profile");
     let directory = tempfile::tempdir().expect("temporary directory");

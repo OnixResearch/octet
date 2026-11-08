@@ -122,9 +122,9 @@ Allocation evidence does not describe code outside the selected interval or inst
 
 ## LLVM copy-site census
 
-The copy scanner reads one bounded capability-relative LLVM artifact. It records each `llvm.memcpy` site and its compiler, target, and optimization identities.
+The copy scanner reads one bounded capability-relative LLVM artifact. It records each `call` or `invoke` of an `llvm.memcpy` intrinsic and its compiler, target, and optimization identities. Intrinsic declarations are not copy sites.
 
-A constant length remains an exact constant. A variable or unresolved length remains `unknown`.
+A constant length remains an exact constant only when the length operand is a decimal literal. A variable or unresolved length, such as `%5`, `%_7`, or `%src.1`, remains `unknown`.
 
 Static copy sites are not runtime copy counts. Octet does not convert unknown lengths to zero.
 
