@@ -564,6 +564,7 @@ r[octet.verus_proof_rails.proof_evidence_ref.diagnostics.fail_closed]
 - WHEN proof-ref validation runs
 - THEN validation MUST fail closed with diagnostics naming the rejected field.
 - AND validation MUST NOT upgrade manual-review or external proof-card evidence to `formal_proof`.
+- AND a matched proof card whose `evidence_origin` is `external_trellis_import` with `evidence_tier` `formal_proof`, or whose `diagnostics` are non-empty, MUST fail validation, matching the artifact verifier's proof-card rule.
 
 #### Scenario: Overbroad reference wording fails
 

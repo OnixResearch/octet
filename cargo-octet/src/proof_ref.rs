@@ -90,9 +90,11 @@ struct ProofCard {
     source_requirement_or_policy_id: String,
     checked_rust_source_scope: String,
     evidence_tier: String,
+    evidence_origin: String,
     status: String,
     artifact_blake3_identities: Vec<ProofCardArtifactIdentity>,
     non_claims: Vec<String>,
+    diagnostics: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -398,6 +400,21 @@ fn proof_ref_linkage_diagnostics(reference: &ProofEvidenceRef, deck: &ProofCardD
         )];
     };
     let mut diagnostics = Vec::new();
+    if !card.diagnostics.is_empty() {
+        diagnostics.push(format!(
+            "proof card `{}` has diagnostics: {}",
+            card.proof_or_property_id,
+            card.diagnostics.join("; ")
+        ));
+    }
+    if card.evidence_origin == crate::imported_proof::EVIDENCE_ORIGIN_EXTERNAL_TRELLIS
+        && card.evidence_tier == EVIDENCE_TIER_FORMAL_PROOF
+    {
+        diagnostics.push(format!(
+            "proof card `{}` promotes imported Trellis evidence to formal_proof",
+            card.proof_or_property_id
+        ));
+    }
     push_mismatch(
         &mut diagnostics,
         FIELD_SOURCE_REQUIREMENT_OR_POLICY_ID,
@@ -786,6 +803,34 @@ mod tests {
         assert!(!validation.consumer_source_matched);
     }
 
+    #[test]
+    fn proof_ref_rejects_external_formal_proof_card_and_card_diagnostics() {
+        let reference = matching_reference();
+        for (field, value, expected) in [
+            (
+                "evidence_origin",
+                serde_json::json!(crate::imported_proof::EVIDENCE_ORIGIN_EXTERNAL_TRELLIS),
+                "promotes imported Trellis evidence to formal_proof",
+            ),
+            ("diagnostics", serde_json::json!(["proof receipt is stale"]), "has diagnostics"),
+        ] {
+            let mut card_json = serde_json::to_value(card()).expect("card json");
+            card_json[field] = value;
+            let deck = serde_json::from_value::<ProofCardDeck>(serde_json::json!({
+                "schema_version": PROOF_CARDS_SCHEMA_VERSION,
+                "cards": [card_json],
+            }))
+            .expect("deck from json");
+
+            let diagnostics = validate_proof_evidence_ref(&reference, &deck, None).diagnostics;
+
+            assert!(
+                diagnostics.iter().any(|diagnostic| diagnostic.contains(expected)),
+                "card `{field}` should be rejected with `{expected}`: {diagnostics:?}"
+            );
+        }
+    }
+
     fn matching_reference() -> ProofEvidenceRef {
         ProofEvidenceRef {
             schema_version: PROOF_EVIDENCE_REF_SCHEMA_VERSION.to_owned(),
@@ -830,6 +875,7 @@ mod tests {
             source_requirement_or_policy_id: POLICY_ID.to_owned(),
             checked_rust_source_scope: CHECKED_SCOPE.to_owned(),
             evidence_tier: EVIDENCE_TIER_FORMAL_PROOF.to_owned(),
+            evidence_origin: "octet_rerun".to_owned(),
             status: STATUS_PASSED.to_owned(),
             artifact_blake3_identities: vec![
                 ProofCardArtifactIdentity {
@@ -842,6 +888,7 @@ mod tests {
                 },
             ],
             non_claims: required_non_claims().iter().map(|claim| (*claim).to_owned()).collect(),
+            diagnostics: Vec::new(),
         }
     }
 }

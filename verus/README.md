@@ -147,7 +147,7 @@ cargo octet proof-ref validate \
 
 Scaffold computes the consumer source BLAKE3 and copies proof-card fields into valid JSON.
 
-Validation checks the saved card, required artifacts, exact source identity, and exact anchor. This links a comment, doc reference, or future
+Validation checks the saved card, required artifacts, exact source identity, and exact anchor. It rejects a card that carries diagnostics or presents imported Trellis evidence (`evidence_origin: external_trellis_import`) as `formal_proof`. This links a comment, doc reference, or future
 suppression to the proof card without rerunning Verus or emitting new
 `formal_proof` provenance.
 
