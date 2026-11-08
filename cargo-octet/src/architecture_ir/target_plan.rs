@@ -2,6 +2,7 @@
 
 use std::path::Path;
 
+use octet_standards::project_architecture_policy::ArchitectureTarget;
 use serde::Deserialize;
 
 const UNIT_GRAPH_VERSION: u64 = 1;
@@ -60,30 +61,53 @@ impl CargoUnitGraph {
     }
 }
 
+/// Plans the invocation once and binds it to exactly one candidate policy row.
+///
+/// Explicit feature selections have already been matched against each row. For `--all-features`,
+/// every candidate row is replanned with only `--all-features` replaced by its explicit features,
+/// and exactly one row must produce an equivalent complete Cargo plan.
 // r[impl octet.architecture.features.equivalence]
-pub(super) fn load_for_policy(
+pub(super) fn select_policy_row<'a>(
     workspace_root: &Path,
     toolchain: &str,
     scope_args: &[String],
     cargo_args: &[String],
-    features: &[String],
+    rows: &[&'a ArchitectureTarget],
     max_bytes: usize,
-) -> Result<CargoUnitGraph, String> {
+) -> Result<(&'a ArchitectureTarget, CargoUnitGraph), String> {
+    if rows.is_empty() {
+        return Err("Cargo invocation matches no architecture policy target".to_owned());
+    }
     let actual = load(workspace_root, toolchain, scope_args, cargo_args, max_bytes)?;
-    if cargo_args.iter().any(|argument| argument == "--all-features") {
+    if !cargo_args.iter().any(|argument| argument == "--all-features") {
+        let [row] = rows else {
+            return Err("Cargo invocation matches more than one architecture policy target".to_owned());
+        };
+        return Ok((*row, actual));
+    }
+    let mut equivalent = Vec::with_capacity(rows.len());
+    let mut mismatch = None;
+    for row in rows {
         let mut declared_args = cargo_args
             .iter()
             .filter(|argument| argument.as_str() != "--all-features")
             .cloned()
             .collect::<Vec<_>>();
-        if !features.is_empty() {
+        if !row.features.is_empty() {
             declared_args.push("--features".to_owned());
-            declared_args.push(features.join(","));
+            declared_args.push(row.features.join(","));
         }
         let declared = load(workspace_root, toolchain, scope_args, &declared_args, max_bytes)?;
-        actual.require_equivalent(&declared)?;
+        match actual.require_equivalent(&declared) {
+            Ok(()) => equivalent.push(*row),
+            Err(error) => mismatch = Some(error),
+        }
     }
-    Ok(actual)
+    match (equivalent.as_slice(), mismatch) {
+        ([row], _) => Ok((*row, actual)),
+        ([], Some(error)) => Err(error),
+        _ => Err("Cargo --all-features plan matches more than one explicit architecture policy row".to_owned()),
+    }
 }
 
 pub(super) fn load(

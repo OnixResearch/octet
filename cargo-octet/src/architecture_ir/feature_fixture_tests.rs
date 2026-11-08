@@ -2,6 +2,8 @@
 
 use std::path::Path;
 
+use octet_standards::project_architecture_policy::ArchitectureTarget;
+
 use super::target_plan;
 
 const TOOLCHAIN: &str = "nightly-2026-03-21";
@@ -32,19 +34,29 @@ fn fixture() -> tempfile::TempDir {
     fixture
 }
 
-fn plan(root: &Path, features: &[&str], no_defaults: bool) -> Result<target_plan::CargoUnitGraph, String> {
+fn row(features: &[&str], default_features: bool) -> ArchitectureTarget {
+    ArchitectureTarget {
+        triple: "fixture-host".to_owned(),
+        features: features.iter().map(|feature| (*feature).to_owned()).collect(),
+        default_features,
+    }
+}
+
+fn select<'a>(
+    root: &Path,
+    rows: &[&'a ArchitectureTarget],
+    no_defaults: bool,
+) -> Result<(&'a ArchitectureTarget, target_plan::CargoUnitGraph), String> {
     let mut args = vec!["--all-targets".to_owned(), "--all-features".to_owned()];
     if no_defaults {
         args.push("--no-default-features".to_owned());
     }
-    target_plan::load_for_policy(
-        root,
-        TOOLCHAIN,
-        &["--workspace".to_owned()],
-        &args,
-        &features.iter().map(|feature| (*feature).to_owned()).collect::<Vec<_>>(),
-        PLAN_BYTE_LIMIT,
-    )
+    target_plan::select_policy_row(root, TOOLCHAIN, &["--workspace".to_owned()], &args, rows, PLAN_BYTE_LIMIT)
+}
+
+fn plan(root: &Path, features: &[&str], no_defaults: bool) -> Result<target_plan::CargoUnitGraph, String> {
+    let row = row(features, !no_defaults);
+    select(root, &[&row], no_defaults).map(|(_, graph)| graph)
 }
 
 // r[verify octet.architecture.features.equivalence]
@@ -80,4 +92,29 @@ fn no_default_features_still_requires_the_actual_complete_feature_set() {
     let mut explicit_default = COMPLETE_FEATURES.to_vec();
     explicit_default.push("feature-app/default");
     plan(root.path(), &explicit_default, true).expect("explicitly reviewed default feature");
+}
+
+// r[verify octet.architecture.features.equivalence]
+#[test]
+fn all_features_selects_the_one_equivalent_row_of_a_feature_matrix() {
+    let root = fixture();
+    let complete = row(COMPLETE_FEATURES, true);
+    let partial = row(&COMPLETE_FEATURES[..1], true);
+    let empty = row(&[], true);
+    let (selected, _) = select(root.path(), &[&partial, &complete, &empty], false).expect("one equivalent row");
+    assert_eq!(selected, &complete);
+    assert!(
+        select(root.path(), &[&partial, &empty], false)
+            .expect_err("no equivalent row")
+            .contains("does not match")
+    );
+
+    let mut with_default = COMPLETE_FEATURES.to_vec();
+    with_default.push("feature-app/default");
+    let redundant = row(&with_default, true);
+    assert!(
+        select(root.path(), &[&complete, &redundant], false)
+            .expect_err("two equivalent rows")
+            .contains("more than one")
+    );
 }

@@ -71,9 +71,9 @@ Actual compilation still uses `cargo check`. Context v3 binds the selected unit'
 
 The policy must define positive limits for units, shards, facts, unknowns, spans, artifacts, and selected MIR traversal.
 
-The Cargo invocation must cover all declared production packages. Its target, features, and default-feature selection must match one declared target. Matrix rows use explicit feature sets.
+The Cargo invocation must cover all declared production packages. Its target, features, and default-feature selection must match one declared target. Matrix rows use explicit feature sets. Several rows can share one target triple when their features or `default_features` differ; Octet selects the one row that matches the full selection.
 
-An invocation can use `--all-features` if Cargo resolves it to the explicit policy row. Octet compares two bounded locked unit plans. The second plan replaces only `--all-features` with the policy features. Both plans retain the same package, target, profile, and default-feature selectors. Neither plan executes a build or build script.
+An invocation can use `--all-features` if Cargo resolves it to the explicit policy row. Octet compares two bounded locked unit plans. The second plan replaces only `--all-features` with the policy features. Both plans retain the same package, target, profile, and default-feature selectors. Neither plan executes a build or build script. When several rows share the triple and default-feature selection, Octet plans each of them and requires exactly one equivalent row; no equivalent row or more than one equivalent row is rejected.
 
 The comparison binds complete unit descriptions, resolved features, dependency edges, and selected roots. It ignores array order and replaces dependency indices with content identities. Extra features, feature-gated targets, optional dependencies, and changed edges cause rejection. Missing or ambiguous graph facts also cause rejection.
 

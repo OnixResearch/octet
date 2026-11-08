@@ -132,7 +132,15 @@ pub(crate) fn prepare_collector(
     let selected_packages = selected_packages(scope_args, &policy.policy.production.packages)?;
     let (toolchain_blake3, host_triple) = toolchain_identity(toolchain)?;
     let collector_blake3 = file_blake3(collector_path, "compiler architecture collector")?;
-    let target = selected_policy_target(cargo_check_args, &policy.policy.production.targets, &host_triple)?;
+    let candidates = policy_target_candidates(cargo_check_args, &policy.policy.production.targets, &host_triple)?;
+    let (target, graph) = target_plan::select_policy_row(
+        workspace_root,
+        toolchain,
+        scope_args,
+        cargo_check_args,
+        &candidates,
+        policy.policy.collection_limits.max_artifact_bytes,
+    )?;
     let (metadata, cargo_graph_blake3) = load_locked_metadata(workspace_root, toolchain, target)?;
     let lockfile_bytes = fs::read(workspace_root.join("Cargo.lock"))
         .map_err(|error| format!("read Cargo.lock for architecture identity: {error}"))?;
@@ -147,15 +155,6 @@ pub(crate) fn prepare_collector(
     let invocation_blake3 = octet_architecture_ir::canonical_identity(
         "octet.compiler-architecture-ir.invocation/v1",
         &(scope_args, cargo_check_args, &lockfile_blake3, &cargo_graph_blake3),
-    )?;
-
-    let graph = target_plan::load_for_policy(
-        workspace_root,
-        toolchain,
-        scope_args,
-        cargo_check_args,
-        &target.features,
-        policy.policy.collection_limits.max_artifact_bytes,
     )?;
     let mut selected_units = Vec::new();
     for package in metadata.packages {
@@ -842,20 +841,42 @@ fn selected_packages<'a>(
     Ok(selected)
 }
 
-fn selected_policy_target<'a>(
+/// Returns every same-triple policy row whose features and default-feature selection accept the
+/// invocation.
+///
+/// Explicit selections can match at most one row because policy validation rejects duplicate rows.
+/// An `--all-features` invocation keeps every row with the requested defaults; the Cargo plan
+/// comparison picks one.
+fn policy_target_candidates<'a>(
     cargo_check_args: &[String],
     targets: &'a [octet_standards::project_architecture_policy::ArchitectureTarget],
     host_triple: &str,
-) -> Result<&'a octet_standards::project_architecture_policy::ArchitectureTarget, String> {
+) -> Result<Vec<&'a octet_standards::project_architecture_policy::ArchitectureTarget>, String> {
     let requested_target = option_value(cargo_check_args, "--target").unwrap_or(host_triple);
-    let matches = targets.iter().filter(|target| target.triple == requested_target).collect::<Vec<_>>();
-    let [target] = matches.as_slice() else {
-        return Err(format!(
+    let mut candidates = Vec::new();
+    let mut rejections = std::collections::BTreeSet::new();
+    for target in targets.iter().filter(|target| target.triple == requested_target) {
+        match validate_cargo_selection(cargo_check_args, target) {
+            Ok(()) => candidates.push(target),
+            Err(error) => {
+                rejections.insert(error);
+            }
+        }
+    }
+    if !candidates.is_empty() {
+        return Ok(candidates);
+    }
+    let mut rejections = rejections.into_iter();
+    match (rejections.next(), rejections.next()) {
+        (Some(rejection), None) => Err(rejection),
+        (None, _) => Err(format!(
             "Cargo invocation target `{requested_target}` must match exactly one architecture policy target"
-        ));
-    };
-    validate_cargo_selection(cargo_check_args, target)?;
-    Ok(target)
+        )),
+        (Some(_), Some(_)) => Err(format!(
+            "Cargo invocation features and default-feature selection do not match any architecture policy target \
+             for `{requested_target}`"
+        )),
+    }
 }
 
 fn validate_cargo_selection(
@@ -1267,7 +1288,7 @@ mod tests {
             assert!(validate_cargo_selection(&invalid, &target()).is_err(), "{extra}");
         }
         assert!(validate_cargo_selection(&["--all-features".to_owned()], &target()).is_err());
-        assert!(selected_policy_target(&valid, &[target()], "other-host").is_err());
+        assert!(policy_target_candidates(&valid, &[target()], "other-host").is_err());
     }
 
     #[test]
@@ -1287,5 +1308,31 @@ mod tests {
             "--no-default-features".to_owned(),
         ];
         assert!(validate_cargo_selection(&invalid, &target()).is_err());
+    }
+
+    #[test]
+    fn feature_matrix_rows_on_one_triple_select_by_features_and_defaults() {
+        let staging = ArchitectureTarget {
+            features: vec!["staging".to_owned()],
+            ..target()
+        };
+        let defaults = ArchitectureTarget {
+            default_features: true,
+            ..target()
+        };
+        let rows = [target(), staging.clone(), defaults.clone()];
+        let selection = |args: &[&str]| {
+            let args = args.iter().map(|argument| (*argument).to_owned()).collect::<Vec<_>>();
+            policy_target_candidates(&args, &rows, "x86_64-unknown-linux-gnu")
+                .map(|candidates| candidates.into_iter().cloned().collect::<Vec<_>>())
+        };
+
+        assert_eq!(selection(&["--features=staging", "--no-default-features"]), Ok(vec![staging.clone()]));
+        assert_eq!(selection(&["--features=production", "--no-default-features"]), Ok(vec![target()]));
+        assert_eq!(selection(&["--features=production"]), Ok(vec![defaults.clone()]));
+        assert!(selection(&["--features=other", "--no-default-features"]).is_err());
+        // All-feature rows stay candidates until the Cargo plan comparison selects exactly one of them.
+        assert_eq!(selection(&["--all-features", "--no-default-features"]), Ok(vec![target(), staging]));
+        assert_eq!(selection(&["--all-features"]), Ok(vec![defaults]));
     }
 }
