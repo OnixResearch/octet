@@ -329,6 +329,8 @@ struct FunctionDraft {
     container: FunctionContainer,
     conditional: bool,
     attrs: Vec<syn::Attribute>,
+    /// Generic parameters of the enclosing `impl` or trait, which are in scope in the body.
+    enclosing_generics: syn::Generics,
     signature: syn::Signature,
     block: syn::Block,
     source_identity: String,
@@ -360,15 +362,29 @@ struct RawCall {
     kind: RawCallKind,
     effects: BTreeSet<Effect>,
     /// Whether the call's path form can name a selected local function at all. A qualified-self
-    /// (`<Type>::name`) or leading-`::` path never does, whatever its last segment.
+    /// (`<Type>::name`) or leading-`::` path never does, whatever its last segment, nor does a path
+    /// whose first segment is a name bound inside the caller.
     locally_resolvable: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum RawCallKind {
     Function,
+    /// A path used as a value rather than called, such as a function passed as an argument.
+    Value,
     Method,
     Macro,
+}
+
+impl RawCallKind {
+    fn shape_prefix(self) -> &'static str {
+        match self {
+            Self::Function => "call:",
+            Self::Value => "value:",
+            Self::Method => "method:",
+            Self::Macro => "macro:",
+        }
+    }
 }
 
 #[derive(Default)]
@@ -377,6 +393,8 @@ struct FunctionCollector {
     module: Vec<String>,
     /// Whether an enclosing file, module, impl, or trait carries `cfg`/`cfg_attr`.
     conditional: bool,
+    /// Generic parameters of the enclosing trait while its items are visited.
+    trait_generics: Option<syn::Generics>,
 }
 
 #[derive(Clone)]
@@ -386,12 +404,32 @@ struct CollectedFunction {
     container: FunctionContainer,
     conditional: bool,
     attrs: Vec<syn::Attribute>,
+    enclosing_generics: syn::Generics,
     signature: syn::Signature,
     block: syn::Block,
 }
 
+/// Names bound inside a selected function that may shadow a module item of the same name:
+/// parameters and other pattern bindings, generic parameters (including the enclosing `impl` or
+/// trait), and `use` declarations and items inside the body. Collection is function-wide rather
+/// than lexical, so a name bound anywhere in the function blocks local resolution everywhere in it.
+#[derive(Default)]
+struct CallerBindings {
+    /// Pattern bindings and const generic parameters; a single-segment path naming one is a local
+    /// value, not a function edge.
+    values: BTreeSet<String>,
+    /// Every bound name, including `values`, type parameters, and body `use` and item names.
+    names: BTreeSet<String>,
+    /// Whether the body holds a glob `use`, which may bring any name into scope.
+    glob_import: bool,
+}
+
 struct BodyScanner<'a> {
     foreign_functions: &'a BTreeSet<String>,
+    bindings: &'a CallerBindings,
+    /// Depth of enclosing patterns and types, whose paths name constants, variants, or types
+    /// evaluated at compile time rather than runtime values.
+    compile_time_depth: usize,
     direct_effects: BTreeSet<Effect>,
     calls: Vec<RawCall>,
 }
@@ -417,7 +455,9 @@ impl<'ast> Visit<'ast> for FunctionCollector {
     fn visit_item_trait(&mut self, node: &'ast syn::ItemTrait) {
         let enclosing_conditional = self.conditional;
         self.conditional |= has_conditional_compilation(&node.attrs);
+        self.trait_generics = Some(node.generics.clone());
         syn::visit::visit_item_trait(self, node);
+        self.trait_generics = None;
         self.conditional = enclosing_conditional;
     }
 
@@ -428,6 +468,7 @@ impl<'ast> Visit<'ast> for FunctionCollector {
             container: FunctionContainer::Module,
             conditional: self.conditional,
             attrs: node.attrs.clone(),
+            enclosing_generics: syn::Generics::default(),
             signature: node.sig.clone(),
             block: (*node.block).clone(),
         });
@@ -447,6 +488,7 @@ impl<'ast> Visit<'ast> for FunctionCollector {
                     container: container.clone(),
                     conditional,
                     attrs: function.attrs.clone(),
+                    enclosing_generics: node.generics.clone(),
                     signature: function.sig.clone(),
                     block: function.block.clone(),
                 });
@@ -462,6 +504,7 @@ impl<'ast> Visit<'ast> for FunctionCollector {
                 container: FunctionContainer::Dispatched,
                 conditional: self.conditional,
                 attrs: node.attrs.clone(),
+                enclosing_generics: self.trait_generics.clone().unwrap_or_default(),
                 signature: node.sig.clone(),
                 block: block.clone(),
             });
@@ -477,10 +520,124 @@ fn is_conditional_compilation(attribute: &syn::Attribute) -> bool {
     attribute.path().is_ident("cfg") || attribute.path().is_ident("cfg_attr")
 }
 
+impl CallerBindings {
+    fn collect(function: &FunctionDraft) -> Self {
+        let mut bindings = Self::default();
+        bindings.visit_generics(&function.enclosing_generics);
+        bindings.visit_signature(&function.signature);
+        bindings.visit_block(&function.block);
+        bindings
+    }
+
+    fn bind_value(&mut self, ident: &syn::Ident) {
+        let name = ident.to_string();
+        self.values.insert(name.clone());
+        self.names.insert(name);
+    }
+
+    fn bind_name(&mut self, ident: &syn::Ident) {
+        self.names.insert(ident.to_string());
+    }
+
+    fn bind_use_tree(&mut self, tree: &syn::UseTree, parent: Option<&syn::Ident>) {
+        match tree {
+            syn::UseTree::Path(path) => self.bind_use_tree(&path.tree, Some(&path.ident)),
+            syn::UseTree::Name(name) if name.ident == "self" => {
+                if let Some(parent) = parent {
+                    self.bind_name(parent);
+                }
+            }
+            syn::UseTree::Name(name) => self.bind_name(&name.ident),
+            syn::UseTree::Rename(rename) => self.bind_name(&rename.rename),
+            syn::UseTree::Glob(_) => self.glob_import = true,
+            syn::UseTree::Group(group) => {
+                for tree in &group.items {
+                    self.bind_use_tree(tree, parent);
+                }
+            }
+        }
+    }
+
+    /// Whether `path` may name a selected module item: it has no leading `::`, the caller holds no
+    /// glob `use`, and its first segment is not a name bound inside the caller.
+    fn admits_local_path(&self, path: &syn::Path) -> bool {
+        path.leading_colon.is_none()
+            && !self.glob_import
+            && path.segments.first().is_none_or(|segment| !self.names.contains(&segment.ident.to_string()))
+    }
+
+    /// Whether `path` reads `self` or a pattern-bound local value.
+    fn is_local_value(&self, path: &syn::ExprPath) -> bool {
+        path.qself.is_none()
+            && path
+                .path
+                .get_ident()
+                .is_some_and(|ident| ident == "self" || self.values.contains(&ident.to_string()))
+    }
+}
+
+impl<'ast> Visit<'ast> for CallerBindings {
+    fn visit_pat_ident(&mut self, node: &'ast syn::PatIdent) {
+        self.bind_value(&node.ident);
+        syn::visit::visit_pat_ident(self, node);
+    }
+
+    fn visit_type_param(&mut self, node: &'ast syn::TypeParam) {
+        self.bind_name(&node.ident);
+        syn::visit::visit_type_param(self, node);
+    }
+
+    fn visit_const_param(&mut self, node: &'ast syn::ConstParam) {
+        self.bind_value(&node.ident);
+        syn::visit::visit_const_param(self, node);
+    }
+
+    fn visit_item_use(&mut self, node: &'ast syn::ItemUse) {
+        self.bind_use_tree(&node.tree, None);
+    }
+
+    fn visit_item(&mut self, node: &'ast syn::Item) {
+        let ident = match node {
+            syn::Item::Const(item) => Some(&item.ident),
+            syn::Item::Enum(item) => Some(&item.ident),
+            syn::Item::ExternCrate(item) => Some(item.rename.as_ref().map_or(&item.ident, |(_as, rename)| rename)),
+            syn::Item::Fn(item) => Some(&item.sig.ident),
+            syn::Item::Macro(item) => item.ident.as_ref(),
+            syn::Item::Mod(item) => Some(&item.ident),
+            syn::Item::Static(item) => Some(&item.ident),
+            syn::Item::Struct(item) => Some(&item.ident),
+            syn::Item::Trait(item) => Some(&item.ident),
+            syn::Item::TraitAlias(item) => Some(&item.ident),
+            syn::Item::Type(item) => Some(&item.ident),
+            syn::Item::Union(item) => Some(&item.ident),
+            _ => None,
+        };
+        if let Some(ident) = ident {
+            self.bind_name(ident);
+        }
+        syn::visit::visit_item(self, node);
+    }
+
+    fn visit_foreign_item(&mut self, node: &'ast syn::ForeignItem) {
+        let ident = match node {
+            syn::ForeignItem::Fn(item) => Some(&item.sig.ident),
+            syn::ForeignItem::Static(item) => Some(&item.ident),
+            syn::ForeignItem::Type(item) => Some(&item.ident),
+            _ => None,
+        };
+        if let Some(ident) = ident {
+            self.bind_name(ident);
+        }
+        syn::visit::visit_foreign_item(self, node);
+    }
+}
+
 impl<'a> BodyScanner<'a> {
-    fn new(foreign_functions: &'a BTreeSet<String>) -> Self {
+    fn new(foreign_functions: &'a BTreeSet<String>, bindings: &'a CallerBindings) -> Self {
         Self {
             foreign_functions,
+            bindings,
+            compile_time_depth: 0,
             direct_effects: BTreeSet::new(),
             calls: Vec::new(),
         }
@@ -495,6 +652,13 @@ impl<'a> BodyScanner<'a> {
             locally_resolvable,
         });
     }
+
+    fn record_path(&mut self, node: &syn::ExprPath, kind: RawCallKind) {
+        let (shape_path, effect_path) = expr_path_text(node);
+        let effects = classify_path_call(&effect_path, self.foreign_functions).unwrap_or_default();
+        let locally_resolvable = node.qself.is_none() && self.bindings.admits_local_path(&node.path);
+        self.record_call(format!("{}{shape_path}", kind.shape_prefix()), kind, effects, locally_resolvable);
+    }
 }
 
 impl<'ast> Visit<'ast> for BodyScanner<'_> {
@@ -506,17 +670,47 @@ impl<'ast> Visit<'ast> for BodyScanner<'_> {
     }
 
     fn visit_expr_call(&mut self, node: &'ast syn::ExprCall) {
-        let (shape, effects, locally_resolvable) = match node.func.as_ref() {
-            syn::Expr::Path(path) => {
-                let (shape_path, effect_path) = expr_path_text(path);
-                let effects = classify_path_call(&effect_path, self.foreign_functions).unwrap_or_default();
-                let locally_resolvable = path.qself.is_none() && path.path.leading_colon.is_none();
-                (format!("call:{shape_path}"), effects, locally_resolvable)
+        for attribute in &node.attrs {
+            self.visit_attribute(attribute);
+        }
+        match node.func.as_ref() {
+            syn::Expr::Path(callee) => {
+                self.record_path(callee, RawCallKind::Function);
+                // Descend into the callee's type arguments without recording it again as a value.
+                syn::visit::visit_expr_path(self, callee);
             }
-            _ => ("call:<opaque-expression>".to_owned(), BTreeSet::from([Effect::Unknown]), false),
-        };
-        self.record_call(shape, RawCallKind::Function, effects, locally_resolvable);
-        syn::visit::visit_expr_call(self, node);
+            callee => {
+                self.record_call(
+                    format!("{}<opaque-expression>", RawCallKind::Function.shape_prefix()),
+                    RawCallKind::Function,
+                    BTreeSet::from([Effect::Unknown]),
+                    false,
+                );
+                self.visit_expr(callee);
+            }
+        }
+        for argument in &node.args {
+            self.visit_expr(argument);
+        }
+    }
+
+    fn visit_expr_path(&mut self, node: &'ast syn::ExprPath) {
+        if self.compile_time_depth == 0 && !self.bindings.is_local_value(node) {
+            self.record_path(node, RawCallKind::Value);
+        }
+        syn::visit::visit_expr_path(self, node);
+    }
+
+    fn visit_pat(&mut self, node: &'ast syn::Pat) {
+        self.compile_time_depth += 1;
+        syn::visit::visit_pat(self, node);
+        self.compile_time_depth -= 1;
+    }
+
+    fn visit_type(&mut self, node: &'ast syn::Type) {
+        self.compile_time_depth += 1;
+        syn::visit::visit_type(self, node);
+        self.compile_time_depth -= 1;
     }
 
     fn visit_expr_method_call(&mut self, node: &'ast syn::ExprMethodCall) {
@@ -526,7 +720,12 @@ impl<'ast> Visit<'ast> for BodyScanner<'_> {
             _ => "value",
         };
         let effects = classify_method_call(&method);
-        self.record_call(format!("method:{receiver}:{method}"), RawCallKind::Method, effects, true);
+        self.record_call(
+            format!("{}{receiver}:{method}", RawCallKind::Method.shape_prefix()),
+            RawCallKind::Method,
+            effects,
+            true,
+        );
         syn::visit::visit_expr_method_call(self, node);
     }
 
@@ -534,7 +733,7 @@ impl<'ast> Visit<'ast> for BodyScanner<'_> {
         let path = path_text(&node.path);
         let mut effects = classify_macro(&path).unwrap_or_default();
         effects.insert(Effect::Unknown);
-        self.record_call(format!("macro:{path}"), RawCallKind::Macro, effects, false);
+        self.record_call(format!("{}{path}", RawCallKind::Macro.shape_prefix()), RawCallKind::Macro, effects, false);
         syn::visit::visit_macro(self, node);
     }
 
@@ -1227,6 +1426,7 @@ fn parse_function_drafts(sources: &[SourceEnvelope], diagnostics: &mut Vec<Closu
                     container: function.container,
                     conditional: function.conditional,
                     attrs: function.attrs,
+                    enclosing_generics: function.enclosing_generics,
                     signature: function.signature,
                     block: function.block,
                     source_identity: source.source_identity.clone(),
@@ -1355,7 +1555,8 @@ fn build_nodes(
     let mut nodes = Vec::new();
 
     for function in functions {
-        let mut scanner = BodyScanner::new(&foreign_functions);
+        let bindings = CallerBindings::collect(&function.draft);
+        let mut scanner = BodyScanner::new(&foreign_functions, &bindings);
         if function.draft.conditional || function.draft.signature.asyncness.is_some() {
             scanner.direct_effects.insert(Effect::Unknown);
         }
@@ -1573,12 +1774,13 @@ fn local_function_index(functions: &[AddressedFunction]) -> BTreeMap<String, Vec
     index
 }
 
-/// Resolves a call to a selected function only when its source path proves the target: a
-/// single-segment call names a free function in the caller's file and module, `Owner::name` names
-/// an inherent method of `impl Owner` in that scope, and `self.name()` from an inherent method
-/// names a method of the same inherent owner in that scope. Every other shape, including qualified
-/// module paths, qualified-self or leading-`::` paths, and trait dispatch, stays unresolved so it
-/// requires an exact summary or remains unknown.
+/// Resolves a call, or a path used as a value, to a selected function only when its source path
+/// proves the target: a single-segment path names a free function in the caller's file and module,
+/// `Owner::name` names an inherent method of `impl Owner` in that scope, and `self.name()` from an
+/// inherent method names a method of the same inherent owner in that scope. Every other shape,
+/// including qualified module paths, qualified-self or leading-`::` paths, paths whose first
+/// segment is bound inside the caller, and trait dispatch, stays unresolved so it requires an exact
+/// summary or remains unknown.
 fn resolve_local_call<'a>(
     raw_call: &RawCall,
     caller: &AddressedFunction,
@@ -1596,8 +1798,8 @@ fn resolve_local_call<'a>(
                 FunctionContainer::Module | FunctionContainer::Dispatched => return None,
             }
         }
-        RawCallKind::Function => {
-            let path = raw_call.shape.strip_prefix("call:")?;
+        RawCallKind::Function | RawCallKind::Value => {
+            let path = raw_call.shape.strip_prefix(raw_call.kind.shape_prefix())?;
             match path.split("::").collect::<Vec<_>>().as_slice() {
                 [_name] => FunctionContainer::Module,
                 [owner, _name] => FunctionContainer::InherentImpl((*owner).to_owned()),
@@ -2438,6 +2640,85 @@ unsafe fn risky(values: &[u8]) -> u8 {
         ));
         let root = receipt.nodes.iter().find(|node| node.name == "root").expect("root node");
         assert!(root.direct_effects.contains(&Effect::Fs));
+    }
+
+    // r[verify octet.effect_closure.dependency_summaries.invalid]
+    // r[verify octet.effect_closure.verification.adversarial]
+    #[test]
+    fn names_bound_inside_the_caller_never_resolve_to_module_functions() {
+        let owner = "struct Owner;\nimpl Owner {\n    fn name() {}\n}\ntrait Tick {\n    fn name();\n}\n";
+        let cases = [
+            ("fn helper() {}\nfn root(helper: fn()) { helper(); }\n".to_owned(), "call:helper"),
+            ("fn helper() {}\nfn root() { let helper = || {}; helper(); }\n".to_owned(), "call:helper"),
+            (
+                "fn helper() {}\nfn root() { let run = |helper: fn()| helper(); run(root); }\n".to_owned(),
+                "call:helper",
+            ),
+            (
+                "fn helper() {}\nfn root() { use crate::shell::now as helper; helper(); }\n".to_owned(),
+                "call:helper",
+            ),
+            (
+                "fn helper() {}\nfn root() { { use crate::shell::{now as helper}; helper(); } }\n".to_owned(),
+                "call:helper",
+            ),
+            ("fn helper() {}\nfn root() { use crate::shell::*; helper(); }\n".to_owned(), "call:helper"),
+            (
+                "fn helper() {}\nfn root() { struct helper(u8); let _value = helper(1); }\n".to_owned(),
+                "call:helper",
+            ),
+            (
+                "fn helper() {}\nfn root() { extern \"C\" { fn helper(); } unsafe { helper() } }\n".to_owned(),
+                "call:helper",
+            ),
+            ("fn helper() {}\nfn root() { for helper in [root] { helper(); } }\n".to_owned(), "call:helper"),
+            (format!("{owner}fn root<Owner: Tick>() {{ Owner::name() }}\n"), "call:Owner::name"),
+            (
+                format!(
+                    "{owner}struct Wrapper<T>(T);\nimpl<Owner: Tick> Wrapper<Owner> {{\n    fn root() {{ Owner::name() }}\n}}\n"
+                ),
+                "call:Owner::name",
+            ),
+        ];
+        for (source, shape) in &cases {
+            let addresses = ["helper", "name", "root"]
+                .into_iter()
+                .zip(['1', '2', '3'])
+                .filter(|(name, _fill)| {
+                    source.contains(&format!("fn {name}(")) || source.contains(&format!("fn {name}<"))
+                })
+                .map(|(name, fill)| address(name, fill))
+                .collect();
+            let receipt = compute_closure(input(source, addresses, policy(Vec::new())));
+
+            assert_eq!(call_edge(&receipt, "root", shape).resolution, CallResolution::Unknown, "{source}");
+            assert_eq!(receipt.status, AdmissionStatus::Denied, "{source}");
+        }
+    }
+
+    // r[verify octet.effect_closure.dependency_summaries.invalid]
+    // r[verify octet.effect_closure.verification.adversarial]
+    #[test]
+    fn function_paths_used_as_values_are_call_edges() {
+        let external = compute_closure(input(
+            "fn run(_hook: fn()) {}\nfn root() { run(std::process::abort); }\n",
+            vec![address("root", '1'), address("run", '2')],
+            policy(Vec::new()),
+        ));
+        assert_eq!(call_edge(&external, "root", "call:run").resolution, CallResolution::Local);
+        assert_eq!(call_edge(&external, "root", "value:std::process::abort").resolution, CallResolution::Unknown);
+        assert_eq!(external.status, AdmissionStatus::Denied);
+
+        let local = compute_closure(input(
+            "fn helper() {}\nfn run(_hook: fn()) {}\nfn root(count: u8) -> u8 { run(helper); let copy = count; copy }\n",
+            vec![address("helper", '1'), address("root", '2'), address("run", '3')],
+            policy(Vec::new()),
+        ));
+        assert_eq!(local.status, AdmissionStatus::Admitted, "{:?}", local.diagnostics);
+        assert_eq!(call_edge(&local, "root", "value:helper").resolution, CallResolution::Local);
+        let root = local.nodes.iter().find(|node| node.name == "root").expect("root node");
+        assert_eq!(root.calls.len(), 2, "local bindings are not call edges: {:?}", root.calls);
+        assert!(verify_receipt_identity(&local).is_empty());
     }
 
     // r[verify octet.effect_closure.inference.direct]
