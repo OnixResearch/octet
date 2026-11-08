@@ -152,15 +152,16 @@ Reviewers use the existing commands at the matching stage:
 - `cargo octet proof-ref scaffold` computes a consumer source BLAKE3 identity and
   emits linkage JSON copied from a saved proof card; `cargo octet proof-ref
   validate` checks that saved linkage without rerunning Verus or emitting new
-  `formal_proof` provenance. Both fail closed when the referenced proof or
-  property ID matches no card or more than one card in the deck. Overclaim
-  wording in the context, anchor, and non-claims is judged per occurrence: a
-  phrase such as `full safety` counts as a non-claim only when `not`, `no`,
-  `never`, `without`, `nor`, `neither`, `cannot`, or an `n't` form appears
-  earlier in its own clause. Clauses end at
-  `;`, `.`, `!`, `?`, or a contrastive word such as `but`, so the Aeneas
-  non-claim `does not establish semantic equivalence or release eligibility`
-  passes while `covers full safety of decode; not full safety of encode` fails.
+  `formal_proof` provenance. Scaffold refuses an `--output` path that resolves
+  to its `--proof-cards` or `--consumer-source` input. Both fail closed when the
+  referenced proof or property ID matches no card or more than one card in the
+  deck. Overclaim wording in the context, anchor, and non-claims is judged per
+  occurrence: a phrase such as `full safety` counts as a non-claim only when
+  `not`, `no`, `never`, `without`, `nor`, `neither`, `cannot`, or an `n't` form
+  appears earlier in its own clause. Clauses end at `;`, `.`, `!`, `?`, or a
+  contrastive word such as `but`, so the Aeneas non-claim `does not establish
+  semantic equivalence or release eligibility` passes while `covers full safety
+  of decode; not full safety of encode` fails.
 - `cargo octet artifact verify` recomputes artifact identities and checks saved
   receipts plus provenance before an artifact directory is treated as evidence.
   Evidence-rail provenance records must carry the receipt's `workspace_scope`,

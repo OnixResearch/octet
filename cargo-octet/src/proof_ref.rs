@@ -173,11 +173,50 @@ fn run_scaffold(args: &ProofRefScaffoldArgs) -> Result<i32, String> {
         serde_json::to_string_pretty(&reference).map_err(|error| format!("serialize proof evidence ref: {error}"))?;
     let text = format!("{text}\n");
     if let Some(output) = &args.output {
+        refuse_output_aliasing_inputs(output, &[
+            ("--proof-cards", &args.proof_cards),
+            ("--consumer-source", &args.consumer_source),
+        ])?;
         fs::write(output, text).map_err(|error| format!("write {}: {error}", output.display()))?;
     } else {
         print!("{text}");
     }
     Ok(EXIT_VALID)
+}
+
+/// Refuses an `--output` path that resolves to one of the scaffold inputs, so scaffold never
+/// overwrites the proof-card deck or consumer source it read. A not-yet-existing output is
+/// resolved through its canonical parent directory.
+fn refuse_output_aliasing_inputs(output: &Path, inputs: &[(&str, &PathBuf)]) -> Result<(), String> {
+    let output_identity = canonical_output_path(output)?;
+    for (flag, input) in inputs {
+        let input_identity =
+            fs::canonicalize(input).map_err(|error| format!("resolve {flag} {}: {error}", input.display()))?;
+        if output_identity == input_identity {
+            return Err(format!(
+                "proof-ref scaffold refuses --output {} because it resolves to {flag} {}",
+                output.display(),
+                input.display()
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn canonical_output_path(output: &Path) -> Result<PathBuf, String> {
+    match fs::canonicalize(output) {
+        Ok(path) => Ok(path),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            let file_name = output
+                .file_name()
+                .ok_or_else(|| format!("resolve --output {}: missing file name", output.display()))?;
+            let parent = output.parent().filter(|parent| !parent.as_os_str().is_empty()).unwrap_or(Path::new("."));
+            let parent = fs::canonicalize(parent)
+                .map_err(|error| format!("resolve --output parent {}: {error}", parent.display()))?;
+            Ok(parent.join(file_name))
+        }
+        Err(error) => Err(format!("resolve --output {}: {error}", output.display())),
+    }
 }
 
 fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<T, String> {
@@ -935,6 +974,46 @@ mod tests {
                 .any(|diagnostic| diagnostic.contains("duplicate") && diagnostic.contains(PROPERTY_ID))
         );
         assert!(matching_card(&anchor_reference, &duplicate_deck).is_none());
+    }
+
+    #[test]
+    fn proof_ref_scaffold_refuses_output_that_aliases_an_input() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let deck_path = temp.path().join("proof-cards.json");
+        let deck_text = serde_json::to_string_pretty(&deck_with(card())).expect("deck json");
+        fs::write(&deck_path, &deck_text).expect("write deck");
+        let source_path = temp.path().join("src/codec.rs");
+        fs::create_dir_all(source_path.parent().expect("source parent")).expect("create source parent");
+        let anchor = format!("octet-proof-ref: {} -> {PROPERTY_ID}", matching_reference().reference_id);
+        let source_text = format!("// {anchor}\npub fn codec() {{}}\n");
+        fs::write(&source_path, &source_text).expect("write source");
+        let scaffold_args = |output: PathBuf| ProofRefArgs {
+            mode: ProofRefMode::Scaffold(ProofRefScaffoldArgs {
+                proof_cards: deck_path.clone(),
+                proof_or_property_id: PROPERTY_ID.to_owned(),
+                reference_id: "unchecked-narrowing-range-proof".to_owned(),
+                consumer_context: "allow tigerstyle::unchecked_narrowing at src/codec.rs:42".to_owned(),
+                consumer_source: source_path.clone(),
+                anchor: anchor.clone(),
+                output: Some(output),
+            }),
+        };
+
+        for aliased in [
+            deck_path.clone(),
+            temp.path().join("src/../proof-cards.json"),
+            source_path.clone(),
+        ] {
+            let error = run(&scaffold_args(aliased.clone())).expect_err("aliased output must be refused");
+            assert!(error.contains("--output"), "unexpected error for `{}`: {error}", aliased.display());
+        }
+        let fresh = temp.path().join("src/new-proof-ref.json");
+        let code = run(&scaffold_args(fresh.clone())).expect("fresh output scaffolds");
+
+        assert_eq!(fs::read_to_string(&deck_path).expect("read deck"), deck_text);
+        assert_eq!(fs::read_to_string(&source_path).expect("read source"), source_text);
+        assert_eq!(code, EXIT_VALID);
+        assert!(fresh.is_file());
     }
 
     fn aeneas_non_claims() -> Vec<String> {
