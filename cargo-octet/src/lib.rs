@@ -69,6 +69,8 @@ mod spacewasm;
 #[cfg(test)]
 mod state_machine_exhaustiveness;
 mod strict_profile;
+#[cfg(test)]
+mod test_support;
 mod transcript;
 mod valence_core_shim;
 #[cfg(test)]

@@ -1432,7 +1432,7 @@ mod tests {
         stderr_max_bytes: usize,
         timeout_ms: u64,
     ) -> AeneasExecutionPlan {
-        use std::os::unix::fs::PermissionsExt;
+        use crate::test_support::write_executable_script;
 
         let source_root = root.join("source");
         fs::create_dir(&source_root).expect("source root");
@@ -1450,9 +1450,9 @@ mod tests {
         .expect("Lake manifest fixture");
         let scripts = [("charon", charon_body), ("aeneas", aeneas_body), ("lake", lean_body)];
         for (script_name, body) in scripts {
-            write_executable(&root.join(script_name), &format!("#!/bin/sh\n{body}\n"));
+            write_executable_script(&root.join(script_name), &format!("#!/bin/sh\n{body}\n"));
         }
-        write_executable(
+        write_executable_script(
             &root.join("bwrap"),
             "#!/bin/sh\nwhile [ \"$1\" != \"--\" ]; do shift; done\nshift\nexec \"$@\"\n",
         );
@@ -1465,18 +1465,6 @@ mod tests {
         let plan = build_aeneas_execution_plan(input).expect("valid execution plan");
         assert!(plan.source_root.is_absolute());
         assert!(plan.work_root.is_absolute());
-        let executable_mode = 0o755;
-        for executable in ["charon", "aeneas", "lake", "bwrap"] {
-            let path = root.join(executable);
-            let mut permissions = fs::metadata(&path).expect("stage metadata").permissions();
-            permissions.set_mode(executable_mode);
-            fs::set_permissions(path, permissions).expect("make stage executable");
-        }
         plan
-    }
-
-    #[cfg(unix)]
-    fn write_executable(path: &Path, body: &str) {
-        fs::write(path, body).expect("write stage fixture");
     }
 }

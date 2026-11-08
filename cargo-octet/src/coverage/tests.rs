@@ -10,7 +10,6 @@ const EXPECTED_CURRENT_BASIS_POINTS: u64 = 9_200;
 const PRECISION_NUMERATOR: u64 = 2;
 const PRECISION_DENOMINATOR: u64 = 3;
 const EXPECTED_PRECISION_BASIS_POINTS: u64 = 6_666;
-const OWNER_ONLY_PERMISSIONS: u32 = 0o700;
 const SUPPLIED_PERCENTAGE: f64 = 100.0;
 const COVERED_FIELD: &str = "\"covered\":90";
 const PERCENTAGE_ONLY_FIELD: &str = "\"percent\":90.0";
@@ -99,18 +98,17 @@ fn exact_integer_precision_does_not_use_supplied_percentages() {
 fn bounded_native_run_uses_fixed_argv_and_dedicated_report() {
     // r[verify octet.coverage_baseline.profile]
     // r[verify octet.coverage_baseline.boundary]
-    use std::os::unix::fs::PermissionsExt as _;
+    use crate::test_support::write_executable_script;
 
     let directory = tempfile::tempdir().expect("create coverage shell fixture");
     let report = native_report(CURRENT_COVERED, TOTAL_COUNT, "cargo-octet/src/lib.rs");
     let script = directory.path().join("cargo-fixture");
     let config = directory.path().join("cargo-config.toml");
     std::fs::write(&config, "[net]\noffline = true\n").expect("write Cargo config fixture");
-    std::fs::write(&script, format!("#!/bin/sh\nprintf '%s' '{report}' > .octet/coverage/current-native.json\n"))
-        .expect("write coverage executable fixture");
-    let mut permissions = std::fs::metadata(&script).expect("inspect fixture executable").permissions();
-    permissions.set_mode(OWNER_ONLY_PERMISSIONS);
-    std::fs::set_permissions(&script, permissions).expect("make fixture executable");
+    write_executable_script(
+        &script,
+        &format!("#!/bin/sh\nprintf '%s' '{report}' > .octet/coverage/current-native.json\n"),
+    );
 
     let profile = selected_profile(PROFILE_ID).expect("coverage profile");
     let observation = shell::run_with(directory.path(), &profile, shell::RuntimeTools {
@@ -123,7 +121,7 @@ fn bounded_native_run_uses_fixed_argv_and_dedicated_report() {
     assert_eq!(observation.current_text, report);
     assert_eq!(observation.exit_code, 0);
 
-    std::fs::write(&script, "#!/bin/sh\nprintf 'overflow'\n").expect("write output-limit fixture");
+    write_executable_script(&script, "#!/bin/sh\nprintf 'overflow'\n");
     let mut limited_profile = profile.clone();
     limited_profile.max_log_bytes = TINY_LOG_LIMIT;
     let error = shell::run_with(directory.path(), &limited_profile, shell::RuntimeTools {
@@ -135,7 +133,7 @@ fn bounded_native_run_uses_fixed_argv_and_dedicated_report() {
     .expect_err("coverage output limit is rejected");
     assert!(error.contains("did not succeed"));
 
-    std::fs::write(&script, format!("#!/bin/sh\nexit {TOOL_FAILURE_EXIT}\n")).expect("write tool-failure fixture");
+    write_executable_script(&script, &format!("#!/bin/sh\nexit {TOOL_FAILURE_EXIT}\n"));
     let error = shell::run_with(directory.path(), &profile, shell::RuntimeTools {
         cargo: script,
         path: "/bin".into(),

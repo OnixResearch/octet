@@ -4,7 +4,6 @@ const SOURCE_IDENTITY: &str = "b3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 const TOOL_FAILURE_EXIT: i32 = 2;
 const TIMEOUT_EXIT: i32 = 3;
 const BASELINE_FAILED_EXIT: i32 = 4;
-const OWNER_ONLY_PERMISSIONS: u32 = 0o700;
 
 #[test]
 fn profile_registry_and_identity_are_fresh() {
@@ -83,7 +82,7 @@ fn bounded_native_shell_lets_timeout_and_baseline_exits_reach_outcome_gate() {
 
 #[cfg(unix)]
 fn run_native_fixture(outcome: &str, baseline_passed: bool, exit_code: i32) -> shell::RunObservation {
-    use std::os::unix::fs::PermissionsExt as _;
+    use crate::test_support::write_executable_script;
 
     let directory = tempfile::tempdir().expect("create mutation shell fixture");
     let script = directory.path().join("cargo-fixture");
@@ -94,10 +93,7 @@ fn run_native_fixture(outcome: &str, baseline_passed: bool, exit_code: i32) -> s
         inventory(),
         outcomes(outcome, baseline_passed)
     );
-    std::fs::write(&script, script_text).expect("write mutation executable fixture");
-    let mut permissions = std::fs::metadata(&script).expect("inspect mutation executable").permissions();
-    permissions.set_mode(OWNER_ONLY_PERMISSIONS);
-    std::fs::set_permissions(&script, permissions).expect("make mutation fixture executable");
+    write_executable_script(&script, &script_text);
 
     let profile = selected_profile(PROFILE_ID).expect("mutation profile");
     shell::run_with(directory.path(), &profile, source_manifest(), shell::RuntimeTools {

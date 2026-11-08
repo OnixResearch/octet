@@ -322,14 +322,10 @@ mod tests {
     const SEED_BYTES: &[u8] = b"seed";
     const SHELL_MANAGED_VARIABLES: [&str; 4] = ["PWD", "OLDPWD", "SHLVL", "_"];
     const SELECTED_VARIABLE: &str = "OCTET_FUZZ_FIXTURE";
-    const OWNER_ONLY_PERMISSIONS: u32 = 0o700;
     const FIXTURE_TIMEOUT_MS: u64 = 200;
     const FIXTURE_POLL_MS: u64 = 10;
     const FIXTURE_TEARDOWN_MS: u64 = 1_000;
     const FIXTURE_DEADLINE_SECONDS: u64 = 10;
-    const TEXT_FILE_BUSY: &str = "Text file busy";
-    const SPAWN_RETRIES: usize = 20;
-    const SPAWN_RETRY_DELAY_MS: u64 = 10;
 
     #[test]
     fn bounded_snapshot_hashes_files_and_rejects_symlinks() {
@@ -379,7 +375,7 @@ mod tests {
             cargo,
             environment: vec![(SELECTED_VARIABLE.into(), "selected".into())],
         };
-        let (rendered, exit_code) = run_fixture(directory.path(), &tools, run_limits().expect("limits")).expect("run");
+        let (rendered, exit_code) = run_with(directory.path(), tools, run_limits().expect("limits")).expect("run");
         assert_eq!(exit_code, ACCEPTED_EXIT_CODE);
         let details: ReceiptDetails = serde_json::from_str(&rendered).expect("parse cargo-fuzz receipt");
         assert_eq!(details.outcome, "clean");
@@ -415,7 +411,7 @@ mod tests {
             cargo,
             environment: Vec::new(),
         };
-        let error = run_fixture(directory.path(), &tools, limits).expect_err("timed-out cargo-fuzz run must fail");
+        let error = run_with(directory.path(), tools, limits).expect_err("timed-out cargo-fuzz run must fail");
         assert!(error.contains("TimedOut"), "{error}");
         assert!(started.elapsed() < std::time::Duration::from_secs(FIXTURE_DEADLINE_SECONDS));
     }
@@ -433,7 +429,7 @@ mod tests {
             cargo,
             environment: Vec::new(),
         };
-        let error = run_fixture(directory.path(), &tools, run_limits().expect("limits"))
+        let error = run_with(directory.path(), tools.clone(), run_limits().expect("limits"))
             .expect_err("stale crash artifacts must not classify a build failure as a crash");
         assert!(error.contains("artifact directory"), "{error}");
 
@@ -444,8 +440,7 @@ mod tests {
             directory.path(),
             &format!("printf new > {ARTIFACT_DIRECTORY}/{CRASH_PREFIX}new\nexit 1\n"),
         );
-        let (rendered, _) =
-            run_fixture(directory.path(), &tools, run_limits().expect("limits")).expect("fresh crash run");
+        let (rendered, _) = run_with(directory.path(), tools, run_limits().expect("limits")).expect("fresh crash run");
         let details: ReceiptDetails = serde_json::from_str(&rendered).expect("parse cargo-fuzz receipt");
         assert_eq!(details.outcome, "crash");
         assert_eq!(details.crash_input.expect("fresh crash").path, format!("{ARTIFACT_DIRECTORY}/{CRASH_PREFIX}new"));
@@ -461,31 +456,8 @@ mod tests {
 
     #[cfg(unix)]
     fn write_fixture_cargo(directory: &std::path::Path, body: &str) -> std::path::PathBuf {
-        use std::os::unix::fs::PermissionsExt as _;
-
         let path = directory.join("cargo-fixture");
-        std::fs::write(&path, format!("#!/bin/sh\n{body}")).expect("write cargo fixture");
-        let mut permissions = std::fs::metadata(&path).expect("inspect cargo fixture").permissions();
-        permissions.set_mode(OWNER_ONLY_PERMISSIONS);
-        std::fs::set_permissions(&path, permissions).expect("make cargo fixture executable");
+        crate::test_support::write_executable_script(&path, &format!("#!/bin/sh\n{body}"));
         path
-    }
-
-    /// Retries a spawn that raced a sibling test's fork while the fixture script was still open
-    /// for writing (`ETXTBSY`); no fixture process ran in that case.
-    fn run_fixture(
-        directory: &std::path::Path,
-        tools: &RuntimeTools,
-        limits: bounded_exec::ExecutionLimits,
-    ) -> Result<(String, i32), String> {
-        let mut outcome = run_with(directory, tools.clone(), limits);
-        for _ in 0..SPAWN_RETRIES {
-            if !outcome.as_ref().is_err_and(|error| error.contains(TEXT_FILE_BUSY)) {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(SPAWN_RETRY_DELAY_MS));
-            outcome = run_with(directory, tools.clone(), limits);
-        }
-        outcome
     }
 }
