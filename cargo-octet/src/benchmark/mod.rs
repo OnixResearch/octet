@@ -37,6 +37,8 @@ pub struct EnvironmentObservation {
     pub peak_memory_supported: bool,
 }
 
+// `sample_index` is a serialized JSON key; renaming the field would change the wire format.
+#[allow(clippy::struct_field_names)]
 #[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Sample {
     pub sample_index: usize,

@@ -168,6 +168,9 @@ pub(crate) struct AeneasExecutionReport {
     pub(crate) diagnostics: Vec<String>,
 }
 
+// Each flag is an independent observed process fact copied into the proof receipt; they are not a
+// state machine.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct AeneasCommandSummary {
     pub(crate) command_succeeded: bool,
@@ -194,6 +197,9 @@ struct AeneasProfile {
     extraction_policy: CharonExtractionPolicy,
 }
 
+// The `*_argv` names are the deserialized provider-profile JSON keys; renaming would break profile
+// parsing.
+#[allow(clippy::struct_field_names)]
 #[derive(Debug, Deserialize)]
 struct AeneasStageCommands {
     charon_argv: Vec<String>,
