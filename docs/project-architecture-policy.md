@@ -83,7 +83,7 @@ Mixed `--all-features` and `--features`, `-F` shorthand, and repeated feature or
 
 Every selected source root needs a role, including build scripts outside `src`. Existing `--lib` policies can require those additional source declarations. Test and generated source roles remain explicit. Old collector contexts are rejected rather than assigned a default normal-library identity. Source roots inside excluded build or evidence directories are rejected.
 
-Octet writes one content-bound shard for each selected compilation unit. The shard records resolved items, types, traits, implementations, signatures, calls, constructors, effects, expansions, and active configuration.
+Octet writes one content-bound shard for each selected compilation unit. The shard records resolved items, types, traits, implementations, signatures, calls, constructors, effects, expansions, and active configuration. Constructor facts cover struct literals, unit struct and unit variant paths, and calls, so `adapters::Http { base }` and `adapters::SystemClock` count as adapter construction just as `adapters::Http::new(base)` does.
 
 Each unit identity binds its package source envelope: the package `Cargo.toml` and every `.rs` file below the package directory, including nested packages such as `fuzz/`. Build and evidence directory names such as `target` and `.octet` are excluded only in a directory that holds a `Cargo.toml`, so `fuzz/target/` is excluded while a module directory such as `src/target/` stays in the envelope. Non-`.rs` inputs, such as files read through `include_str!`, are not part of the envelope. Before collection, Octet keeps a cached shard only when it is the single cached shard for an expected unit; when one unit has several cached shards, all of them are discarded.
 

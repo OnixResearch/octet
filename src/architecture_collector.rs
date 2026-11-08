@@ -25,7 +25,9 @@ use octet_architecture_ir::UnknownFactKind;
 use octet_architecture_ir::ValueProvenanceStatus;
 use rustc_hir as hir;
 use rustc_hir::attrs::AttributeKind;
+use rustc_hir::def::CtorKind;
 use rustc_hir::def::DefKind;
+use rustc_hir::def::Res;
 use rustc_hir::def_id::DefId;
 use rustc_hir::def_id::LocalDefId;
 use rustc_hir::find_attr;
@@ -570,6 +572,16 @@ impl ArchitectureCollector {
             );
         }
         self.collect_constructor(cx, expr, &caller_item_id, def_id, &span_id);
+        if expr.span.from_expansion() {
+            self.collect_expansion(cx, expr.span, &span_id);
+        }
+    }
+
+    // Struct literals and unit constructors build values without a call expression.
+    fn collect_construction(&mut self, cx: &LateContext<'_>, expr: &hir::Expr<'_>, def_id: DefId) {
+        let caller_item_id = self.caller_item_id(cx, expr.hir_id);
+        let span_id = self.collect_span(cx, expr.span);
+        self.collect_constructor(cx, expr, &caller_item_id, Some(def_id), &span_id);
         if expr.span.from_expansion() {
             self.collect_expansion(cx, expr.span, &span_id);
         }
@@ -1245,6 +1257,16 @@ impl<'tcx> LateLintPass<'tcx> for ArchitectureCollector {
                     def_id.map_or(DispatchKind::Unknown, |current| dispatch_kind(cx, current, Some(receiver_ty)));
                 self.collect_call(cx, expr, def_id, dispatch);
             }
+            hir::ExprKind::Struct(qpath, ..) => {
+                if let Some(def_id) = struct_literal_definition(cx, expr, qpath) {
+                    self.collect_construction(cx, expr, def_id);
+                }
+            }
+            hir::ExprKind::Path(qpath) => {
+                if let Some(def_id) = unit_constructor_definition(cx, expr, qpath) {
+                    self.collect_construction(cx, expr, def_id);
+                }
+            }
             _ => {}
         }
     }
@@ -1253,6 +1275,31 @@ impl<'tcx> LateLintPass<'tcx> for ArchitectureCollector {
         if let Err(error) = self.emit_shard(cx) {
             cx.tcx.dcx().err(error);
         }
+    }
+}
+
+// A struct literal names the struct, union, or variant it builds; `Self { .. }`
+// and type aliases resolve through the constructed ADT.
+fn struct_literal_definition(cx: &LateContext<'_>, expr: &hir::Expr<'_>, qpath: &hir::QPath<'_>) -> Option<DefId> {
+    let ty::Adt(adt, _) = cx.typeck_results().expr_ty(expr).kind() else {
+        return None;
+    };
+    match cx.qpath_res(qpath, expr.hir_id) {
+        Res::Def(DefKind::Struct | DefKind::Union | DefKind::Variant, def_id) => Some(def_id),
+        _ => Some(adt.did()),
+    }
+}
+
+// Unit structs and unit variants are constructed by naming their constant
+// constructor; tuple constructors are calls and reach `collect_call` instead.
+fn unit_constructor_definition(cx: &LateContext<'_>, expr: &hir::Expr<'_>, qpath: &hir::QPath<'_>) -> Option<DefId> {
+    let ty::Adt(adt, _) = cx.typeck_results().expr_ty(expr).kind() else {
+        return None;
+    };
+    match cx.qpath_res(qpath, expr.hir_id) {
+        Res::Def(DefKind::Ctor(_, CtorKind::Const), def_id) => Some(def_id),
+        Res::SelfCtor(_) => adt.non_enum_variant().ctor_def_id(),
+        _ => None,
     }
 }
 

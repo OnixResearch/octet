@@ -879,6 +879,58 @@ fn compiler_architecture_ir_fixtures() {
     }));
 }
 
+fn assert_valid_compiler_shard(shard: &CompilerArchitectureShard) {
+    let issues = octet_architecture_ir::verify_observation_set(
+        &shard.facts,
+        &shard.unknowns,
+        &shard.spans,
+        &compiler_fixture_limits(),
+    );
+    assert!(issues.is_empty(), "compiler fixture shard is invalid: {issues:#?}");
+}
+
+fn compiler_type_definition<'a>(shard: &'a CompilerArchitectureShard, type_id: &str) -> Option<&'a str> {
+    shard.facts.iter().find_map(|fact| match fact {
+        CompilerArchitectureFact::Type {
+            type_id: current,
+            definition_path,
+            ..
+        } if current == type_id => definition_path.as_deref(),
+        _ => None,
+    })
+}
+
+#[test]
+#[ignore = "run via cargo test --test ui compiler_architecture -- --ignored --nocapture"]
+fn compiler_architecture_struct_literal_construction() {
+    let toolchain = rustup_toolchain();
+    let library = build_library(&toolchain);
+    let host = host_triple();
+    let driver = build_driver(&toolchain);
+    let shard = run_compiler_architecture_fixture(&driver, &library, &host, "positive/struct_literal_construction.rs");
+    assert_eq!(shard.collection_status, CollectionStatus::Complete);
+    assert_valid_compiler_shard(&shard);
+    let constructed = shard
+        .facts
+        .iter()
+        .filter_map(|fact| match fact {
+            CompilerArchitectureFact::Constructor {
+                constructed_type_id,
+                constructor_definition: Some(_),
+                ..
+            } => compiler_type_definition(&shard, constructed_type_id),
+            _ => None,
+        })
+        .collect::<std::collections::BTreeSet<_>>();
+    for expected in [
+        "struct_literal_construction::adapters::Http",
+        "struct_literal_construction::adapters::SystemClock",
+        "struct_literal_construction::adapters::Transport",
+    ] {
+        assert!(constructed.contains(expected), "missing constructor for {expected}: {constructed:?}");
+    }
+}
+
 #[test]
 #[ignore = "run via cargo test --test ui compiler_architecture_target_fixtures -- --ignored --nocapture"]
 fn compiler_architecture_target_fixtures() {
