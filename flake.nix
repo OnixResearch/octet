@@ -4591,22 +4591,7 @@
                 buildInputs
                 cargoVendorDir
                 ;
-              cargoClippyExtraArgs = "--all-targets -- -D warnings -W clippy::pedantic ${productionSafetyClippyArgs}";
-            };
-
-            # The pedantic rail above lints only the root `octet` package, the
-            # lint library. Every workspace member gets the default lints plus
-            # the production-safety set.
-            clippy-workspace = craneLib.cargoClippy {
-              inherit
-                src
-                cargoArtifacts
-                nativeBuildInputs
-                buildInputs
-                cargoVendorDir
-                ;
-              pname = "octet-workspace";
-              cargoClippyExtraArgs = "--workspace --all-targets -- -D warnings ${productionSafetyClippyArgs}";
+              cargoClippyExtraArgs = "--workspace --all-targets -- -D warnings -W clippy::pedantic ${productionSafetyClippyArgs}";
             };
 
             fmt = craneLib.cargoFmt {
@@ -4685,7 +4670,6 @@
                 coreCheckNames = [
                   "fmt"
                   "clippy"
-                  "clippy-workspace"
                   "nextest"
                   "ui"
                   "warning-clean"

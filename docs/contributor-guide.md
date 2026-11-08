@@ -216,18 +216,16 @@ Warning-clean release-readiness checks:
 ```bash
 nix build .#checks.x86_64-linux.warning-clean --no-link -L
 nix build .#checks.x86_64-linux.clippy --no-link -L
-nix build .#checks.x86_64-linux.clippy-workspace --no-link -L
 ```
 
 The `warning-clean` rail runs the owned workspace with Rust compiler warnings
 denied and covers the `cargo-octet`, `cargo-slotcar`, and `cargo-tigerstyle`
 binary targets. The paired `warning-clean-regression` check is a negative
 control proving a new dead helper fails under the same warning-deny policy. The
-`clippy` rail runs Clippy on the lint library (the root `octet` package) with
-`-D warnings -W clippy::pedantic` so pedantic findings are release-readiness
-regressions too. The `clippy-workspace` rail runs every workspace member with
-`-D warnings` and the production-safety lints; the runner and helper crates
-still carry pedantic findings, so they are not on the pedantic rail yet.
+`clippy` rail runs Clippy on every workspace member (the lint library, the
+runners, and the helper crates) with `-D warnings -W clippy::pedantic` plus the
+production-safety lints, so pedantic findings anywhere in the workspace are
+release-readiness regressions too.
 
 CI gates on the expected-green aggregate, which bundles formatting, Clippy,
 nextest over every workspace member, the UI rail, warning-clean, the policy and
