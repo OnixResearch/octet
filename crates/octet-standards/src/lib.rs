@@ -383,6 +383,47 @@ mod tests {
     }
 
     #[test]
+    fn custom_boundary_checks_cover_every_declared_core_and_shell_crate() {
+        let sources = vec![
+            SourceFile::new("domain-core/src/lib.rs", "#![no_std]\n"),
+            SourceFile::new("domain-core/Cargo.toml", "[dependencies]\nsnafu = \"0.8\"\n"),
+            SourceFile::new(
+                "ledger-core/src/lib.rs",
+                "pub fn handle(input: axum::Json<u32>) -> u32 {\n    input.0\n}\n",
+            ),
+            SourceFile::new("ledger-core/Cargo.toml", "[dependencies]\ntokio = \"1\"\n"),
+            SourceFile::new(
+                "infrastructure-shell/Cargo.toml",
+                "[dependencies]\ndomain-core = { path = \"../domain-core\" }\n",
+            ),
+            SourceFile::new("infrastructure-shell/src/lib.rs", "pub fn shell() {}\n"),
+            SourceFile::new("worker-shell/Cargo.toml", "[dependencies]\nledger-core.workspace = true\n"),
+            SourceFile::new("worker-shell/src/lib.rs", "#![no_std]\n"),
+            SourceFile::new("audit-shell/Cargo.toml", "[dependencies]\nserde = \"1\"\n"),
+        ];
+        let diagnostics = check_architecture(
+            &sample_multi_crate_boundary_registry(),
+            &sources,
+            &FamilySelection::from_families(["architecture"]),
+        );
+        let findings = diagnostics
+            .iter()
+            .map(|diagnostic| (diagnostic.path.as_str(), diagnostic.message.as_str()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(findings, vec![
+            ("ledger-core/src/lib.rs", "core crate `ledger-core/src/lib.rs` is missing #![no_std]"),
+            ("ledger-core/Cargo.toml", "core crate depends on forbidden dependency `tokio`"),
+            ("worker-shell/src/lib.rs", "shell crate `worker-shell/src/lib.rs` must not declare #![no_std]"),
+            (
+                "audit-shell/Cargo.toml",
+                "shell crate must depend on a declared core crate (`domain-core`, `ledger-core`)"
+            ),
+            ("ledger-core/src/lib.rs", "core public API leaks external domain type pattern `axum::`"),
+        ]);
+    }
+
+    #[test]
     fn architecture_checks_reject_missing_core_no_std() {
         let sources = vec![SourceFile::new(
             "crates/tigerstyle-core/src/lib.rs",
@@ -1500,6 +1541,17 @@ impl Session<Authenticated> { pub fn send(self) {} }
             target_enforcement_mode: EnforcementMode::Structural,
             ..sample_policy(policy_id, pillar, source_anchor)
         }
+    }
+
+    fn sample_multi_crate_boundary_registry() -> PolicyRegistry {
+        let mut registry = sample_custom_boundary_registry();
+        let mechanism = &mut registry.policies[0].mechanisms[0];
+        mechanism.core_crates.push("ledger-core/src/lib.rs".to_owned());
+        mechanism.shell_crates.extend([
+            "worker-shell/Cargo.toml".to_owned(),
+            "audit-shell/Cargo.toml".to_owned(),
+        ]);
+        registry
     }
 
     fn sample_type_state_policy() -> PolicyEntry {

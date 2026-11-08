@@ -101,18 +101,30 @@ struct PortObligations {
     reserved: bool,
 }
 
+/// Source paths derived from one declared core crate.
+#[derive(Debug)]
+struct CoreCrateBoundary {
+    lib_path_suffix: String,
+    manifest_path_suffix: String,
+    rust_path_segment: String,
+}
+
+/// Source paths derived from one declared shell crate.
+#[derive(Debug)]
+struct ShellCrateBoundary {
+    manifest_path_suffix: String,
+    lib_path_suffix: String,
+}
+
 #[derive(Debug)]
 struct CrateBoundaryObligations {
-    core_lib_path_suffix: String,
-    core_manifest_path_suffix: String,
-    std_manifest_path_suffix: String,
-    std_lib_path_suffix: String,
-    core_rust_path_segment: String,
+    core_boundaries: Vec<CoreCrateBoundary>,
+    shell_boundaries: Vec<ShellCrateBoundary>,
     core_crates: Vec<String>,
     shell_crates: Vec<String>,
     adapter_crates: Vec<String>,
     core_forbidden_dependencies: Vec<String>,
-    core_crate_dependency: String,
+    core_crate_dependencies: Vec<String>,
     external_domain_patterns: Vec<String>,
     dependency_edge_kinds: Vec<String>,
     #[allow(dead_code)]
@@ -123,31 +135,60 @@ struct CrateBoundaryObligations {
 // r[impl octet.crate_boundary_config.default_profile]
 // r[impl octet.crate_boundary_config.fallback]
 // r[impl octet.crate_boundary_config.checks]
+// r[impl octet.crate_boundary_config.checks.every_crate]
 impl CrateBoundaryObligations {
     fn from_policy(policy: &PolicyEntry) -> Option<Self> {
         let mechanism = policy.mechanisms.iter().find(|mechanism| mechanism.kind == MechanismKind::CrateBoundary)?;
-        let core_lib_path_suffix = mechanism.core_crates.first()?.clone();
-        let std_manifest_path_suffix = mechanism.shell_crates.first()?.clone();
-        let core_manifest_path_suffix = crate_manifest_path(&core_lib_path_suffix);
-        let std_lib_path_suffix = crate_lib_path(&std_manifest_path_suffix);
-        let core_crate_dependency = crate_name_from_manifest(&core_manifest_path_suffix)?;
-        let core_rust_path_segment = core_source_path(&core_lib_path_suffix);
+        if mechanism.shell_crates.is_empty() {
+            return None;
+        }
+        let core_boundaries = mechanism
+            .core_crates
+            .iter()
+            .map(|lib_path_suffix| CoreCrateBoundary {
+                lib_path_suffix: lib_path_suffix.clone(),
+                manifest_path_suffix: crate_manifest_path(lib_path_suffix),
+                rust_path_segment: core_source_path(lib_path_suffix),
+            })
+            .collect::<Vec<_>>();
+        let core_crate_dependencies = core_boundaries
+            .iter()
+            .filter_map(|core| crate_name_from_manifest(&core.manifest_path_suffix))
+            .collect::<Vec<_>>();
+        if core_crate_dependencies.is_empty() {
+            return None;
+        }
+        let shell_boundaries = mechanism
+            .shell_crates
+            .iter()
+            .map(|manifest_path_suffix| ShellCrateBoundary {
+                manifest_path_suffix: manifest_path_suffix.clone(),
+                lib_path_suffix: crate_lib_path(manifest_path_suffix),
+            })
+            .collect();
 
         Some(Self {
-            core_lib_path_suffix,
-            core_manifest_path_suffix,
-            std_manifest_path_suffix,
-            std_lib_path_suffix,
-            core_rust_path_segment,
+            core_boundaries,
+            shell_boundaries,
             core_crates: mechanism.core_crates.clone(),
             shell_crates: mechanism.shell_crates.clone(),
             adapter_crates: mechanism.adapter_crates.clone(),
             core_forbidden_dependencies: mechanism.forbidden_core_deps.clone(),
-            core_crate_dependency,
+            core_crate_dependencies,
             external_domain_patterns: mechanism.external_domain_patterns.clone(),
             dependency_edge_kinds: mechanism.dependency_edge_kinds.clone(),
             core_no_std: mechanism.core_no_std,
         })
+    }
+
+    fn shell_core_dependency_requirement(&self) -> String {
+        match self.core_crate_dependencies.as_slice() {
+            [core_dependency] => format!("core crate `{core_dependency}`"),
+            core_dependencies => format!(
+                "a declared core crate ({})",
+                core_dependencies.iter().map(|name| format!("`{name}`")).collect::<Vec<_>>().join(", ")
+            ),
+        }
     }
 }
 
@@ -323,8 +364,7 @@ fn check_core_no_std(
     if !boundary.core_no_std {
         return;
     }
-    let lib_suffix = boundary.core_lib_path_suffix.as_str();
-    for source in sources_by_suffix(sources, lib_suffix) {
+    for (source, core) in sources_matching_crate(sources, &boundary.core_boundaries, |core| &core.lib_path_suffix) {
         if source.text.contains(NO_STD_ATTRIBUTE) {
             continue;
         }
@@ -332,7 +372,7 @@ fn check_core_no_std(
             policy,
             source,
             Some(FIRST_LINE),
-            &format!("core crate `{lib_suffix}` is missing #![no_std]"),
+            &format!("core crate `{}` is missing #![no_std]", core.lib_path_suffix),
             "add #![no_std] to the core crate root or move std-dependent code to the shell",
         ));
     }
@@ -350,7 +390,7 @@ fn check_core_forbidden_dependencies(
     let Some(boundary) = boundary else {
         return;
     };
-    for source in sources_by_suffix(sources, &boundary.core_manifest_path_suffix) {
+    for (source, _) in sources_matching_crate(sources, &boundary.core_boundaries, |core| &core.manifest_path_suffix) {
         for dependency in &boundary.core_forbidden_dependencies {
             if let Some(line) = dependency_declaration_line(&source.text, dependency) {
                 diagnostics.push(policy_diagnostic(
@@ -377,8 +417,7 @@ fn check_std_shell_owns_std(
     let Some(boundary) = boundary else {
         return;
     };
-    let lib_suffix = boundary.std_lib_path_suffix.as_str();
-    for source in sources_by_suffix(sources, lib_suffix) {
+    for (source, shell) in sources_matching_crate(sources, &boundary.shell_boundaries, |shell| &shell.lib_path_suffix) {
         if !source.text.contains(NO_STD_ATTRIBUTE) {
             continue;
         }
@@ -386,7 +425,7 @@ fn check_std_shell_owns_std(
             policy,
             source,
             Some(FIRST_LINE),
-            &format!("shell crate `{lib_suffix}` must not declare #![no_std]"),
+            &format!("shell crate `{}` must not declare #![no_std]", shell.lib_path_suffix),
             "keep std/runtime shell code in the shell crate and no_std code in core",
         ));
     }
@@ -404,17 +443,20 @@ fn check_shell_depends_on_core(
     let Some(boundary) = boundary else {
         return;
     };
-    let manifest_suffix = boundary.std_manifest_path_suffix.as_str();
-    let core_dep = boundary.core_crate_dependency.as_str();
-    for source in sources_by_suffix(sources, manifest_suffix) {
-        if dependency_declaration_line(&source.text, core_dep).is_some() {
+    for (source, _) in sources_matching_crate(sources, &boundary.shell_boundaries, |shell| &shell.manifest_path_suffix)
+    {
+        if boundary
+            .core_crate_dependencies
+            .iter()
+            .any(|core_dependency| dependency_declaration_line(&source.text, core_dependency).is_some())
+        {
             continue;
         }
         diagnostics.push(policy_diagnostic(
             policy,
             source,
             None,
-            &format!("shell crate must depend on core crate `{core_dep}`"),
+            &format!("shell crate must depend on {}", boundary.shell_core_dependency_requirement()),
             "make shell crates depend inward on the core crate and keep the reverse dependency forbidden",
         ));
     }
@@ -809,7 +851,8 @@ fn check_external_domain_leakage(
         return;
     };
     for source in sources.iter().filter(|source| {
-        source.path.contains(&boundary.core_rust_path_segment) && source.path.ends_with(RUST_SOURCE_EXTENSION)
+        source.path.ends_with(RUST_SOURCE_EXTENSION)
+            && boundary.core_boundaries.iter().any(|core| source.path.contains(&core.rust_path_segment))
     }) {
         append_external_domain_leakage_diagnostics(policy, source, &boundary.external_domain_patterns, diagnostics);
     }
@@ -965,6 +1008,21 @@ fn external_domain_pattern<'a>(text: &str, patterns: &'a [String]) -> Option<&'a
 
 fn sources_by_suffix<'a>(sources: &'a [SourceFile], suffix: &'a str) -> impl Iterator<Item = &'a SourceFile> {
     sources.iter().filter(move |source| source.path.ends_with(suffix))
+}
+
+/// Pairs each source with the first declared crate whose path suffix it ends with, so a source
+/// matched by several declarations is reported once.
+fn sources_matching_crate<'a, T>(
+    sources: &'a [SourceFile],
+    crates: &'a [T],
+    path_suffix: impl Fn(&T) -> &str + 'a,
+) -> impl Iterator<Item = (&'a SourceFile, &'a T)> {
+    sources.iter().filter_map(move |source| {
+        crates
+            .iter()
+            .find(|declared| source.path.ends_with(path_suffix(declared)))
+            .map(|declared| (source, declared))
+    })
 }
 
 fn root_sources_by_suffix<'a>(sources: &'a [SourceFile], suffix: &'a str) -> impl Iterator<Item = &'a SourceFile> {
