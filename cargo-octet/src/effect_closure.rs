@@ -359,6 +359,9 @@ struct RawCall {
     shape: String,
     kind: RawCallKind,
     effects: BTreeSet<Effect>,
+    /// Whether the call's path form can name a selected local function at all. A qualified-self
+    /// (`<Type>::name`) or leading-`::` path never does, whatever its last segment.
+    locally_resolvable: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -483,9 +486,14 @@ impl<'a> BodyScanner<'a> {
         }
     }
 
-    fn record_call(&mut self, shape: String, kind: RawCallKind, effects: BTreeSet<Effect>) {
+    fn record_call(&mut self, shape: String, kind: RawCallKind, effects: BTreeSet<Effect>, locally_resolvable: bool) {
         self.direct_effects.extend(effects.iter().copied());
-        self.calls.push(RawCall { shape, kind, effects });
+        self.calls.push(RawCall {
+            shape,
+            kind,
+            effects,
+            locally_resolvable,
+        });
     }
 }
 
@@ -498,15 +506,16 @@ impl<'ast> Visit<'ast> for BodyScanner<'_> {
     }
 
     fn visit_expr_call(&mut self, node: &'ast syn::ExprCall) {
-        let (shape, effects) = match node.func.as_ref() {
+        let (shape, effects, locally_resolvable) = match node.func.as_ref() {
             syn::Expr::Path(path) => {
-                let path = path_text(&path.path);
-                let effects = classify_path_call(&path, self.foreign_functions).unwrap_or_default();
-                (format!("call:{path}"), effects)
+                let (shape_path, effect_path) = expr_path_text(path);
+                let effects = classify_path_call(&effect_path, self.foreign_functions).unwrap_or_default();
+                let locally_resolvable = path.qself.is_none() && path.path.leading_colon.is_none();
+                (format!("call:{shape_path}"), effects, locally_resolvable)
             }
-            _ => ("call:<opaque-expression>".to_owned(), BTreeSet::from([Effect::Unknown])),
+            _ => ("call:<opaque-expression>".to_owned(), BTreeSet::from([Effect::Unknown]), false),
         };
-        self.record_call(shape, RawCallKind::Function, effects);
+        self.record_call(shape, RawCallKind::Function, effects, locally_resolvable);
         syn::visit::visit_expr_call(self, node);
     }
 
@@ -517,7 +526,7 @@ impl<'ast> Visit<'ast> for BodyScanner<'_> {
             _ => "value",
         };
         let effects = classify_method_call(&method);
-        self.record_call(format!("method:{receiver}:{method}"), RawCallKind::Method, effects);
+        self.record_call(format!("method:{receiver}:{method}"), RawCallKind::Method, effects, true);
         syn::visit::visit_expr_method_call(self, node);
     }
 
@@ -525,7 +534,7 @@ impl<'ast> Visit<'ast> for BodyScanner<'_> {
         let path = path_text(&node.path);
         let mut effects = classify_macro(&path).unwrap_or_default();
         effects.insert(Effect::Unknown);
-        self.record_call(format!("macro:{path}"), RawCallKind::Macro, effects);
+        self.record_call(format!("macro:{path}"), RawCallKind::Macro, effects, false);
         syn::visit::visit_macro(self, node);
     }
 
@@ -1568,13 +1577,16 @@ fn local_function_index(functions: &[AddressedFunction]) -> BTreeMap<String, Vec
 /// single-segment call names a free function in the caller's file and module, `Owner::name` names
 /// an inherent method of `impl Owner` in that scope, and `self.name()` from an inherent method
 /// names a method of the same inherent owner in that scope. Every other shape, including qualified
-/// module paths and trait dispatch, stays unresolved so it requires an exact summary or remains
-/// unknown.
+/// module paths, qualified-self or leading-`::` paths, and trait dispatch, stays unresolved so it
+/// requires an exact summary or remains unknown.
 fn resolve_local_call<'a>(
     raw_call: &RawCall,
     caller: &AddressedFunction,
     local_names: &'a BTreeMap<String, Vec<&'a AddressedFunction>>,
 ) -> Option<&'a AddressedFunction> {
+    if !raw_call.locally_resolvable {
+        return None;
+    }
     let expected_container = match raw_call.kind {
         RawCallKind::Macro => return None,
         RawCallKind::Method => {
@@ -1737,7 +1749,34 @@ fn owner_from_type(node: &syn::Type) -> Option<String> {
 }
 
 fn path_text(path: &syn::Path) -> String {
-    path.segments.iter().map(|segment| segment.ident.to_string()).collect::<Vec<_>>().join("::")
+    segments_text(path.segments.iter())
+}
+
+fn segments_text<'a>(segments: impl Iterator<Item = &'a syn::PathSegment>) -> String {
+    segments.map(|segment| segment.ident.to_string()).collect::<Vec<_>>().join("::")
+}
+
+/// Renders a path expression as `(shape path, effect path)`. A qualified-self path keeps its
+/// `<Type>` or `<Type as Trait>` prefix in the shape so it never aliases a local function of the
+/// same final name; its effect path joins the self type and remaining segments so
+/// `<std::fs::File>::create` still classifies as `fs`.
+fn expr_path_text(node: &syn::ExprPath) -> (String, String) {
+    let Some(qself) = &node.qself else {
+        let text = path_text(&node.path);
+        return (text.clone(), text);
+    };
+    let self_type = match qself.ty.as_ref() {
+        syn::Type::Path(path) if path.qself.is_none() => path_text(&path.path),
+        _ => "_".to_owned(),
+    };
+    let trait_path = segments_text(node.path.segments.iter().take(qself.position));
+    let rest = segments_text(node.path.segments.iter().skip(qself.position));
+    let shape = if trait_path.is_empty() {
+        format!("<{self_type}>::{rest}")
+    } else {
+        format!("<{self_type} as {trait_path}>::{rest}")
+    };
+    (shape, format!("{self_type}::{rest}"))
 }
 
 fn unknown_edge(call_site_id: String, occurrence: usize, shape: String) -> ClosureCallEdge {
@@ -2355,6 +2394,50 @@ unsafe fn risky(values: &[u8]) -> u8 {
                 .all(|call| call.resolution == CallResolution::Local)
         );
         assert!(verify_receipt_identity(&receipt).is_empty());
+    }
+
+    fn call_edge<'a>(receipt: &'a EffectClosureReceipt, caller: &str, shape: &str) -> &'a ClosureCallEdge {
+        receipt
+            .nodes
+            .iter()
+            .filter(|node| node.name == caller)
+            .flat_map(|node| &node.calls)
+            .find(|call| call.shape == shape)
+            .unwrap_or_else(|| panic!("`{caller}` has no `{shape}` call in {:?}", receipt.nodes))
+    }
+
+    // r[verify octet.effect_closure.dependency_summaries.invalid]
+    // r[verify octet.effect_closure.verification.adversarial]
+    #[test]
+    fn qualified_paths_never_resolve_to_same_named_local_functions() {
+        for (source, shape, names) in [
+            (
+                "fn create() {}\nfn root() { let _file = <std::fs::File>::create(\"x\"); }\n",
+                "call:<std::fs::File>::create",
+                ["create", "root"],
+            ),
+            ("fn new() {}\nfn root() { let _values = <Vec<u8>>::new(); }\n", "call:<Vec>::new", ["new", "root"]),
+            (
+                "fn write() {}\nfn root(file: &mut File) { let _ = <File as Write>::write(file, b\"x\"); }\n",
+                "call:<File as Write>::write",
+                ["root", "write"],
+            ),
+            ("fn helper() {}\nfn root() { ::helper(); }\n", "call:helper", ["helper", "root"]),
+        ] {
+            let addresses = names.iter().zip(['1', '2']).map(|(name, fill)| address(name, fill)).collect();
+            let receipt = compute_closure(input(source, addresses, policy(Vec::new())));
+
+            assert_eq!(call_edge(&receipt, "root", shape).resolution, CallResolution::Unknown, "{source}");
+            assert_eq!(receipt.status, AdmissionStatus::Denied, "{source}");
+            assert!(receipt.diagnostics.iter().any(|diagnostic| diagnostic.code == DIAGNOSTIC_CALL_UNKNOWN));
+        }
+        let receipt = compute_closure(input(
+            "fn create() {}\nfn root() { let _file = <std::fs::File>::create(\"x\"); }\n",
+            vec![address("create", '1'), address("root", '2')],
+            policy(Vec::new()),
+        ));
+        let root = receipt.nodes.iter().find(|node| node.name == "root").expect("root node");
+        assert!(root.direct_effects.contains(&Effect::Fs));
     }
 
     // r[verify octet.effect_closure.inference.direct]
