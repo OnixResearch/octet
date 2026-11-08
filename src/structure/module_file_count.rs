@@ -1,5 +1,4 @@
 use std::collections::BTreeMap;
-use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -9,7 +8,6 @@ use rustc_lint::EarlyLintPass;
 use rustc_lint::LintContext;
 use rustc_session::declare_tool_lint;
 use rustc_session::impl_lint_pass;
-use rustc_span::SourceFile;
 use rustc_span::Span;
 use rustc_span::SyntaxContext;
 
@@ -44,24 +42,6 @@ struct ModuleFile {
     span: Span,
 }
 
-fn source_file_path(source_file: &SourceFile) -> PathBuf {
-    PathBuf::from(source_file.name.prefer_local_unconditionally().to_string_lossy().into_owned())
-}
-
-fn normalize_path(path: &Path) -> PathBuf {
-    let mut normalized = PathBuf::new();
-    for component in path.components() {
-        match component {
-            Component::CurDir => {}
-            Component::ParentDir => {
-                normalized.pop();
-            }
-            other => normalized.push(other.as_os_str()),
-        }
-    }
-    normalized
-}
-
 fn is_ignored_source_component(component: &str) -> bool {
     IGNORED_SOURCE_COMPONENTS.contains(&component) || component.contains(VENDOR_CARGO_DEPS_MARKER)
 }
@@ -77,16 +57,8 @@ fn is_countable_rust_source(path: &Path) -> bool {
     path.extension().is_some_and(|extension| extension == "rs") && !has_ignored_source_component(path)
 }
 
-fn is_workspace_source_path(path: &Path, workspace_root: &Path) -> bool {
-    if path.is_absolute() {
-        return path.starts_with(workspace_root);
-    }
-
-    workspace_root.join(path).is_file()
-}
-
 fn is_countable_workspace_rust_source(path: &Path, workspace_root: &Path) -> bool {
-    is_countable_rust_source(path) && is_workspace_source_path(path, workspace_root)
+    is_countable_rust_source(path) && crate::source::is_workspace_source_path(path, workspace_root)
 }
 
 fn directory_display(path: &Path) -> String {
@@ -96,13 +68,13 @@ fn directory_display(path: &Path) -> String {
 impl EarlyLintPass for ModuleFileCount {
     fn check_crate(&mut self, cx: &EarlyContext<'_>, _krate: &Crate) {
         let mut by_directory: BTreeMap<PathBuf, Vec<ModuleFile>> = BTreeMap::new();
-        let workspace_root = std::env::current_dir().map(|path| normalize_path(&path)).unwrap_or_default();
+        let workspace_root = crate::source::workspace_root();
 
         for source_file in cx.sess().source_map().files().iter() {
             if !crate::source::is_local(source_file) {
                 continue;
             }
-            let path = normalize_path(&source_file_path(source_file));
+            let path = crate::source::normalize_path(&crate::source::source_file_path(source_file));
             if !is_countable_workspace_rust_source(&path, &workspace_root) {
                 continue;
             }
@@ -144,7 +116,7 @@ mod tests {
 
     use super::is_countable_rust_source;
     use super::is_countable_workspace_rust_source;
-    use super::is_workspace_source_path;
+    use crate::source::is_workspace_source_path;
 
     fn workspace_root() -> &'static Path {
         Path::new(env!("CARGO_MANIFEST_DIR"))

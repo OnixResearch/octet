@@ -41,10 +41,6 @@ impl ExcessiveFileLength {
 
 impl_lint_pass!(ExcessiveFileLength => [EXCESSIVE_FILE_LENGTH]);
 
-fn source_file_path(source_file: &SourceFile) -> String {
-    source_file.name.prefer_local_unconditionally().to_string_lossy().into_owned()
-}
-
 fn normalized_components(path: &str) -> Vec<String> {
     let mut components = Vec::new();
     for component in path.replace('\\', "/").split('/') {
@@ -70,15 +66,24 @@ fn is_generated_or_fixture_path(path: &str) -> bool {
         || path.ends_with(".rs.in")
 }
 
+fn is_checked_source_path(path: &std::path::Path, workspace_root: &std::path::Path) -> bool {
+    crate::source::is_workspace_source_path(path, workspace_root)
+        && !is_generated_or_fixture_path(&path.to_string_lossy())
+}
+
 fn line_count(source_file: &SourceFile) -> Option<usize> {
     source_file.src.as_ref().map(|src| src.lines().count())
 }
 
 impl EarlyLintPass for ExcessiveFileLength {
     fn check_crate(&mut self, cx: &EarlyContext<'_>, _krate: &Crate) {
+        let workspace_root = crate::source::workspace_root();
         for source_file in cx.sess().source_map().files().iter() {
-            let path = source_file_path(source_file);
-            if is_generated_or_fixture_path(&path) {
+            if !crate::source::is_local(source_file) {
+                continue;
+            }
+            let path = crate::source::normalize_path(&crate::source::source_file_path(source_file));
+            if !is_checked_source_path(&path, &workspace_root) {
                 continue;
             }
 
@@ -103,7 +108,30 @@ impl EarlyLintPass for ExcessiveFileLength {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
+    use super::is_checked_source_path;
     use super::is_generated_or_fixture_path;
+
+    fn workspace_root() -> &'static Path {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+    }
+
+    #[test]
+    fn checks_existing_workspace_source_files() {
+        assert!(is_checked_source_path(Path::new("src/lib.rs"), workspace_root()));
+        assert!(is_checked_source_path(&workspace_root().join("src/lib.rs"), workspace_root()));
+    }
+
+    // A custom `CARGO_TARGET_DIR` has no `target` component, so only the
+    // workspace-root check keeps `include!`d build-script output out.
+    #[test]
+    fn skips_build_script_output_under_a_custom_target_dir() {
+        assert!(!is_checked_source_path(
+            Path::new("/home/user/.cargo-target/debug/build/cargo-octet-0123/out/embedded_source.rs"),
+            workspace_root()
+        ));
+    }
 
     #[test]
     fn accepts_workspace_source_files() {

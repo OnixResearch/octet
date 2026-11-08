@@ -1,6 +1,4 @@
-use std::path::Component;
 use std::path::Path;
-use std::path::PathBuf;
 
 use rustc_ast::Crate;
 use rustc_lint::EarlyContext;
@@ -8,7 +6,6 @@ use rustc_lint::EarlyLintPass;
 use rustc_lint::LintContext;
 use rustc_session::declare_tool_lint;
 use rustc_session::impl_lint_pass;
-use rustc_span::SourceFile;
 use rustc_span::Span;
 use rustc_span::SyntaxContext;
 
@@ -48,24 +45,6 @@ impl UnderscoreInModuleFilename {
 
 impl_lint_pass!(UnderscoreInModuleFilename => [UNDERSCORE_IN_MODULE_FILENAME]);
 
-fn source_file_path(source_file: &SourceFile) -> PathBuf {
-    PathBuf::from(source_file.name.prefer_local_unconditionally().to_string_lossy().into_owned())
-}
-
-fn normalize_path(path: &Path) -> PathBuf {
-    let mut normalized = PathBuf::new();
-    for component in path.components() {
-        match component {
-            Component::CurDir => {}
-            Component::ParentDir => {
-                normalized.pop();
-            }
-            other => normalized.push(other.as_os_str()),
-        }
-    }
-    normalized
-}
-
 fn path_components(path: &Path) -> Vec<String> {
     path.components().map(|component| component.as_os_str().to_string_lossy().into_owned()).collect()
 }
@@ -87,14 +66,6 @@ fn is_generated_or_fixture_path(path: &Path) -> bool {
         || path.to_string_lossy().ends_with(".rs.in")
 }
 
-fn is_workspace_source_path(path: &Path, workspace_root: &Path) -> bool {
-    if path.is_absolute() {
-        return path.starts_with(workspace_root);
-    }
-
-    workspace_root.join(path).is_file()
-}
-
 fn file_stem(path: &Path) -> Option<&str> {
     path.file_stem().and_then(|stem| stem.to_str())
 }
@@ -114,7 +85,7 @@ fn should_warn(path: &Path, workspace_root: &Path, exceptions: IndexableLintExce
     if path.extension().and_then(|extension| extension.to_str()) != Some("rs") {
         return None;
     }
-    if !is_workspace_source_path(path, workspace_root) || is_generated_or_fixture_path(path) {
+    if !crate::source::is_workspace_source_path(path, workspace_root) || is_generated_or_fixture_path(path) {
         return None;
     }
 
@@ -128,13 +99,13 @@ fn should_warn(path: &Path, workspace_root: &Path, exceptions: IndexableLintExce
 
 impl EarlyLintPass for UnderscoreInModuleFilename {
     fn check_crate(&mut self, cx: &EarlyContext<'_>, _krate: &Crate) {
-        let workspace_root = std::env::current_dir().map(|path| normalize_path(&path)).unwrap_or_default();
+        let workspace_root = crate::source::workspace_root();
 
         for source_file in cx.sess().source_map().files().iter() {
             if !crate::source::is_local(source_file) {
                 continue;
             }
-            let path = normalize_path(&source_file_path(source_file));
+            let path = crate::source::normalize_path(&crate::source::source_file_path(source_file));
             let Some((stem, replacement)) = should_warn(&path, &workspace_root, self.exceptions) else {
                 continue;
             };
@@ -154,9 +125,9 @@ impl EarlyLintPass for UnderscoreInModuleFilename {
 mod tests {
     use std::path::Path;
 
-    use super::is_workspace_source_path;
     use super::should_warn;
     use crate::config::IndexableLintExceptions;
+    use crate::source::is_workspace_source_path;
 
     fn workspace_root() -> &'static Path {
         Path::new(env!("CARGO_MANIFEST_DIR"))
