@@ -77,5 +77,23 @@ LL ~ struct DetachedCommentTracker {
 LL +     // Lock order: <document acquisition order for 2 locks>
    |
 
-warning: 4 warnings emitted
+warning: struct `SharedTracker` has 2 lock fields without documented ordering
+  --> $DIR/multi_lock_ordering.rs:71:1
+   |
+LL | / struct SharedTracker {
+LL | |     count: std::sync::Arc<Mutex<u64>>,
+LL | |     state: std::sync::Arc<std::sync::RwLock<u32>>,
+LL | | }
+   | |_^
+   |
+   = help: Tiger Style (Lock Ordering): document and preserve one lock acquisition order across the codebase Example: // Lock order: state -> peer -> metrics
+   = note: structured suggestion applicability: HasPlaceholders
+   = note: see Tiger Style guide: Lock Ordering
+help: add lock ordering documentation
+   |
+LL ~ struct SharedTracker {
+LL +     // Lock order: <document acquisition order for 2 locks>
+   |
+
+warning: 5 warnings emitted
 

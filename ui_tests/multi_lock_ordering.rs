@@ -67,6 +67,12 @@ struct DocAttributeTracker {
     state: Mutex<u32>,
 }
 
+// Should warn: locks shared behind `Arc` still count.
+struct SharedTracker {
+    count: std::sync::Arc<Mutex<u64>>,
+    state: std::sync::Arc<std::sync::RwLock<u32>>,
+}
+
 fn main() {
     let _ = Tracker {
         count: Mutex::new(0),

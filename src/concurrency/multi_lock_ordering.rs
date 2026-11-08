@@ -18,11 +18,14 @@ const LOCK_COMMENT_SUBJECT: &str = "lock";
 const LOCK_COMMENT_ORDER: &str = "order";
 const LOCK_COMMENT_ORDERING: &str = "ordering";
 const LOCK_COMMENT_ACQUISITION: &str = "acquisition";
-const SUPPORTED_LOCK_CRATES: &[&str] = &["std", "tokio", "parking_lot"];
+// `parking_lot::Mutex` and `parking_lot::RwLock` are type aliases of the
+// `lock_api` types, so their resolved definition path starts with `lock_api`.
+const SUPPORTED_LOCK_CRATES: &[&str] = &["std", "tokio", "lock_api"];
 
 declare_tool_lint! {
     /// Detects struct definitions containing 2 or more `Mutex` or `RwLock`
-    /// fields without a comment documenting lock acquisition order.
+    /// fields (`std`, `tokio`, or `parking_lot`/`lock_api`, including locks
+    /// held behind `Arc`) without a comment documenting lock acquisition order.
     /// Undocumented lock ordering leads to deadlocks that only appear
     /// under production concurrency.
     pub tigerstyle::MULTI_LOCK_ORDERING,
@@ -42,8 +45,17 @@ fn classify_multi_lock_ordering(facts: LockOrderingFacts) -> bool {
     facts.lock_field_count >= MIN_LOCK_FIELD_COUNT && !facts.has_order_specific_comment
 }
 
-fn ty_lock_kind(cx: &LateContext<'_>, ty: ty::Ty<'_>) -> Option<&'static str> {
-    let ty::Adt(adt, _) = ty.peel_refs().kind() else {
+/// Peels one shared-ownership `Arc` layer so `Arc<Mutex<T>>` counts as a lock field.
+fn peel_shared_lock_owner<'tcx>(cx: &LateContext<'tcx>, ty: ty::Ty<'tcx>) -> ty::Ty<'tcx> {
+    let ty = ty.peel_refs();
+    match ty.kind() {
+        ty::Adt(adt, args) if cx.tcx.is_diagnostic_item(rustc_span::sym::Arc, adt.did()) => args.type_at(0).peel_refs(),
+        _ => ty,
+    }
+}
+
+fn ty_lock_kind<'tcx>(cx: &LateContext<'tcx>, ty: ty::Ty<'tcx>) -> Option<&'static str> {
+    let ty::Adt(adt, _) = peel_shared_lock_owner(cx, ty).kind() else {
         return None;
     };
 
