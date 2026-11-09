@@ -35,7 +35,7 @@
 - [x] [serial] Add the Radiance repository to README references with its exact style-reference role and claim boundary. r[octet.structure.raw_bool_parameter.reference_boundary]
 - [x] [serial] Run focused unit, UI, snapshot, metadata, profile, Clippy co-reporting, and migration checks. r[octet.structure.raw_bool_parameter.verification]
 - [ ] [serial] Run formatting, workspace tests, Clippy, Octet deny-all, Cairn validation, traceability, and `nix flake check -L`. r[octet.structure.raw_bool_parameter.catalog]
-  - Formatting, workspace tests, Clippy, Octet deny-all, Cairn validation, and traceability pass. `nix flake check -L` was run; `cairn-traceability` and `warning-clean` now pass after the parent fixes, but the full check still fails on pre-existing `lean4` package build (gcc `--print-target-triple`) and `fresh-build-object-corpus-determinism` (pinned reviewed-source drift), both outside this change.
+  - Formatting, workspace tests, Clippy (including pedantic), Octet deny-all, Cairn validation, traceability, `lean4`, `warning-clean`, `fresh-build-object-corpus-determinism`, and `verus-toolchain-profile` now pass after parent fixes. The remaining `nix flake check -L` failure is the frozen object-corpus evidence gate (`object-corpus-caveat-taxonomy-gate`): the reviewed reference is pinned to commit `b65337f1`, while the current source contains the new modules and produces 1,579 objects instead of the reviewed 1,258. Re-freezing that evidence requires a maintainer source review, not a boolean-lint change.
 - [x] [serial] Run all Cairn gates. Sync and archive only after deny-all activation has no warning budget or baseline. r[octet.structure.raw_bool_parameter.migration]
 
 ## Parent verification on the integrated base
