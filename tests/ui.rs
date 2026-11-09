@@ -6,6 +6,8 @@ use std::os::unix::fs::symlink;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
@@ -54,11 +56,15 @@ fn create_library_alias(plain: &Path, dylint: &Path) {
 }
 
 fn temp_path(prefix: &str) -> PathBuf {
+    // Tests run as parallel threads of one process, and two of them can read the same clock tick,
+    // so a per-process counter keeps their scratch paths apart.
+    static NEXT_TEMP_PATH: AtomicU64 = AtomicU64::new(0);
+    let sequence = NEXT_TEMP_PATH.fetch_add(1, Ordering::Relaxed);
     let unique = SystemTime::now().duration_since(UNIX_EPOCH).expect("system time before unix epoch").as_nanos();
     // Fixture names such as `custom/custom` would otherwise nest the scratch dir one level down
     // and leave its parent behind.
     let prefix = prefix.replace(['/', '\\'], "-");
-    env::temp_dir().join(format!("{prefix}-{}-{unique}", std::process::id()))
+    env::temp_dir().join(format!("{prefix}-{}-{sequence}-{unique}", std::process::id()))
 }
 
 /// A scratch directory owned by one fixture run or test, removed when dropped, also while a
