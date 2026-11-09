@@ -25,9 +25,10 @@ const QUANTITY_WORDS: &[&str] = &[
     "timeout", "delay", "duration", "interval", "latency", "size", "length", "capacity", "limit", "offset",
 ];
 
-/// Unit suffixes that resolve ambiguity.
-const UNIT_SUFFIXES: &[&str] = &[
-    "_ms", "_millis", "_secs", "_sec", "_us", "_micros", "_ns", "_nanos", "_bytes", "_kb", "_mb", "_gb",
+/// Unit suffixes that resolve ambiguity. `magic_number` shares this list.
+pub(crate) const UNIT_SUFFIXES: &[&str] = &[
+    "_ns", "_nanos", "_us", "_micros", "_ms", "_millis", "_sec", "_secs", "_seconds", "_mins", "_minutes", "_hours",
+    "_days", "_bits", "_bytes", "_kb", "_mb", "_gb", "_kib", "_mib", "_gib",
 ];
 
 /// Names that are common loop/index variables, not quantities.
@@ -145,5 +146,23 @@ mod tests {
         assert!(!should_report_quantity("proportion", true));
         assert!(!should_report_quantity("report_lines", true));
         assert!(!should_report_quantity("port", true));
+    }
+
+    #[test]
+    fn spelled_out_and_binary_units_are_suffixes() {
+        for name in [
+            "timeout_seconds",
+            "delay_minutes",
+            "interval_mins",
+            "latency_hours",
+            "retention_limit_days",
+            "frame_size_bits",
+            "cache_size_kib",
+            "buffer_capacity_mib",
+            "disk_limit_gib",
+        ] {
+            assert!(!should_report_quantity(name, true), "{name}");
+        }
+        assert!(should_report_quantity("timeout_kibble", true));
     }
 }

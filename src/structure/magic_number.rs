@@ -19,10 +19,6 @@ declare_tool_lint! {
 
 declare_lint_pass!(MagicNumber => [MAGIC_NUMBER]);
 
-const UNIT_SUFFIXES: &[&str] = &[
-    "_ms", "_millis", "_secs", "_sec", "_us", "_micros", "_ns", "_nanos", "_bytes", "_kb", "_mb", "_gb",
-];
-
 const DOMAIN_WORDS: &[&str] = &[
     "timeout",
     "deadline",
@@ -76,7 +72,7 @@ fn classify_magic_number(facts: MagicNumberFacts) -> bool {
 
 fn has_unit_suffix(name: &str) -> bool {
     let lower = name.to_ascii_lowercase();
-    UNIT_SUFFIXES.iter().any(|suffix| lower.ends_with(suffix))
+    crate::naming::numeric_units::UNIT_SUFFIXES.iter().any(|suffix| lower.ends_with(suffix))
 }
 
 fn has_domain_word(name: &str) -> bool {

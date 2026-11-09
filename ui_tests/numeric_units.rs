@@ -70,6 +70,30 @@ fn whole_word_quantity() {
     let _ = connect_timeout;
 }
 
+fn spelled_out_units() {
+    // Should NOT warn: spelled-out time, bit, and binary-size units are unit suffixes.
+    let timeout_seconds = 30_u64;
+    let delay_minutes = 2_u64;
+    let interval_mins = 5_u64;
+    let latency_hours = 1_u64;
+    let retention_limit_days = 7_u64;
+    let frame_size_bits = 64_u32;
+    let cache_size_kib = 512_u32;
+    let buffer_capacity_mib = 16_u32;
+    let disk_limit_gib = 100_u32;
+    let _ = (
+        timeout_seconds,
+        delay_minutes,
+        interval_mins,
+        latency_hours,
+        retention_limit_days,
+        frame_size_bits,
+        cache_size_kib,
+        buffer_capacity_mib,
+        disk_limit_gib,
+    );
+}
+
 fn main() {
     bare_timeout();
     suffixed_timeout();
