@@ -1,8 +1,13 @@
-warning: type `Thing` has more than 4 inherent impl blocks; split responsibilities or consolidate cohesive behavior
-  --> $DIR/type_accumulation.rs:10:5
+warning: module exposes 13 public items (limit: 12) — split unrelated public surface into focused modules
+  --> $DIR/type_accumulation.rs:1:1
    |
-LL |     impl Thing { pub fn e(&self) {} }
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+LL | / #![warn(type_accumulation)]
+LL | |
+LL | | pub mod crowded {
+LL | |     pub struct Thing;
+...  |
+LL | | fn main() {}
+   | |____________^
    |
    = help: Tiger Style (Single Responsibility): split types and modules that accumulate unrelated responsibilities behind focused interfaces Example: mod billing_commands; mod billing_queries;
    = note: see Tiger Style guide: Structure / Cohesion
@@ -13,6 +18,15 @@ LL | #![warn(type_accumulation)]
    |         ^^^^^^^^^^^^^^^^^
    = note: `#[warn(tigerstyle::type_accumulation)]` implied by `#[warn(type_accumulation)]`
 
+warning: type `crowded::Thing` has more than 4 inherent impl blocks; split responsibilities or consolidate cohesive behavior
+  --> $DIR/type_accumulation.rs:10:5
+   |
+LL |     impl Thing { pub fn e(&self) {} }
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Single Responsibility): split types and modules that accumulate unrelated responsibilities behind focused interfaces Example: mod billing_commands; mod billing_queries;
+   = note: see Tiger Style guide: Structure / Cohesion
+
 warning: module exposes 13 public items (limit: 12) — split unrelated public surface into focused modules
   --> $DIR/type_accumulation.rs:15:1
    |
@@ -22,5 +36,14 @@ LL | pub mod filebacked;
    = help: Tiger Style (Single Responsibility): split types and modules that accumulate unrelated responsibilities behind focused interfaces Example: mod billing_commands; mod billing_queries;
    = note: see Tiger Style guide: Structure / Cohesion
 
-warning: 2 warnings emitted
+warning: type `spelled::Spelled` has more than 4 inherent impl blocks; split responsibilities or consolidate cohesive behavior
+  --> $DIR/type_accumulation.rs:67:5
+   |
+LL |     impl super::spelled::Spelled { pub fn e(&self) {} }
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Single Responsibility): split types and modules that accumulate unrelated responsibilities behind focused interfaces Example: mod billing_commands; mod billing_queries;
+   = note: see Tiger Style guide: Structure / Cohesion
+
+warning: 4 warnings emitted
 

@@ -40,4 +40,40 @@ pub mod members_are_not_module_items {
     pub use nested::{one, two};
 }
 
+// Same-named types in different modules are different types: 3 + 2 impl blocks, no warning.
+pub mod same_name_alpha {
+    pub struct Shared;
+
+    impl Shared { pub fn a(&self) {} }
+    impl Shared { pub fn b(&self) {} }
+    impl Shared { pub fn c(&self) {} }
+}
+
+pub mod same_name_beta {
+    pub struct Shared;
+
+    impl Shared { pub fn d(&self) {} }
+    impl Shared { pub fn e(&self) {} }
+}
+
+// Different spellings of one type count together: 5 impl blocks (limit: 4).
+pub mod spelled {
+    pub struct Spelled;
+
+    impl Spelled { pub fn a(&self) {} }
+    impl Spelled { pub fn b(&self) {} }
+    impl self::Spelled { pub fn c(&self) {} }
+    impl crate::spelled::Spelled { pub fn d(&self) {} }
+    impl super::spelled::Spelled { pub fn e(&self) {} }
+}
+
+// The crate root counts like any other module: it exposes 13 public items (limit: 12).
+pub fn root_one() {}
+pub fn root_two() {}
+pub fn root_three() {}
+pub fn root_four() {}
+pub fn root_five() {}
+pub fn root_six() {}
+pub fn root_seven() {}
+
 fn main() {}
