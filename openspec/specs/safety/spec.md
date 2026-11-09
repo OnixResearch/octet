@@ -1012,8 +1012,10 @@ The system MUST provide a warn-by-default safety lint named `drop_must_use`.
 
 The lint MUST warn when user code explicitly calls `drop(expr)` where `expr` has a must-use obligation, including:
 
-- values whose type carries `#[must_use]`, such as `Result`
+- values whose type carries `#[must_use]`, such as `Result`, unless that type has a destructor (`Drop` impl)
 - calls whose callee return value carries `#[must_use]`
+
+A type's own `#[must_use]` is not a must-use obligation for `drop` when the type has a destructor: such types are RAII guards (for example `MutexGuard`, `RwLockReadGuard`, `RwLockWriteGuard`), and `drop(guard)` runs the destructor early, which is the idiomatic way to release them.
 
 The lint MUST NOT warn for ordinary non-must-use values.
 
@@ -1030,6 +1032,18 @@ The lint MUST NOT warn in the repo's supported test contexts, including `#[cfg(t
 - GIVEN production code that calls `drop(buffer)` where `buffer` has no must-use obligation
 - WHEN the lint runs
 - THEN `drop_must_use` does NOT fire
+
+#### Scenario: Dropped RAII guard [r[drop-must-use-detection.scenario.raii-guard]]
+
+- GIVEN production code that calls `drop(guard)` where `guard` is a `MutexGuard` or `RwLock` read/write guard
+- WHEN the lint runs
+- THEN `drop_must_use` does NOT fire, because the guard type's destructor releases the lock
+
+#### Scenario: Dropped must-use token without destructor [r[drop-must-use-detection.scenario.must-use-token]]
+
+- GIVEN production code that calls `drop(token)` where `token`'s type is `#[must_use]` and has no `Drop` impl
+- WHEN the lint runs
+- THEN `drop_must_use` warns that the must-use value is being explicitly discarded
 
 #### Scenario: Dropped must-use return value [r[drop-must-use-detection.scenario.must-use-return-value]]
 
