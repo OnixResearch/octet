@@ -72,6 +72,13 @@ A declared authorization witness MUST prevent ambient construction through compi
 - WHEN witness evaluation runs
 - THEN that conversion MUST NOT be treated as forbidden or broad, while a generic, wrapped, or other argument MUST block as a broad conversion
 
+#### Scenario: Consume witness constructor borrows the authorized output
+
+- GIVEN policy selects `consume` witness use and a declared witness constructor receives the authorized output as `&Output` or `&mut Output`
+- WHEN witness evaluation runs
+- THEN strict modes MUST block with a borrowed consume-authorization diagnostic, because one authorization could mint several witnesses
+- AND under `borrow` witness use that constructor MAY receive the authorized output by reference
+
 #### Scenario: Reusable witness is declared
 
 - GIVEN policy selects `borrow` cardinality with an explicit reusable-authority rationale and scope

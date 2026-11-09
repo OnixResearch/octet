@@ -1189,6 +1189,12 @@ fn compiler_architecture_borrowed_witness_signatures_and_narrow_conversions() {
             false,
         ),
         (
+            "authorization_witness_shapes::publish_mut",
+            "authorization_witness_shapes::PublicationAuthority",
+            true,
+        ),
+        ("authorization_witness_shapes::mint", "authorization_witness_shapes::AuthorizedPublication", true),
+        (
             "authorization_witness_shapes::authorize_publication",
             "authorization_witness_shapes::ActorAuthority",
             true,

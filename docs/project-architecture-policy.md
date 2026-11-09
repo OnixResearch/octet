@@ -302,7 +302,7 @@ A protected protocol names the authority inputs, domain decision, authorized out
 
 The witness fields must be restricted to the witness owner module. The witness must not implement `Copy`, `Clone`, `Default`, `Deserialize`, broad `From`, or broad `Into`. A conversion is narrow only when its type argument is a declared authorized output type, as in `impl From<domain::AuthorizedPublication> for domain::PublicationAuthority`; a generic, wrapped, or other argument is broad. The collector records each implemented trait with its type arguments. Each function that returns the witness is checked against the approved safe constructor set.
 
-A `consume` witness is one-shot. A `borrow` witness needs an explicit reusable scope and reason. A borrow declaration does not grant wider authority.
+A `consume` witness is one-shot. Its declared constructors must take the authorized output by value: a constructor that borrows it, as in `fn mint(output: &AuthorizedOutput) -> Witness`, lets one authorization mint several witnesses and gets the blocking `consume-authorization-borrowed` finding. A conversion such as `impl From<&AuthorizedOutput> for Witness` is broad in every mode. A `borrow` witness needs an explicit reusable scope and reason, and its constructors may borrow the authorized output. A borrow declaration does not grant wider authority.
 
 The compiler traces only selected protocol types and calls through optimized MIR. It follows local moves, projections, parameters, returns, and wrappers. Empty, merged, unresolved, or over-limit provenance becomes a blocking typed unknown in strict modes. Exceeding a selected MIR body, step, or round limit also makes that unit's shard incomplete.
 

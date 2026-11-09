@@ -1590,6 +1590,20 @@ fn evaluate_protected_calls(
                 &format!("witness constructor `{constructor}` must transform a declared authorized output into the witness type"),
             ));
         }
+        let output_references = input_reference_flags(input, item_id, &type_definitions, |definition| {
+            protocol.authorized_output_types.iter().any(|allowed| allowed == definition)
+        });
+        if protocol.witness_use == ArchitectureWitnessUse::Consume && output_references.contains(&true) {
+            // A borrowed authorized output survives the call, so one decision could mint many witnesses.
+            findings.push(finding_for_unit(
+                "consume-authorization-borrowed",
+                CLAIM_AUTHORIZATION_WITNESS,
+                indexes.unit_for_fact(fact_id),
+                Some(fact_id),
+                indexes.source_path(span_id),
+                &format!("witness constructor `{constructor}` borrows the authorized output instead of consuming it"),
+            ));
+        }
     }
     let provenance = input
         .architecture_ir
@@ -1659,28 +1673,9 @@ fn evaluate_protected_calls(
                     &format!("protected executor `{executor}` is outside its declared outbound-adapter scope"),
                 ));
             }
-            // Each witness input's by-reference flag, across the executor's signatures.
-            let witness_inputs = input
-                .architecture_ir
-                .facts
-                .iter()
-                .filter_map(|fact| match fact {
-                    CompilerArchitectureFact::Signature {
-                        owner_item_id,
-                        input_type_ids,
-                        input_by_reference,
-                        ..
-                    } if *owner_item_id == **item_id => Some(input_type_ids.iter().zip(input_by_reference)),
-                    _ => None,
-                })
-                .flatten()
-                .filter(|(type_id, _)| {
-                    type_definitions
-                        .get(type_id.as_str())
-                        .is_some_and(|definition| *definition == protocol.witness_type)
-                })
-                .map(|(_, by_reference)| *by_reference)
-                .collect::<Vec<_>>();
+            let witness_inputs = input_reference_flags(input, item_id, &type_definitions, |definition| {
+                definition == protocol.witness_type
+            });
             if witness_inputs.is_empty() {
                 findings.push(finding_for_unit(
                     "protected-executor-witness-parameter",
@@ -1903,6 +1898,32 @@ fn evaluate_receipt_constructors(
 
 type ProvenanceFactRef<'a> =
     (&'a String, &'a String, &'a String, &'a String, &'a Vec<String>, ValueProvenanceStatus, &'a String);
+
+/// By-reference flags of an item's signature inputs whose type definition `selected` accepts.
+fn input_reference_flags(
+    input: &ProductionGateInput<'_>,
+    owner: &str,
+    type_definitions: &BTreeMap<&str, &str>,
+    selected: impl Fn(&str) -> bool,
+) -> Vec<bool> {
+    input
+        .architecture_ir
+        .facts
+        .iter()
+        .filter_map(|fact| match fact {
+            CompilerArchitectureFact::Signature {
+                owner_item_id,
+                input_type_ids,
+                input_by_reference,
+                ..
+            } if owner_item_id == owner => Some(input_type_ids.iter().zip(input_by_reference)),
+            _ => None,
+        })
+        .flatten()
+        .filter(|(type_id, _)| type_definitions.get(type_id.as_str()).is_some_and(|definition| selected(definition)))
+        .map(|(_, by_reference)| *by_reference)
+        .collect()
+}
 
 fn witness_owner_module(witness_type: &str) -> &str {
     witness_type.rsplit_once("::").map_or(witness_type, |(module, _)| module)
@@ -3246,6 +3267,7 @@ mod tests {
     fn protected_effect_protocol_accepts_only_narrow_witness_conversions() {
         for (conversion, broad) in [
             ("std::convert::From<domain::AuthorizedPublication>", false),
+            ("std::convert::From<&domain::AuthorizedPublication>", true),
             ("std::convert::From", true),
             ("std::convert::From<T>", true),
             ("std::convert::From<application::Request>", true),
@@ -3362,6 +3384,38 @@ mod tests {
         protocol.borrow_scope = Some("crates/outbound/src".to_owned());
         protocol.borrow_rationale = Some("one bounded outbound request".to_owned());
         mutate_executor_signature(&mut borrow.ir, borrowed_witness);
+        let reused = borrow.evaluate(None);
+        assert_eq!(reused.status, ArchitecturePhaseStatus::Clean, "{:?}", reused.findings);
+    }
+
+    // r[verify octet.authorized_effect_protocol.witness]
+    #[test]
+    fn consume_witness_constructor_must_take_the_authorized_output_by_value() {
+        let borrowed_output = |input_type_ids: &mut Vec<String>, input_by_reference: &mut Vec<bool>| {
+            assert_eq!(input_type_ids.len(), 1);
+            *input_by_reference = vec![true];
+        };
+        let constructor = "domain::PublicationAuthority::from_decision";
+        let mut consume = Fixture::new(ArchitectureMode::Gate);
+        consume.add_protected_effect_facts(ValueProvenanceStatus::Exact, "domain::authorize_publication", false);
+        assert_eq!(consume.evaluate(None).status, ArchitecturePhaseStatus::Clean);
+        mutate_signature(&mut consume.ir, constructor, borrowed_output);
+        let minting = consume.evaluate(None);
+        assert_eq!(minting.status, ArchitecturePhaseStatus::Blocked);
+        assert!(
+            minting.findings.iter().any(|finding| finding.code == "consume-authorization-borrowed"),
+            "{:?}",
+            minting.findings
+        );
+        assert!(!minting.findings.iter().any(|finding| finding.code == "witness-constructor-signature"));
+
+        let mut borrow = Fixture::new(ArchitectureMode::Gate);
+        borrow.add_protected_effect_facts(ValueProvenanceStatus::Exact, "domain::authorize_publication", false);
+        let protocol = borrow.policy.outbound_effects[0].protected.as_mut().expect("protected protocol");
+        protocol.witness_use = ArchitectureWitnessUse::Borrow;
+        protocol.borrow_scope = Some("crates/outbound/src".to_owned());
+        protocol.borrow_rationale = Some("one bounded outbound request".to_owned());
+        mutate_signature(&mut borrow.ir, constructor, borrowed_output);
         let reused = borrow.evaluate(None);
         assert_eq!(reused.status, ArchitecturePhaseStatus::Clean, "{:?}", reused.findings);
     }
@@ -4310,7 +4364,15 @@ mod tests {
         ir: &mut CompilerArchitectureIr,
         mutate: impl FnOnce(&mut Vec<String>, &mut Vec<bool>),
     ) {
-        let executor_item_id = ir
+        mutate_signature(ir, "outbound::FilesystemPort::publish", mutate);
+    }
+
+    fn mutate_signature(
+        ir: &mut CompilerArchitectureIr,
+        owner_path: &str,
+        mutate: impl FnOnce(&mut Vec<String>, &mut Vec<bool>),
+    ) {
+        let owner = ir
             .facts
             .iter()
             .find_map(|fact| match fact {
@@ -4318,10 +4380,10 @@ mod tests {
                     item_id,
                     qualified_path,
                     ..
-                } if qualified_path == "outbound::FilesystemPort::publish" => Some(item_id.clone()),
+                } if qualified_path == owner_path => Some(item_id.clone()),
                 _ => None,
             })
-            .expect("protected executor item");
+            .expect("signature owner item");
         let signature = ir
             .facts
             .iter_mut()
@@ -4329,10 +4391,10 @@ mod tests {
                 matches!(
                     fact,
                     CompilerArchitectureFact::Signature { owner_item_id, .. }
-                        if owner_item_id == &executor_item_id
+                        if owner_item_id == &owner
                 )
             })
-            .expect("protected executor signature");
+            .expect("owner signature");
         let CompilerArchitectureFact::Signature {
             fact_id,
             input_type_ids,
@@ -4340,7 +4402,7 @@ mod tests {
             ..
         } = signature
         else {
-            panic!("protected executor signature expected");
+            panic!("owner signature expected");
         };
         mutate(input_type_ids, input_by_reference);
         let previous = std::mem::take(fact_id);
