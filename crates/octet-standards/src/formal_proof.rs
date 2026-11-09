@@ -274,12 +274,9 @@ pub fn validate_charon_extraction_contract(
         &observed.start_from,
         &reviewed.start_from,
     );
-    push_contract_mismatch(
-        &mut diagnostics,
-        "extraction_policy.include_rules",
-        &observed.include_rules,
-        &reviewed.include_rules,
-    );
+    // The reviewed profile's `include_rules` are recorded but not applied by the executed Charon
+    // argv, so the observed rules are recorded without comparison until the profile owner decides
+    // whether to pass them to Charon or to re-key the profile.
     push_contract_mismatch(
         &mut diagnostics,
         "extraction_policy.exclude_rules",
@@ -352,6 +349,7 @@ struct AeneasProviderProfile {
     ocaml_toolchain: String,
     lean_toolchain: String,
     aeneas_lean_library: String,
+    environment_allowlist: Vec<String>,
     extraction_policy: CharonExtractionPolicy,
 }
 
@@ -371,6 +369,15 @@ fn validate_aeneas_provider_pins(payload: &AeneasLeanProofPayload, reviewed: &Ae
         "aeneas_lean_library",
         &payload.aeneas_lean_library,
         &reviewed.aeneas_lean_library,
+    );
+    // The shell rebuilds the child environment only from the reviewed profile allowlist, so a
+    // receipt naming any other allowlist did not record what ran. Limits are not pinned here:
+    // rails may raise the profile's default limits, and the receipt records the enforced values.
+    push_contract_mismatch(
+        &mut diagnostics,
+        "environment_allowlist",
+        &payload.environment_allowlist,
+        &reviewed.environment_allowlist,
     );
     diagnostics
 }
@@ -1909,7 +1916,6 @@ mod tests {
             "mir_start_stage",
             "drop_policy",
             "start_from",
-            "include_rules",
             "exclude_rules",
             "opaque_rules",
             "transformation_settings",
@@ -1920,6 +1926,10 @@ mod tests {
                 "missing diagnostic for {field}: {diagnostics:?}"
             );
         }
+        assert!(
+            !diagnostics.iter().any(|diagnostic| diagnostic.contains("include_rules")),
+            "include_rules are recorded, not compared: {diagnostics:?}"
+        );
     }
 
     // r[verify octet.aeneas_lean_proof_rail.provider_contract]
@@ -1933,6 +1943,20 @@ mod tests {
         assert!(
             diagnostics.iter().any(|diagnostic| diagnostic.contains("charon_revision drifted")),
             "wrong provider pin must fail closed: {diagnostics:?}"
+        );
+    }
+
+    // r[verify octet.aeneas_lean_proof_rail.safe_execution]
+    #[test]
+    fn aeneas_payload_rejects_environment_allowlist_drift_from_reviewed_profile() {
+        let mut payload = valid_aeneas_payload();
+        payload.environment_allowlist.push("AWS_SECRET_ACCESS_KEY".to_owned());
+
+        let diagnostics = validate_aeneas_lean_payload(&payload);
+
+        assert!(
+            diagnostics.iter().any(|diagnostic| diagnostic.contains("environment_allowlist")),
+            "an allowlist wider than the reviewed profile must fail closed: {diagnostics:?}"
         );
     }
 
@@ -2173,7 +2197,7 @@ mod tests {
                 stdout_max_bytes: TEST_LOG_MAX_BYTES,
                 stderr_max_bytes: TEST_LOG_MAX_BYTES,
             },
-            environment_allowlist: vec!["PATH".to_owned()],
+            environment_allowlist: profile.environment_allowlist,
             extraction_policy: profile.extraction_policy,
             assumption_policy: AeneasAssumptionPolicy {
                 external_models: vec!["none".to_owned()],

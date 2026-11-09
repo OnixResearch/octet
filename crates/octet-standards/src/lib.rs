@@ -6,6 +6,7 @@
 //! Functional core for the Tiger Style policy checker.
 
 pub mod aeneas_consumer;
+pub mod aeneas_observation;
 pub mod architecture;
 pub mod artifacts;
 pub mod capability_manifest;

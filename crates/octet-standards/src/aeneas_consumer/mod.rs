@@ -72,6 +72,7 @@ pub use model::StageObservation;
 pub use model::StageStatus;
 pub use observation::ObservationInput;
 pub use observation::build_binding;
+pub(crate) use observation::selected_line_range;
 pub use outcome::classify;
 
 /// Load and validate the checked consumer profile.

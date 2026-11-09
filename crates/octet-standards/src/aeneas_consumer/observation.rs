@@ -221,6 +221,13 @@ fn validate_llbc(item: &super::model::SelectedItem, input: &ObservationInput<'_>
 
 /// Return the one-based inclusive line range `begin_line..=end_line` of `text`.
 fn selected_lines(text: &str, begin_line: u64, end_line: u64) -> Option<&str> {
+    let (start, end) = selected_line_range(text, begin_line, end_line)?;
+    text.get(start..end)
+}
+
+/// Return the byte range of the one-based inclusive line range `begin_line..=end_line` of `text`,
+/// including the final line terminator when present.
+pub(crate) fn selected_line_range(text: &str, begin_line: u64, end_line: u64) -> Option<(usize, usize)> {
     let begin_index = usize::try_from(begin_line).ok()?.checked_sub(1)?;
     let end_index = usize::try_from(end_line).ok()?.checked_sub(1)?;
     let mut offset = 0;
@@ -231,7 +238,7 @@ fn selected_lines(text: &str, begin_line: u64, end_line: u64) -> Option<&str> {
         }
         offset += line.len();
         if index == end_index {
-            return text.get(start?..offset);
+            return Some((start?, offset));
         }
     }
     None
