@@ -771,6 +771,8 @@ fn validate_cargo_inputs(
         "cargo-package-selection",
         "resolved Cargo graph package selection does not match production policy",
     );
+    // The graph and the runner's row selection both use sorted, deduplicated feature sets.
+    let selected_features = sorted_dedup(input.cargo_graph.features.iter().map(String::as_str).collect());
     let selected_targets = input
         .policy
         .production
@@ -778,7 +780,7 @@ fn validate_cargo_inputs(
         .iter()
         .filter(|target| {
             target.triple == input.cargo_graph.target_triple
-                && target.features == input.cargo_graph.features
+                && sorted_dedup(target.features.iter().map(String::as_str).collect()) == selected_features
                 && target.default_features == input.cargo_graph.default_features
         })
         .count();
@@ -2682,6 +2684,23 @@ mod tests {
         let blocked = invalid.evaluate(None);
         assert_eq!(blocked.status, ArchitecturePhaseStatus::Blocked);
         assert!(blocked.findings.iter().any(|finding| finding.code == "port-implementation-scope"));
+    }
+
+    // r[verify octet.project_architecture_gate.input_integrity]
+    #[test]
+    fn policy_feature_order_does_not_change_target_selection() {
+        let mut fixture = Fixture::new(ArchitectureMode::Gate);
+        fixture.policy.production.targets[0].features = vec!["production".to_owned(), "audit".to_owned()];
+        fixture.graph.features = vec!["audit".to_owned(), "production".to_owned()];
+        fixture.refresh_graph_id();
+        let selected = fixture.evaluate(None);
+        assert_eq!(selected.status, ArchitecturePhaseStatus::Clean, "{:?}", selected.findings);
+
+        fixture.graph.features = vec!["audit".to_owned()];
+        fixture.refresh_graph_id();
+        let mismatched = fixture.evaluate(None);
+        assert_eq!(mismatched.status, ArchitecturePhaseStatus::IntegrationFailure);
+        assert!(mismatched.findings.iter().any(|finding| finding.code == "cargo-target-selection"));
     }
 
     #[test]
