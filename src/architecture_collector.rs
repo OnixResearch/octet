@@ -400,9 +400,12 @@ impl ArchitectureCollector {
         self.selected_type_items.insert(qualified_path.to_owned(), (def_id, type_id, span_id.to_owned()));
     }
 
+    // Inputs name their referent so `&Witness` and `Witness` share one definition, as value
+    // provenance does; the output keeps its reference because a borrow constructs nothing.
     fn collect_signature(&mut self, cx: &LateContext<'_>, def_id: LocalDefId, owner_item_id: &str, signature_id: &str) {
         let signature = cx.tcx.fn_sig(def_id).instantiate_identity().skip_binder();
-        let input_type_ids = signature.inputs().iter().map(|current| self.collect_type(cx, *current)).collect();
+        let input_type_ids =
+            signature.inputs().iter().map(|current| self.collect_type(cx, current.peel_refs())).collect();
         let output_type_id = self.collect_type(cx, signature.output());
         let mut fact = CompilerArchitectureFact::Signature {
             fact_id: String::new(),
@@ -866,14 +869,14 @@ impl ArchitectureCollector {
             field_type_definitions.sort();
             field_type_definitions.dedup();
             let mut implemented_traits = BTreeSet::new();
-            for (trait_def_id, impl_def_ids) in cx.tcx.all_local_trait_impls(()) {
+            for impl_def_ids in cx.tcx.all_local_trait_impls(()).values() {
                 for impl_def_id in impl_def_ids {
                     let trait_ref = cx.tcx.impl_trait_ref(*impl_def_id).instantiate_identity();
                     let ty::Adt(self_adt, _) = trait_ref.self_ty().kind() else {
                         continue;
                     };
                     if self_adt.did() == def_id.to_def_id() {
-                        implemented_traits.insert(qualified_definition(cx, *trait_def_id));
+                        implemented_traits.insert(implemented_trait_path(cx, trait_ref));
                     }
                 }
             }
@@ -1674,6 +1677,33 @@ fn owned_adts<'tcx>(resolved: Ty<'tcx>, found: &mut Vec<Ty<'tcx>>) {
         }
         ty::Array(item, _) | ty::Slice(item) => owned_adts(*item, found),
         _ => {}
+    }
+}
+
+// `From<domain::Decision>` and `From<T>` differ only in their type arguments, so implemented
+// traits keep them, qualified like definitions, after the implementing `Self` type.
+fn implemented_trait_path<'tcx>(cx: &LateContext<'tcx>, trait_ref: ty::TraitRef<'tcx>) -> String {
+    with_type_arguments(cx, qualified_definition(cx, trait_ref.def_id), trait_ref.args.types().skip(1))
+}
+
+fn qualified_type<'tcx>(cx: &LateContext<'tcx>, resolved: Ty<'tcx>) -> String {
+    match resolved.kind() {
+        ty::Adt(definition, args) => with_type_arguments(cx, qualified_definition(cx, definition.did()), args.types()),
+        ty::Ref(_, referent, mutability) => format!("&{}{}", mutability.prefix_str(), qualified_type(cx, *referent)),
+        _ => resolved.to_string(),
+    }
+}
+
+fn with_type_arguments<'tcx>(
+    cx: &LateContext<'tcx>,
+    path: String,
+    arguments: impl Iterator<Item = Ty<'tcx>>,
+) -> String {
+    let arguments = arguments.map(|current| qualified_type(cx, current)).collect::<Vec<_>>();
+    if arguments.is_empty() {
+        path
+    } else {
+        format!("{path}<{}>", arguments.join(", "))
     }
 }
 

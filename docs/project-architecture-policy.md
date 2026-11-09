@@ -293,13 +293,13 @@ Receipt self-verification alone does not establish a passing architecture phase 
 
 A protected protocol names the authority inputs, domain decision, authorized output, opaque witness, executor, plan, attempt, observation, receipt, constructors, scopes, cardinality, and non-claims.
 
-The witness fields must be restricted to the witness owner module. The witness must not implement `Copy`, `Clone`, `Default`, `Deserialize`, broad `From`, or broad `Into`. Each function that returns the witness is checked against the approved safe constructor set.
+The witness fields must be restricted to the witness owner module. The witness must not implement `Copy`, `Clone`, `Default`, `Deserialize`, broad `From`, or broad `Into`. A conversion is narrow only when its type argument is a declared authorized output type, as in `impl From<domain::AuthorizedPublication> for domain::PublicationAuthority`; a generic, wrapped, or other argument is broad. The collector records each implemented trait with its type arguments. Each function that returns the witness is checked against the approved safe constructor set.
 
 A `consume` witness is one-shot. A `borrow` witness needs an explicit reusable scope and reason. A borrow declaration does not grant wider authority.
 
 The compiler traces only selected protocol types and calls through optimized MIR. It follows local moves, projections, parameters, returns, and wrappers. Empty, merged, unresolved, or over-limit provenance becomes a blocking typed unknown in strict modes. Exceeding a selected MIR body, step, or round limit also makes that unit's shard incomplete.
 
-A protected executor must have the witness in its compiler-resolved input types. The effect site must remain in the declared executor method and outbound-adapter scope.
+A protected executor must have the witness in its compiler-resolved input types; a `&Witness` or `&mut Witness` parameter counts, because signature inputs name the referent type. The effect site must remain in the declared executor method and outbound-adapter scope.
 Policy validation therefore requires a protected effect's `executor_scope` to be an outbound-adapter source scope. Unprotected effects may also execute in application-shell or composition-root scopes.
 
 Success-receipt constructors must receive the declared observed-outcome type from an approved success observation. Failure-receipt constructors require an approved failure observation. A plan, attempt, witness, missing observation, or failed observation cannot become a success receipt.

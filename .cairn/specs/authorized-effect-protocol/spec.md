@@ -66,6 +66,12 @@ A declared authorization witness MUST prevent ambient construction through compi
 - WHEN witness evaluation runs
 - THEN strict modes MUST block with the exact forgery or replay path
 
+#### Scenario: Witness converts only from an authorized output
+
+- GIVEN the witness implements `From` or `Into` whose single type argument is a declared authorized output type
+- WHEN witness evaluation runs
+- THEN that conversion MUST NOT be treated as forbidden or broad, while a generic, wrapped, or other argument MUST block as a broad conversion
+
 #### Scenario: Reusable witness is declared
 
 - GIVEN policy selects `borrow` cardinality with an explicit reusable-authority rationale and scope
@@ -107,6 +113,12 @@ Every declared protected executor method and selected wrapper path MUST preserve
 - GIVEN an overload, helper, adapter method, or wrapper reaches the protected effect without the witness
 - WHEN strict evaluation runs
 - THEN the protocol MUST block with the unguarded call path
+
+#### Scenario: Executor borrows the witness
+
+- GIVEN a protected executor receives the witness as `&Witness` or `&mut Witness`
+- WHEN the executor witness-parameter obligation is evaluated
+- THEN the referenced witness definition MUST satisfy that obligation
 
 ### Requirement: Planned and observed effect types remain distinct
 

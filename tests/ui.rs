@@ -1071,6 +1071,88 @@ fn compiler_constructed_types<'a>(
         .collect()
 }
 
+#[test]
+#[ignore = "run via cargo test --test ui compiler_architecture -- --ignored --nocapture"]
+fn compiler_architecture_borrowed_witness_signatures_and_narrow_conversions() {
+    let toolchain = rustup_toolchain();
+    let library = build_library(&toolchain);
+    let host = host_triple();
+    let driver = build_driver(&toolchain);
+    let selection = CompilerValueFlowSelection {
+        tracked_callee_definitions: vec!["authorization_witness_shapes::publish".to_owned()],
+        tracked_type_definitions: vec![
+            "authorization_witness_shapes::ActorAuthority".to_owned(),
+            "authorization_witness_shapes::PublicationAuthority".to_owned(),
+        ],
+        root_origin_definitions: vec!["authorization_witness_shapes::authorize_publication".to_owned()],
+        propagation_definitions: Vec::new(),
+    };
+    let shard = run_compiler_architecture_fixture_with_selection(
+        &driver,
+        &library,
+        &host,
+        "positive/authorization_witness_shapes.rs",
+        None,
+        vec![selection],
+    );
+    assert_eq!(shard.collection_status, CollectionStatus::Complete);
+    assert_valid_compiler_shard(&shard);
+    // Signature inputs name the referent definition, as protocol checks compare definitions.
+    for (function, parameter) in [
+        ("authorization_witness_shapes::publish", "authorization_witness_shapes::PublicationAuthority"),
+        (
+            "authorization_witness_shapes::authorize_publication",
+            "authorization_witness_shapes::ActorAuthority",
+        ),
+    ] {
+        let item_id = shard
+            .facts
+            .iter()
+            .find_map(|fact| match fact {
+                CompilerArchitectureFact::Item {
+                    item_id,
+                    qualified_path,
+                    ..
+                } if qualified_path == function => Some(item_id),
+                _ => None,
+            })
+            .expect("signature owner item");
+        let inputs = shard
+            .facts
+            .iter()
+            .find_map(|fact| match fact {
+                CompilerArchitectureFact::Signature {
+                    owner_item_id,
+                    input_type_ids,
+                    ..
+                } if owner_item_id == item_id => Some(input_type_ids),
+                _ => None,
+            })
+            .expect("signature fact");
+        let definitions =
+            inputs.iter().filter_map(|type_id| compiler_type_definition(&shard, type_id)).collect::<Vec<_>>();
+        assert!(definitions.contains(&parameter), "{function} inputs: {definitions:?}");
+    }
+    // Implemented traits keep their type arguments so a narrow conversion stays distinguishable.
+    let traits = shard
+        .facts
+        .iter()
+        .find_map(|fact| match fact {
+            CompilerArchitectureFact::TypeShape {
+                definition_path,
+                implemented_traits,
+                ..
+            } if definition_path == "authorization_witness_shapes::PublicationAuthority" => Some(implemented_traits),
+            _ => None,
+        })
+        .expect("witness type shape");
+    assert_eq!(
+        traits,
+        &["std::convert::From<authorization_witness_shapes::AuthorizedPublication>"],
+        "witness traits"
+    );
+}
+
 fn closure_value_flow_selection() -> CompilerValueFlowSelection {
     CompilerValueFlowSelection {
         tracked_callee_definitions: vec!["closure_effect_provenance::publish".to_owned()],

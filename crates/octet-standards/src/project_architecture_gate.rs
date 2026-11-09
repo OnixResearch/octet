@@ -61,14 +61,14 @@ const CLAIM_AUTHORIZATION_WITNESS: &str = "authorization-witness-opacity";
 const CLAIM_AUTHORIZATION_ORIGIN: &str = "authorization-witness-origin";
 const CLAIM_PROTECTED_EXECUTOR: &str = "protected-effect-executor";
 const CLAIM_EFFECT_RECEIPT: &str = "observed-effect-receipt";
+// Conversions are not listed: `witness-broad-conversion` admits only `From`/`Into`
+// whose type argument is a declared authorized output.
 const FORBIDDEN_WITNESS_TRAITS: &[&str] = &[
     "core::marker::Copy",
     "core::clone::Clone",
     "core::default::Default",
     "serde::de::Deserialize",
     "serde::Deserialize",
-    "core::convert::From",
-    "core::convert::Into",
 ];
 const NON_CLAIMS: &[&str] = &[
     "complete-fcis-proof",
@@ -1302,12 +1302,11 @@ fn evaluate_protected_witness(
                 ));
             }
         }
+        // A conversion is narrow only when its one type argument is a declared authorized output.
         let broad_conversion = traits.iter().any(|current| {
-            (current.contains("From<")
-                || current.contains("Into<")
-                || trait_matches(current, "core::convert::From")
-                || trait_matches(current, "core::convert::Into"))
-                && !protocol.authorized_output_types.iter().any(|allowed| current.contains(allowed))
+            (trait_matches(current, "core::convert::From") || trait_matches(current, "core::convert::Into"))
+                && !trait_arguments(current)
+                    .is_some_and(|argument| protocol.authorized_output_types.iter().any(|allowed| allowed == argument))
         });
         if broad_conversion {
             findings.push(finding_for_unit(
@@ -1883,8 +1882,15 @@ fn witness_owner_module(witness_type: &str) -> &str {
     witness_type.rsplit_once("::").map_or(witness_type, |(module, _)| module)
 }
 
+// Implemented traits carry their type arguments, as in `core::convert::From<domain::Decision>`;
+// trait identity compares only the path's final segment.
 fn trait_matches(actual: &str, expected: &str) -> bool {
-    actual == expected || actual.rsplit_once("::").is_some_and(|(_, tail)| expected.ends_with(tail))
+    let path = actual.split_once('<').map_or(actual, |(path, _)| path);
+    path == expected || path.rsplit("::").next() == expected.rsplit("::").next()
+}
+
+fn trait_arguments(actual: &str) -> Option<&str> {
+    actual.split_once('<').and_then(|(_, arguments)| arguments.strip_suffix('>'))
 }
 
 fn evaluate_ports(
@@ -3175,7 +3181,7 @@ mod tests {
         assert!(receipt.findings.iter().any(|finding| finding.code == "undeclared-witness-constructor"));
         assert!(receipt.findings.iter().any(|finding| finding.code == "witness-forbidden-trait"));
         mutate_witness_shape(&mut fixture.ir, |_, traits| {
-            traits.push("core::convert::From<application::Request>".to_owned());
+            traits.push("std::convert::From<application::Request>".to_owned());
         });
         let converted = fixture.evaluate(None);
         assert!(converted.findings.iter().any(|finding| finding.code == "witness-broad-conversion"));
@@ -3192,7 +3198,7 @@ mod tests {
                 "core::clone::Clone".to_owned(),
                 "core::default::Default".to_owned(),
                 "serde::Deserialize".to_owned(),
-                "core::convert::From<application::Request>".to_owned(),
+                "std::convert::From<application::Request>".to_owned(),
             ]);
         });
 
@@ -3208,6 +3214,35 @@ mod tests {
             );
         }
         assert!(receipt.findings.iter().any(|finding| finding.code == "witness-broad-conversion"));
+    }
+
+    #[test]
+    fn protected_effect_protocol_accepts_only_narrow_witness_conversions() {
+        for (conversion, broad) in [
+            ("std::convert::From<domain::AuthorizedPublication>", false),
+            ("std::convert::From", true),
+            ("std::convert::From<T>", true),
+            ("std::convert::From<application::Request>", true),
+            ("std::convert::From<alloc::vec::Vec<domain::AuthorizedPublication>>", true),
+            ("std::convert::Into<application::Request>", true),
+        ] {
+            let mut fixture = Fixture::new(ArchitectureMode::Gate);
+            fixture.add_protected_effect_facts(ValueProvenanceStatus::Exact, "domain::authorize_publication", false);
+            mutate_witness_shape(&mut fixture.ir, |_, traits| traits.push(conversion.to_owned()));
+            let receipt = fixture.evaluate(None);
+            assert!(
+                !receipt.findings.iter().any(|finding| finding.code == "witness-forbidden-trait"),
+                "{conversion}: {:?}",
+                receipt.findings
+            );
+            assert_eq!(
+                receipt.findings.iter().any(|finding| finding.code == "witness-broad-conversion"),
+                broad,
+                "{conversion}: {:?}",
+                receipt.findings
+            );
+            assert_eq!(receipt.status == ArchitecturePhaseStatus::Clean, !broad, "{conversion}");
+        }
     }
 
     #[test]
