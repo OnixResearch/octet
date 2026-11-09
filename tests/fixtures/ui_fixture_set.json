@@ -133,6 +133,7 @@
     "tokio_async/unbounded_loop_plain_await",
     "tokio_async/unbounded_loop_tokio_select",
     "tokio_async/unbounded_loop_unbounded_receiver",
+    "tokio_async/verified_purity_harness",
     "too_many_parameters",
     "type_accumulation",
     "type_accumulation_within_limit",
@@ -176,6 +177,7 @@
     "no_unwrap_tool_attr",
     "nominal_domain_compile_fail",
     "numeric_units_cli_deny_custom/numeric_units_cli_deny_custom",
+    "tokio_async/verified_purity_harness",
     "verified/verified_purity"
   ],
   "canonical_tool_group_fixtures": [

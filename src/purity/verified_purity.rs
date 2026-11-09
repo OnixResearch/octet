@@ -14,7 +14,8 @@ declare_tool_lint! {
     /// Detects async functions, IO operations, and system time calls in
     /// files under a `verified/` directory. Verified modules must be pure —
     /// no async, no IO, no system time — so they remain testable and
-    /// formally verifiable.
+    /// formally verifiable. Test-only code (`cfg(test)` items and `#[test]`
+    /// functions, including test macros such as `#[tokio::test]`) is exempt.
     pub tigerstyle::VERIFIED_PURITY,
     Deny,
     "impure operation in verified module"
@@ -31,11 +32,17 @@ enum TimeImport {
 
 #[derive(Default)]
 pub struct VerifiedPurity {
-    /// Number of enclosing test-only items (`#[cfg(test)]`, `#[test]`).
+    /// Number of enclosing test-only items (`#[cfg(test)]` items and harness
+    /// test functions).
     test_depth: usize,
-    /// `std::time` module imports, keyed by the importing module's item id
-    /// (`CRATE_NODE_ID` for the crate root).
+    /// Functions registered as harness tests under `--test`.
+    harness_test_fns: std::collections::HashSet<rustc_ast::NodeId>,
+    /// Module-level `std::time` module imports, keyed by the importing
+    /// module's item id (`CRATE_NODE_ID` for the crate root).
     time_imports: Vec<(rustc_ast::NodeId, TimeImport)>,
+    /// Block-local `std::time` module imports: the enclosing module's id and
+    /// the span of the block the import is visible in.
+    block_time_imports: Vec<(rustc_ast::NodeId, Span, TimeImport)>,
     /// Ids of the modules enclosing the current node, innermost last.
     module_stack: Vec<rustc_ast::NodeId>,
 }
@@ -120,64 +127,138 @@ fn is_std_time(path: &[rustc_span::Symbol]) -> bool {
     matches!(path, [std, time] if std.as_str() == "std" && time.as_str() == "time")
 }
 
-impl VerifiedPurity {
-    /// Records how verified files import the `std::time` module itself. Such
-    /// imports are not violations, since the module also holds the pure
-    /// `Duration`, but they let later paths like `time::Instant::now()` reach
-    /// the wall clock without spelling `std::time::Instant`.
-    fn record_time_module_imports(&mut self, cx: &EarlyContext<'_>, krate: &rustc_ast::Crate) {
-        let mut pending_modules = vec![(rustc_ast::CRATE_NODE_ID, krate.items.as_slice())];
-        while let Some((module, items)) = pending_modules.pop() {
-            for item in items {
-                if !is_in_verified_module(cx, item.span)
-                    || crate::test_context::ast_attrs_indicate_test(cx.sess(), &item.attrs)
-                {
-                    continue;
-                }
-                match &item.kind {
-                    ItemKind::Use(tree) => for_each_import(tree, |mut path, leaf| match &leaf.kind {
-                        rustc_ast::UseTreeKind::Glob if is_std_time(&path) => {
-                            self.time_imports.push((module, TimeImport::Glob));
-                        }
-                        rustc_ast::UseTreeKind::Simple(rename) => {
-                            if path.last() == Some(&rustc_span::kw::SelfLower) {
-                                path.pop();
-                            }
-                            if is_std_time(&path) {
-                                let local_name = rename.map_or(path[1], |ident| ident.name);
-                                self.time_imports.push((module, TimeImport::Module(local_name)));
-                            }
-                        }
-                        rustc_ast::UseTreeKind::Glob | rustc_ast::UseTreeKind::Nested { .. } => {}
-                    }),
-                    ItemKind::Mod(_, _, rustc_ast::ModKind::Loaded(nested, ..)) => {
-                        pending_modules.push((item.id, nested.as_slice()));
-                    }
-                    _ => {}
-                }
+/// How one import binds the `std::time` module itself, if it does.
+fn time_import(mut path: Vec<rustc_span::Symbol>, leaf: &rustc_ast::UseTree) -> Option<TimeImport> {
+    match &leaf.kind {
+        rustc_ast::UseTreeKind::Glob => is_std_time(&path).then_some(TimeImport::Glob),
+        rustc_ast::UseTreeKind::Simple(rename) => {
+            if path.last() == Some(&rustc_span::kw::SelfLower) {
+                path.pop();
             }
+            is_std_time(&path).then(|| TimeImport::Module(rename.map_or(path[1], |ident| ident.name)))
+        }
+        rustc_ast::UseTreeKind::Nested { .. } => None,
+    }
+}
+
+/// Test-only items: `cfg(test)` gates and, under `--test`, harness test functions.
+fn item_is_test(
+    cx: &EarlyContext<'_>,
+    harness_test_fns: &std::collections::HashSet<rustc_ast::NodeId>,
+    item: &Item,
+) -> bool {
+    harness_test_fns.contains(&item.id) || crate::test_context::ast_attrs_indicate_test(cx.sess(), &item.attrs)
+}
+
+/// Records how verified files import the `std::time` module itself, outside
+/// test-only code. Such imports are not violations, since the module also
+/// holds the pure `Duration`, but they let later paths like
+/// `time::Instant::now()` reach the wall clock without spelling
+/// `std::time::Instant`.
+struct TimeImportCollector<'a, 'b> {
+    cx: &'a EarlyContext<'b>,
+    harness_test_fns: &'a std::collections::HashSet<rustc_ast::NodeId>,
+    /// Id of the innermost enclosing module.
+    module: rustc_ast::NodeId,
+    /// Span of the innermost enclosing block within that module.
+    block: Option<Span>,
+    module_imports: Vec<(rustc_ast::NodeId, TimeImport)>,
+    block_imports: Vec<(rustc_ast::NodeId, Span, TimeImport)>,
+}
+
+impl<'ast> rustc_ast::visit::Visitor<'ast> for TimeImportCollector<'_, '_> {
+    fn visit_item(&mut self, item: &'ast Item) {
+        if item_is_test(self.cx, self.harness_test_fns, item) {
+            return;
+        }
+        match &item.kind {
+            // A file-backed module's span is its `mod` declaration in the parent
+            // file, so modules are walked wherever they are declared.
+            ItemKind::Mod(..) => {
+                let enclosing = (self.module, self.block.take());
+                self.module = item.id;
+                rustc_ast::visit::walk_item(self, item);
+                (self.module, self.block) = enclosing;
+            }
+            _ if !is_in_verified_module(self.cx, item.span) => {}
+            ItemKind::Use(tree) => for_each_import(tree, |path, leaf| {
+                let Some(import) = time_import(path, leaf) else {
+                    return;
+                };
+                match self.block {
+                    Some(block) => self.block_imports.push((self.module, block, import)),
+                    None => self.module_imports.push((self.module, import)),
+                }
+            }),
+            _ => rustc_ast::visit::walk_item(self, item),
         }
     }
 
-    fn current_module_imports(&self, import: TimeImport) -> bool {
-        let module = self.module_stack.last().copied().unwrap_or(rustc_ast::CRATE_NODE_ID);
-        self.time_imports.contains(&(module, import))
+    fn visit_assoc_item(&mut self, item: &'ast rustc_ast::AssocItem, ctxt: rustc_ast::visit::AssocCtxt) {
+        if !crate::test_context::ast_attrs_indicate_test(self.cx.sess(), &item.attrs) {
+            rustc_ast::visit::walk_assoc_item(self, item, ctxt);
+        }
     }
 
-    /// The path an expression spells, with the current module's `std::time`
-    /// imports expanded.
-    fn expanded_expr_path(&self, path: &rustc_ast::Path) -> String {
+    fn visit_block(&mut self, block: &'ast rustc_ast::Block) {
+        let enclosing = self.block.replace(block.span);
+        rustc_ast::visit::walk_block(self, block);
+        self.block = enclosing;
+    }
+}
+
+impl VerifiedPurity {
+    fn record_time_module_imports(&mut self, cx: &EarlyContext<'_>, krate: &rustc_ast::Crate) {
+        let mut collector = TimeImportCollector {
+            cx,
+            harness_test_fns: &self.harness_test_fns,
+            module: rustc_ast::CRATE_NODE_ID,
+            block: None,
+            module_imports: Vec::new(),
+            block_imports: Vec::new(),
+        };
+        rustc_ast::visit::walk_crate(&mut collector, krate);
+        let (module_imports, block_imports) = (collector.module_imports, collector.block_imports);
+        self.time_imports = module_imports;
+        self.block_time_imports = block_imports;
+    }
+
+    /// Whether `import` is visible at `span`: imported by the current module,
+    /// or by an enclosing block of that module.
+    fn imports_in_scope(&self, span: Span, import: TimeImport) -> bool {
+        let module = self.module_stack.last().copied().unwrap_or(rustc_ast::CRATE_NODE_ID);
+        self.time_imports.contains(&(module, import))
+            || self.block_time_imports.iter().any(|&(block_module, block, block_import)| {
+                block_module == module && block_import == import && block.contains(span)
+            })
+    }
+
+    /// The path an expression spells, with the `std::time` imports in scope
+    /// expanded.
+    fn expanded_expr_path(&self, span: Span, path: &rustc_ast::Path) -> String {
         let spelled = path.segments.iter().map(|segment| segment.ident.name).collect::<Vec<_>>();
         match spelled.as_slice() {
-            [first, rest @ ..] if self.current_module_imports(TimeImport::Module(*first)) => {
+            [first, rest @ ..] if self.imports_in_scope(span, TimeImport::Module(*first)) => {
                 format!("std::time::{}", joined_path(rest))
             }
             [first, ..]
-                if GLOB_CLOCK_TYPES.contains(&first.as_str()) && self.current_module_imports(TimeImport::Glob) =>
+                if GLOB_CLOCK_TYPES.contains(&first.as_str()) && self.imports_in_scope(span, TimeImport::Glob) =>
             {
                 format!("std::time::{}", joined_path(&spelled))
             }
             _ => joined_path(&spelled),
+        }
+    }
+
+    fn enter_item_scope(&mut self, cx: &EarlyContext<'_>, item: &Item) {
+        if item_is_test(cx, &self.harness_test_fns, item) {
+            self.test_depth += 1;
+        }
+    }
+
+    fn exit_item_scope(&mut self, cx: &EarlyContext<'_>, item: &Item) {
+        if item_is_test(cx, &self.harness_test_fns, item) {
+            self.test_depth -= 1;
         }
     }
 
@@ -200,6 +281,7 @@ impl VerifiedPurity {
 
 impl EarlyLintPass for VerifiedPurity {
     fn check_crate(&mut self, cx: &EarlyContext<'_>, krate: &rustc_ast::Crate) {
+        self.harness_test_fns = crate::test_context::ast_harness_test_fns(cx.sess(), krate);
         self.record_time_module_imports(cx, krate);
     }
 
@@ -207,7 +289,7 @@ impl EarlyLintPass for VerifiedPurity {
         if matches!(item.kind, ItemKind::Mod(..)) {
             self.module_stack.push(item.id);
         }
-        self.enter_test_scope(cx, &item.attrs);
+        self.enter_item_scope(cx, item);
         if !self.is_checked(cx, item.span) {
             return;
         }
@@ -218,7 +300,7 @@ impl EarlyLintPass for VerifiedPurity {
     }
 
     fn check_item_post(&mut self, cx: &EarlyContext<'_>, item: &Item) {
-        self.exit_test_scope(cx, &item.attrs);
+        self.exit_item_scope(cx, item);
         if matches!(item.kind, ItemKind::Mod(..)) {
             self.module_stack.pop();
         }
@@ -283,7 +365,7 @@ impl EarlyLintPass for VerifiedPurity {
             }
             // Check for impure path references in expressions
             ExprKind::Path(_, path) => {
-                if let Some(msg) = impure_message(&self.expanded_expr_path(path)) {
+                if let Some(msg) = impure_message(&self.expanded_expr_path(expr.span, path)) {
                     emit_tiger_style_lint(cx, VERIFIED_PURITY, expr.span, msg, "verified_purity");
                 }
             }

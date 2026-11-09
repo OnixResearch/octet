@@ -54,18 +54,83 @@ pub(crate) fn hir_attrs_indicate_test(sess: &Session, attrs: &[hir::Attribute]) 
 }
 
 /// Early-pass counterpart of [`hir_attrs_indicate_test`]: whether AST
-/// attributes mark an item as test-only, through `#[test]` or a `cfg` that
-/// can only hold under `cfg(test)`. Expansion renames a satisfied `#[cfg]` to
-/// a `cfg_trace` attribute that keeps the original source span.
+/// attributes mark an item as test-only through a `cfg` that can only hold
+/// under `cfg(test)`. Expansion renames a satisfied `#[cfg]` to a `cfg_trace`
+/// attribute that keeps the original source span. `#[test]` never survives
+/// expansion; find such functions with [`ast_harness_test_fns`].
 pub(crate) fn ast_attrs_indicate_test(sess: &Session, attrs: &[rustc_ast::Attribute]) -> bool {
     attrs.iter().any(|attr| {
-        attr.has_name(sym::test)
-            || ((attr.has_name(sym::cfg) || attr.has_name(sym::cfg_trace))
-                && sess
-                    .source_map()
-                    .span_to_snippet(attr.span)
-                    .is_ok_and(|source| cfg_attr_source_requires_test(&source)))
+        (attr.has_name(sym::cfg) || attr.has_name(sym::cfg_trace))
+            && sess
+                .source_map()
+                .span_to_snippet(attr.span)
+                .is_ok_and(|source| cfg_attr_source_requires_test(&source))
     })
+}
+
+/// Ids of the functions registered as harness tests. Early lints see the
+/// expanded AST: without `--test` a `#[test]` function is removed, and under
+/// `--test` the builtin macro consumes the attribute and registers the function
+/// through a same-named sibling `const` marked `#[rustc_test_marker]`. Test
+/// macros such as `#[tokio::test]` expand to `#[test]`, so they register the
+/// same way.
+pub(crate) fn ast_harness_test_fns(
+    sess: &Session,
+    krate: &rustc_ast::Crate,
+) -> std::collections::HashSet<rustc_ast::NodeId> {
+    if !sess.opts.test {
+        return std::collections::HashSet::new();
+    }
+    let mut collector = HarnessTestFns::default();
+    collector.record(krate.items.iter().map(|item| &**item));
+    rustc_ast::visit::walk_crate(&mut collector, krate);
+    collector.ids
+}
+
+#[derive(Default)]
+struct HarnessTestFns {
+    ids: std::collections::HashSet<rustc_ast::NodeId>,
+}
+
+impl HarnessTestFns {
+    /// Records functions that share a name with a test marker in the same item list.
+    fn record<'a>(&mut self, items: impl Iterator<Item = &'a rustc_ast::Item> + Clone) {
+        let markers = items
+            .clone()
+            .filter_map(|item| match &item.kind {
+                rustc_ast::ItemKind::Const(constant)
+                    if item.attrs.iter().any(|attr| attr.has_name(sym::rustc_test_marker)) =>
+                {
+                    Some(constant.ident.name)
+                }
+                _ => None,
+            })
+            .collect::<std::collections::HashSet<rustc_span::Symbol>>();
+        if markers.is_empty() {
+            return;
+        }
+        self.ids.extend(items.filter_map(|item| match &item.kind {
+            rustc_ast::ItemKind::Fn(func) if markers.contains(&func.ident.name) => Some(item.id),
+            _ => None,
+        }));
+    }
+}
+
+impl<'ast> rustc_ast::visit::Visitor<'ast> for HarnessTestFns {
+    fn visit_item(&mut self, item: &'ast rustc_ast::Item) {
+        if let rustc_ast::ItemKind::Mod(_, _, rustc_ast::ModKind::Loaded(items, ..)) = &item.kind {
+            self.record(items.iter().map(|item| &**item));
+        }
+        rustc_ast::visit::walk_item(self, item);
+    }
+
+    fn visit_block(&mut self, block: &'ast rustc_ast::Block) {
+        self.record(block.stmts.iter().filter_map(|stmt| match &stmt.kind {
+            rustc_ast::StmtKind::Item(item) => Some(&**item),
+            _ => None,
+        }));
+        rustc_ast::visit::walk_block(self, block);
+    }
 }
 
 pub(crate) fn late_hir_id_is_in_test_context(cx: &LateContext<'_>, hir_id: hir::HirId, _span: Span) -> bool {
