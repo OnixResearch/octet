@@ -30,6 +30,9 @@ mod raw_value_tests {
         assert_eq!(container_kind("core::option::Option"), ContainerKind::Optional);
         assert_eq!(container_kind("core::result::Result"), ContainerKind::Result);
         assert_eq!(container_kind("alloc::collections::btree::map::BTreeMap"), ContainerKind::Map);
+        assert_eq!(container_kind("std::collections::HashMap"), ContainerKind::Map);
+        assert_eq!(container_kind("std::collections::hash::map::HashMap"), ContainerKind::Map);
+        assert_eq!(container_kind("indexmap::IndexMap"), ContainerKind::Map);
         assert_eq!(container_kind("fixture::DomainId"), ContainerKind::Other);
     }
 

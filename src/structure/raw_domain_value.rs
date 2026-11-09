@@ -47,7 +47,12 @@ pub(super) fn container_kind(path: &str) -> ContainerKind {
         "alloc::vec::Vec" | "std::vec::Vec" => ContainerKind::Sequence,
         "core::option::Option" | "std::option::Option" => ContainerKind::Optional,
         "core::result::Result" | "std::result::Result" => ContainerKind::Result,
-        "alloc::collections::btree::map::BTreeMap" | "std::collections::BTreeMap" => ContainerKind::Map,
+        "alloc::collections::btree::map::BTreeMap"
+        | "std::collections::BTreeMap"
+        | "std::collections::hash::map::HashMap"
+        | "std::collections::HashMap"
+        | "indexmap::map::IndexMap"
+        | "indexmap::IndexMap" => ContainerKind::Map,
         _ => ContainerKind::Other,
     }
 }
@@ -79,6 +84,11 @@ fn primitive_occurrences<'tcx>(
     resolved: rustc_middle::ty::Ty<'tcx>,
     default_kind: octet_lint_metadata::nominal_domain::DescriptorKind,
 ) -> Vec<PrimitiveOccurrence> {
+    // A borrowed value still exposes its raw storage.
+    if let rustc_middle::ty::Ref(_, referent, _) = resolved.kind() {
+        return primitive_occurrences(cx, *referent, default_kind);
+    }
+
     if let Some(representation) = direct_representation(cx, resolved) {
         return vec![PrimitiveOccurrence {
             representation,

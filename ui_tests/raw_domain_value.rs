@@ -39,6 +39,31 @@ struct TypedCore {
     session: SessionId,
 }
 
+mod hashed {
+    use std::collections::HashMap;
+
+    // Should warn: a `HashMap` key is a map key like a `BTreeMap` key.
+    pub struct RawMapFixture {
+        pub sessions: HashMap<String, u64>,
+    }
+}
+
+// `borrowed_argument_types` would flag `&String`; this fixture only covers raw domain values.
+#[allow(borrowed_argument_types)]
+mod borrowed {
+    static SESSION: String = String::new();
+
+    // Should warn: a borrowed parameter still exposes raw storage.
+    pub fn open_session(session: &String) -> usize {
+        session.len()
+    }
+
+    // Should warn: a borrowed result still exposes raw storage.
+    pub fn current_session() -> &'static String {
+        &SESSION
+    }
+}
+
 fn main() {
     let raw = RawDomainFixture { session: current_session() };
     let map = RawMapFixture { sessions: BTreeMap::new() };
