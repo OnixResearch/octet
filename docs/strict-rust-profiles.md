@@ -16,7 +16,7 @@ The profiles form a lattice rather than one universal safety score. `bounded-sys
 
 The Nickel source of truth is [`standards/strict-profiles/profiles.ncl`](../standards/strict-profiles/profiles.ncl). Runtime Rust consumes the checked-in generated JSON. The catalog rejects an unknown required lint.
 
-`bounded-systems` and `deterministic-core` deny exact nominal-domain findings. They never deny suffix-based discovery candidates. The selected profile sets nominal-domain mode to `deny`.
+`bounded-systems` and `deterministic-core` deny exact nominal-domain findings. They never deny suffix-based discovery candidates. The selected profile sets nominal-domain mode to `deny`, also over a consumer `nominal_domain_mode = "inventory"`, so the inventory mode's warning about capping `lint_levels` denies at `warn` is not printed under these profiles.
 
 ## Run a profile
 

@@ -304,6 +304,14 @@ fn extra_rustc_args(name: &str) -> &'static [&'static str] {
     }
 }
 
+/// Strict profile selected for a fixture, as `cargo octet check --profile` would set it.
+fn fixture_strict_profile(name: &str) -> Option<&'static str> {
+    match name {
+        "nominal_inventory_profile_custom/nominal_inventory_profile_custom" => Some("bounded-systems"),
+        _ => None,
+    }
+}
+
 fn bless_enabled() -> bool {
     env::var_os("BLESS").is_some()
 }
@@ -341,7 +349,11 @@ fn run_fixture(
         .current_dir(env!("CARGO_MANIFEST_DIR"))
         .env("CLIPPY_DISABLE_DOCS_LINKS", "true")
         .env("DYLINT_LIBS", dylint_libs)
+        .env_remove(octet_lint_metadata::strict_profile::STRICT_PROFILE_ENV)
         .args(extra_rustc_args(name));
+    if let Some(profile) = fixture_strict_profile(name) {
+        command.env(octet_lint_metadata::strict_profile::STRICT_PROFILE_ENV, profile);
+    }
 
     if let Some(support) = fixture_support_for(toolchain, &fixture_path, support_cache) {
         command.arg("-L").arg(format!("dependency={}", support.dependency_search_path.display()));

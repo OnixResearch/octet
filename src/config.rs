@@ -340,7 +340,7 @@ impl Config {
 
         let required_lints = profile.required_lints.iter().map(String::as_str).collect::<BTreeSet<_>>();
         self.disabled_lints.retain(|lint_name| !required_lints.contains(lint_name.as_str()));
-        if NOMINAL_DOMAIN_LINTS.iter().any(|lint_name| required_lints.contains(lint_name)) {
+        if profile_denies_nominal_domain(profile) {
             self.nominal_domain_mode = Some(octet_lint_metadata::nominal_domain::EnforcementMode::Deny);
         }
         for lint_name in &profile.required_lints {
@@ -350,6 +350,23 @@ impl Config {
         Ok(())
     }
 
+    /// Validates the parsed config and applies the selected strict profile.
+    ///
+    /// A profile that denies the nominal-domain lints raises their mode before
+    /// validation, so the inventory-cap diagnostic never contradicts the
+    /// profile. Diagnostics are returned even when the profile cannot apply.
+    fn resolve(
+        &mut self,
+        profile: Option<&octet_lint_metadata::strict_profile::StrictProfile>,
+    ) -> (Vec<ConfigDiagnostic>, Result<(), String>) {
+        if profile.is_some_and(profile_denies_nominal_domain) {
+            self.nominal_domain_mode = Some(octet_lint_metadata::nominal_domain::EnforcementMode::Deny);
+        }
+        let diagnostics = self.validate_diagnostics();
+        let applied = profile.map_or(Ok(()), |profile| self.apply_strict_profile(profile));
+        (diagnostics, applied)
+    }
+
     pub(crate) fn indexable_lint_exceptions(&self) -> IndexableLintExceptions {
         let enabled = |class: &str| self.indexable_lint_exceptions.iter().any(|configured| configured == class);
         IndexableLintExceptions {
@@ -357,10 +374,6 @@ impl Config {
             lint_identity_names: enabled(INDEXABLE_EXCEPTION_LINT_IDENTITY_NAMES),
             generated_searchable_names: enabled(INDEXABLE_EXCEPTION_GENERATED_SEARCHABLE_NAMES),
         }
-    }
-
-    fn validate(&mut self) -> Vec<String> {
-        self.validate_diagnostics().into_iter().map(|diagnostic| diagnostic.message).collect()
     }
 
     fn validate_diagnostics(&mut self) -> Vec<ConfigDiagnostic> {
@@ -463,6 +476,10 @@ impl Config {
 /// legacy `[slotcar]` and `[tigerstyle]` sections.
 const DYLINT_TOML_SECTIONS: [&str; 3] = [env!("CARGO_PKG_NAME"), "slotcar", "tigerstyle"];
 
+fn profile_denies_nominal_domain(profile: &octet_lint_metadata::strict_profile::StrictProfile) -> bool {
+    profile.required_lints.iter().any(|lint_name| NOMINAL_DOMAIN_LINTS.contains(&lint_name.as_str()))
+}
+
 /// Normalizes configured source scopes the way `cargo octet` does and drops
 /// entries that normalize to an empty path.
 fn normalize_source_scopes(field: &'static str, scopes: &mut Vec<String>, diagnostics: &mut Vec<ConfigDiagnostic>) {
@@ -521,21 +538,22 @@ pub fn load(sess: &rustc_session::Session) -> Config {
             panic!("Could not parse config section `[{name}]` as `{}`: {error}", std::any::type_name::<Config>())
         })
     });
-    for warning in cfg.validate() {
-        sess.dcx().warn(warning);
+    let profile = selected_strict_profile().unwrap_or_else(|error| panic!("{error}"));
+    let (diagnostics, applied) = cfg.resolve(profile.as_ref());
+    for diagnostic in diagnostics {
+        sess.dcx().warn(diagnostic.message);
     }
-    apply_selected_strict_profile(&mut cfg).unwrap_or_else(|error| panic!("{error}"));
+    applied.unwrap_or_else(|error| panic!("{error}"));
     cfg
 }
 
-fn apply_selected_strict_profile(cfg: &mut Config) -> Result<(), String> {
+fn selected_strict_profile() -> Result<Option<octet_lint_metadata::strict_profile::StrictProfile>, String> {
     let profile_id = match std::env::var(octet_lint_metadata::strict_profile::STRICT_PROFILE_ENV) {
         Ok(profile_id) => profile_id,
-        Err(std::env::VarError::NotPresent) => return Ok(()),
+        Err(std::env::VarError::NotPresent) => return Ok(None),
         Err(error) => return Err(format!("read strict-profile selection: {error}")),
     };
-    let profile = octet_lint_metadata::strict_profile::strict_profile(&profile_id)?;
-    cfg.apply_strict_profile(&profile)
+    octet_lint_metadata::strict_profile::strict_profile(&profile_id).map(Some)
 }
 
 #[cfg(test)]
@@ -581,7 +599,7 @@ mod tests {
 
     fn parse_and_validate(doc: &str) -> (Config, Vec<String>) {
         let mut cfg = parse_config(doc);
-        let warnings = cfg.validate();
+        let warnings = cfg.validate_diagnostics().into_iter().map(|diagnostic| diagnostic.message).collect();
         (cfg, warnings)
     }
 
@@ -1197,6 +1215,29 @@ function_length = "warn"
         assert_eq!(cfg.core_source_scopes, ["crates/domain/src", "crates/model/src"]);
         assert_eq!(cfg.state_machine_core_scopes, ["crates/domain/src/fsm"]);
         assert_eq!(cfg.state_machine_generated_adapter_scopes, ["crates/domain/src/generated"]);
+    }
+
+    #[test]
+    fn profile_denying_nominal_lints_suppresses_the_inventory_cap_diagnostic() {
+        let doc =
+            "[octet]\nnominal_domain_mode = \"inventory\"\n\n[octet.lint_levels]\nprimitive_domain_alias = \"deny\"\n";
+        let bounded = octet_lint_metadata::strict_profile::strict_profile("bounded-systems").expect("bounded profile");
+        let mut cfg = parse_config(doc);
+
+        let (diagnostics, applied) = cfg.resolve(Some(&bounded));
+
+        applied.expect("bounded profile should apply");
+        assert!(diagnostics.is_empty(), "the profile denies, so nothing is capped: {diagnostics:?}");
+        assert_eq!(cfg.lint_level("primitive_domain_alias"), Some(LintLevel::Deny));
+
+        // `robust` does not deny the nominal lints, so the inventory cap still holds.
+        let robust = octet_lint_metadata::strict_profile::strict_profile("robust").expect("robust profile");
+        let mut cfg = parse_config(doc);
+        let (diagnostics, applied) = cfg.resolve(Some(&robust));
+        applied.expect("robust profile should apply");
+        assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+        assert_eq!(diagnostics[0].kind, ConfigDiagnosticKind::NominalInventoryLevelCapped);
+        assert_eq!(cfg.lint_level("primitive_domain_alias"), Some(LintLevel::Warn));
     }
 
     #[test]
