@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::rc::Rc;
@@ -1005,6 +1006,25 @@ struct CallScope<'a> {
 struct ScopeResolver<'a> {
     modules: &'a ModuleIndex,
     functions: BTreeMap<&'a str, Vec<&'a AddressedFunction>>,
+    /// Each module's method sources, resolved once per run.
+    method_cache: RefCell<BTreeMap<ModuleLocator, Rc<ModuleMethods>>>,
+    /// Modules whose method sources are being resolved, so a glob cycle stops.
+    methods_in_progress: RefCell<BTreeSet<ModuleLocator>>,
+}
+
+/// The declarations of one module that may bring a trait into scope, with what its imports
+/// resolve to.
+#[derive(Default)]
+struct ModuleMethods {
+    reached: BTreeSet<String>,
+    hidden: bool,
+}
+
+impl ModuleMethods {
+    fn absorb(&mut self, lookup: &Lookup<'_>) {
+        self.reached.extend(lookup.reached.iter().cloned());
+        self.hidden |= lookup.hidden;
+    }
 }
 
 impl<'a> ScopeResolver<'a> {
@@ -1016,6 +1036,8 @@ impl<'a> ScopeResolver<'a> {
         Self {
             modules,
             functions: by_path,
+            method_cache: RefCell::default(),
+            methods_in_progress: RefCell::default(),
         }
     }
 
@@ -1285,7 +1307,9 @@ impl<'a> ScopeResolver<'a> {
                 self.glob_method_sources(&mut lookup, &locator, glob, 1);
             }
         }
-        self.module_method_sources(&mut lookup, &locator, 0);
+        let (methods, _) = self.module_methods(&locator);
+        lookup.reached.extend(methods.reached.iter().cloned());
+        lookup.hidden |= methods.hidden;
         let mut text = module_text(&draft.module);
         text.push_str("; methods=prelude, ");
         text.push_str(&lookup.text());
@@ -1303,35 +1327,59 @@ impl<'a> ScopeResolver<'a> {
         }
     }
 
-    /// The declarations of the module at `locator` that may bring a trait into scope.
-    fn module_method_sources(&self, lookup: &mut Lookup<'a>, locator: &ModuleLocator, depth: usize) {
-        if !lookup.step(depth) {
-            return;
+    /// The declarations of the module at `locator` that may bring a trait into scope, resolved
+    /// once per run: each `use` binding is followed with its own bounded lookup, each glob import
+    /// to the method sources of its module. Returns the modules whose in-progress lookup a glob
+    /// cycle cut short; a result cut short by another module is not kept, since that module's
+    /// sources are missing from it.
+    fn module_methods(&self, locator: &ModuleLocator) -> (Rc<ModuleMethods>, BTreeSet<ModuleLocator>) {
+        if let Some(cached) = self.method_cache.borrow().get(locator) {
+            return (Rc::clone(cached), BTreeSet::new());
+        }
+        if !self.methods_in_progress.borrow_mut().insert(locator.clone()) {
+            return (Rc::default(), BTreeSet::from([locator.clone()]));
         }
         let label = module_label(locator);
-        let Some(scope) = self.modules.scopes.get(locator) else {
-            lookup.hide(&label, "*", "module not selected");
-            return;
-        };
-        // A key no path can produce: each module's method sources are gathered once.
-        if !lookup.visited.insert((locator.clone(), vec![String::from("*methods")])) {
-            return;
+        let mut methods = ModuleMethods::default();
+        let mut cut = BTreeSet::new();
+        if let Some(scope) = self.modules.scopes.get(locator) {
+            for source in scope.method_sources.iter().chain(&scope.wildcards) {
+                methods.reached.insert(format!("{label} trait: {source}"));
+            }
+            for import in scope.imports.values().flatten().filter(|import| !import.leading_colon) {
+                let mut lookup = Lookup::default();
+                self.resolve_import_path(&mut lookup, locator, &import.segments, 1);
+                methods.absorb(&lookup);
+            }
+            for glob in scope.glob_imports.iter().filter(|glob| !glob.leading_colon) {
+                let mut lookup = Lookup::default();
+                if let Some(module) = self.resolve_module(&mut lookup, locator, &glob.segments, 1) {
+                    let (inner, inner_cut) = self.module_methods(&module);
+                    methods.reached.extend(inner.reached.iter().cloned());
+                    methods.hidden |= inner.hidden;
+                    cut.extend(inner_cut);
+                }
+                methods.absorb(&lookup);
+            }
+        } else {
+            methods.hidden = true;
+            methods.reached.insert(format!("{label} *: module not selected"));
         }
-        for source in scope.method_sources.iter().chain(&scope.wildcards) {
-            lookup.reach(&label, "trait", source);
+        self.methods_in_progress.borrow_mut().remove(locator);
+        cut.remove(locator);
+        let methods = Rc::new(methods);
+        if cut.is_empty() {
+            self.method_cache.borrow_mut().insert(locator.clone(), Rc::clone(&methods));
         }
-        for import in scope.imports.values().flatten().filter(|import| !import.leading_colon) {
-            self.resolve_import_path(lookup, locator, &import.segments, depth + 1);
-        }
-        for glob in scope.glob_imports.iter().filter(|glob| !glob.leading_colon) {
-            self.glob_method_sources(lookup, locator, glob, depth + 1);
-        }
+        (methods, cut)
     }
 
-    /// Includes the method sources of the module a local glob import names.
+    /// Includes the method sources of the module a body glob import names.
     fn glob_method_sources(&self, lookup: &mut Lookup<'a>, locator: &ModuleLocator, glob: &ImportPath, depth: usize) {
         if let Some(module) = self.resolve_module(lookup, locator, &glob.segments, depth) {
-            self.module_method_sources(lookup, &module, depth + 1);
+            let (methods, _) = self.module_methods(&module);
+            lookup.reached.extend(methods.reached.iter().cloned());
+            lookup.hidden |= methods.hidden;
         }
     }
 
@@ -5288,5 +5336,19 @@ unsafe fn risky(values: &[u8]) -> u8 {
         let summaries = reviewed_summaries(&denied, &dependency_provider());
         let admitted = compute_closure(reviewed_input(inline, summaries));
         assert_eq!(admitted.status, AdmissionStatus::Admitted, "{:?}", admitted.diagnostics);
+    }
+
+    // r[verify octet.effect_closure.dependency_summaries]
+    #[test]
+    fn method_scopes_resolve_many_imports_within_bounds() {
+        let names = (0..220).map(|index| format!("A{index}")).collect::<Vec<_>>();
+        let caller =
+            format!("use crate::util::{{{}}};\npub fn root(v: Vec<u8>) {{ let _ = v.len(); }}\n", names.join(", "));
+        let util = names.iter().map(|name| ["pub struct ", name, ";\n"].concat()).collect::<String>();
+        assert_workspace_summaries_admit(&[
+            (TEST_PATH, &caller),
+            (LIB_PATH, "mod core;\nmod util;\n"),
+            (UTIL_PATH, &util),
+        ]);
     }
 }
