@@ -43,3 +43,16 @@ fn else_branch_still_warns(value: Option<u32>) {
 }
 
 fn main() {}
+
+fn guarded_ufcs_option(value: Option<u32>) {
+    // Should NOT warn: same guard as the method form
+    if value.is_some() {
+        let _ = Option::unwrap(value);
+    }
+}
+
+fn unguarded_ufcs_option_still_warns(value: Option<u32>) {
+    if value.is_none() {
+        let _ = Option::unwrap(value);
+    }
+}

@@ -44,5 +44,20 @@ LL -         let _ = value.unwrap();
 LL +         let _ = value?;
    |
 
-warning: 3 warnings emitted
+warning: `.unwrap()` in production code will panic on failure
+  --> $DIR/no_unwrap_guarded.rs:56:17
+   |
+LL |         let _ = Option::unwrap(value);
+   |                 ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Error Handling): propagate or handle absence explicitly instead of panicking with `unwrap` or `expect` Example: let value = maybe?;
+   = note: structured suggestion applicability: MaybeIncorrect
+   = note: see Tiger Style guide: Error Handling
+help: propagate the error with `?` instead of panicking
+   |
+LL -         let _ = Option::unwrap(value);
+LL +         let _ = value?;
+   |
+
+warning: 4 warnings emitted
 

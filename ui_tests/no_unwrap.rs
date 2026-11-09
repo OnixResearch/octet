@@ -77,3 +77,40 @@ fn unwrap_below_one_line_test_item_is_reported() -> u32 {
     let val: Option<u32> = Some(1);
     val.unwrap()
 }
+
+fn unwrap_path_in_map(values: Vec<Result<u32, &'static str>>) -> Vec<u32> {
+    // Should warn: `Result::unwrap` passed as a function path
+    values.into_iter().map(Result::unwrap).collect()
+}
+
+fn expect_path_in_map(values: Vec<Option<u32>>) -> Vec<u32> {
+    // Should warn: `Option::expect` passed as a function path
+    values.into_iter().map(|value| Option::expect(value, "missing")).collect()
+}
+
+fn ufcs_result_unwrap(value: Result<u32, &'static str>) -> u32 {
+    // Should warn: UFCS `Result::unwrap` call
+    Result::unwrap(value)
+}
+
+fn qualified_option_unwrap(value: Option<u32>) -> u32 {
+    // Should warn: qualified-self `<Option<u32>>::unwrap` call
+    <Option<u32>>::unwrap(value)
+}
+
+fn ufcs_unwrap_or_is_allowed(value: Option<u32>) -> u32 {
+    // Should NOT warn: `unwrap_or` does not panic
+    Option::unwrap_or(value, 0)
+}
+
+fn ufcs_constructor_unwrap_is_allowed() -> u32 {
+    // Should NOT warn: known constructor, as with `Some(1).unwrap()`
+    Option::unwrap(Some(1))
+}
+
+#[test]
+fn ufcs_unwrap_in_test_is_allowed() {
+    let values: Vec<Option<u32>> = vec![Some(1)];
+    let _ = values.into_iter().map(Option::unwrap).count();
+    let _ = Result::<u32, &str>::unwrap(Ok(1));
+}
