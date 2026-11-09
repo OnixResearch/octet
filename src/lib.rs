@@ -15,6 +15,7 @@ mod architecture_collector;
 mod concurrency;
 pub mod config;
 mod diagnostics;
+mod markers;
 mod naming;
 mod performance;
 mod purity;

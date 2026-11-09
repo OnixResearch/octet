@@ -15,6 +15,7 @@ use rustc_session::impl_lint_pass;
 use rustc_span::Span;
 
 use crate::diagnostics::emit_tiger_style_lint;
+use crate::markers::attrs_carry_marker;
 
 const LINT_NAME: &str = "state_machine_exhaustiveness";
 const UNSUPPORTED_SHAPE: &str = "unsupported-state-machine-shape";
@@ -344,12 +345,7 @@ fn enum_has_marker(cx: &LateContext<'_>, adt: rustc_middle::ty::AdtDef<'_>, mark
 }
 
 fn has_marker(cx: &LateContext<'_>, def_id: hir::def_id::LocalDefId, marker: &str) -> bool {
-    let hir_id = cx.tcx.local_def_id_to_hir_id(def_id);
-    let marker_tail = marker.rsplit("::").next().unwrap_or(marker);
-    cx.tcx.hir_attrs(hir_id).iter().any(|attr| {
-        let rendered = format!("{attr:?}");
-        rendered.contains(marker) || rendered.contains(marker_tail)
-    })
+    attrs_carry_marker(cx.tcx.hir_attrs(cx.tcx.local_def_id_to_hir_id(def_id)), marker)
 }
 
 fn span_path(cx: &LateContext<'_>, span: Span) -> String {

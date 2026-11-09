@@ -21,4 +21,17 @@ impl LocalState {
     }
 }
 
+/// Prose that names `octet::sealed_enum` does not seal the enum.
+enum DocumentedState {
+    Open,
+    Shut,
+}
+
+fn documented_is_open(state: DocumentedState) -> bool {
+    match state {
+        DocumentedState::Open => true,
+        DocumentedState::Shut => false,
+    }
+}
+
 fn main() {}

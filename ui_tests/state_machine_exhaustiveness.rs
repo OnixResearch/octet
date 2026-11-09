@@ -58,6 +58,14 @@ fn payload_transition(phase: fsm_core::Phase, signal: fsm_core::Signal) -> Resul
     }
 }
 
+/// An ordinary helper: prose naming `octet::state_machine_core` does not opt it into the checks.
+fn prose_documented_helper(state: State, event: Event) -> State {
+    match (state, event) {
+        (State::Idle, Event::Start) => State::Running,
+        _ => state,
+    }
+}
+
 fn main() {
     match transition(State::Idle, Event::Start) {
         Ok(_) | Err(_) => {}

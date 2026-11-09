@@ -134,5 +134,19 @@ LL | | }
    = help: Tiger Style (State Machine Exhaustiveness): mark transition cores and handle every state/event pair explicitly without wildcard fallback or mutation-coupled decisions Example: #[octet::state_machine_core] fn transition(state: State, event: Event) -> Result<State, InvalidTransition>
    = note: see Tiger Style guide: Enum Matches / State Machines
 
-warning: 10 warnings emitted
+warning: state machine transition core `prose_marked_transition` over `Mode` and `Event` lacks closed FSM enum markers (missing-fsm-enum-marker); state and event enums must carry the configured FSM enum marker
+  --> $DIR/state_machine_exhaustiveness_negative.rs:91:5
+   |
+LL | /     match (mode, event) {
+LL | |         (Mode::On, Event::Start) => Ok(Mode::On),
+LL | |         (Mode::On, Event::Stop) => Ok(Mode::Off),
+LL | |         (Mode::Off, Event::Start) => Ok(Mode::On),
+LL | |         (Mode::Off, Event::Stop) => Err(InvalidTransition),
+LL | |     }
+   | |_____^
+   |
+   = help: Tiger Style (State Machine Exhaustiveness): mark transition cores and handle every state/event pair explicitly without wildcard fallback or mutation-coupled decisions Example: #[octet::state_machine_core] fn transition(state: State, event: Event) -> Result<State, InvalidTransition>
+   = note: see Tiger Style guide: Enum Matches / State Machines
+
+warning: 11 warnings emitted
 

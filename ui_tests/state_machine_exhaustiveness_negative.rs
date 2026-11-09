@@ -79,6 +79,23 @@ fn unsupported_transition(state: State, event: Event) -> Result<State, InvalidTr
     }
 }
 
+/// Prose that names `octet::state_machine_enum` is not the marker attribute.
+#[derive(Clone, Copy)]
+enum Mode {
+    On,
+    Off,
+}
+
+#[octet::state_machine_core]
+fn prose_marked_transition(mode: Mode, event: Event) -> Result<Mode, InvalidTransition> {
+    match (mode, event) {
+        (Mode::On, Event::Start) => Ok(Mode::On),
+        (Mode::On, Event::Stop) => Ok(Mode::Off),
+        (Mode::Off, Event::Start) => Ok(Mode::On),
+        (Mode::Off, Event::Stop) => Err(InvalidTransition),
+    }
+}
+
 fn main() {
     match wildcard_transition(State::Idle, Event::Start) {
         Ok(_) | Err(_) => {}
