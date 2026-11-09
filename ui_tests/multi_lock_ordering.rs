@@ -95,6 +95,34 @@ struct ReprTracker {
     state: Mutex<u32>,
 }
 
+// Should NOT warn: the three comments below use `locking`, `locked`, and `ordered`.
+
+// Locking order: `count` before `state`.
+struct LockingOrderTracker {
+    count: Mutex<u64>,
+    state: Mutex<u32>,
+}
+
+// Fields are locked in order: `count`, then `state`.
+struct LockedInOrderTracker {
+    count: Mutex<u64>,
+    state: Mutex<u32>,
+}
+
+// Both mutexes are locked as ordered here: `count`, then `state`.
+struct LockedAsOrderedTracker {
+    count: Mutex<u64>,
+    state: Mutex<u32>,
+}
+
+// Should warn: `deadlock` is not `lock`, even next to `ordered`.
+
+// Deadlock-free: `state` is ordered after `count`.
+struct DeadlockNoteTracker {
+    count: Mutex<u64>,
+    state: Mutex<u32>,
+}
+
 fn main() {
     let _ = Tracker {
         count: Mutex::new(0),

@@ -14,12 +14,12 @@ use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
 const MIN_LOCK_FIELD_COUNT: usize = 2;
 const LOCK_KIND_MUTEX: &str = "Mutex";
 const LOCK_KIND_RWLOCK: &str = "RwLock";
-/// Whole words that make a comment about locks; `clock`, `block`, and
-/// `unlock` do not count.
-const LOCK_COMMENT_SUBJECTS: &[&str] = &["lock"];
+/// Whole words that make a comment about locks; `clock`, `block`, `unlock`,
+/// and `deadlock` do not count.
+const LOCK_COMMENT_SUBJECTS: &[&str] = &["lock", "locking", "locked"];
 /// Whole words that make a lock comment document acquisition order;
 /// `recorder` and `border` do not count.
-const LOCK_COMMENT_ORDER_WORDS: &[&str] = &["order", "ordering", "acquisition"];
+const LOCK_COMMENT_ORDER_WORDS: &[&str] = &["order", "ordering", "ordered", "acquisition"];
 // `parking_lot::Mutex` and `parking_lot::RwLock` are type aliases of the
 // `lock_api` types, so their resolved definition path starts with `lock_api`.
 const SUPPORTED_LOCK_CRATES: &[&str] = &["std", "tokio", "lock_api"];
@@ -220,5 +220,8 @@ mod tests {
         assert!(!has_order_specific_lock_comment("// Unlock the block recorder at the border."));
         assert!(has_order_specific_lock_comment("// Locks: acquire in `count`, `state` order."));
         assert!(has_order_specific_lock_comment("// lock_order: count before state"));
+        assert!(has_order_specific_lock_comment("// Locking order: count before state"));
+        assert!(has_order_specific_lock_comment("// Both are locked as ordered: count, then state"));
+        assert!(!has_order_specific_lock_comment("// Deadlock-free: state is ordered after count."));
     }
 }
