@@ -45,6 +45,11 @@ pub struct UnjustifiedAllow {
     /// governed like an `allow`. Empty without a profile, where `warn` is the
     /// normal way to enable a lint.
     floor_paths: LintPathSet,
+    /// Paths that reach the governance lints the profile guard protects. The
+    /// guard rejects an attribute through one of them outright, so this lint
+    /// skips it rather than also asking for a justification that could never
+    /// make it legal. Empty without a profile.
+    guarded_paths: LintPathSet,
     /// rustc reports a statement's attributes once for the statement and again
     /// for the `let`, item, or expression it wraps; this remembers the first
     /// attribute of the last checked list so each list is checked once.
@@ -57,10 +62,11 @@ impl UnjustifiedAllow {
     /// Pass for a selected strict profile's floor lints; an empty floor gives
     /// the unprofiled pass.
     pub(crate) fn for_profile_floor<'a>(floor_lints: impl IntoIterator<Item = &'a str>) -> Self {
+        let (governance, floor): (Vec<&str>, Vec<&str>) =
+            floor_lints.into_iter().partition(|lint_name| SUPPRESSION_GOVERNANCE_LINTS.contains(lint_name));
         Self {
-            floor_paths: LintPathSet::for_lints(
-                floor_lints.into_iter().filter(|lint_name| !SUPPRESSION_GOVERNANCE_LINTS.contains(lint_name)),
-            ),
+            floor_paths: LintPathSet::for_lints(floor),
+            guarded_paths: LintPathSet::for_lints(governance),
             last_checked: None,
         }
     }
@@ -245,7 +251,7 @@ fn governed_level_name(attr: &Attribute, items: &[MetaItemInner], floor_paths: &
     }
 }
 
-fn check_attrs(cx: &EarlyContext<'_>, attrs: &[Attribute], floor_paths: &LintPathSet) {
+fn check_attrs(cx: &EarlyContext<'_>, attrs: &[Attribute], pass: &UnjustifiedAllow) {
     // Skip items in #[cfg(test)] blocks
     if attrs.iter().any(|a| a.has_name(sym::test)) {
         return;
@@ -258,9 +264,13 @@ fn check_attrs(cx: &EarlyContext<'_>, attrs: &[Attribute], floor_paths: &LintPat
         let Some(items) = attr.meta_item_list() else {
             continue;
         };
-        let Some(name) = governed_level_name(attr, &items, floor_paths) else {
+        let Some(name) = governed_level_name(attr, &items, &pass.floor_paths) else {
             continue;
         };
+        // The profile guard reports this attribute as an error to remove.
+        if !pass.guarded_paths.reached_lints(lint_paths(&items)).is_empty() {
+            continue;
+        }
         let Some(site) = user_attribute_site(cx, attr, name) else {
             continue;
         };
@@ -309,7 +319,7 @@ impl EarlyLintPass for UnjustifiedAllow {
     // variants, expressions, arms, parameters, and generic parameters.
     fn check_attributes(&mut self, cx: &EarlyContext<'_>, attrs: &[Attribute]) {
         if is_new_attribute_list(&mut self.last_checked, attrs) {
-            check_attrs(cx, attrs, &self.floor_paths);
+            check_attrs(cx, attrs, self);
         }
     }
 }
@@ -564,6 +574,10 @@ mod tests {
         ] {
             assert!(reached(&[path]).is_empty(), "`{path}` reaches no governed floor lint");
         }
+
+        // The governance lints go to the guarded set, which this lint skips.
+        assert_eq!(reached_paths(&floor.guarded_paths, &["tigerstyle::structure"]), ["unjustified_allow"]);
+        assert!(reached_paths(&floor.guarded_paths, &["tigerstyle::safety"]).is_empty());
 
         // Without a profile no `warn` is governed.
         assert!(UnjustifiedAllow::default().floor_paths.is_empty());
