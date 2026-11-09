@@ -28,6 +28,7 @@ pub mod runner;
 pub mod source;
 pub mod spec_trace_parity;
 pub mod suppression;
+pub mod vermilion;
 
 #[cfg(test)]
 mod tests {

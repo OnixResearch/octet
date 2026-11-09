@@ -2532,6 +2532,9 @@
               consumer_profile_json=$(mktemp)
               valence_adapter_fixture_json=$(mktemp)
               compatibility_matrix_json=$(mktemp)
+              vermilion_profile_json=$(mktemp)
+              vermilion_matrix_json=$(mktemp)
+              vermilion_contract_json=$(mktemp)
               trellis_import_json=$(mktemp)
               nickel export --format json standards/proof-rails/manifest.ncl > "$manifest_json"
               jq --exit-status '
@@ -2635,6 +2638,50 @@
                   and ([.canaries[] | select(.execution == "live")] | length) == 3
                   and ([.canaries[] | select(.execution == "pure")] | length) == 10
                 ' "$compatibility_matrix_json" >/dev/null
+
+              nickel typecheck standards/proof-rails/vermilion-lean/contracts.ncl
+              nickel typecheck standards/proof-rails/vermilion-lean/profile.ncl
+              nickel export --format json standards/proof-rails/vermilion-lean/profile.ncl > "$vermilion_profile_json"
+              cmp "$vermilion_profile_json" standards/proof-rails/vermilion-lean/generated/profile.json
+              nickel typecheck standards/proof-rails/vermilion-lean/compatibility-matrix.ncl
+              nickel export --format json standards/proof-rails/vermilion-lean/compatibility-matrix.ncl > "$vermilion_matrix_json"
+              cmp "$vermilion_matrix_json" standards/proof-rails/vermilion-lean/generated/compatibility-matrix.json
+              nickel typecheck standards/proof-rails/vermilion-lean/pilot-contract.ncl
+              nickel export --format json standards/proof-rails/vermilion-lean/pilot-contract.ncl > "$vermilion_contract_json"
+              cmp "$vermilion_contract_json" standards/proof-rails/vermilion-lean/generated/pilot-contract.json
+              jq --exit-status '
+                .schema_version == "octet-vermilion-lean-provider-profile/v1"
+                and .provider_id == "vermilion-lean"
+                and .verus_fork.revision == "48600836424a79420589c56d86e720236a029811"
+                and .lean.toolchain == "leanprover/lean4:v4.33.0"
+                and .checker.checker_id == "vrml_check"
+                and .assumption_policy.allowed_axioms == ["propext", "Classical.choice", "Quot.sound"]
+                and (.non_claims | index("does not prove Vermilion, Verus, or Lean soundness") != null)
+              ' "$vermilion_profile_json" >/dev/null
+              jq --exit-status '
+                .schema_version == "octet-proof-semantic-contract/v1"
+                and .contract_id == "octet.bounded_increment.checked/v1"
+                and .width_bits == 64
+                and .overflow_behavior == "checked"
+                and .precondition == "value < u64::MAX"
+                and (.routes | length) == 3
+                and ([.routes[].refinement_bridge_id] | index("pilot.increment.refinement-to-spec") != null)
+              ' "$vermilion_contract_json" >/dev/null
+              jq --exit-status '
+                .schema_version == "octet-vermilion-lean-compatibility-matrix/v1"
+                and .provider_id == "vermilion-lean"
+                and (.canaries | length) == 9
+                and ([.canaries[] | select(.execution == "pure")] | length) == 8
+                and ([.canaries[] | select(.execution == "live")] | length) == 1
+              ' "$vermilion_matrix_json" >/dev/null
+              while IFS= read -r test_function; do
+                test_name=$(printf '%s' "$test_function" | sed 's/.*:://')
+                if ! grep --fixed-strings "fn $test_name" crates/octet-standards/src/vermilion/tests.rs >/dev/null; then
+                  echo "Vermilion compatibility canary test function is missing: $test_function" >&2
+                  exit 1
+                fi
+              done < <(jq --raw-output '.canaries[].test_function' "$vermilion_matrix_json")
+
               while IFS= read -r test_function; do
                 if ! grep --fixed-strings "fn $test_function" crates/octet-standards/src/formal_proof.rs >/dev/null \
                   && ! grep --fixed-strings "fn $test_function" cargo-octet/src/aeneas_execution.rs >/dev/null; then
