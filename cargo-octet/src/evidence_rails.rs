@@ -4391,16 +4391,17 @@ fn run_bounded_rail_command(
 }
 
 /// Maps a Bounded Exec disposition to the tool exit code the rail evaluates. Nonzero exits are
-/// rail evidence; an output-cap overflow, a timeout, or a cancellation is not.
+/// rail evidence; a run killed by a signal (no exit code), an output-cap overflow, a timeout, or a
+/// cancellation is not, because its transcript may be truncated.
 fn rail_run_exit_code(
     disposition: bounded_exec::Disposition,
     exit_code: Option<i32>,
     command_line: &str,
 ) -> Result<i32, String> {
     match disposition {
-        bounded_exec::Disposition::Succeeded | bounded_exec::Disposition::ExitFailed => {
-            Ok(exit_code.unwrap_or(EXIT_INTEGRATION_FAILURE))
-        }
+        bounded_exec::Disposition::Succeeded | bounded_exec::Disposition::ExitFailed => exit_code.ok_or_else(|| {
+            format!("evidence rail command `{command_line}` ended without an exit code, so a signal killed it; its transcript is not evidence")
+        }),
         bounded_exec::Disposition::OutputLimitExceeded(streams) => Err(format!(
             "evidence rail command `{command_line}` exceeded the {RAIL_RUN_STREAM_MAX_BYTES}-byte per-stream output cap on {streams:?}; truncated output is not evidence"
         )),
@@ -6909,6 +6910,16 @@ mod tests {
         .expect("shell runs");
         assert_eq!(output.exit_code, EXIT_SUCCESS);
         assert_eq!(String::from_utf8_lossy(&output.stdout), "--cfg\u{1f}loom");
+    }
+
+    #[test]
+    fn signal_killed_rail_run_fails_without_a_result() {
+        let killed = run_bounded_rail_command(&string_vec(&["sh", "-c", "echo partial; kill -9 $$"]), None, &[]);
+        assert!(killed.is_err(), "a signal-killed run must not yield an exit code to evaluate");
+        assert!(rail_run_exit_code(bounded_exec::Disposition::ExitFailed, None, "tool").is_err());
+        assert_eq!(rail_run_exit_code(bounded_exec::Disposition::ExitFailed, Some(2), "tool"), Ok(2));
+        let exited = run_bounded_rail_command(&string_vec(&["sh", "-c", "exit 3"]), None, &[]).expect("exit runs");
+        assert_eq!(exited.exit_code, 3);
     }
 
     #[test]
