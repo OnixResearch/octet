@@ -256,6 +256,7 @@ fn capability_read_rejects_leaf_and_parent_symlink_substitution() {
 }
 
 // r[verify octet.dynamic_evidence.hegel_output_contract]
+#[cfg(unix)]
 #[test]
 fn bounded_shell_rejects_mixed_process_output_without_dedicated_summary() {
     let profile = selected_profile(PROFILE_ID).expect("profile");
@@ -272,8 +273,20 @@ fn bounded_shell_rejects_mixed_process_output_without_dedicated_summary() {
         std::fs::create_dir_all(destination.parent().expect("input parent")).expect("input directory");
         std::fs::copy(checkout.join(locator), &destination).expect("copy measured input");
     }
-    let mut tools = shell::production_tools().expect("Nix Hegel tools");
-    tools.cargo = find_path_executable("true").expect("true executable");
+    // Only the missing-summary rejection is under test, so the producer is a no-op `cargo` with a
+    // scratch Cargo config, not the dev shell's `OCTET_HEGEL_*` tools, which a plain or stale
+    // environment lacks or points at collected store paths.
+    let tools_dir = tempfile::tempdir().expect("scratch tools");
+    let cargo = tools_dir.path().join("cargo-noop");
+    crate::test_support::write_executable_script(&cargo, "#!/bin/sh\nexit 0\n");
+    let cargo_config = tools_dir.path().join("cargo-config.toml");
+    std::fs::write(&cargo_config, "[net]\noffline = true\n").expect("write Cargo config fixture");
+    let tools = shell::RuntimeTools {
+        cargo,
+        path: "/bin".into(),
+        cargo_config,
+        library_path: "/lib".into(),
+    };
 
     let error = shell::run_with(workspace.path(), &profile, &tools).expect_err("missing dedicated summary rejected");
     assert!(error.contains("summary.json"), "{error}");
@@ -481,12 +494,4 @@ fn producer_summary_from_environment() -> ProducerSummary {
 
 fn required_environment(name: &str) -> String {
     std::env::var(name).unwrap_or_else(|_| panic!("missing {name}"))
-}
-
-fn find_path_executable(name: &str) -> Option<std::path::PathBuf> {
-    std::env::var_os("PATH").and_then(|path| {
-        std::env::split_paths(&path)
-            .map(|directory| directory.join(name))
-            .find(|candidate| candidate.is_file())
-    })
 }
