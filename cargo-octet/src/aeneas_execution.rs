@@ -9,6 +9,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use octet_standards::aeneas_observation::MeasuredLeanFile;
+use octet_standards::aeneas_observation::observe_aeneas_lean_trust_closure;
 use octet_standards::aeneas_observation::observe_aeneas_trust_closure;
 use octet_standards::aeneas_observation::observe_charon_extraction_policy;
 use octet_standards::aeneas_observation::validate_observed_aeneas_translation;
@@ -16,7 +17,9 @@ use octet_standards::formal_proof::AeneasAssumptionPolicy;
 use octet_standards::formal_proof::AeneasExecutionLimits;
 use octet_standards::formal_proof::AeneasTheoremAdequacy;
 use octet_standards::formal_proof::AeneasTheoremAdequacyDecision;
+use octet_standards::formal_proof::AeneasTrustClosure;
 use octet_standards::formal_proof::CharonExtractionPolicy;
+use octet_standards::formal_proof::aeneas_theorem_name;
 use octet_standards::formal_proof::assess_aeneas_theorem_source;
 use octet_standards::formal_proof::validate_aeneas_theorem_statement_approval;
 use octet_standards::formal_proof::validate_charon_extraction_contract;
@@ -79,6 +82,42 @@ const TRANSLATION_MANIFEST_ARTIFACT: &str = "translation.json";
 const GENERATED_LEAN_ARTIFACT: &str = "Llbc.lean";
 const PACKAGE_LOCK_ARTIFACT: &str = "lake-manifest.json";
 const LEAN_TOOLCHAIN_ARTIFACT: &str = "lean-toolchain";
+/// Lean program, written to the work root after `lake build`, that reports the approved theorem's
+/// axioms.
+const LEAN_AXIOM_CHECK_FILE: &str = "OctetAxiomCheck.lean";
+/// Work-root artifact holding the Lean axiom check's report.
+const LEAN_AXIOM_REPORT_ARTIFACT: &str = "lean-axioms.json";
+/// `lake` arguments that run [`LEAN_AXIOM_CHECK_FILE`] against the just-built package.
+const LEAN_AXIOM_CHECK_ARGUMENTS: [&str; 4] = ["env", "lean", "--run", LEAN_AXIOM_CHECK_FILE];
+/// Reports every axiom the approved theorem reaches, as `Lean.collectAxioms` computes it.
+///
+/// It runs as a separate program instead of `#print axioms` appended to, or imported beside, the
+/// approved theorem: the theorem file stays byte-identical to its approval, and importing the
+/// `Theorem` module as data runs none of its commands, so theorem-defined elaborators cannot
+/// rewrite the report. The theorem must be a `theorem` declared by the `Theorem` module.
+const LEAN_AXIOM_CHECK_PROGRAM: &str = r#"import Lean
+open Lean
+
+def main (args : List String) : IO UInt32 := do
+  let [requested] := args
+    | IO.eprintln "usage: OctetAxiomCheck.lean <approved theorem name>"
+      return 2
+  let theoremName := requested.toName
+  initSearchPath (← findSysroot)
+  let env ← importModules #[{ module := `Theorem }] {} (trustLevel := 0)
+  let module? := (env.getModuleIdxFor? theoremName).bind fun index => env.allImportedModuleNames[index.toNat]?
+  unless module? == some `Theorem && env.find? theoremName matches some (.thmInfo _) do
+    IO.eprintln s!"approved theorem `{requested}` is not a theorem declared by the Theorem module"
+    return 1
+  let (axioms, _) ← (collectAxioms theoremName : CoreM (Array Name)).toIO
+    { fileName := "OctetAxiomCheck.lean", fileMap := default } { env }
+  let report := Json.mkObj [
+    ("schema_version", Json.str "octet-aeneas-lean-axioms/v1"),
+    ("theorem", Json.str requested),
+    ("axioms", toJson (axioms.map toString))]
+  IO.println report.compress
+  return 0
+"#;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct AeneasArtifact {
@@ -123,6 +162,8 @@ pub(crate) struct AeneasExecutionPlanInput {
     pub(crate) theorem_path: PathBuf,
     /// Exact preflighted theorem bytes that Lean checks as the `Theorem` root module.
     pub(crate) theorem_source: String,
+    /// Lean name of the approved theorem whose axioms the Lean stage reports.
+    pub(crate) theorem_name: String,
     pub(crate) limits: AeneasExecutionLimits,
     pub(crate) environment_allowlist: Vec<String>,
 }
@@ -155,6 +196,8 @@ pub(crate) struct AeneasExecutionPlan {
     pub(crate) environment_allowlist: Vec<String>,
     pub(crate) aeneas_lean_library: PathBuf,
     pub(crate) theorem_source: String,
+    /// Runs after a clean Lean stage and reports the approved theorem's axioms.
+    pub(crate) lean_axiom_check: AeneasStagePlan,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -273,6 +316,15 @@ pub(crate) fn build_aeneas_execution_plan(input: AeneasExecutionPlanInput) -> Re
     if input.limits.stderr_max_bytes == 0 {
         diagnostics.push("limits.stderr_max_bytes must be positive".to_owned());
     }
+    let theorem_name_is_argument = !input.theorem_name.is_empty()
+        && !input.theorem_name.starts_with('-')
+        && !input
+            .theorem_name
+            .chars()
+            .any(|character| character.is_whitespace() || shell_metacharacter(character));
+    if !theorem_name_is_argument {
+        diagnostics.push("theorem_name must be one Lean name without whitespace or shell metacharacters".to_owned());
+    }
     diagnostics.sort();
     diagnostics.dedup();
     if !diagnostics.is_empty() {
@@ -297,6 +349,16 @@ pub(crate) fn build_aeneas_execution_plan(input: AeneasExecutionPlanInput) -> Re
         },
     ];
     assert_eq!(stages.len(), STAGE_COUNT, "Aeneas plan must contain every provider stage");
+    let lean_axiom_check_argv = std::iter::once(LEAN_COMMAND_NAME)
+        .chain(LEAN_AXIOM_CHECK_ARGUMENTS)
+        .chain(std::iter::once(input.theorem_name.as_str()))
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+    let lean_axiom_check = AeneasStagePlan {
+        kind: AeneasStageKind::Lean,
+        argv: sandboxed_argv(&input, &input.lean_executable, &lean_axiom_check_argv, None),
+        working_dir: input.work_root.clone(),
+    };
     Ok(AeneasExecutionPlan {
         stages,
         source_root: input.source_root,
@@ -305,6 +367,7 @@ pub(crate) fn build_aeneas_execution_plan(input: AeneasExecutionPlanInput) -> Re
         environment_allowlist: input.environment_allowlist,
         aeneas_lean_library: input.aeneas_lean_library,
         theorem_source: input.theorem_source,
+        lean_axiom_check,
     })
 }
 
@@ -504,6 +567,11 @@ pub(crate) fn execute_reused_charon_stage(input: ReusedCharonStageInput) -> Aene
         environment_allowlist: input.environment_allowlist,
         aeneas_lean_library: PathBuf::new(),
         theorem_source: String::new(),
+        lean_axiom_check: AeneasStagePlan {
+            kind: AeneasStageKind::Lean,
+            argv: Vec::new(),
+            working_dir: PathBuf::new(),
+        },
     };
     let mut observation = execute_stage(&stage, &context);
     if observation.exit_code == Some(0) && !input.work_root.join(input.snapshot_path).is_file() {
@@ -683,20 +751,63 @@ fn execute_stages_in_work_root(
     }
     for stage in &plan.stages {
         let mut observation = execute_stage(stage, plan);
-        let exited_cleanly = !observation.timed_out
-            && !observation.stdout_truncated
-            && !observation.stderr_truncated
-            && observation.exit_code == Some(0)
-            && observation.diagnostics.is_empty();
-        if exited_cleanly {
+        if stage.kind == AeneasStageKind::Lean && exited_cleanly(&observation) {
+            observation.diagnostics.extend(run_lean_axiom_check(plan));
+        }
+        let clean = exited_cleanly(&observation);
+        if clean {
             observation.diagnostics.extend(gate(stage.kind, &plan.work_root));
         }
-        let stop = !exited_cleanly || !observation.diagnostics.is_empty();
+        let stop = !clean || !observation.diagnostics.is_empty();
         report.observations.push(observation);
         if stop {
             break;
         }
     }
+}
+
+fn exited_cleanly(observation: &AeneasStageObservation) -> bool {
+    !observation.timed_out
+        && !observation.stdout_truncated
+        && !observation.stderr_truncated
+        && observation.exit_code == Some(0)
+        && observation.diagnostics.is_empty()
+}
+
+/// Ask Lean which axioms the approved theorem depends on once `lake build` has checked it.
+///
+/// The check program is written only now, refusing anything the build left at its path, and runs
+/// through `lake env` in the same sandbox and limits so it loads the just-built modules. Its
+/// stdout becomes the [`LEAN_AXIOM_REPORT_ARTIFACT`] the Lean stage gate classifies.
+fn run_lean_axiom_check(plan: &AeneasExecutionPlan) -> Vec<String> {
+    let program = plan.work_root.join(LEAN_AXIOM_CHECK_FILE);
+    if let Err(error) = write_new_file(&program, LEAN_AXIOM_CHECK_PROGRAM) {
+        return vec![format!("write Lean axiom check `{}`: {error}", program.display())];
+    }
+    let check = execute_stage(&plan.lean_axiom_check, plan);
+    if !exited_cleanly(&check) {
+        let mut diagnostics = vec![format!(
+            "Lean axiom check exited unsuccessfully with {:?} (timed out: {}, log truncated: {}): {}",
+            check.exit_code,
+            check.timed_out,
+            check.stdout_truncated || check.stderr_truncated,
+            check.stderr.trim()
+        )];
+        diagnostics.extend(check.diagnostics);
+        return diagnostics;
+    }
+    let report = plan.work_root.join(LEAN_AXIOM_REPORT_ARTIFACT);
+    match write_new_file(&report, &check.stdout) {
+        Ok(()) => Vec::new(),
+        Err(error) => vec![format!("write Lean axiom report `{}`: {error}", report.display())],
+    }
+}
+
+/// Write `contents` to a file that must not exist yet, so no symlink or file planted by a
+/// sandboxed stage is followed or reused.
+fn write_new_file(path: &Path, contents: &str) -> std::io::Result<()> {
+    let mut file = fs::OpenOptions::new().write(true).create_new(true).open(path)?;
+    std::io::Write::write_all(&mut file, contents.as_bytes())
 }
 
 /// Validate captured stage observations without process, filesystem, or environment access.
@@ -923,6 +1034,9 @@ pub(crate) fn execute_aeneas_with_provider(
     if let Err(diagnostic) = validate_aeneas_theorem_preflight(rail, &theorem_source) {
         return failed_summary(diagnostic);
     }
+    let Some(theorem_name) = aeneas_theorem_name(&theorem_source).map(str::to_owned) else {
+        return failed_summary("Aeneas theorem source does not contain a named theorem".to_owned());
+    };
     let stage_argvs = vec![
         profile.stage_commands.charon_argv.clone(),
         profile.stage_commands.aeneas_argv.clone(),
@@ -943,6 +1057,7 @@ pub(crate) fn execute_aeneas_with_provider(
         llbc_path: PathBuf::from(LLBC_PATH),
         theorem_path: theorem_path.clone(),
         theorem_source,
+        theorem_name: theorem_name.clone(),
         limits: effective_policy.limits.clone(),
         environment_allowlist: effective_policy.environment_allowlist.clone(),
     };
@@ -954,6 +1069,7 @@ pub(crate) fn execute_aeneas_with_provider(
         reviewed_extraction_policy: &profile.extraction_policy,
         assumption_policy: &profile.assumption_policy,
         theorem_source: &plan.theorem_source,
+        theorem_name: &theorem_name,
         artifacts: Vec::new(),
     };
     let report = execute_aeneas_plan(&plan, &mut |kind, work_root| gates.inspect(kind, work_root));
@@ -1019,6 +1135,7 @@ struct AeneasStageGates<'a> {
     reviewed_extraction_policy: &'a CharonExtractionPolicy,
     assumption_policy: &'a AeneasAssumptionPolicy,
     theorem_source: &'a str,
+    theorem_name: &'a str,
     artifacts: Vec<AeneasArtifact>,
 }
 
@@ -1029,7 +1146,11 @@ impl AeneasStageGates<'_> {
             AeneasStageKind::Aeneas => {
                 self.collect(work_root, &[TRANSLATION_MANIFEST_ARTIFACT, GENERATED_LEAN_ARTIFACT])
             }
-            AeneasStageKind::Lean => self.collect(work_root, &[PACKAGE_LOCK_ARTIFACT, LEAN_TOOLCHAIN_ARTIFACT]),
+            AeneasStageKind::Lean => self.collect(work_root, &[
+                PACKAGE_LOCK_ARTIFACT,
+                LEAN_TOOLCHAIN_ARTIFACT,
+                LEAN_AXIOM_REPORT_ARTIFACT,
+            ]),
         };
         if let Err(diagnostic) = collected {
             return vec![diagnostic];
@@ -1037,7 +1158,7 @@ impl AeneasStageGates<'_> {
         match kind {
             AeneasStageKind::Charon => self.check_extraction(),
             AeneasStageKind::Aeneas => self.check_translation_and_trust(),
-            AeneasStageKind::Lean => Vec::new(),
+            AeneasStageKind::Lean => self.check_lean_trust(),
         }
     }
 
@@ -1087,18 +1208,42 @@ impl AeneasStageGates<'_> {
             contents: generated.as_bytes(),
         }]);
         let closure = observe_aeneas_trust_closure(self.theorem_source, generated, self.assumption_policy);
-        if !closure.undeclared_inputs.is_empty() {
-            diagnostics
-                .push(format!("Aeneas trust closure has undeclared inputs: {}", closure.undeclared_inputs.join(", ")));
-        }
-        if !closure.declared_admitted_declarations.is_empty() {
-            diagnostics.push(format!(
-                "Aeneas trust closure has admitted declarations: {}",
-                closure.declared_admitted_declarations.join(", ")
-            ));
-        }
+        diagnostics.extend(trust_closure_diagnostics(&closure));
         diagnostics
     }
+
+    /// Classify the axioms Lean reports for the approved theorem; this is the admitted closure.
+    fn check_lean_trust(&self) -> Vec<String> {
+        let (generated, report) = match (self.text(GENERATED_LEAN_ARTIFACT), self.text(LEAN_AXIOM_REPORT_ARTIFACT)) {
+            (Ok(generated), Ok(report)) => (generated, report),
+            (generated, report) => return [generated.err(), report.err()].into_iter().flatten().collect(),
+        };
+        match observe_aeneas_lean_trust_closure(
+            self.theorem_source,
+            generated,
+            self.theorem_name,
+            report,
+            self.assumption_policy,
+        ) {
+            Ok(closure) => trust_closure_diagnostics(&closure),
+            Err(diagnostic) => vec![diagnostic],
+        }
+    }
+}
+
+fn trust_closure_diagnostics(closure: &AeneasTrustClosure) -> Vec<String> {
+    let mut diagnostics = Vec::new();
+    if !closure.undeclared_inputs.is_empty() {
+        diagnostics
+            .push(format!("Aeneas trust closure has undeclared inputs: {}", closure.undeclared_inputs.join(", ")));
+    }
+    if !closure.declared_admitted_declarations.is_empty() {
+        diagnostics.push(format!(
+            "Aeneas trust closure has admitted declarations: {}",
+            closure.declared_admitted_declarations.join(", ")
+        ));
+    }
+    diagnostics
 }
 
 fn validate_aeneas_theorem_preflight(rail: &ProofRail, theorem_source: &str) -> Result<AeneasTheoremAdequacy, String> {
@@ -1175,6 +1320,8 @@ pub(crate) mod fake_provider {
     pub(crate) const REAL_FIXTURE: &str =
         concat!(env!("CARGO_MANIFEST_DIR"), "/../standards/proof-rails/aeneas-lean/fixtures/valid/real_fixture");
     pub(crate) const THEOREM_ID: &str = "aeneas.fixture.safe_add";
+    /// Name of the theorem the frozen real-fixture `Theorem.lean` declares.
+    pub(crate) const REAL_THEOREM_NAME: &str = "safe_add_matches_model";
     pub(crate) const TIMEOUT_MS: u64 = 30_000;
     pub(crate) const LOG_BYTES: usize = 65_536;
 
@@ -1188,6 +1335,25 @@ pub(crate) mod fake_provider {
         format!(
             "cp '{FROZEN_ARTIFACTS}/translation.json' translation.json\ncp '{FROZEN_ARTIFACTS}/Llbc.lean' Llbc.lean"
         )
+    }
+
+    /// Fake Lake body: `lake build` succeeds and the Lean axiom check of `theorem_name` reports
+    /// `axioms`.
+    pub(crate) fn lean_reporting_axioms(theorem_name: &str, axioms: &[&str]) -> String {
+        let report = serde_json::json!({
+            "schema_version": octet_standards::aeneas_observation::AENEAS_LEAN_AXIOM_REPORT_SCHEMA_VERSION,
+            "theorem": theorem_name,
+            "axioms": axioms,
+        });
+        let check_arguments = LEAN_AXIOM_CHECK_ARGUMENTS.join(" ");
+        format!(
+            "case \"$1\" in\n  build) ;;\n  env) test \"$*\" = '{check_arguments} {theorem_name}'\n    test -s {LEAN_AXIOM_CHECK_FILE}\n    printf '%s\\n' '{report}' ;;\n  *) exit 64 ;;\nesac"
+        )
+    }
+
+    /// Fake Lake body for the frozen real-fixture theorem whose proof uses only core axioms.
+    pub(crate) fn lean_checks_real_theorem() -> String {
+        lean_reporting_axioms(REAL_THEOREM_NAME, &["propext"])
     }
 
     /// Create fake provider executables and the staged Lean library under `root`.
@@ -1289,6 +1455,7 @@ mod tests {
     const LIVE_FIXTURE_THEOREM: &str = "Theorem.lean";
     const TEST_TEARDOWN_DEADLINE_SECONDS: u64 = 10;
     const TEST_THEOREM_SOURCE: &str = "theorem approved : Nat = Nat := by rfl\n";
+    const TEST_THEOREM_NAME: &str = "approved";
 
     fn no_stage_gates(_kind: AeneasStageKind, _work_root: &Path) -> Vec<String> {
         Vec::new()
@@ -1314,6 +1481,7 @@ mod tests {
             llbc_path: PathBuf::from(TEST_LLBC_PATH),
             theorem_path: PathBuf::from(TEST_THEOREM_PATH),
             theorem_source: TEST_THEOREM_SOURCE.to_owned(),
+            theorem_name: TEST_THEOREM_NAME.to_owned(),
             limits: AeneasExecutionLimits {
                 timeout_ms: TEST_TIMEOUT_MS,
                 stdout_max_bytes: TEST_LOG_BYTES,
@@ -1352,6 +1520,22 @@ mod tests {
             assert!(plan.stages[0].argv.contains(&(*argument).to_owned()));
         }
         assert!(plan.environment_allowlist.contains(&MATHLIB_NO_CACHE_ENVIRONMENT_NAME.to_owned()));
+        let check = &plan.lean_axiom_check;
+        assert_eq!(check.kind, AeneasStageKind::Lean);
+        assert_eq!(check.argv[..4], plan.stages[2].argv[..4]);
+        let separator = check.argv.iter().position(|argument| argument == SANDBOX_ARGUMENT_SEPARATOR).expect("sandbox");
+        assert_eq!(check.argv[separator + 1..], [
+            root.join("lake").display().to_string(),
+            "env".to_owned(),
+            "lean".to_owned(),
+            "--run".to_owned(),
+            LEAN_AXIOM_CHECK_FILE.to_owned(),
+            TEST_THEOREM_NAME.to_owned(),
+        ]);
+        assert!(
+            LEAN_AXIOM_CHECK_PROGRAM
+                .contains(octet_standards::aeneas_observation::AENEAS_LEAN_AXIOM_REPORT_SCHEMA_VERSION)
+        );
     }
 
     #[test]
@@ -1363,6 +1547,7 @@ mod tests {
         input.lean_argv = vec![LEAN_COMMAND_NAME.to_owned()];
         input.environment_allowlist = vec!["PATH ".to_owned()];
         input.limits.timeout_ms = 0;
+        input.theorem_name = "approved; rm -rf".to_owned();
 
         let diagnostics = build_aeneas_execution_plan(input).expect_err("invalid plan must fail");
 
@@ -1371,6 +1556,7 @@ mod tests {
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("lean_argv")));
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("environment_allowlist")));
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("timeout_ms")));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("theorem_name")));
     }
 
     #[cfg(unix)]
@@ -1763,7 +1949,11 @@ mod tests {
         let theorem = fake_provider::real_theorem();
         let source_root = fake_provider::source_root(temporary.path(), DEFAULT_THEOREM_PATH, &theorem);
         let rail = fake_provider::rail(DEFAULT_THEOREM_PATH, &theorem);
-        let bodies = (fake_provider::replay_llbc(), fake_provider::replay_translation(), "exit 0".to_owned());
+        let bodies = (
+            fake_provider::replay_llbc(),
+            fake_provider::replay_translation(),
+            fake_provider::lean_checks_real_theorem(),
+        );
         let bodies = (bodies.0.as_str(), bodies.1.as_str(), bodies.2.as_str());
         let first = run_fake_rail(temporary.path(), &rail, &source_root, bodies);
         let second = run_fake_rail(&temporary.path().join("again"), &rail, &source_root, bodies);
@@ -1792,7 +1982,11 @@ mod tests {
             (
                 &fake_provider::replay_llbc(),
                 &fake_provider::replay_translation(),
-                &format!("cmp -s {DEFAULT_THEOREM_PATH} {spec_path}"),
+                &format!(
+                    "cmp -s {DEFAULT_THEOREM_PATH} '{}'\n{}",
+                    source_root.join(spec_path).display(),
+                    fake_provider::lean_checks_real_theorem()
+                ),
             ),
         );
 
@@ -1843,5 +2037,61 @@ mod tests {
 
         assert!(!summary.command_succeeded, "widened allowlist was accepted: {summary:?}");
         assert!(summary.stdout_text.is_empty(), "a stage ran with a widened allowlist: {summary:?}");
+    }
+
+    // r[verify octet.aeneas_lean_proof_rail.theorem_adequacy]
+    #[cfg(unix)]
+    #[test]
+    fn shell_derives_the_trust_closure_from_axioms_lean_reports() {
+        // `stop` elaborates to `repeat sorry`, so no source token reveals the admitted proof.
+        let theorem = "import Llbc\n\ntheorem stopped : real_fixture.safe_add 1#u32 2#u32 = .ok 3#u32 := by stop rfl\n";
+        let (charon, aeneas) = (fake_provider::replay_llbc(), fake_provider::replay_translation());
+        let run = |axioms: &[&str]| {
+            let temporary = tempfile::tempdir().expect("Lean axiom test root");
+            let source_root = fake_provider::source_root(temporary.path(), DEFAULT_THEOREM_PATH, theorem);
+            let rail = fake_provider::rail(DEFAULT_THEOREM_PATH, theorem);
+            let lean = fake_provider::lean_reporting_axioms("stopped", axioms);
+            run_fake_rail(temporary.path(), &rail, &source_root, (&charon, &aeneas, &lean))
+        };
+
+        let core = run(&["propext", "Classical.choice", "Quot.sound"]);
+        assert!(core.command_succeeded, "core axioms were rejected: {core:?}");
+        assert!(core.artifacts.iter().any(|artifact| artifact.locator == LEAN_AXIOM_REPORT_ARTIFACT), "{core:?}");
+        for (axioms, expected) in [
+            (&["propext", "sorryAx"][..], "lean: sorryAx"),
+            (&["Lean.ofReduceBool", "Lean.trustCompiler"][..], "lean: native Lean.ofReduceBool"),
+            (&["stopped._native.native_decide.ax_1_1"][..], "lean: native stopped._native.native_decide.ax_1_1"),
+            (&["planted"][..], "lean: axiom planted"),
+        ] {
+            let summary = run(axioms);
+            assert!(!summary.command_succeeded, "{axioms:?} reached formal proof: {summary:?}");
+            assert!(summary.diagnostics.iter().any(|diagnostic| diagnostic.contains(expected)), "{summary:?}");
+            assert!(summary.artifacts.is_empty(), "rejected run returned artifacts: {summary:?}");
+        }
+    }
+
+    // r[verify octet.aeneas_lean_proof_rail.theorem_adequacy]
+    #[cfg(unix)]
+    #[test]
+    fn shell_rejects_missing_or_foreign_lean_axiom_reports() {
+        let theorem = fake_provider::real_theorem();
+        let foreign = fake_provider::lean_reporting_axioms("other_theorem", &[]).replace(
+            "test \"$*\" = 'env lean --run OctetAxiomCheck.lean other_theorem'",
+            "test \"$5\" = safe_add_matches_model",
+        );
+        for lean in ["exit 0", foreign.as_str()] {
+            let temporary = tempfile::tempdir().expect("Lean axiom report test root");
+            let source_root = fake_provider::source_root(temporary.path(), DEFAULT_THEOREM_PATH, &theorem);
+            let rail = fake_provider::rail(DEFAULT_THEOREM_PATH, &theorem);
+            let summary = run_fake_rail(
+                temporary.path(),
+                &rail,
+                &source_root,
+                (&fake_provider::replay_llbc(), &fake_provider::replay_translation(), lean),
+            );
+
+            assert!(!summary.command_succeeded, "unchecked theorem reached formal proof: {summary:?}");
+            assert!(summary.diagnostics.iter().any(|diagnostic| diagnostic.contains("axiom report")), "{summary:?}");
+        }
     }
 }

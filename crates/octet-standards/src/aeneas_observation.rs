@@ -40,6 +40,20 @@ const ROOT_NAMESPACE_PREFIX: &str = "_root_.";
 /// Lean commands whose string argument is parsed as an interpolated string.
 const INTERPOLATING_THROW_ERROR: &str = "throwError";
 const INTERPOLATING_THROW_ERROR_AT: &str = "throwErrorAt";
+/// Origin label of trust inputs that Lean reports for the approved theorem.
+const LEAN_ORIGIN: &str = "lean";
+/// Axioms of Lean's core logic that every classical proof may depend on.
+const LEAN_CORE_AXIOMS: [&str; 3] = ["propext", "Classical.choice", "Quot.sound"];
+/// The axiom `sorry`, `admit`, and the `stop` tactic elaborate to.
+const LEAN_ADMITTED_AXIOM: &str = "sorryAx";
+/// Axioms that make the kernel trust compiled code.
+const LEAN_NATIVE_AXIOMS: [&str; 3] = ["Lean.ofReduceBool", "Lean.ofReduceNat", "Lean.trustCompiler"];
+/// Name component of the auxiliary axioms `native_decide` declares
+/// (`thm._native.native_decide.ax_1_1`).
+const LEAN_NATIVE_NAME_COMPONENT: &str = "_native";
+
+/// Schema version of the axiom report Octet's Lean check program prints.
+pub const AENEAS_LEAN_AXIOM_REPORT_SCHEMA_VERSION: &str = "octet-aeneas-lean-axioms/v1";
 
 /// Observe the effective Charon extraction policy from the produced LLBC bytes.
 ///
@@ -478,6 +492,10 @@ enum LeanTrustForm {
 /// declarations (`sorry`, `admit`, `sorryAx`) are recorded for rejection, and native-code trust
 /// (`native_decide`, `ofReduceBool`, `ofReduceNat`, `implemented_by`, `extern`) is always
 /// undeclared because the policy has no way to declare it.
+///
+/// This scan is only the early filter that stops before Lean runs; it cannot see trust that Lean
+/// constructs without a banned token (the `stop` tactic, meta-level `addDecl`). The admitted
+/// closure is [`observe_aeneas_lean_trust_closure`], which adds the axioms Lean itself reports.
 // r[impl octet.aeneas_lean_proof_rail.theorem_adequacy]
 #[must_use]
 pub fn observe_aeneas_trust_closure(
@@ -519,6 +537,77 @@ pub fn observe_aeneas_trust_closure(
         declared_admitted_declarations: admitted.into_iter().collect(),
         undeclared_inputs: undeclared.into_iter().collect(),
     }
+}
+
+/// The axiom report Octet's Lean check program prints for the approved theorem.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LeanAxiomReport {
+    schema_version: String,
+    theorem: String,
+    axioms: Vec<String>,
+}
+
+/// Observe the admitted trust closure: the source token scan plus every axiom Lean reports.
+///
+/// `axiom_report` is the JSON line Octet's Lean check program prints after `lake build`; it lists
+/// each axiom the approved theorem's kernel-checked declaration reaches through types and values.
+/// The core axioms `propext`, `Classical.choice`, and `Quot.sound` are accepted. `sorryAx` is an
+/// admitted declaration. `Lean.ofReduceBool`, `Lean.ofReduceNat`, `Lean.trustCompiler`, and the
+/// `_native` auxiliary axioms `native_decide` adds trust compiled code and are declared only when
+/// named by the policy's axioms. Any other axiom is declared only when named by the policy's
+/// axioms or external models.
+///
+/// # Errors
+///
+/// Returns a diagnostic when the report is malformed, has another schema version, or reports a
+/// theorem other than `theorem_name`.
+// r[impl octet.aeneas_lean_proof_rail.theorem_adequacy]
+pub fn observe_aeneas_lean_trust_closure(
+    theorem_source: &str,
+    generated_lean: &str,
+    theorem_name: &str,
+    axiom_report: &str,
+    policy: &AeneasAssumptionPolicy,
+) -> Result<AeneasTrustClosure, String> {
+    let report = serde_json::from_str::<LeanAxiomReport>(axiom_report.trim())
+        .map_err(|error| format!("Lean axiom report is not valid JSON: {error}"))?;
+    if report.schema_version != AENEAS_LEAN_AXIOM_REPORT_SCHEMA_VERSION {
+        return Err(format!(
+            "Lean axiom report schema `{}` is not `{AENEAS_LEAN_AXIOM_REPORT_SCHEMA_VERSION}`",
+            report.schema_version
+        ));
+    }
+    if report.theorem != theorem_name {
+        return Err(format!(
+            "Lean axiom report covers theorem `{}`, not the approved theorem `{theorem_name}`",
+            report.theorem
+        ));
+    }
+    let mut closure = observe_aeneas_trust_closure(theorem_source, generated_lean, policy);
+    let mut admitted = closure.declared_admitted_declarations.into_iter().collect::<BTreeSet<_>>();
+    let mut undeclared = closure.undeclared_inputs.into_iter().collect::<BTreeSet<_>>();
+    for axiom in report.axioms {
+        if LEAN_CORE_AXIOMS.contains(&axiom.as_str()) {
+            continue;
+        }
+        if axiom == LEAN_ADMITTED_AXIOM {
+            admitted.insert(format!("{LEAN_ORIGIN}: {axiom}"));
+        } else if lean_native_axiom(&axiom) {
+            if !policy.axioms.contains(&axiom) {
+                undeclared.insert(format!("{LEAN_ORIGIN}: native {axiom}"));
+            }
+        } else if !policy.axioms.contains(&axiom) && !policy.external_models.contains(&axiom) {
+            undeclared.insert(format!("{LEAN_ORIGIN}: axiom {axiom}"));
+        }
+    }
+    closure.declared_admitted_declarations = admitted.into_iter().collect();
+    closure.undeclared_inputs = undeclared.into_iter().collect();
+    Ok(closure)
+}
+
+fn lean_native_axiom(axiom: &str) -> bool {
+    LEAN_NATIVE_AXIOMS.contains(&axiom) || axiom.split('.').any(|component| component == LEAN_NATIVE_NAME_COMPONENT)
 }
 
 fn lean_trust_forms(source: &str) -> Vec<LeanTrustForm> {
@@ -950,5 +1039,82 @@ mod tests {
         let closure = observe_aeneas_trust_closure(references, "", &empty_policy());
         assert_eq!(closure.undeclared_inputs, vec!["theorem: axiom cheat".to_owned()]);
         assert_eq!(closure.declared_admitted_declarations, vec!["theorem: sorryAx".to_owned()]);
+    }
+
+    fn lean_axiom_report(theorem: &str, axioms: &[&str]) -> String {
+        serde_json::json!({
+            "schema_version": AENEAS_LEAN_AXIOM_REPORT_SCHEMA_VERSION,
+            "theorem": theorem,
+            "axioms": axioms,
+        })
+        .to_string()
+    }
+
+    // r[verify octet.aeneas_lean_proof_rail.theorem_adequacy]
+    #[test]
+    fn aeneas_lean_trust_closure_classifies_axioms_lean_reports() {
+        // `stop` elaborates to `repeat sorry`: no token reveals the admitted proof, Lean does.
+        let theorem = "import Llbc\ntheorem stopped : 1 = 2 := by stop rfl\n";
+        let scanned = observe_aeneas_trust_closure(theorem, "", &empty_policy());
+        assert_eq!(scanned.declared_admitted_declarations, Vec::<String>::new());
+
+        let observe = |axioms: &[&str], policy: &AeneasAssumptionPolicy| {
+            observe_aeneas_lean_trust_closure(theorem, "", "stopped", &lean_axiom_report("stopped", axioms), policy)
+                .expect("valid Lean axiom report")
+        };
+        let core = observe(&["propext", "Classical.choice", "Quot.sound"], &empty_policy());
+        assert_eq!(core.undeclared_inputs, Vec::<String>::new());
+        assert_eq!(core.declared_admitted_declarations, Vec::<String>::new());
+
+        let admitted = observe(&["propext", "sorryAx"], &empty_policy());
+        assert_eq!(admitted.declared_admitted_declarations, vec!["lean: sorryAx".to_owned()]);
+        assert_eq!(admitted.undeclared_inputs, Vec::<String>::new());
+
+        let native_and_planted = [
+            "Lean.ofReduceBool",
+            "Lean.ofReduceNat",
+            "Lean.trustCompiler",
+            "nd._native.native_decide.ax_1_1",
+            "planted",
+        ];
+        let undeclared = observe(&native_and_planted, &empty_policy());
+        assert_eq!(undeclared.undeclared_inputs, vec![
+            "lean: axiom planted".to_owned(),
+            "lean: native Lean.ofReduceBool".to_owned(),
+            "lean: native Lean.ofReduceNat".to_owned(),
+            "lean: native Lean.trustCompiler".to_owned(),
+            "lean: native nd._native.native_decide.ax_1_1".to_owned(),
+        ]);
+
+        let declared = AeneasAssumptionPolicy {
+            external_models: vec!["planted".to_owned(), "Lean.ofReduceBool".to_owned()],
+            axioms: vec![
+                "Lean.ofReduceNat".to_owned(),
+                "Lean.trustCompiler".to_owned(),
+                "nd._native.native_decide.ax_1_1".to_owned(),
+            ],
+            requires_complete_declaration: true,
+        };
+        let partially_declared = observe(&native_and_planted, &declared);
+        assert_eq!(partially_declared.undeclared_inputs, vec!["lean: native Lean.ofReduceBool".to_owned()]);
+    }
+
+    // r[verify octet.aeneas_lean_proof_rail.theorem_adequacy]
+    #[test]
+    fn aeneas_lean_trust_closure_rejects_malformed_or_foreign_reports() {
+        let theorem = "theorem approved : 1 = 1 := rfl\n";
+        let policy = empty_policy();
+        let observe = |report: &str| observe_aeneas_lean_trust_closure(theorem, "", "approved", report, &policy);
+
+        assert!(observe(&lean_axiom_report("approved", &[])).is_ok());
+        assert!(observe(&lean_axiom_report("other", &[])).is_err());
+        assert!(observe("'approved' does not depend on any axioms").is_err());
+        assert!(observe("").is_err());
+        let mut report = serde_json::from_str::<Value>(&lean_axiom_report("approved", &[])).expect("report JSON");
+        report["schema_version"] = Value::from("octet-aeneas-lean-axioms/v0");
+        assert!(observe(&report.to_string()).is_err());
+        report["schema_version"] = Value::from(AENEAS_LEAN_AXIOM_REPORT_SCHEMA_VERSION);
+        report["extra"] = Value::Bool(true);
+        assert!(observe(&report.to_string()).is_err());
     }
 }

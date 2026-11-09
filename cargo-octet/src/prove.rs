@@ -8,7 +8,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use octet_standards::aeneas_observation::MeasuredLeanFile;
-use octet_standards::aeneas_observation::observe_aeneas_trust_closure;
+use octet_standards::aeneas_observation::observe_aeneas_lean_trust_closure;
 use octet_standards::aeneas_observation::observe_charon_extraction_policy;
 use octet_standards::aeneas_observation::validate_observed_aeneas_translation;
 use octet_standards::artifacts::POLICIES_JSON_FILE;
@@ -107,6 +107,8 @@ const AENEAS_ARTIFACT_DIR_SUFFIX: &str = "aeneas";
 const AENEAS_LLBC_ARTIFACT: &str = "llbc.llbc";
 const AENEAS_TRANSLATION_ARTIFACT: &str = "translation.json";
 const AENEAS_GENERATED_LEAN_ARTIFACT: &str = "Llbc.lean";
+/// Axioms Lean reports for the approved theorem; the receipt's trust closure is derived from it.
+const AENEAS_LEAN_AXIOM_REPORT_ARTIFACT: &str = "lean-axioms.json";
 const STATUS_PASSED: &str = "passed";
 const STATUS_FAILED: &str = "failed";
 const STATUS_MANUAL_REVIEW_REQUIRED: &str = "manual_review_required";
@@ -863,8 +865,14 @@ fn build_aeneas_receipt(
         &locator("theorem-adequacy.json"),
         json_bytes(&theorem_adequacy)?,
     );
-    let trust_closure =
-        observe_aeneas_trust_closure(&theorem_source.text, &generated_lean_text, &profile.assumption_policy);
+    let lean_axiom_report = observed_aeneas_text(summary, AENEAS_LEAN_AXIOM_REPORT_ARTIFACT)?;
+    let trust_closure = observe_aeneas_lean_trust_closure(
+        &theorem_source.text,
+        &generated_lean_text,
+        &theorem_name,
+        &lean_axiom_report,
+        &profile.assumption_policy,
+    )?;
     let trust_closure_identity = collector.add_with_role(
         AeneasStageArtifactRole::TrustClosure,
         &locator("trust-closure.json"),
@@ -3835,6 +3843,19 @@ mod tests {
         assert!(error.contains("must share one Cargo workspace root"), "unexpected error: {error}");
     }
 
+    /// The Lean axiom report artifact for `theorem` when its proof uses no axiom.
+    fn clean_lean_axiom_report(theorem: &str) -> crate::aeneas_execution::AeneasArtifact {
+        crate::aeneas_execution::AeneasArtifact {
+            locator: AENEAS_LEAN_AXIOM_REPORT_ARTIFACT.to_owned(),
+            contents: serde_json::to_vec(&serde_json::json!({
+                "schema_version": octet_standards::aeneas_observation::AENEAS_LEAN_AXIOM_REPORT_SCHEMA_VERSION,
+                "theorem": theorem,
+                "axioms": [],
+            }))
+            .expect("Lean axiom report"),
+        }
+    }
+
     #[test]
     fn aeneas_receipts_for_different_rails_use_disjoint_artifact_locators() {
         let fixture =
@@ -3870,6 +3891,7 @@ mod tests {
                 locator: observed.to_owned(),
                 contents: read(frozen),
             })
+            .chain(std::iter::once(clean_lean_axiom_report("safe_add_matches_model")))
             .collect(),
             provider_profile: read("provider-profile.json"),
             effective_policy: Some(frozen_aeneas_effective_policy()),
@@ -3965,6 +3987,17 @@ mod tests {
         theorem: &str,
         charon_body: &str,
     ) -> Result<octet_standards::formal_proof::AeneasLeanProofPayload, String> {
+        let (source_root, summary) = fake_aeneas_summary(root, &rail, theorem, charon_body)?;
+        aeneas_receipt_payload(rail, theorem, &source_root, &summary)
+    }
+
+    #[cfg(unix)]
+    fn fake_aeneas_summary(
+        root: &Path,
+        rail: &ProofRail,
+        theorem: &str,
+        charon_body: &str,
+    ) -> Result<(PathBuf, AeneasCommandSummary), String> {
         use crate::aeneas_execution::fake_provider;
 
         let source_root = fake_provider::source_root(root, &rail.proof_paths[0], theorem);
@@ -3972,12 +4005,22 @@ mod tests {
             &root.join("provider"),
             charon_body,
             &fake_provider::replay_translation(),
-            "exit 0",
+            &fake_provider::lean_checks_real_theorem(),
         );
-        let summary = crate::aeneas_execution::execute_aeneas_with_provider(&rail, &source_root, &provider);
+        let summary = crate::aeneas_execution::execute_aeneas_with_provider(rail, &source_root, &provider);
         if !summary.command_succeeded {
             return Err(format!("fake Aeneas rail failed: {:?}", summary.diagnostics));
         }
+        Ok((source_root, summary))
+    }
+
+    #[cfg(unix)]
+    fn aeneas_receipt_payload(
+        rail: ProofRail,
+        theorem: &str,
+        source_root: &Path,
+        summary: &AeneasCommandSummary,
+    ) -> Result<octet_standards::formal_proof::AeneasLeanProofPayload, String> {
         let source =
             SourceFile::new("src/lib.rs", fs::read_to_string(source_root.join("src/lib.rs")).expect("fixture source"));
         let theorem_source = SourceFile::new(rail.proof_paths[0].clone(), theorem.to_owned());
@@ -3993,13 +4036,49 @@ mod tests {
             std::slice::from_ref(&source),
             std::slice::from_ref(&theorem_source),
             &checked_scope(&policy, 0, selected.rail),
-            &summary,
+            summary,
         )?;
         let envelope = serde_json::from_str::<FormalProofEnvelope>(&receipt).expect("Aeneas receipt envelope");
         let FormalProofProvider::AeneasLean(payload) = envelope.provider else {
             panic!("Aeneas receipt must carry the Aeneas provider payload");
         };
         Ok(payload)
+    }
+
+    // r[verify octet.aeneas_lean_proof_rail.theorem_adequacy]
+    #[cfg(unix)]
+    #[test]
+    fn aeneas_receipt_rejects_trust_inputs_lean_reports() {
+        use crate::aeneas_execution::fake_provider;
+
+        let temp = tempfile::tempdir().expect("tempdir");
+        let theorem = fake_provider::real_theorem();
+        let rail = fake_provider::rail("Theorem.lean", &theorem);
+        let (source_root, summary) = fake_aeneas_summary(temp.path(), &rail, &theorem, &fake_provider::replay_llbc())
+            .expect("fake Aeneas summary");
+        let clean = aeneas_receipt_payload(rail.clone(), &theorem, &source_root, &summary).expect("clean receipt");
+        let closure = &clean.theorem_admission.as_ref().expect("theorem admission").trust_closure;
+        assert_eq!(closure.declared_admitted_declarations, Vec::<String>::new());
+        assert_eq!(closure.undeclared_inputs, Vec::<String>::new());
+
+        let mut admitted = summary.clone();
+        let report = admitted
+            .artifacts
+            .iter_mut()
+            .find(|artifact| artifact.locator == AENEAS_LEAN_AXIOM_REPORT_ARTIFACT)
+            .expect("Lean axiom report artifact");
+        report.contents = String::from_utf8(report.contents.clone())
+            .expect("UTF-8 report")
+            .replace("\"propext\"", "\"sorryAx\",\"planted\"")
+            .into_bytes();
+        let rejected = aeneas_receipt_payload(rail.clone(), &theorem, &source_root, &admitted)
+            .expect_err("receipt over an admitted proof and an undeclared axiom");
+        assert!(rejected.contains("admitted"), "{rejected}");
+        assert!(rejected.contains("undeclared"), "{rejected}");
+
+        let mut unreported = summary;
+        unreported.artifacts.retain(|artifact| artifact.locator != AENEAS_LEAN_AXIOM_REPORT_ARTIFACT);
+        assert!(aeneas_receipt_payload(rail, &theorem, &source_root, &unreported).is_err());
     }
 
     // r[verify octet.aeneas_lean_proof_rail.charon_contract]

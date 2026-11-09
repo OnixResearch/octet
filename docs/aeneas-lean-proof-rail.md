@@ -78,13 +78,34 @@ Each stage's outputs are measured before the next stage may run:
   `Llbc.lean` are scanned as Lean tokens, skipping comments, string text, and
   character literals; the `{…}` holes of interpolated strings (`s!`, `m!`,
   `f!`, other `name!` macros, `trace[…]`, and `throwError`) are scanned as
-  code, and `«…»`-quoted names are never keywords. The scan derives the trust
-  closure that the receipt records: `axiom` declarations outside the profile's
-  declared axioms and external models, `opaque` definitions outside its
-  external models, `native_decide`, `ofReduceBool`, `ofReduceNat`,
+  code, and `«…»`-quoted names are never keywords. `axiom` declarations outside
+  the profile's declared axioms and external models, `opaque` definitions
+  outside its external models, `native_decide`, `ofReduceBool`, `ofReduceNat`,
   `implemented_by`, and `extern` are undeclared inputs, and `sorry`, `admit`,
   and `sorryAx` are admitted declarations. Either kind fails the rail before
-  Lean runs.
+  Lean runs. This scan is only an early filter: Lean can add trust that no
+  token names, such as the `stop` tactic, which elaborates to `repeat sorry`,
+  or a meta-level `addDecl` of an axiom.
+- After `lake build` exits cleanly, the shell writes a separate check program
+  to the work root and runs it with
+  `lake env lean --run OctetAxiomCheck.lean <theorem>` in the same sandbox and
+  limits. `<theorem>` is the name of the first `theorem` in the approved source,
+  the one the adequacy review assesses; it must be a theorem declared at that
+  name by the `Theorem` module, so a theorem inside a `namespace` or marked
+  `private` fails the check. The program imports the built modules as data and
+  prints the axioms `Lean.collectAxioms` reports for the theorem as one JSON
+  line (`octet-aeneas-lean-axioms/v1`). The approved theorem file is never
+  modified, and no theorem-defined command or elaborator runs while the report
+  is produced. The report is the `lean-axioms.json` artifact, and the trust
+  closure the receipt records is the token scan plus these axioms: `propext`,
+  `Classical.choice`, and `Quot.sound` are accepted; `sorryAx` is an admitted
+  declaration; `Lean.ofReduceBool`, `Lean.ofReduceNat`, `Lean.trustCompiler`,
+  and the `_native` auxiliary axioms `native_decide` declares are native-code
+  trust, accepted only when named by the profile's `axioms`; any other axiom
+  must be named by the profile's `axioms` or `external_models`. A missing,
+  malformed, or foreign report, or any undeclared or admitted entry, fails the
+  rail. `lake build` alone is not enough, because it exits successfully on
+  `declaration uses 'sorry'` warnings.
 
 ## Supported subset
 
