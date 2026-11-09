@@ -2043,7 +2043,8 @@ fn evaluate_construction(
             continue;
         }
         for unit in indexes.units_for_fact(fact_id) {
-            if unit.role != CompilerArchitectureRole::CompositionRoot {
+            // An adapter package building its own values, such as `Self { .. }`, selects no infrastructure.
+            if unit.role != CompilerArchitectureRole::CompositionRoot && unit.package_name != *origin {
                 findings.push(finding_for_unit(
                     "adapter-construction-outside-root",
                     CLAIM_ADAPTER_CONSTRUCTION,
@@ -2701,6 +2702,43 @@ mod tests {
         let mismatched = fixture.evaluate(None);
         assert_eq!(mismatched.status, ArchitecturePhaseStatus::IntegrationFailure);
         assert!(mismatched.findings.iter().any(|finding| finding.code == "cargo-target-selection"));
+    }
+
+    // r[verify octet.project_architecture_gate.role_graph]
+    #[test]
+    fn adapter_constructs_its_own_type_while_core_shell_and_peer_adapters_cannot() {
+        for (package, constructing_item, allowed) in [
+            ("outbound", "outbound::RepositoryAdapter::new", true),
+            ("domain", "domain::decide", false),
+            ("application", "application::wire", false),
+            ("inbound", "inbound::wire", false),
+        ] {
+            let mut fixture = Fixture::new(ArchitectureMode::Gate);
+            let source = span(&format!("crates/{package}/src/lib.rs"));
+            let caller = item(&source.span_id, constructing_item);
+            let adapter = type_fact("outbound", "outbound::RepositoryAdapter");
+            // The collector records `Self { .. }` in an adapter impl as a constructor of its own type.
+            let mut constructor = CompilerArchitectureFact::Constructor {
+                fact_id: String::new(),
+                caller_item_id: item_id(&caller).to_owned(),
+                constructed_type_id: type_id(&adapter).to_owned(),
+                constructor_definition: None,
+                span_id: source.span_id.clone(),
+            };
+            set_fact_id(&mut constructor);
+            fixture.add_unit_facts(package, vec![source], vec![caller, adapter, constructor], Vec::new());
+
+            let receipt = fixture.evaluate(None);
+            let flagged = receipt.findings.iter().any(|finding| {
+                finding.code == "adapter-construction-outside-root" && finding.package_name.as_deref() == Some(package)
+            });
+            assert_eq!(flagged, !allowed, "{package}: {:?}", receipt.findings);
+            if allowed {
+                assert_eq!(receipt.status, ArchitecturePhaseStatus::Clean, "{:?}", receipt.findings);
+            } else {
+                assert_eq!(receipt.status, ArchitecturePhaseStatus::Blocked);
+            }
+        }
     }
 
     #[test]

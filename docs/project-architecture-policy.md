@@ -246,6 +246,7 @@ It returns decisions, state, events, and effect plans. It does not invoke extern
 The application shell interprets plans and invokes application-owned ports. Adapters implement those ports.
 
 The composition root can construct concrete adapters. This exception does not give it domain-policy ownership.
+An adapter package can also construct its own types, for example `Self { .. }` in its own constructor. Any other unit that constructs an adapter type gets `adapter-construction-outside-root`.
 
 ## Application-owned ports
 
