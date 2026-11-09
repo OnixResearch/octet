@@ -258,13 +258,25 @@ fn capability_read_rejects_leaf_and_parent_symlink_substitution() {
 // r[verify octet.dynamic_evidence.hegel_output_contract]
 #[test]
 fn bounded_shell_rejects_mixed_process_output_without_dedicated_summary() {
-    let workspace = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().expect("workspace root");
     let profile = selected_profile(PROFILE_ID).expect("profile");
+    // The run prepares and clears `.octet/hegel-*` under its workspace, so it gets a scratch copy of
+    // the measured inputs instead of the checkout, whose producer output it would delete.
+    let checkout = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().expect("workspace root");
+    let workspace = tempfile::tempdir().expect("scratch workspace");
+    let measured = ["Cargo.lock", "cargo-octet/Cargo.toml"]
+        .into_iter()
+        .chain(profile.source_scope.iter().map(String::as_str))
+        .chain(profile.generator_inputs.iter().map(String::as_str));
+    for locator in measured {
+        let destination = workspace.path().join(locator);
+        std::fs::create_dir_all(destination.parent().expect("input parent")).expect("input directory");
+        std::fs::copy(checkout.join(locator), &destination).expect("copy measured input");
+    }
     let mut tools = shell::production_tools().expect("Nix Hegel tools");
     tools.cargo = find_path_executable("true").expect("true executable");
 
-    let error = shell::run_with(workspace, &profile, &tools).expect_err("missing dedicated summary rejected");
-    assert!(error.contains("summary.json"));
+    let error = shell::run_with(workspace.path(), &profile, &tools).expect_err("missing dedicated summary rejected");
+    assert!(error.contains("summary.json"), "{error}");
 }
 
 // r[verify octet.dynamic_evidence.hegel_profiled_run]
