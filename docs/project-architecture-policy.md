@@ -74,7 +74,7 @@ An active policy starts compiler architecture collection for the selected Cargo 
 
 Cargo owns target and feature resolution. The planner requests a bounded, locked `cargo build --unit-graph` with the same selectors. It does not execute that build. The pinned Cargo check graph omits the distinction between normal and test checks, so array order is not a valid test-mode signal.
 
-Actual compilation still uses `cargo check`. Context v3 binds the selected unit's source root and role to its test configuration, features, target triple, and profile identity. Unknown sessions in selected packages fail closed. Equivalent metadata and linking compilations can share a content-identical shard. Each process reserves its own staging file, so concurrent writers do not share mutable staging bytes.
+Actual compilation still uses `cargo check`. Context v3 binds the selected unit's source root and role to its test configuration, features, target triple, and profile identity. The collector compares the session's Rust target tuple, such as `aarch64-apple-darwin` or `riscv64gc-unknown-linux-gnu`, with the planned target, not rustc's LLVM target name. Unknown sessions in selected packages fail closed. Equivalent metadata and linking compilations can share a content-identical shard. Each process reserves its own staging file, so concurrent writers do not share mutable staging bytes.
 
 The policy must define positive limits for units, shards, facts, unknowns, spans, artifacts, and selected MIR traversal.
 

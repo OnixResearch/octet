@@ -1034,6 +1034,51 @@ fn compiler_architecture_external_reference_provenance() {
     }
 }
 
+fn compiler_item_id<'a>(shard: &'a CompilerArchitectureShard, qualified_path: &str) -> &'a str {
+    let mut matches = shard.facts.iter().filter_map(|fact| match fact {
+        CompilerArchitectureFact::Item {
+            item_id,
+            qualified_path: current,
+            ..
+        } if current == qualified_path => Some(item_id.as_str()),
+        _ => None,
+    });
+    let item_id = matches.next().unwrap_or_else(|| panic!("missing item {qualified_path}: {:#?}", shard.facts));
+    assert!(matches.next().is_none(), "repeated item {qualified_path}");
+    item_id
+}
+
+fn library_fixture(fixture_name: &str) -> CompilerFixtureTarget<'_> {
+    CompilerFixtureTarget {
+        fixture_name,
+        package_name: None,
+        crate_type: "rlib",
+        test_configuration: false,
+        features: &[],
+    }
+}
+
+#[test]
+#[ignore = "run via cargo test --test ui compiler_architecture -- --ignored --nocapture"]
+fn compiler_architecture_selects_units_by_rust_target_tuple() {
+    // rustc names this target `riscv64-unknown-linux-gnu` to LLVM; Cargo and the
+    // planner name it by its Rust tuple.
+    const RUST_TARGET: &str = "riscv64gc-unknown-linux-gnu";
+    let toolchain = rustup_toolchain();
+    let library = build_library(&toolchain);
+    let driver = build_driver(&toolchain);
+    let shard = run_compiler_architecture_target(
+        &driver,
+        &library,
+        RUST_TARGET,
+        library_fixture("targets/cross_target.rs"),
+        Vec::new(),
+    );
+    assert_eq!(shard.collection_status, CollectionStatus::Complete);
+    assert_eq!(shard.unit.target_triple, RUST_TARGET);
+    compiler_item_id(&shard, "cross_target::identity");
+}
+
 #[test]
 #[ignore = "run via cargo test --test ui compiler_architecture_target_fixtures -- --ignored --nocapture"]
 fn compiler_architecture_target_fixtures() {

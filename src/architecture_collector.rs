@@ -168,7 +168,7 @@ pub(crate) fn active_collector(sess: &rustc_session::Session) -> Result<Option<A
             manifest_dir: &manifest_relative.to_string_lossy(),
             source_path: &source_relative.to_string_lossy(),
             test_configuration,
-            target_triple: sess.target.llvm_target.as_ref(),
+            target_triple: sess.opts.target_triple.tuple(),
             features: &features,
         },
     )
@@ -189,7 +189,9 @@ pub(crate) fn validate_compiler_session(
     sess: &rustc_session::Session,
     collector: &ArchitectureCollector,
 ) -> Result<(), String> {
-    let observed_target = sess.target.llvm_target.as_ref();
+    // The planner records Rust target tuples (`rustc -vV` host, `--target`);
+    // LLVM target names differ for targets such as `aarch64-apple-darwin`.
+    let observed_target = sess.opts.target_triple.tuple();
     if observed_target != collector.selected.unit.target_triple {
         return Err(format!(
             "compiler target `{observed_target}` does not match selected architecture unit target `{}`",
