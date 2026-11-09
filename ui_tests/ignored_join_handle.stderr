@@ -1,5 +1,5 @@
 warning: spawned task or thread join handle is discarded
-  --> $DIR/ignored_join_handle.rs:9:5
+  --> $DIR/ignored_join_handle.rs:11:5
    |
 LL |     std::thread::spawn(|| STATEMENT_RESULT);
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -9,7 +9,7 @@ LL |     std::thread::spawn(|| STATEMENT_RESULT);
    = note: `#[warn(tigerstyle::ignored_join_handle)]` on by default
 
 warning: spawned task or thread join handle is discarded
-  --> $DIR/ignored_join_handle.rs:14:13
+  --> $DIR/ignored_join_handle.rs:16:13
    |
 LL |     let _ = std::thread::spawn(|| WILDCARD_RESULT);
    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -18,7 +18,7 @@ LL |     let _ = std::thread::spawn(|| WILDCARD_RESULT);
    = note: see Tiger Style guide: Concurrency / Task Lifecycle
 
 warning: spawned task or thread join handle is discarded
-  --> $DIR/ignored_join_handle.rs:30:13
+  --> $DIR/ignored_join_handle.rs:32:13
    |
 LL |     let _ = std::thread::Builder::new().spawn(|| BUILDER_RESULT);
    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -27,7 +27,7 @@ LL |     let _ = std::thread::Builder::new().spawn(|| BUILDER_RESULT);
    = note: see Tiger Style guide: Concurrency / Task Lifecycle
 
 warning: `Result` value silently discarded with `let _ = ...`
-  --> $DIR/ignored_join_handle.rs:30:5
+  --> $DIR/ignored_join_handle.rs:32:5
    |
 LL |     let _ = std::thread::Builder::new().spawn(|| BUILDER_RESULT);
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -43,7 +43,7 @@ LL +     std::thread::Builder::new().spawn(|| BUILDER_RESULT)?;
    |
 
 warning: spawned task or thread join handle is discarded
-  --> $DIR/ignored_join_handle.rs:35:13
+  --> $DIR/ignored_join_handle.rs:37:13
    |
 LL |     let _ = spawn.then(|| std::thread::spawn(|| OPTIONAL_RESULT));
    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

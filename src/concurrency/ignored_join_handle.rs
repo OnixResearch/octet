@@ -34,28 +34,9 @@ declare_tool_lint! {
 
 declare_lint_pass!(IgnoredJoinHandle => [IGNORED_JOIN_HANDLE]);
 
-/// `ty` with `Result`/`Option` wrappers removed: `std::thread::Builder::spawn`
-/// returns `io::Result<JoinHandle<T>>`, which still discards the handle.
-fn peel_result_and_option<'tcx>(cx: &LateContext<'tcx>, mut ty: ty::Ty<'tcx>) -> ty::Ty<'tcx> {
-    loop {
-        let ty::Adt(adt, args) = ty.peel_refs().kind() else {
-            return ty;
-        };
-        let is_wrapper = [rustc_span::sym::Result, rustc_span::sym::Option]
-            .into_iter()
-            .any(|wrapper| cx.tcx.is_diagnostic_item(wrapper, adt.did()));
-        if !is_wrapper {
-            return ty;
-        }
-        let Some(inner) = args.types().next() else {
-            return ty;
-        };
-        ty = inner;
-    }
-}
-
-fn supported_join_handle_type<'tcx>(cx: &LateContext<'tcx>, ty: ty::Ty<'tcx>) -> bool {
-    let ty::Adt(adt, _) = peel_result_and_option(cx, ty).peel_refs().kind() else {
+/// Whether `ty` is an owned `JoinHandle` from a supported crate.
+fn owned_join_handle_type(cx: &LateContext<'_>, ty: ty::Ty<'_>) -> bool {
+    let ty::Adt(adt, _) = ty.kind() else {
         return false;
     };
 
@@ -70,8 +51,84 @@ fn supported_join_handle_type<'tcx>(cx: &LateContext<'tcx>, ty: ty::Ty<'tcx>) ->
     SUPPORTED_JOIN_HANDLE_CRATES.contains(&crate_name) && type_name == JOIN_HANDLE_TYPE
 }
 
+/// Whether `ty` is an owned `JoinHandle`, possibly inside `Result`/`Option`
+/// wrappers (`std::thread::Builder::spawn` returns `io::Result<JoinHandle<T>>`).
+/// References are not peeled: dropping a borrowed handle detaches nothing.
+fn wrapped_join_handle_type<'tcx>(cx: &LateContext<'tcx>, mut ty: ty::Ty<'tcx>) -> bool {
+    loop {
+        if owned_join_handle_type(cx, ty) {
+            return true;
+        }
+        let ty::Adt(adt, args) = ty.kind() else {
+            return false;
+        };
+        let is_wrapper = [rustc_span::sym::Result, rustc_span::sym::Option]
+            .into_iter()
+            .any(|wrapper| cx.tcx.is_diagnostic_item(wrapper, adt.did()));
+        let Some(inner) = args.types().next().filter(|_| is_wrapper) else {
+            return false;
+        };
+        ty = inner;
+    }
+}
+
+fn peel_trivial_blocks<'a, 'tcx>(mut expr: &'a hir::Expr<'tcx>) -> &'a hir::Expr<'tcx> {
+    loop {
+        match expr.kind {
+            hir::ExprKind::DropTemps(inner) => expr = inner,
+            hir::ExprKind::Block(block, _) if block.stmts.is_empty() => {
+                let Some(inner) = block.expr else {
+                    return expr;
+                };
+                expr = inner;
+            }
+            _ => return expr,
+        }
+    }
+}
+
+/// Whether `expr` calls a function whose declared return type is a
+/// (possibly wrapped) `JoinHandle`, such as `std::thread::spawn` or
+/// `std::thread::Builder::spawn`. A generic return such as `HashMap::insert`'s
+/// `Option<V>` does not count: that handle is not the freshly spawned one.
+fn calls_handle_producer(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
+    let typeck_results = cx.typeck_results();
+    let expr = peel_trivial_blocks(expr);
+    let def_id = match expr.kind {
+        hir::ExprKind::Call(callee, _) => match typeck_results.expr_ty(callee).kind() {
+            ty::FnDef(def_id, _) => Some(*def_id),
+            _ => None,
+        },
+        hir::ExprKind::MethodCall(..) => typeck_results.type_dependent_def_id(expr.hir_id),
+        _ => None,
+    };
+    def_id.is_some_and(|def_id| {
+        let declared_output = cx.tcx.fn_sig(def_id).instantiate_identity().skip_binder().output();
+        wrapped_join_handle_type(cx, declared_output)
+    })
+}
+
+/// Whether `expr` yields a freshly spawned handle inside `Result`/`Option`:
+/// a call to a handle producer, or a combinator such as `bool::then` whose
+/// closure argument calls one.
+fn produces_fresh_wrapped_handle(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
+    if calls_handle_producer(cx, expr) {
+        return true;
+    }
+    let (hir::ExprKind::Call(_, args) | hir::ExprKind::MethodCall(_, _, args, _)) = peel_trivial_blocks(expr).kind
+    else {
+        return false;
+    };
+    args.iter().any(|arg| match arg.kind {
+        hir::ExprKind::Closure(closure) => calls_handle_producer(cx, cx.tcx.hir_body(closure.body).value),
+        _ => false,
+    })
+}
+
 fn expr_returns_supported_join_handle(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
-    supported_join_handle_type(cx, cx.typeck_results().expr_ty(expr))
+    let resolved = cx.typeck_results().expr_ty(expr);
+    owned_join_handle_type(cx, resolved.peel_refs())
+        || (wrapped_join_handle_type(cx, resolved) && produces_fresh_wrapped_handle(cx, expr))
 }
 
 fn ignored_join_handle_facts(cx: &LateContext<'_>, hir_id: hir::HirId, expr: &hir::Expr<'_>) -> IgnoredJoinHandleFacts {
