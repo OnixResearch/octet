@@ -42,6 +42,7 @@ use rustc_session::impl_lint_pass;
 use rustc_span::Span;
 use rustc_span::Spanned;
 use rustc_span::hygiene::AstPass;
+use rustc_span::hygiene::DesugaringKind;
 use rustc_span::hygiene::ExpnKind;
 use rustc_span::sym;
 
@@ -672,6 +673,12 @@ impl ArchitectureCollector {
         def_id: Option<DefId>,
         span_id: &str,
     ) {
+        // `expr?` lowers to `Try::branch(expr)`, whose `ControlFlow` repeats what the written
+        // call already constructed. `.await` keeps its lowered `poll` call: the written call
+        // returns an opaque future, so `Poll<Result<Adapter, _>>` is its one construction.
+        if expr.span.is_desugaring(DesugaringKind::QuestionMark) {
+            return;
+        }
         let mut constructed = Vec::new();
         owned_adts(cx.typeck_results().expr_ty(expr), &mut constructed);
         let constructor_definition = def_id.map(|current| qualified_definition(cx, current));

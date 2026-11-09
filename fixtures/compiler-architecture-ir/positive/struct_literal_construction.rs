@@ -20,6 +20,10 @@ pub mod adapters {
             Ok(Self { url: url.to_owned() })
         }
 
+        pub async fn connect_async(url: &str) -> Result<Self, ConnectError> {
+            Self::connect(url)
+        }
+
         pub fn open(url: &str) -> Option<Box<Self>> {
             Self::connect(url).ok().map(Box::new)
         }
@@ -49,4 +53,9 @@ pub fn compose_boxed(url: &str) -> usize {
 
 pub fn compose_shared(url: &str) -> usize {
     adapters::shared(url).map_or(0, |repo| repo.url().len())
+}
+
+pub async fn compose_async(url: &str) -> Result<usize, adapters::ConnectError> {
+    let repo = adapters::SqlRepo::connect_async(url).await?;
+    Ok(repo.url().len())
 }

@@ -1025,51 +1025,47 @@ fn compiler_architecture_struct_literal_construction() {
     ] {
         assert!(constructed.contains(expected), "missing constructor for {expected}: {constructed:?}");
     }
-    // A fallible or wrapped constructor still selects the adapter inside its result.
-    for caller in [
-        "struct_literal_construction::compose_fallible",
-        "struct_literal_construction::compose_boxed",
-        "struct_literal_construction::compose_shared",
-    ] {
-        let constructed = compiler_constructed_types(&shard, caller);
-        assert!(
-            constructed.contains("struct_literal_construction::adapters::SqlRepo"),
-            "{caller} omits its wrapped adapter constructor: {constructed:?}"
-        );
-    }
+    // A fallible, wrapped, or awaited constructor selects the adapter inside its result once per
+    // written call; the `?` and `.await` desugarings add no second construction.
+    let source = fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("fixtures/compiler-architecture-ir/positive/struct_literal_construction.rs"),
+    )
+    .expect("construction fixture source");
+    let counts = [
+        "adapters::SqlRepo::connect(url)?",
+        "adapters::SqlRepo::open(url)",
+        "adapters::shared(url)",
+        "adapters::SqlRepo::connect_async(url).await?",
+    ]
+    .map(|call| {
+        let line = source.lines().position(|current| current.contains(call)).expect("fixture call line") + 1;
+        (call, compiler_constructions_on_line(&shard, "struct_literal_construction::adapters::SqlRepo", line))
+    });
+    assert!(
+        counts.iter().all(|(_, constructions)| *constructions == 1),
+        "each written call must construct its wrapped adapter exactly once: {counts:?}"
+    );
 }
 
-fn compiler_constructed_types<'a>(
-    shard: &'a CompilerArchitectureShard,
-    caller: &str,
-) -> std::collections::BTreeSet<&'a str> {
-    let caller_item_ids = shard
-        .facts
-        .iter()
-        .filter_map(|fact| match fact {
-            CompilerArchitectureFact::Item {
-                item_id,
-                qualified_path,
-                ..
-            } if qualified_path == caller => Some(item_id.as_str()),
-            _ => None,
-        })
-        .collect::<Vec<_>>();
-    assert_eq!(caller_item_ids.len(), 1, "{caller} must resolve to one item");
+fn compiler_constructions_on_line(shard: &CompilerArchitectureShard, definition: &str, line: usize) -> usize {
     shard
         .facts
         .iter()
-        .filter_map(|fact| match fact {
+        .filter(|fact| match fact {
             CompilerArchitectureFact::Constructor {
-                caller_item_id,
                 constructed_type_id,
+                span_id,
                 ..
-            } if caller_item_ids.contains(&caller_item_id.as_str()) => {
-                compiler_type_definition(shard, constructed_type_id)
+            } => {
+                compiler_type_definition(shard, constructed_type_id) == Some(definition)
+                    && shard.spans.iter().any(|span| {
+                        span.span_id == *span_id && usize::try_from(span.line_start).is_ok_and(|start| start == line)
+                    })
             }
-            _ => None,
+            _ => false,
         })
-        .collect()
+        .count()
 }
 
 #[test]
