@@ -28,6 +28,14 @@ pub const VERIFIER_MODE_PRODUCTION: &str = "production";
 pub const PROOF_STATUS_PASSED: &str = "passed";
 /// Failed proof receipt status.
 pub const PROOF_STATUS_FAILED: &str = "failed";
+/// Diagnostic class for a proof command whose resolved verifier does not report the pinned
+/// identity.
+pub const DIAGNOSTIC_UNPINNED_VERIFIER: &str = "unpinned-verifier";
+/// Argument that makes a pinned verifier wrapper print its identity report and exit.
+pub const VERIFIER_IDENTITY_FLAG: &str = "--identity";
+const IDENTITY_KEY_VERIFIER_BINARY_BLAKE3: &str = "proof-verifier-binary-blake3";
+const IDENTITY_KEY_SOLVER_BLAKE3: &str = "proof-solver-blake3";
+const IDENTITY_KEY_TOOLCHAIN_BLAKE3: &str = "proof-toolchain-blake3";
 
 const VERUS_BACKEND: &str = "verus";
 const VERIFIED_PATH_COMPONENT: &str = "/verified/";
@@ -304,6 +312,44 @@ pub fn validate_proof_receipt_with_identity(
     } else {
         validate_legacy_proof_receipt(rail, sources, proof_source)
     }
+}
+
+/// Returns true when the runner must confirm the resolved verifier's identity before executing
+/// the rail: production Verus rails pin verifier binary, solver, and toolchain digests.
+#[must_use]
+pub fn rail_requires_pinned_verifier_identity(rail: &ProofRail) -> bool {
+    rail.backend == VERUS_BACKEND && verifier_mode(rail) == VERIFIER_MODE_PRODUCTION
+}
+
+/// Validates a verifier's `--identity` report against the rail's pinned digests.
+///
+/// The report holds `key: value` lines, as the production Verus derivation writes them to
+/// `share/identity.txt`. The verifier binary, solver, and toolchain BLAKE3 digests must each
+/// appear exactly once and equal the pinned value; anything else names an unpinned verifier.
+#[must_use]
+pub fn verifier_identity_report_diagnostics(rail: &ProofRail, report: &str) -> Vec<String> {
+    let verifier = &rail.receipt_verifier;
+    let mut diagnostics = Vec::new();
+    for (key, pinned) in [
+        (IDENTITY_KEY_VERIFIER_BINARY_BLAKE3, verifier.verifier_binary_digest.as_str()),
+        (IDENTITY_KEY_SOLVER_BLAKE3, verifier.solver_digest.as_str()),
+        (IDENTITY_KEY_TOOLCHAIN_BLAKE3, verifier.toolchain_digest.as_str()),
+    ] {
+        let reported = report
+            .lines()
+            .filter_map(|line| line.trim().strip_prefix(key)?.strip_prefix(':'))
+            .map(str::trim)
+            .collect::<Vec<_>>();
+        let problem = match reported.as_slice() {
+            _ if pinned.trim().is_empty() => format!("proof rail does not pin verifier identity `{key}`"),
+            [] => format!("verifier identity report is missing `{key}`"),
+            [value] if *value == pinned => continue,
+            [value] => format!("verifier identity `{key}` expected pinned `{pinned}` but got `{value}`"),
+            _ => format!("verifier identity report repeats `{key}`"),
+        };
+        diagnostics.push(format!("{DIAGNOSTIC_UNPINNED_VERIFIER}: {problem}"));
+    }
+    diagnostics
 }
 
 /// Builds a deterministic Verus proof package lock from in-memory rail material.
@@ -1867,6 +1913,81 @@ mod tests {
         );
         assert_eq!(pinned_recorded, manifest_digest);
         assert_eq!(drifted_recorded, manifest_digest);
+    }
+
+    // r[verify octet.verus_proof_rails.safe_execution.failures]
+    #[test]
+    fn verifier_identity_report_must_match_pinned_digests() {
+        let rail = verus_rail(VERIFIER_MODE_PRODUCTION);
+        let pinned = format!(
+            "proof-verifier-mode: production\nproof-verifier-binary-blake3: {}\nproof-toolchain-blake3: {}\nproof-solver-blake3: {}\n",
+            rail.receipt_verifier.verifier_binary_digest,
+            rail.receipt_verifier.toolchain_digest,
+            rail.receipt_verifier.solver_digest
+        );
+        let mut unpinned_rail = rail.clone();
+        unpinned_rail.receipt_verifier.solver_digest.clear();
+        let cases = [
+            ("pinned", &rail, pinned.clone(), None),
+            ("pass signal only", &rail, PASS_SIGNAL.to_owned(), Some("missing `proof-verifier-binary-blake3`")),
+            (
+                "wrong binary",
+                &rail,
+                pinned.replace("fixture-binary-digest", "other-binary"),
+                Some("expected pinned `fixture-binary-digest` but got `other-binary`"),
+            ),
+            (
+                "wrong solver",
+                &rail,
+                pinned.replace("z3-fixture-digest", "other-solver"),
+                Some("`proof-solver-blake3` expected pinned"),
+            ),
+            (
+                "wrong toolchain",
+                &rail,
+                pinned.replace("fixture-toolchain-digest", "other-toolchain"),
+                Some("`proof-toolchain-blake3` expected pinned"),
+            ),
+            (
+                "suffixed key",
+                &rail,
+                pinned.replace("proof-solver-blake3:", "proof-solver-blake3-alt:"),
+                Some("missing `proof-solver-blake3`"),
+            ),
+            (
+                "repeated key",
+                &rail,
+                format!("{pinned}proof-solver-blake3: other-solver\n"),
+                Some("repeats `proof-solver-blake3`"),
+            ),
+            (
+                "rail without pin",
+                &unpinned_rail,
+                pinned,
+                Some("does not pin verifier identity `proof-solver-blake3`"),
+            ),
+        ];
+        for (case, rail, report, expected) in cases {
+            let diagnostics = verifier_identity_report_diagnostics(rail, &report);
+            match expected {
+                None => assert!(diagnostics.is_empty(), "{case}: {diagnostics:?}"),
+                Some(expected) => assert!(
+                    diagnostics.iter().any(|diagnostic| diagnostic.starts_with(DIAGNOSTIC_UNPINNED_VERIFIER)
+                        && diagnostic.contains(expected)),
+                    "{case}: {diagnostics:?}"
+                ),
+            }
+        }
+    }
+
+    #[test]
+    fn only_production_verus_rails_require_pinned_verifier_identity() {
+        let mut legacy = verus_rail(VERIFIER_MODE_PRODUCTION);
+        legacy.backend = "local-command-receipt".to_owned();
+
+        assert!(rail_requires_pinned_verifier_identity(&verus_rail(VERIFIER_MODE_PRODUCTION)));
+        assert!(!rail_requires_pinned_verifier_identity(&verus_rail(VERIFIER_MODE_FIXTURE)));
+        assert!(!rail_requires_pinned_verifier_identity(&legacy));
     }
 
     #[test]

@@ -81,7 +81,11 @@ evidence.
   derived from checked manifest or graph file contents instead of trusting
   ambient build state; structured Verus receipts record the derived digest, so a
   manifest or graph that no longer hashes to the pinned digest fails receipt
-  validation. `cargo octet prove` executes only configured rail argv,
+  validation. Before executing a production Verus rail, `cargo octet prove`
+  runs the resolved verifier with `--identity` and fails the rail as an
+  `unpinned-verifier` unless the reported `proof-verifier-binary-blake3`,
+  `proof-solver-blake3`, and `proof-toolchain-blake3` equal the pinned digests.
+  `cargo octet prove` executes only configured rail argv,
   captures bounded stdout/stderr artifacts, writes structured JSON receipts at
   configured receipt paths, and then emits `formal_proof` provenance only after
   the same pass-signal, binding, provenance, verifier/toolchain, binary, and

@@ -45,15 +45,19 @@ use octet_standards::model::FamilySelection;
 use octet_standards::model::PolicyEntry;
 use octet_standards::model::PolicyRegistry;
 use octet_standards::model::ProofRail;
+use octet_standards::proof::DIAGNOSTIC_UNPINNED_VERIFIER;
 use octet_standards::proof::PROOF_STATUS_FAILED;
 use octet_standards::proof::PROOF_STATUS_PASSED;
+use octet_standards::proof::VERIFIER_IDENTITY_FLAG;
 use octet_standards::proof::VERIFIER_MODE_FIXTURE;
 use octet_standards::proof::VERIFIER_MODE_PRODUCTION;
 use octet_standards::proof::VerusLogArtifact;
 use octet_standards::proof::VerusProofReceipt;
 use octet_standards::proof::VerusProofReceiptInput;
 use octet_standards::proof::build_verus_proof_receipt;
+use octet_standards::proof::rail_requires_pinned_verifier_identity;
 use octet_standards::proof::validate_proof_receipt_with_identity;
+use octet_standards::proof::verifier_identity_report_diagnostics;
 use octet_standards::proof_artifact::normalize_path;
 use octet_standards::proof_artifact::path_matches_pattern;
 use octet_standards::proof_artifact::path_pattern_diagnostics;
@@ -161,6 +165,7 @@ const DEFAULT_LOG_MAX_BYTES: usize = 4_096;
 const PROCESS_POLL_INTERVAL_MS: u64 = 10;
 const PROCESS_TEARDOWN_TIMEOUT_MS: u64 = 5_000;
 const PROCESS_STDIN_MAX_BYTES: usize = 1;
+const VERIFIER_IDENTITY_MAX_BYTES: usize = 4_096;
 const PROCESS_SUCCESS_EXIT_CODE: i32 = 0;
 #[cfg(unix)]
 const EXECUTABLE_MODE_BITS: u32 = 0o111;
@@ -1322,8 +1327,17 @@ fn run_proof_command(rail: &ProofRail, working_dir: &Path) -> CommandOutcome {
     };
     let stdout_limit = configured_log_limit(rail.stdout_max_bytes);
     let stderr_limit = configured_log_limit(rail.stderr_max_bytes);
-    let output = spawn_and_wait(&spec, working_dir, stdout_limit, stderr_limit);
     let command_blake3 = command_blake3(&spec.argv);
+    let output = resolve_command(&spec, working_dir).map_err(|error| vec![error]).and_then(|command| {
+        if rail_requires_pinned_verifier_identity(rail) {
+            let diagnostics = pinned_verifier_diagnostics(rail, &spec, &command);
+            if !diagnostics.is_empty() {
+                return Err(diagnostics);
+            }
+        }
+        run_resolved(&command, &spec.argv.join(" "), &spec.args, spec.timeout_ms, stdout_limit, stderr_limit)
+            .map_err(|error| vec![error])
+    });
     match output {
         Ok(output) => {
             let bounded_stdout = bounded_utf8(output.stdout);
@@ -1342,19 +1356,22 @@ fn run_proof_command(rail: &ProofRail, working_dir: &Path) -> CommandOutcome {
                 aeneas_summary: None,
             }
         }
-        Err(error) => CommandOutcome {
-            command_succeeded: false,
-            timed_out: false,
-            stdout_text: String::new(),
-            stdout_original_bytes: 0,
-            stdout_truncated: false,
-            stderr_text: error.clone(),
-            stderr_original_bytes: error.len(),
-            stderr_truncated: false,
-            command_blake3,
-            diagnostics: vec![error],
-            aeneas_summary: None,
-        },
+        Err(diagnostics) => {
+            let stderr_text = diagnostics.join("\n");
+            CommandOutcome {
+                command_succeeded: false,
+                timed_out: false,
+                stdout_text: String::new(),
+                stdout_original_bytes: 0,
+                stdout_truncated: false,
+                stderr_original_bytes: stderr_text.len(),
+                stderr_text,
+                stderr_truncated: false,
+                command_blake3,
+                diagnostics,
+                aeneas_summary: None,
+            }
+        }
     }
 }
 
@@ -1380,16 +1397,15 @@ fn proof_command_spec(rail: &ProofRail) -> Result<CommandSpec, String> {
     })
 }
 
-/// Runs the proof command with both output pipes drained concurrently into bounded buffers, so
-/// verbose verifiers cannot stall on a full pipe. The command runs in its own process group, which
-/// is killed on timeout and after exit, so descendants that inherited the pipes cannot keep
-/// teardown waiting.
-fn spawn_and_wait(
-    spec: &CommandSpec,
-    working_dir: &Path,
-    stdout_max_bytes: usize,
-    stderr_max_bytes: usize,
-) -> Result<bounded_exec::ExecutionOutput, String> {
+/// A proof command's program, resolved once so the identity probe and the proof run execute the
+/// same file.
+struct ResolvedCommand {
+    program: PathBuf,
+    current_dir: PathBuf,
+    environment: Vec<(OsString, OsString)>,
+}
+
+fn resolve_command(spec: &CommandSpec, working_dir: &Path) -> Result<ResolvedCommand, String> {
     let command_line = spec.argv.join(" ");
     let current_dir = std::path::absolute(working_dir).map_err(|error| {
         format!("resolve proof command `{command_line}` working directory {}: {error}", working_dir.display())
@@ -1402,23 +1418,72 @@ fn spawn_and_wait(
     let program = resolve_program(&spec.executable, &current_dir, search_path).ok_or_else(|| {
         format!("spawn proof command `{command_line}`: executable `{}` was not found", spec.executable)
     })?;
+    Ok(ResolvedCommand {
+        program,
+        current_dir,
+        environment,
+    })
+}
+
+/// Runs the resolved verifier with `--identity` under the rail's timeout and requires the
+/// reported verifier binary, solver, and toolchain digests to equal the rail's pins, so a program
+/// that merely shares the verifier's name cannot produce production proof evidence.
+fn pinned_verifier_diagnostics(rail: &ProofRail, spec: &CommandSpec, command: &ResolvedCommand) -> Vec<String> {
+    let probe_line = format!("{} {VERIFIER_IDENTITY_FLAG}", spec.executable);
+    let output = match run_resolved(
+        command,
+        &probe_line,
+        &[VERIFIER_IDENTITY_FLAG.to_owned()],
+        spec.timeout_ms,
+        VERIFIER_IDENTITY_MAX_BYTES,
+        VERIFIER_IDENTITY_MAX_BYTES,
+    ) {
+        Ok(output) => output,
+        Err(error) => return vec![format!("{DIAGNOSTIC_UNPINNED_VERIFIER}: {error}")],
+    };
+    if output.disposition != bounded_exec::Disposition::Succeeded {
+        return vec![format!(
+            "{DIAGNOSTIC_UNPINNED_VERIFIER}: verifier identity probe `{probe_line}` did not succeed: {:?}",
+            output.disposition
+        )];
+    }
+    if output.stdout.truncated {
+        return vec![format!(
+            "{DIAGNOSTIC_UNPINNED_VERIFIER}: verifier identity probe `{probe_line}` exceeded {VERIFIER_IDENTITY_MAX_BYTES} bytes"
+        )];
+    }
+    verifier_identity_report_diagnostics(rail, &String::from_utf8_lossy(&output.stdout.bytes))
+}
+
+/// Runs the resolved command with both output pipes drained concurrently into bounded buffers, so
+/// verbose verifiers cannot stall on a full pipe. The command runs in its own process group, which
+/// is killed on timeout and after exit, so descendants that inherited the pipes cannot keep
+/// teardown waiting.
+fn run_resolved(
+    command: &ResolvedCommand,
+    command_line: &str,
+    args: &[String],
+    timeout_ms: u64,
+    stdout_max_bytes: usize,
+    stderr_max_bytes: usize,
+) -> Result<bounded_exec::ExecutionOutput, String> {
     let outcome_policy = bounded_exec::OutcomePolicy::new(vec![PROCESS_SUCCESS_EXIT_CODE], false, false)
         .map_err(|error| format!("construct proof command outcome policy: {error:?}"))?;
     bounded_exec::run(bounded_exec::RunRequest {
         command: bounded_exec::CommandSpec {
-            program,
-            args: spec.args.iter().map(OsString::from).collect(),
-            current_dir,
+            program: command.program.clone(),
+            args: args.iter().map(OsString::from).collect(),
+            current_dir: command.current_dir.clone(),
             environment_mode: bounded_exec::EnvironmentMode::Clear,
-            environment,
+            environment: command.environment.clone(),
             input: bounded_exec::Input::Null,
         },
         limits: bounded_exec::ExecutionLimits {
-            timeout_ms: spec.timeout_ms,
+            timeout_ms,
             stdin_max_bytes: PROCESS_STDIN_MAX_BYTES,
             stdout_max_bytes,
             stderr_max_bytes,
-            poll_interval_ms: PROCESS_POLL_INTERVAL_MS.min(spec.timeout_ms),
+            poll_interval_ms: PROCESS_POLL_INTERVAL_MS.min(timeout_ms),
             teardown_timeout_ms: PROCESS_TEARDOWN_TIMEOUT_MS,
         },
         termination_scope: bounded_exec::TerminationScope::ProcessGroup,
@@ -3098,12 +3163,15 @@ mod tests {
         assert!(report.diagnostics.iter().any(|diagnostic| diagnostic.contains("unexpected artifact")));
     }
 
+    #[cfg(unix)]
     #[test]
     fn prove_production_verifier_failure_is_fail_closed() {
         let temp = tempfile::tempdir().expect("tempdir");
         let source = write_fixture_source(temp.path());
         write_fixture_proof(temp.path());
-        let registry = write_production_negative_registry(temp.path(), vec!["false".to_owned()]);
+        let argv = write_fake_production_verifier(temp.path(), &pinned_production_identity(), "", false);
+        let command = argv.join(" ");
+        let registry = write_production_negative_registry(temp.path(), argv);
         let artifact_dir = temp.path().join("artifacts-production-negative");
 
         let code = run(&ProveArgs {
@@ -3122,7 +3190,7 @@ mod tests {
 
         assert_eq!(code, EXIT_PROOF_INVALID);
         let summary = fs::read_to_string(artifact_dir.join(SUMMARY_ARTIFACT_NAME)).expect("read summary");
-        assert!(summary.contains("verifier-failure: proof command `false` exited without success"));
+        assert!(summary.contains(&format!("verifier-failure: proof command `{command}` exited without success")));
         let status = fs::read_to_string(artifact_dir.join(STATUS_ARTIFACT_NAME)).expect("read status");
         assert!(status.contains("\"status\": \"failed\""));
         let provenance = fs::read_to_string(artifact_dir.join(PROVENANCE_ARTIFACT_NAME)).expect("read provenance");
@@ -3135,6 +3203,67 @@ mod tests {
         assert!(receipt.contains("\"status\": \"failed\""));
         assert!(receipt.contains("\"stdout_artifact\""));
         assert!(receipt.contains("\"stderr_artifact\""));
+    }
+
+    // r[verify octet.verus_proof_rails.safe_execution.failures]
+    #[cfg(unix)]
+    #[test]
+    fn prove_production_rail_refuses_verifier_without_pinned_identity() {
+        let pinned = pinned_production_identity();
+        let cases = [
+            ("no identity", PASS_SIGNAL.to_owned(), "proof-verifier-binary-blake3"),
+            ("wrong binary", pinned.replace("production-fixture-binary-digest", "other-binary"), "other-binary"),
+            ("wrong solver", pinned.replace("production-fixture-solver-digest", "other-solver"), "other-solver"),
+            (
+                "wrong toolchain",
+                pinned.replace("production-fixture-toolchain-digest", "other-toolchain"),
+                "other-toolchain",
+            ),
+        ];
+        for (case, identity, named) in cases {
+            let temp = tempfile::tempdir().expect("tempdir");
+            let source = write_fixture_source(temp.path());
+            write_fixture_proof(temp.path());
+            let proof_ran = temp.path().join("proof-ran");
+            let argv = write_fake_production_verifier(temp.path(), &identity, &proof_ran.display().to_string(), true);
+            let registry = write_production_negative_registry(temp.path(), argv);
+            let artifact_dir = temp.path().join("artifacts-unpinned");
+
+            let code = run(&fixture_args(registry, vec![source], artifact_dir.clone())).expect("prove run");
+
+            assert_eq!(code, EXIT_PROOF_INVALID, "{case}");
+            assert!(!proof_ran.exists(), "{case}: unpinned verifier must not run the proof");
+            let summary = fs::read_to_string(artifact_dir.join(SUMMARY_ARTIFACT_NAME)).expect("read summary");
+            assert!(summary.contains(DIAGNOSTIC_UNPINNED_VERIFIER), "{case}: {summary}");
+            assert!(summary.contains(named), "{case}: {summary}");
+            let provenance = fs::read_to_string(artifact_dir.join(PROVENANCE_ARTIFACT_NAME)).expect("read provenance");
+            assert!(!provenance.contains("formal_proof"), "{case}: {provenance}");
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn prove_production_rail_accepts_verifier_with_pinned_identity() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let source = write_fixture_source(temp.path());
+        write_fixture_proof(temp.path());
+        let proof_ran = temp.path().join("proof-ran");
+        let argv = write_fake_production_verifier(
+            temp.path(),
+            &pinned_production_identity(),
+            &proof_ran.display().to_string(),
+            true,
+        );
+        let registry = write_production_negative_registry(temp.path(), argv);
+        let artifact_dir = temp.path().join("artifacts-pinned");
+
+        let code = run(&fixture_args(registry, vec![source], artifact_dir.clone())).expect("prove run");
+
+        let summary = fs::read_to_string(artifact_dir.join(SUMMARY_ARTIFACT_NAME)).expect("read summary");
+        assert_eq!(code, 0, "{summary}");
+        assert!(proof_ran.exists());
+        let provenance = fs::read_to_string(artifact_dir.join(PROVENANCE_ARTIFACT_NAME)).expect("read provenance");
+        assert!(provenance.contains("formal_proof"), "{provenance}");
     }
 
     #[test]
@@ -4021,6 +4150,40 @@ mod tests {
         let registry = production_negative_registry(argv);
         fs::write(&path, serde_json::to_string_pretty(&registry).expect("registry json")).expect("write registry");
         path
+    }
+
+    /// Writes a stand-in `octet-production-verus` into `root` and returns the rail argv that runs
+    /// it. `--identity` prints `identity`; a proof run touches `proof_marker` when it is
+    /// non-empty, then prints the pass signal and exits zero when `proves` is set, or exits one
+    /// otherwise.
+    #[cfg(unix)]
+    fn write_fake_production_verifier(root: &Path, identity: &str, proof_marker: &str, proves: bool) -> Vec<String> {
+        let name = "octet-production-verus";
+        let touch_marker = if proof_marker.is_empty() {
+            String::new()
+        } else {
+            format!(": > '{proof_marker}'\n")
+        };
+        let proof_result = if proves {
+            format!("printf '%s\\n' '{PASS_SIGNAL}'\nexit 0\n")
+        } else {
+            "exit 1\n".to_owned()
+        };
+        let script = format!(
+            "#!/bin/sh\nif [ \"${{1:-}}\" = --identity ]; then\nprintf '%s' '{identity}'\nexit 0\nfi\n{touch_marker}{proof_result}"
+        );
+        crate::test_support::write_executable_script(&root.join(name), &script);
+        vec![format!("./{name}"), PROOF_RELATIVE_PATH.to_owned()]
+    }
+
+    /// The `--identity` report of a verifier built from the pins in `production_negative_rail`.
+    #[cfg(unix)]
+    fn pinned_production_identity() -> String {
+        let verifier = production_negative_rail(Vec::new()).receipt_verifier;
+        format!(
+            "proof-verifier-mode: production\nproof-verifier-binary-blake3: {}\nproof-toolchain-blake3: {}\nproof-solver-blake3: {}\n",
+            verifier.verifier_binary_digest, verifier.toolchain_digest, verifier.solver_digest
+        )
     }
 
     fn fixture_registry(root: &Path, pass_signal: &str, argv: Vec<String>) -> PolicyRegistry {

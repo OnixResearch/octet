@@ -64,6 +64,18 @@ rail's `stdout_max_bytes` or `stderr_max_bytes` fails the rail with a
 `verifier-failure` diagnostic, because the retained log no longer shows
 everything the verifier printed.
 
+Before a production rail runs its proof, `cargo octet prove` resolves the
+verifier program once, runs it with `--identity` under the same environment
+allowlist and timeout, and requires the reported `proof-verifier-binary-blake3`,
+`proof-solver-blake3`, and `proof-toolchain-blake3` to equal the rail's pinned
+`verifier_binary_digest`, `solver_digest`, and `toolchain_digest`. A program on
+`PATH` that does not report the pinned identity fails the rail with an
+`unpinned-verifier` diagnostic and is not asked to run the proof. The identity
+is reported by the verifier wrapper itself, so the check refuses wrong or
+unpinned verifiers; it does not authenticate a program built to impersonate the
+pinned wrapper. The `proof-rail-manifest` flake check compares the manifest pins
+with the `octet-production-verus --identity` output of the built derivation.
+
 The artifact directory must be empty or hold an earlier `cargo octet prove`
 bundle. An earlier bundle is cleared before the new one is written, so no
 receipt, log, or evidence-log manifest from a previous run survives; any other

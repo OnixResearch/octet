@@ -2670,6 +2670,25 @@
               jq --exit-status --arg digest "$production_graph_digest" \
                 '.rails.addition_bound_production_negative.receipt_verifier.verifier_nix_closure_graph_digest == $digest' \
                 "$manifest_json" >/dev/null
+              production_identity=$(${octetProductionVerus}/bin/octet-production-verus --identity)
+              production_identity_value() {
+                printf '%s\n' "$production_identity" | sed -n "s/^$1: //p"
+              }
+              jq --exit-status \
+                --arg binary "$(production_identity_value proof-verifier-binary-blake3)" \
+                --arg solver "$(production_identity_value proof-solver-blake3)" \
+                --arg toolchain "$(production_identity_value proof-toolchain-blake3)" '
+                [.rails[] | select(.command_argv[0] == "octet-production-verus")] as $rails
+                | ($rails | length) > 0
+                and ([$binary, $solver, $toolchain] | all(length == 64))
+                and all($rails[];
+                  .receipt_verifier.verifier_binary_digest == $binary
+                  and .receipt_verifier.solver_digest == $solver
+                  and .receipt_verifier.toolchain_digest == $toolchain)
+              ' "$manifest_json" >/dev/null || {
+                echo "production Verus rail pins do not match octet-production-verus --identity" >&2
+                exit 1
+              }
 
               nickel export --format json standards/proof-imports/trellis.ncl > "$trellis_import_json"
               cmp "$trellis_import_json" standards/proof-imports/generated/trellis-proof-imports.json
@@ -2758,9 +2777,38 @@
                 echo "failed production Verus rail emitted formal_proof provenance" >&2
                 exit 1
               fi
+
+              # An impostor named octet-production-verus that prints the pass signal must not
+              # yield production evidence: the runner asks it for its identity and refuses it.
+              fake_bin=$(mktemp -d)
+              cat > "$fake_bin/octet-production-verus" <<'EOF'
+              #!${pkgs.runtimeShell}
+              printf '%s\n' 'verification results:: 1 verified, 0 errors'
+              EOF
+              chmod +x "$fake_bin/octet-production-verus"
+              fake_artifact_dir=$(mktemp -d)
+              set +e
+              PATH="$fake_bin:$PATH" ${cargoOctetUnwrapped}/bin/cargo-octet prove \
+                --policy-artifacts-dir "$policy_dir" \
+                --source src/verified/addition.rs \
+                --rail octet.verus_proof_rails.addition-bound-production \
+                --artifact-dir "$fake_artifact_dir" \
+                --output-format json > fake-prove.json 2> fake-prove.err
+              fake_prove_status="$?"
+              set -e
+              if [ "$fake_prove_status" -ne 1 ]; then
+                echo "expected cargo octet prove to refuse an unpinned octet-production-verus, got $fake_prove_status" >&2
+                exit 1
+              fi
+              grep -F 'unpinned-verifier: verifier identity report is missing `proof-verifier-binary-blake3`' "$fake_artifact_dir/summary.txt" >/dev/null
+              if grep -F '"evidence_tier":"formal_proof"' "$fake_artifact_dir/provenance.jsonl" >/dev/null; then
+                echo "unpinned production Verus verifier emitted formal_proof provenance" >&2
+                exit 1
+              fi
               mkdir -p "$out"
               cp -r "$artifact_dir" "$out/artifacts"
-              cp prove.json prove.err "$out/"
+              cp -r "$fake_artifact_dir" "$out/fake-verifier-artifacts"
+              cp prove.json prove.err fake-prove.json fake-prove.err "$out/"
             '';
 
         productionVerusMultiRailProveCheck =

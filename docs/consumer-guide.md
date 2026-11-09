@@ -244,6 +244,10 @@ receipt paths match the rail scope. Fixture rails must say
 `verifier_mode = "fixture"`; production Verus rails must say
 `verifier_mode = "production"` and pin verifier, solver, toolchain, Nix closure,
 command, source/proof, receipt, and trust-boundary identity in the receipt.
+Before running a production rail, `cargo octet prove` asks the resolved verifier
+for its `--identity` report and fails the rail with an `unpinned-verifier`
+diagnostic unless the reported verifier binary, solver, and toolchain BLAKE3
+digests equal the rail's pins.
 Octet's built-in production pilots are intentionally tiny and run
 `octet-production-verus` only when selected proof rails match the requested
 source scope. Each pilot has its own source path, proof path, receipt path,
