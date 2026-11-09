@@ -114,6 +114,15 @@ Unknown config keys (such as a misspelled `[octet.lint-levels]` table or `disabl
 
 For `public_unsafe_api`, either add a safe wrapper or document the exception with an unsafe-boundary record.
 
+Scope notes for the safety lints:
+
+- `no_unwrap` covers method calls, UFCS calls such as `Option::expect(value, "...")`, and function paths such as `map(Result::unwrap)`. The test-context, known-constructor, and same-branch guard exemptions apply to the call forms; a bare function path is exempt only in test contexts.
+- `no_recursion` follows self-calls into closures and `async fn` bodies inside the function, but not into nested items.
+- `unchecked_division` checks `/`, `%`, `/=`, and `%=`, including divisors of type `&u64` and similar references; a guard on `*divisor` counts for `divisor`.
+- `sentinel_fallback` matches by the resolved constant, so `Ticks::MAX` through `type Ticks = u64` and `Self::MAX` in an integer impl are flagged.
+- `unbounded_channel` renames only the constructor segment when it is written under its original name. For an aliased import it spells the bounded constructor through the import's crate path, or offers no rewrite.
+- `drop_must_use` ignores a type's own `#[must_use]` when the type has a destructor, so `drop(guard)` on `MutexGuard` or `RwLock` guards stays clean. `Result`, must-use types without a destructor, and `#[must_use]` producers are still flagged.
+
 ## Naming lints (`tigerstyle::naming`)
 
 | Lint | Default | Summary |
