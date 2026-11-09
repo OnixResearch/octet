@@ -105,9 +105,12 @@ impl<'tcx> Visitor<'tcx> for ExplicitExitVisitor {
 
         // Nested loops are walked: a `return` anywhere, or a `break` whose resolved
         // destination is not a loop or labelled block nested inside the walked loop
-        // (e.g. `break 'outer` from an inner loop), exits it.
+        // (e.g. `break 'outer` from an inner loop), exits it. A `return` from an
+        // expansion (`?`, `ensure!`, `bail!`) still leaves the function; only a
+        // `break` from an expansion is excluded, because the `while` desugaring's
+        // own `break` is not an exit the source wrote.
         match expr.kind {
-            hir::ExprKind::Ret(..) if !expr.span.from_expansion() => {
+            hir::ExprKind::Ret(..) => {
                 self.found = true;
             }
             hir::ExprKind::Break(destination, _)

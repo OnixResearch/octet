@@ -50,6 +50,8 @@ r[octet.safety_lint_semantics.recursion.trait_guardrail]
 
 r[octet.safety_lint_semantics.loop_bounds] `unbounded_loop` MUST prefer structural bounds, exits, cancellation, and bounded receiver facts over source-name marker heuristics.
 
+A `return` counts as a reachable return path even when an expansion produced it, such as the `return` that `?` lowers to or one inside an `ensure!`-style macro. A `break` produced by an expansion, such as the `while` desugaring's own `break`, does not count as an exit.
+
 #### Scenario: Bounded retry loop is clean
 
 r[octet.safety_lint_semantics.loop_bounds.retry]

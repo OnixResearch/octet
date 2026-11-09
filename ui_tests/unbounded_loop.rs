@@ -112,3 +112,30 @@ fn labelled_block_break_only_loop(items: &[u32]) {
         }
     }
 }
+
+fn next_reading(raw: u32) -> Result<u32, String> {
+    if raw > 3 { Err(format!("reading {raw} out of range")) } else { Ok(raw) }
+}
+
+fn try_operator_exit_loop(raw: u32) -> Result<(), String> {
+    // Should NOT warn: `?` lowers to a reachable `return` on the error path.
+    loop {
+        let reading = next_reading(std::hint::black_box(raw))?;
+        std::hint::black_box(reading);
+    }
+}
+
+macro_rules! ensure {
+    ($cond:expr, $err:expr) => {
+        if !$cond {
+            return Err($err);
+        }
+    };
+}
+
+fn ensure_macro_exit_loop(raw: u32) -> Result<(), String> {
+    // Should NOT warn: the `ensure!` expansion returns when the check fails.
+    loop {
+        ensure!(std::hint::black_box(raw) < 3, "raw reading out of range".to_owned());
+    }
+}
