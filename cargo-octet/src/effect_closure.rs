@@ -344,12 +344,11 @@ struct FunctionDraft {
     source_identity: String,
 }
 
-/// Where the names a selected function's body uses resolve outside the function: the declarations
-/// of its enclosing file or inline module, and the header of its enclosing `impl` or trait. Every
-/// function in the same module or `impl` shares them.
+/// The header of the `impl` or trait enclosing a selected function, whose generic parameters and
+/// `Self` shadow module names in the body. Every function in the same `impl` shares it; the
+/// enclosing module's declarations are in the [`ModuleIndex`].
 #[derive(Clone, Default)]
 struct OuterScope {
-    module: Rc<ModuleScope>,
     header: Option<Rc<EnclosingHeader>>,
 }
 
@@ -472,7 +471,7 @@ struct RawCall {
     referenced_paths: Vec<ReferencedPath>,
     /// The `use` bindings of the blocks enclosing a method call, any of which may bring the
     /// method's trait into scope.
-    body_method_sources: Vec<ImportPath>,
+    body_method_sources: BodyLookup,
     /// Whether the call is inside a module item declared in the function body, whose name
     /// resolution the module index does not model.
     in_body_module: bool,
@@ -668,10 +667,7 @@ impl<'ast> Visit<'ast> for FunctionCollector {
             enclosing_generics: syn::Generics::default(),
             signature: node.sig.clone(),
             block: (*node.block).clone(),
-            outer_scope: OuterScope {
-                module: Rc::clone(&self.module_scope),
-                header: None,
-            },
+            outer_scope: OuterScope { header: None },
         });
     }
 
@@ -682,7 +678,6 @@ impl<'ast> Visit<'ast> for FunctionCollector {
         };
         let opaque_context = self.opaque_context || has_opaque_attribute(&node.attrs);
         let outer_scope = OuterScope {
-            module: Rc::clone(&self.module_scope),
             header: Some(Rc::new(EnclosingHeader::of_impl(node))),
         };
         for item in &node.items {
@@ -718,10 +713,7 @@ impl<'ast> Visit<'ast> for FunctionCollector {
                 enclosing_generics,
                 signature: node.sig.clone(),
                 block: block.clone(),
-                outer_scope: OuterScope {
-                    module: Rc::clone(&self.module_scope),
-                    header,
-                },
+                outer_scope: OuterScope { header },
             });
         }
     }
@@ -761,26 +753,6 @@ fn is_inert_attribute(attribute: &syn::Attribute) -> bool {
         "warn",
     ];
     attribute.path().get_ident().is_some_and(|name| INERT_ATTRIBUTES.iter().any(|inert| name == inert))
-}
-
-impl OuterScope {
-    /// Renders the caller's module and every declaration that may bring a trait, and so the
-    /// called method, into scope: the prelude, each `use` binding and trait item of the module,
-    /// its wildcards, and the enclosing `impl` or trait header, whose bounds also supply methods.
-    /// Any of them changing re-keys every method call site in the module.
-    fn method_resolution_text(&self, module: &[String]) -> String {
-        let mut text = module_text(module);
-        text.push_str("; methods=prelude");
-        for source in self.module.method_sources.iter().chain(&self.module.wildcards) {
-            text.push_str(", ");
-            text.push_str(source);
-        }
-        if let Some(header) = &self.header {
-            text.push_str("; header=");
-            text.push_str(&header.text);
-        }
-        text
-    }
 }
 
 fn module_text(module: &[String]) -> String {
@@ -1244,6 +1216,133 @@ impl<'a> ScopeResolver<'a> {
                 is_path_keyword(head)
                     || self.modules.scopes.get(locator).is_some_and(|scope| scope.declares_path_head(head))
             })
+    }
+
+    /// Renders `module=self::a; methods=prelude, ...` for a method call: every declaration that
+    /// may bring the method's trait into scope (the `use` bindings of the enclosing blocks, then
+    /// each `use` binding, trait item, and wildcard of the caller's module), with local imports
+    /// followed to the declaration they name and local glob imports to the method sources of
+    /// their module, plus the enclosing `impl` or trait header, whose bounds may supply methods.
+    fn method_scope(&self, caller: &AddressedFunction, raw_call: &RawCall) -> CallScope<'a> {
+        let draft = &caller.draft;
+        let locator = (draft.path.clone(), draft.module.clone());
+        let mut lookup = Lookup::default();
+        for import in &raw_call.body_method_sources.imports {
+            lookup.reach("body", "trait", &import_text(import));
+            if self.is_local_import(&locator, import) {
+                self.resolve_import_path(&mut lookup, &locator, &import.segments, 1);
+            }
+        }
+        for glob in &raw_call.body_method_sources.globs {
+            lookup.reach("body", "*", &format!("{}::*", import_text(glob)));
+            if self.is_local_import(&locator, glob) {
+                self.glob_method_sources(&mut lookup, &locator, glob, 1);
+            }
+        }
+        self.module_method_sources(&mut lookup, &locator, 0);
+        let mut text = module_text(&draft.module);
+        text.push_str("; methods=prelude, ");
+        text.push_str(&lookup.text());
+        if let Some(header) = &draft.outer_scope.header {
+            text.push_str("; header=");
+            text.push_str(&header.text);
+        }
+        if raw_call.in_body_module {
+            text.push_str("; in a module declared in the body");
+        }
+        CallScope {
+            text,
+            local: None,
+            hidden: lookup.hidden || raw_call.in_body_module,
+        }
+    }
+
+    /// The declarations of the module at `locator` that may bring a trait into scope.
+    fn module_method_sources(&self, lookup: &mut Lookup<'a>, locator: &ModuleLocator, depth: usize) {
+        if !lookup.step(depth) {
+            return;
+        }
+        let label = module_label(locator);
+        let Some(scope) = self.modules.scopes.get(locator) else {
+            lookup.hide(&label, "*", "module not selected");
+            return;
+        };
+        // A key no path can produce: each module's method sources are gathered once.
+        if !lookup.visited.insert((locator.clone(), vec![String::from("*methods")])) {
+            return;
+        }
+        for source in scope.method_sources.iter().chain(&scope.wildcards) {
+            lookup.reach(&label, "trait", source);
+        }
+        for import in scope.imports.values().flatten() {
+            if self.is_local_import(locator, import) {
+                self.resolve_import_path(lookup, locator, &import.segments, depth + 1);
+            }
+        }
+        for glob in &scope.glob_imports {
+            if self.is_local_import(locator, glob) {
+                self.glob_method_sources(lookup, locator, glob, depth + 1);
+            }
+        }
+    }
+
+    /// Includes the method sources of the module a local glob import names.
+    fn glob_method_sources(&self, lookup: &mut Lookup<'a>, locator: &ModuleLocator, glob: &ImportPath, depth: usize) {
+        if let Some(module) = self.resolve_module(lookup, locator, &glob.segments, depth) {
+            self.module_method_sources(lookup, &module, depth + 1);
+        }
+    }
+
+    /// The selected module a local path names, through keywords, module declarations, and local
+    /// imports. A path ending at a local type (an enum's variants) brings no trait; any other
+    /// target the selected sources cannot show is hidden.
+    fn resolve_module(
+        &self,
+        lookup: &mut Lookup<'a>,
+        locator: &ModuleLocator,
+        segments: &[String],
+        depth: usize,
+    ) -> Option<ModuleLocator> {
+        if !lookup.step(depth) {
+            return None;
+        }
+        let label = module_label(locator);
+        let Some((first, rest)) = segments.split_first() else {
+            return Some(locator.clone());
+        };
+        let next = match first.as_str() {
+            "self" => Some(locator.clone()),
+            "super" => self.modules.parent(locator),
+            "crate" => self.modules.crate_root(locator),
+            name => {
+                let Some(scope) = self.modules.scopes.get(locator) else {
+                    lookup.hide(&label, name, "module not selected");
+                    return None;
+                };
+                if scope.modules.contains_key(name) {
+                    self.modules.child(locator, name)
+                } else if let Some([import]) = scope.imports.get(name).map(Vec::as_slice) {
+                    if !self.is_local_import(locator, import) {
+                        lookup.reach_declaration(&label, name, &import_text(import));
+                        return None;
+                    }
+                    let mut target = import.segments.clone();
+                    target.extend(rest.iter().cloned());
+                    return self.resolve_module(lookup, locator, &target, depth + 1);
+                } else if scope.types.contains(name) {
+                    lookup.reach_declaration(&label, name, "type");
+                    return None;
+                } else {
+                    None
+                }
+            }
+        };
+        if let Some(module) = next {
+            self.resolve_module(lookup, &module, rest, depth + 1)
+        } else {
+            lookup.hide(&label, first, "not a proven selected module");
+            None
+        }
     }
 
     /// The selected function `name` in `container` of the module at `locator`. Without a unique
@@ -1878,15 +1977,13 @@ impl<'a> BodyScanner<'a> {
                 segments,
             })
             .collect();
-        let body_method_sources = if kind == RawCallKind::Method {
-            self.block_imports
-                .iter()
-                .flat_map(|block| block.imports.values().flatten().chain(&block.glob_imports))
-                .cloned()
-                .collect()
-        } else {
-            Vec::new()
-        };
+        let mut body_method_sources = BodyLookup::default();
+        if kind == RawCallKind::Method {
+            for block in &self.block_imports {
+                body_method_sources.imports.extend(block.imports.values().flatten().cloned());
+                body_method_sources.globs.extend(block.glob_imports.iter().cloned());
+            }
+        }
         self.calls.push(RawCall {
             shape,
             kind,
@@ -3171,11 +3268,7 @@ fn build_nodes(
         let mut calls = Vec::new();
         for (occurrence, raw_call) in scanner.calls.into_iter().enumerate() {
             let call_scope = if raw_call.kind == RawCallKind::Method {
-                CallScope {
-                    text: function.draft.outer_scope.method_resolution_text(&function.draft.module),
-                    local: None,
-                    hidden: raw_call.in_body_module,
-                }
+                resolver.method_scope(function, &raw_call)
             } else {
                 resolver.call_scope(function, &raw_call)
             };
@@ -4998,5 +5091,49 @@ unsafe fn risky(values: &[u8]) -> u8 {
                 "call:Foo::persist",
             ),
         ]);
+    }
+
+    /// Reviews every call of `reviewed` (several selected files, `root` in `TEST_PATH`), then
+    /// asserts that `changed` leaves the summary for `shape` stale and the call unknown.
+    fn assert_workspace_summary_goes_stale(reviewed: &[(&str, &str)], changed: &[(&str, &str)], shape: &str) {
+        let caller_address = || vec![address("root", '5')];
+        let denied = compute_closure(workspace_input(reviewed, caller_address(), Vec::new()));
+        let summaries = reviewed_summaries(&denied, &dependency_provider());
+        let admitted = compute_closure(workspace_input(reviewed, caller_address(), summaries.clone()));
+        assert_eq!(admitted.status, AdmissionStatus::Admitted, "{reviewed:?}: {:?}", admitted.diagnostics);
+        let receipt = compute_closure(workspace_input(changed, caller_address(), summaries));
+        assert!(
+            receipt.diagnostics.iter().any(|diagnostic| diagnostic.code == DIAGNOSTIC_SUMMARY_STALE),
+            "{changed:?}: {:?}",
+            receipt.diagnostics
+        );
+        assert_eq!(call_edge(&receipt, "root", shape).resolution, CallResolution::Unknown, "{changed:?}");
+    }
+
+    const EXT_PATH: &str = "crates/domain/src/ext.rs";
+
+    // r[verify octet.effect_closure.dependency_summaries.invalid]
+    // r[verify octet.effect_closure.verification.adversarial]
+    #[test]
+    fn method_scopes_follow_local_trait_imports() {
+        let lib = "mod core;\nmod ext;\n";
+        for caller in [
+            "use crate::ext::PersistExt;\npub fn root(value: u8) { value.persist(); }\n",
+            "use crate::ext::*;\npub fn root(value: u8) { value.persist(); }\n",
+        ] {
+            assert_workspace_summary_goes_stale(
+                &[
+                    (TEST_PATH, caller),
+                    (EXT_PATH, "pub use fs_ext::PersistExt;\n"),
+                    (LIB_PATH, lib),
+                ],
+                &[
+                    (TEST_PATH, caller),
+                    (EXT_PATH, "pub use other::PersistExt;\n"),
+                    (LIB_PATH, lib),
+                ],
+                "method:value:persist",
+            );
+        }
     }
 }
