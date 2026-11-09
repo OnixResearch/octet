@@ -16,6 +16,7 @@ use rustc_span::sym;
 use crate::diagnostics::LintSuggestion;
 use crate::diagnostics::emit_tiger_style_lint;
 use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
+use crate::source;
 use crate::test_context;
 
 declare_tool_lint! {
@@ -231,6 +232,7 @@ fn should_skip_unwrap<'tcx>(
 
 /// Name of the `Option`/`Result` `unwrap` or `expect` method that a path such as
 /// `Result::unwrap`, `Option::<u32>::expect`, or `<Option<u32>>::unwrap` resolves to.
+/// Paths whose method segment the user did not spell are generated code.
 fn path_unwrap_name(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> Option<&'static str> {
     let ExprKind::Path(qpath) = &expr.kind else {
         return None;
@@ -244,7 +246,14 @@ fn path_unwrap_name(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> Option<&'stat
         _ => return None,
     };
     let impl_did = cx.tcx.inherent_impl_of_assoc(did)?;
-    is_option_or_result(cx, cx.tcx.type_of(impl_did).instantiate_identity()).then_some(name)
+    if !is_option_or_result(cx, cx.tcx.type_of(impl_did).instantiate_identity()) {
+        return None;
+    }
+    let method_ident = match qpath {
+        hir::QPath::Resolved(_, path) => path.segments.last()?.ident,
+        hir::QPath::TypeRelative(_, segment) => segment.ident,
+    };
+    source::ident_is_spelled_at_its_span(cx.sess(), method_ident).then_some(name)
 }
 
 fn is_call_callee(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
@@ -268,6 +277,10 @@ fn unwrap_use<'tcx>(
                 "expect" => "expect",
                 _ => return None,
             };
+            // `#[tokio::main]` re-spans its generated `.expect` at a user token.
+            if !source::ident_is_spelled_at_its_span(cx.sess(), segment.ident) {
+                return None;
+            }
             // Only fire when the receiver is Option or Result. Use the adjusted type
             // so auto-derefed receivers such as `&Option<T>` are covered too.
             is_option_or_result(cx, cx.typeck_results().expr_ty_adjusted(receiver)).then_some((Some(*receiver), name))

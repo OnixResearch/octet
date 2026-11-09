@@ -98,6 +98,17 @@ pub(crate) fn span_in_scopes(sess: &rustc_session::Session, span: rustc_span::Sp
     path_in_scopes(relative.as_deref().unwrap_or(&path), scopes)
 }
 
+/// Whether the source text at `ident`'s span spells `ident`, so the user wrote
+/// that token. Attribute proc macros such as `#[tokio::main]` build code with
+/// `quote_spanned!` at a user token: the generated `.expect` then has no
+/// expansion context, yet its span covers other user text, such as a `;`.
+pub(crate) fn ident_is_spelled_at_its_span(sess: &rustc_session::Session, ident: rustc_span::Ident) -> bool {
+    sess.source_map().span_to_snippet(ident.span).is_ok_and(|snippet| {
+        let spelled = snippet.strip_prefix("r#").unwrap_or(&snippet);
+        spelled == ident.as_str()
+    })
+}
+
 /// The comment lines that document an item from above, nearest first: comments
 /// between its outer attributes and the contiguous comment lines above the
 /// earliest attribute. `prefix` is the source text before the item. A comment

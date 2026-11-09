@@ -133,6 +133,7 @@
     "sentinel_fallback",
     "tokio_async/ignored_result_shutdown_send_tokio",
     "tokio_async/ignored_result_try_send_tokio",
+    "tokio_async/tokio_entry_generated_code",
     "tokio_async/unbounded_loop_bare_async",
     "tokio_async/unbounded_loop_bounded_receiver",
     "tokio_async/unbounded_loop_imported_select",
