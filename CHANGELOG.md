@@ -6,6 +6,22 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## Unreleased: review fixes to this cycle's changes
+
+The entries below were corrected in place where a review of this cycle's
+changes refined them. These fixes have no earlier entry:
+
+- The Nickel export import scanner follows Nickel's lexer for multiline-string
+  delimiters and interpolation, and honours `import "path" as 'Format`: a
+  dependency is scanned exactly when Nickel parses it as Nickel source.
+- SARIF intake rejects a colon only in the first path segment (drive letters
+  and schemes), so Octet's own SARIF with paths like `src/a:b.rs` imports back.
+- The `cargo octet prove --explain` remediation carries the run's `--family`
+  selection.
+- Effect-closure call occurrences again number a `let`, `if let`, `while let`,
+  or `for` pattern, including a `let` type annotation, before its initializer,
+  so summaries reviewed before the scope change stay valid.
+
 ## Unreleased: SARIF, architecture, standards, Wasm, and dependency fixes
 
 Behaviour and format changes:
@@ -29,14 +45,17 @@ Behaviour and format changes:
   waivers on those kinds go stale once. Phase records report
   `waived_finding_count`, and the summary shows `clean with N waived`.
 - The compiler architecture collector matches units by Rust target tuple,
-  records a dynamic-dispatch unknown for trait calls through `Box`, `Arc`, or
-  `Rc<dyn Trait>` and qualified paths, records calls and effects for function
-  items passed as values such as `unwrap_or_else(Instant::now)`, classifies
-  standard-stream output as observability and `std::sync` primitives and
-  atomics as concurrency, and marks a shard incomplete when a value-flow limit
-  is hit. Items in non-library targets get target-qualified identities;
-  library identities are unchanged. These can newly produce findings, and
-  waivers on findings from non-library targets go stale once.
+  records a dynamic-dispatch unknown for trait calls through `&dyn`, `Box`,
+  `Arc`, `Rc`, or `Pin` of a trait object (including standard traits with
+  forwarding impls, such as `write_all` on a `Box<dyn Write>`) and qualified
+  paths, records calls and effects for function items passed as values such as
+  `unwrap_or_else(Instant::now)`, classifies standard-stream output as
+  observability and runtime synchronizing `std::sync` and atomic calls as
+  concurrency (calls in `const` and `static` initializers, constructors,
+  `get_mut`, and `into_inner` record none), and marks a shard incomplete when a
+  value-flow limit is hit. Items in non-library targets get target-qualified
+  identities; library identities are unchanged. These can newly produce
+  findings, and waivers on findings from non-library targets go stale once.
 - `octet-standards` dependency-direction checks fail closed when the crate
   graph is incomplete: no `--source` inside a Cargo workspace, `cargo
   metadata` output without a `resolve` graph, or a declared crate that matches
@@ -76,9 +95,13 @@ Behaviour and format changes:
   `run(std::process::abort)` or `None`, is a `value:` edge that needs a local
   proof or an exact summary; a local variable exempts a value only where it is
   in scope, so a same-named binding in another block, arm, loop, or closure no
-  longer hides an imported function. Policies may need new summaries for
-  constants and variants used as values, and summaries for later calls in
-  those functions may go stale.
+  longer hides an imported function. Paths in compile-time positions (types,
+  patterns, array lengths, const generic arguments and defaults, enum
+  discriminants, and `const`, `static`, and associated-const initializers) are
+  not value edges, though calls there are still recorded. Policies may need new
+  summaries for constants and variants used as values, and qualified-self calls
+  keep their prefix in the call shape (`call:new` becomes `call:<Vec>::new`),
+  so summaries for those calls must be re-reviewed.
 - `cargo octet fingerprint` reports markers that bind to no function (between
   attributes and `fn`, above a doc comment, or a `#[fingerprint(...)]` among
   other attributes): `--check` and `--diff` exit `1` and name each line, and
@@ -102,16 +125,23 @@ Behaviour and format changes:
   needs string arrays, artifact `inspect` and `replay` accept only full `b3:`
   hashes, re-hash every record, and check the whole dependency chain, and
   `session migrate` reads `schema_version` and requires an `identity`. Artifact
-  and capsule identities drop secret-like fields and replace absolute-path
-  values with `<absolute-path>`, so such artifacts get new hashes. A
-  `pure-cache` miss reports `miss_reason` and `changed_key_components` instead
-  of `changed_key_component`, and a hit with a different `--output-hash` exits
-  `1`.
+  and capsule identities drop secret-like fields (acronym-aware: `DBPassword`,
+  `AWSSecretAccessKey`; non-secret fields such as `eos_token` and
+  `secret_count` stay) and replace a leading workspace, `HOME`, or temp-dir
+  root with `<workspace>`, `<home>`, or `<temp>`; other absolute strings and
+  `*_identity` fields stay verbatim, so in-workspace argv and binary-identity
+  changes replay as `drifted`. Artifacts that contain local-root paths get new
+  hashes. A `pure-cache` miss reports `miss_reason` and
+  `changed_key_components` instead of `changed_key_component`, ignores store
+  files that are not cache entries, and a hit with a different `--output-hash`
+  exits `1`.
 - The `cargo-fuzz-libfuzzer` profile pins `rustc_commit_hash` instead of a
-  compiler label, and the run withholds `RUSTUP_TOOLCHAIN` and `RUSTC`,
-  observes `rustc -vV`, and refuses another commit; the profile identity
-  changes. libFuzzer `leak-*`, `oom-*`, and `timeout-*` artifacts are bound as
-  findings.
+  compiler label. The run withholds `RUSTUP_TOOLCHAIN` and `RUSTC`, observes
+  `rustc -vV`, refuses another commit, and then passes the probed compiler to
+  cargo-fuzz as `RUSTC` with empty `RUSTC_WRAPPER` and
+  `RUSTC_WORKSPACE_WRAPPER`, so cargo config cannot swap it; the profile
+  identity changes. libFuzzer `leak-*`, `oom-*`, and `timeout-*` artifacts are
+  bound as findings.
 - ast-grep import refuses an envelope whose embedded profile differs from the
   checked-in profile.
 - The cargo-deny and cargo-llvm-cov external schema contracts are generated
@@ -148,9 +178,12 @@ Behaviour and format changes:
   names remain aliases, used only when the `OCTET_*` name is unset; an empty or
   non-UTF-8 value is an error and never falls back to the alias. The Nix-wrapped
   binaries now set the `OCTET_*` names.
-- `cargo octet check` exits `2` before Cargo runs when `--function-address-path`
-  leaves the workspace root (a `..` component, an absolute path elsewhere, or a
-  symlink out of the root), or when `--function-address-path` or
+- `cargo octet check` exits `2` before Cargo runs when a function-address scope
+  from `--function-address-path` or a profile's `core_source_scopes` leaves the
+  workspace root (a `..` component, an absolute path elsewhere, or a symlink out
+  of the root; the error names the flag or `dylint.toml` entry), refuses
+  symlinked directories or `.rs` files inside a scope that resolve outside the
+  root, or when `--function-address-path` or
   `--function-address-baseline` is given while function-address checks are off:
   no `--function-addresses observe|warn|deny` and no strict profile from
   `--profile` or the workspace's architecture admission binding.
@@ -173,7 +206,8 @@ Behaviour and format changes:
   status `recorded`, not `passed`, because it never runs them.
 - `lib.mkPolicyArtifactConsumerCheck` can assert a nonzero
   `expectedDiagnostics`; it accepts exit `1` only when the report carries
-  blocking diagnostics, so config and usage errors still fail.
+  blocking diagnostics, and fails when exit `0` comes with blocking diagnostics
+  or when config and usage errors occur.
 
 Fixes:
 
