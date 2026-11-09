@@ -1,9 +1,6 @@
 #![feature(register_tool)]
 #![register_tool(tigerstyle)]
 #![warn(unjustified_allow)]
-// The runtime builder `#[tokio::main]` generates calls `.expect()`; this
-// fixture only covers the generated `#[allow(clippy::...)]` block.
-#![allow(tigerstyle::no_unwrap)]
 
 // Should NOT warn: `#[tokio::main]` wraps the body in a generated
 // `#[allow(clippy::...)]` block spanned at the last statement. The user never

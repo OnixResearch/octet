@@ -1,5 +1,5 @@
 warning: `#[allow(...)]` without justification comment
-  --> $DIR/tokio_async/unjustified_allow_tokio_main.rs:18:1
+  --> $DIR/tokio_async/unjustified_allow_tokio_main.rs:15:1
    |
 LL | #[allow(clippy::needless_return)]
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
