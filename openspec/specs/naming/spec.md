@@ -330,6 +330,12 @@ The lint MUST NOT warn when the repeated word is required to disambiguate a publ
 - WHEN the lint runs
 - THEN `path_segment_repetition` warns that `guest` is already supplied by the module path
 
+#### Scenario: Item repeats crate name [r[path-segment-repetition-detection.scenario.item-repeats-crate]]
+
+- GIVEN production code in crate `octet-vm` that defines `fn vm_config()` at the crate root or in any module
+- WHEN the lint runs
+- THEN `path_segment_repetition` warns that `vm` is already supplied by the crate name
+
 #### Scenario: Non-repeating item name [r[path-segment-repetition-detection.scenario.non-repeating-item]]
 
 - GIVEN production code in module `guest` that defines `fn spawn_vm(...)`

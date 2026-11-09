@@ -29,5 +29,23 @@ LL |     pub fn registry_lookup() {}
    = help: Tiger Style (Searchable Path Names): do not repeat crate or module path words in item names unless documenting a compatibility API Example: guest::spawn_vm
    = note: see Tiger Style guide: Naming
 
-warning: 3 warnings emitted
+warning: item name `repetition_report` repeats `repetition` from ancestor path segment `path_segment_repetition`
+  --> $DIR/path_segment_repetition.rs:29:1
+   |
+LL | fn repetition_report() {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Searchable Path Names): do not repeat crate or module path words in item names unless documenting a compatibility API Example: guest::spawn_vm
+   = note: see Tiger Style guide: Naming
+
+warning: item name `next_segment` repeats `segment` from ancestor path segment `path_segment_repetition`
+  --> $DIR/path_segment_repetition.rs:33:5
+   |
+LL |     pub fn next_segment() {}
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Searchable Path Names): do not repeat crate or module path words in item names unless documenting a compatibility API Example: guest::spawn_vm
+   = note: see Tiger Style guide: Naming
+
+warning: 5 warnings emitted
 

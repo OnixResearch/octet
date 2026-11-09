@@ -114,9 +114,13 @@ fn repeated_path_word(item_name: &str, path_segments: &[&str]) -> Option<Repetit
     })
 }
 
+/// The crate name followed by the ancestor module path of `item`.
+/// `def_path_str` omits the local crate name, so it is prepended here.
 fn item_path_segments(cx: &LateContext<'_>, item: &hir::Item<'_>) -> Vec<String> {
     let path = cx.tcx.def_path_str(item.owner_id.def_id.to_def_id());
-    let mut segments = path.split("::").map(str::to_owned).collect::<Vec<_>>();
+    let mut segments = std::iter::once(cx.tcx.crate_name(rustc_hir::def_id::LOCAL_CRATE).as_str().to_owned())
+        .chain(path.split("::").map(str::to_owned))
+        .collect::<Vec<_>>();
     segments.pop();
     segments
 }
@@ -164,9 +168,6 @@ impl<'tcx> LateLintPass<'tcx> for PathSegmentRepetition {
         }
 
         let segments = item_path_segments(cx, item);
-        if segments.is_empty() {
-            return;
-        }
         if is_lint_identity_name(ident.name.as_str(), &segments, self.exceptions) {
             return;
         }
@@ -187,5 +188,18 @@ impl<'tcx> LateLintPass<'tcx> for PathSegmentRepetition {
             ),
             "path_segment_repetition",
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::repeated_path_word;
+
+    #[test]
+    fn crate_name_hyphens_separate_words() {
+        let repetition = repeated_path_word("vm_config", &["octet-vm", "guest"]).expect("`vm` repeats the crate name");
+        assert_eq!(repetition.repeated_word, "vm");
+        assert_eq!(repetition.path_segment, "octet-vm");
+        assert!(repeated_path_word("octetvm_config", &["octet-vm"]).is_none());
     }
 }

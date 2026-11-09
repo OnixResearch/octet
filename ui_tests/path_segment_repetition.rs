@@ -25,6 +25,17 @@ mod registry {
 #[path = "../policy_inputs/generated_searchable_names/path_segment_repetition/generated/items.rs"]
 mod generated_items;
 
+// Should warn: the crate name `path_segment_repetition` already supplies `repetition`.
+fn repetition_report() {}
+
+mod scheduler {
+    // Should warn: crate-name words count for nested items too.
+    pub fn next_segment() {}
+}
+
+// Should NOT warn: no word repeats the crate name or a module path.
+fn flush_all() {}
+
 fn main() {
     guest::spawn_guest_vm();
     let _ = storage::storage_flush();
