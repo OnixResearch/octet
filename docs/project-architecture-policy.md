@@ -109,6 +109,8 @@ Recorded call and effect paths remain equal. Their callers, spans, and productio
 Local same-named helpers, nested definitions, and unrelated entry points do not qualify through name resemblance.
 This bounded classification does not claim complete randomness-provider coverage or dependency safety.
 
+Calls to the `std::io` standard streams, including the `print!`, `println!`, `eprint!`, `eprintln!`, and `dbg!` expansions, are observability effects.
+Calls on `std::sync` locks, once cells, barriers, condition variables, channels, and atomics are concurrency effects; `Arc` shared ownership is not.
 A function item passed as a value, such as `unwrap_or_else(Instant::now)` or `map(std::fs::read_to_string)`, is recorded as a call from the enclosing body with the same effect classification as a direct call.
 
 The collector records unresolved dispatch, FFI, missing bodies, unsupported expansions, and ambiguous selected provenance as typed unknown facts. A trait method call is dynamic when its compiler-resolved `Self` type is a trait object, whether the receiver is a reference, `Box`, `Arc`, or `Rc`, or the call uses a qualified path such as `Trait::method(object)`. External generated spans use redacted BLAKE3 provenance, not workspace paths. Files below a build or evidence directory that the source envelope excludes, such as build-script output included from `OUT_DIR` under `target/`, are external generated sources too. The collector does not infer a clean result.

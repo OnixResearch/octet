@@ -1208,6 +1208,45 @@ fn compiler_architecture_function_references_record_calls_and_effects() {
 }
 
 #[test]
+#[ignore = "run via cargo test --test ui compiler_architecture -- --ignored --nocapture"]
+fn compiler_architecture_observability_and_synchronization_effects() {
+    use octet_architecture_ir::CapabilityFamily;
+
+    let toolchain = rustup_toolchain();
+    let library = build_library(&toolchain);
+    let host = host_triple();
+    let driver = build_driver(&toolchain);
+    let shard = run_compiler_architecture_fixture(
+        &driver,
+        &library,
+        &host,
+        "negative/observability_and_synchronization_effects.rs",
+    );
+    assert_eq!(shard.collection_status, CollectionStatus::Complete);
+    assert_valid_compiler_shard(&shard);
+    let mut families = std::collections::BTreeMap::<&str, std::collections::BTreeSet<CapabilityFamily>>::new();
+    for (caller, family, _) in compiler_effects(&shard) {
+        families
+            .entry(caller.trim_start_matches("observability_and_synchronization_effects::"))
+            .or_default()
+            .insert(family);
+    }
+    // Shared ownership (`Arc`) and in-memory formatting are not effects.
+    let expected = [
+        ("atomic", CapabilityFamily::Concurrency),
+        ("channel", CapabilityFamily::Concurrency),
+        ("locked", CapabilityFamily::Concurrency),
+        ("print_error", CapabilityFamily::Observability),
+        ("print_value", CapabilityFamily::Observability),
+        ("write_stdout", CapabilityFamily::Observability),
+    ]
+    .into_iter()
+    .map(|(caller, family)| (caller, std::collections::BTreeSet::from([family])))
+    .collect::<std::collections::BTreeMap<_, _>>();
+    assert_eq!(families, expected, "{:#?}", compiler_effects(&shard));
+}
+
+#[test]
 #[ignore = "run via cargo test --test ui compiler_architecture_target_fixtures -- --ignored --nocapture"]
 fn compiler_architecture_target_fixtures() {
     let toolchain = rustup_toolchain();

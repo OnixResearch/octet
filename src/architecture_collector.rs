@@ -83,12 +83,31 @@ struct MirValueFlowResult<'tcx> {
     observations: Vec<ProvenanceObservation<'tcx>>,
     argument_updates: Vec<((LocalDefId, usize), ValueOrigins)>,
 }
+// Compiler-resolved definition prefixes. `print!`, `println!`, `eprint!`,
+// `eprintln!`, and `dbg!` resolve to `std::io::_print` or `std::io::_eprint`.
+// Synchronization covers locks, once cells, channels, and atomics; shared
+// ownership through `Arc` is not itself a synchronization effect.
 const EFFECT_PATHS: &[(&str, CapabilityFamily)] = &[
     ("std::env::", CapabilityFamily::Environment),
     ("std::fs::", CapabilityFamily::Filesystem),
     ("std::net::", CapabilityFamily::Network),
     ("std::process::", CapabilityFamily::Process),
     ("std::thread::", CapabilityFamily::Concurrency),
+    ("std::sync::Barrier", CapabilityFamily::Concurrency),
+    ("std::sync::Condvar", CapabilityFamily::Concurrency),
+    ("std::sync::LazyLock", CapabilityFamily::Concurrency),
+    ("std::sync::Mutex", CapabilityFamily::Concurrency),
+    ("std::sync::Once", CapabilityFamily::Concurrency),
+    ("std::sync::RwLock", CapabilityFamily::Concurrency),
+    ("std::sync::atomic::", CapabilityFamily::Concurrency),
+    ("std::sync::mpmc::", CapabilityFamily::Concurrency),
+    ("std::sync::mpsc::", CapabilityFamily::Concurrency),
+    ("std::io::_eprint", CapabilityFamily::Observability),
+    ("std::io::_print", CapabilityFamily::Observability),
+    ("std::io::stderr", CapabilityFamily::Observability),
+    ("std::io::stdin", CapabilityFamily::Observability),
+    ("std::io::stdout", CapabilityFamily::Observability),
+    ("core::sync::atomic::", CapabilityFamily::Concurrency),
     ("std::time::Instant::now", CapabilityFamily::Time),
     ("std::time::SystemTime::now", CapabilityFamily::Time),
 ];
@@ -2178,6 +2197,31 @@ mod tests {
     fn effect_classification_uses_resolved_definition_paths() {
         assert_eq!(effect_family("std::fs::read"), Some(CapabilityFamily::Filesystem));
         assert_eq!(effect_family("fixture::comment_named_std_fs_read"), None);
+    }
+
+    #[test]
+    fn observability_and_synchronization_paths_are_effects() {
+        for (definition, family) in [
+            ("std::io::_print", CapabilityFamily::Observability),
+            ("std::io::_eprint", CapabilityFamily::Observability),
+            ("std::io::stdout", CapabilityFamily::Observability),
+            ("std::io::stderr", CapabilityFamily::Observability),
+            ("std::sync::Mutex::<T>::lock", CapabilityFamily::Concurrency),
+            ("std::sync::RwLock::<T>::write", CapabilityFamily::Concurrency),
+            ("std::sync::OnceLock::<T>::get_or_init", CapabilityFamily::Concurrency),
+            ("std::sync::mpsc::channel", CapabilityFamily::Concurrency),
+            ("std::sync::atomic::AtomicU32::fetch_add", CapabilityFamily::Concurrency),
+            ("core::sync::atomic::AtomicU32::fetch_add", CapabilityFamily::Concurrency),
+        ] {
+            assert_eq!(effect_family(definition), Some(family), "{definition}");
+        }
+        for definition in [
+            "std::sync::Arc::<T>::new",
+            "std::io::Write::write_all",
+            "alloc::fmt::format",
+        ] {
+            assert_eq!(effect_family(definition), None, "{definition}");
+        }
     }
 
     fn selected_unit(package: &str, crate_name: &str, crate_type: &str, test: bool) -> CollectorCompilationUnit {
