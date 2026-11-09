@@ -614,28 +614,35 @@ fn evaluate_external_reports(
 ) -> (Vec<ExternalRuntimeReport>, Vec<WasmArtifactFinding>) {
     let mut reports = Vec::new();
     let mut findings = Vec::new();
-    for text in report_texts {
+    // Rejected reports are not recorded, so each finding names the report it
+    // came from: its 1-based `--external-report` position and, once parsed,
+    // its claimed producer and report identity.
+    for (position, text) in (1_usize..).zip(report_texts) {
         let report: ExternalRuntimeReport = match serde_json::from_str(text) {
             Ok(report) => report,
             Err(error) => {
                 findings.push(finding(
                     EXTERNAL_EVIDENCE_ISSUE,
                     severity,
-                    format!("parse external runtime report: {error}"),
+                    format!("external runtime report #{position}: parse external runtime report: {error}"),
                 ));
                 continue;
             }
         };
         let diagnostics =
             external_report_diagnostics(&report, exact_artifact_identity, profile_identity, target_runtime);
+        let source = format!(
+            "external runtime report #{position} (producer `{}`, report_identity `{}`)",
+            report.producer, report.report_identity
+        );
+        for diagnostic in &diagnostics {
+            findings.push(finding(EXTERNAL_EVIDENCE_ISSUE, severity, format!("{source}: {diagnostic}")));
+        }
         // Only verified reports are recorded evidence. A rejected report stays a
         // finding at the declared severity; recording it would make receipt
         // validation re-reject it and fail the receipt regardless of severity.
         if diagnostics.is_empty() {
             reports.push(report);
-        }
-        for diagnostic in diagnostics {
-            findings.push(finding(EXTERNAL_EVIDENCE_ISSUE, severity, diagnostic));
         }
     }
     reports.sort_by(|left, right| left.report_identity.cmp(&right.report_identity));
@@ -2832,6 +2839,46 @@ mod tests {
         let rejected =
             analyze_profile_with_external(&denied_bytes, &registry, SPACEWASM_PROFILE_ID, &[], &[promoted_text]);
         assert!(rejected.details.findings.iter().any(|finding| finding.issue_code == EXTERNAL_EVIDENCE_ISSUE));
+    }
+
+    #[test]
+    fn rejected_external_report_findings_identify_the_failing_report() {
+        let bytes =
+            wat::parse_str(include_str!("../../standards/wasm-artifact/spacewasm/fixtures/positive/mvp-module.wat"))
+                .expect("SpaceWasm fixture");
+        let mut registry = valid_registry();
+        let profile = registry
+            .profiles
+            .iter_mut()
+            .find(|profile| profile.profile_id == SPACEWASM_PROFILE_ID)
+            .expect("SpaceWasm profile");
+        "advisory".clone_into(&mut profile.severity.external_evidence);
+        let static_report = analyze_profile(&bytes, &registry, SPACEWASM_PROFILE_ID, &[]);
+        let verified = external_report_for(&static_report.details, "chaoscontrol", "executed-successfully");
+        let mut mismatched = external_report_for(&static_report.details, "mantle", "executed-successfully");
+        mismatched.artifact_identity = format!("{BLAKE3_PREFIX}{}", "0".repeat(BLAKE3_HEX_LENGTH));
+        mismatched.report_identity = external_report_identity(&mismatched).expect("mismatched identity");
+        let texts =
+            [&verified, &mismatched].map(|report| serde_json::to_string(report).expect("serialize external report"));
+
+        let report = analyze_profile_with_external(&bytes, &registry, SPACEWASM_PROFILE_ID, &[], &texts);
+
+        assert_eq!(report.details.external_evidence, vec![verified.clone()]);
+        let findings = &report.details.findings;
+        assert!(!findings.is_empty());
+        for finding in findings {
+            assert_eq!(finding.issue_code, EXTERNAL_EVIDENCE_ISSUE);
+            assert!(finding.message.contains(&mismatched.report_identity), "{}", finding.message);
+            assert!(finding.message.contains("mantle"), "{}", finding.message);
+            assert!(finding.message.contains("#2"), "{}", finding.message);
+            assert!(!finding.message.contains(&verified.report_identity), "{}", finding.message);
+        }
+
+        let unparsable = analyze_profile_with_external(&bytes, &registry, SPACEWASM_PROFILE_ID, &[], &[
+            texts[0].clone(),
+            "{".to_owned(),
+        ]);
+        assert!(unparsable.details.findings.iter().all(|finding| finding.message.contains("#2")));
     }
 
     #[test]
