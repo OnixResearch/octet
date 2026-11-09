@@ -442,8 +442,9 @@ struct BodyScanner<'a> {
     bindings: &'a CallerBindings,
     /// Lexical value scopes, innermost last; a nested item starts a fresh stack.
     scopes: Vec<ValueScope>,
-    /// Depth of enclosing patterns and types, whose paths name constants, variants, or types
-    /// evaluated at compile time rather than runtime values.
+    /// Depth of enclosing patterns, types, array repeat lengths, braced const generic arguments,
+    /// and enum discriminants, whose paths name constants, variants, or types evaluated at
+    /// compile time rather than runtime values.
     compile_time_depth: usize,
     direct_effects: BTreeSet<Effect>,
     calls: Vec<RawCall>,
@@ -762,6 +763,13 @@ impl<'a> BodyScanner<'a> {
         visit(self);
         self.scopes.pop();
     }
+
+    /// Visits a position that is evaluated at compile time; calls inside it are still recorded.
+    fn at_compile_time(&mut self, visit: impl FnOnce(&mut Self)) {
+        self.compile_time_depth += 1;
+        visit(self);
+        self.compile_time_depth -= 1;
+    }
 }
 
 impl<'ast> Visit<'ast> for BodyScanner<'_> {
@@ -906,15 +914,32 @@ impl<'ast> Visit<'ast> for BodyScanner<'_> {
     }
 
     fn visit_pat(&mut self, node: &'ast syn::Pat) {
-        self.compile_time_depth += 1;
-        syn::visit::visit_pat(self, node);
-        self.compile_time_depth -= 1;
+        self.at_compile_time(|scanner| syn::visit::visit_pat(scanner, node));
     }
 
     fn visit_type(&mut self, node: &'ast syn::Type) {
-        self.compile_time_depth += 1;
-        syn::visit::visit_type(self, node);
-        self.compile_time_depth -= 1;
+        self.at_compile_time(|scanner| syn::visit::visit_type(scanner, node));
+    }
+
+    fn visit_expr_repeat(&mut self, node: &'ast syn::ExprRepeat) {
+        for attribute in &node.attrs {
+            self.visit_attribute(attribute);
+        }
+        self.visit_expr(&node.expr);
+        self.at_compile_time(|scanner| scanner.visit_expr(&node.len));
+    }
+
+    fn visit_generic_argument(&mut self, node: &'ast syn::GenericArgument) {
+        if let syn::GenericArgument::Const(argument) = node {
+            self.at_compile_time(|scanner| scanner.visit_expr(argument));
+        } else {
+            syn::visit::visit_generic_argument(self, node);
+        }
+    }
+
+    // A variant's fields are types and its discriminant is a constant expression.
+    fn visit_variant(&mut self, node: &'ast syn::Variant) {
+        self.at_compile_time(|scanner| syn::visit::visit_variant(scanner, node));
     }
 
     fn visit_expr_method_call(&mut self, node: &'ast syn::ExprMethodCall) {
@@ -2955,6 +2980,30 @@ unsafe fn risky(values: &[u8]) -> u8 {
             assert_eq!(edges.len(), 1, "{body}: {:?}", root.calls);
             assert_eq!(edges[0].resolution, CallResolution::Unknown, "{body}");
             assert_eq!(receipt.status, AdmissionStatus::Denied, "{body}");
+        }
+    }
+
+    // r[verify octet.effect_closure.verification.adversarial]
+    #[test]
+    fn compile_time_positions_record_calls_but_not_value_edges() {
+        let items =
+            "const LEN: usize = 4;\nconst fn width() -> usize { 4 }\nfn make<const N: usize>(_count: usize) {}\n";
+        for (body, value_edges) in [
+            ("fn root() { let b: [u8; LEN + width()] = [0; 4]; let _ = b; }", 0),
+            ("fn root() { let b = [0u8; LEN + width()]; let _ = b; }", 0),
+            ("fn root() { let b = [LEN; LEN + width()]; let _ = b; }", 1),
+            ("fn root() { make::<{ LEN + width() }>(0); }", 0),
+            ("fn root() { make::<{ LEN + width() }>(LEN); }", 1),
+            ("fn root() { enum E { A = (LEN + width()) as isize } }", 0),
+            ("fn root() { enum E { A = (LEN + width()) as isize } let _ = LEN; }", 1),
+        ] {
+            let source = format!("{items}{body}\n");
+            let receipt = compute_closure(input(&source, vec![address("root", '1')], policy(Vec::new())));
+            let root = receipt.nodes.iter().find(|node| node.name == "root").expect("root node");
+            let edges = root.calls.iter().filter(|call| call.shape == "value:LEN").count();
+
+            assert_eq!(edges, value_edges, "{body}: {:?}", root.calls);
+            assert!(root.calls.iter().any(|call| call.shape == "call:width"), "{body}: {:?}", root.calls);
         }
     }
 
