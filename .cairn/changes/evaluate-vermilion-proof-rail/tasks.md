@@ -14,7 +14,7 @@
 - [x] [serial] Declare Verus, Vermilion, and Aeneas route obligations and open refinement bridges. r[octet.vermilion_proof_rail.semantic_contract]
 - [x] [serial] Add a comparison test proving the existing Verus `nat` lemma is incomparable with the u64 contract. r[octet.vermilion_proof_rail.semantic_contract]
 - [ ] [serial] Check a Verus refinement theorem for the u64 checked subject. Blocked: not attempted; the existing rail proves only a `nat` lemma. r[octet.vermilion_proof_rail.semantic_contract]
-- [ ] [serial] Check Aeneas and Vermilion refinement bridges to the executable function. Blocked: no live provider obligation or theorem exists yet. r[octet.vermilion_proof_rail.semantic_contract]
+- [ ] [serial] Check Aeneas and Vermilion refinement bridges to the executable function. The Vermilion u64 obligations are now live and Lean-checked, but the plain-Rust executable refinement bridge and the Aeneas u32-to-u64 bridge remain open. r[octet.vermilion_proof_rail.semantic_contract]
 
 ## Receipt and obligations
 
@@ -22,7 +22,7 @@
 - [x] [serial] Add fail-closed receipt validation for source, spec, overflow, width, provider, artifact, twin, obligation, axiom, hole, checker, dependency, command, tamper, non-claim, and authority classes. r[octet.vermilion_proof_rail.obligations]
 - [x] [serial] Add the positive synthetic receipt fixture with sealed identity and `recorded_only` disposition. r[octet.vermilion_proof_rail.receipt]
 - [x] [parallel] Add the twenty-case negative matrix and exercise every declared mutation. r[octet.vermilion_proof_rail.negative_controls]
-- [ ] [serial] Emit a measured receipt from a real Vermilion run. Blocked: the provider closure is unavailable and no obligations were generated. r[octet.vermilion_proof_rail.receipt]
+- [x] [serial] Emit a measured receipt from a real Vermilion run. The u64 checked-increment pilot ran live and produced 2 Lean-verified obligations with 0 sorry and a kernel-checked proof twin; see `standards/proof-rails/vermilion-lean/evidence/2026-11-09-u64-pilot/`. The typed `cargo octet prove` integration remains separate. r[octet.vermilion_proof_rail.receipt]
 
 ## Comparison and documentation
 
