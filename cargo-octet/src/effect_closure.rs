@@ -669,6 +669,27 @@ fn push_joined(text: &mut String, items: &BTreeSet<String>) {
     }
 }
 
+fn item_attributes(item: &syn::Item) -> &[syn::Attribute] {
+    match item {
+        syn::Item::Const(node) => &node.attrs,
+        syn::Item::Enum(node) => &node.attrs,
+        syn::Item::ExternCrate(node) => &node.attrs,
+        syn::Item::Fn(node) => &node.attrs,
+        syn::Item::ForeignMod(node) => &node.attrs,
+        syn::Item::Impl(node) => &node.attrs,
+        syn::Item::Macro(node) => &node.attrs,
+        syn::Item::Mod(node) => &node.attrs,
+        syn::Item::Static(node) => &node.attrs,
+        syn::Item::Struct(node) => &node.attrs,
+        syn::Item::Trait(node) => &node.attrs,
+        syn::Item::TraitAlias(node) => &node.attrs,
+        syn::Item::Type(node) => &node.attrs,
+        syn::Item::Union(node) => &node.attrs,
+        syn::Item::Use(node) => &node.attrs,
+        _ => &[],
+    }
+}
+
 impl ModuleScope {
     fn of_items(items: &[syn::Item]) -> Self {
         let mut scope = Self::default();
@@ -689,8 +710,14 @@ impl ModuleScope {
     /// Records what `item` binds. Type-like items and functions bind by kind and name: the callee
     /// a path through them reaches is bound by its own function address. Aliases, constants,
     /// statics, and extern crates bind by their full tokens, since those decide what a path
-    /// through them names.
+    /// through them names. An item carrying an attribute macro or `derive` (any non-inert
+    /// attribute other than `cfg`, which only keeps or drops the item) may also expand to any
+    /// sibling item, so it is a wildcard bound by the hash of its full tokens.
     fn declare_item(&mut self, item: &syn::Item) {
+        let attrs = item_attributes(item);
+        if attrs.iter().any(|attribute| !is_inert_attribute(attribute) && !attribute.path().is_ident("cfg")) {
+            self.declare_wildcard(attrs, format!("item {}", full_hash(&item.to_token_stream().to_string())));
+        }
         match item {
             syn::Item::Use(node) => {
                 let leading_colon = node.leading_colon.is_some();
@@ -763,22 +790,7 @@ impl ModuleScope {
                 };
                 self.declare(node.rename.as_ref().map_or(&node.ident, |(_, rename)| rename), &node.attrs, declaration);
             }
-            syn::Item::ForeignMod(node) => {
-                for foreign in &node.items {
-                    match foreign {
-                        syn::ForeignItem::Fn(item) => {
-                            self.declare(&item.sig.ident, &item.attrs, format!("extern fn {}", item.sig.ident));
-                        }
-                        syn::ForeignItem::Static(item) => {
-                            self.declare(&item.ident, &item.attrs, format!("extern static {}", item.ident));
-                        }
-                        syn::ForeignItem::Type(item) => {
-                            self.declare(&item.ident, &item.attrs, format!("extern type {}", item.ident));
-                        }
-                        other => self.declare_wildcard(&[], other.to_token_stream().to_string()),
-                    }
-                }
-            }
+            syn::Item::ForeignMod(node) => self.declare_foreign_items(&node.items),
             syn::Item::Macro(node) => match &node.ident {
                 Some(ident) if node.mac.path.is_ident("macro_rules") => {
                     self.declare(ident, &node.attrs, format!("macro_rules! {ident}"));
@@ -787,6 +799,23 @@ impl ModuleScope {
             },
             syn::Item::Impl(_) => {}
             other => self.declare_wildcard(&[], other.to_token_stream().to_string()),
+        }
+    }
+
+    fn declare_foreign_items(&mut self, items: &[syn::ForeignItem]) {
+        for foreign in items {
+            match foreign {
+                syn::ForeignItem::Fn(item) => {
+                    self.declare(&item.sig.ident, &item.attrs, format!("extern fn {}", item.sig.ident));
+                }
+                syn::ForeignItem::Static(item) => {
+                    self.declare(&item.ident, &item.attrs, format!("extern static {}", item.ident));
+                }
+                syn::ForeignItem::Type(item) => {
+                    self.declare(&item.ident, &item.attrs, format!("extern type {}", item.ident));
+                }
+                other => self.declare_wildcard(&[], other.to_token_stream().to_string()),
+            }
         }
     }
 
@@ -3925,5 +3954,45 @@ unsafe fn risky(values: &[u8]) -> u8 {
             assert_eq!(receipt.status, AdmissionStatus::Denied, "{source}");
             assert!(receipt.nodes[0].direct_effects.contains(&Effect::Unknown), "{source}");
         }
+    }
+
+    /// Asserts that each source keeps or loses the reviewed summaries of `reviewed`.
+    fn assert_summaries_follow_resolution(reviewed: &str, unchanged: &[&str], changed: &[(&str, &str)]) {
+        let denied = compute_closure(input(reviewed, vec![address("root", '5')], policy(Vec::new())));
+        let summaries = reviewed_summaries(&denied, &dependency_provider());
+        let admitted = compute_closure(reviewed_input(reviewed, summaries.clone()));
+        assert_eq!(admitted.status, AdmissionStatus::Admitted, "{reviewed}: {:?}", admitted.diagnostics);
+        for source in unchanged {
+            let receipt = compute_closure(reviewed_input(source, summaries.clone()));
+            assert_eq!(receipt.status, AdmissionStatus::Admitted, "{source}: {:?}", receipt.diagnostics);
+        }
+        for (source, shape) in changed {
+            let receipt = compute_closure(reviewed_input(source, summaries.clone()));
+            assert!(
+                receipt.diagnostics.iter().any(|diagnostic| diagnostic.code == DIAGNOSTIC_SUMMARY_STALE),
+                "{source}: {:?}",
+                receipt.diagnostics
+            );
+            assert_eq!(call_edge(&receipt, "root", shape).resolution, CallResolution::Unknown, "{source}");
+        }
+    }
+
+    // r[verify octet.effect_closure.dependency_summaries.invalid]
+    // r[verify octet.effect_closure.verification.adversarial]
+    #[test]
+    fn attributed_items_may_bind_any_name_in_their_module() {
+        assert_summaries_follow_resolution(
+            "struct Plain;\nfn root() { tidy(); }\n",
+            &[
+                "#[allow(dead_code)]\nstruct Plain;\nfn root() { tidy(); }\n",
+                "/// Documented.\nstruct Plain;\nfn root() { tidy(); }\n",
+                "#[cfg(test)]\nstruct Plain;\nfn root() { tidy(); }\n",
+            ],
+            &[
+                ("#[derive(Persist)]\nstruct Plain;\nfn root() { tidy(); }\n", "call:tidy"),
+                ("struct Plain;\n#[dep::generate]\nimpl Plain {}\nfn root() { tidy(); }\n", "call:tidy"),
+                ("#[dep::generate]\nconst LIMIT: u8 = 1;\nstruct Plain;\nfn root() { tidy(); }\n", "call:tidy"),
+            ],
+        );
     }
 }
