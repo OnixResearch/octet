@@ -109,7 +109,7 @@ Recorded call and effect paths remain equal. Their callers, spans, and productio
 Local same-named helpers, nested definitions, and unrelated entry points do not qualify through name resemblance.
 This bounded classification does not claim complete randomness-provider coverage or dependency safety.
 
-The collector records unresolved dispatch, FFI, missing bodies, unsupported expansions, and ambiguous selected provenance as typed unknown facts. External generated spans use redacted BLAKE3 provenance, not workspace paths. Files below a build or evidence directory that the source envelope excludes, such as build-script output included from `OUT_DIR` under `target/`, are external generated sources too. The collector does not infer a clean result.
+The collector records unresolved dispatch, FFI, missing bodies, unsupported expansions, and ambiguous selected provenance as typed unknown facts. A trait method call is dynamic when its compiler-resolved `Self` type is a trait object, whether the receiver is a reference, `Box`, `Arc`, or `Rc`, or the call uses a qualified path such as `Trait::method(object)`. External generated spans use redacted BLAKE3 provenance, not workspace paths. Files below a build or evidence directory that the source envelope excludes, such as build-script output included from `OUT_DIR` under `target/`, are external generated sources too. The collector does not infer a clean result.
 
 When `--artifact-dir` is set, a complete run adds these files:
 

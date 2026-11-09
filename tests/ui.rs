@@ -1034,6 +1034,21 @@ fn compiler_architecture_external_reference_provenance() {
     }
 }
 
+fn compiler_item_paths(shard: &CompilerArchitectureShard) -> HashMap<&str, &str> {
+    shard
+        .facts
+        .iter()
+        .filter_map(|fact| match fact {
+            CompilerArchitectureFact::Item {
+                item_id,
+                qualified_path,
+                ..
+            } => Some((item_id.as_str(), qualified_path.as_str())),
+            _ => None,
+        })
+        .collect()
+}
+
 fn compiler_item_id<'a>(shard: &'a CompilerArchitectureShard, qualified_path: &str) -> &'a str {
     let mut matches = shard.facts.iter().filter_map(|fact| match fact {
         CompilerArchitectureFact::Item {
@@ -1077,6 +1092,55 @@ fn compiler_architecture_selects_units_by_rust_target_tuple() {
     assert_eq!(shard.collection_status, CollectionStatus::Complete);
     assert_eq!(shard.unit.target_triple, RUST_TARGET);
     compiler_item_id(&shard, "cross_target::identity");
+}
+
+#[test]
+#[ignore = "run via cargo test --test ui compiler_architecture -- --ignored --nocapture"]
+fn compiler_architecture_dynamic_dispatch_through_pointers_and_paths() {
+    let toolchain = rustup_toolchain();
+    let library = build_library(&toolchain);
+    let host = host_triple();
+    let driver = build_driver(&toolchain);
+    let shard = run_compiler_architecture_fixture(
+        &driver,
+        &library,
+        &host,
+        "negative/smart_pointer_and_qualified_dynamic_dispatch.rs",
+    );
+    assert_eq!(shard.collection_status, CollectionStatus::Complete);
+    assert_valid_compiler_shard(&shard);
+    let items = compiler_item_paths(&shard);
+    let unknown_owners = shard
+        .unknowns
+        .iter()
+        .filter(|unknown| unknown.kind == UnknownFactKind::DynamicDispatch)
+        .filter_map(|unknown| items.get(unknown.owner_item_id.as_deref()?).copied())
+        .collect::<std::collections::BTreeSet<_>>();
+    let dynamic_callers = shard
+        .facts
+        .iter()
+        .filter_map(|fact| match fact {
+            CompilerArchitectureFact::Call {
+                caller_item_id,
+                dispatch: octet_architecture_ir::DispatchKind::Dynamic,
+                ..
+            } => items.get(caller_item_id.as_str()).copied(),
+            _ => None,
+        })
+        .collect::<std::collections::BTreeSet<_>>();
+    // Static receivers, including a boxed concrete type and a generic parameter,
+    // stay out of both sets.
+    let expected = [
+        "smart_pointer_and_qualified_dynamic_dispatch::invoke_boxed",
+        "smart_pointer_and_qualified_dynamic_dispatch::invoke_counted",
+        "smart_pointer_and_qualified_dynamic_dispatch::invoke_fully_qualified",
+        "smart_pointer_and_qualified_dynamic_dispatch::invoke_qualified",
+        "smart_pointer_and_qualified_dynamic_dispatch::invoke_shared",
+    ]
+    .into_iter()
+    .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(unknown_owners, expected);
+    assert_eq!(dynamic_callers, expected);
 }
 
 #[test]

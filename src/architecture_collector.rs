@@ -1251,14 +1251,16 @@ impl<'tcx> LateLintPass<'tcx> for ArchitectureCollector {
                     hir::ExprKind::Path(qpath) => cx.qpath_res(qpath, callee.hir_id).opt_def_id(),
                     _ => None,
                 };
-                let dispatch = def_id.map_or(DispatchKind::Unknown, |current| dispatch_kind(cx, current, None));
+                let dispatch = def_id.map_or(DispatchKind::Unknown, |current| {
+                    dispatch_kind(cx, current, cx.typeck_results().node_args_opt(callee.hir_id))
+                });
                 self.collect_call(cx, expr, def_id, dispatch);
             }
-            hir::ExprKind::MethodCall(_, receiver, _, _) => {
+            hir::ExprKind::MethodCall(..) => {
                 let def_id = cx.typeck_results().type_dependent_def_id(expr.hir_id);
-                let receiver_ty = cx.typeck_results().expr_ty(receiver);
-                let dispatch =
-                    def_id.map_or(DispatchKind::Unknown, |current| dispatch_kind(cx, current, Some(receiver_ty)));
+                let dispatch = def_id.map_or(DispatchKind::Unknown, |current| {
+                    dispatch_kind(cx, current, cx.typeck_results().node_args_opt(expr.hir_id))
+                });
                 self.collect_call(cx, expr, def_id, dispatch);
             }
             hir::ExprKind::Struct(qpath, ..) => {
@@ -1811,11 +1813,20 @@ fn workspace_library_package<'a>(selected_units: &'a [CollectorCompilationUnit],
     packages.all(|other| other == package).then_some(package)
 }
 
-fn dispatch_kind(cx: &LateContext<'_>, def_id: DefId, receiver: Option<Ty<'_>>) -> DispatchKind {
+// Classify a trait item from its resolved `Self` argument, not the written
+// receiver: method autoderef through `Box`, `Arc`, or `Rc`, and qualified
+// paths such as `Trait::method(object)`, still select a trait-object `Self`.
+fn dispatch_kind<'tcx>(cx: &LateContext<'tcx>, def_id: DefId, args: Option<ty::GenericArgsRef<'tcx>>) -> DispatchKind {
     if definition_is_foreign(cx, def_id) {
         return DispatchKind::Foreign;
     }
-    if receiver.is_some_and(|resolved| matches!(resolved.peel_refs().kind(), ty::Dynamic(..))) {
+    let self_ty = cx
+        .tcx
+        .trait_of_assoc(def_id)
+        .and(args)
+        .and_then(|args| args.first())
+        .and_then(|self_arg| self_arg.as_type());
+    if self_ty.is_some_and(|self_ty| matches!(self_ty.kind(), ty::Dynamic(..))) {
         return DispatchKind::Dynamic;
     }
     if matches!(cx.tcx.def_kind(def_id), DefKind::AssocFn | DefKind::AssocConst { .. } | DefKind::AssocTy) {
