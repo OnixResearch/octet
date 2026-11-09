@@ -595,11 +595,14 @@ fn has_opaque_attribute(attrs: &[syn::Attribute]) -> bool {
 }
 
 /// Whether `attribute` is a built-in attribute that expands to no code and changes no call:
-/// documentation, lint levels, codegen and layout hints, crate-level settings, and attributes of
-/// the built-in `rustfmt`, `clippy`, and `diagnostic` tools. Every other attribute may change what
-/// the annotated item compiles to: `cfg` and `cfg_attr`, `test` and `bench` (which compile only
-/// under the test harness), `derive` (whose generated items can shadow module names inside a
-/// body), and every procedural attribute macro.
+/// documentation, lint levels, codegen and layout hints, and crate-level settings. Built-in
+/// attribute names cannot be shadowed, so a single-segment match is exact. Every other attribute
+/// may change what the annotated item compiles to: `cfg` and `cfg_attr`, `test` and `bench`
+/// (which compile only under the test harness), `derive` (whose generated items can shadow module
+/// names inside a body), every procedural attribute macro, and tool attributes such as
+/// `rustfmt::skip`, `clippy::msrv`, or `diagnostic::on_unimplemented`: a module, import, extern
+/// crate, or renamed Cargo dependency of the tool's name shadows the tool, and the recorded
+/// dependency graph does not carry dependency renames, so a tool path cannot be proven built-in.
 fn is_inert_attribute(attribute: &syn::Attribute) -> bool {
     const INERT_ATTRIBUTES: &[&str] = &[
         "allow",
@@ -620,17 +623,7 @@ fn is_inert_attribute(attribute: &syn::Attribute) -> bool {
         "track_caller",
         "warn",
     ];
-    const INERT_TOOLS: &[&str] = &["clippy", "diagnostic", "rustfmt"];
-    let path = attribute.path();
-    if path.leading_colon.is_some() {
-        return false;
-    }
-    let mut segments = path.segments.iter().map(|segment| &segment.ident);
-    match (segments.next(), segments.next(), segments.next()) {
-        (Some(name), None, None) => INERT_ATTRIBUTES.iter().any(|inert| name == inert),
-        (Some(tool), Some(_), None) => INERT_TOOLS.iter().any(|inert| tool == inert),
-        _ => false,
-    }
+    attribute.path().get_ident().is_some_and(|name| INERT_ATTRIBUTES.iter().any(|inert| name == inert))
 }
 
 impl OuterScope {
@@ -3753,7 +3746,7 @@ unsafe fn risky(values: &[u8]) -> u8 {
     fn inert_built_in_attributes_keep_functions_admissible() {
         for source in [
             "/// Documented.\n#[inline]\n#[must_use]\n#[allow(clippy::pedantic)]\nfn root() -> u8 { 0 }\n",
-            "#![forbid(unsafe_code)]\n#![doc = \"crate docs\"]\n#[cold]\n#[track_caller]\n#[rustfmt::skip]\n#[deny(warnings)]\nfn root() -> u8 { 0 }\n",
+            "#![forbid(unsafe_code)]\n#![doc = \"crate docs\"]\n#[cold]\n#[track_caller]\n#[deny(warnings)]\nfn root() -> u8 { 0 }\n",
             "#[deprecated(note = \"replaced\")]\n#[expect(dead_code)]\n#[warn(unused)]\nfn root(#[allow(unused)] _value: u8) -> u8 { 0 }\n",
             "struct Tick;\n/// Inherent.\n#[allow(dead_code)]\nimpl Tick {\n    #[inline(always)]\n    fn root() -> u8 { 0 }\n}\n",
             "#[doc(hidden)]\nmod quiet {\n    #![allow(dead_code)]\n    #[must_use = \"use it\"]\n    fn root() -> u8 { #[allow(unused)] let value = 0; value }\n}\n",
@@ -3915,5 +3908,22 @@ unsafe fn risky(values: &[u8]) -> u8 {
         // Bytes that are not a JSON object are left to the full parse to report as malformed.
         assert_eq!(unsupported_receipt_schema(b"not json"), None);
         assert_eq!(unsupported_receipt_schema(b"[]"), None);
+    }
+
+    // r[verify octet.effect_closure.inference.unknown]
+    // r[verify octet.effect_closure.verification.adversarial]
+    #[test]
+    fn tool_attributes_are_unknown_because_tool_names_can_be_shadowed() {
+        for source in [
+            "#[rustfmt::skip]\nfn root() {}\n",
+            "mod rustfmt {}\n#[rustfmt::skip]\nfn root() {}\n",
+            "use dep as rustfmt;\n#[rustfmt::skip]\nfn root() {}\n",
+            "extern crate dep as clippy;\n#[clippy::msrv = \"1.70\"]\nfn root() {}\n",
+            "#[diagnostic::on_unimplemented(message = \"gate\")]\ntrait Gate {\n    fn root(&self) {}\n}\n",
+        ] {
+            let receipt = compute_closure(input(source, vec![address("root", '1')], policy(Vec::new())));
+            assert_eq!(receipt.status, AdmissionStatus::Denied, "{source}");
+            assert!(receipt.nodes[0].direct_effects.contains(&Effect::Unknown), "{source}");
+        }
     }
 }
