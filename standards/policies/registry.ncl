@@ -777,7 +777,12 @@ in
       validation_command = "nix develop -c cargo test -p cargo-octet --lib external::sarif",
       status = "existing",
       config_digest_required = true,
-      positive_fixtures = ["cargo-octet/tests/fixtures/evidence-rails/sarif-codeql.json", "cargo-octet/tests/fixtures/evidence-rails/sarif-semgrep.json"],
+      positive_fixtures = [
+        "cargo-octet/tests/fixtures/evidence-rails/sarif-codeql.json",
+        "cargo-octet/tests/fixtures/evidence-rails/sarif-codeql-cli.json",
+        "cargo-octet/tests/fixtures/evidence-rails/sarif-codeql-cli-grouped.json",
+        "cargo-octet/tests/fixtures/evidence-rails/sarif-semgrep.json",
+      ],
       negative_fixtures = ["cargo-octet/tests/fixtures/evidence-rails/sarif-unsafe.json"],
     },
     {
