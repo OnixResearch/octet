@@ -238,18 +238,23 @@ When `--artifact-dir` is set, the runner writes `command.txt`, `status.json`, `s
 The artifact directory holds the check bundle alone. `--artifact-dir` must not be the workspace root or one of its ancestors, and a `--baseline` or `--write-baseline` path or the `--cache` directory (`.octet/cache` under the workspace root) must not lie inside it. The runner resolves symlinks and `..` components and refuses such a combination with exit `2` before Cargo runs.
 
 `--cache` labels findings; it does not reuse results. Every run still lints
-every selected crate and reports its own findings. The runner stores the
-semantic IDs of the latest `--cache` run in `.octet/cache/findings.json` under a
-key of the `cargo-octet` version, the toolchain name and `rustc -Vv` version
-line, the config hash, and the crate graph hash (the root `Cargo.toml` and
-`Cargo.lock` bytes). A finding reports `cache_status: hit` when the previous
-`--cache` run reported the same semantic ID under the same key, and `miss`
-otherwise; a key change or an ID the previous run did not report is a miss, and
-each run replaces the stored IDs with its own. Findings without a computed
-identity report `bypassed`, and so does every finding when the runner cannot
-read the rustc version; such a run leaves the stored cache untouched. A cache
-file from a release before the key existed counts as empty. Without `--cache`,
-findings report `disabled`.
+every selected crate and reports its own findings. The runner keeps
+`.octet/cache/findings.json` as one entry per key, each holding the semantic IDs
+of the latest complete `--cache` run with that key. The key is the
+`cargo-octet` version, the toolchain name and `rustc -Vv` version line, the
+config hash (which covers the effective scope and `cargo check` arguments), and
+the crate graph hash (the root `Cargo.toml` and `Cargo.lock` bytes). A finding
+reports `cache_status: hit` when that entry holds its semantic ID, and `miss`
+otherwise. A run replaces only its own key's entry, so `cargo octet check
+--cache -p a` leaves the entry of a full-workspace run alone; the file keeps the
+eight most recently written keys. A run whose `cargo check` did not succeed may
+have skipped crates, so it is labelled but records nothing. Findings without a
+computed identity report `bypassed`, and so does every finding when the runner
+cannot read the rustc version; such a run also records nothing. The file is
+replaced by an atomic rename. A cache file the runner cannot parse, including an
+empty or truncated one or one from a release before the key existed, counts as
+empty and is replaced by the next complete run. Without `--cache`, findings
+report `disabled`.
 
 ### 3a. Optional formal proof rails
 

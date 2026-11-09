@@ -234,7 +234,7 @@ The lint MUST NOT warn on clones that are moved into ownership-consuming APIs, s
 
 ### Requirement: Content Identity Lint Cache [r[content-identity-lint-cache]]
 
-The system MUST support an optional deterministic lint cache that labels each finding with whether an earlier run already reported it. The cache key MUST cover the Octet version, rustc/toolchain identity, lint config hash, and crate graph hash (the root `Cargo.toml` and `Cargo.lock` bytes); each finding's lint ID and semantic item identity select its entry. The cache MUST be disabled or bypassed for findings that cannot prove deterministic inputs and for runs whose rustc identity is unknown. The cache is a label, not result reuse: every run lints every selected crate and reports its own findings.
+The system MUST support an optional deterministic lint cache that labels each finding with whether an earlier run already reported it. The cache key MUST cover the Octet version, rustc/toolchain identity, lint config hash (including the effective scope and `cargo check` arguments), and crate graph hash (the root `Cargo.toml` and `Cargo.lock` bytes); each finding's lint ID and semantic item identity select its entry. The cache MUST keep a separate bounded entry per key, so a run with one key does not discard another key's entry, and MUST NOT record a run whose `cargo check` did not succeed. The cache MUST be disabled or bypassed for findings that cannot prove deterministic inputs and for runs whose rustc identity is unknown. The cache file MUST be replaced atomically, and a cache file that cannot be parsed MUST read as empty rather than fail the run. The cache is a label, not result reuse: every run lints every selected crate and reports its own findings.
 
 #### Scenario: Unchanged item uses cached finding [r[content-identity-lint-cache.scenario.unchanged-item-uses-cached-finding]]
 
@@ -248,7 +248,8 @@ The system MUST support an optional deterministic lint cache that labels each fi
 - GIVEN the lint config hash, toolchain identity, crate graph hash, or Octet version changes between two runs
 - WHEN `cargo octet check --cache` runs
 - THEN its findings report `cache_status: miss`
-- AND the cache keeps only the semantic IDs of the latest run under the latest key, so an ID the latest run did not report is forgotten
+- AND the earlier key's entry is kept, so a later run with that key still reports hits
+- AND each key's entry holds only the semantic IDs of the latest complete run with that key, so an ID that run did not report is forgotten
 
 #### Scenario: Non-deterministic input bypasses cache [r[content-identity-lint-cache.scenario.non-deterministic-input-bypasses-cache]]
 

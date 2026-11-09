@@ -141,8 +141,8 @@ impl CacheRoot {
         self.root.read_to_string_optional(relative)
     }
 
-    pub(crate) fn write(&self, relative: &RootRelativePath, bytes: &[u8]) -> Result<(), String> {
-        self.root.write(relative, bytes)
+    pub(crate) fn write_atomic(&self, relative: &RootRelativePath, bytes: &[u8]) -> Result<(), String> {
+        self.root.write_atomic(relative, bytes)
     }
 }
 
@@ -623,9 +623,15 @@ mod tests {
         let locator = RootRelativePath::new(CACHE_FILE).expect("cache locator");
 
         assert!(cache.read_to_string_optional(&locator).expect("missing cache").is_none());
-        cache.write(&locator, CACHE_TEXT.as_bytes()).expect("write cache");
+        cache.write_atomic(&locator, b"stale").expect("write cache");
+        cache.write_atomic(&locator, CACHE_TEXT.as_bytes()).expect("replace cache");
 
         assert_eq!(cache.read_to_string_optional(&locator).expect("read cache"), Some(CACHE_TEXT.to_owned()));
+        let entries = std::fs::read_dir(tempdir.path().join(CACHE_ROOT))
+            .expect("list cache root")
+            .map(|entry| entry.expect("cache entry").file_name())
+            .collect::<Vec<_>>();
+        assert_eq!(entries, [std::ffi::OsString::from(CACHE_FILE)], "the staged write is renamed into place");
     }
 
     #[test]
