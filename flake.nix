@@ -199,6 +199,8 @@
           );
           # octet-standards exits 1 for blocking diagnostics and also for
           # config/IO errors (which emit no report), and 2 for usage errors.
+          # Exit 0 with a blocking diagnostic in the report means the exit
+          # code no longer gates, so it fails too.
           checkStatusAssertion =
             if expectedDiagnostics == 0 then
               ''
@@ -211,7 +213,12 @@
             else
               ''
                 case "$check_status" in
-                  0) ;;
+                  0)
+                    if jq --exit-status 'any(.diagnostics[]; .severity == "error")' "$report_json" >/dev/null; then
+                      echo "octet-standards check exited 0 with blocking diagnostics in its report" >&2
+                      exit 1
+                    fi
+                    ;;
                   1)
                     if ! jq --exit-status 'any(.diagnostics[]; .severity == "error")' "$report_json" >/dev/null; then
                       echo "octet-standards check exited 1 without a report carrying blocking diagnostics" >&2

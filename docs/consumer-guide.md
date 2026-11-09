@@ -475,7 +475,8 @@ source into the check sandbox, runs `octet-standards check
 assert required policy IDs are present in the policy-evaluation metadata. With
 `expectedDiagnostics = 0` the checker must exit 0; with a nonzero count, its
 blocking-findings exit is accepted only when the JSON report carries blocking
-diagnostics, so configuration or usage errors still fail the check. For
+diagnostics, so configuration or usage errors still fail the check, and an
+exit 0 whose report carries a blocking diagnostic fails too. For
 `family = "embedded"`, the generated artifact drives the
 `tigerstyle.embedded.bounded-queues` structural gate: forbidden unbounded
 constructors fail, while approved bounded APIs or wrappers need explicit
