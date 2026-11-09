@@ -182,10 +182,12 @@ u64 checked contract until a refinement bridge exists.
 
 ## Open obligations
 
-1. **Vermilion/Lean/Verus/cvc5 cohort is built; Aeneas and Charon are absent.**
+1. **Vermilion/Lean/Verus/cvc5 and Aeneas/Charon cohorts are built.**
    The pinned Vermilion `7c83bbc`, Lean 4.33.0, Mathlib cache, Vermilion Lean
    libraries, Rust workspace, and Verus fork `4860083` built on 2026-11-09.
-   Aeneas/Charon-dependent evidence remains blocked.
+   The pinned Aeneas `bc2eb6f9` / Charon `cb50ff16` closure also built and
+   passed four live compatibility tests; see
+   `standards/proof-rails/vermilion-lean/evidence/2026-11-09-aeneas-charon-closure.md`.
 2. **Measured Vermilion obligations exist for the u64 pilot.** The live
    `2026-11-09-u64-pilot` run produced two Lean-verified obligations with zero
    `sorry` and a kernel-checked proof twin. See
@@ -212,9 +214,8 @@ for t in vermilion lean lake aeneas charon cvc5; do
 done
 ```
 
-Observed result after the 2026-11-09 build: the pinned Vermilion, Lean, Lake,
-Mathlib, cvc5, and Verus fork closure is present; `aeneas` and `charon` remain
-`MISSING`. The live `m1-pipeline` canary passed 3/3 obligations, and the u64
+Observed result after the 2026-11-09 builds: the pinned Vermilion, Lean, Lake,
+Mathlib, cvc5, Verus fork, Aeneas, and Charon closures are present. The live `m1-pipeline` canary passed 3/3 obligations, and the u64
 checked-increment pilot passed 2/2 obligations with zero `sorry` and a
 kernel-checked proof twin. The synthetic positive receipt fixture remains a
 contract fixture, not a substitute for the measured pilot receipt.
