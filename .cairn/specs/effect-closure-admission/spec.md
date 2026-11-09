@@ -100,7 +100,7 @@ r[octet.effect_closure.roles.invalid]
 
 ### Requirement: Exact dependency-call summaries
 
-r[octet.effect_closure.dependency_summaries] Every selected non-macro call not resolved to a selected local function by a call path that proves the target (a single-segment call to a free function in the caller's file and module, `Owner::name` to an inherent method of `Owner` in that scope, or `self.name()` from an inherent method to the same inherent owner in that scope) MUST require one exact call-site summary bound to its caller function address, caller source path and module, the declarations that the call path's leading name resolves to outside the caller, and resolved provider identity. V1 MUST NOT infer effect-free toolchain intrinsics from names such as `Ok`, `Some`, or `Vec`; macro calls remain directly `unknown` and cannot be summarized.
+r[octet.effect_closure.dependency_summaries] Every selected non-macro call not resolved to a selected local function by a call path that proves the target (a single-segment call to a free function in the caller's file and module, `Owner::name` to an inherent method of `Owner` in that scope, `self.name()` from an inherent method to the same inherent owner in that scope, or a path through `crate::`, `super::`, `self::`, module declarations, or local `use` bindings that reaches such a function only through selected modules whose crate position is proven) MUST require one exact call-site summary bound to its caller function address, caller source path and module, every declaration the call path resolves through outside the caller (for a method call, every declaration that may bring its trait into scope), and resolved provider identity. A call whose path goes through a module the selected sources cannot prove MUST remain `unknown` and MUST NOT be summarized. V1 MUST NOT infer effect-free toolchain intrinsics from names such as `Ok`, `Some`, or `Vec`; macro calls remain directly `unknown` and cannot be summarized.
 
 #### Scenario: Exact summary resolves an external edge
 
@@ -115,7 +115,7 @@ r[octet.effect_closure.dependency_summaries.valid]
 
 r[octet.effect_closure.dependency_summaries.invalid]
 
-- GIVEN a call summary is missing, duplicated, unused, broad, declares `unknown`, lacks evidence, or mismatches package name, version, features, target, toolchain, workspace identity, caller function address, caller source path or module, or the `use` or item that the callee path's leading name resolves to
+- GIVEN a call summary is missing, duplicated, unused, broad, declares `unknown`, lacks evidence, or mismatches package name, version, features, target, toolchain, workspace identity, caller function address, caller source path or module, or a declaration its call path resolves through (including a re-export in another selected module and, for a method call, the module's imports and traits)
 - WHEN admission runs
 - THEN Octet MUST deny admission with an `unknown` or unadmitted/stale dependency-edge diagnostic.
 

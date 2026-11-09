@@ -1454,8 +1454,8 @@ mod tests {
             features: Vec::new(),
         };
         // Fixture callers are file-root functions whose call path starts with an undeclared name.
-        let leading = shape.trim_start_matches("call:").split("::").next().unwrap_or_default();
-        let scope = format!("module=self; {leading}=prelude");
+        let path = shape.trim_start_matches("call:");
+        let scope = format!("module=self; {path}=prelude");
         let summary = effect_closure::CallSummary {
             call_site_id: effect_closure::call_site_identity(
                 &test_function_address(caller_fill),

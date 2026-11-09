@@ -243,8 +243,9 @@ pub struct ClosureCallEdge {
     pub call_site_id: String,
     pub occurrence: usize,
     pub shape: String,
-    /// The caller's module and where each leading name of the call path resolves outside the
-    /// caller; part of the call-site ID.
+    /// The caller's module and what each path the call references resolves to outside the caller
+    /// (for a method call, every declaration that may bring its trait into scope); part of the
+    /// call-site ID.
     pub scope: String,
     pub resolution: CallResolution,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -364,6 +365,69 @@ struct ModuleScope {
     /// Declarations that may bring a trait, and so its methods, into scope: every `use` binding
     /// (including `as _`) and every trait item.
     method_sources: BTreeSet<String>,
+    /// The paths each `use` binding imports, keyed by the name it binds.
+    imports: BTreeMap<String, Vec<ImportPath>>,
+    /// The module path of each glob `use`.
+    glob_imports: Vec<ImportPath>,
+    /// Module declarations, keyed by module name.
+    modules: BTreeMap<String, ModuleDeclaration>,
+    /// Names of free `fn` items.
+    functions: BTreeSet<String>,
+    /// Names of structs, enums, and unions, which may own inherent methods.
+    types: BTreeSet<String>,
+    /// Names every item other than a `use` declares.
+    item_names: BTreeSet<String>,
+}
+
+impl ModuleScope {
+    /// Whether a `use` path starting with `head` starts from a declaration of this module rather
+    /// than an extern crate. An import of `head` whose own path starts with `head`
+    /// (`use log::log;`) does not count: its path names the extern crate.
+    fn declares_path_head(&self, head: &str) -> bool {
+        self.item_names.contains(head)
+            || self.imports.get(head).is_some_and(|imports| {
+                imports.iter().any(|import| import.segments.first().map(String::as_str) != Some(head))
+            })
+    }
+}
+
+/// The path a `use` binding or glob imports, as written.
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ImportPath {
+    leading_colon: bool,
+    segments: Vec<String>,
+}
+
+/// How a module declaration places its module.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ModuleDeclaration {
+    /// `mod name { ... }` in the same file.
+    Inline,
+    /// `mod name;`, whose file follows from the declaring module's crate position.
+    File,
+    /// A declaration carrying a non-inert attribute (`path`, `cfg`, or a macro), which a path
+    /// through it cannot follow.
+    Opaque,
+}
+
+/// A file or inline module: its selected source path and inline-module chain within the file.
+type ModuleLocator = (String, Vec<String>);
+
+/// A module's position in its crate: the crate root (a `src` directory, or a binary's own root)
+/// and the module path from the crate root.
+type ModuleKey = (String, Vec<String>);
+
+/// The modules of the selected sources, and which of them have a proven crate position: reachable
+/// from a selected crate root (`src/lib.rs`, `src/main.rs`, or a binary root) through module
+/// declarations that conventional file placement resolves. A path through `crate::`, `super::`,
+/// or an out-of-line module is followed only between proven modules; an inline module is always
+/// followed, since its declaration and body are in the same file.
+#[derive(Default)]
+struct ModuleIndex {
+    scopes: BTreeMap<ModuleLocator, Rc<ModuleScope>>,
+    keys: BTreeMap<ModuleLocator, ModuleKey>,
+    locators: BTreeMap<ModuleKey, ModuleLocator>,
+    proven: BTreeSet<ModuleKey>,
 }
 
 /// The header of an enclosing `impl` or trait, whose generic parameters and `Self` shadow module
@@ -402,10 +466,10 @@ struct RawCall {
     /// (`<Type>::name`) or leading-`::` path never does, whatever its last segment, nor does a path
     /// whose first segment is a name bound inside the caller.
     locally_resolvable: bool,
-    /// The leading names of the call's path (and of a qualified-self type) that resolve through
-    /// the caller's outer scope. A `self::name` path keeps its `self::` prefix, since it names a
-    /// module item and never a generic parameter.
-    leading_names: BTreeSet<String>,
+    /// Paths, without generic arguments, through which the call resolves outside the caller: the
+    /// call path, or for a qualified-self path the self type's path and the trait's path. Paths
+    /// with a leading `::` name an extern crate and are left out.
+    referenced_paths: Vec<Vec<String>>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -436,6 +500,8 @@ struct FunctionCollector {
     opaque_context: bool,
     /// Declarations of the file or inline module being visited.
     module_scope: Rc<ModuleScope>,
+    /// Every module of the file with its inline-module chain, the file itself first.
+    modules: FileModules,
     /// Generic parameters and header of the enclosing trait while its items are visited.
     trait_context: Option<(syn::Generics, Rc<EnclosingHeader>)>,
 }
@@ -463,6 +529,10 @@ struct CallerBindings {
     names: BTreeSet<String>,
     /// Whether the body holds a glob `use`, which may bring any name into scope.
     glob_import: bool,
+    /// The paths body `use` bindings import, keyed by the name they bind.
+    imports: BTreeMap<String, Vec<ImportPath>>,
+    /// The module path of each body glob `use`.
+    glob_imports: Vec<ImportPath>,
 }
 
 /// One lexical scope of the body scanner: a function signature, block, match arm, `if let` or
@@ -501,6 +571,7 @@ impl<'ast> Visit<'ast> for FunctionCollector {
     fn visit_file(&mut self, node: &'ast syn::File) {
         self.opaque_context |= has_opaque_attribute(&node.attrs);
         self.module_scope = Rc::new(ModuleScope::of_items(&node.items));
+        self.modules.push((Vec::new(), Rc::clone(&self.module_scope)));
         syn::visit::visit_file(self, node);
     }
 
@@ -510,6 +581,9 @@ impl<'ast> Visit<'ast> for FunctionCollector {
         let items = node.content.as_ref().map_or(&[][..], |(_, items)| items.as_slice());
         let enclosing_scope = std::mem::replace(&mut self.module_scope, Rc::new(ModuleScope::of_items(items)));
         self.module.push(node.ident.to_string());
+        if node.content.is_some() {
+            self.modules.push((self.module.clone(), Rc::clone(&self.module_scope)));
+        }
         syn::visit::visit_item_mod(self, node);
         self.module.pop();
         self.module_scope = enclosing_scope;
@@ -631,34 +705,6 @@ fn is_inert_attribute(attribute: &syn::Attribute) -> bool {
 }
 
 impl OuterScope {
-    /// Renders the caller's module and where each of `leading_names` resolves outside the caller,
-    /// as `module=self::a; name=binding`. Call-site IDs bind this text, so a reviewed summary goes
-    /// stale when a callee's leading name starts resolving elsewhere, while edits to declarations
-    /// of other names leave it alone. A name the module does not declare resolves to the prelude
-    /// (or an extern crate), or to whatever a glob `use` or item macro in the module brings in.
-    fn resolution_text(&self, module: &[String], leading_names: &BTreeSet<String>) -> String {
-        let mut text = module_text(module);
-        for name in leading_names {
-            text.push_str("; ");
-            text.push_str(name);
-            text.push('=');
-            let (module_name, header_visible) =
-                name.strip_prefix("self::").map_or((name.as_str(), true), |rest| (rest, false));
-            let header = self.header.as_deref().filter(|header| header_visible && header.names.contains(module_name));
-            if let Some(header) = header {
-                text.push_str(&header.text);
-            } else if let Some(bindings) = self.module.names.get(module_name) {
-                push_joined(&mut text, bindings);
-            } else if self.module.wildcards.is_empty() {
-                text.push_str("prelude");
-            } else {
-                text.push_str("prelude or ");
-                push_joined(&mut text, &self.module.wildcards);
-            }
-        }
-        text
-    }
-
     /// Renders the caller's module and every declaration that may bring a trait, and so the
     /// called method, into scope: the prelude, each `use` binding and trait item of the module,
     /// its wildcards, and the enclosing `impl` or trait header, whose bounds also supply methods.
@@ -685,6 +731,481 @@ fn module_text(module: &[String]) -> String {
         text.push_str(segment);
     }
     text
+}
+
+/// Places a selected source file in its crate by Cargo's conventional layout: the crate root is
+/// the last `src` directory (`src/lib.rs` or `src/main.rs`), or a binary under `src/bin`, and the
+/// module path follows the directories and file stem below it (`mod.rs` names its directory).
+/// Returns the crate root, the module path, and whether the file is a crate root. A file outside
+/// that layout has no crate position.
+fn module_location(path: &str) -> Option<(String, Vec<String>, bool)> {
+    let components = path.split('/').collect::<Vec<_>>();
+    let src = components.iter().rposition(|component| *component == "src")?;
+    let root = components[..=src].join("/");
+    match &components[src + 1..] {
+        ["lib.rs" | "main.rs"] => Some((root, Vec::new(), true)),
+        ["bin", file] => file.strip_suffix(".rs").map(|_| (path.to_owned(), Vec::new(), true)),
+        ["bin", binary, "main.rs"] => Some((format!("{root}/bin/{binary}"), Vec::new(), true)),
+        ["bin", binary, rest @ ..] => Some((format!("{root}/bin/{binary}"), module_segments(rest)?, false)),
+        rest => Some((root, module_segments(rest)?, false)),
+    }
+}
+
+fn module_segments(components: &[&str]) -> Option<Vec<String>> {
+    let (file, directories) = components.split_last()?;
+    let stem = file.strip_suffix(".rs")?;
+    let mut segments = directories.iter().map(|directory| (*directory).to_owned()).collect::<Vec<_>>();
+    if stem != "mod" {
+        segments.push(stem.to_owned());
+    }
+    let identifiers = segments.iter().all(|segment| syn::parse_str::<syn::Ident>(segment).is_ok());
+    (!segments.is_empty() && identifiers).then_some(segments)
+}
+
+/// Every module of one file with its inline-module chain, the file itself first.
+type FileModules = Vec<(Vec<String>, Rc<ModuleScope>)>;
+
+impl ModuleIndex {
+    /// Indexes every module of the selected files and proves crate positions from the selected
+    /// crate roots. Two modules claiming one crate position (for example `src/lib.rs` and
+    /// `src/main.rs`) leave that position unproven.
+    fn build(files: Vec<(String, FileModules)>) -> Self {
+        let mut index = Self::default();
+        let mut roots = Vec::new();
+        let mut ambiguous = BTreeSet::new();
+        for (path, modules) in files {
+            let location = module_location(&path);
+            for (chain, scope) in modules {
+                let locator = (path.clone(), chain);
+                if let Some((root, file_module, is_root)) = &location {
+                    let mut module = file_module.clone();
+                    module.extend(locator.1.iter().cloned());
+                    let key = (root.clone(), module);
+                    if *is_root && locator.1.is_empty() {
+                        roots.push(key.clone());
+                    }
+                    if index.locators.insert(key.clone(), locator.clone()).is_some() {
+                        ambiguous.insert(key.clone());
+                    }
+                    index.keys.insert(locator.clone(), key);
+                }
+                index.scopes.insert(locator, scope);
+            }
+        }
+        for key in &ambiguous {
+            index.locators.remove(key);
+        }
+        while let Some(key) = roots.pop() {
+            let Some(locator) = index.locators.get(&key) else {
+                continue;
+            };
+            if !index.proven.insert(key.clone()) {
+                continue;
+            }
+            for (name, declaration) in &index.scopes[locator].modules {
+                let mut child = key.clone();
+                child.1.push(name.clone());
+                let Some(child_locator) = index.locators.get(&child) else {
+                    continue;
+                };
+                let placed = match declaration {
+                    ModuleDeclaration::Inline => {
+                        child_locator.0 == locator.0
+                            && child_locator.1.split_last().map(|(_, parent)| parent) == Some(&locator.1[..])
+                    }
+                    ModuleDeclaration::File => child_locator.0 != locator.0 && child_locator.1.is_empty(),
+                    ModuleDeclaration::Opaque => false,
+                };
+                if placed {
+                    roots.push(child);
+                }
+            }
+        }
+        index
+    }
+
+    fn proven_key(&self, locator: &ModuleLocator) -> Option<&ModuleKey> {
+        self.keys.get(locator).filter(|key| self.proven.contains(*key))
+    }
+
+    fn proven_locator(&self, key: &ModuleKey) -> Option<ModuleLocator> {
+        self.proven.contains(key).then(|| self.locators.get(key).cloned()).flatten()
+    }
+
+    /// The module `name` declares inside `locator`: an inline module always, an out-of-line one
+    /// only from a proven module.
+    fn child(&self, locator: &ModuleLocator, name: &str) -> Option<ModuleLocator> {
+        match self.scopes.get(locator)?.modules.get(name)? {
+            ModuleDeclaration::Inline => {
+                let mut chain = locator.1.clone();
+                chain.push(name.to_owned());
+                let child = (locator.0.clone(), chain);
+                self.scopes.contains_key(&child).then_some(child)
+            }
+            ModuleDeclaration::File => {
+                let mut child = self.proven_key(locator)?.clone();
+                child.1.push(name.to_owned());
+                self.proven_locator(&child).filter(|child_locator| child_locator.1.is_empty())
+            }
+            ModuleDeclaration::Opaque => None,
+        }
+    }
+
+    /// The parent of an inline module is in the same file; a file module's parent needs a proven
+    /// crate position.
+    fn parent(&self, locator: &ModuleLocator) -> Option<ModuleLocator> {
+        if let Some((_, parent)) = locator.1.split_last() {
+            return Some((locator.0.clone(), parent.to_vec()));
+        }
+        let key = self.proven_key(locator)?;
+        let (_, parent) = key.1.split_last()?;
+        self.proven_locator(&(key.0.clone(), parent.to_vec()))
+    }
+
+    fn crate_root(&self, locator: &ModuleLocator) -> Option<ModuleLocator> {
+        let key = self.proven_key(&(locator.0.clone(), Vec::new()))?;
+        self.proven_locator(&(key.0.clone(), Vec::new()))
+    }
+}
+
+/// How deep re-exports, imports, and module hops are followed before a path counts as hidden.
+const MAX_RESOLUTION_DEPTH: usize = 16;
+
+/// Where a referenced path resolves outside its caller.
+struct Resolution<'a> {
+    /// The declarations the path resolves through, for the call-site scope.
+    text: String,
+    target: ResolvedTarget<'a>,
+}
+
+enum ResolvedTarget<'a> {
+    /// A declaration other than a selected function: a dependency, the prelude, or a local item.
+    Declaration,
+    /// The selected function the path proves.
+    Local(&'a AddressedFunction),
+    /// A module or import the selected sources cannot prove; no summary may stand in for it.
+    Hidden,
+}
+
+impl Resolution<'_> {
+    fn declaration(text: impl Into<String>) -> Self {
+        Self {
+            text: text.into(),
+            target: ResolvedTarget::Declaration,
+        }
+    }
+
+    fn hidden(text: impl Into<String>) -> Self {
+        Self {
+            text: text.into(),
+            target: ResolvedTarget::Hidden,
+        }
+    }
+
+    /// `declaration`, followed by what it leads to.
+    fn through(declaration: &str, next: Self) -> Self {
+        Self {
+            text: format!("{declaration} -> {}", next.text),
+            target: next.target,
+        }
+    }
+
+    /// Several candidate resolutions of one path: hidden if any is, local only if it is the sole
+    /// candidate.
+    fn any_of(mut candidates: Vec<Self>) -> Self {
+        if candidates.len() == 1 {
+            return candidates.remove(0);
+        }
+        let hidden = candidates.iter().any(|candidate| matches!(candidate.target, ResolvedTarget::Hidden));
+        let text = candidates.into_iter().map(|candidate| candidate.text).collect::<Vec<_>>().join(", ");
+        if hidden {
+            Self::hidden(text)
+        } else {
+            Self::declaration(text)
+        }
+    }
+}
+
+/// How an undeclared name resolves where it is looked up.
+#[derive(Clone, Copy)]
+enum NameContext {
+    /// A path in the caller's body, where the prelude and extern crates are in scope.
+    Unqualified,
+    /// A path after `crate::`, `super::`, `self::`, or a module, where only the module's items are.
+    Qualified,
+    /// The first segment of a `use` path, which may name an extern crate.
+    Import,
+}
+
+/// The resolution scope of one call: the call-site scope text, the selected function the call
+/// path proves, and whether the path goes through a module or import the selected sources cannot
+/// prove.
+struct CallScope<'a> {
+    text: String,
+    local: Option<&'a AddressedFunction>,
+    hidden: bool,
+}
+
+/// Resolves call paths across the selected modules: through `crate::`, `super::`, and `self::`,
+/// module declarations, and local `use` bindings and re-exports, to a selected function (a local
+/// edge) or to the declaration the path finally names, whose text the call-site ID binds.
+struct ScopeResolver<'a> {
+    modules: &'a ModuleIndex,
+    functions: BTreeMap<&'a str, Vec<&'a AddressedFunction>>,
+}
+
+impl<'a> ScopeResolver<'a> {
+    fn new(modules: &'a ModuleIndex, functions: &'a [AddressedFunction]) -> Self {
+        let mut by_path = BTreeMap::<&str, Vec<&AddressedFunction>>::new();
+        for function in functions {
+            by_path.entry(function.draft.path.as_str()).or_default().push(function);
+        }
+        Self {
+            modules,
+            functions: by_path,
+        }
+    }
+
+    /// Renders `module=self::a; path=resolution` for every path the call references.
+    fn call_scope(&self, caller: &AddressedFunction, bindings: &CallerBindings, raw_call: &RawCall) -> CallScope<'a> {
+        let draft = &caller.draft;
+        let locator = (draft.path.clone(), draft.module.clone());
+        let mut scope = CallScope {
+            text: module_text(&draft.module),
+            local: None,
+            hidden: false,
+        };
+        for path in &raw_call.referenced_paths {
+            let resolution = self.resolve_from_caller(&locator, &draft.outer_scope, bindings, path);
+            scope.text.push_str("; ");
+            scope.text.push_str(&path.join("::"));
+            scope.text.push('=');
+            scope.text.push_str(&resolution.text);
+            match resolution.target {
+                ResolvedTarget::Local(function)
+                    if raw_call.locally_resolvable && raw_call.referenced_paths.len() == 1 =>
+                {
+                    scope.local = Some(function);
+                }
+                ResolvedTarget::Hidden => scope.hidden = true,
+                ResolvedTarget::Local(_) | ResolvedTarget::Declaration => {}
+            }
+        }
+        scope
+    }
+
+    /// Body `use` bindings come first, then the enclosing `impl` or trait header, then the
+    /// caller's module.
+    fn resolve_from_caller(
+        &self,
+        locator: &ModuleLocator,
+        outer: &OuterScope,
+        bindings: &CallerBindings,
+        path: &[String],
+    ) -> Resolution<'a> {
+        let Some((first, rest)) = path.split_first() else {
+            return Resolution::hidden("empty path");
+        };
+        if is_path_keyword(first) {
+            return self.resolve_qualified(locator, path, 0);
+        }
+        if let Some(imports) = bindings.imports.get(first) {
+            return Resolution::through("body", self.resolve_imports(locator, imports, rest, 0));
+        }
+        if let Some(header) = outer.header.as_deref().filter(|header| header.names.contains(first)) {
+            return Resolution::declaration(header.text.clone());
+        }
+        let resolution = self.resolve_name(locator, path, NameContext::Unqualified, 0);
+        if bindings.glob_imports.is_empty() {
+            return resolution;
+        }
+        let mut candidates = vec![resolution];
+        candidates.extend(self.follow_globs(locator, &bindings.glob_imports, path, 0));
+        Resolution::through("body glob", Resolution::any_of(candidates))
+    }
+
+    fn resolve_qualified(&self, locator: &ModuleLocator, path: &[String], depth: usize) -> Resolution<'a> {
+        if depth > MAX_RESOLUTION_DEPTH {
+            return Resolution::hidden("resolution too deep");
+        }
+        let Some((first, rest)) = path.split_first() else {
+            return Resolution::hidden("path names a module");
+        };
+        let next = match first.as_str() {
+            "self" => Some(locator.clone()),
+            "super" => self.modules.parent(locator),
+            "crate" => self.modules.crate_root(locator),
+            _ => return self.resolve_name(locator, path, NameContext::Qualified, depth),
+        };
+        match next {
+            Some(module) => self.resolve_qualified(&module, rest, depth + 1),
+            None => Resolution::hidden(format!("{first} is not a proven selected module")),
+        }
+    }
+
+    /// Resolves the first segment of `path` among the declarations of the module at `locator`,
+    /// then the rest of the path through what it declares.
+    fn resolve_name(
+        &self,
+        locator: &ModuleLocator,
+        path: &[String],
+        context: NameContext,
+        depth: usize,
+    ) -> Resolution<'a> {
+        if depth > MAX_RESOLUTION_DEPTH {
+            return Resolution::hidden("resolution too deep");
+        }
+        let (Some(scope), Some((name, rest))) = (self.modules.scopes.get(locator), path.split_first()) else {
+            return Resolution::hidden("module not selected");
+        };
+        if !rest.is_empty() && scope.modules.contains_key(name) {
+            return match self.modules.child(locator, name) {
+                Some(child) => {
+                    Resolution::through(&format!("mod {name}"), self.resolve_qualified(&child, rest, depth + 1))
+                }
+                None => Resolution::hidden(format!("mod {name} is not a proven selected module")),
+            };
+        }
+        let declarations = scope.names.get(name);
+        if declarations.is_some_and(|declarations| declarations.len() == 1) {
+            if rest.is_empty() && scope.functions.contains(name) {
+                return self.local(locator, &FunctionContainer::Module, name);
+            }
+            if let [method] = rest
+                && scope.types.contains(name)
+            {
+                return self.local(locator, &FunctionContainer::InherentImpl(name.clone()), method);
+            }
+            if let Some(imports) = scope.imports.get(name) {
+                return self.resolve_imports(locator, imports, rest, depth);
+            }
+        }
+        if let Some(declarations) = declarations {
+            let mut text = String::new();
+            push_joined(&mut text, declarations);
+            return Resolution::declaration(text);
+        }
+        let mut text = String::from(match context {
+            NameContext::Unqualified => "prelude",
+            NameContext::Qualified => "undeclared",
+            NameContext::Import => "extern",
+        });
+        if !scope.wildcards.is_empty() {
+            text.push_str(" or ");
+            push_joined(&mut text, &scope.wildcards);
+        }
+        let globs = self.follow_globs(locator, &scope.glob_imports, path, depth);
+        if globs.is_empty() {
+            return Resolution::declaration(text);
+        }
+        let mut candidates = vec![Resolution::declaration(text)];
+        candidates.extend(globs);
+        // A name brought in by a glob is never followed as a local edge.
+        let resolution = Resolution::any_of(candidates);
+        match resolution.target {
+            ResolvedTarget::Local(_) => Resolution::declaration(resolution.text),
+            _ => resolution,
+        }
+    }
+
+    /// Follows each import of a name, appending the rest of the path.
+    fn resolve_imports(
+        &self,
+        locator: &ModuleLocator,
+        imports: &[ImportPath],
+        rest: &[String],
+        depth: usize,
+    ) -> Resolution<'a> {
+        let candidates = imports
+            .iter()
+            .map(|import| {
+                let declaration =
+                    format!("use {}{}", if import.leading_colon { "::" } else { "" }, import.segments.join("::"));
+                let next = if import.leading_colon {
+                    Resolution::declaration("extern")
+                } else {
+                    let mut segments = import.segments.clone();
+                    segments.extend(rest.iter().cloned());
+                    self.resolve_import_path(locator, &segments, depth + 1)
+                };
+                Resolution::through(&declaration, next)
+            })
+            .collect();
+        Resolution::any_of(candidates)
+    }
+
+    /// Resolves a `use` path: from a keyword, from a name the module declares, or else from an
+    /// extern crate.
+    fn resolve_import_path(&self, locator: &ModuleLocator, segments: &[String], depth: usize) -> Resolution<'a> {
+        let Some(first) = segments.first() else {
+            return Resolution::hidden("empty import");
+        };
+        if is_path_keyword(first) {
+            return self.resolve_qualified(locator, segments, depth);
+        }
+        let declared = self.modules.scopes.get(locator).is_some_and(|scope| scope.declares_path_head(first));
+        if declared {
+            self.resolve_name(locator, segments, NameContext::Import, depth)
+        } else {
+            Resolution::declaration("extern")
+        }
+    }
+
+    /// Follows the glob imports of a module whose path is local; extern globs stay in the
+    /// module's wildcard text.
+    fn follow_globs(
+        &self,
+        locator: &ModuleLocator,
+        globs: &[ImportPath],
+        path: &[String],
+        depth: usize,
+    ) -> Vec<Resolution<'a>> {
+        let declared = |first: &String| {
+            is_path_keyword(first)
+                || self.modules.scopes.get(locator).is_some_and(|scope| scope.declares_path_head(first))
+        };
+        globs
+            .iter()
+            .filter(|glob| !glob.leading_colon && glob.segments.first().is_some_and(declared))
+            .map(|glob| {
+                let mut segments = glob.segments.clone();
+                segments.extend(path.iter().cloned());
+                let declaration = format!("use {}::*", glob.segments.join("::"));
+                Resolution::through(&declaration, self.resolve_import_path(locator, &segments, depth + 1))
+            })
+            .collect()
+    }
+
+    /// The selected function `name` in `container` of the module at `locator`.
+    fn local(&self, locator: &ModuleLocator, container: &FunctionContainer, name: &str) -> Resolution<'a> {
+        let mut text = String::from("fn ");
+        text.push_str(&locator.0);
+        for segment in &locator.1 {
+            text.push_str("::");
+            text.push_str(segment);
+        }
+        if let FunctionContainer::InherentImpl(owner) = container {
+            text.push_str("::");
+            text.push_str(owner);
+        }
+        text.push_str("::");
+        text.push_str(name);
+        let candidates = self.functions.get(locator.0.as_str()).map_or(&[][..], Vec::as_slice);
+        let mut matching = candidates.iter().filter(|function| {
+            function.draft.module == locator.1 && function.draft.container == *container && function.draft.name == name
+        });
+        match (matching.next(), matching.next()) {
+            (Some(function), None) if function.function_address != MISSING_FUNCTION_ADDRESS => Resolution {
+                text,
+                target: ResolvedTarget::Local(function),
+            },
+            _ => Resolution::declaration(text),
+        }
+    }
+}
+
+fn is_path_keyword(segment: &str) -> bool {
+    matches!(segment, "crate" | "self" | "super")
 }
 
 fn push_joined(text: &mut String, items: &BTreeSet<String>) {
@@ -717,13 +1238,97 @@ fn item_attributes(item: &syn::Item) -> &[syn::Attribute] {
     }
 }
 
+/// Collects the path each binding of a `use` tree imports, keyed by the name it binds, and the
+/// module path of each glob.
+fn collect_imports(
+    tree: &syn::UseTree,
+    leading_colon: bool,
+    prefix: &mut Vec<String>,
+    imports: &mut BTreeMap<String, Vec<ImportPath>>,
+    glob_imports: &mut Vec<ImportPath>,
+) {
+    let import = |segments: &[String]| ImportPath {
+        leading_colon,
+        segments: segments.to_vec(),
+    };
+    match tree {
+        syn::UseTree::Path(node) => {
+            prefix.push(node.ident.to_string());
+            collect_imports(&node.tree, leading_colon, prefix, imports, glob_imports);
+            prefix.pop();
+        }
+        // `use a::b::{self}` binds `b` to `a::b`.
+        syn::UseTree::Name(node) if node.ident == "self" => {
+            if let Some(name) = prefix.last() {
+                imports.entry(name.clone()).or_default().push(import(prefix));
+            }
+        }
+        syn::UseTree::Name(node) => {
+            prefix.push(node.ident.to_string());
+            imports.entry(node.ident.to_string()).or_default().push(import(prefix));
+            prefix.pop();
+        }
+        syn::UseTree::Rename(node) if node.ident == "self" => {
+            imports.entry(node.rename.to_string()).or_default().push(import(prefix));
+        }
+        syn::UseTree::Rename(node) => {
+            prefix.push(node.ident.to_string());
+            imports.entry(node.rename.to_string()).or_default().push(import(prefix));
+            prefix.pop();
+        }
+        syn::UseTree::Glob(_) => glob_imports.push(import(prefix)),
+        syn::UseTree::Group(node) => {
+            for item in &node.items {
+                collect_imports(item, leading_colon, prefix, imports, glob_imports);
+            }
+        }
+    }
+}
+
 impl ModuleScope {
     fn of_items(items: &[syn::Item]) -> Self {
         let mut scope = Self::default();
         for item in items {
             scope.declare_item(item);
+            scope.record_resolvable(item);
         }
         scope
+    }
+
+    /// Records the declarations a path can be followed through: imports, module declarations,
+    /// free functions, and types that may own inherent methods.
+    fn record_resolvable(&mut self, item: &syn::Item) {
+        if let Some(ident) = item_ident(item) {
+            self.item_names.insert(ident.to_string());
+        }
+        match item {
+            syn::Item::Use(node) => collect_imports(
+                &node.tree,
+                node.leading_colon.is_some(),
+                &mut Vec::new(),
+                &mut self.imports,
+                &mut self.glob_imports,
+            ),
+            syn::Item::Mod(node) => {
+                let declaration = if has_opaque_attribute(&node.attrs) {
+                    ModuleDeclaration::Opaque
+                } else if node.content.is_some() {
+                    ModuleDeclaration::Inline
+                } else {
+                    ModuleDeclaration::File
+                };
+                self.modules.insert(node.ident.to_string(), declaration);
+            }
+            syn::Item::Fn(node) => {
+                self.functions.insert(node.sig.ident.to_string());
+            }
+            syn::Item::Struct(syn::ItemStruct { ident, .. })
+            | syn::Item::Enum(syn::ItemEnum { ident, .. })
+            | syn::Item::Union(syn::ItemUnion { ident, .. }) => {
+                self.types.insert(ident.to_string());
+            }
+            _ => {}
+        }
     }
 
     fn declare(&mut self, name: &syn::Ident, attrs: &[syn::Attribute], declaration: String) {
@@ -988,26 +1593,13 @@ fn header_names(generics: &syn::Generics) -> BTreeSet<String> {
     parameters.chain(std::iter::once("Self".to_owned())).collect()
 }
 
-/// The names through which `path` resolves in the caller's outer scope: its first segment, the
-/// segment after a leading `self::`, and nothing for a leading `::`, `crate::`, or `super::` path,
-/// which the caller's source path and module already bind.
-fn path_leading_name(path: &syn::Path, names: &mut BTreeSet<String>) {
-    if path.leading_colon.is_some() {
-        return;
+/// The identifiers of the first `count` segments of `path`, or `None` for an empty prefix or a
+/// leading-`::` path, which names an extern crate whose identity the provider summary binds.
+fn path_segments(path: &syn::Path, count: usize) -> Option<Vec<String>> {
+    if path.leading_colon.is_some() || count == 0 {
+        return None;
     }
-    let mut segments = path.segments.iter().map(|segment| &segment.ident);
-    match segments.next() {
-        Some(first) if first == "self" => {
-            if let Some(item) = segments.next() {
-                names.insert(format!("self::{item}"));
-            }
-        }
-        Some(first) if first == "crate" || first == "super" => {}
-        Some(first) => {
-            names.insert(first.to_string());
-        }
-        None => {}
-    }
+    Some(path.segments.iter().take(count).map(|segment| segment.ident.to_string()).collect())
 }
 
 impl CallerBindings {
@@ -1050,6 +1642,8 @@ impl<'ast> Visit<'ast> for CallerBindings {
 
     fn visit_item_use(&mut self, node: &'ast syn::ItemUse) {
         bind_use_tree(&node.tree, None, &mut self.names, &mut self.glob_import);
+        let leading_colon = node.leading_colon.is_some();
+        collect_imports(&node.tree, leading_colon, &mut Vec::new(), &mut self.imports, &mut self.glob_imports);
     }
 
     fn visit_item(&mut self, node: &'ast syn::Item) {
@@ -1199,7 +1793,7 @@ impl<'a> BodyScanner<'a> {
         kind: RawCallKind,
         effects: BTreeSet<Effect>,
         locally_resolvable: bool,
-        leading_names: BTreeSet<String>,
+        referenced_paths: Vec<Vec<String>>,
     ) {
         self.direct_effects.extend(effects.iter().copied());
         self.calls.push(RawCall {
@@ -1207,7 +1801,7 @@ impl<'a> BodyScanner<'a> {
             kind,
             effects,
             locally_resolvable,
-            leading_names,
+            referenced_paths,
         });
     }
 
@@ -1215,15 +1809,19 @@ impl<'a> BodyScanner<'a> {
         let (shape_path, effect_path) = expr_path_text(node);
         let effects = classify_path_call(&effect_path, self.foreign_functions).unwrap_or_default();
         let locally_resolvable = node.qself.is_none() && self.bindings.admits_local_path(&node.path);
-        let mut leading_names = BTreeSet::new();
-        if let Some(syn::Type::Path(self_type)) = node.qself.as_ref().map(|qself| qself.ty.as_ref())
-            && self_type.qself.is_none()
-        {
-            path_leading_name(&self_type.path, &mut leading_names);
+        let mut referenced_paths = Vec::new();
+        if let Some(qself) = &node.qself {
+            if let syn::Type::Path(self_type) = qself.ty.as_ref()
+                && self_type.qself.is_none()
+            {
+                referenced_paths.extend(path_segments(&self_type.path, self_type.path.segments.len()));
+            }
+            referenced_paths.extend(path_segments(&node.path, qself.position));
+        } else {
+            referenced_paths.extend(path_segments(&node.path, node.path.segments.len()));
         }
-        path_leading_name(&node.path, &mut leading_names);
         let shape = format!("{}{shape_path}", kind.shape_prefix());
-        self.record_call(shape, kind, effects, locally_resolvable, leading_names);
+        self.record_call(shape, kind, effects, locally_resolvable, referenced_paths);
     }
 
     /// Whether `path` reads `self` or a local value in lexical scope at the current scan position.
@@ -1293,7 +1891,7 @@ impl<'ast> Visit<'ast> for BodyScanner<'_> {
                     RawCallKind::Function,
                     BTreeSet::from([Effect::Unknown]),
                     false,
-                    BTreeSet::new(),
+                    Vec::new(),
                 );
                 self.visit_expr(callee);
             }
@@ -1481,7 +2079,7 @@ impl<'ast> Visit<'ast> for BodyScanner<'_> {
             RawCallKind::Method,
             effects,
             true,
-            BTreeSet::new(),
+            Vec::new(),
         );
         syn::visit::visit_expr_method_call(self, node);
     }
@@ -1491,7 +2089,7 @@ impl<'ast> Visit<'ast> for BodyScanner<'_> {
         let mut effects = classify_macro(&path).unwrap_or_default();
         effects.insert(Effect::Unknown);
         let shape = format!("{}{path}", RawCallKind::Macro.shape_prefix());
-        self.record_call(shape, RawCallKind::Macro, effects, false, BTreeSet::new());
+        self.record_call(shape, RawCallKind::Macro, effects, false, Vec::new());
         syn::visit::visit_macro(self, node);
     }
 
@@ -1730,9 +2328,9 @@ pub fn compute_closure(input: ClosureInput) -> EffectClosureReceipt {
     }
 
     let roles = role_map(&input.sources, &input.policy, &mut diagnostics);
-    let drafts = parse_function_drafts(&input.sources, &mut diagnostics);
+    let (drafts, modules) = parse_function_drafts(&input.sources, &mut diagnostics);
     let addressed = address_functions(drafts, &input.function_addresses, &roles, &mut diagnostics);
-    let mut nodes = build_nodes(&addressed, &input, &mut diagnostics);
+    let mut nodes = build_nodes(&addressed, &modules, &input, &mut diagnostics);
     propagate_closure_effects(&mut nodes, &mut diagnostics);
     apply_profile_effect_gate(&nodes, &input.catalog, &input.profile_id, &mut diagnostics);
 
@@ -2274,13 +2872,18 @@ fn role_map(
     roles
 }
 
-fn parse_function_drafts(sources: &[SourceEnvelope], diagnostics: &mut Vec<ClosureDiagnostic>) -> Vec<FunctionDraft> {
+fn parse_function_drafts(
+    sources: &[SourceEnvelope],
+    diagnostics: &mut Vec<ClosureDiagnostic>,
+) -> (Vec<FunctionDraft>, ModuleIndex) {
     let mut drafts = Vec::new();
+    let mut modules = Vec::new();
     for source in sources {
         match syn::parse_file(&source.source) {
             Ok(file) => {
                 let mut collector = FunctionCollector::default();
                 collector.visit_file(&file);
+                modules.push((source.path.clone(), collector.modules));
                 drafts.extend(collector.functions.into_iter().map(|function| FunctionDraft {
                     path: source.path.clone(),
                     name: function.name,
@@ -2305,7 +2908,7 @@ fn parse_function_drafts(sources: &[SourceEnvelope], diagnostics: &mut Vec<Closu
         }
     }
     drafts.sort_by(|left, right| left.path.cmp(&right.path).then(left.name.cmp(&right.name)));
-    drafts
+    (drafts, ModuleIndex::build(modules))
 }
 
 fn address_functions(
@@ -2395,11 +2998,13 @@ fn address_functions(
 #[allow(clippy::too_many_lines)]
 fn build_nodes(
     functions: &[AddressedFunction],
+    modules: &ModuleIndex,
     input: &ClosureInput,
     diagnostics: &mut Vec<ClosureDiagnostic>,
 ) -> Vec<FunctionClosureNode> {
     let foreign_functions = foreign_function_names(&input.sources);
     let local_names = local_function_index(functions);
+    let resolver = ScopeResolver::new(modules, functions);
     let allowed_role_edges = input.catalog.role_edges.iter().cloned().collect::<BTreeSet<_>>();
     let providers = input.resolved_providers.iter().cloned().collect::<BTreeSet<_>>();
     let mut summaries = BTreeMap::new();
@@ -2441,12 +3046,16 @@ fn build_nodes(
 
         let mut calls = Vec::new();
         for (occurrence, raw_call) in scanner.calls.into_iter().enumerate() {
-            let outer_scope = &function.draft.outer_scope;
-            let scope = if raw_call.kind == RawCallKind::Method {
-                outer_scope.method_resolution_text(&function.draft.module)
+            let call_scope = if raw_call.kind == RawCallKind::Method {
+                CallScope {
+                    text: function.draft.outer_scope.method_resolution_text(&function.draft.module),
+                    local: None,
+                    hidden: false,
+                }
             } else {
-                outer_scope.resolution_text(&function.draft.module, &raw_call.leading_names)
+                resolver.call_scope(function, &bindings, &raw_call)
             };
+            let scope = call_scope.text;
             let call_site_id = call_site_identity(
                 &function.function_address,
                 &function.draft.path,
@@ -2454,7 +3063,7 @@ fn build_nodes(
                 &raw_call.shape,
                 occurrence,
             );
-            let local = resolve_local_call(&raw_call, function, &local_names);
+            let local = resolve_local_call(&raw_call, function, &local_names).or(call_scope.local);
             let edge = if let Some(callee) = local {
                 let role_edge = RoleEdge {
                     caller: function.role,
@@ -2486,6 +3095,19 @@ fn build_nodes(
                     review_label: None,
                     evidence: None,
                 }
+            } else if call_scope.hidden && raw_call.kind != RawCallKind::Macro {
+                scanner.direct_effects.insert(Effect::Unknown);
+                diagnostics.push(diagnostic(
+                    DIAGNOSTIC_CALL_UNKNOWN,
+                    format!(
+                        "call `{}` resolves through a module or import the selected sources cannot prove, so no summary applies",
+                        raw_call.shape
+                    ),
+                    Some(function.draft.path.clone()),
+                    Some(function.function_address.clone()),
+                    Some(call_site_id.clone()),
+                ));
+                unknown_edge(call_site_id, occurrence, raw_call.shape, scope)
             } else if raw_call.kind != RawCallKind::Macro {
                 match summaries.get(&call_site_id).copied() {
                     Some(summary)
@@ -2660,10 +3282,11 @@ fn local_function_index(functions: &[AddressedFunction]) -> BTreeMap<String, Vec
 /// Resolves a call, or a path used as a value, to a selected function only when its source path
 /// proves the target: a single-segment path names a free function in the caller's file and module,
 /// `Owner::name` names an inherent method of `impl Owner` in that scope, and `self.name()` from an
-/// inherent method names a method of the same inherent owner in that scope. Every other shape,
-/// including qualified module paths, qualified-self or leading-`::` paths, paths whose first
-/// segment is bound inside the caller, and trait dispatch, stays unresolved so it requires an exact
-/// summary or remains unknown.
+/// inherent method names a method of the same inherent owner in that scope. Paths through
+/// `crate::`, `super::`, `self::`, a module, or a local `use` binding resolve in
+/// [`ScopeResolver`] instead, only through proven selected modules. Every other shape, including
+/// qualified-self or leading-`::` paths, paths whose first segment is bound inside the caller,
+/// and trait dispatch, stays unresolved so it requires an exact summary or remains unknown.
 fn resolve_local_call<'a>(
     raw_call: &RawCall,
     caller: &AddressedFunction,
@@ -3052,8 +3675,7 @@ mod tests {
     /// name the file does not declare.
     fn prelude_scope(shape: &str) -> String {
         let path = shape.split_once(':').map_or(shape, |(_, path)| path);
-        let leading = path.split("::").next().unwrap_or(path);
-        format!("module=self; {leading}=prelude")
+        format!("module=self; {path}=prelude")
     }
 
     fn toolchain_summary(
@@ -4055,5 +4677,109 @@ unsafe fn risky(values: &[u8]) -> u8 {
                 ),
             ],
         );
+    }
+
+    const LIB_PATH: &str = "crates/domain/src/lib.rs";
+    const UTIL_PATH: &str = "crates/domain/src/util.rs";
+
+    /// A closure input over several selected `core` files of one crate.
+    fn workspace_input(
+        files: &[(&str, &str)],
+        addresses: Vec<FunctionAddressRecord>,
+        summaries: Vec<CallSummary>,
+    ) -> ClosureInput {
+        let mut closure_input = input("", addresses, policy(summaries));
+        closure_input.sources = files
+            .iter()
+            .map(|(path, source)| SourceEnvelope {
+                path: (*path).to_owned(),
+                source: (*source).to_owned(),
+                source_identity: TEST_SOURCE_ID.to_owned(),
+            })
+            .collect();
+        closure_input.policy.module_roles = files
+            .iter()
+            .map(|(path, _)| ModuleRoleAssignment {
+                path: (*path).to_owned(),
+                role: ModuleRole::Core,
+            })
+            .collect();
+        closure_input.policy.module_roles.sort();
+        closure_input.resolved_providers.push(dependency_provider());
+        closure_input
+    }
+
+    // r[verify octet.effect_closure.dependency_summaries.invalid]
+    // r[verify octet.effect_closure.verification.adversarial]
+    #[test]
+    fn qualified_local_paths_follow_the_target_module() {
+        let lib = "mod core;\nmod util;\n";
+        let caller_address = || vec![address("root", '5')];
+        for (caller, shape) in [
+            ("pub fn root() { crate::util::tidy(); }\n", "call:crate::util::tidy"),
+            ("pub fn root() { super::util::tidy(); }\n", "call:super::util::tidy"),
+            ("use crate::util::tidy;\npub fn root() { tidy(); }\n", "call:tidy"),
+            ("use crate::util;\npub fn root() { util::tidy(); }\n", "call:util::tidy"),
+        ] {
+            let reviewed = [
+                (TEST_PATH, caller),
+                (LIB_PATH, lib),
+                (UTIL_PATH, "pub use dep_a::tidy;\n"),
+            ];
+            let denied = compute_closure(workspace_input(&reviewed, caller_address(), Vec::new()));
+            let summaries = reviewed_summaries(&denied, &dependency_provider());
+            let admitted = compute_closure(workspace_input(&reviewed, caller_address(), summaries.clone()));
+            assert_eq!(admitted.status, AdmissionStatus::Admitted, "{caller}: {:?}", admitted.diagnostics);
+
+            // A re-export that now names another dependency leaves the summary stale.
+            let rebound = [
+                (TEST_PATH, caller),
+                (LIB_PATH, lib),
+                (UTIL_PATH, "pub use dep_b::tidy;\n"),
+            ];
+            let receipt = compute_closure(workspace_input(&rebound, caller_address(), summaries.clone()));
+            assert!(
+                receipt.diagnostics.iter().any(|diagnostic| diagnostic.code == DIAGNOSTIC_SUMMARY_STALE),
+                "{caller}: {:?}",
+                receipt.diagnostics
+            );
+            assert_eq!(call_edge(&receipt, "root", shape).resolution, CallResolution::Unknown, "{caller}");
+
+            // A local function in the target module is followed as a local edge.
+            let local = [
+                (TEST_PATH, caller),
+                (LIB_PATH, lib),
+                (UTIL_PATH, "pub fn tidy() { let _ = std::fs::remove_file(\"x\"); }\n"),
+            ];
+            let mut addresses = caller_address();
+            addresses.push(address_at(UTIL_PATH, "tidy", '6'));
+            let receipt = compute_closure(workspace_input(&local, addresses, summaries.clone()));
+            assert_eq!(call_edge(&receipt, "root", shape).resolution, CallResolution::Local, "{caller}");
+            let root = receipt.nodes.iter().find(|node| node.name == "root").expect("root node");
+            assert!(root.closure_effects.contains(&Effect::Fs), "{caller}");
+
+            // Without the crate root, the module the path names cannot be proven: no summary applies.
+            let hidden = [(TEST_PATH, caller), (UTIL_PATH, "pub use dep_a::tidy;\n")];
+            let denied = compute_closure(workspace_input(&hidden, caller_address(), Vec::new()));
+            let summaries = reviewed_summaries(&denied, &dependency_provider());
+            let receipt = compute_closure(workspace_input(&hidden, caller_address(), summaries));
+            assert_eq!(receipt.status, AdmissionStatus::Denied, "{caller}");
+            assert_eq!(call_edge(&receipt, "root", shape).resolution, CallResolution::Unknown, "{caller}");
+        }
+
+        // An inline module needs no crate root: its declaration is in the caller's file.
+        let inline = |dependency: &str| {
+            format!("mod inner {{\n    pub use {dependency}::tidy;\n}}\npub fn root() {{ self::inner::tidy(); }}\n")
+        };
+        assert_summaries_follow_resolution(&inline("dep_a"), &[], &[(
+            inline("dep_b").as_str(),
+            "call:self::inner::tidy",
+        )]);
+
+        // An import named after its own crate (`use tidy::tidy;`) still names the extern crate.
+        assert_summaries_follow_resolution("use tidy::tidy;\nfn root() { tidy(); }\n", &[], &[(
+            "use other::tidy;\nfn root() { tidy(); }\n",
+            "call:tidy",
+        )]);
     }
 }
