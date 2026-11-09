@@ -159,7 +159,7 @@ A successful collection writes these additional artifacts:
 
 The receipt binds every artifact with BLAKE3. Provenance records link the projection to all six raw parents.
 
-`cargo octet artifact verify` remeasures the published artifacts and rejects stale links.
+`cargo octet artifact verify` remeasures the published artifacts and rejects stale links. It also parses the retained baseline, candidate, allocation, copy-site, oracle, and finding bytes and reproduces the receipt projection from them and the checked profile. A sample, resource observation, signal input, or projection that no longer reproduces its receipt fails with an identity or reproduction diagnostic.
 
 ## Public claims
 

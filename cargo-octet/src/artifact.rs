@@ -1485,6 +1485,7 @@ fn verify_evidence_rail_bundle(
     validate_evidence_rail_record_shapes(receipt.as_ref(), &provenance_records, &mut diagnostics);
     validate_wasm_artifact_binding(receipt.as_ref(), &provenance_records, &mut diagnostics);
     validate_charon_semantic_artifact_binding(receipt.as_ref(), &provenance_records, &mut diagnostics);
+    validate_benchmark_artifact_binding(receipt.as_ref(), file_map, &mut diagnostics);
     validate_exact_provenance_coverage(&provenance_records, &expected_non_provenance, &mut diagnostics);
     let artifacts = verified_artifact_rows(&provenance_records, &expected_non_provenance);
     diagnostics.sort();
@@ -1641,6 +1642,17 @@ fn validate_charon_semantic_artifact_binding(
             diagnostics.push(format!("Charon semantic receipt provenance must link artifact `{}`", artifact.name));
         }
     }
+}
+
+fn validate_benchmark_artifact_binding(
+    receipt: Option<&crate::evidence_rails::EvidenceRailReceipt>,
+    file_map: &BTreeMap<String, Vec<u8>>,
+    diagnostics: &mut Vec<String>,
+) {
+    let Some(details) = receipt.and_then(|receipt| receipt.benchmark_evidence.as_ref()) else {
+        return;
+    };
+    diagnostics.extend(crate::benchmark::validate_bundle(details, file_map));
 }
 
 fn inspect_status(file_map: &BTreeMap<String, Vec<u8>>) -> BundleStatus {

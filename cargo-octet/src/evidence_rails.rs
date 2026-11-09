@@ -5038,10 +5038,10 @@ fn write_artifacts(
     let root = prepare_artifact_dir(artifact_dir)?;
     remove_stale_artifacts(&root, additional_artifacts.keys())?;
     root.write_atomic(&RootRelativePath::new(RECEIPT_ARTIFACT_NAME)?, receipt_json.as_bytes())?;
-    root.write(&RootRelativePath::new(SUMMARY_ARTIFACT_NAME)?, summary.as_bytes())?;
-    root.write(&RootRelativePath::new(PROVENANCE_ARTIFACT_NAME)?, provenance_jsonl.as_bytes())?;
+    root.write_atomic(&RootRelativePath::new(SUMMARY_ARTIFACT_NAME)?, summary.as_bytes())?;
+    root.write_atomic(&RootRelativePath::new(PROVENANCE_ARTIFACT_NAME)?, provenance_jsonl.as_bytes())?;
     for (name, bytes) in additional_artifacts {
-        root.write(&RootRelativePath::new(name)?, bytes)?;
+        root.write_atomic(&RootRelativePath::new(name)?, bytes)?;
     }
     Ok(())
 }
@@ -7652,6 +7652,90 @@ mod tests {
             assert!(error.contains(expected), "{error}");
             assert!(!artifacts.join(RECEIPT_ARTIFACT_NAME).exists(), "refused benchmark import wrote a receipt");
         }
+    }
+
+    #[test]
+    fn benchmark_free_form_command_and_ambiguous_input_are_refused() {
+        let directory = tempfile::tempdir().expect("create benchmark directory");
+        let input = directory.path().join("benchmark-input.json");
+        fs::write(&input, include_str!("../tests/fixtures/evidence-rails/benchmark-input.json"))
+            .expect("write benchmark import input");
+        let artifacts = directory.path().join("artifacts");
+        let base_args =
+            |command: Option<&str>, run: bool, input: Option<std::path::PathBuf>| crate::cli::EvidenceRailArgs {
+                rail: EvidenceRailKind::BenchmarkEvidence,
+                input,
+                artifact_dir: artifacts.clone(),
+                workspace_root: Some(directory.path().to_path_buf()),
+                config: Some(std::path::PathBuf::from("standards/benchmark/profiles.json")),
+                baseline: None,
+                profile: Some(crate::benchmark::PROFILE_ID.to_owned()),
+                command: command.map(ToOwned::to_owned),
+                parent_artifacts: Vec::new(),
+                external_reports: Vec::new(),
+                output_format: OutputFormat::Human,
+                locked: false,
+                update_advisory_database: false,
+                run,
+                command_line: "cargo octet evidence collect --rail benchmark-evidence".to_owned(),
+            };
+
+        let error =
+            run(&base_args(Some("sh -c arbitrary"), true, None)).expect_err("free-form benchmark command is refused");
+        assert!(error.contains("arbitrary `--command` authority"), "{error}");
+        assert!(!artifacts.join(RECEIPT_ARTIFACT_NAME).exists(), "refused benchmark command wrote a receipt");
+
+        let error = run(&base_args(None, true, Some(input.clone())))
+            .expect_err("benchmark run and import input are refused together");
+        assert!(error.contains("either `--input PATH` or `--run`"), "{error}");
+        assert!(!artifacts.join(RECEIPT_ARTIFACT_NAME).exists(), "ambiguous benchmark input wrote a receipt");
+    }
+
+    #[test]
+    fn benchmark_collect_writes_a_verifiable_bundle() {
+        let directory = tempfile::tempdir().expect("create benchmark workspace");
+        let config = directory.path().join("standards/benchmark/profiles.json");
+        fs::create_dir_all(config.parent().expect("config parent")).expect("create benchmark config directory");
+        fs::write(&config, include_bytes!("../../standards/benchmark/profiles.json"))
+            .expect("write checked benchmark profile");
+        let input = directory.path().join("benchmark-input.json");
+        fs::write(&input, include_str!("../tests/fixtures/evidence-rails/benchmark-input.json"))
+            .expect("write benchmark import input");
+        let artifacts = directory.path().join("artifacts");
+        let args = crate::cli::EvidenceRailArgs {
+            rail: EvidenceRailKind::BenchmarkEvidence,
+            input: Some(std::path::PathBuf::from("benchmark-input.json")),
+            artifact_dir: artifacts.clone(),
+            workspace_root: Some(directory.path().to_path_buf()),
+            config: Some(std::path::PathBuf::from("standards/benchmark/profiles.json")),
+            baseline: None,
+            profile: Some(crate::benchmark::PROFILE_ID.to_owned()),
+            command: None,
+            parent_artifacts: Vec::new(),
+            external_reports: Vec::new(),
+            output_format: OutputFormat::Human,
+            locked: false,
+            update_advisory_database: false,
+            run: false,
+            command_line: "cargo octet evidence collect --rail benchmark-evidence".to_owned(),
+        };
+
+        run(&args).expect("collect benchmark bundle");
+        let mut files = Vec::new();
+        for entry in fs::read_dir(&artifacts).expect("read benchmark artifact directory") {
+            let entry = entry.expect("read benchmark artifact entry");
+            let name = entry.file_name().into_string().expect("artifact name is UTF-8");
+            files.push(crate::artifact::BundleFile {
+                name,
+                contents: fs::read(entry.path()).expect("read benchmark artifact"),
+            });
+        }
+        let report = crate::artifact::verify_bundle(crate::artifact::ArtifactBundleInput {
+            artifact_dir: artifacts.display().to_string(),
+            files,
+        });
+        assert_eq!(report.status, "valid", "{:?}", report.diagnostics);
+        assert_eq!(report.artifacts.len(), 9);
     }
 
     #[test]

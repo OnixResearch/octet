@@ -134,6 +134,12 @@ Changes that can add findings, fail a build, or change identities:
   report by its `--external-report` position and, when it parses, its claimed
   producer and `report_identity`; the new message text changes these
   findings' IDs.
+- Benchmark artifact verification remeasures every raw benchmark artifact and
+  reproduces the receipt projection from the retained baseline, candidate,
+  allocation, copy-site, oracle, and finding bytes plus the checked profile.
+  A tampered or relabelled sample, resource observation, signal input, or
+  projection now fails `cargo octet artifact verify` even when summary and
+  provenance bytes are regenerated to match.
 
 Fewer false positives:
 
