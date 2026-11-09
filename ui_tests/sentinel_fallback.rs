@@ -62,3 +62,39 @@ fn main() {
     let _ = non_extreme_closure(i128::MAX);
     let _ = test_only(-1);
 }
+
+type Ticks = u64;
+
+fn aliased_max(maybe_ticks: Option<Ticks>) -> Ticks {
+    // Should warn: `Ticks::MAX` resolves to `u64::MAX`
+    maybe_ticks.unwrap_or(Ticks::MAX)
+}
+
+fn qualified_min(raw_index: i128) -> i64 {
+    // Should warn: `<i64>::MIN` resolves to `i64::MIN`
+    i64::try_from(raw_index).unwrap_or(<i64>::MIN)
+}
+
+trait Ceiling {
+    fn or_ceiling(maybe: Option<Self>) -> Self
+    where
+        Self: Sized;
+}
+
+impl Ceiling for u32 {
+    fn or_ceiling(maybe: Option<u32>) -> u32 {
+        // Should warn: `Self::MAX` resolves to `u32::MAX`
+        maybe.unwrap_or(Self::MAX)
+    }
+}
+
+struct Limits;
+
+impl Limits {
+    const MAX: u64 = 10;
+}
+
+fn user_const_named_max(maybe: Option<u64>) -> u64 {
+    // Should NOT warn: `Limits::MAX` is a user constant, not an integer extreme
+    maybe.unwrap_or(Limits::MAX)
+}

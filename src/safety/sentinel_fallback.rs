@@ -74,7 +74,9 @@ fn direct_integer_extreme_const<'tcx>(
         return false;
     };
 
-    let hir::QPath::TypeRelative(base_ty, segment) = qpath else {
+    // The written base type may be an alias (`Ticks::MAX`), `Self`, or a
+    // qualified type; identity comes from the resolved constant below.
+    let hir::QPath::TypeRelative(_, segment) = qpath else {
         return false;
     };
     if segment.ident.name != Symbol::intern("MAX") && segment.ident.name != Symbol::intern("MIN") {
@@ -99,10 +101,7 @@ fn direct_integer_extreme_const<'tcx>(
     let impl_self_ty = cx.tcx.type_of(impl_did).instantiate_identity();
     let fallback_ty = cx.typeck_results().expr_ty(expr);
 
-    matches!(base_ty.kind, hir::TyKind::Path(hir::QPath::Resolved(_, path)) if matches!(path.res, Res::PrimTy(hir::PrimTy::Int(_) | hir::PrimTy::Uint(_))))
-        && matches!(impl_self_ty.kind(), ty::Int(_) | ty::Uint(_))
-        && fallback_ty == result_ty
-        && impl_self_ty == fallback_ty
+    matches!(impl_self_ty.kind(), ty::Int(_) | ty::Uint(_)) && fallback_ty == result_ty && impl_self_ty == fallback_ty
 }
 
 impl<'tcx> LateLintPass<'tcx> for SentinelFallback {
