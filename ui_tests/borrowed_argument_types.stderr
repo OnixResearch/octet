@@ -67,5 +67,23 @@ LL - fn checksum_qualified(bytes: &std::vec::Vec<u16>) -> u16 {
 LL + fn checksum_qualified(bytes: &[u16]) -> u16 {
    |
 
-warning: 4 warnings emitted
+warning: parameter uses `&String`; accept `&str` unless ownership, capacity, or exact owned type identity is required
+  --> $DIR/borrowed_argument_types.rs:61:1
+   |
+LL | / fn register_callback(name: &String, callback: extern "C" fn()) -> usize {
+LL | |     callback();
+LL | |     name.len()
+LL | | }
+   | |_^
+   |
+   = help: Tiger Style (Borrowed Interfaces): accept general borrowed argument types such as `&str`, `&[T]`, and `&Path` instead of references to owned containers Example: fn parse_name(name: &str) -> Result<Name, Error>
+   = note: structured suggestion applicability: MaybeIncorrect
+   = note: see Tiger Style guide: Explicit Interfaces
+help: replace `&String` with `&str`
+   |
+LL - fn register_callback(name: &String, callback: extern "C" fn()) -> usize {
+LL + fn register_callback(name: &str, callback: extern "C" fn()) -> usize {
+   |
+
+warning: 5 warnings emitted
 

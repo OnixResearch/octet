@@ -1,4 +1,4 @@
-#![allow(improper_ctypes_definitions)]
+#![allow(improper_ctypes_definitions, missing_abi)]
 
 use std::path::Path;
 use std::path::PathBuf;
@@ -50,6 +50,17 @@ impl Visitor for NameVisitor {
 
 extern "C" fn external_callback(value: &String) {
     let _ = value.len();
+}
+
+// Should NOT warn: `extern fn` without an ABI string is a C-ABI function.
+extern fn external_default_abi(value: &String) {
+    let _ = value.len();
+}
+
+// Should warn: an `extern "C" fn` parameter type does not make this Rust-ABI function extern.
+fn register_callback(name: &String, callback: extern "C" fn()) -> usize {
+    callback();
+    name.len()
 }
 
 fn main() {

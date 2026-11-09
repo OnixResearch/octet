@@ -81,12 +81,14 @@ fn borrowed_replacement(cx: &LateContext<'_>, ty: &hir::Ty<'_>) -> Option<Borrow
     None
 }
 
-fn signature_is_extern(cx: &LateContext<'_>, sig: &hir::FnSig<'_>) -> bool {
-    cx.sess().source_map().span_to_snippet(sig.span).is_ok_and(|snippet| snippet.contains("extern \""))
+/// Foreign-callable signatures keep their exact parameter types. `extern fn` without an ABI
+/// string is the C ABI, and an `extern "C" fn` parameter type does not change the item's ABI.
+fn signature_is_extern(sig: &hir::FnSig<'_>) -> bool {
+    sig.header.abi != rustc_abi::ExternAbi::Rust
 }
 
 fn lint_decl(cx: &LateContext<'_>, hir_id: hir::HirId, report_span: rustc_span::Span, sig: &hir::FnSig<'_>) {
-    if signature_is_extern(cx, sig) || test_context::late_hir_id_is_in_test_context(cx, hir_id, report_span) {
+    if signature_is_extern(sig) || test_context::late_hir_id_is_in_test_context(cx, hir_id, report_span) {
         return;
     }
 
