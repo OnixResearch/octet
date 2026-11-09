@@ -145,6 +145,23 @@ Evidence rails and artifacts:
   `pass_signal` and `changed_key_components`. Capsule and artifact hashes
   change for inputs that carry those fields.
 
+Proof rails:
+
+- The Aeneas Lean rail reports the union of `Lean.collectAxioms` over every
+  declaration in the `Theorem` module, not only the theorem whose line starts
+  with `theorem `, so a `sorryAx` in an attributed, `private`, or namespaced
+  lemma fails the rail; `lean-axioms.json` keeps its shape but now lists the
+  whole module's axioms. The Lean stage also fails when `lake build` warns
+  that a declaration in `Theorem.lean` or `Llbc.lean` uses `sorry`. The
+  trust-closure token scanner treats a string as interpolated only after the
+  syntax Lean 4.31 parses that way, so `panic! "{"` can no longer hide the
+  declarations after it.
+- `cargo octet prove` probes the verifier identity of every production rail
+  except Aeneas ones, whatever its backend label, so a rail that claims the
+  Verus receipt schema under another backend name can no longer reach
+  `formal_proof` through an unpinned verifier. The Charon semantic shell no
+  longer deletes a work root it was refused.
+
 ## Unreleased: lint, evidence-rail, admission, and Verus fixes
 
 Behaviour and format changes:
