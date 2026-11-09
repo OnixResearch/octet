@@ -941,6 +941,62 @@ fn concurrency() { let _ = std::thread::spawn(|| ()); }\n";
         assert!(diagnostics.is_empty());
     }
 
+    // r[verify octet.hexagonal_ports.invariants.defined_in_core]
+    #[test]
+    fn architecture_port_mechanism_requires_exact_code_trait_declaration() {
+        let adapter = SourceFile::new(
+            "adapters/std/src/lib.rs",
+            "impl Clock for AdapterClock { fn now_ms(&self) -> u64 { 0 } }\n",
+        );
+        for (application, accepted) in [
+            ("pub trait Clock { fn now_ms(&self) -> u64; }\n", true),
+            ("pub trait Clock<T>: Send {}\n", true),
+            ("pub(crate) trait Clock{}\n", true),
+            ("pub trait ClockSource { fn now_ms(&self) -> u64; }\n", false),
+            ("// pub trait Clock { fn now_ms(&self) -> u64; }\n", false),
+            ("/* pub trait Clock {} */\n", false),
+            ("/*\npub trait Clock {}\n*/\n", false),
+            ("const MIMIC: &str = \"pub trait Clock {}\";\n", false),
+            ("const MIMIC: &str = r#\"\npub trait Clock {}\n\"#;\n", false),
+            ("fn subtrait Clock() {}\n", false),
+        ] {
+            let sources = vec![SourceFile::new("application/src/lib.rs", application), adapter.clone()];
+            let diagnostics = check_architecture(
+                &sample_port_registry(false),
+                &sources,
+                &FamilySelection::from_families(["architecture"]),
+            );
+
+            assert_eq!(diagnostics.is_empty(), accepted, "{application:?}: {diagnostics:?}");
+            assert!(diagnostics.iter().all(|diagnostic| diagnostic.policy_id == HEXAGONAL_PORT_POLICY_ID));
+        }
+    }
+
+    // r[verify octet.hexagonal_ports.invariants.adapter_impl]
+    #[test]
+    fn architecture_port_mechanism_requires_exact_code_adapter_impl() {
+        let application = SourceFile::new("application/src/lib.rs", "pub trait Clock { fn now_ms(&self) -> u64; }\n");
+        for (adapter, accepted) in [
+            ("impl Clock for AdapterClock {}\n", true),
+            ("impl Clock for AdapterClock<'_> { fn tick(&self) -> char { '\"' } }\n", true),
+            ("impl ClockSource for AdapterClock {}\n", false),
+            ("impl SlowClock for AdapterClock {}\n", false),
+            ("// impl Clock for AdapterClock {}\n", false),
+            ("/* impl Clock for AdapterClock {} */\n", false),
+            ("const MIMIC: &str = \"impl Clock for AdapterClock {}\";\n", false),
+        ] {
+            let sources = vec![application.clone(), SourceFile::new("adapters/std/src/lib.rs", adapter)];
+            let diagnostics = check_architecture(
+                &sample_port_registry(false),
+                &sources,
+                &FamilySelection::from_families(["architecture"]),
+            );
+
+            assert_eq!(diagnostics.is_empty(), accepted, "{adapter:?}: {diagnostics:?}");
+            assert!(diagnostics.iter().all(|diagnostic| diagnostic.policy_id == HEXAGONAL_PORT_POLICY_ID));
+        }
+    }
+
     #[test]
     fn architecture_port_mechanism_rejects_application_concrete_impl() {
         let sources = vec![

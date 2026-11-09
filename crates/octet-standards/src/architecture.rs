@@ -728,8 +728,9 @@ fn append_port_defined_in_application_diagnostic(
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     let trait_name = short_type_name(port_trait);
+    let declaration = format!("trait {trait_name}");
     if scoped_sources(sources, std::slice::from_ref(&obligations.application_owner_scope))
-        .any(|source| source.text.contains(&format!("trait {trait_name}")))
+        .any(|source| rust_code_lines(&source.text).iter().any(|line| contains_code_tokens(line, &declaration)))
     {
         return;
     }
@@ -756,9 +757,12 @@ fn append_port_adapter_impl_diagnostic(
         return;
     }
     let trait_name = short_type_name(port_trait);
+    let short_impl = format!("impl {trait_name} for");
+    let qualified_impl = format!("impl {port_trait} for");
     if scoped_sources(sources, &obligations.permitted_adapter_scopes).any(|source| {
-        source.text.contains(&format!("impl {trait_name} for"))
-            || source.text.contains(&format!("impl {port_trait} for"))
+        rust_code_lines(&source.text)
+            .iter()
+            .any(|line| contains_code_tokens(line, &short_impl) || contains_code_tokens(line, &qualified_impl))
     }) {
         return;
     }
@@ -818,6 +822,133 @@ fn concrete_port_impl_type(line: &str, trait_name: &str, forbidden_patterns: &[S
 
 fn short_type_name(path: &str) -> &str {
     path.rsplit("::").next().unwrap_or(path)
+}
+
+/// True when `needle` occurs in `line` without identifier characters directly before or after it.
+fn contains_code_tokens(line: &str, needle: &str) -> bool {
+    line.match_indices(needle).any(|(start, matched)| {
+        let before = line[..start].chars().next_back();
+        let after = line[start + matched.len()..].chars().next();
+        !before.is_some_and(is_identifier_char) && !after.is_some_and(is_identifier_char)
+    })
+}
+
+fn is_identifier_char(character: char) -> bool {
+    character.is_alphanumeric() || character == '_'
+}
+
+#[derive(Clone, Copy)]
+enum LexState {
+    Code,
+    BlockComment(usize),
+    Str,
+    RawStr(usize),
+}
+
+/// Split Rust source into lines of code text: comments are removed and string and character
+/// literal contents are dropped, so text inside them cannot match a declaration.
+fn rust_code_lines(text: &str) -> Vec<String> {
+    let chars = text.chars().collect::<Vec<_>>();
+    let mut lines = vec![String::new()];
+    let mut state = LexState::Code;
+    let mut index = 0;
+    while index < chars.len() {
+        let character = chars[index];
+        let next = chars.get(index + 1).copied();
+        if character == '\n' {
+            lines.push(String::new());
+            index += 1;
+            continue;
+        }
+        let line = lines.last_mut().expect("lines start non-empty");
+        match state {
+            LexState::Code => match (character, next) {
+                ('/', Some('/')) => {
+                    while index < chars.len() && chars[index] != '\n' {
+                        index += 1;
+                    }
+                    continue;
+                }
+                ('/', Some('*')) => {
+                    state = LexState::BlockComment(1);
+                    index += 2;
+                    line.push(' ');
+                    continue;
+                }
+                ('"', _) => {
+                    state = LexState::Str;
+                    line.push('"');
+                }
+                ('r', Some('"' | '#')) => {
+                    if let Some(hashes) = raw_string_hashes(&chars, index) {
+                        state = LexState::RawStr(hashes);
+                        line.push('"');
+                        index += hashes + 2;
+                        continue;
+                    }
+                    line.push(character);
+                }
+                ('\'', Some('\\')) => {
+                    // Skip the quote, backslash, and escaped character, then any `\u{..}` body.
+                    index += 3;
+                    while index < chars.len() && chars[index] != '\'' && chars[index] != '\n' {
+                        index += 1;
+                    }
+                    line.push_str("' '");
+                }
+                ('\'', Some(_)) if chars.get(index + 2) == Some(&'\'') => {
+                    index += 2;
+                    line.push_str("' '");
+                }
+                _ => line.push(character),
+            },
+            LexState::BlockComment(depth) => match (character, next) {
+                ('/', Some('*')) => {
+                    state = LexState::BlockComment(depth + 1);
+                    index += 1;
+                }
+                ('*', Some('/')) => {
+                    state = if depth == 1 {
+                        LexState::Code
+                    } else {
+                        LexState::BlockComment(depth - 1)
+                    };
+                    index += 1;
+                }
+                _ => {}
+            },
+            LexState::Str => match character {
+                '\\' if next != Some('\n') => index += 1,
+                '"' => {
+                    state = LexState::Code;
+                    line.push('"');
+                }
+                _ => {}
+            },
+            LexState::RawStr(hashes) => {
+                if character == '"'
+                    && chars[index + 1..].iter().take(hashes).all(|current| *current == '#')
+                    && chars.len() > index + hashes
+                {
+                    state = LexState::Code;
+                    line.push('"');
+                    index += hashes;
+                }
+            }
+        }
+        index += 1;
+    }
+    lines
+}
+
+/// Hash count of a raw string literal (`r"`, `r#"`, `br"`) starting at `index`, if one starts
+/// there.
+fn raw_string_hashes(chars: &[char], index: usize) -> Option<usize> {
+    let starts_token = index
+        .checked_sub(1)
+        .is_none_or(|previous| !is_identifier_char(chars[previous]) || chars[previous] == 'b');
+    let hashes = chars[index + 1..].iter().take_while(|current| **current == '#').count();
+    (starts_token && chars.get(index + 1 + hashes) == Some(&'"')).then_some(hashes)
 }
 
 fn scoped_sources<'a>(sources: &'a [SourceFile], scopes: &'a [String]) -> impl Iterator<Item = &'a SourceFile> {
