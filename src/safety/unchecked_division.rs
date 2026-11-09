@@ -14,8 +14,9 @@ use crate::diagnostics::emit_tiger_style_lint;
 use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
 
 declare_tool_lint! {
-    /// Detects `a / b` or `a % b` where `b` is a function parameter or
-    /// local variable (not a constant) and no guard proves `b != 0` at the
+    /// Detects `a / b`, `a % b`, `a /= b`, or `a %= b` where `b` is an
+    /// integer (or a reference to one) that is a function parameter or local
+    /// variable (not a constant) and no guard proves `b != 0` at the
     /// division: an enclosing `if b != 0` / `b > 0` / `b >= 1` then-branch,
     /// an enclosing `if b == 0` else-branch, or an earlier statement in an
     /// enclosing block that diverges when `b` is zero (for example
@@ -28,11 +29,28 @@ declare_tool_lint! {
 declare_lint_pass!(UncheckedDivision => [UNCHECKED_DIVISION]);
 
 fn is_integer_ty(ty: ty::Ty<'_>) -> bool {
-    matches!(ty.kind(), ty::Int(_) | ty::Uint(_))
+    matches!(ty.peel_refs().kind(), ty::Int(_) | ty::Uint(_))
+}
+
+fn reference_depth(mut ty: ty::Ty<'_>) -> usize {
+    let mut depth = 0;
+    while let ty::Ref(_, inner, _) = ty.kind() {
+        ty = *inner;
+        depth += 1;
+    }
+    depth
+}
+
+/// Strip `*` and `&` so `count`, `*count`, and `&count` name the same divisor.
+fn peel_deref_and_borrow<'a, 'hir>(mut expr: &'a hir::Expr<'hir>) -> &'a hir::Expr<'hir> {
+    while let ExprKind::Unary(hir::UnOp::Deref, inner) | ExprKind::AddrOf(_, _, inner) = expr.kind {
+        expr = inner;
+    }
+    expr
 }
 
 fn is_literal_or_const(expr: &hir::Expr<'_>) -> bool {
-    match &expr.kind {
+    match &peel_deref_and_borrow(expr).kind {
         ExprKind::Lit(_) => true,
         ExprKind::Path(hir::QPath::Resolved(_, path)) => {
             matches!(
@@ -46,7 +64,7 @@ fn is_literal_or_const(expr: &hir::Expr<'_>) -> bool {
 
 /// Get the name of a simple path expression (variable or parameter name).
 fn expr_name(expr: &hir::Expr<'_>) -> Option<String> {
-    if let ExprKind::Path(hir::QPath::Resolved(_, path)) = &expr.kind {
+    if let ExprKind::Path(hir::QPath::Resolved(_, path)) = &peel_deref_and_borrow(expr).kind {
         path.segments.last().map(|s| s.ident.name.as_str().to_string())
     } else {
         None
@@ -74,9 +92,10 @@ fn divisor_comparison<'hir>(
     rhs: &'hir hir::Expr<'hir>,
     divisor: &hir::Expr<'_>,
 ) -> Option<(BinOpKind, &'hir hir::Expr<'hir>)> {
-    if crate::safety::unchecked_narrowing::same_checked_expr(lhs, divisor) {
+    let divisor = peel_deref_and_borrow(divisor);
+    if crate::safety::unchecked_narrowing::same_checked_expr(peel_deref_and_borrow(lhs), divisor) {
         Some((op, rhs))
-    } else if crate::safety::unchecked_narrowing::same_checked_expr(rhs, divisor) {
+    } else if crate::safety::unchecked_narrowing::same_checked_expr(peel_deref_and_borrow(rhs), divisor) {
         Some((mirrored_comparison(op), lhs))
     } else {
         None
@@ -214,30 +233,40 @@ fn guarded_division_replacement(
     cx: &LateContext<'_>,
     lhs: &hir::Expr<'_>,
     rhs: &hir::Expr<'_>,
-    op: BinOpKind,
+    op: &str,
+    divisor_ref_depth: usize,
 ) -> Option<String> {
     let lhs = expr_snippet(cx, lhs)?;
     let rhs = expr_snippet(cx, rhs)?;
-    let op = match op {
-        BinOpKind::Div => "/",
-        BinOpKind::Rem => "%",
-        _ => return None,
-    };
+    let deref = "*".repeat(divisor_ref_depth);
 
     Some(format!(
-        "{{ let __tigerstyle_divisor = {rhs}; assert!(__tigerstyle_divisor != 0); {lhs} {op} __tigerstyle_divisor }}"
+        "{{ let __tigerstyle_divisor = {rhs}; assert!({deref}__tigerstyle_divisor != 0); {lhs} {op} __tigerstyle_divisor }}"
     ))
+}
+
+/// Split `a / b`, `a % b`, `a /= b`, and `a %= b` into dividend, divisor, and operator token.
+fn integer_division_operands<'tcx>(
+    expr: &'tcx hir::Expr<'tcx>,
+) -> Option<(&'tcx hir::Expr<'tcx>, &'tcx hir::Expr<'tcx>, &'static str)> {
+    match &expr.kind {
+        ExprKind::Binary(op, lhs, rhs) if matches!(op.node, BinOpKind::Div | BinOpKind::Rem) => {
+            Some((lhs, rhs, op.node.as_str()))
+        }
+        ExprKind::AssignOp(op, lhs, rhs)
+            if matches!(op.node, hir::AssignOpKind::DivAssign | hir::AssignOpKind::RemAssign) =>
+        {
+            Some((lhs, rhs, op.node.as_str()))
+        }
+        _ => None,
+    }
 }
 
 impl<'tcx> LateLintPass<'tcx> for UncheckedDivision {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx hir::Expr<'tcx>) {
-        let ExprKind::Binary(op, lhs, rhs) = &expr.kind else {
+        let Some((lhs, rhs, op)) = integer_division_operands(expr) else {
             return;
         };
-
-        if !matches!(op.node, BinOpKind::Div | BinOpKind::Rem) {
-            return;
-        }
 
         let rhs_ty = cx.typeck_results().expr_ty(rhs);
         if !is_integer_ty(rhs_ty) {
@@ -256,7 +285,7 @@ impl<'tcx> LateLintPass<'tcx> for UncheckedDivision {
         let name = expr_name(rhs).unwrap_or_else(|| "expression".into());
 
         let message = format!("division by `{name}` without zero check");
-        if let Some(replacement) = guarded_division_replacement(cx, lhs, rhs, op.node) {
+        if let Some(replacement) = guarded_division_replacement(cx, lhs, rhs, op, reference_depth(rhs_ty)) {
             emit_tiger_style_lint_with_suggestion(
                 cx,
                 UNCHECKED_DIVISION,

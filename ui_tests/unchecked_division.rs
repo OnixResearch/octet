@@ -123,3 +123,49 @@ fn main() {
     asserted_divisor(100, 10);
     asserted_divisor_in_loop(&[100], 10);
 }
+
+fn div_assign_unchecked(total: u64, count: u64) -> u64 {
+    // Should warn: `/=` divides by an unchecked variable
+    let mut quotient = total;
+    quotient /= count;
+    quotient
+}
+
+fn rem_assign_unchecked(total: u64, count: u64) -> u64 {
+    // Should warn: `%=` divides by an unchecked variable
+    let mut remainder = total;
+    remainder %= count;
+    remainder
+}
+
+fn div_assign_guarded(total: u64, count: u64) -> u64 {
+    // Should NOT warn: earlier early return proves `count != 0`
+    if count == 0 {
+        return 0;
+    }
+    let mut quotient = total;
+    quotient /= count;
+    quotient
+}
+
+fn reference_divisor(total: u64, count: &u64) -> u64 {
+    // Should warn: `&u64` divisor without zero check
+    total / count
+}
+
+fn reference_divisor_guarded(total: u64, count: &u64) -> u64 {
+    // Should NOT warn: `*count != 0` guards the referenced divisor
+    if *count != 0 { total / count } else { 0 }
+}
+
+fn dereferenced_divisor_guarded(total: u64, count: &u64) -> u64 {
+    // Should NOT warn: `*count > 0` guards `*count`
+    if *count > 0 { total % *count } else { 0 }
+}
+
+fn float_div_assign(total: f64, count: f64) -> f64 {
+    // Should NOT warn: float division does not trap on zero
+    let mut quotient = total;
+    quotient /= count;
+    quotient
+}

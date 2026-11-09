@@ -89,5 +89,50 @@ LL -     let quotient = total / count;
 LL +     let quotient = { let __tigerstyle_divisor = count; assert!(__tigerstyle_divisor != 0); total / __tigerstyle_divisor };
    |
 
-warning: 6 warnings emitted
+warning: division by `count` without zero check
+  --> $DIR/unchecked_division.rs:130:5
+   |
+LL |     quotient /= count;
+   |     ^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Explicit Division): guard divisors before division so zero is impossible Example: assert!(divisor != 0); let q = value / divisor;
+   = note: structured suggestion applicability: MaybeIncorrect
+   = note: see Tiger Style guide: Explicit Division
+help: guard `count` before division
+   |
+LL -     quotient /= count;
+LL +     { let __tigerstyle_divisor = count; assert!(__tigerstyle_divisor != 0); quotient /= __tigerstyle_divisor };
+   |
+
+warning: division by `count` without zero check
+  --> $DIR/unchecked_division.rs:137:5
+   |
+LL |     remainder %= count;
+   |     ^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Explicit Division): guard divisors before division so zero is impossible Example: assert!(divisor != 0); let q = value / divisor;
+   = note: structured suggestion applicability: MaybeIncorrect
+   = note: see Tiger Style guide: Explicit Division
+help: guard `count` before division
+   |
+LL -     remainder %= count;
+LL +     { let __tigerstyle_divisor = count; assert!(__tigerstyle_divisor != 0); remainder %= __tigerstyle_divisor };
+   |
+
+warning: division by `count` without zero check
+  --> $DIR/unchecked_division.rs:153:5
+   |
+LL |     total / count
+   |     ^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Explicit Division): guard divisors before division so zero is impossible Example: assert!(divisor != 0); let q = value / divisor;
+   = note: structured suggestion applicability: MaybeIncorrect
+   = note: see Tiger Style guide: Explicit Division
+help: guard `count` before division
+   |
+LL -     total / count
+LL +     { let __tigerstyle_divisor = count; assert!(*__tigerstyle_divisor != 0); total / __tigerstyle_divisor }
+   |
+
+warning: 9 warnings emitted
 
