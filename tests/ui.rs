@@ -1599,14 +1599,21 @@ fn compiler_architecture_value_types_under_effect_paths_are_effect_free() {
     assert_eq!(shard.collection_status, CollectionStatus::Complete);
     assert_valid_compiler_shard(&shard);
     // Address, ordering, thread-id, exit-status, metadata, duration, and path
-    // values compute without I/O; connecting and reading do not.
+    // values, and the span between two given times, compute without I/O.
+    // Connecting, reading, measuring elapsed time, and querying the filesystem
+    // through a `Path`, including one reached by deref from a `PathBuf`, do not.
     let effects = compiler_effects(&shard)
         .into_iter()
         .map(|(caller, family, primitive)| (caller.trim_start_matches("effect_free_value_types::"), family, primitive))
         .collect::<std::collections::BTreeSet<_>>();
     let expected = std::collections::BTreeSet::from([
+        ("age", CapabilityFamily::Time, "std::time::SystemTime::elapsed"),
         ("connect", CapabilityFamily::Network, "std::net::TcpStream::connect"),
+        ("listing", CapabilityFamily::Filesystem, "std::path::Path::read_dir"),
+        ("present", CapabilityFamily::Filesystem, "std::path::Path::exists"),
+        ("present_buffer", CapabilityFamily::Filesystem, "std::path::Path::is_file"),
         ("read", CapabilityFamily::Filesystem, "std::fs::read_to_string"),
+        ("waited", CapabilityFamily::Time, "std::time::Instant::elapsed"),
     ]);
     assert_eq!(effects, expected);
 }

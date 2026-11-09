@@ -9,6 +9,9 @@ use std::process::ExitStatus;
 use std::sync::atomic::Ordering;
 use std::thread::ThreadId;
 use std::time::Duration;
+use std::time::Instant;
+use std::time::SystemTime;
+use std::time::SystemTimeError;
 
 pub fn same_host(left: IpAddr, right: IpAddr) -> bool {
     left == right
@@ -52,4 +55,36 @@ pub fn connect(address: SocketAddr) -> std::io::Result<TcpStream> {
 
 pub fn read(path: &Path) -> std::io::Result<String> {
     std::fs::read_to_string(path)
+}
+
+pub fn instant_between(later: Instant, earlier: Instant) -> Duration {
+    later.duration_since(earlier)
+}
+
+pub fn system_between(later: SystemTime, earlier: SystemTime) -> Result<Duration, SystemTimeError> {
+    later.duration_since(earlier)
+}
+
+pub fn file_name(path: &Path) -> bool {
+    path.parent().and_then(Path::file_name).is_some() && path.extension().is_none() && path.starts_with("/")
+}
+
+pub fn waited(start: Instant) -> Duration {
+    start.elapsed()
+}
+
+pub fn age(stamp: SystemTime) -> Result<Duration, SystemTimeError> {
+    stamp.elapsed()
+}
+
+pub fn present(path: &Path) -> bool {
+    path.exists()
+}
+
+pub fn present_buffer(path: &PathBuf) -> bool {
+    path.is_file()
+}
+
+pub fn listing(path: &Path) -> std::io::Result<std::fs::ReadDir> {
+    path.read_dir()
 }

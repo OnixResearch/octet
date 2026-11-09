@@ -106,6 +106,21 @@ const EFFECT_PATHS: &[(&str, CapabilityFamily)] = &[
     ("std::io::stdout", CapabilityFamily::Observability),
     ("std::time::Instant::now", CapabilityFamily::Time),
     ("std::time::SystemTime::now", CapabilityFamily::Time),
+    // `elapsed` reads the clock; `duration_since` only compares two given times.
+    ("std::time::Instant::elapsed", CapabilityFamily::Time),
+    ("std::time::SystemTime::elapsed", CapabilityFamily::Time),
+    // `Path` methods that query the filesystem. Path manipulation such as
+    // `join`, `parent`, or `file_name` computes on the path alone.
+    ("std::path::Path::canonicalize", CapabilityFamily::Filesystem),
+    ("std::path::Path::exists", CapabilityFamily::Filesystem),
+    ("std::path::Path::is_dir", CapabilityFamily::Filesystem),
+    ("std::path::Path::is_file", CapabilityFamily::Filesystem),
+    ("std::path::Path::is_symlink", CapabilityFamily::Filesystem),
+    ("std::path::Path::metadata", CapabilityFamily::Filesystem),
+    ("std::path::Path::read_dir", CapabilityFamily::Filesystem),
+    ("std::path::Path::read_link", CapabilityFamily::Filesystem),
+    ("std::path::Path::symlink_metadata", CapabilityFamily::Filesystem),
+    ("std::path::Path::try_exists", CapabilityFamily::Filesystem),
 ];
 
 // Synchronization covers locks, once cells, channels, and atomics; shared
@@ -2647,6 +2662,44 @@ mod tests {
             ("std::net::IpAddrResolver::lookup", CapabilityFamily::Network),
         ] {
             assert_eq!(effect_family(definition), Some(family), "{definition}");
+        }
+    }
+
+    #[test]
+    fn clock_reads_and_path_queries_are_effects() {
+        for (definition, family) in [
+            ("std::time::Instant::elapsed", CapabilityFamily::Time),
+            ("std::time::SystemTime::elapsed", CapabilityFamily::Time),
+            ("std::path::Path::canonicalize", CapabilityFamily::Filesystem),
+            ("std::path::Path::exists", CapabilityFamily::Filesystem),
+            ("std::path::Path::is_dir", CapabilityFamily::Filesystem),
+            ("std::path::Path::is_file", CapabilityFamily::Filesystem),
+            ("std::path::Path::is_symlink", CapabilityFamily::Filesystem),
+            ("std::path::Path::metadata", CapabilityFamily::Filesystem),
+            ("std::path::Path::read_dir", CapabilityFamily::Filesystem),
+            ("std::path::Path::read_link", CapabilityFamily::Filesystem),
+            ("std::path::Path::symlink_metadata", CapabilityFamily::Filesystem),
+            ("std::path::Path::try_exists", CapabilityFamily::Filesystem),
+        ] {
+            assert_eq!(effect_family(definition), Some(family), "{definition}");
+        }
+        for definition in [
+            "std::time::Instant::duration_since",
+            "std::time::Instant::checked_duration_since",
+            "std::time::SystemTime::duration_since",
+            "std::time::Duration::as_secs",
+            "std::path::Path::join",
+            "std::path::Path::parent",
+            "std::path::Path::file_name",
+            "std::path::Path::extension",
+            "std::path::Path::components",
+            "std::path::Path::strip_prefix",
+            "std::path::Path::starts_with",
+            "std::path::Path::display",
+            "std::path::PathBuf::push",
+            "std::path::PathBuf::deref",
+        ] {
+            assert_eq!(effect_family(definition), None, "{definition}");
         }
     }
 
