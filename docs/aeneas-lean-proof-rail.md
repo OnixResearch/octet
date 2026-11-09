@@ -37,13 +37,19 @@ a named timeout, a denied network namespace, and a private PID namespace. Each
 stage runs in its own process group; on timeout, and after the stage exits,
 the whole group is killed and output-reader teardown is bounded, so Cargo,
 rustc, or Lean worker grandchildren cannot outlive the stage or stall the shell.
-The source package and pinned Aeneas Lean library are copied into that work
-root before execution; the Nix store is mounted read-only so absolute provider
-binaries remain available. The work root path is a deterministic BLAKE3 of the
-source root, backend, and rail argv; it is removed after the run on success and
-on failure, so rerunning a rail starts fresh. A root that already exists belongs
-to a concurrent run, or to a process that was killed before cleanup, and is
-refused rather than reused; remove it after confirming no run is active.
+Before execution the work root receives the source package's Rust inputs and
+the pinned Aeneas Lean library; the Nix store is mounted read-only so absolute
+provider binaries remain available. The source copy leaves out `.git`,
+`target`, and `.lake` directories and every `.lean` file, so the Lake package
+holds no module other than the generated `Llbc`, the approved `Theorem`, and
+the pinned library; a theorem that imports another local module fails to
+build. A source root that contains its own `aeneas-lean-library` entry is
+refused, because it would merge into the pinned library. The work root path is
+a deterministic BLAKE3 of the source root, backend, and rail argv; it is removed
+after the run on success and on failure, so rerunning a rail starts fresh. A
+root that already exists belongs to a concurrent run, or to a process that was
+killed before cleanup, and is refused rather than reused; remove it after
+confirming no run is active.
 Mathlib and every Lake dependency are fixed-output, path-only closure inputs;
 Lake receives frozen root and nested manifests and cannot fetch missing code.
 A failed or incomplete stage stops the pipeline.

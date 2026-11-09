@@ -56,6 +56,8 @@ const SANDBOX_ARGUMENT_SEPARATOR: &str = "--";
 const GIT_DIRECTORY_NAME: &str = ".git";
 const TARGET_DIRECTORY_NAME: &str = "target";
 const LAKE_DIRECTORY_NAME: &str = ".lake";
+/// Extension of Lean sources, which the source-root copy leaves out of the Lean package.
+const LEAN_EXTENSION: &str = "lean";
 const NETWORK_DENIAL_FLAG: &str = "--unshare-net";
 /// A fresh PID namespace makes the sandbox init process the namespace reaper, so killing the
 /// sandbox tears down every grandchild (Cargo/rustc under Charon, Lean workers under Lake).
@@ -544,7 +546,7 @@ pub(crate) fn execute_reused_charon_stage(input: ReusedCharonStageInput) -> Aene
             input.work_root.display()
         )]);
     }
-    if let Err(error) = copy_directory_contents(&input.source_root, &input.work_root, true) {
+    if let Err(error) = copy_directory_contents(&input.source_root, &input.work_root, CopyFilter::RustPackageInputs) {
         return failed_reused_charon_observation(input.charon_argv, vec![error]);
     }
     let stage = AeneasStagePlan {
@@ -612,9 +614,16 @@ fn prepare_work_root(
     if !aeneas_lean_library.is_dir() {
         return Err(format!("Aeneas Lean library `{}` is not a directory", aeneas_lean_library.display()));
     }
-    copy_directory_contents(source_root, work_root, true)?;
+    let source_library = source_root.join(AENEAS_LIBRARY_DIRECTORY);
+    if fs::symlink_metadata(&source_library).is_ok() {
+        return Err(format!(
+            "Aeneas source root contains `{}`, which would merge into the pinned Aeneas Lean library; refusing it",
+            source_library.display()
+        ));
+    }
+    copy_directory_contents(source_root, work_root, CopyFilter::RustPackageInputs)?;
     let library_destination = work_root.join(AENEAS_LIBRARY_DIRECTORY);
-    copy_directory_contents(aeneas_lean_library, &library_destination, false)?;
+    copy_directory_contents(aeneas_lean_library, &library_destination, CopyFilter::Everything)?;
     let toolchain_source = aeneas_lean_library.join(LEAN_TOOLCHAIN_NAME);
     let toolchain_destination = work_root.join(LEAN_TOOLCHAIN_NAME);
     fs::copy(&toolchain_source, &toolchain_destination).map_err(|error| {
@@ -668,7 +677,18 @@ lean_lib OctetAeneasFixture where
         .map_err(|error| format!("write approved Aeneas theorem `{}`: {error}", theorem_module.display()))
 }
 
-fn copy_directory_contents(source: &Path, destination: &Path, skip_build_directories: bool) -> Result<(), String> {
+/// Entries a recursive copy keeps.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum CopyFilter {
+    /// Every entry: the pinned provider library.
+    Everything,
+    /// The Rust package inputs Charon reads. VCS and build directories and every Lean source are
+    /// left out, so Lake can build only the generated `Llbc` and approved `Theorem` modules and no
+    /// unhashed source-root module can be imported by the theorem.
+    RustPackageInputs,
+}
+
+fn copy_directory_contents(source: &Path, destination: &Path, filter: CopyFilter) -> Result<(), String> {
     fs::create_dir_all(destination)
         .map_err(|error| format!("create copied Aeneas directory `{}`: {error}", destination.display()))?;
     let entries =
@@ -680,13 +700,17 @@ fn copy_directory_contents(source: &Path, destination: &Path, skip_build_directo
         let file_type = entry
             .file_type()
             .map_err(|error| format!("inspect Aeneas directory entry `{}`: {error}", entry.path().display()))?;
-        if skip_build_directories && file_type.is_dir() && should_skip_source_directory(&name_text) {
+        let source_path = entry.path();
+        if filter == CopyFilter::RustPackageInputs
+            && ((file_type.is_dir() && should_skip_source_directory(&name_text))
+                || (file_type.is_file()
+                    && source_path.extension().is_some_and(|extension| extension == LEAN_EXTENSION)))
+        {
             continue;
         }
-        let source_path = entry.path();
         let destination_path = destination.join(&name);
         if file_type.is_dir() {
-            copy_directory_contents(&source_path, &destination_path, skip_build_directories)?;
+            copy_directory_contents(&source_path, &destination_path, filter)?;
         } else if file_type.is_file() {
             fs::copy(&source_path, &destination_path).map_err(|error| {
                 format!("copy Aeneas file `{}` to `{}`: {error}", source_path.display(), destination_path.display())
@@ -2093,5 +2117,67 @@ mod tests {
             assert!(!summary.command_succeeded, "unchecked theorem reached formal proof: {summary:?}");
             assert!(summary.diagnostics.iter().any(|diagnostic| diagnostic.contains("axiom report")), "{summary:?}");
         }
+    }
+
+    // r[verify octet.aeneas_lean_proof_rail.theorem_gate]
+    #[cfg(unix)]
+    #[test]
+    fn shell_copies_no_unbound_lean_sources_into_the_lean_package() {
+        let temporary = tempfile::tempdir().expect("unbound Lean source test root");
+        let theorem = fake_provider::real_theorem();
+        let source_root = fake_provider::source_root(temporary.path(), DEFAULT_THEOREM_PATH, &theorem);
+        let planted = [
+            "Theorem/Helper.lean",
+            "Llbc/Extra.lean",
+            "Aeneas/Planted.lean",
+            "src/Shadow.lean",
+        ];
+        for path in planted {
+            let file = source_root.join(path);
+            fs::create_dir_all(file.parent().expect("planted parent")).expect("planted directory");
+            fs::write(file, "axiom planted : False\n").expect("planted Lean module");
+        }
+        let rail = fake_provider::rail(DEFAULT_THEOREM_PATH, &theorem);
+        let absent = planted.map(|path| format!("test ! -e {path}\n")).concat();
+        let lean =
+            format!("{absent}test -f Cargo.toml\ntest -f src/lib.rs\n{}", fake_provider::lean_checks_real_theorem());
+        let summary = run_fake_rail(
+            temporary.path(),
+            &rail,
+            &source_root,
+            (&fake_provider::replay_llbc(), &fake_provider::replay_translation(), &lean),
+        );
+
+        assert!(summary.command_succeeded, "unbound Lean sources reached the Lean package: {summary:?}");
+    }
+
+    // r[verify octet.aeneas_lean_proof_rail.theorem_gate]
+    #[cfg(unix)]
+    #[test]
+    fn shell_refuses_a_source_root_aeneas_lean_library() {
+        let temporary = tempfile::tempdir().expect("planted library test root");
+        let theorem = fake_provider::real_theorem();
+        let source_root = fake_provider::source_root(temporary.path(), DEFAULT_THEOREM_PATH, &theorem);
+        let planted = source_root.join(AENEAS_LIBRARY_DIRECTORY).join("Aeneas");
+        fs::create_dir_all(&planted).expect("planted library directory");
+        fs::write(planted.join("Planted.lean"), "axiom planted : False\n").expect("planted library module");
+        let rail = fake_provider::rail(DEFAULT_THEOREM_PATH, &theorem);
+        let summary = run_fake_rail(
+            temporary.path(),
+            &rail,
+            &source_root,
+            (
+                &fake_provider::replay_llbc(),
+                &fake_provider::replay_translation(),
+                &fake_provider::lean_checks_real_theorem(),
+            ),
+        );
+
+        assert!(!summary.command_succeeded, "a source-root Aeneas library was merged: {summary:?}");
+        assert!(
+            summary.diagnostics.iter().any(|diagnostic| diagnostic.contains(AENEAS_LIBRARY_DIRECTORY)),
+            "{summary:?}"
+        );
+        assert!(!summary.stdout_text.contains("[charon]"), "a stage ran over a planted library: {summary:?}");
     }
 }
