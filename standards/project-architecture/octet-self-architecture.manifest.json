@@ -14,8 +14,8 @@
       "dependencies": [
         {
           "path": "standards/project-architecture/octet-self-architecture.contracts.ncl",
-          "blake3": "7dd57d4b850e3eb80ad15831866184b0247ac634d2bacda9f53bd7d3f3c64a5b",
-          "bytes": 12853
+          "blake3": "256a93e6a03d554d5db8694258d11a4262bb795de981af888ee08d8094529333",
+          "bytes": 12940
         }
       ],
       "output": {

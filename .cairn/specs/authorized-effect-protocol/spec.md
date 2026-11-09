@@ -24,6 +24,12 @@ Each effectful outbound adapter capability in an active project architecture pol
 - WHEN `gate` or `admission` evaluation runs
 - THEN the architecture phase MUST block with an unclassified-authority diagnostic
 
+#### Scenario: Protected executor scope is not an outbound adapter
+
+- GIVEN a protected classification whose `executor_scope` has the application-shell or composition-root role
+- WHEN Rust or Nickel policy validation runs
+- THEN validation MUST fail, because the gate admits protected executors only in outbound-adapter scopes
+
 ### Requirement: Protected protocol schema is typed
 
 r[octet.authorized_effect_protocol.schema]

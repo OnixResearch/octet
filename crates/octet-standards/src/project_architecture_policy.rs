@@ -892,7 +892,16 @@ fn validate_outbound_effects(
         push_blank(diagnostics, "outbound_effects.executor_scope", &classification.executor_scope);
         push_blank(diagnostics, "outbound_effects.rationale", &classification.rationale);
         let executor_role = assignments.get(&(ArchitectureScopeKind::Source, classification.executor_scope.clone()));
-        if !matches!(
+        // The gate admits a protected executor only inside an outbound adapter.
+        if classification.authority == ArchitectureEffectAuthority::Protected {
+            if executor_role != Some(&ArchitectureRole::OutboundAdapter) {
+                diagnostics.push(diagnostic(
+                    "invalid-effect-executor-scope",
+                    "outbound_effects.executor_scope",
+                    format!("protected executor scope `{}` must be outbound-adapter", classification.executor_scope),
+                ));
+            }
+        } else if !matches!(
             executor_role,
             Some(
                 ArchitectureRole::ApplicationShell
@@ -1372,6 +1381,28 @@ mod tests {
         policy.outbound_effects[0].protected = None;
         let missing = validate_project_architecture_policy(&policy);
         assert!(missing.iter().any(|diagnostic| diagnostic.code == "missing-protected-protocol"));
+    }
+
+    #[test]
+    fn protected_effect_executor_scope_must_be_an_outbound_adapter() {
+        for (scope, accepted) in [
+            ("crates/outbound/src", true),
+            ("crates/application/src", false),
+            ("crates/host/src", false),
+        ] {
+            let mut policy = valid_policy();
+            let mut classification = protected_filesystem_effect(ArchitectureWitnessUse::Consume);
+            classification.executor_scope = scope.to_owned();
+            policy.outbound_effects.push(classification);
+            let rejected = validate_project_architecture_policy(&policy)
+                .iter()
+                .any(|diagnostic| diagnostic.code == "invalid-effect-executor-scope");
+            assert_eq!(rejected, !accepted, "{scope}");
+
+            policy.outbound_effects[0].authority = ArchitectureEffectAuthority::Unprotected;
+            policy.outbound_effects[0].protected = None;
+            assert_eq!(validate_project_architecture_policy(&policy), Vec::new(), "unprotected {scope}");
+        }
     }
 
     #[test]

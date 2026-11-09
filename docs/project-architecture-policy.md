@@ -299,6 +299,7 @@ A `consume` witness is one-shot. A `borrow` witness needs an explicit reusable s
 The compiler traces only selected protocol types and calls through optimized MIR. It follows local moves, projections, parameters, returns, and wrappers. Empty, merged, unresolved, or over-limit provenance becomes a blocking typed unknown in strict modes. Exceeding a selected MIR body, step, or round limit also makes that unit's shard incomplete.
 
 A protected executor must have the witness in its compiler-resolved input types. The effect site must remain in the declared executor method and outbound-adapter scope.
+Policy validation therefore requires a protected effect's `executor_scope` to be an outbound-adapter source scope. Unprotected effects may also execute in application-shell or composition-root scopes.
 
 Success-receipt constructors must receive the declared observed-outcome type from an approved success observation. Failure-receipt constructors require an approved failure observation. A plan, attempt, witness, missing observation, or failed observation cannot become a success receipt.
 
