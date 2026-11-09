@@ -83,9 +83,12 @@ Each stage's outputs are measured before the next stage may run:
   measured.
 - Also after Aeneas, the maintained theorem source and the generated
   `Llbc.lean` are scanned as Lean tokens, skipping comments, string text, and
-  character literals; the `{…}` holes of interpolated strings (`s!`, `m!`,
-  `f!`, other `name!` macros, `trace[…]`, and `throwError`) are scanned as
-  code, and `«…»`-quoted names are never keywords. `axiom` declarations outside
+  character literals. Only strings that Lean 4.31 parses as interpolated have
+  their `{…}` holes scanned as code: those after `s!`, `m!`, `f!`,
+  `println!`, `dbg_trace`, `throwError`, `throwErrorAt`, the
+  `throwNamedError` and `logNamed…` commands, and `trace[…]`-style macros. A
+  string after any other name, such as `panic!` or `HashMap.get!`, is plain
+  text. `«…»`-quoted names are never keywords. `axiom` declarations outside
   the profile's declared axioms and external models, `opaque` definitions
   outside its external models, `native_decide`, `ofReduceBool`, `ofReduceNat`,
   `implemented_by`, and `extern` are undeclared inputs, and `sorry`, `admit`,

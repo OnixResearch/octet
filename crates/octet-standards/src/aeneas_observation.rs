@@ -37,9 +37,27 @@ const THEOREM_ORIGIN: &str = "theorem";
 const GENERATED_ORIGIN: &str = "generated";
 /// Prefix that resolves a Lean name from the root namespace (`_root_.sorryAx` is `sorryAx`).
 const ROOT_NAMESPACE_PREFIX: &str = "_root_.";
-/// Lean commands whose string argument is parsed as an interpolated string.
-const INTERPOLATING_THROW_ERROR: &str = "throwError";
-const INTERPOLATING_THROW_ERROR_AT: &str = "throwErrorAt";
+/// Lean 4.31 syntax whose next string literal is parsed as `interpolatedStr`: the `s!`, `m!`, and
+/// `f!` macros and the core macros and commands that take the string right after their keyword.
+const INTERPOLATING_KEYWORDS: [&str; 9] = [
+    "s!",
+    "m!",
+    "f!",
+    "println!",
+    "dbg_trace",
+    "throwError",
+    "reportIssue!",
+    "reportDbgIssue!",
+    "reportEMatchIssue!",
+];
+/// Lean 4.31 commands that take one term or name (`throwErrorAt ref`) before their interpolated
+/// string.
+const INTERPOLATING_AFTER_ONE_ARGUMENT: [&str; 4] =
+    ["throwErrorAt", "throwNamedError", "logNamedError", "logNamedWarning"];
+/// Lean 4.31 commands that take a term and a name before their interpolated string.
+const INTERPOLATING_AFTER_TWO_ARGUMENTS: [&str; 3] = ["throwNamedErrorAt", "logNamedErrorAt", "logNamedWarningAt"];
+/// Lean 4.31 `name[cls]` macros whose string after the closing `]` is interpolated.
+const INTERPOLATING_TRACE_MACROS: [&str; 3] = ["trace", "trace_goal", "Macro.trace"];
 /// Origin label of trust inputs that Lean reports for the approved theorem.
 const LEAN_ORIGIN: &str = "lean";
 /// Axioms of Lean's core logic that every classical proof may depend on.
@@ -708,19 +726,23 @@ impl LeanTokenScanner<'_> {
 
     /// Whether the string literal at the cursor is parsed as `interpolatedStr`.
     ///
-    /// Lean decides this syntactically: `s!`, `m!`, `f!`, and other `name!` macros, the
-    /// `trace[cls]` family, and `throwError`/`throwErrorAt` take interpolated strings.
+    /// Lean decides this syntactically, and only for the syntax that asks for it: the `s!`, `m!`,
+    /// and `f!` macros, `println!`, `dbg_trace`, the `throwError` and `logNamed…` family, and
+    /// `trace[cls]`-style macros. A string after any other name, such as `panic!` or
+    /// `HashMap.get!`, is plain text.
     fn opens_interpolated_string(&self) -> bool {
-        let preceding = self.characters[..self.index].iter().rev().find(|character| !character.is_whitespace());
-        if matches!(preceding, Some('!' | ']')) {
+        let before = &self.characters[..self.index];
+        let preceding = before.iter().rposition(|character| !character.is_whitespace());
+        if preceding.is_some_and(|close| before[close] == ']' && closes_trace_macro_class(before, close)) {
             return true;
         }
-        let adjacent_token =
-            self.characters[self.last_token_end..self.index].iter().all(|character| character.is_whitespace());
-        let mut recent = self.tokens.iter().rev().map(|token| token.text.as_str());
-        let last = recent.next();
-        (adjacent_token && matches!(last, Some(INTERPOLATING_THROW_ERROR | INTERPOLATING_THROW_ERROR_AT)))
-            || recent.next() == Some(INTERPOLATING_THROW_ERROR_AT)
+        let adjacent_token = before[self.last_token_end..].iter().all(|character| character.is_whitespace());
+        let mut recent = self.tokens.iter().rev().map(|token| if token.quoted { "" } else { token.text.as_str() });
+        let [last, second, third] = [recent.next(), recent.next(), recent.next()];
+        let names = |allowed: &[&str], token: Option<&str>| token.is_some_and(|token| allowed.contains(&token));
+        (adjacent_token && names(&INTERPOLATING_KEYWORDS, last))
+            || names(&INTERPOLATING_AFTER_ONE_ARGUMENT, second)
+            || names(&INTERPOLATING_AFTER_TWO_ARGUMENTS, third)
     }
 
     /// Skip string text up to the closing quote, scanning interpolation holes as code.
@@ -774,6 +796,20 @@ impl LeanTokenScanner<'_> {
         self.last_token_end = self.index;
         self.tokens.push(token);
     }
+}
+
+/// Whether the `]` at `close` ends the class of a `trace[cls]`-style macro: its `[` directly
+/// follows one of [`INTERPOLATING_TRACE_MACROS`].
+fn closes_trace_macro_class(before: &[char], close: usize) -> bool {
+    let Some(open) = before[..close].iter().rposition(|character| *character == '[') else {
+        return false;
+    };
+    let head_start = before[..open]
+        .iter()
+        .rposition(|character| !identifier_continue(*character) && *character != '.')
+        .map_or(0, |separator| separator + 1);
+    let head = before[head_start..open].iter().collect::<String>();
+    INTERPOLATING_TRACE_MACROS.contains(&head.as_str())
 }
 
 fn skip_block_comment(characters: &[char], start: usize) -> usize {
@@ -1024,6 +1060,35 @@ mod tests {
         let interpolated_code = "def q := s!\"{sorry}\"\n";
         let closure = observe_aeneas_trust_closure(interpolated_code, "", &empty_policy());
         assert_eq!(closure.declared_admitted_declarations, vec!["theorem: sorry".to_owned()]);
+    }
+
+    // r[verify octet.aeneas_lean_proof_rail.theorem_adequacy]
+    #[test]
+    fn aeneas_trust_closure_interpolates_only_strings_lean_parses_as_interpolated() {
+        let plain = "def p := panic! \"bad {\"\naxiom after_panic : False\ndef g := HashMap.get! m \"{\"\n@[extern \"c_fn\"] def native : Nat := 0\ndef k := pair [1] \"{\"\naxiom after_list : False\ndef t := xs[0]! \"{\"\nopaque after_index : Nat\n";
+        let closure = observe_aeneas_trust_closure(plain, "", &empty_policy());
+        assert_eq!(closure.undeclared_inputs, vec![
+            "theorem: axiom after_list".to_owned(),
+            "theorem: axiom after_panic".to_owned(),
+            "theorem: extern".to_owned(),
+            "theorem: opaque after_index".to_owned(),
+        ]);
+
+        for interpolated in [
+            "def a := IO.println s!\"{sorry}\"",
+            "def a := logInfo m!\"{sorry}\"",
+            "def a := f! \"{sorry}\"",
+            "def a := println! \"{sorry}\"",
+            "def a := dbg_trace \"{sorry}\"; 0",
+            "def a := throwError \"{sorry}\"",
+            "def a := throwErrorAt ref \"{sorry}\"",
+            "def a := do trace[Meta.debug] \"{sorry}\"",
+            "def a := do trace_goal[grind] \"{sorry}\"",
+            "def a := Macro.trace[cls] \"{sorry}\"",
+        ] {
+            let closure = observe_aeneas_trust_closure(interpolated, "", &empty_policy());
+            assert_eq!(closure.declared_admitted_declarations, vec!["theorem: sorry".to_owned()], "{interpolated}");
+        }
     }
 
     // r[verify octet.aeneas_lean_proof_rail.theorem_adequacy]
