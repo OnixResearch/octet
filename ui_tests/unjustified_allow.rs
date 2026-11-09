@@ -255,3 +255,24 @@ quiet! {
         value.unwrap()
     }
 }
+
+// Should warn at the definition: expansions of an exported macro land in
+// other crates, so its body is checked where it is defined, even if never
+// invoked here.
+#[macro_export]
+macro_rules! exported_quiet {
+    ($item:item) => {
+        #[allow(tigerstyle::no_unwrap)]
+        $item
+    };
+}
+
+// Should NOT warn: a justified allow in an exported macro body.
+#[macro_export]
+macro_rules! exported_justified {
+    ($item:item) => {
+        // Callers only wrap items whose unwraps a bounds check precedes.
+        #[allow(tigerstyle::no_unwrap)]
+        $item
+    };
+}

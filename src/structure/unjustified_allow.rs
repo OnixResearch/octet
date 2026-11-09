@@ -1,7 +1,12 @@
+mod macro_body;
+
 use std::collections::HashSet;
 
+use macro_body::BodyAttribute;
+use macro_body::Reason;
 use rustc_ast::AttrId;
 use rustc_ast::Attribute;
+use rustc_ast::MacroDef;
 use rustc_ast::MetaItemInner;
 use rustc_errors::Applicability;
 use rustc_lint::EarlyContext;
@@ -25,8 +30,10 @@ declare_tool_lint! {
     /// `no_unwrap`. rustc's own lints stay out of scope, and `no_todo` allows
     /// belong to `unjustified_no_todo_allow`. Only attributes written in the
     /// crate's source (directly, through `cfg_attr`, or in a local
-    /// `macro_rules!`) are governed, not output of other crates' macros. Under
-    /// a selected strict profile, a `#[warn(...)]` that reaches one of the
+    /// `macro_rules!`) are governed, not output of other crates' macros. A
+    /// macro body's literal attributes are also checked where the macro is
+    /// defined, so an exported macro is governed in its own crate. Under a
+    /// selected strict profile, a `#[warn(...)]` that reaches one of the
     /// profile's required lints lowers it from `deny` and is governed too.
     ///
     /// A non-doc `//` comment on the attribute's lines or on the line directly
@@ -314,27 +321,87 @@ impl UnjustifiedAllow {
             {
                 continue;
             }
-            let message = format!("`#[{name}(...)]` without justification comment");
-            match site {
-                AttributeSite::Whole(span) => emit_tiger_style_lint_with_suggestion(
-                    cx,
-                    UNJUSTIFIED_ALLOW,
-                    span,
-                    message,
-                    "unjustified_allow",
-                    LintSuggestion::Single {
-                        span: span.shrink_to_lo(),
-                        message: "add a local justification comment".to_owned(),
-                        replacement: justification_stub(cx, span),
-                        applicability: Applicability::HasPlaceholders,
-                    },
-                ),
-                AttributeSite::Forwarded(span) => {
-                    emit_tiger_style_lint(cx, UNJUSTIFIED_ALLOW, span, message, "unjustified_allow");
+            emit_unjustified(cx, site, name);
+        }
+    }
+
+    /// Checks the literal lint-level attributes in a macro body where the macro
+    /// is defined, with the same rules as [`Self::check_attrs`].
+    fn check_macro_body(&mut self, cx: &EarlyContext<'_>, mac: &MacroDef) {
+        for run in macro_body::attribute_runs(&mac.body.tokens, mac.macro_rules) {
+            for (index, attribute) in run.iter().enumerate() {
+                let later = &run[index + 1..];
+                let Some(name) = body_lowering_level_name(attribute) else {
+                    continue;
+                };
+                let is_governed = if name == "warn" {
+                    !body_lowered_lints(&self.floor_paths, attribute, later).is_empty()
+                } else {
+                    attribute.lint_paths().any(is_governed_lint_path)
+                };
+                // The profile guard reports an attribute it reaches as an error.
+                if !is_governed || !body_lowered_lints(&self.guarded_paths, attribute, later).is_empty() {
+                    continue;
                 }
+                let has_reason = match attribute.reason {
+                    Reason::Absent => false,
+                    Reason::Literal(reason) => is_justification_text(reason.as_str()),
+                    Reason::Fragment => true,
+                };
+                if has_reason
+                    || has_comment_nearby(cx, attribute.span)
+                    || !self.dedupe.is_first_definition_report(attribute.span)
+                {
+                    continue;
+                }
+                emit_unjustified(cx, AttributeSite::Whole(attribute.span), name);
             }
         }
     }
+}
+
+fn emit_unjustified(cx: &EarlyContext<'_>, site: AttributeSite, name: &str) {
+    let message = format!("`#[{name}(...)]` without justification comment");
+    match site {
+        AttributeSite::Whole(span) => emit_tiger_style_lint_with_suggestion(
+            cx,
+            UNJUSTIFIED_ALLOW,
+            span,
+            message,
+            "unjustified_allow",
+            LintSuggestion::Single {
+                span: span.shrink_to_lo(),
+                message: "add a local justification comment".to_owned(),
+                replacement: justification_stub(cx, span),
+                applicability: Applicability::HasPlaceholders,
+            },
+        ),
+        AttributeSite::Forwarded(span) => {
+            emit_tiger_style_lint(cx, UNJUSTIFIED_ALLOW, span, message, "unjustified_allow");
+        }
+    }
+}
+
+/// Name of a macro-body attribute that can set a lint below `deny`.
+fn body_lowering_level_name(attribute: &BodyAttribute) -> Option<&'static str> {
+    [(sym::allow, "allow"), (sym::expect, "expect"), (sym::warn, "warn")]
+        .into_iter()
+        .find_map(|(symbol, name)| (attribute.name == symbol).then_some(name))
+}
+
+/// Lints of `set` that a macro-body attribute lowers and no later `deny` or
+/// `forbid` in its run of attributes raises back.
+fn body_lowered_lints(set: &LintPathSet, attribute: &BodyAttribute, later: &[BodyAttribute]) -> Vec<&'static str> {
+    let mut lowered = set.reached_lints(attribute.lint_paths());
+    if !lowered.is_empty() {
+        let raised = later
+            .iter()
+            .filter(|raise| raise.name == sym::deny || raise.name == sym::forbid)
+            .flat_map(|raise| set.reached_lints(raise.lint_paths()))
+            .collect::<Vec<_>>();
+        lowered.retain(|lint_name| !raised.contains(lint_name));
+    }
+    lowered
 }
 
 /// Report deduplication shared by both passes.
@@ -369,6 +436,14 @@ impl ReportDedupe {
     fn is_first_report(&mut self, span: Span) -> bool {
         !span.from_expansion() || self.macro_sites.insert((span.lo(), span.hi()))
     }
+
+    /// Whether a report at `span`, an attribute in a macro body checked where
+    /// the macro is defined, has not been made yet. It shares the positions of
+    /// expansion-site reports, so a local macro that is also expanded in the
+    /// crate is reported once, by whichever check runs first.
+    fn is_first_definition_report(&mut self, span: Span) -> bool {
+        self.macro_sites.insert((span.lo(), span.hi()))
+    }
 }
 
 impl EarlyLintPass for UnjustifiedAllow {
@@ -379,6 +454,10 @@ impl EarlyLintPass for UnjustifiedAllow {
         if self.dedupe.is_new_attribute_list(attrs) {
             self.check_attrs(cx, attrs);
         }
+    }
+
+    fn check_mac_def(&mut self, cx: &EarlyContext<'_>, mac: &MacroDef) {
+        self.check_macro_body(cx, mac);
     }
 }
 
@@ -499,18 +578,37 @@ impl EarlyLintPass for SuppressionGovernanceGuard {
             let Some(site) = user_attribute_site(cx, attr, name) else {
                 continue;
             };
-            if !self.dedupe.is_first_report(site.span()) {
-                continue;
+            if self.dedupe.is_first_report(site.span()) {
+                self.report(cx, site.span(), name, &reached);
             }
-            let lints = reached.iter().map(|lint_name| format!("`{lint_name}`")).collect::<Vec<_>>().join(", ");
-            cx.sess().dcx().span_err(
-                site.span(),
-                format!(
-                    "strict profile `{}` requires {lints} at `deny`, but this `#[{name}(...)]` would silence it; source attributes cannot lower a profile's suppression-governance lints, so remove the attribute",
-                    self.profile_id
-                ),
-            );
         }
+    }
+
+    fn check_mac_def(&mut self, cx: &EarlyContext<'_>, mac: &MacroDef) {
+        for run in macro_body::attribute_runs(&mac.body.tokens, mac.macro_rules) {
+            for (index, attribute) in run.iter().enumerate() {
+                let Some(name) = body_lowering_level_name(attribute) else {
+                    continue;
+                };
+                let reached = body_lowered_lints(&self.protected, attribute, &run[index + 1..]);
+                if !reached.is_empty() && self.dedupe.is_first_definition_report(attribute.span) {
+                    self.report(cx, attribute.span, name, &reached);
+                }
+            }
+        }
+    }
+}
+
+impl SuppressionGovernanceGuard {
+    fn report(&self, cx: &EarlyContext<'_>, span: Span, name: &str, reached: &[&str]) {
+        let lints = reached.iter().map(|lint_name| format!("`{lint_name}`")).collect::<Vec<_>>().join(", ");
+        cx.sess().dcx().span_err(
+            span,
+            format!(
+                "strict profile `{}` requires {lints} at `deny`, but this `#[{name}(...)]` would silence it; source attributes cannot lower a profile's suppression-governance lints, so remove the attribute",
+                self.profile_id
+            ),
+        );
     }
 }
 

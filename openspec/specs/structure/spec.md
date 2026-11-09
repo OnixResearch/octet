@@ -173,9 +173,18 @@ wrote an attribute MUST be decided from its name token. It MUST NOT fire on
 attributes that a macro from another crate generates, including proc-macro
 output such as the `#[allow(clippy::...)]` block `#[tokio::main]` emits with
 spans borrowed from user tokens. A forwarded attribute is reported at its
-name, without an autofix suggestion. An attribute in a local `macro_rules!`
-body MUST be reported once at its definition, however often the macro
-expands.
+name, without an autofix suggestion.
+
+The lint MUST also check, where a macro is defined, each lint-level attribute
+written literally in a `macro_rules!` transcriber or `macro` body, with the
+same scope, justification, and later-raise rules, whether or not the macro is
+invoked in that crate. This covers `#[macro_export]` macros whose expansions
+land in other crates, where those crates treat the attribute as another
+crate's macro output. Attributes built from fragments, such as `#[$meta]` or
+`#[$level(...)]`, and a matcher's tokens are left to the expansion-site
+check. An attribute in a local macro body MUST be reported once, however
+often the macro expands, whether the definition-site or the expansion-site
+check reports it.
 
 The lint MUST NOT fire on workspace-level lint configuration in
 `Cargo.toml` (those are outside Clippy's reach anyway).

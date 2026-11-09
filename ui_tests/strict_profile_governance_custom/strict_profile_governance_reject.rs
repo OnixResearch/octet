@@ -87,3 +87,13 @@ mod partly_restored {}
 #[deny(tigerstyle::safety)]
 #[warn(tigerstyle::safety)]
 mod lowered_last {}
+
+// Should error at the definition, though the exported macro is never invoked
+// here: its expansions in other crates would silence the audit.
+#[macro_export]
+macro_rules! exported_silenced {
+    () => {
+        #[allow(tigerstyle::structure)]
+        mod exported_silenced {}
+    };
+}

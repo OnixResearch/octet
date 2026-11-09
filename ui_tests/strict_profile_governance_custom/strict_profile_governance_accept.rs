@@ -24,6 +24,20 @@ struct Reading {
 #[forbid(tigerstyle::safety)]
 mod restored {}
 
+// An exported macro body follows the same rules where it is defined: a
+// justified allow of an ordinary floor lint and a `warn` raised back later in
+// the same run of attributes are accepted.
+#[macro_export]
+macro_rules! exported_restored {
+    ($item:item) => {
+        // Callers only wrap items whose unwraps a bounds check precedes.
+        #[allow(tigerstyle::no_unwrap)]
+        #[warn(tigerstyle::safety)]
+        #[deny(tigerstyle::safety)]
+        $item
+    };
+}
+
 fn main() {
     let _ = first(&[1]);
     let _ = Reading { celsius_milli: 1 };
