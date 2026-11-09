@@ -357,3 +357,32 @@ fn comparison_requires_at_least_two_routes_and_visible_bridges() {
     assert_eq!(open_bridge.category, ComparisonCategory::IncomparableClaims);
     assert_eq!(open_bridge.open_obligations, vec!["vermilion-lean.pilot.refinement".to_owned()]);
 }
+
+#[test]
+fn u64_pilot_routes_remain_incomparable_until_executable_bridges_close() {
+    let routes = vec![
+        route("aeneas-lean", supported_claim("octet.bounded_increment.checked/v1"), RouteOutcome::Supported, true),
+        route(
+            "vermilion-lean",
+            supported_claim("octet.bounded_increment.checked/v1"),
+            RouteOutcome::Supported,
+            false,
+        ),
+        route("verus", supported_claim("octet.bounded_increment.checked/v1"), RouteOutcome::Supported, false),
+    ];
+    let report = compare(&routes);
+    assert_eq!(report.category, ComparisonCategory::IncomparableClaims);
+    assert_eq!(report.agreed_property_id, None);
+    assert_eq!(report.open_obligations, vec![
+        "vermilion-lean.pilot.refinement".to_owned(),
+        "verus.pilot.refinement".to_owned()
+    ]);
+    let row = |backend: &str| report.rows.iter().find(|row| row.backend == backend).expect("route row");
+    assert!(row("aeneas-lean").comparable);
+    assert!(!row("vermilion-lean").comparable);
+    assert!(!row("verus").comparable);
+    assert_eq!(
+        row("vermilion-lean").non_comparable_reason.as_deref(),
+        Some("refinement bridge is an open obligation")
+    );
+}
