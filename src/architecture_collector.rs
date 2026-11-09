@@ -63,6 +63,8 @@ const PARAMETER_ORIGIN_PREFIX: &str = "octet-parameter:";
 const UNKNOWN_ORIGIN_PREFIX: &str = "octet-unknown:";
 const MUTABLE_ALIAS_REASON: &str = "mutable-alias";
 const VALUE_FLOW_LIMIT_TARGET: &str = "compiler-selected-value-flow";
+// One counter per `CompilerArchitectureFact` kind; see `fact_kind_limit`.
+const FACT_KIND_COUNT: usize = 14;
 
 type ValueOrigins = BTreeSet<String>;
 type LocalValueOrigins = BTreeMap<mir::Local, ValueOrigins>;
@@ -310,6 +312,8 @@ pub(crate) struct ArchitectureCollector {
     selected: CollectorCompilationUnit,
     spans: BTreeMap<String, SourceSpan>,
     facts: BTreeMap<String, CompilerArchitectureFact>,
+    // Stored facts per kind, indexed by `fact_kind_limit`, so limits never rescan `facts`.
+    fact_counts: [usize; FACT_KIND_COUNT],
     unknowns: BTreeMap<String, UnknownCompilerFact>,
     item_ids: HashMap<LocalDefId, String>,
     type_ids: BTreeSet<String>,
@@ -328,6 +332,7 @@ impl ArchitectureCollector {
         Self {
             spans: BTreeMap::new(),
             facts: BTreeMap::new(),
+            fact_counts: [0; FACT_KIND_COUNT],
             unknowns: BTreeMap::new(),
             item_ids: HashMap::new(),
             type_ids: BTreeSet::new(),
@@ -866,52 +871,39 @@ impl ArchitectureCollector {
         self.item_ids.insert(def_id, item_id.to_owned());
     }
 
+    // A stored fact costs nothing again; only a new fact of a full kind exceeds its limit.
     fn push_fact(&mut self, fact: CompilerArchitectureFact) {
-        if self.fact_limit_reached(&fact) {
+        if self.facts.contains_key(fact.fact_id()) {
+            return;
+        }
+        let (slot, limit) = self.fact_kind_limit(&fact);
+        if self.fact_counts[slot] >= limit {
             self.incomplete = true;
             return;
         }
-        self.facts.entry(fact.fact_id().to_owned()).or_insert(fact);
+        self.fact_counts[slot] += 1;
+        self.facts.insert(fact.fact_id().to_owned(), fact);
     }
 
-    fn fact_limit_reached(&self, candidate: &CompilerArchitectureFact) -> bool {
-        let (observed, limit) = match candidate {
-            CompilerArchitectureFact::Module { .. } => (self.count_facts(is_module), self.context.limits.max_modules),
-            CompilerArchitectureFact::Item { .. } => (self.count_facts(is_item), self.context.limits.max_items),
-            CompilerArchitectureFact::Type { .. } => (self.count_facts(is_type), self.context.limits.max_types),
-            CompilerArchitectureFact::Trait { .. } => (self.count_facts(is_trait), self.context.limits.max_traits),
-            CompilerArchitectureFact::Implementation { .. } => {
-                (self.count_facts(is_implementation), self.context.limits.max_implementations)
-            }
-            CompilerArchitectureFact::Signature { .. } => {
-                (self.count_facts(is_signature), self.context.limits.max_signatures)
-            }
-            CompilerArchitectureFact::Call { .. } => (self.count_facts(is_call), self.context.limits.max_calls),
-            CompilerArchitectureFact::Constructor { .. } => {
-                (self.count_facts(is_constructor), self.context.limits.max_constructors)
-            }
-            CompilerArchitectureFact::Effect { .. } => (self.count_facts(is_effect), self.context.limits.max_effects),
-            CompilerArchitectureFact::Expansion { .. } => {
-                (self.count_facts(is_expansion), self.context.limits.max_expansions)
-            }
-            CompilerArchitectureFact::Configuration { .. } => {
-                (self.count_facts(is_configuration), self.context.limits.max_configurations)
-            }
-            CompilerArchitectureFact::TypeShape { .. } => {
-                (self.count_facts(is_type_shape), self.context.limits.max_type_shapes)
-            }
-            CompilerArchitectureFact::FunctionSafety { .. } => {
-                (self.count_facts(is_function_safety), self.context.limits.max_function_safety_facts)
-            }
-            CompilerArchitectureFact::CallArgumentProvenance { .. } => {
-                (self.count_facts(is_value_provenance), self.context.limits.max_value_provenance_facts)
-            }
-        };
-        observed >= limit && !self.facts.contains_key(candidate.fact_id())
-    }
-
-    fn count_facts(&self, predicate: fn(&CompilerArchitectureFact) -> bool) -> usize {
-        self.facts.values().filter(|fact| predicate(fact)).count()
+    // The counter slot and collection limit of a fact's kind.
+    fn fact_kind_limit(&self, fact: &CompilerArchitectureFact) -> (usize, usize) {
+        let limits = &self.context.limits;
+        match fact {
+            CompilerArchitectureFact::Module { .. } => (0, limits.max_modules),
+            CompilerArchitectureFact::Item { .. } => (1, limits.max_items),
+            CompilerArchitectureFact::Type { .. } => (2, limits.max_types),
+            CompilerArchitectureFact::Trait { .. } => (3, limits.max_traits),
+            CompilerArchitectureFact::Implementation { .. } => (4, limits.max_implementations),
+            CompilerArchitectureFact::Signature { .. } => (5, limits.max_signatures),
+            CompilerArchitectureFact::Call { .. } => (6, limits.max_calls),
+            CompilerArchitectureFact::Constructor { .. } => (7, limits.max_constructors),
+            CompilerArchitectureFact::Effect { .. } => (8, limits.max_effects),
+            CompilerArchitectureFact::Expansion { .. } => (9, limits.max_expansions),
+            CompilerArchitectureFact::Configuration { .. } => (10, limits.max_configurations),
+            CompilerArchitectureFact::TypeShape { .. } => (11, limits.max_type_shapes),
+            CompilerArchitectureFact::FunctionSafety { .. } => (12, limits.max_function_safety_facts),
+            CompilerArchitectureFact::CallArgumentProvenance { .. } => (13, limits.max_value_provenance_facts),
+        }
     }
 
     fn push_unknown(
@@ -2609,52 +2601,6 @@ fn assign_fact_identity(fact: &mut CompilerArchitectureFact) {
     }
 }
 
-fn is_module(fact: &CompilerArchitectureFact) -> bool {
-    matches!(fact, CompilerArchitectureFact::Module { .. })
-}
-fn is_item(fact: &CompilerArchitectureFact) -> bool {
-    matches!(fact, CompilerArchitectureFact::Item { .. })
-}
-fn is_type(fact: &CompilerArchitectureFact) -> bool {
-    matches!(fact, CompilerArchitectureFact::Type { .. })
-}
-fn is_trait(fact: &CompilerArchitectureFact) -> bool {
-    matches!(fact, CompilerArchitectureFact::Trait { .. })
-}
-fn is_implementation(fact: &CompilerArchitectureFact) -> bool {
-    matches!(fact, CompilerArchitectureFact::Implementation { .. })
-}
-fn is_signature(fact: &CompilerArchitectureFact) -> bool {
-    matches!(fact, CompilerArchitectureFact::Signature { .. })
-}
-fn is_call(fact: &CompilerArchitectureFact) -> bool {
-    matches!(fact, CompilerArchitectureFact::Call { .. })
-}
-fn is_constructor(fact: &CompilerArchitectureFact) -> bool {
-    matches!(fact, CompilerArchitectureFact::Constructor { .. })
-}
-fn is_effect(fact: &CompilerArchitectureFact) -> bool {
-    matches!(fact, CompilerArchitectureFact::Effect { .. })
-}
-fn is_expansion(fact: &CompilerArchitectureFact) -> bool {
-    matches!(fact, CompilerArchitectureFact::Expansion { .. })
-}
-fn is_configuration(fact: &CompilerArchitectureFact) -> bool {
-    matches!(fact, CompilerArchitectureFact::Configuration { .. })
-}
-
-fn is_type_shape(fact: &CompilerArchitectureFact) -> bool {
-    matches!(fact, CompilerArchitectureFact::TypeShape { .. })
-}
-
-fn is_function_safety(fact: &CompilerArchitectureFact) -> bool {
-    matches!(fact, CompilerArchitectureFact::FunctionSafety { .. })
-}
-
-fn is_value_provenance(fact: &CompilerArchitectureFact) -> bool {
-    matches!(fact, CompilerArchitectureFact::CallArgumentProvenance { .. })
-}
-
 // These compiler passes synthesize code, not macro invocations. Keep their expansion
 // facts and all generated calls/effects, but do not require a nonexistent macro DefId.
 // Every other definition-less expansion stays unknown.
@@ -3044,5 +2990,43 @@ mod tests {
         collector.record_span(&workspace_span(1));
         assert!(collector.incomplete, "a new span beyond the limit must mark the shard incomplete");
         assert_eq!(collector.spans.keys().collect::<Vec<_>>(), [&recorded.span_id]);
+    }
+
+    fn constructor_fact(constructed_type_id: &str) -> CompilerArchitectureFact {
+        let mut fact = CompilerArchitectureFact::Constructor {
+            fact_id: String::new(),
+            caller_item_id: "a".repeat(64),
+            constructed_type_id: constructed_type_id.to_owned(),
+            constructor_definition: None,
+            span_id: "b".repeat(64),
+        };
+        assign_fact_identity(&mut fact);
+        fact
+    }
+
+    #[test]
+    fn stored_facts_count_once_per_kind_against_their_own_limit() {
+        let mut collector = collector_with_span_limit(1);
+        collector.context.limits.max_constructors = 1;
+        let stored = constructor_fact(&"c".repeat(64));
+        collector.push_fact(stored.clone());
+        collector.push_fact(stored.clone());
+        assert!(!collector.incomplete, "re-recording a stored fact must not exceed its limit");
+        let mut call = CompilerArchitectureFact::Call {
+            fact_id: String::new(),
+            caller_item_id: "a".repeat(64),
+            callee_item_id: None,
+            resolved_definition: Some("fixture::run".to_owned()),
+            dispatch: DispatchKind::Static,
+            span_id: "b".repeat(64),
+        };
+        assign_fact_identity(&mut call);
+        collector.push_fact(call.clone());
+        assert!(!collector.incomplete, "a full constructor limit must not bound other fact kinds");
+        collector.push_fact(constructor_fact(&"d".repeat(64)));
+        assert!(collector.incomplete, "a new fact beyond its kind's limit must mark the shard incomplete");
+        let mut stored_ids = vec![stored.fact_id(), call.fact_id()];
+        stored_ids.sort_unstable();
+        assert_eq!(collector.facts.keys().map(String::as_str).collect::<Vec<_>>(), stored_ids);
     }
 }
