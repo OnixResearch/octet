@@ -96,6 +96,8 @@ enum Command {
     CustomsGate(CustomsGateArgs),
     /// Validate hard-policy fixture coverage from a manifest.
     FixtureCoverage(FixtureCoverageArgs),
+    /// Validate saved storage-fault assurance evidence without running a producer.
+    StorageFaultAssurance(StorageFaultAssuranceArgs),
 }
 
 /// Source-check arguments.
@@ -270,6 +272,7 @@ fn run_cli(cli: Cli) -> Result<bool, CliError> {
         Command::NickelExportManifest(args) => run_nickel_export_manifest_command(&args),
         Command::CustomsGate(args) => run_customs_gate_command(&args),
         Command::FixtureCoverage(args) => run_fixture_coverage_command(args),
+        Command::StorageFaultAssurance(args) => run_storage_fault_assurance_command(args),
     }
 }
 
@@ -479,6 +482,81 @@ fn run_fixture_coverage_command(args: FixtureCoverageArgs) -> Result<bool, CliEr
     };
     emit_report(output, &report)?;
     Ok(report.has_blocking_diagnostics())
+}
+
+/// Saved storage-fault assurance arguments.
+#[derive(Debug, Parser)]
+struct StorageFaultAssuranceArgs {
+    /// JSON profile exported from the storage-fault assurance Nickel profile.
+    #[arg(long)]
+    profile: PathBuf,
+
+    /// Saved producer receipt JSON.
+    #[arg(long)]
+    producer_receipt: PathBuf,
+
+    /// Saved Cairn receipt JSON.
+    #[arg(long)]
+    cairn_receipt: PathBuf,
+
+    /// Output format.
+    #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
+    output: OutputFormat,
+}
+
+fn run_storage_fault_assurance_command(args: StorageFaultAssuranceArgs) -> Result<bool, CliError> {
+    let profile_text = read_text(&args.profile)?;
+    let producer_text = read_text(&args.producer_receipt)?;
+    let cairn_text = read_text(&args.cairn_receipt)?;
+    match octet_standards::storage_fault::validate_storage_fault_assurance(&profile_text, &producer_text, &cairn_text) {
+        Ok(result) => {
+            emit_storage_fault_result(args.output, &result)?;
+            Ok(false)
+        }
+        Err(diagnostics) => {
+            emit_storage_fault_diagnostics(args.output, &diagnostics)?;
+            Ok(true)
+        }
+    }
+}
+
+fn emit_storage_fault_result(
+    output: OutputFormat,
+    result: &octet_standards::storage_fault::StorageFaultAssurance,
+) -> Result<(), CliError> {
+    match output {
+        OutputFormat::Json => {
+            println!("{}", serde_json::to_string_pretty(result).map_err(|source| CliError::Serialize { source })?);
+        }
+        OutputFormat::Human | OutputFormat::Markdown => {
+            println!("storage-fault assurance: passed");
+            println!("profile: {}", result.profile_id);
+            println!("producer receipt: {}", result.producer_receipt_blake3);
+            println!("Cairn receipt: {}", result.cairn_receipt_blake3);
+            for case_id in &result.verified_cases {
+                println!("verified case: {case_id}");
+            }
+            for non_claim in &result.non_claims {
+                println!("non-claim: {non_claim}");
+            }
+        }
+    }
+    Ok(())
+}
+
+fn emit_storage_fault_diagnostics(output: OutputFormat, diagnostics: &[String]) -> Result<(), CliError> {
+    match output {
+        OutputFormat::Json => {
+            let report = serde_json::json!({ "status": "failed", "diagnostics": diagnostics });
+            println!("{}", serde_json::to_string_pretty(&report).map_err(|source| CliError::Serialize { source })?);
+        }
+        OutputFormat::Human | OutputFormat::Markdown => {
+            for diagnostic in diagnostics {
+                eprintln!("storage-fault assurance: {diagnostic}");
+            }
+        }
+    }
+    Ok(())
 }
 
 fn write_export_receipt(

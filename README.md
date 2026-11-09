@@ -32,7 +32,7 @@ Read [`docs/examples/first-checked-rust-patch/README.md`](docs/examples/first-ch
 
 Octet treats code as closed by default across APIs, effects, capabilities, proofs, and review surfaces. Interaction requires a complete interface.
 
-Octet ships 72 Dylint lints across six domains. A separate standards registry handles policy traceability and other source-shape rules.
+Octet ships 75 Dylint lints across six domains. A separate standards registry handles policy traceability and other source-shape rules.
 
 A Nickel catalog defines nominal domains for primitive aliases, raw core values, and wrapper bypasses. Read [`docs/type-driven-domain-modeling.md`](docs/type-driven-domain-modeling.md).
 
@@ -362,7 +362,7 @@ When both forms exist, Octet names take precedence.
 
 | Domain | Count | Focus |
 |---|---:|---|
-| safety | 24 | panics, bounds, defaults, loops, queues, unsafe code, and failures |
+| safety | 27 | panics, bounds, defaults, loops, queues, unsafe code, failures, and durability claims |
 | naming | 9 | predicates, acronyms, units, currency, paths, and imports |
 | performance | 2 | clones, allocation, and ownership |
 | structure | 19 | size, nesting, parameters, casts, APIs, and cohesion |
@@ -382,6 +382,7 @@ Start with these guides:
 - [`docs/strict-rust-profiles.md`](docs/strict-rust-profiles.md): named profiles
 - [`docs/project-architecture-policy.md`](docs/project-architecture-policy.md): opt-in FCIS and Hexagonal project policy
 - [`docs/assurance-profiles.md`](docs/assurance-profiles.md): cross-plane assurance profiles
+- [`docs/durability-claims.md`](docs/durability-claims.md): declared durability boundaries and storage-fault assurance
 - [`docs/downstream-rollout.md`](docs/downstream-rollout.md): consumer promotion
 - [`docs/contributor-guide.md`](docs/contributor-guide.md): source map and checks
 - [`docs/release-candidate.md`](docs/release-candidate.md): release checklist

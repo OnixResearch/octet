@@ -10,6 +10,10 @@
 
 [octet]
 
+# Declared durability boundaries. Author the profile in Nickel, export it, and
+# point this key at the generated JSON. Omit it when no boundary is declared.
+# durability_profile_path = "durability-claims.json"
+
 # Threshold overrides
 # Keep only the fields you actively tune. Delete the rest.
 

@@ -9,11 +9,11 @@ For the landing-page naming map, see `../README.md`.
 
 ## Catalog summary
 
-`octet` ships 72 lints across 6 domains.
+`octet` ships 75 lints across 6 domains.
 
 | Domain | Group | Count |
 | --- | --- | ---: |
-| safety | `tigerstyle::safety` | 24 |
+| safety | `tigerstyle::safety` | 27 |
 | naming | `tigerstyle::naming` | 9 |
 | performance | `tigerstyle::performance` | 2 |
 | structure | `tigerstyle::structure` | 19 |
@@ -72,6 +72,7 @@ Rules to keep straight:
 | `module_pub_items_max` | `12` | `type_accumulation` | maximum public items per module, including the crate root, before advisory; the public `main` and test registrations that the `--test` harness generates are not counted |
 | `core_source_scopes` | `[]` | `concrete_construction_in_core`, `global_state_in_core`, `impure_call_in_core`, `interior_mutability_in_core`, `logging_in_core`, `mutating_input_in_pure`, `resource_return_from_core`, `spawn_in_core` | workspace-relative path prefixes (directories or files) where core-boundary checks run; entries are trimmed, a leading `./` and trailing `/` are dropped, and matching is by whole path components from the workspace root, so `crates/core` does not cover `crates/core-shell` and `domain-core/src` does not cover `crates/domain-core/src`; each entry always matches files rustc compiles through its own path, and an entry that resolves on disk, through symlinks or `..`, to another path inside the workspace also covers that canonical path, so `linked -> src` covers `src/`; an entry that normalizes to empty warns and is ignored; an entry that names no existing file or directory or resolves to the workspace root itself warns because it matches nothing; an entry whose target lies outside the workspace, such as `src/core -> ../../shared/core`, warns that it matches only files compiled through its in-root path |
 | `core_value_provider_types` | `[]` | `concrete_construction_in_core` | exact compiler definition paths of project-reviewed pure value ADTs, such as `reviewed_values::Value`; aliases resolve to the same definition path, while crate-only names, prefixes, suffixes, and unselected siblings do not match |
+| `durability_profile_path` | omitted | `discarded_sync_result`, `flush_only_durability`, `retry_sync_after_error` | workspace-relative path to a generated durability-claims profile JSON; the profile declares analyzed source scopes, boundary functions, required observation classes, uncertain-outcome types, configured commit surfaces, and adapter observations; an unreadable or invalid profile is reported as an error and the durability lints stay inert |
 | `nominal_domain_mode` | omitted | `primitive_domain_alias`, `raw_domain_value`, `newtype_invariant_bypass` | `inventory` warns for exact and heuristic findings and caps `lint_levels` denies for these lints at `warn` (with a config warning), `warn` reports exact findings only, and `deny` denies exact findings only; heuristic candidates are skipped wherever the effective level is above `warn`, such as under a command-line `-D primitive_domain_alias`; a selected `bounded-systems` or `deterministic-core` strict profile forces `deny`, so no cap applies or is reported |
 | `sealed_enum_marker` | `"octet::sealed_enum"` | `fragile_exhaustive_enum_match` | attribute marker that suppresses fragile local exhaustive enum-match diagnostics |
 | `state_machine_core_marker` | `"octet::state_machine_core"` | `state_machine_exhaustiveness` | attribute marker that opts transition functions into explicit state/event matrix checks |
@@ -113,6 +114,9 @@ Unknown config keys (such as a misspelled `[octet.lint-levels]` table or `disabl
 | `sentinel_fallback` | `warn` | flag `<int>::MAX` / `<int>::MIN` sentinel fallbacks instead of explicit branching or tagged fallback text |
 | `public_unsafe_api` | `warn` | flag public Rust `unsafe fn` APIs that leak unsafe obligations to callers |
 | `defaulting_trait_method` | `allow` | flag trait methods with default bodies that can weaken substitution contracts |
+| `discarded_sync_result` | `warn` | flag discarded synchronization and configured commit results in declared durability boundaries |
+| `flush_only_durability` | `warn` | flag declared durable boundaries that observe only `Write::flush()` |
+| `retry_sync_after_error` | `warn` | flag same-receiver synchronization retries after a handled failure without an admitted recovery operation |
 
 For `public_unsafe_api`, either add a safe wrapper or document the exception with an unsafe-boundary record.
 
@@ -130,6 +134,7 @@ Scope notes for the safety lints:
 - `unchecked_narrowing` treats a `usize` or `isize` source as 64 bits wide on every target, so `v.len() as u32` and `index as i8` are flagged unless guarded. Findings do not depend on the build target. Casts to `usize` or `isize` belong to `platform_dependent_cast`. Its `try_from` suggestion handles failure in the same way as `platform_dependent_cast`, based on the return type of the enclosing function, closure, or async body: `?` for a `Result` whose error converts from the cast error, `.ok()?` for `Option`, and a placeholder otherwise.
 - `raw_arithmetic_overflow` checks `+=`, `-=`, and `*=` on an unsigned place as well as `+`, `-`, and `*`. The compound suggestion rewrites `place op= value` to `place = (place).saturating_op(value)`. A place that would be evaluated twice, such as `values[i]`, gets no suggestion. When the left operand is a constant such as an unsuffixed literal, the suggestion names the result type: `u64::saturating_mul(2, n)`.
 - `unbounded_collection_growth` counts a guard joined with `||` when either side bounds the collection, and a guard joined with `&&` only when both sides do. For example, `if items.len() >= limit || shutdown() { break; }` bounds a later push, but `if items.len() >= limit && keep_going() { break; }` does not.
+- `discarded_sync_result`, `flush_only_durability`, and `retry_sync_after_error` run only inside consumer-declared boundary functions from `durability_profile_path`. They resolve `sync_all`, `sync_data`, `Write::flush`, configured commit surfaces, and configured adapter observations by definition path, compare only visible receiver text in the analyzed block, and leave aliasing, interprocedural control flow, runtime ordering, and macro-expanded calls unanalyzed. Passing them proves selected source shapes only, never filesystem, device, or hardware durability.
 - `assertion_density` uses the Rust lexer to strip comments, so `"/*"` inside a string is not read as a comment start. It skips `#[test]` functions and items whose `cfg` can only hold under `cfg(test)`. Items under `cfg(not(test))` or `cfg(any(test, unix))` are still checked.
 
 ## Naming lints (`tigerstyle::naming`)

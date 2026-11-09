@@ -18,6 +18,7 @@ mod cast_suggestion;
 mod concurrency;
 pub mod config;
 mod diagnostics;
+mod durability;
 mod markers;
 mod naming;
 mod performance;
@@ -453,12 +454,31 @@ lint_inventory! {
     "no_recursion", safety::no_recursion::NO_RECURSION => |lint_store, _cfg| {
         lint_store.register_late_pass(|_| Box::new(safety::no_recursion::NoRecursion));
     },
+    "discarded_sync_result", durability::discard::DISCARDED_SYNC_RESULT => |lint_store, cfg| {
+        let context = durability::Context::from_config(cfg);
+        lint_store.register_late_pass(move |_| Box::new(durability::discard::SyncDiscard::new(context.clone())));
+    },
+    "flush_only_durability", durability::flush::FLUSH_ONLY_DURABILITY => |lint_store, cfg| {
+        let context = durability::Context::from_config(cfg);
+        lint_store.register_late_pass(move |_| Box::new(durability::flush::FlushOnly::new(context.clone())));
+    },
+    "retry_sync_after_error", durability::retry::RETRY_SYNC_AFTER_ERROR => |lint_store, cfg| {
+        let context = durability::Context::from_config(cfg);
+        lint_store.register_late_pass(move |_| Box::new(durability::retry::RetryAfterError::new(context.clone())));
+    },
 }
 
 #[unsafe(no_mangle)]
 pub extern "Rust" fn register_lints(sess: &rustc_session::Session, lint_store: &mut rustc_lint::LintStore) {
     dylint_linting::init_config(sess);
-    let cfg = config::load(sess);
+    let durability_catalog = match octet_lint_metadata::durability::load_durability_catalog() {
+        Ok(catalog) => catalog,
+        Err(error) => {
+            sess.dcx().err(format!("load embedded durability catalog: {error}"));
+            return;
+        }
+    };
+    let cfg = config::load(sess, &durability_catalog);
     let nominal_domain_catalog = match octet_lint_metadata::nominal_domain::load_nominal_domain_catalog() {
         Ok(catalog) => catalog,
         Err(error) => {

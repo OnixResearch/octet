@@ -6,6 +6,16 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## Unreleased: durability-claim lints
+
+Three new `warn`-level safety lints analyze consumer-declared durability
+boundaries: `discarded_sync_result`, `flush_only_durability`, and
+`retry_sync_after_error`. Consumers author a Nickel profile and point
+`durability_profile_path` in `dylint.toml` at the generated JSON; without a
+profile the lints stay inert. See `docs/durability-claims.md`. A bounded
+storage-fault assurance profile and `octet-standards storage-fault-assurance`
+validate saved producer and Cairn receipts without executing a producer.
+
 ## 2026-11-09: Conservative const-helper classification
 
 `missing_const_fn` now requires a private free-function body in a conservative

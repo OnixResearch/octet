@@ -1,5 +1,6 @@
 use serde::Serialize;
 
+pub mod durability;
 #[path = "identity.rs"]
 pub mod identity;
 pub mod nominal_domain {
@@ -890,6 +891,42 @@ pub const LINT_METADATA: &[LintMetadata] = &[
         effect_family: EFFECT_FAILURE,
         example_mode: ExampleMode::Required,
         example_text: Some("trait Writer { fn flush(&mut self); }"),
+    },
+    LintMetadata {
+        lint_name: "discarded_sync_result",
+        default_level: DEFAULT_WARN,
+        principle: "Durable Persistence",
+        guide_section: "Resilience / Silent error swallowing",
+        domain_group: GROUP_SAFETY,
+        guidance: "handle the synchronization or configured commit result; map failure to an explicit uncertain outcome, quarantine, reopen, rewrite, or reconcile instead of discarding it",
+        docs_summary: "flag discarded synchronization and configured commit results in declared durability boundaries",
+        effect_family: EFFECT_FAILURE,
+        example_mode: ExampleMode::Required,
+        example_text: Some("let outcome = file.sync_all().map_err(|error| DurabilityOutcome::Uncertain(error))?;"),
+    },
+    LintMetadata {
+        lint_name: "flush_only_durability",
+        default_level: DEFAULT_WARN,
+        principle: "Durable Persistence",
+        guide_section: "Resilience / Silent error swallowing",
+        domain_group: GROUP_SAFETY,
+        guidance: "observe an explicit synchronization or configured adapter result; Write::flush() drains user-space buffers and is not durable-persistence evidence",
+        docs_summary: "flag declared durable boundaries that observe only `Write::flush()`",
+        effect_family: EFFECT_FAILURE,
+        example_mode: ExampleMode::Required,
+        example_text: Some("writer.flush()?; file.sync_all()?;"),
+    },
+    LintMetadata {
+        lint_name: "retry_sync_after_error",
+        default_level: DEFAULT_WARN,
+        principle: "Durable Persistence",
+        guide_section: "Resilience / Silent error swallowing",
+        domain_group: GROUP_SAFETY,
+        guidance: "after a failed synchronization, rewrite from the source of truth, reopen or replace the handle, quarantine, or reconcile before observing durability again",
+        docs_summary: "flag same-receiver synchronization retries after a handled failure without an admitted recovery operation",
+        effect_family: EFFECT_FAILURE,
+        example_mode: ExampleMode::Required,
+        example_text: Some("file.sync_all()?; file = File::create(path)?; file.write_all(bytes)?; file.sync_all()?;"),
     },
     LintMetadata {
         lint_name: "no_todo",

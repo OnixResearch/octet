@@ -191,6 +191,13 @@ pub struct Config {
     /// Source path scopes excluded as generated FSM adapters outside the pure transition core.
     pub state_machine_generated_adapter_scopes: Vec<String>,
 
+    /// Workspace-relative path to a generated durability-claims profile.
+    ///
+    /// Consumers author the profile in Nickel, export deterministic JSON, and
+    /// point this key at the generated file. Source checks analyze declared
+    /// boundary functions only.
+    pub durability_profile_path: Option<String>,
+
     /// Acronyms that should not trigger the `acronym_style` lint.
     /// Entries are case-sensitive and matched against the uppercase run
     /// (e.g., `"IO"` allows `IOError`).
@@ -227,6 +234,14 @@ pub struct Config {
     /// Identifier of the selected strict profile, if any.
     #[serde(skip)]
     strict_profile_id: Option<String>,
+
+    /// Validated durability profile loaded from `durability_profile_path`.
+    #[serde(skip)]
+    durability_profile: Option<octet_lint_metadata::durability::DurabilityProfile>,
+
+    /// Embedded durability vocabulary loaded once during registration.
+    #[serde(skip)]
+    durability_catalog: octet_lint_metadata::durability::DurabilityCatalog,
 }
 
 impl Default for Config {
@@ -249,6 +264,7 @@ impl Default for Config {
             state_machine_enum_marker: "octet::state_machine_enum".to_owned(),
             state_machine_core_scopes: Vec::new(),
             state_machine_generated_adapter_scopes: Vec::new(),
+            durability_profile_path: None,
             acronym_allowlist: Vec::new(),
             disabled_lints: Vec::new(),
             indexable_lint_exceptions: DEFAULT_INDEXABLE_EXCEPTIONS.iter().map(|class| (*class).to_owned()).collect(),
@@ -258,6 +274,8 @@ impl Default for Config {
             validated_lint_levels: HashMap::new(),
             profile_floor_lints: BTreeSet::new(),
             strict_profile_id: None,
+            durability_profile: None,
+            durability_catalog: octet_lint_metadata::durability::DurabilityCatalog::default(),
         }
     }
 }
@@ -300,6 +318,18 @@ impl Config {
             }
         }
         lint_opts.splice(0..0, consumer_levels);
+    }
+
+    /// Validated durability profile, when `durability_profile_path` is set.
+    #[must_use]
+    pub fn durability_profile(&self) -> Option<&octet_lint_metadata::durability::DurabilityProfile> {
+        self.durability_profile.as_ref()
+    }
+
+    /// Embedded durability vocabulary used by the durability lints.
+    #[must_use]
+    pub fn durability_catalog(&self) -> &octet_lint_metadata::durability::DurabilityCatalog {
+        &self.durability_catalog
     }
 
     /// Identifier of the strict profile applied to this config, if any.
@@ -611,7 +641,10 @@ fn resolve_scope_list(
 /// apply. A shadowed legacy section is reported but never parsed; unknown
 /// config keys, invalid lint names, and invalid levels are reported as
 /// warnings instead of panics after parsing succeeds.
-pub fn load(sess: &rustc_session::Session) -> Config {
+pub fn load(
+    sess: &rustc_session::Session,
+    durability_catalog: &octet_lint_metadata::durability::DurabilityCatalog,
+) -> Config {
     let sections = DYLINT_TOML_SECTIONS.map(|name| {
         let section = dylint_linting::config_toml(name)
             .unwrap_or_else(|error| panic!("Could not read config section `[{name}]`: {error}"));
@@ -626,6 +659,7 @@ pub fn load(sess: &rustc_session::Session) -> Config {
             panic!("Could not parse config section `[{name}]` as `{}`: {error}", std::any::type_name::<Config>())
         })
     });
+    cfg.durability_catalog = durability_catalog.clone();
     let profile = selected_strict_profile().unwrap_or_else(|error| panic!("{error}"));
     let (mut diagnostics, applied) = cfg.resolve(profile.as_ref());
     // Scopes resolve against the same root as `source::span_in_scopes`, with
@@ -637,7 +671,57 @@ pub fn load(sess: &rustc_session::Session) -> Config {
         sess.dcx().warn(diagnostic.message);
     }
     applied.unwrap_or_else(|error| panic!("{error}"));
+    // An invalid profile fails closed: the error is reported and the durability
+    // lints stay inert instead of silently accepting an unanalyzed boundary.
+    if let Some(error) = cfg.resolve_durability_profile(sess, durability_catalog) {
+        sess.dcx().err(error);
+    }
     cfg
+}
+
+impl Config {
+    /// Reads and validates the generated durability profile.
+    ///
+    /// Returns a deterministic error message when the configured path cannot be
+    /// read or the profile violates the catalog contract. No profile configured
+    /// means no durability boundary is declared.
+    fn resolve_durability_profile(
+        &mut self,
+        sess: &rustc_session::Session,
+        catalog: &octet_lint_metadata::durability::DurabilityCatalog,
+    ) -> Option<String> {
+        let configured = self.durability_profile_path.as_deref()?;
+        let trimmed = configured.trim();
+        if trimmed.is_empty() {
+            return Some("octet `durability_profile_path` in `dylint.toml` must not be empty".to_owned());
+        }
+        let path = std::path::Path::new(trimmed);
+        let resolved = if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            let root = sess
+                .opts
+                .working_dir
+                .local_path()
+                .map(std::path::Path::to_path_buf)
+                .or_else(|| std::env::current_dir().ok())
+                .unwrap_or_default();
+            root.join(path)
+        };
+        let text = std::fs::read_to_string(&resolved).map_err(|error| {
+            format!("octet `durability_profile_path` in `dylint.toml` cannot read `{}`: {error}", resolved.display())
+        });
+        let profile = match text.and_then(|text| {
+            octet_lint_metadata::durability::parse_durability_profile(&text, catalog).map_err(|error| {
+                format!("octet `durability_profile_path` in `dylint.toml` rejected `{}`: {error}", resolved.display())
+            })
+        }) {
+            Ok(profile) => profile,
+            Err(error) => return Some(error),
+        };
+        self.durability_profile = Some(profile);
+        None
+    }
 }
 
 fn selected_strict_profile() -> Result<Option<octet_lint_metadata::strict_profile::StrictProfile>, String> {

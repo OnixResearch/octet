@@ -2131,6 +2131,90 @@
               mkdir -p "$out"
             '';
 
+        durabilityClaimsPolicyCheck =
+          pkgs.runCommand "octet-durability-claims-policy-check"
+            {
+              nativeBuildInputs = with pkgs; [
+                coreutils
+                diffutils
+                nickel
+                octetStandards
+              ];
+            }
+            ''
+              cd ${./.}
+              policy_dir=standards/durability-claims
+              actual_catalog="$TMPDIR/catalog.json"
+              actual_profile="$TMPDIR/profile.json"
+              catalog_manifest="$TMPDIR/catalog.manifest.json"
+              profile_manifest="$TMPDIR/profile.manifest.json"
+
+              nickel typecheck "$policy_dir/contracts.ncl"
+              nickel typecheck "$policy_dir/catalog.ncl"
+              nickel typecheck "$policy_dir/profile.ncl"
+              nickel export --format json "$policy_dir/catalog.ncl" > "$actual_catalog"
+              cmp "$actual_catalog" "$policy_dir/generated/catalog.json"
+              nickel export --format json "$policy_dir/profile.ncl" > "$actual_profile"
+              cmp "$actual_profile" "$policy_dir/generated/profile.json"
+
+              for file in "$policy_dir"/fixtures/valid/*.ncl; do
+                nickel export --format json "$file" >/dev/null
+              done
+              for file in "$policy_dir"/fixtures/invalid/*.ncl; do
+                if nickel export --format json "$file" >/dev/null 2>&1; then
+                  echo "invalid durability-claims fixture passed: $file" >&2
+                  exit 1
+                fi
+              done
+
+              nickel export --format json "$policy_dir/catalog.export-spec.ncl" > "$TMPDIR/catalog-spec.json"
+              octet-standards nickel-export-manifest                 --spec "$TMPDIR/catalog-spec.json"                 --output "$actual_catalog"                 --manifest-out "$catalog_manifest"                 --nickel-identity "$(nickel --version)"
+              cmp "$catalog_manifest" "$policy_dir/generated/catalog.manifest.json"
+              nickel export --format json "$policy_dir/profile.export-spec.ncl" > "$TMPDIR/profile-spec.json"
+              octet-standards nickel-export-manifest                 --spec "$TMPDIR/profile-spec.json"                 --output "$actual_profile"                 --manifest-out "$profile_manifest"                 --nickel-identity "$(nickel --version)"
+              cmp "$profile_manifest" "$policy_dir/generated/profile.manifest.json"
+              touch "$out"
+            '';
+
+        storageFaultAssuranceCheck =
+          pkgs.runCommand "octet-storage-fault-assurance-check"
+            {
+              nativeBuildInputs = with pkgs; [
+                coreutils
+                diffutils
+                nickel
+                octetStandards
+              ];
+            }
+            ''
+              cd ${./.}
+              profile_dir=standards/policies/assurance-profiles/storage-fault
+              evidence="$profile_dir/fixtures/evidence"
+
+              nickel typecheck "$profile_dir/contracts.ncl"
+              nickel typecheck "$profile_dir/profile.ncl"
+              nickel export --format json "$profile_dir/profile.ncl" > "$TMPDIR/profile.json"
+              cmp "$TMPDIR/profile.json" "$profile_dir/generated/profile.json"
+              for file in "$profile_dir"/fixtures/valid/*.ncl; do
+                nickel export --format json "$file" >/dev/null
+              done
+              for file in "$profile_dir"/fixtures/invalid/*.ncl; do
+                if nickel export --format json "$file" >/dev/null 2>&1; then
+                  echo "invalid storage-fault fixture passed: $file" >&2
+                  exit 1
+                fi
+              done
+
+              octet-standards storage-fault-assurance                 --profile "$evidence/current/profile.json"                 --producer-receipt "$evidence/current/producer.json"                 --cairn-receipt "$evidence/current/cairn.json"                 --output json >/dev/null
+              for case_dir in stale missing_case producer_failure overclaim; do
+                if octet-standards storage-fault-assurance                   --profile "$evidence/$case_dir/profile.json"                   --producer-receipt "$evidence/$case_dir/producer.json"                   --cairn-receipt "$evidence/$case_dir/cairn.json"                   --output json >/dev/null 2>&1; then
+                  echo "rejected storage-fault evidence passed: $case_dir" >&2
+                  exit 1
+                fi
+              done
+              touch "$out"
+            '';
+
         dynamicEvidenceProfilesCheck =
           pkgs.runCommand "octet-dynamic-evidence-profiles-check"
             {
@@ -4822,6 +4906,8 @@
             nominal-domain-catalog = nominalDomainCatalogCheck;
             project-architecture-policy = projectArchitecturePolicyCheck;
             assurance-profile-onixos-lifecycle = assuranceProfileOnixOSLifecycleCheck;
+            durability-claims-policy = durabilityClaimsPolicyCheck;
+            storage-fault-assurance = storageFaultAssuranceCheck;
             clippy-restriction-profiles = clippyRestrictionProfilesCheck;
             effect-closure-catalog = effectClosureCatalogCheck;
             downstream-proc-macro = downstreamProcMacroCheck;
