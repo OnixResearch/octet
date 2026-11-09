@@ -20,7 +20,8 @@ changes refined them. These fixes have no earlier entry:
   selection.
 - Effect-closure call occurrences again number a `let`, `if let`, `while let`,
   or `for` pattern, including a `let` type annotation, before its initializer,
-  so summaries reviewed before the scope change stay valid.
+  matching syn's visit order. This removes one source of renumbering; new
+  `value:` edges still shift the occurrences of later calls.
 
 ## Unreleased: Aeneas, SARIF, architecture, standards, Wasm, and dependency fixes
 
@@ -114,9 +115,11 @@ Behaviour and format changes:
   patterns, array lengths, const generic arguments and defaults, enum
   discriminants, and `const`, `static`, and associated-const initializers) are
   not value edges, though calls there are still recorded. Policies may need new
-  summaries for constants and variants used as values, and qualified-self calls
-  keep their prefix in the call shape (`call:new` becomes `call:<Vec>::new`),
-  so summaries for those calls must be re-reviewed.
+  summaries for constants and variants used as values, and because value edges
+  share the call-site occurrence sequence, summaries for later calls in those
+  functions go stale and must be re-reviewed. Qualified-self calls keep their
+  prefix in the call shape (`call:new` becomes `call:<Vec>::new`), so
+  summaries for those calls must be re-reviewed too.
 - `cargo octet fingerprint` reports markers that bind to no function (between
   attributes and `fn`, above a doc comment, or a `#[fingerprint(...)]` among
   other attributes): `--check` and `--diff` exit `1` and name each line, and
