@@ -569,7 +569,8 @@ struct LeanAxiomReport {
 /// Observe the admitted trust closure: the source token scan plus every axiom Lean reports.
 ///
 /// `axiom_report` is the JSON line Octet's Lean check program prints after `lake build`; it lists
-/// each axiom the approved theorem's kernel-checked declaration reaches through types and values.
+/// each axiom that any declaration of the `Theorem` module, the approved theorem among them,
+/// reaches through kernel-checked types and values.
 /// The core axioms `propext`, `Classical.choice`, and `Quot.sound` are accepted. `sorryAx` is an
 /// admitted declaration. `Lean.ofReduceBool`, `Lean.ofReduceNat`, `Lean.trustCompiler`, and the
 /// `_native` auxiliary axioms `native_decide` adds trust compiled code and are declared only when

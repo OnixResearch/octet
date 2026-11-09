@@ -84,19 +84,25 @@ const TRANSLATION_MANIFEST_ARTIFACT: &str = "translation.json";
 const GENERATED_LEAN_ARTIFACT: &str = "Llbc.lean";
 const PACKAGE_LOCK_ARTIFACT: &str = "lake-manifest.json";
 const LEAN_TOOLCHAIN_ARTIFACT: &str = "lean-toolchain";
-/// Lean program, written to the work root after `lake build`, that reports the approved theorem's
-/// axioms.
+/// Lean program, written to the work root after `lake build`, that reports the axioms of every
+/// declaration in the `Theorem` module.
 const LEAN_AXIOM_CHECK_FILE: &str = "OctetAxiomCheck.lean";
 /// Work-root artifact holding the Lean axiom check's report.
 const LEAN_AXIOM_REPORT_ARTIFACT: &str = "lean-axioms.json";
 /// `lake` arguments that run [`LEAN_AXIOM_CHECK_FILE`] against the just-built package.
 const LEAN_AXIOM_CHECK_ARGUMENTS: [&str; 4] = ["env", "lean", "--run", LEAN_AXIOM_CHECK_FILE];
-/// Reports every axiom the approved theorem reaches, as `Lean.collectAxioms` computes it.
+/// Warnings Lean prints, in its 4.31 and earlier spellings, for a declaration that `lake build`
+/// accepts although its proof is admitted.
+const LEAN_SORRY_WARNINGS: [&str; 2] = ["declaration uses `sorry`", "declaration uses 'sorry'"];
+/// Reports the union of the axioms `Lean.collectAxioms` computes for every constant the `Theorem`
+/// module declares, after checking that the approved theorem is one of them.
 ///
-/// It runs as a separate program instead of `#print axioms` appended to, or imported beside, the
+/// Every declaration counts, not only the approved theorem: whatever name the adequacy review
+/// picked, an admitted `@[simp]`, `private`, or namespaced lemma in the same file shows up. It
+/// runs as a separate program instead of `#print axioms` appended to, or imported beside, the
 /// approved theorem: the theorem file stays byte-identical to its approval, and importing the
 /// `Theorem` module as data runs none of its commands, so theorem-defined elaborators cannot
-/// rewrite the report. The theorem must be a `theorem` declared by the `Theorem` module.
+/// rewrite the report.
 const LEAN_AXIOM_CHECK_PROGRAM: &str = r#"import Lean
 open Lean
 
@@ -107,16 +113,23 @@ def main (args : List String) : IO UInt32 := do
   let theoremName := requested.toName
   initSearchPath (← findSysroot)
   let env ← importModules #[{ module := `Theorem }] {} (trustLevel := 0)
-  let module? := (env.getModuleIdxFor? theoremName).bind fun index => env.allImportedModuleNames[index.toNat]?
-  unless module? == some `Theorem && env.find? theoremName matches some (.thmInfo _) do
+  let some theoremModule := env.getModuleIdx? `Theorem
+    | IO.eprintln "the Theorem module was not imported"
+      return 1
+  let declaredByTheorem (name : Name) : Bool :=
+    (env.getModuleIdxFor? name).map (·.toNat) == some theoremModule.toNat
+  unless declaredByTheorem theoremName && env.find? theoremName matches some (.thmInfo _) do
     IO.eprintln s!"approved theorem `{requested}` is not a theorem declared by the Theorem module"
     return 1
-  let (axioms, _) ← (collectAxioms theoremName : CoreM (Array Name)).toIO
-    { fileName := "OctetAxiomCheck.lean", fileMap := default } { env }
+  let declarations := env.constants.fold (init := #[]) fun names name _ =>
+    if declaredByTheorem name then names.push name else names
+  let collect : CoreM NameSet := declarations.foldlM (init := {}) fun axioms name => do
+    return (← collectAxioms name).foldl NameSet.insert axioms
+  let (axioms, _) ← collect.toIO { fileName := "OctetAxiomCheck.lean", fileMap := default } { env }
   let report := Json.mkObj [
     ("schema_version", Json.str "octet-aeneas-lean-axioms/v1"),
     ("theorem", Json.str requested),
-    ("axioms", toJson (axioms.map toString))]
+    ("axioms", toJson ((axioms.toArray.map toString).qsort (· < ·)))]
   IO.println report.compress
   return 0
 "#;
@@ -164,7 +177,8 @@ pub(crate) struct AeneasExecutionPlanInput {
     pub(crate) theorem_path: PathBuf,
     /// Exact preflighted theorem bytes that Lean checks as the `Theorem` root module.
     pub(crate) theorem_source: String,
-    /// Lean name of the approved theorem whose axioms the Lean stage reports.
+    /// Lean name of the approved theorem, which the Lean axiom check requires the `Theorem`
+    /// module to declare.
     pub(crate) theorem_name: String,
     pub(crate) limits: AeneasExecutionLimits,
     pub(crate) environment_allowlist: Vec<String>,
@@ -198,7 +212,7 @@ pub(crate) struct AeneasExecutionPlan {
     pub(crate) environment_allowlist: Vec<String>,
     pub(crate) aeneas_lean_library: PathBuf,
     pub(crate) theorem_source: String,
-    /// Runs after a clean Lean stage and reports the approved theorem's axioms.
+    /// Runs after a clean Lean stage and reports the axioms of the `Theorem` module's declarations.
     pub(crate) lean_axiom_check: AeneasStagePlan,
 }
 
@@ -796,6 +810,9 @@ fn execute_stages_in_work_root(
     for stage in &plan.stages {
         let mut observation = execute_stage(stage, plan);
         if stage.kind == AeneasStageKind::Lean && exited_cleanly(&observation) {
+            observation.diagnostics.extend(lean_build_log_diagnostics(&observation));
+        }
+        if stage.kind == AeneasStageKind::Lean && exited_cleanly(&observation) {
             observation.diagnostics.extend(run_lean_axiom_check(plan));
         }
         let clean = exited_cleanly(&observation);
@@ -818,7 +835,37 @@ fn exited_cleanly(observation: &AeneasStageObservation) -> bool {
         && observation.diagnostics.is_empty()
 }
 
-/// Ask Lean which axioms the approved theorem depends on once `lake build` has checked it.
+/// Reject a `lake build` log that reports an admitted declaration in the package's own modules.
+///
+/// `lake build` exits successfully when a declaration uses `sorry`; Lean only warns. The axiom
+/// check reports `sorryAx` for the `Theorem` module's declarations, and this also fails the stage
+/// for an admitted declaration in `Llbc.lean`. Warnings from the reviewed Aeneas library, which
+/// Lake rebuilds in the same log, belong to that library's trust boundary: they matter only when
+/// a checked declaration depends on them, and then the axiom report shows `sorryAx`.
+fn lean_build_log_diagnostics(observation: &AeneasStageObservation) -> Vec<String> {
+    [&observation.stdout, &observation.stderr]
+        .into_iter()
+        .flat_map(|log| log.lines())
+        .filter(|line| warns_of_admitted_package_declaration(line))
+        .map(|line| format!("lean: admitted declaration in `lake build` log: {}", line.trim()))
+        .collect()
+}
+
+/// Whether a `lake build` log line warns that a declaration in `Theorem.lean` or `Llbc.lean` uses
+/// `sorry`, as in ``warning: Theorem.lean:2:16: declaration uses `sorry` ``.
+fn warns_of_admitted_package_declaration(line: &str) -> bool {
+    let Some((location, _)) = LEAN_SORRY_WARNINGS.iter().find_map(|warning| line.split_once(warning)) else {
+        return false;
+    };
+    let location = location.trim_start();
+    let location = location.strip_prefix("warning:").unwrap_or(location).trim_start();
+    let file = location.split(':').next().unwrap_or_default();
+    let file = file.strip_prefix("./").unwrap_or(file);
+    [LEAN_THEOREM_MODULE_FILE, GENERATED_LEAN_ARTIFACT].contains(&file)
+}
+
+/// Ask Lean which axioms the `Theorem` module's declarations depend on once `lake build` has
+/// checked them.
 ///
 /// The check program is written only now, refusing anything the build left at its path, and runs
 /// through `lake env` in the same sandbox and limits so it loads the just-built modules. Its
@@ -1256,7 +1303,7 @@ impl AeneasStageGates<'_> {
         diagnostics
     }
 
-    /// Classify the axioms Lean reports for the approved theorem; this is the admitted closure.
+    /// Classify the axioms Lean reports for the `Theorem` module; this is the admitted closure.
     fn check_lean_trust(&self) -> Vec<String> {
         let (generated, report) = match (self.text(GENERATED_LEAN_ARTIFACT), self.text(LEAN_AXIOM_REPORT_ARTIFACT)) {
             (Ok(generated), Ok(report)) => (generated, report),
@@ -2112,6 +2159,39 @@ mod tests {
             assert!(summary.diagnostics.iter().any(|diagnostic| diagnostic.contains(expected)), "{summary:?}");
             assert!(summary.artifacts.is_empty(), "rejected run returned artifacts: {summary:?}");
         }
+    }
+
+    // r[verify octet.aeneas_lean_proof_rail.theorem_adequacy]
+    #[cfg(unix)]
+    #[test]
+    fn shell_rejects_admitted_declarations_that_lake_build_only_warns_about() {
+        // The adequacy review names `add_comm_val`; the admitted `@[simp]` lemma before it is
+        // still a `Theorem` declaration that `lake build` accepts with a warning.
+        let theorem = "import Llbc\n\n@[simp] theorem add_spec : real_fixture.safe_add 1#u32 2#u32 = .ok 3#u32 := by stop rfl\n\ntheorem add_comm_val (a b : Nat) : a + b = b + a := Nat.add_comm a b\n";
+        assert_eq!(aeneas_theorem_name(theorem), Some("add_comm_val"));
+        let (charon, aeneas) = (fake_provider::replay_llbc(), fake_provider::replay_translation());
+        let run = |build_log: &str| {
+            let temporary = tempfile::tempdir().expect("Lean build log test root");
+            let source_root = fake_provider::source_root(temporary.path(), DEFAULT_THEOREM_PATH, theorem);
+            let rail = fake_provider::rail(DEFAULT_THEOREM_PATH, theorem);
+            let lean = fake_provider::lean_reporting_axioms("add_comm_val", &[])
+                .replace("  build) ;;", &format!("  build) cat <<'LOG'\n{build_log}\nLOG\n    ;;"));
+            run_fake_rail(temporary.path(), &rail, &source_root, (&charon, &aeneas, &lean))
+        };
+
+        for build_log in [
+            "⚠ [3/4] Built Theorem\nwarning: Theorem.lean:3:16: declaration uses `sorry`",
+            "warning: ./Theorem.lean:3:16: declaration uses 'sorry'",
+            "warning: Llbc.lean:40:4: declaration uses `sorry`",
+        ] {
+            let summary = run(build_log);
+            let warning = build_log.lines().last().expect("build log warning");
+            assert!(!summary.command_succeeded, "{build_log:?} reached formal proof: {summary:?}");
+            assert!(summary.diagnostics.iter().any(|diagnostic| diagnostic.contains(warning)), "{summary:?}");
+            assert!(summary.artifacts.is_empty(), "rejected run returned artifacts: {summary:?}");
+        }
+        let library = run("warning: Aeneas/Std/Slice.lean:363:4: declaration uses `sorry`\nBuilt Theorem");
+        assert!(library.command_succeeded, "reviewed library warnings failed the rail: {library:?}");
     }
 
     // r[verify octet.aeneas_lean_proof_rail.theorem_adequacy]

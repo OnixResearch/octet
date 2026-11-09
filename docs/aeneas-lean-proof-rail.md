@@ -96,26 +96,33 @@ Each stage's outputs are measured before the next stage may run:
   Lean runs. This scan is only an early filter: Lean can add trust that no
   token names, such as the `stop` tactic, which elaborates to `repeat sorry`,
   or a meta-level `addDecl` of an axiom.
-- After `lake build` exits cleanly, the shell writes a separate check program
-  to the work root and runs it with
-  `lake env lean --run OctetAxiomCheck.lean <theorem>` in the same sandbox and
-  limits. `<theorem>` is the name of the first `theorem` in the approved source,
-  the one the adequacy review assesses; it must be a theorem declared at that
-  name by the `Theorem` module, so a theorem inside a `namespace` or marked
-  `private` fails the check. The program imports the built modules as data and
-  prints the axioms `Lean.collectAxioms` reports for the theorem as one JSON
-  line (`octet-aeneas-lean-axioms/v1`). The approved theorem file is never
-  modified, and no theorem-defined command or elaborator runs while the report
-  is produced. The report is the `lean-axioms.json` artifact, and the trust
-  closure the receipt records is the token scan plus these axioms: `propext`,
-  `Classical.choice`, and `Quot.sound` are accepted; `sorryAx` is an admitted
-  declaration; `Lean.ofReduceBool`, `Lean.ofReduceNat`, `Lean.trustCompiler`,
-  and the `_native` auxiliary axioms `native_decide` declares are native-code
-  trust, accepted only when named by the profile's `axioms`; any other axiom
-  must be named by the profile's `axioms` or `external_models`. A missing,
-  malformed, or foreign report, or any undeclared or admitted entry, fails the
-  rail. `lake build` alone is not enough, because it exits successfully on
-  `declaration uses 'sorry'` warnings.
+- After `lake build` exits cleanly, its log must carry no
+  ``declaration uses `sorry` `` warning (or the older `'sorry'` spelling) for
+  `Theorem.lean` or `Llbc.lean`; `lake build` exits successfully on those
+  warnings, so the shell fails the Lean stage itself. Such warnings from the
+  reviewed Aeneas library, which Lake rebuilds in the same log, stay inside that
+  library's trust boundary and surface only through the axiom report below.
+- The shell then writes a separate check program to the work root and runs it
+  with `lake env lean --run OctetAxiomCheck.lean <theorem>` in the same sandbox
+  and limits. `<theorem>` is the name the adequacy review assesses: the first
+  line of the approved source that starts with `theorem `. It must be a theorem
+  declared at that name by the `Theorem` module, so a theorem inside a
+  `namespace` fails the check, and a `private` or attributed theorem is never
+  the approved name. The program imports the built modules as data and prints
+  one JSON line (`octet-aeneas-lean-axioms/v1`) whose `axioms` are the union of
+  what `Lean.collectAxioms` reports for every constant the `Theorem` module
+  declares, not only the approved theorem. An admitted `@[simp]`, `private`,
+  namespaced, or doc-commented lemma beside the approved theorem therefore
+  still fails the rail. The approved theorem file is never modified, and no
+  theorem-defined command or elaborator runs while the report is produced. The
+  report is the `lean-axioms.json` artifact, and the trust closure the receipt
+  records is the token scan plus these axioms: `propext`, `Classical.choice`,
+  and `Quot.sound` are accepted; `sorryAx` is an admitted declaration;
+  `Lean.ofReduceBool`, `Lean.ofReduceNat`, `Lean.trustCompiler`, and the
+  `_native` auxiliary axioms `native_decide` declares are native-code trust,
+  accepted only when named by the profile's `axioms`; any other axiom must be
+  named by the profile's `axioms` or `external_models`. A missing, malformed,
+  or foreign report, or any undeclared or admitted entry, fails the rail.
 
 ## Supported subset
 
