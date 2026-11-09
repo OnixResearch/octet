@@ -315,6 +315,7 @@ A `domain-core` role does not imply `no_std`. A `no_std` crate does not prove fu
 
 The collector reads the active, parsed crate attribute from rustc. Source text and inactive `cfg_attr` branches cannot supply this fact.
 Each required production unit needs its own observation, including library test configurations.
+A package-scoped obligation binds the package's library units: the library and its test configuration. Build scripts, binaries, examples, and benches are separate crates with their own roots, so they are not required to carry the library's attribute; name such a root as a source scope to require it there. A package without a library target cannot satisfy a package-scoped obligation.
 An integration-only fact cannot satisfy that obligation. An active `no_std` attribute does not prove that every dependency excludes `std`.
 
 ## Waivers

@@ -219,6 +219,61 @@ fn no_std_requires_each_production_unit_not_a_package_or_test_witness() {
     assert_eq!(fixture.evaluate(None).status, ArchitecturePhaseStatus::Clean);
 }
 
+// A package-scoped obligation binds the package's library units: the library and
+// its test configuration. Build scripts, binaries, examples, and benches link
+// `std` through their own roots and cannot carry the library's crate attribute.
+#[test]
+fn package_no_std_binds_library_units_not_build_scripts_or_binaries() {
+    let mut fixture = Fixture::new(ArchitectureMode::Gate);
+    fixture.policy.core_no_std.push(ArchitectureNoStdObligation {
+        scope: "domain".to_owned(),
+    });
+    let mut configuration = CompilerArchitectureFact::Configuration {
+        fact_id: String::new(),
+        predicate: "crate:no-std=domain".to_owned(),
+        active: true,
+        span_id: None,
+    };
+    set_fact_id(&mut configuration);
+    let id = configuration.fact_id().to_owned();
+    fixture.add_unit_facts("domain", Vec::new(), vec![configuration], Vec::new());
+    let library = fixture.ir.units.iter().find(|unit| unit.package_name == "domain").expect("domain library").clone();
+    for (kind, name, root, crate_type) in [
+        ("custom-build", "build-script-build", "crates/domain/src/build.rs", "bin"),
+        ("bin", "domain-tool", "crates/domain/src/main.rs", "bin"),
+        ("example", "sample", "crates/domain/src/examples/sample.rs", "bin"),
+        ("bench", "throughput", "crates/domain/src/benches/throughput.rs", "bin"),
+    ] {
+        let mut other = library.clone();
+        other.target_kind = kind.to_owned();
+        other.target_name = name.to_owned();
+        other.source_path = root.to_owned();
+        other.crate_types = vec![crate_type.to_owned()];
+        other.unit_id = octet_architecture_ir::compilation_unit_identity(&other);
+        fixture.ir.units.push(other.clone());
+        fixture.ir.unit_memberships.push(UnitFactMembership {
+            unit_id: other.unit_id,
+            fact_ids: Vec::new(),
+            unknown_ids: Vec::new(),
+        });
+    }
+    let receipt = fixture.evaluate(None);
+    assert_eq!(receipt.status, ArchitecturePhaseStatus::Clean, "{:?}", receipt.findings);
+
+    let mut library_test = library;
+    library_test.target_kind = "lib+test".to_owned();
+    library_test.unit_id = octet_architecture_ir::compilation_unit_identity(&library_test);
+    fixture.ir.units.push(library_test.clone());
+    fixture.ir.unit_memberships.push(UnitFactMembership {
+        unit_id: library_test.unit_id,
+        fact_ids: Vec::new(),
+        unknown_ids: Vec::new(),
+    });
+    assert!(fixture.evaluate(None).findings.iter().any(|finding| finding.code == "no-std-obligation"));
+    fixture.ir.unit_memberships.last_mut().expect("library-test row").fact_ids.push(id);
+    assert_eq!(fixture.evaluate(None).status, ArchitecturePhaseStatus::Clean);
+}
+
 // r[verify octet.project_architecture_gate.test_ownership]
 #[test]
 fn excluding_test_only_types_cannot_turn_production_reference_checks_into_skips() {

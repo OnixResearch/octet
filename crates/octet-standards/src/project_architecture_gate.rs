@@ -2141,12 +2141,14 @@ fn evaluate_no_std(
     let roles = policy_package_roles(input.policy);
     for obligation in &input.policy.core_no_std {
         let package_match = roles.get(&obligation.scope).copied() == Some(ArchitectureRole::DomainCore);
+        // A package obligation binds the crate attribute of the package library and its
+        // test configuration; build scripts, binaries, examples, and benches are other crates.
         let units = if package_match {
             input
                 .architecture_ir
                 .units
                 .iter()
-                .filter(|unit| unit.package_name == obligation.scope)
+                .filter(|unit| unit.package_name == obligation.scope && is_library_unit(unit))
                 .collect::<Vec<_>>()
         } else {
             indexes.units_for_source_scope(&obligation.scope)
@@ -2164,6 +2166,13 @@ fn evaluate_no_std(
             ));
         }
     }
+}
+
+// Cargo joins a target's kinds with `+` and marks test configurations with a final `+test`.
+fn is_library_unit(unit: &CompilationUnit) -> bool {
+    unit.target_kind
+        .split('+')
+        .any(|kind| matches!(kind, "lib" | "rlib" | "dylib" | "cdylib" | "staticlib" | "proc-macro"))
 }
 
 fn evaluate_unknowns(

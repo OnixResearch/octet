@@ -285,3 +285,9 @@ No-std evidence MUST come from the active compiler-parsed crate attribute and re
 - GIVEN active, inactive, library-test-disabled, or integration-only no-std attributes
 - WHEN compiler configuration evidence is collected
 - THEN only units with the active parsed crate attribute MUST receive no-std facts, and test-only facts MUST NOT satisfy production obligations
+
+#### Scenario: A package-scoped no-std obligation binds library units
+
+- GIVEN a `core_no_std` obligation that names a domain-core package with a build script, binary, example, or bench target
+- WHEN the obligation is evaluated
+- THEN the package's library and library-test units MUST each carry the active no-std fact, and its other targets MUST NOT be required to carry it
