@@ -155,6 +155,12 @@ justification. An empty or whitespace-only reason MUST NOT count.
 
 The lint MUST NOT fire on `#[allow(dead_code)]` in `#[cfg(test)]` blocks.
 
+The lint MUST govern only attributes the user wrote in source, including an
+allow expanded from `cfg_attr(..., allow(...))`. It MUST NOT fire on
+attributes a macro generates, including proc-macro output such as the
+`#[allow(clippy::...)]` block `#[tokio::main]` emits with spans borrowed from
+user tokens.
+
 The lint MUST NOT fire on workspace-level lint configuration in
 `Cargo.toml` (those are outside Clippy's reach anyway).
 

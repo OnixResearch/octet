@@ -18,7 +18,8 @@ declare_tool_lint! {
     /// `clippy::*`, `tigerstyle::*` (including Octet groups such as
     /// `tigerstyle::safety`), and Octet's bare compatibility aliases such as
     /// `no_unwrap`. rustc's own lints stay out of scope, and `no_todo` allows
-    /// belong to `unjustified_no_todo_allow`.
+    /// belong to `unjustified_no_todo_allow`. Only attributes written in source
+    /// (directly or through `cfg_attr`) are governed, not macro output.
     ///
     /// A non-doc `//` comment on the attribute's lines or on the line directly
     /// above it, or a non-empty `reason = "..."` argument inside the attribute,
@@ -128,6 +129,36 @@ fn has_reason_argument(items: &[MetaItemInner]) -> bool {
     })
 }
 
+/// Whether `snippet`, the source text at an attribute's span, spells that
+/// attribute: `#[name(`, `#![name(`, or `name(` for one expanded from
+/// `cfg_attr(..., name(...))`. Proc macros such as `#[tokio::main]` re-span
+/// generated attributes onto user tokens, whose text spells something else.
+fn snippet_spells_attribute(snippet: &str, name: &str) -> bool {
+    let body = match snippet.strip_prefix('#') {
+        Some(rest) => {
+            let rest = rest.trim_start();
+            let rest = rest.strip_prefix('!').unwrap_or(rest).trim_start();
+            let Some(rest) = rest.strip_prefix('[') else {
+                return false;
+            };
+            rest.trim_start()
+        }
+        None => snippet,
+    };
+    body.strip_prefix(name).is_some_and(|rest| rest.trim_start().starts_with('('))
+}
+
+/// Whether the user wrote this attribute in source, rather than a macro
+/// generating it.
+fn is_user_written(cx: &EarlyContext<'_>, attr: &Attribute, name: &str) -> bool {
+    !attr.span.from_expansion()
+        && cx
+            .sess()
+            .source_map()
+            .span_to_snippet(attr.span)
+            .is_ok_and(|snippet| snippet_spells_attribute(&snippet, name))
+}
+
 fn justification_stub(cx: &EarlyContext<'_>, attr: &Attribute) -> String {
     let source_map = cx.sess().source_map();
     let indent_width = source_map.lookup_char_pos(attr.span.lo()).col.0;
@@ -171,7 +202,8 @@ fn check_attrs(cx: &EarlyContext<'_>, attrs: &[Attribute]) {
         let Some(items) = attr.meta_item_list() else {
             continue;
         };
-        if suppresses_governed_lint(&items) && !has_reason_argument(&items) && !has_comment_nearby(cx, attr) {
+        let is_user_governed = suppresses_governed_lint(&items) && is_user_written(cx, attr, name);
+        if is_user_governed && !has_reason_argument(&items) && !has_comment_nearby(cx, attr) {
             emit_tiger_style_lint_with_suggestion(
                 cx,
                 UNJUSTIFIED_ALLOW,
@@ -210,6 +242,7 @@ mod tests {
     use super::is_governed_lint_path;
     use super::is_justifying_line_comment;
     use super::line_has_justifying_comment;
+    use super::snippet_spells_attribute;
 
     fn governed(path: &str) -> bool {
         is_governed_lint_path(path.split("::"))
@@ -255,5 +288,18 @@ mod tests {
         ));
         assert!(!line_has_justifying_comment("#[allow(clippy::x, reason = \"see https://example.com\")]"));
         assert!(!line_has_justifying_comment("#[allow(clippy::x)] /// Doc for the item."));
+    }
+
+    #[test]
+    fn only_source_text_that_spells_the_attribute_is_user_written() {
+        assert!(snippet_spells_attribute("#[allow(clippy::needless_return)]", "allow"));
+        assert!(snippet_spells_attribute("#![allow(clippy::all)]", "allow"));
+        assert!(snippet_spells_attribute("# [ expect (clippy::x)]", "expect"));
+        assert!(snippet_spells_attribute("allow(clippy::needless_return)", "allow"));
+        assert!(!snippet_spells_attribute(";", "allow"));
+        assert!(!snippet_spells_attribute("run().await", "allow"));
+        assert!(!snippet_spells_attribute("{ #[allow(clippy::x)] let value = 1; }", "allow"));
+        assert!(!snippet_spells_attribute("#[expect(clippy::x)]", "allow"));
+        assert!(!snippet_spells_attribute("allowed(value)", "allow"));
     }
 }

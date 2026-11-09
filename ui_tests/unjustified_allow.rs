@@ -150,3 +150,17 @@ fn trailing_comment_allow() -> u32 {
 fn trailing_placeholder_allow() -> u32 {
     return 12;
 }
+
+// Should warn: a `cfg_attr`-expanded allow is still a suppression the user wrote.
+
+#[cfg_attr(all(), allow(clippy::needless_return))]
+fn cfg_attr_allow() -> u32 {
+    return 13;
+}
+
+// Should NOT warn: a justified `cfg_attr`-expanded allow.
+// Early return mirrors the protocol state table.
+#[cfg_attr(all(), allow(clippy::needless_return))]
+fn justified_cfg_attr_allow() -> u32 {
+    return 14;
+}
