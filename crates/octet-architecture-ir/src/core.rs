@@ -144,12 +144,21 @@ pub fn fact_identity(fact: &CompilerArchitectureFact) -> String {
             signature_id,
             owner_item_id,
             input_type_ids,
+            input_by_reference,
             output_type_id,
             is_public,
             ..
         } => canonical_identity(
             FACT_ID_DOMAIN,
-            &("signature", signature_id, owner_item_id, input_type_ids, output_type_id, is_public),
+            &(
+                "signature",
+                signature_id,
+                owner_item_id,
+                input_type_ids,
+                input_by_reference,
+                output_type_id,
+                is_public,
+            ),
         ),
         CompilerArchitectureFact::Call {
             caller_item_id,
@@ -706,6 +715,29 @@ fn validate_facts(
 
     for fact in facts {
         validate_fact_references(fact, &span_ids, &item_ids, &type_ids, &trait_ids, &signature_ids, unit_id, issues);
+        validate_signature_inputs(fact, unit_id, issues);
+    }
+}
+
+fn validate_signature_inputs(
+    fact: &CompilerArchitectureFact,
+    unit_id: Option<&str>,
+    issues: &mut Vec<CompilerArchitectureIssue>,
+) {
+    if let CompilerArchitectureFact::Signature {
+        fact_id,
+        input_type_ids,
+        input_by_reference,
+        ..
+    } = fact
+        && input_by_reference.len() != input_type_ids.len()
+    {
+        issues.push(issue(
+            "invalid-signature-inputs",
+            unit_id,
+            Some(fact_id),
+            "signature by-reference flags do not match its input types one to one",
+        ));
     }
 }
 

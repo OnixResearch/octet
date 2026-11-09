@@ -565,6 +565,51 @@ fn stale_fact_identity_and_invalid_reference_are_rejected() {
 }
 
 #[test]
+fn signature_by_reference_flags_must_match_inputs_one_to_one() {
+    let with_flags = |input_by_reference: Vec<bool>| {
+        let mut current = shard();
+        let mut witness = CompilerArchitectureFact::Type {
+            fact_id: String::new(),
+            type_id: HASH_C.to_owned(),
+            display: "fixture::Witness".to_owned(),
+            definition_path: Some("fixture::Witness".to_owned()),
+            origin_crate: "fixture".to_owned(),
+            type_kind: TypeKind::Adt,
+        };
+        let mut signature = CompilerArchitectureFact::Signature {
+            fact_id: String::new(),
+            signature_id: HASH_D.to_owned(),
+            owner_item_id: HASH_A.to_owned(),
+            input_type_ids: vec![HASH_C.to_owned(), HASH_C.to_owned()],
+            input_by_reference,
+            output_type_id: HASH_C.to_owned(),
+            is_public: true,
+        };
+        for fact in [&mut witness, &mut signature] {
+            let id = fact_identity(fact);
+            match fact {
+                CompilerArchitectureFact::Type { fact_id, .. }
+                | CompilerArchitectureFact::Signature { fact_id, .. } => {
+                    *fact_id = id;
+                }
+                _ => unreachable!(),
+            }
+        }
+        current.facts.extend([witness, signature]);
+        current.shard_id = shard_identity(&current);
+        normalize_architecture_shards(input(vec![current])).expect("normalize signature fixture")
+    };
+
+    let paired = with_flags(vec![true, false]);
+    assert_eq!(paired.coverage.status, CoverageStatus::Complete, "{:?}", paired.issues);
+    for mismatched in [Vec::new(), vec![true], vec![true, false, false]] {
+        let outcome = with_flags(mismatched);
+        assert_eq!(outcome.coverage.status, CoverageStatus::Incomplete);
+        assert!(outcome.issues.iter().any(|issue| issue.code == "invalid-signature-inputs"));
+    }
+}
+
+#[test]
 fn count_overflow_is_incomplete() {
     let mut input = input(vec![shard()]);
     input.limits.max_unknowns = 1;

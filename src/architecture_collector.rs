@@ -461,17 +461,20 @@ impl ArchitectureCollector {
     }
 
     // Inputs name their referent so `&Witness` and `Witness` share one definition, as value
-    // provenance does; the output keeps its reference because a borrow constructs nothing.
+    // provenance does, and keep a by-reference flag so a borrow stays distinct from a move;
+    // the output keeps its reference because a borrow constructs nothing.
     fn collect_signature(&mut self, cx: &LateContext<'_>, def_id: LocalDefId, owner_item_id: &str, signature_id: &str) {
         let signature = cx.tcx.fn_sig(def_id).instantiate_identity().skip_binder();
         let input_type_ids =
             signature.inputs().iter().map(|current| self.collect_type(cx, current.peel_refs())).collect();
+        let input_by_reference = signature.inputs().iter().map(|current| current.is_ref()).collect();
         let output_type_id = self.collect_type(cx, signature.output());
         let mut fact = CompilerArchitectureFact::Signature {
             fact_id: String::new(),
             signature_id: signature_id.to_owned(),
             owner_item_id: owner_item_id.to_owned(),
             input_type_ids,
+            input_by_reference,
             output_type_id,
             is_public: cx.tcx.visibility(def_id).is_public(),
         };

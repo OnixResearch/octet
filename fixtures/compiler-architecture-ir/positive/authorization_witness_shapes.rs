@@ -16,6 +16,8 @@ impl From<AuthorizedPublication> for PublicationAuthority {
 
 pub fn publish(_payload: &[u8], _authority: &PublicationAuthority) {}
 
+pub fn publish_once(_payload: &[u8], _authority: PublicationAuthority) {}
+
 pub fn execute(authority: &ActorAuthority, payload: &[u8]) {
     let witness = PublicationAuthority::from(authorize_publication(authority));
     publish(payload, &witness);

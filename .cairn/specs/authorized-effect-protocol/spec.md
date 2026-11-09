@@ -114,11 +114,17 @@ Every declared protected executor method and selected wrapper path MUST preserve
 - WHEN strict evaluation runs
 - THEN the protocol MUST block with the unguarded call path
 
-#### Scenario: Executor borrows the witness
+#### Scenario: Borrow executor references the witness
 
-- GIVEN a protected executor receives the witness as `&Witness` or `&mut Witness`
+- GIVEN policy selects `borrow` witness use and a protected executor receives the witness as `&Witness` or `&mut Witness`
 - WHEN the executor witness-parameter obligation is evaluated
 - THEN the referenced witness definition MUST satisfy that obligation
+
+#### Scenario: Consume executor borrows the witness
+
+- GIVEN policy selects `consume` witness use and a protected executor receives the witness as `&Witness` or `&mut Witness`
+- WHEN strict evaluation runs
+- THEN the protocol MUST block with a borrowed consume-witness diagnostic, because one witness could authorize repeated calls
 
 ### Requirement: Planned and observed effect types remain distinct
 

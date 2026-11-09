@@ -1659,15 +1659,29 @@ fn evaluate_protected_calls(
                     &format!("protected executor `{executor}` is outside its declared outbound-adapter scope"),
                 ));
             }
-            let has_witness_input = signatures.iter().any(|(_, owner_item_id, input_type_ids, _)| {
-                *owner_item_id == *item_id
-                    && input_type_ids.iter().any(|type_id| {
-                        type_definitions
-                            .get(type_id.as_str())
-                            .is_some_and(|definition| *definition == protocol.witness_type)
-                    })
-            });
-            if !has_witness_input {
+            // Each witness input's by-reference flag, across the executor's signatures.
+            let witness_inputs = input
+                .architecture_ir
+                .facts
+                .iter()
+                .filter_map(|fact| match fact {
+                    CompilerArchitectureFact::Signature {
+                        owner_item_id,
+                        input_type_ids,
+                        input_by_reference,
+                        ..
+                    } if *owner_item_id == **item_id => Some(input_type_ids.iter().zip(input_by_reference)),
+                    _ => None,
+                })
+                .flatten()
+                .filter(|(type_id, _)| {
+                    type_definitions
+                        .get(type_id.as_str())
+                        .is_some_and(|definition| *definition == protocol.witness_type)
+                })
+                .map(|(_, by_reference)| *by_reference)
+                .collect::<Vec<_>>();
+            if witness_inputs.is_empty() {
                 findings.push(finding_for_unit(
                     "protected-executor-witness-parameter",
                     CLAIM_PROTECTED_EXECUTOR,
@@ -1675,6 +1689,18 @@ fn evaluate_protected_calls(
                     Some(item_fact_id),
                     source,
                     &format!("protected executor `{executor}` lacks its declared witness parameter"),
+                ));
+            } else if protocol.witness_use == ArchitectureWitnessUse::Consume && witness_inputs.contains(&true) {
+                // A borrowed one-shot witness survives the call, so it could authorize another.
+                findings.push(finding_for_unit(
+                    "consume-witness-borrowed",
+                    CLAIM_PROTECTED_EXECUTOR,
+                    unit,
+                    Some(item_fact_id),
+                    source,
+                    &format!(
+                        "protected executor `{executor}` borrows its consume witness instead of taking it by value"
+                    ),
                 ));
             }
         }
@@ -3309,6 +3335,37 @@ mod tests {
         assert!(receipt.findings.is_empty());
     }
 
+    // r[verify octet.authorized_effect_protocol.executor]
+    #[test]
+    fn consume_executor_must_take_its_witness_by_value_while_borrow_may_reference_it() {
+        let borrowed_witness = |input_type_ids: &mut Vec<String>, input_by_reference: &mut Vec<bool>| {
+            assert_eq!(input_type_ids.len(), 1);
+            *input_by_reference = vec![true];
+        };
+        let mut consume = Fixture::new(ArchitectureMode::Gate);
+        consume.add_protected_effect_facts(ValueProvenanceStatus::Exact, "domain::authorize_publication", false);
+        assert_eq!(consume.evaluate(None).status, ArchitecturePhaseStatus::Clean);
+        mutate_executor_signature(&mut consume.ir, borrowed_witness);
+        let replayable = consume.evaluate(None);
+        assert_eq!(replayable.status, ArchitecturePhaseStatus::Blocked);
+        assert!(
+            replayable.findings.iter().any(|finding| finding.code == "consume-witness-borrowed"),
+            "{:?}",
+            replayable.findings
+        );
+        assert!(!replayable.findings.iter().any(|finding| finding.code == "protected-executor-witness-parameter"));
+
+        let mut borrow = Fixture::new(ArchitectureMode::Gate);
+        borrow.add_protected_effect_facts(ValueProvenanceStatus::Exact, "domain::authorize_publication", false);
+        let protocol = borrow.policy.outbound_effects[0].protected.as_mut().expect("protected protocol");
+        protocol.witness_use = ArchitectureWitnessUse::Borrow;
+        protocol.borrow_scope = Some("crates/outbound/src".to_owned());
+        protocol.borrow_rationale = Some("one bounded outbound request".to_owned());
+        mutate_executor_signature(&mut borrow.ir, borrowed_witness);
+        let reused = borrow.evaluate(None);
+        assert_eq!(reused.status, ArchitecturePhaseStatus::Clean, "{:?}", reused.findings);
+    }
+
     #[test]
     fn protected_effect_protocol_rejects_missing_binding_decision_output_and_borrow_escape() {
         let mut missing_binding = Fixture::new(ArchitectureMode::Gate);
@@ -3781,6 +3838,7 @@ mod tests {
                 .expect("signature id"),
                 owner_item_id: item_id(&decision).to_owned(),
                 input_type_ids: vec![authority_input_type_id],
+                input_by_reference: vec![true],
                 output_type_id: authorized_output_type_id.clone(),
                 is_public: true,
             };
@@ -3810,6 +3868,7 @@ mod tests {
                     .expect("signature id"),
                 owner_item_id: item_id(&constructor).to_owned(),
                 input_type_ids: vec![authorized_output_type_id.clone()],
+                input_by_reference: vec![false],
                 output_type_id: witness_type_id.clone(),
                 is_public: false,
             };
@@ -3889,6 +3948,7 @@ mod tests {
                 .expect("signature id"),
                 owner_item_id: item_id(&executor).to_owned(),
                 input_type_ids: vec![witness_type_id.clone()],
+                input_by_reference: vec![false],
                 output_type_id: witness_type_id.clone(),
                 is_public: true,
             };
@@ -4240,6 +4300,16 @@ mod tests {
     }
 
     fn remove_executor_witness_parameter(ir: &mut CompilerArchitectureIr) {
+        mutate_executor_signature(ir, |input_type_ids, input_by_reference| {
+            input_type_ids.clear();
+            input_by_reference.clear();
+        });
+    }
+
+    fn mutate_executor_signature(
+        ir: &mut CompilerArchitectureIr,
+        mutate: impl FnOnce(&mut Vec<String>, &mut Vec<bool>),
+    ) {
         let executor_item_id = ir
             .facts
             .iter()
@@ -4266,12 +4336,13 @@ mod tests {
         let CompilerArchitectureFact::Signature {
             fact_id,
             input_type_ids,
+            input_by_reference,
             ..
         } = signature
         else {
             panic!("protected executor signature expected");
         };
-        input_type_ids.clear();
+        mutate(input_type_ids, input_by_reference);
         let previous = std::mem::take(fact_id);
         set_fact_id(signature);
         rebind_fixture_fact(&mut ir.unit_memberships, &previous, signature.fact_id());

@@ -234,7 +234,10 @@ pub enum CompilerArchitectureFact {
         fact_id: String,
         signature_id: String,
         owner_item_id: String,
+        /// Each input's referent type; `&T` and `&mut T` inputs name `T`.
         input_type_ids: Vec<String>,
+        /// Whether each input, by position, is passed by reference rather than by value.
+        input_by_reference: Vec<bool>,
         output_type_id: String,
         is_public: bool,
     },

@@ -1106,12 +1106,19 @@ fn compiler_architecture_borrowed_witness_signatures_and_narrow_conversions() {
     );
     assert_eq!(shard.collection_status, CollectionStatus::Complete);
     assert_valid_compiler_shard(&shard);
-    // Signature inputs name the referent definition, as protocol checks compare definitions.
-    for (function, parameter) in [
-        ("authorization_witness_shapes::publish", "authorization_witness_shapes::PublicationAuthority"),
+    // Signature inputs name the referent definition, as protocol checks compare definitions, and
+    // keep whether that input is borrowed so a borrowed witness stays distinct from a moved one.
+    for (function, parameter, by_reference) in [
+        ("authorization_witness_shapes::publish", "authorization_witness_shapes::PublicationAuthority", true),
+        (
+            "authorization_witness_shapes::publish_once",
+            "authorization_witness_shapes::PublicationAuthority",
+            false,
+        ),
         (
             "authorization_witness_shapes::authorize_publication",
             "authorization_witness_shapes::ActorAuthority",
+            true,
         ),
     ] {
         let item_id = shard
@@ -1133,14 +1140,15 @@ fn compiler_architecture_borrowed_witness_signatures_and_narrow_conversions() {
                 CompilerArchitectureFact::Signature {
                     owner_item_id,
                     input_type_ids,
+                    input_by_reference,
                     ..
-                } if owner_item_id == item_id => Some(input_type_ids),
+                } if owner_item_id == item_id => Some(input_type_ids.iter().zip(input_by_reference)),
                 _ => None,
             })
-            .expect("signature fact");
-        let definitions =
-            inputs.iter().filter_map(|type_id| compiler_type_definition(&shard, type_id)).collect::<Vec<_>>();
-        assert!(definitions.contains(&parameter), "{function} inputs: {definitions:?}");
+            .expect("signature fact")
+            .map(|(type_id, borrowed)| (compiler_type_definition(&shard, type_id), *borrowed))
+            .collect::<Vec<_>>();
+        assert!(inputs.contains(&(Some(parameter), by_reference)), "{function} inputs: {inputs:?}");
     }
     // Implemented traits keep their type arguments so a narrow conversion stays distinguishable.
     let traits = shard
