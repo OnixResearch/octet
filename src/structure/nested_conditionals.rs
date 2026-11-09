@@ -15,7 +15,8 @@ declare_tool_lint! {
     /// Detects `if`/`match` nesting deeper than a configurable limit
     /// (default: 3) inside a function or method body. Deep nesting buries
     /// the important logic and makes control flow hard to follow. An
-    /// `else if` continues its chain at the same depth.
+    /// `else if` continues its chain at the same depth. Conditionals that
+    /// macros expand to, such as those inside `assert_eq!`, do not count.
     ///
     /// Configure in `dylint.toml`:
     /// ```toml
@@ -48,7 +49,9 @@ struct NestingVisitor<'a, 'b> {
 
 impl NestingVisitor<'_, '_> {
     /// Enters one branching level; returns `false` (after reporting) when the
-    /// new depth exceeds the limit.
+    /// new depth exceeds the limit. Only conditionals written in local source
+    /// enter a level, so `reported` is set only for a diagnostic at a span
+    /// rustc keeps, never for one inside an external macro that rustc drops.
     fn enter_branch(&mut self, expr: &Expr) -> bool {
         self.depth += 1;
         if self.depth <= self.max_depth {
@@ -73,6 +76,14 @@ impl NestingVisitor<'_, '_> {
 impl<'ast> Visitor<'ast> for NestingVisitor<'_, '_> {
     fn visit_expr(&mut self, expr: &'ast Expr) {
         if self.reported {
+            return;
+        }
+
+        // Conditionals that macros expand to, such as the `match` and `if`
+        // inside `assert_eq!`, are not nesting the author wrote. Their
+        // operands are still walked at the current depth.
+        if expr.span.from_expansion() {
+            visit::walk_expr(self, expr);
             return;
         }
 

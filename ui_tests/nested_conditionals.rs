@@ -87,3 +87,37 @@ trait NestedDefault {
         false
     }
 }
+
+// Should warn once, at the local nest below: the conditionals inside expanded
+// `assert_eq!` and `debug_assert_eq!` bodies are not nesting the author wrote.
+fn assertions_then_deep_nest(value: u32) -> bool {
+    if value > 0 {
+        if value > 1 {
+            assert_eq!(value % 2, 0);
+            debug_assert_eq!(value % 3, 0);
+        }
+    }
+
+    if value > 0 {
+        if value > 1 {
+            if value > 2 {
+                if value > 3 {
+                    return true;
+                }
+            }
+        }
+    }
+
+    false
+}
+
+// Should NOT warn: an assertion at the depth limit adds no level of its own.
+fn assertion_at_limit(value: u32) {
+    if value > 0 {
+        if value > 1 {
+            if value > 2 {
+                assert_eq!(value, 3);
+            }
+        }
+    }
+}
