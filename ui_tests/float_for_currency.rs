@@ -15,6 +15,20 @@ struct Metrics {
     pub latency: f64,
 }
 
+// Should NOT warn: currency words only match whole words, so `balancer`,
+// `feedback`, and `priceless` are not currency names
+struct Weights {
+    pub load_balancer_weight: f64,
+    pub feedback_score: f32,
+    pub priceless_rank: f64,
+}
+
+// Should warn: whole currency words, including plural forms
+struct Ledger {
+    pub monthly_fees: f64,
+    pub balances_total: f64,
+}
+
 // Should warn: skip words only match whole `_`-separated tokens
 struct Charges {
     pub registration_fee: f64,

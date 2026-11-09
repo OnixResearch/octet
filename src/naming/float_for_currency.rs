@@ -14,8 +14,9 @@ use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
 
 declare_tool_lint! {
     /// Detects struct fields, and function or method return types, using
-    /// `f32` or `f64` whose name contains `cost`, `price`, `budget`,
-    /// `balance`, `amount`, `fee`, or `total_cost`. Names with a whole
+    /// `f32` or `f64` whose name has a whole `cost`, `price`, `budget`,
+    /// `balance`, `amount`, or `fee` word (so `total_cost` matches, while
+    /// `load_balancer_weight` and `feedback_score` do not). Names with a whole
     /// `_`-separated `percentage`, `ratio`, `factor`, or `rate` token are
     /// skipped. IEEE 754 loses precision above 2^53 — accumulated rounding
     /// across thousands of operations adds up. Use integer types with
@@ -27,7 +28,8 @@ declare_tool_lint! {
 
 declare_lint_pass!(FloatForCurrency => [FLOAT_FOR_CURRENCY]);
 
-const CURRENCY_WORDS: &[&str] = &["cost", "price", "budget", "balance", "amount", "fee", "total_cost"];
+/// Currency words, matched as whole identifier words; `total_cost` matches `cost`.
+const CURRENCY_WORDS: &[&str] = &["cost", "price", "budget", "balance", "amount", "fee"];
 
 const SKIP_WORDS: &[&str] = &["percentage", "ratio", "factor", "rate"];
 
@@ -37,7 +39,8 @@ fn is_float_ty(ty: ty::Ty<'_>) -> bool {
 
 fn is_currency_name(name: &str) -> bool {
     let lower = name.to_ascii_lowercase();
-    CURRENCY_WORDS.iter().any(|word| lower.contains(word)) && !lower.split('_').any(|token| SKIP_WORDS.contains(&token))
+    crate::naming::identifier_words::identifier_has_word(name, CURRENCY_WORDS)
+        && !lower.split('_').any(|token| SKIP_WORDS.contains(&token))
 }
 
 fn check_currency_return(
@@ -141,5 +144,23 @@ impl<'tcx> LateLintPass<'tcx> for FloatForCurrency {
         };
         let name = trait_item.ident.name.as_str();
         check_currency_return(cx, trait_item.owner_id.def_id, name, sig.decl, trait_item.span);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_currency_name;
+
+    #[test]
+    fn currency_words_match_whole_words_only() {
+        assert!(is_currency_name("cost_usd"));
+        assert!(is_currency_name("total_cost"));
+        assert!(is_currency_name("registration_fee"));
+        assert!(is_currency_name("monthly_fees"));
+        assert!(is_currency_name("accountBalance"));
+        assert!(!is_currency_name("load_balancer_weight"));
+        assert!(!is_currency_name("feedback_score"));
+        assert!(!is_currency_name("priceless_rank"));
+        assert!(!is_currency_name("fee_rate"));
     }
 }
