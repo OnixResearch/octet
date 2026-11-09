@@ -8,15 +8,15 @@ r[octet.type_driven_domain_modeling.quantity_words] `numeric_units` MUST recogni
 
 #### Scenario: Real quantities retain diagnostics
 
-- GIVEN a raw numeric `network_port`, `request_timeout`, or `buffer_size` without an admitted unit suffix
+- GIVEN a raw numeric `request_timeout` or `buffer_size` without an admitted unit suffix
 - WHEN the actual compiler lint inspects the declaration
 - THEN it MUST report the existing numeric-units diagnostic.
 
 #### Scenario: Counter and transport names do not imply ports
 
-- GIVEN raw numeric import/export counts or transport/support names in fields, parameters, or local bindings
+- GIVEN raw numeric import/export counts, transport/support names, or port identifiers in fields, parameters, or local bindings
 - WHEN the actual compiler lint inspects the declaration
-- THEN an embedded `port` substring MUST NOT produce a numeric-units diagnostic.
+- THEN a `port` component MUST NOT produce a numeric-units diagnostic because it names an identifier, not a unit-bearing quantity.
 
 #### Scenario: Explicit units and nominal types retain admission
 

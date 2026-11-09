@@ -54,6 +54,8 @@ fn typed_local() {
 struct Endpoint {
     // Should NOT warn: a port number is an identifier, not a unit-bearing quantity.
     port: u16,
+    // Should NOT warn: a whole `port` component is still an identifier.
+    network_port: u16,
 }
 
 fn embedded_words() {
@@ -61,13 +63,23 @@ fn embedded_words() {
     let proportion = 0.25_f64;
     let report_lines = 40_u32;
     let transport_count = 3_u32;
-    let _ = (proportion, report_lines, transport_count);
+    let support_count = 2_u32;
+    let max_imports = 4_u32;
+    let max_exports = 3_u32;
+    let _ = (proportion, report_lines, transport_count, support_count, max_imports, max_exports);
 }
 
 fn whole_word_quantity() {
     // Should warn: `timeout` is a whole word in the name.
     let connect_timeout = 30_u64;
     let _ = connect_timeout;
+}
+
+fn network_quantities() {
+    // Should warn: complete quantity components without an admitted unit.
+    let request_timeout = 30_u64;
+    let buffer_size = 1024_u64;
+    let _ = (request_timeout, buffer_size);
 }
 
 fn spelled_out_units() {
@@ -119,8 +131,9 @@ fn main() {
     };
     let _ = raw.timeout;
     typed_local();
-    let endpoint = Endpoint { port: 8080 };
-    let _ = endpoint.port;
+    let endpoint = Endpoint { port: 8080, network_port: 8081 };
+    let _ = (endpoint.port, endpoint.network_port);
     embedded_words();
     whole_word_quantity();
+    network_quantities();
 }

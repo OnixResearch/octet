@@ -1,0 +1,16 @@
+{
+  "command": [
+    "cargo", "test", "-p", "octet", "--test", "ui", "ui", "--locked", "--", "--ignored", "--nocapture"
+  ],
+  "cwd": "/home/brittonr/git/OnixResearch/octet-reconcile-20261109",
+  "environment_overrides": {
+    "CARGO_TARGET_DIR": "/home/brittonr/.cache/octet-reconcile-20261109/target",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_INCREMENTAL": "0"
+  },
+  "exit": 0,
+  "stdout": "test ui ... ok; test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out",
+  "asserts": "The full maintained UI corpus, including the extended numeric_units fixture with request_timeout, buffer_size, max_imports, max_exports, support_count, transport_count, port, and network_port, matches its checked snapshot."
+}

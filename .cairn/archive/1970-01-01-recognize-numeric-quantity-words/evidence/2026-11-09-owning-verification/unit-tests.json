@@ -1,0 +1,16 @@
+{
+  "command": [
+    "cargo", "test", "-p", "octet", "--lib", "--locked", "numeric_units"
+  ],
+  "cwd": "/home/brittonr/git/OnixResearch/octet-reconcile-20261109",
+  "environment_overrides": {
+    "CARGO_TARGET_DIR": "/home/brittonr/.cache/octet-reconcile-20261109/target",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_INCREMENTAL": "0"
+  },
+  "exit": 0,
+  "stdout": "4 passed: raw_quantities_need_units; spelled_out_and_binary_units_are_suffixes; quantity_words_match_whole_words_only; typed_quantities_and_non_quantities_are_accepted",
+  "asserts": "Whole-word matching and the unchanged unit/type/skip behavior pass on the current origin/main base."
+}
