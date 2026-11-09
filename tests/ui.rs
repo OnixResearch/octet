@@ -6,6 +6,7 @@ use std::os::unix::fs::symlink;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
+use std::sync::LazyLock;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 use std::time::SystemTime;
@@ -74,10 +75,6 @@ struct ScratchDir(PathBuf);
 impl ScratchDir {
     fn new(prefix: &str) -> Self {
         Self(temp_path(prefix))
-    }
-
-    fn at(path: PathBuf) -> Self {
-        Self(path)
     }
 }
 
@@ -260,7 +257,16 @@ fn fixture_support_for<'a>(
     support_cache.get(&manifest_path)
 }
 
-fn build_library(toolchain: &str) -> PathBuf {
+/// The lint library under test, built and linked once per test process: the parallel tests share
+/// the toolchain-suffixed alias Dylint loads instead of each removing and recreating it while
+/// another test is loading it.
+static LIBRARY: LazyLock<PathBuf> = LazyLock::new(|| build_library_once(&rustup_toolchain()));
+
+fn build_library() -> PathBuf {
+    LIBRARY.clone()
+}
+
+fn build_library_once(toolchain: &str) -> PathBuf {
     if let Some(path) = prebuilt_path("OCTET_UI_LIBRARY").or_else(|| prebuilt_path("TIGERSTYLE_UI_LIBRARY")) {
         assert!(path.exists(), "missing prebuilt UI library: {}", path.display());
         return path;
@@ -758,8 +764,7 @@ fn run_compiler_architecture_target_with_limits(
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let source_scope = "fixtures/compiler-architecture-ir";
     let fixture_path = root.join(source_scope).join(fixture_name);
-    let work_name = temp_path("octet-compiler-architecture-fixture").file_name().expect("fixture work name").to_owned();
-    let work_dir = ScratchDir::at(root.join(".octet/compiler-architecture-fixtures").join(work_name));
+    let work_dir = ScratchDir::new("octet-compiler-architecture-fixture");
     let shard_dir = work_dir.join("shards");
     fs::create_dir_all(&shard_dir).expect("create compiler architecture fixture shard dir");
     let crate_name = fixture_path.file_stem().expect("fixture stem").to_string_lossy().replace('-', "_");
@@ -836,7 +841,7 @@ fn run_compiler_architecture_target_with_limits(
 #[allow(clippy::too_many_lines)]
 fn compiler_architecture_ir_fixtures() {
     let toolchain = rustup_toolchain();
-    let library = build_library(&toolchain);
+    let library = build_library();
     let host = host_triple();
     let driver = build_driver(&toolchain);
 
@@ -1006,7 +1011,7 @@ fn compiler_type_definition<'a>(shard: &'a CompilerArchitectureShard, type_id: &
 #[ignore = "run via cargo test --test ui compiler_architecture -- --ignored --nocapture"]
 fn compiler_architecture_struct_literal_construction() {
     let toolchain = rustup_toolchain();
-    let library = build_library(&toolchain);
+    let library = build_library();
     let host = host_triple();
     let driver = build_driver(&toolchain);
     let shard = run_compiler_architecture_fixture(&driver, &library, &host, "positive/struct_literal_construction.rs");
@@ -1078,7 +1083,7 @@ fn compiler_constructions_on_line(shard: &CompilerArchitectureShard, definition:
 #[ignore = "run via cargo test --test ui compiler_architecture -- --ignored --nocapture"]
 fn compiler_architecture_borrowed_witness_signatures_and_narrow_conversions() {
     let toolchain = rustup_toolchain();
-    let library = build_library(&toolchain);
+    let library = build_library();
     let host = host_triple();
     let driver = build_driver(&toolchain);
     let selection = CompilerValueFlowSelection {
@@ -1172,7 +1177,7 @@ fn closure_value_flow_selection() -> CompilerValueFlowSelection {
 #[ignore = "run via cargo test --test ui compiler_architecture -- --ignored --nocapture"]
 fn compiler_architecture_closure_value_provenance() {
     let toolchain = rustup_toolchain();
-    let library = build_library(&toolchain);
+    let library = build_library();
     let host = host_triple();
     let driver = build_driver(&toolchain);
     let shard = run_compiler_architecture_fixture_with_selection(
@@ -1221,7 +1226,7 @@ fn compiler_architecture_escaped_value_provenance_stays_unknown() {
 
     const PREFIX: &str = "escaped_value_provenance::";
     let toolchain = rustup_toolchain();
-    let library = build_library(&toolchain);
+    let library = build_library();
     let host = host_triple();
     let driver = build_driver(&toolchain);
     let selection = CompilerValueFlowSelection {
@@ -1284,7 +1289,7 @@ fn compiler_architecture_escaped_value_provenance_stays_unknown() {
 #[ignore = "run via cargo test --test ui compiler_architecture -- --ignored --nocapture"]
 fn compiler_architecture_external_reference_provenance() {
     let toolchain = rustup_toolchain();
-    let library = build_library(&toolchain);
+    let library = build_library();
     let host = host_triple();
     let driver = build_driver(&toolchain);
     let selection = CompilerValueFlowSelection {
@@ -1412,7 +1417,7 @@ fn compiler_architecture_selects_units_by_rust_target_tuple() {
     // planner name it by its Rust tuple.
     const RUST_TARGET: &str = "riscv64gc-unknown-linux-gnu";
     let toolchain = rustup_toolchain();
-    let library = build_library(&toolchain);
+    let library = build_library();
     let driver = build_driver(&toolchain);
     let shard = run_compiler_architecture_target(
         &driver,
@@ -1430,7 +1435,7 @@ fn compiler_architecture_selects_units_by_rust_target_tuple() {
 #[ignore = "run via cargo test --test ui compiler_architecture -- --ignored --nocapture"]
 fn compiler_architecture_dynamic_dispatch_through_pointers_and_paths() {
     let toolchain = rustup_toolchain();
-    let library = build_library(&toolchain);
+    let library = build_library();
     let host = host_triple();
     let driver = build_driver(&toolchain);
     let shard = run_compiler_architecture_fixture(
@@ -1483,7 +1488,7 @@ fn compiler_architecture_function_references_record_calls_and_effects() {
     use octet_architecture_ir::CapabilityFamily;
 
     let toolchain = rustup_toolchain();
-    let library = build_library(&toolchain);
+    let library = build_library();
     let host = host_triple();
     let driver = build_driver(&toolchain);
     let shard = run_compiler_architecture_fixture(&driver, &library, &host, "negative/function_reference_effects.rs");
@@ -1524,7 +1529,7 @@ fn compiler_architecture_observability_and_synchronization_effects() {
     use octet_architecture_ir::CapabilityFamily;
 
     let toolchain = rustup_toolchain();
-    let library = build_library(&toolchain);
+    let library = build_library();
     let host = host_triple();
     let driver = build_driver(&toolchain);
     let shard = run_compiler_architecture_fixture(
@@ -1592,7 +1597,7 @@ fn compiler_architecture_value_types_under_effect_paths_are_effect_free() {
     use octet_architecture_ir::CapabilityFamily;
 
     let toolchain = rustup_toolchain();
-    let library = build_library(&toolchain);
+    let library = build_library();
     let host = host_triple();
     let driver = build_driver(&toolchain);
     let shard = run_compiler_architecture_fixture(&driver, &library, &host, "negative/effect_free_value_types.rs");
@@ -1624,7 +1629,7 @@ fn compiler_architecture_value_flow_limits_mark_shard_incomplete() {
     const VALUE_FLOW_LIMIT_TARGET: &str = "compiler-selected-value-flow";
     type RestrictLimits = fn(&mut ArchitectureCollectionLimits);
     let toolchain = rustup_toolchain();
-    let library = build_library(&toolchain);
+    let library = build_library();
     let host = host_triple();
     let driver = build_driver(&toolchain);
     let run = |limits| {
@@ -1664,7 +1669,7 @@ fn compiler_architecture_value_flow_limits_mark_shard_incomplete() {
 #[ignore = "run via cargo test --test ui compiler_architecture -- --ignored --nocapture"]
 fn compiler_architecture_library_and_binary_identities_differ() {
     let toolchain = rustup_toolchain();
-    let library = build_library(&toolchain);
+    let library = build_library();
     let host = host_triple();
     let driver = build_driver(&toolchain);
     // One source compiled as a library and as a binary shares its crate name,
@@ -1701,7 +1706,7 @@ fn compiler_architecture_library_and_binary_identities_differ() {
 #[ignore = "run via cargo test --test ui compiler_architecture_target_fixtures -- --ignored --nocapture"]
 fn compiler_architecture_target_fixtures() {
     let toolchain = rustup_toolchain();
-    let library = build_library(&toolchain);
+    let library = build_library();
     let host = host_triple();
     let driver = build_driver(&toolchain);
     let pure = run_compiler_architecture_target(
@@ -1799,7 +1804,7 @@ fn ui() {
     let fixture_set = fixture_set();
     let expected_failures = fixture_set.expected_failures.into_iter().collect::<std::collections::HashSet<_>>();
     let toolchain = rustup_toolchain();
-    let library = build_library(&toolchain);
+    let library = build_library();
     let host = host_triple();
     let driver = build_driver(&toolchain);
     let mut support_cache = HashMap::new();
@@ -1830,7 +1835,7 @@ fn ui() {
 #[ignore = "run via cargo test --test ui autofix_machine_applicable -- --ignored --nocapture"]
 fn autofix_machine_applicable() {
     let toolchain = rustup_toolchain();
-    let library = build_library(&toolchain);
+    let library = build_library();
     let driver = build_driver(&toolchain);
 
     for fixture in fixed_fixture_names() {
