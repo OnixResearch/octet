@@ -24,6 +24,7 @@ use octet_architecture_ir::UnknownCompilerFact;
 use octet_architecture_ir::UnknownFactKind;
 use octet_architecture_ir::ValueProvenanceStatus;
 use rustc_hir as hir;
+use rustc_hir::LangItem;
 use rustc_hir::attrs::AttributeKind;
 use rustc_hir::def::CtorKind;
 use rustc_hir::def::DefKind;
@@ -42,6 +43,7 @@ use rustc_span::Span;
 use rustc_span::Spanned;
 use rustc_span::hygiene::AstPass;
 use rustc_span::hygiene::ExpnKind;
+use rustc_span::sym;
 
 const CONTEXT_BYTE_LIMIT: u64 = 16 * 1024 * 1024;
 const ITEM_ID_DOMAIN: &str = "octet.compiler-architecture-ir.item/v1";
@@ -1905,19 +1907,50 @@ fn dispatch_kind<'tcx>(cx: &LateContext<'tcx>, def_id: DefId, args: Option<ty::G
     if definition_is_foreign(cx, def_id) {
         return DispatchKind::Foreign;
     }
-    let self_ty = cx
+    let trait_and_self = cx
         .tcx
         .trait_of_assoc(def_id)
-        .and(args)
-        .and_then(|args| args.first())
-        .and_then(|self_arg| self_arg.as_type());
-    if self_ty.is_some_and(|self_ty| matches!(self_ty.kind(), ty::Dynamic(..))) {
+        .zip(args.and_then(|args| args.first()).and_then(|self_arg| self_arg.as_type()));
+    if trait_and_self.is_some_and(|(trait_def_id, self_ty)| dispatches_through_trait_object(cx, trait_def_id, self_ty))
+    {
         return DispatchKind::Dynamic;
     }
     if matches!(cx.tcx.def_kind(def_id), DefKind::AssocFn | DefKind::AssocConst { .. } | DefKind::AssocTy) {
         DispatchKind::Trait
     } else {
         DispatchKind::Static
+    }
+}
+
+// Forwarding impls such as `impl<W: Write + ?Sized> Write for Box<W>` let
+// method resolution select `Self = Box<dyn Write>`; the vtable call then
+// happens inside the forwarding body. A reference, `Box`, `Rc`, `Arc`, or
+// `Pin` around a trait object that itself implements the called trait (as its
+// principal trait or a supertrait) dispatches dynamically. `Clone` on
+// `Arc<dyn Trait>` does not, because the trait object does not implement it.
+fn dispatches_through_trait_object<'tcx>(cx: &LateContext<'tcx>, trait_def_id: DefId, self_ty: Ty<'tcx>) -> bool {
+    if let ty::Dynamic(..) = self_ty.kind() {
+        return true;
+    }
+    // Each step strips one constructor from a finite type, so the walk ends.
+    let mut current = self_ty;
+    loop {
+        current = match current.kind() {
+            ty::Ref(_, pointee, _) => *pointee,
+            ty::Adt(adt, args)
+                if adt.is_box()
+                    || cx.tcx.is_lang_item(adt.did(), LangItem::Pin)
+                    || [sym::Rc, sym::Arc].into_iter().any(|pointer| cx.tcx.is_diagnostic_item(pointer, adt.did())) =>
+            {
+                args.type_at(0)
+            }
+            ty::Dynamic(predicates, _) => {
+                return predicates.principal_def_id().is_some_and(|principal| {
+                    ty::elaborate::supertrait_def_ids(cx.tcx, principal).any(|bound| bound == trait_def_id)
+                });
+            }
+            _ => return false,
+        };
     }
 }
 

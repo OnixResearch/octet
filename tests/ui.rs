@@ -1187,14 +1187,16 @@ fn compiler_architecture_dynamic_dispatch_through_pointers_and_paths() {
             _ => None,
         })
         .collect::<std::collections::BTreeSet<_>>();
-    // Static receivers, including a boxed concrete type and a generic parameter,
-    // stay out of both sets.
+    // Static receivers, including boxed concrete types, a generic parameter, and
+    // `Clone` on a shared trait object, stay out of both sets.
     let expected = [
+        "smart_pointer_and_qualified_dynamic_dispatch::emit_boxed_writer",
         "smart_pointer_and_qualified_dynamic_dispatch::invoke_boxed",
         "smart_pointer_and_qualified_dynamic_dispatch::invoke_counted",
         "smart_pointer_and_qualified_dynamic_dispatch::invoke_fully_qualified",
         "smart_pointer_and_qualified_dynamic_dispatch::invoke_qualified",
         "smart_pointer_and_qualified_dynamic_dispatch::invoke_shared",
+        "smart_pointer_and_qualified_dynamic_dispatch::next_boxed_iterator",
     ]
     .into_iter()
     .collect::<std::collections::BTreeSet<_>>();
