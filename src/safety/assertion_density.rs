@@ -30,6 +30,7 @@ declare_tool_lint! {
 pub struct AssertionDensity {
     min_lines: usize,
     min_assertions: usize,
+    harness_test_fns: std::collections::HashSet<rustc_ast::NodeId>,
 }
 
 impl AssertionDensity {
@@ -37,6 +38,7 @@ impl AssertionDensity {
         Self {
             min_lines,
             min_assertions,
+            harness_test_fns: std::collections::HashSet::new(),
         }
     }
 }
@@ -116,7 +118,7 @@ fn is_single_expression_body(body: &Block) -> bool {
 
 impl AssertionDensity {
     fn check_function(&self, cx: &EarlyContext<'_>, attrs: &[rustc_ast::Attribute], func: &rustc_ast::Fn) {
-        // Skip `#[test]` functions and items whose `cfg` can only hold under `cfg(test)`
+        // Skip items whose `cfg` can only hold under `cfg(test)`
         if crate::test_context::ast_attrs_indicate_test(cx.sess(), attrs) {
             return;
         }
@@ -157,8 +159,16 @@ impl AssertionDensity {
 }
 
 impl EarlyLintPass for AssertionDensity {
+    fn check_crate(&mut self, cx: &EarlyContext<'_>, krate: &rustc_ast::Crate) {
+        self.harness_test_fns = crate::test_context::ast_harness_test_fns(cx.sess(), krate);
+    }
+
     fn check_item(&mut self, cx: &EarlyContext<'_>, item: &Item) {
-        if let ItemKind::Fn(func) = &item.kind {
+        // `#[test]` functions keep no attribute after expansion; they are found
+        // through the harness markers instead.
+        if let ItemKind::Fn(func) = &item.kind
+            && !self.harness_test_fns.contains(&item.id)
+        {
             self.check_function(cx, &item.attrs, func);
         }
     }

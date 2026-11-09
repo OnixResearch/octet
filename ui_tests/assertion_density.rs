@@ -176,7 +176,7 @@ fn comment_marker_in_string(data: &[u8]) -> usize {
 
 #[cfg(test)]
 fn test_only_sparse(data: &[u8]) -> usize {
-    // Should NOT warn: `cfg(test)` code is test-only (the fixture runs with `--cfg test`)
+    // Should NOT warn: `cfg(test)` code is test-only (the fixture runs with `--test`, which sets `cfg(test)`)
     let a = data.len();
     let a = a + 1;
     let a = a + 2;
@@ -230,6 +230,57 @@ fn test_and_unix_sparse(data: &[u8]) -> usize {
 fn test_or_unix_sparse(data: &[u8]) -> usize {
     // Should warn: `any(test, unix)` also holds in production builds
     let a = data.len();
+    let a = a + 1;
+    let a = a + 2;
+    let a = a + 3;
+    let a = a + 4;
+    let a = a + 5;
+    let a = a + 6;
+    let a = a + 7;
+    let a = a + 8;
+    let a = a + 9;
+    let a = a + 10;
+    let a = a + 11;
+    let a = a + 12;
+    let a = a + 13;
+    let a = a + 14;
+    let a = a + 15;
+    let a = a + 16;
+    let a = a + 17;
+    let a = a + 18;
+    let a = a + 19;
+    a
+}
+
+#[test]
+fn harness_test_sparse() {
+    // Should NOT warn: `#[test]` functions are test-only
+    let a = 0_usize;
+    let a = a + 1;
+    let a = a + 2;
+    let a = a + 3;
+    let a = a + 4;
+    let a = a + 5;
+    let a = a + 6;
+    let a = a + 7;
+    let a = a + 8;
+    let a = a + 9;
+    let a = a + 10;
+    let a = a + 11;
+    let a = a + 12;
+    let a = a + 13;
+    let a = a + 14;
+    let a = a + 15;
+    let a = a + 16;
+    let a = a + 17;
+    let a = a + 18;
+    let a = a + 19;
+    let _ = a;
+}
+
+fn helper_beside_test_sparse() -> usize {
+    // Should warn: helpers next to `#[test]` functions are still checked
+    let a = 0_usize;
     let a = a + 1;
     let a = a + 2;
     let a = a + 3;
