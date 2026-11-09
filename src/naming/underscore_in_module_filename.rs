@@ -23,7 +23,6 @@ const IGNORED_SOURCE_COMPONENTS: &[&str] = &[
     ".cargo",
 ];
 const VENDOR_CARGO_DEPS_MARKER: &str = "vendor-cargo-deps";
-const CRATE_ROOT_STEMS: &[&str] = &["lib", "main", "mod"];
 
 declare_tool_lint! {
     /// Detects module filenames with underscore-separated compound names.
@@ -81,8 +80,16 @@ fn replacement_layout(stem: &str) -> String {
     format!("{}/{}.rs", segments.join("/"), file_name)
 }
 
-fn should_warn(path: &Path, workspace_root: &Path, exceptions: IndexableLintExceptions) -> Option<(String, String)> {
-    if path.extension().and_then(|extension| extension.to_str()) != Some("rs") {
+/// `crate_root` is the file rustc compiled as the crate root. Its name is the
+/// Cargo target's name (`src/bin/load_gen.rs`, `examples/basic_usage.rs`), so a
+/// rename would break the target and it never warns.
+fn should_warn(
+    path: &Path,
+    crate_root: &Path,
+    workspace_root: &Path,
+    exceptions: IndexableLintExceptions,
+) -> Option<(String, String)> {
+    if path.extension().and_then(|extension| extension.to_str()) != Some("rs") || path == crate_root {
         return None;
     }
     if !crate::source::is_workspace_source_path(path, workspace_root) || is_generated_or_fixture_path(path) {
@@ -90,7 +97,7 @@ fn should_warn(path: &Path, workspace_root: &Path, exceptions: IndexableLintExce
     }
 
     let stem = file_stem(path)?;
-    if CRATE_ROOT_STEMS.contains(&stem) || !stem.contains('_') || is_lint_identity_file_stem(stem, exceptions) {
+    if !stem.contains('_') || is_lint_identity_file_stem(stem, exceptions) {
         return None;
     }
 
@@ -98,15 +105,19 @@ fn should_warn(path: &Path, workspace_root: &Path, exceptions: IndexableLintExce
 }
 
 impl EarlyLintPass for UnderscoreInModuleFilename {
-    fn check_crate(&mut self, cx: &EarlyContext<'_>, _krate: &Crate) {
+    fn check_crate(&mut self, cx: &EarlyContext<'_>, krate: &Crate) {
         let workspace_root = crate::source::workspace_root();
+        let source_map = cx.sess().source_map();
+        let crate_root = crate::source::normalize_path(&crate::source::source_file_path(
+            &source_map.lookup_source_file(krate.spans.inner_span.lo()),
+        ));
 
-        for source_file in cx.sess().source_map().files().iter() {
+        for source_file in source_map.files().iter() {
             if !crate::source::is_local(source_file) {
                 continue;
             }
             let path = crate::source::normalize_path(&crate::source::source_file_path(source_file));
-            let Some((stem, replacement)) = should_warn(&path, &workspace_root, self.exceptions) else {
+            let Some((stem, replacement)) = should_warn(&path, &crate_root, &workspace_root, self.exceptions) else {
                 continue;
             };
 
@@ -141,38 +152,39 @@ mod tests {
         }
     }
 
+    fn warn_in_library(path: &str) -> Option<(String, String)> {
+        should_warn(Path::new(path), Path::new("src/lib.rs"), workspace_root(), all_exceptions())
+    }
+
     #[test]
     fn warns_for_workspace_underscore_module_filename() {
-        assert!(should_warn(Path::new("src/test_context.rs"), workspace_root(), all_exceptions()).is_some());
+        assert!(warn_in_library("src/test_context.rs").is_some());
+    }
+
+    #[test]
+    fn skips_underscore_crate_root() {
+        let crate_root = Path::new("src/test_context.rs");
+        assert!(should_warn(crate_root, crate_root, workspace_root(), all_exceptions()).is_none());
     }
 
     #[test]
     fn accepts_local_filename_without_underscores() {
-        assert!(should_warn(Path::new("src/source.rs"), workspace_root(), all_exceptions()).is_none());
+        assert!(warn_in_library("src/source.rs").is_none());
     }
 
     #[test]
     fn skips_lint_identity_module_filename() {
-        assert!(should_warn(Path::new("src/naming/acronym_style.rs"), workspace_root(), all_exceptions()).is_none());
+        assert!(warn_in_library("src/naming/acronym_style.rs").is_none());
     }
 
     #[test]
     fn skips_remapped_dependency_paths_absent_from_workspace() {
         assert!(!is_workspace_source_path(Path::new("<WORKSPACE>/src/address_lookup.rs"), workspace_root()));
-        assert!(
-            should_warn(Path::new("<WORKSPACE>/src/address_lookup.rs"), workspace_root(), all_exceptions()).is_none()
-        );
+        assert!(warn_in_library("<WORKSPACE>/src/address_lookup.rs").is_none());
     }
 
     #[test]
     fn skips_vendored_dependency_underscore_filename() {
-        assert!(
-            should_warn(
-                Path::new("/nix/store/hash-vendor-cargo-deps/serde_core-1.0.228/src/crate_root.rs"),
-                workspace_root(),
-                all_exceptions()
-            )
-            .is_none()
-        );
+        assert!(warn_in_library("/nix/store/hash-vendor-cargo-deps/serde_core-1.0.228/src/crate_root.rs").is_none());
     }
 }

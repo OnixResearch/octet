@@ -249,6 +249,13 @@ The lint MUST NOT warn on crate roots, generated files, fixture files, or files 
 - WHEN the lint runs
 - THEN `underscore_in_module_filename` does NOT fire
 
+#### Scenario: Underscore crate root [r[underscore-module-filename-detection.scenario.underscore-crate-root]]
+
+- GIVEN a binary or example crate root such as `src/bin/load_gen.rs` or `examples/basic_usage.rs`
+- WHEN the lint runs
+- THEN `underscore_in_module_filename` does NOT fire for the crate root file, because its name is the Cargo target name
+- AND underscore module files that the crate root declares still warn
+
 ### Requirement: Non-Trait Import Detection [r[non-trait-import-detection]]
 
 The system MUST provide a warn-by-default naming/import lint named `non_trait_imports`.
