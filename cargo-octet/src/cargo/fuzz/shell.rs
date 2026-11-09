@@ -32,8 +32,11 @@ const CARGO_PROGRAM: &str = "cargo";
 const RUSTC_PROGRAM: &str = "rustc";
 const COMPILER_REPORT_ARGUMENT: &str = "-vV";
 const PATH_ENVIRONMENT: &str = "PATH";
-// `RUSTUP_TOOLCHAIN` and `RUSTC` are withheld: either one could point cargo-fuzz at a compiler
-// other than the `rustc` that the compiler probe observes.
+const RUSTC_ENVIRONMENT: &str = "RUSTC";
+const WRAPPER_ENVIRONMENT: [&str; 2] = ["RUSTC_WRAPPER", "RUSTC_WORKSPACE_WRAPPER"];
+// The ambient `RUSTUP_TOOLCHAIN` and `RUSTC` are withheld: either one could point cargo-fuzz at a
+// compiler other than the `rustc` that the compiler probe observes. `pinned_compiler_environment`
+// sets `RUSTC` to the probed compiler instead.
 const ENVIRONMENT_ALLOWLIST: [&str; 10] = [
     PATH_ENVIRONMENT,
     "HOME",
@@ -161,7 +164,8 @@ pub fn run_with(
             "cargo-fuzz artifact directory {ARTIFACT_DIRECTORY} must be empty before a run; move earlier crash artifacts aside"
         ));
     }
-    let compiler_identity = compiler_identity(&observe_compiler(&workspace_root, &tools.environment)?)?;
+    let rustc = resolve_program(&tools.environment, RUSTC_PROGRAM)?;
+    let compiler_identity = compiler_identity(&observe_compiler(&workspace_root, &rustc, &tools.environment)?)?;
     let initial_corpus = snapshot(&workspace_root, CORPUS_DIRECTORY)?;
     let command_argv = command_argv();
     let args = command_argv
@@ -176,7 +180,7 @@ pub fn run_with(
             args,
             current_dir: workspace_root.clone(),
             environment_mode: bounded_exec::EnvironmentMode::Clear,
-            environment: tools.environment,
+            environment: pinned_compiler_environment(tools.environment, &rustc),
             input: bounded_exec::Input::Null,
         },
         limits,
@@ -240,15 +244,16 @@ pub fn run_with(
     Ok((rendered, exit_code))
 }
 
-/// Runs `rustc -vV` from the run's `PATH`, cleared environment, and working directory, so the
-/// report names the compiler that cargo-fuzz resolves.
+/// Runs `rustc -vV` with the run's cleared environment and working directory, so the report
+/// names the compiler that `pinned_compiler_environment` hands to cargo-fuzz.
 fn observe_compiler(
     workspace_root: &std::path::Path,
+    rustc: &std::path::Path,
     environment: &[(std::ffi::OsString, std::ffi::OsString)],
 ) -> Result<String, String> {
     let output = bounded_exec::run(bounded_exec::RunRequest {
         command: bounded_exec::CommandSpec {
-            program: resolve_program(environment, RUSTC_PROGRAM)?,
+            program: rustc.to_path_buf(),
             args: vec![std::ffi::OsString::from(COMPILER_REPORT_ARGUMENT)],
             current_dir: workspace_root.to_path_buf(),
             environment_mode: bounded_exec::EnvironmentMode::Clear,
@@ -278,6 +283,22 @@ fn observe_compiler(
     String::from_utf8(output.stdout.bytes).map_err(|error| {
         format!("cargo-fuzz compiler report from `{RUSTC_PROGRAM} {COMPILER_REPORT_ARGUMENT}` is not UTF-8: {error}")
     })
+}
+
+/// Pins cargo-fuzz to the probed compiler. Cargo ranks `RUSTC`, `RUSTC_WRAPPER`, and
+/// `RUSTC_WORKSPACE_WRAPPER` above `build.rustc`, `build.rustc-wrapper`, and
+/// `build.rustc-workspace-wrapper` from any `.cargo/config.toml`, and an empty wrapper variable
+/// disables a configured wrapper, so no config file or relative `PATH` entry can swap the
+/// compiler after the probe.
+fn pinned_compiler_environment(
+    mut environment: Vec<(std::ffi::OsString, std::ffi::OsString)>,
+    rustc: &std::path::Path,
+) -> Vec<(std::ffi::OsString, std::ffi::OsString)> {
+    environment
+        .retain(|(name, _)| name != RUSTC_ENVIRONMENT && !WRAPPER_ENVIRONMENT.iter().any(|wrapper| name == wrapper));
+    environment.push((RUSTC_ENVIRONMENT.into(), rustc.as_os_str().to_owned()));
+    environment.extend(WRAPPER_ENVIRONMENT.iter().map(|wrapper| ((*wrapper).into(), std::ffi::OsString::new())));
+    environment
 }
 
 fn snapshot(workspace_root: &std::path::Path, relative: &str) -> Result<Vec<ArtifactIdentity>, String> {
@@ -449,7 +470,14 @@ mod tests {
         assert_eq!(exit_code, ACCEPTED_EXIT_CODE);
         let details: ReceiptDetails = serde_json::from_str(&rendered).expect("parse cargo-fuzz receipt");
         assert_eq!(details.outcome, "clean");
-        for capture in ["child-env.txt", "rustc-env.txt"] {
+        for (capture, mut expected) in [
+            ("child-env.txt", vec![SELECTED_VARIABLE, PATH_ENVIRONMENT, RUSTC_ENVIRONMENT]),
+            ("rustc-env.txt", vec![SELECTED_VARIABLE, PATH_ENVIRONMENT]),
+        ] {
+            if capture == "child-env.txt" {
+                expected.extend(WRAPPER_ENVIRONMENT);
+            }
+            expected.sort_unstable();
             let environment = std::fs::read_to_string(directory.path().join(capture)).expect("read captured env");
             let mut names = environment
                 .lines()
@@ -458,7 +486,7 @@ mod tests {
                 .filter(|name| !SHELL_MANAGED_VARIABLES.contains(name))
                 .collect::<Vec<_>>();
             names.sort_unstable();
-            assert_eq!(names, vec![SELECTED_VARIABLE, PATH_ENVIRONMENT], "{capture}");
+            assert_eq!(names, expected, "{capture}");
         }
         let args = std::fs::read_to_string(directory.path().join("child-args.txt")).expect("read child args");
         assert_eq!(
@@ -527,6 +555,37 @@ mod tests {
         let tools = fixture_tools(directory.path(), "printf ran > cargo-ran.txt\n", &other);
         assert!(run_with(directory.path(), tools, run_limits().expect("limits")).is_err());
         assert!(!directory.path().join("cargo-ran.txt").exists(), "another toolchain must not run cargo-fuzz");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn cargo_fuzz_is_pinned_to_the_probed_compiler_without_wrappers() {
+        let directory = tempfile::tempdir().expect("create cargo-fuzz compiler pin fixture");
+        let mut tools = fixture_tools(
+            directory.path(),
+            "printf 'RUSTC=%s\\nRUSTC_WRAPPER=%s\\nRUSTC_WORKSPACE_WRAPPER=%s\\n' \"${RUSTC-unset}\" \"${RUSTC_WRAPPER-unset}\" \"${RUSTC_WORKSPACE_WRAPPER-unset}\" > child-compiler.txt\n",
+            &rustc_version_verbose(REVIEWED_COMMIT),
+        );
+        let probed = directory.path().join("bin").join(RUSTC_PROGRAM);
+        // Cargo searches a relative `PATH` entry that the probe skips, so a compiler there must not
+        // be the one cargo-fuzz runs; neither may an inherited compiler or wrapper override.
+        let relative = directory.path().join("relative-bin");
+        std::fs::create_dir_all(&relative).expect("create relative bin directory");
+        crate::test_support::write_executable_script(&relative.join(RUSTC_PROGRAM), "#!/bin/sh\nexit 1\n");
+        let mut search_path = std::ffi::OsString::from("relative-bin:");
+        search_path.push(probed.parent().expect("fixture bin directory"));
+        tools.environment = vec![
+            (PATH_ENVIRONMENT.into(), search_path),
+            (RUSTC_ENVIRONMENT.into(), "/elsewhere/rustc".into()),
+            ("RUSTC_WRAPPER".into(), "/elsewhere/wrapper".into()),
+        ];
+        run_with(directory.path(), tools, run_limits().expect("limits")).expect("pinned run");
+        let captured = std::fs::read_to_string(directory.path().join("child-compiler.txt")).expect("read compiler env");
+        assert_eq!(captured.lines().collect::<Vec<_>>(), [
+            format!("RUSTC={}", probed.display()),
+            "RUSTC_WRAPPER=".to_owned(),
+            "RUSTC_WORKSPACE_WRAPPER=".to_owned(),
+        ]);
     }
 
     #[cfg(unix)]

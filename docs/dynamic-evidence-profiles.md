@@ -61,9 +61,11 @@ cargo fuzz run octet-profile-intake -- -max_total_time=60 -runs=100000 -seed=1
 
 Octet rejects `--command` for this profile. It binds the exact target, libFuzzer engine, nightly toolchain, observed compiler identity, address sanitizer, budgets, corpus roots, dictionary identity, crash input, minimized reproducer, replay command, and bounded log identity.
 
-With `--run`, Octet executes that command through Bounded Exec in a fresh process group. The child starts from a cleared environment and receives only these variables when they are set: `PATH`, `HOME`, `CARGO_HOME`, `RUSTUP_HOME`, `LD_LIBRARY_PATH`, `TMPDIR`, `CC`, `CXX`, `SSL_CERT_FILE`, and `NIX_SSL_CERT_FILE`. `RUSTUP_TOOLCHAIN` and `RUSTC` are withheld, so a toolchain override cannot swap the compiler after Octet observes it. Octet resolves `cargo` and `rustc` from that `PATH`.
+With `--run`, Octet executes that command through Bounded Exec in a fresh process group. The child starts from a cleared environment and receives only these variables when they are set: `PATH`, `HOME`, `CARGO_HOME`, `RUSTUP_HOME`, `LD_LIBRARY_PATH`, `TMPDIR`, `CC`, `CXX`, `SSL_CERT_FILE`, and `NIX_SSL_CERT_FILE`. The ambient `RUSTUP_TOOLCHAIN` and `RUSTC` are withheld. Octet resolves `cargo` and `rustc` from the absolute entries of that `PATH`.
 
-Before the run, Octet runs `rustc -vV` in the same cleared environment and working directory. It refuses to run unless the reported `commit-hash` equals the profile's `rustc_commit_hash`, the `nightly-2026-03-21` rustc commit. The receipt's `compiler_identity` is the BLAKE3 identity of that whole `rustc -vV` report.
+Before the run, Octet runs that `rustc -vV` in the same cleared environment and working directory. It refuses to run unless the reported `commit-hash` equals the profile's `rustc_commit_hash`, the `nightly-2026-03-21` rustc commit. The receipt's `compiler_identity` is the BLAKE3 identity of that whole `rustc -vV` report.
+
+Octet then gives the cargo-fuzz child `RUSTC` set to the absolute path of the probed compiler, plus empty `RUSTC_WRAPPER` and `RUSTC_WORKSPACE_WRAPPER`. Cargo ranks these variables above `build.rustc`, `build.rustc-wrapper`, and `build.rustc-workspace-wrapper` in any `.cargo/config.toml`, and an empty wrapper variable disables a configured wrapper. A workspace or home Cargo config, a relative `PATH` entry, or a toolchain override cannot swap the compiler after Octet observes it.
 
 The run deadline is the 60-second libFuzzer budget plus a 14-minute build allowance. Stdout and stderr each retain at most half of the 1 MiB receipt log limit. A timeout or an output overflow stops the whole process group and fails the run without a receipt.
 
