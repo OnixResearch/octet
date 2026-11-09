@@ -120,6 +120,7 @@ Scope notes for the safety lints:
 - `no_recursion` follows self-calls into closures and `async fn` bodies inside the function, but not into nested items.
 - `unchecked_division` checks `/`, `%`, `/=`, and `%=`, including divisors of type `&u64` and similar references; a guard on `*divisor` counts for `divisor`.
 - `sentinel_fallback` matches by the resolved constant, so `Ticks::MAX` through `type Ticks = u64` and `Self::MAX` in an integer impl are flagged.
+- `unjustified_no_todo_allow` audits `allow` and `expect` of `no_todo` on every node rustc applies them to: items, blocks, `let` and expression statements, closures, match arms, and crate-level `#![allow(no_todo)]`. A justified `#[expect(no_todo)]` still lets `no_todo` fire so the expectation is fulfilled.
 - `unbounded_channel` renames only the constructor segment when it is written under its original name. For an aliased import it spells the bounded constructor through the import's crate path, or offers no rewrite.
 - `drop_must_use` ignores a type's own `#[must_use]` when the type has a destructor, so `drop(guard)` on `MutexGuard` or `RwLock` guards stays clean. `Result`, must-use types without a destructor, and `#[must_use]` producers are still flagged.
 - `unchecked_narrowing` treats a `usize` or `isize` source as 64 bits wide on every target, so `v.len() as u32` and `index as i8` are flagged unless guarded. Findings do not depend on the build target. Casts to `usize` or `isize` belong to `platform_dependent_cast`.

@@ -330,16 +330,22 @@ The lint MUST NOT fire in the repo's supported test contexts.
 
 The system MUST support a narrow temporary-stub escape hatch for `todo!()` via
 `#[allow(tigerstyle::no_todo)]` and the supported bare compatibility spelling
-`#[allow(no_todo)]`.
+`#[allow(no_todo)]`. `#[expect(tigerstyle::no_todo)]` and `#[expect(no_todo)]`
+are the same escape hatch and follow every rule below; when one covers a
+`todo!()` stub, `no_todo` is still emitted so rustc counts the expectation as
+fulfilled and suppresses it.
 
 The system MUST register `unjustified_no_todo_allow` as a warn-by-default
 safety lint in canonical tool-scoped form, while the repo's current bare alias
 path continues to resolve the supported bare source/config spellings.
 
 The system MUST NOT fire either `no_todo` or `unjustified_no_todo_allow` when a
-`todo!()` call sits inside a function or block explicitly allowed with either
+`todo!()` call sits under a node explicitly allowed with either
 `#[allow(tigerstyle::no_todo)]` or `#[allow(no_todo)]` and an adjacent
-justification comment.
+justification comment. The escape hatch is audited on every node where rustc
+applies a lint-level attribute: items, blocks, `let` and expression
+statements, closures and other expressions, match arms, and the crate root
+(`#![allow(no_todo)]`).
 
 For this rule, an adjacent justification comment is a `// ...` comment on the
 same line as the allow attribute or on the immediately preceding non-empty
@@ -351,8 +357,8 @@ The system MUST warn via `unjustified_no_todo_allow` when any of these hold:
 - `#[allow(tigerstyle::no_todo)]` or `#[allow(no_todo)]` appears around
   `panic!()`, `unimplemented!()`, or `unreachable!()` instead of a `todo!()`
   stub
-- `#[allow(tigerstyle::no_todo)]` or `#[allow(no_todo)]` remains on an item or
-  block after the covered `todo!()` stub is gone
+- `#[allow(tigerstyle::no_todo)]` or `#[allow(no_todo)]` remains on any such
+  node after the covered `todo!()` stub is gone
 - `cfg_attr(...)` expands into one of those supported direct allow attrs on a
   covered item or block, and the resulting expanded attr is unjustified or
   orphaned
@@ -392,6 +398,22 @@ The system MUST warn via `unjustified_no_todo_allow` when any of these hold:
 - WHEN the lint suite runs
 - THEN `unjustified_no_todo_allow` applies the same justification and orphan
   checks to that expanded attr
+
+#### Scenario: statement, closure, match-arm, and crate-level allows are audited
+
+- GIVEN `#[allow(no_todo)]` on a `let` statement, closure, or match arm, or
+  `#![allow(no_todo)]` at the crate root, covering a `todo!()` stub
+- WHEN the lint suite runs
+- THEN `unjustified_no_todo_allow` applies the same justification and orphan
+  checks as for a function or block allow
+
+#### Scenario: `no_todo` expect is audited like an allow
+
+- GIVEN `#[expect(no_todo)] fn stub() { todo!(...) }`
+- WHEN the lint suite runs
+- THEN `unjustified_no_todo_allow` warns unless an adjacent `//`
+  justification comment is present
+- AND rustc does not report the expectation as unfulfilled
 
 ### Requirement: Public Tiger Style Assertion Review Guide
 

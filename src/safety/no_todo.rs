@@ -1,6 +1,5 @@
 use rustc_errors::Applicability;
 use rustc_hir as hir;
-use rustc_hir::ExprKind;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
 use rustc_lint::LintContext;
@@ -25,8 +24,10 @@ declare_tool_lint! {
 
 declare_tool_lint! {
     /// Detects misuse of `#[allow(tigerstyle::no_todo)]` /
-    /// `#[allow(no_todo)]`. That escape hatch is reserved for temporary
-    /// `todo!()` stubs with an adjacent `//` justification comment.
+    /// `#[allow(no_todo)]` (or the `#[expect(..)]` forms) on any item, block,
+    /// statement, expression, match arm, or the crate root. That escape hatch
+    /// is reserved for temporary `todo!()` stubs with an adjacent `//`
+    /// justification comment.
     pub tigerstyle::UNJUSTIFIED_NO_TODO_ALLOW,
     Warn,
     "invalid `#[allow(tigerstyle::no_todo)]` escape hatch"
@@ -84,12 +85,18 @@ fn is_line_comment(line: &str) -> bool {
 struct NoTodoAllow {
     attr_span: Span,
     justified: bool,
+    /// `#[expect(..)]` rather than `#[allow(..)]`: rustc reports the
+    /// expectation as unfulfilled unless the covered `no_todo` is emitted.
+    expectation: bool,
 }
 
-fn no_todo_allow_attr_span(cx: &LateContext<'_>, hir_id: hir::HirId) -> Option<Span> {
+/// Span of a lint-level attribute on `hir_id` that silences `no_todo`, and
+/// whether it is an `#[expect(..)]`.
+fn no_todo_allow_attr(cx: &LateContext<'_>, hir_id: hir::HirId) -> Option<(Span, bool)> {
     let source_map = cx.sess().source_map();
     cx.tcx.hir_attrs(hir_id).iter().find_map(|attr| {
-        if !attr.has_name(sym::allow) {
+        let expectation = attr.has_name(sym::expect);
+        if !expectation && !attr.has_name(sym::allow) {
             return None;
         }
 
@@ -98,67 +105,56 @@ fn no_todo_allow_attr_span(cx: &LateContext<'_>, hir_id: hir::HirId) -> Option<S
             |_| attr_matches_supported_no_todo(&format!("{attr:?}")),
             |snippet| attr_matches_supported_no_todo(&snippet),
         );
-        has_supported_lint.then_some(attr.span())
+        has_supported_lint.then_some((attr.span(), expectation))
     })
 }
 
-fn no_todo_allow_for_attr_span(cx: &LateContext<'_>, attr_span: Span) -> NoTodoAllow {
+fn no_todo_allow_for_attr_span(cx: &LateContext<'_>, attr_span: Span, expectation: bool) -> NoTodoAllow {
     let source_map = cx.sess().source_map();
+    let unjustified = NoTodoAllow {
+        attr_span,
+        justified: false,
+        expectation,
+    };
     let Ok(lines) = source_map.span_to_lines(attr_span) else {
-        return NoTodoAllow {
-            attr_span,
-            justified: false,
-        };
+        return unjustified;
     };
     let Some(first_line_idx) = lines.lines.first().map(|line| line.line_index) else {
-        return NoTodoAllow {
-            attr_span,
-            justified: false,
-        };
+        return unjustified;
     };
 
     if lines.file.get_line(first_line_idx).is_some_and(|line| line.trim().contains("//")) {
         return NoTodoAllow {
-            attr_span,
             justified: true,
+            ..unjustified
         };
     }
 
     let justified = first_line_idx > 0
         && lines.file.get_line(first_line_idx - 1).is_some_and(|prev_line| is_line_comment(&prev_line));
 
-    NoTodoAllow { attr_span, justified }
+    NoTodoAllow {
+        justified,
+        ..unjustified
+    }
 }
 
+/// Every `no_todo` allow or expect rustc applies to `expr`, innermost first.
+/// rustc honours lint-level attributes on any HIR node (statements, closures,
+/// match arms, the crate root), so every ancestor is consulted.
 fn enclosing_no_todo_allows(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> Vec<NoTodoAllow> {
-    let mut allows = Vec::new();
+    let mut allows: Vec<NoTodoAllow> = Vec::new();
+    let ancestors = cx.tcx.hir_parent_iter(expr.hir_id).map(|(hir_id, _)| hir_id);
 
-    for (_, node) in cx.tcx.hir_parent_iter(expr.hir_id) {
-        match node {
-            hir::Node::Expr(parent_expr) => {
-                if matches!(parent_expr.kind, ExprKind::Block(..))
-                    && let Some(attr_span) = no_todo_allow_attr_span(cx, parent_expr.hir_id)
-                {
-                    allows.push(no_todo_allow_for_attr_span(cx, attr_span));
-                }
-            }
-            hir::Node::Item(item) => {
-                if let Some(attr_span) = no_todo_allow_attr_span(cx, item.hir_id()) {
-                    allows.push(no_todo_allow_for_attr_span(cx, attr_span));
-                }
-            }
-            hir::Node::ImplItem(impl_item) => {
-                if let Some(attr_span) = no_todo_allow_attr_span(cx, impl_item.hir_id()) {
-                    allows.push(no_todo_allow_for_attr_span(cx, attr_span));
-                }
-            }
-            hir::Node::TraitItem(trait_item) => {
-                if let Some(attr_span) = no_todo_allow_attr_span(cx, trait_item.hir_id()) {
-                    allows.push(no_todo_allow_for_attr_span(cx, attr_span));
-                }
-            }
-            _ => {}
+    for hir_id in std::iter::once(expr.hir_id).chain(ancestors) {
+        let Some((attr_span, expectation)) = no_todo_allow_attr(cx, hir_id) else {
+            continue;
+        };
+        // Statements share their attributes with the `let` or expression they wrap.
+        if allows.iter().any(|allow| allow.attr_span == attr_span) {
+            continue;
         }
+        allows.push(no_todo_allow_for_attr_span(cx, attr_span, expectation));
     }
 
     allows
@@ -172,7 +168,7 @@ impl NoTodo {
 
         // The attribute lookup is cheap and almost always empty; the ancestor
         // test-context walk is not, so only pay for it on actual candidates.
-        let Some(attr_span) = no_todo_allow_attr_span(cx, hir_id) else {
+        let Some((attr_span, _)) = no_todo_allow_attr(cx, hir_id) else {
             return;
         };
         if test_context::late_hir_id_is_in_test_context(cx, hir_id, span) {
@@ -239,10 +235,22 @@ impl<'tcx> LateLintPass<'tcx> for NoTodo {
         self.collect_candidate_allow(cx, trait_item.hir_id(), trait_item.span);
     }
 
+    fn check_crate(&mut self, cx: &LateContext<'tcx>) {
+        self.collect_candidate_allow(cx, hir::CRATE_HIR_ID, cx.tcx.hir_span(hir::CRATE_HIR_ID));
+    }
+
+    // `let` statements alias their attributes onto the statement, so this also
+    // covers allows written on a `let`.
+    fn check_stmt(&mut self, cx: &LateContext<'tcx>, stmt: &'tcx hir::Stmt<'tcx>) {
+        self.collect_candidate_allow(cx, stmt.hir_id, stmt.span);
+    }
+
+    fn check_arm(&mut self, cx: &LateContext<'tcx>, arm: &'tcx hir::Arm<'tcx>) {
+        self.collect_candidate_allow(cx, arm.hir_id, arm.span);
+    }
+
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx hir::Expr<'tcx>) {
-        if matches!(expr.kind, ExprKind::Block(..)) {
-            self.collect_candidate_allow(cx, expr.hir_id, expr.span);
-        }
+        self.collect_candidate_allow(cx, expr.hir_id, expr.span);
 
         let Some((name, callsite)) = panic_family_macro_call(cx, expr.span) else {
             return;
@@ -263,18 +271,17 @@ impl<'tcx> LateLintPass<'tcx> for NoTodo {
             self.mark_allow_live(allow.attr_span);
         }
 
-        if let Some(allow) = allows.first().copied() {
-            if name == "todo!" && allow.justified {
-                return;
-            }
-
-            if self.emit_unjustified_allow {
-                self.emit_unjustified_allow_once(cx, allow.attr_span, name, allow.justified);
-            }
-            return;
+        let allow = allows.first().copied();
+        if let Some(allow) = allow
+            && !(name == "todo!" && allow.justified)
+            && self.emit_unjustified_allow
+        {
+            self.emit_unjustified_allow_once(cx, allow.attr_span, name, allow.justified);
         }
 
-        if name != "todo!" || !self.emit_todo_lint {
+        // An allow already silences `no_todo`; an expect only counts as
+        // fulfilled when the lint it suppresses is actually emitted.
+        if name != "todo!" || !self.emit_todo_lint || allow.is_some_and(|allow| !allow.expectation) {
             return;
         }
 

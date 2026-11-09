@@ -1,4 +1,4 @@
-#![feature(register_tool)]
+#![feature(register_tool, stmt_expr_attributes)]
 #![register_tool(tigerstyle)]
 
 fn do_work() {}
@@ -91,6 +91,42 @@ fn outer_allow_stays_live_when_inner_todo_remains() {
     }
 }
 
+fn orphan_let_statement() -> u8 {
+    // stale let statement allow after cleanup
+    #[allow(no_todo)]
+    let value: u8 = 1;
+    value
+}
+
+fn orphan_closure() -> u8 {
+    let make =
+        // stale closure allow after cleanup
+        #[allow(tigerstyle::no_todo)]
+        || -> u8 { 1 };
+    make()
+}
+
+fn orphan_match_arm(choice: u8) -> u8 {
+    match choice {
+        // stale match arm allow after cleanup
+        #[allow(no_todo)]
+        0 => 0,
+        _ => 1,
+    }
+}
+
+// stale expect after cleanup
+#[expect(tigerstyle::no_todo)]
+fn orphan_expect() {
+    do_work();
+}
+
+// justified expect still only permits todo!
+#[expect(no_todo)]
+fn expect_panic_still_warns() {
+    panic!("panic under expect should still warn");
+}
+
 fn main() {
     orphan_tool_scoped_item();
     orphan_bare_item();
@@ -101,4 +137,9 @@ fn main() {
     outer_allow_stays_live_when_inner_todo_remains();
     justified_zero_arg_todo_allow_stays_live();
     justified_path_qualified_todo_allow_stays_live();
+    orphan_let_statement();
+    orphan_closure();
+    orphan_match_arm(0);
+    orphan_expect();
+    expect_panic_still_warns();
 }
