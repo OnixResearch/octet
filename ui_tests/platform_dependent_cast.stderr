@@ -128,5 +128,27 @@ LL | const CONST_LEN: usize = 4u32 as usize;
    = help: Tiger Style (Explicit Types): use explicit-width types at boundaries instead of `usize` or `isize` conversions Example: let len: u32 = value.try_into()?;
    = note: see Tiger Style guide: Explicit Types
 
-warning: 9 warnings emitted
+warning: `as usize` from `u8` is platform-dependent
+  --> $DIR/platform_dependent_cast.rs:58:9
+   |
+LL |         $value as usize
+   |         ^^^^^^^^^^^^^^^
+...
+LL |     (widen_index!(x), small_value!() as usize)
+   |      --------------- in this macro invocation
+   |
+   = help: Tiger Style (Explicit Types): use explicit-width types at boundaries instead of `usize` or `isize` conversions Example: let len: u32 = value.try_into()?;
+   = note: see Tiger Style guide: Explicit Types
+   = note: this warning originates in the macro `widen_index` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: `as usize` from `u16` is platform-dependent
+  --> $DIR/platform_dependent_cast.rs:71:23
+   |
+LL |     (widen_index!(x), small_value!() as usize)
+   |                       ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Explicit Types): use explicit-width types at boundaries instead of `usize` or `isize` conversions Example: let len: u32 = value.try_into()?;
+   = note: see Tiger Style guide: Explicit Types
+
+warning: 11 warnings emitted
 

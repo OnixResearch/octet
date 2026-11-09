@@ -124,8 +124,9 @@ reported pattern:
   `i8`/`i16`/`u8` to `isize`), rewritten to `<target>::from(...)`; it MUST
   suggest `<target>::try_from(...)?` only when the enclosing body returns a
   `Result` whose error type converts from the cast's `TryFrom` error, MUST
-  suggest `.ok()?` for `Option` bodies, and MUST use `HasPlaceholders` when the
-  failure handling has to be written by the maintainer
+  suggest `.ok()?` for `Option` bodies, MUST use `HasPlaceholders` when the
+  failure handling has to be written by the maintainer, and MUST report casts
+  whose cast or operand comes from a macro expansion without a suggestion
 
 #### Scenario: Top-level conjunction gets machine-applicable split
 

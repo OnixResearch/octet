@@ -166,6 +166,11 @@ fn platform_cast_suggestion<'tcx>(
     {
         return None;
     }
+    // A cast in a macro body would be rewritten with one call site's operand,
+    // and an operand from a macro would be replaced by the macro body's text.
+    if expr.span.from_expansion() || inner.span.from_expansion() {
+        return None;
+    }
     let inner = expr_snippet(cx, inner)?;
     let target_name = ty_name(target_ty);
     if has_lossless_from(source_ty, target_ty) {

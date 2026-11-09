@@ -51,6 +51,26 @@ fn lossless_widen(x: u16, y: i8) -> (usize, isize) {
 // Should warn without a suggestion: conversions are not callable in const context.
 const CONST_LEN: usize = 4u32 as usize;
 
+macro_rules! widen_index {
+    ($value:expr) => {
+        // Should warn without a suggestion: rewriting the macro body would
+        // splice one call site's operand into every expansion.
+        $value as usize
+    };
+}
+
+macro_rules! small_value {
+    () => {
+        7u16
+    };
+}
+
+fn macro_casts(x: u8) -> (usize, usize) {
+    // Should warn without a suggestion: the operand's text is the macro body,
+    // not the `small_value!()` call written here.
+    (widen_index!(x), small_value!() as usize)
+}
+
 fn main() {
     fixed_to_usize(42);
     usize_to_usize(42);
@@ -61,4 +81,5 @@ fn main() {
     let _ = closure_optional(&[1, 2]);
     let _ = lossless_widen(1, 2);
     let _ = CONST_LEN;
+    let _ = macro_casts(1);
 }
