@@ -186,6 +186,7 @@ dependencies = [
  "octet-architecture-ir",
  "octet-lint-metadata",
  "octet-standards",
+ "quote",
  "serde",
  "serde_json",
  "syn",

@@ -65,16 +65,19 @@ A successful direct check followed by denied closure writes `effect-closure.json
 
 - caller source path and function address through its containing node;
 - normalized call shape;
+- resolution scope: the caller's module and what each leading name of the call path resolves to outside the caller;
 - within-function occurrence;
 - stable BLAKE3 call-site ID.
 
 Occurrences count a function's calls in syntax order. The pattern of a `let`, `if let`, `while let`, or `for`, including a `let` type annotation, comes before its initializer.
 
+The call-site ID (domain `octet-effect-closure-call-site/v2`) binds the caller's function address, source path, resolution scope, call shape, and occurrence. The resolution scope reads like `module=self::inner; tidy=use dep::tidy`: the caller's inline-module path within its file, then, for the first segment of the call path (and of a `<Type>::` qualified-self type; for `self::name`, the name after `self::`), what binds it outside the caller. That is the enclosing `impl` or trait header when the name is `Self` or one of its generic parameters, otherwise every `use` binding or item of the caller's own module that declares the name (functions and type-like items by kind and name; type aliases, constants, statics, and extern crates by their tokens; non-doc attributes such as `cfg` included), otherwise `prelude`, followed by the module's glob `use`s and item macros when it has any. Paths starting with `::`, `crate::`, or `super::`, method calls, and macro calls bind only the module. A reviewed summary therefore goes stale, and its call becomes `unknown`, when the `use` or item a callee name resolves to changes, or when the same function moves to or is copied into another file or module, while edits to declarations of other names keep its ID. Summaries reviewed under call-site domain v1 must be re-reviewed against the new IDs.
+
 Review the actual source and resolved `dependency-graph.json`, then add one exact entry per accepted call. Each entry binds:
 
 ```nickel
 {
-  call_site_id = "b3:<caller-address-and-call-shape identity>",
+  call_site_id = "b3:<call-site ID reported by the denied receipt>",
   review_label = "what source/API was reviewed",
   callee = "reviewed callee label",
   provider = {

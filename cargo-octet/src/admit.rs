@@ -1444,8 +1444,17 @@ mod tests {
             target: TEST_TARGET.to_owned(),
             features: Vec::new(),
         };
+        // Fixture callers are file-root functions whose call path starts with an undeclared name.
+        let leading = shape.trim_start_matches("call:").split("::").next().unwrap_or_default();
+        let scope = format!("module=self; {leading}=prelude");
         let summary = effect_closure::CallSummary {
-            call_site_id: effect_closure::call_site_identity(&test_function_address(caller_fill), shape, 0),
+            call_site_id: effect_closure::call_site_identity(
+                &test_function_address(caller_fill),
+                TEST_SOURCE_PATH,
+                &scope,
+                shape,
+                0,
+            ),
             review_label: format!("reviewed `{shape}` toolchain call"),
             callee: shape.trim_start_matches("call:").to_owned(),
             provider: provider.clone(),

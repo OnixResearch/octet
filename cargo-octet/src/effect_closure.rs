@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
+use std::rc::Rc;
 
+use quote::ToTokens;
 use serde::Deserialize;
 use serde::Serialize;
 use syn::visit::Visit;
@@ -14,7 +16,7 @@ pub const WORKSPACE_POLICY_FILE: &str = "octet-effect-closure.json";
 pub const RECEIPT_FILE: &str = "effect-closure.json";
 
 const CATALOG_JSON: &str = include_str!("../../standards/effect-closure/generated/effect-closure-catalog.json");
-const CALL_SITE_DOMAIN: &str = "octet-effect-closure-call-site/v1";
+const CALL_SITE_DOMAIN: &str = "octet-effect-closure-call-site/v2";
 const RECEIPT_DOMAIN: &str = "octet-effect-closure-receipt/v1";
 const MISSING_FUNCTION_ADDRESS: &str = "b3:missing-function-address";
 const DIAGNOSTIC_CATALOG: &str = "catalog_invalid";
@@ -241,6 +243,9 @@ pub struct ClosureCallEdge {
     pub call_site_id: String,
     pub occurrence: usize,
     pub shape: String,
+    /// The caller's module and where each leading name of the call path resolves outside the
+    /// caller; part of the call-site ID.
+    pub scope: String,
     pub resolution: CallResolution,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub callee_function_address: Option<String>,
@@ -334,7 +339,34 @@ struct FunctionDraft {
     enclosing_generics: syn::Generics,
     signature: syn::Signature,
     block: syn::Block,
+    outer_scope: OuterScope,
     source_identity: String,
+}
+
+/// Where the names a selected function's body uses resolve outside the function: the declarations
+/// of its enclosing file or inline module, and the header of its enclosing `impl` or trait. Every
+/// function in the same module or `impl` shares them.
+#[derive(Clone, Default)]
+struct OuterScope {
+    module: Rc<ModuleScope>,
+    header: Option<Rc<EnclosingHeader>>,
+}
+
+/// The declarations of one file or inline module that bind names for the functions in it, as
+/// canonical text. Names do not inherit from parent modules, so only the immediate module counts.
+#[derive(Default)]
+struct ModuleScope {
+    /// Each `use` binding and item, keyed by the name it binds.
+    names: BTreeMap<String, BTreeSet<String>>,
+    /// Declarations that may bind any name: glob `use`s and item-position macro invocations.
+    wildcards: BTreeSet<String>,
+}
+
+/// The header of an enclosing `impl` or trait, whose generic parameters and `Self` shadow module
+/// names in the body.
+struct EnclosingHeader {
+    names: BTreeSet<String>,
+    text: String,
 }
 
 /// The item that holds a selected function. Local call resolution trusts only call paths that prove
@@ -366,6 +398,10 @@ struct RawCall {
     /// (`<Type>::name`) or leading-`::` path never does, whatever its last segment, nor does a path
     /// whose first segment is a name bound inside the caller.
     locally_resolvable: bool,
+    /// The leading names of the call's path (and of a qualified-self type) that resolve through
+    /// the caller's outer scope. A `self::name` path keeps its `self::` prefix, since it names a
+    /// module item and never a generic parameter.
+    leading_names: BTreeSet<String>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -394,8 +430,10 @@ struct FunctionCollector {
     module: Vec<String>,
     /// Whether an enclosing file, module, impl, or trait carries a non-inert attribute.
     opaque_context: bool,
-    /// Generic parameters of the enclosing trait while its items are visited.
-    trait_generics: Option<syn::Generics>,
+    /// Declarations of the file or inline module being visited.
+    module_scope: Rc<ModuleScope>,
+    /// Generic parameters and header of the enclosing trait while its items are visited.
+    trait_context: Option<(syn::Generics, Rc<EnclosingHeader>)>,
 }
 
 #[derive(Clone)]
@@ -408,6 +446,7 @@ struct CollectedFunction {
     enclosing_generics: syn::Generics,
     signature: syn::Signature,
     block: syn::Block,
+    outer_scope: OuterScope,
 }
 
 /// Names bound inside a selected function that may shadow a module item of the same name:
@@ -457,24 +496,28 @@ struct BodyScanner<'a> {
 impl<'ast> Visit<'ast> for FunctionCollector {
     fn visit_file(&mut self, node: &'ast syn::File) {
         self.opaque_context |= has_opaque_attribute(&node.attrs);
+        self.module_scope = Rc::new(ModuleScope::of_items(&node.items));
         syn::visit::visit_file(self, node);
     }
 
     fn visit_item_mod(&mut self, node: &'ast syn::ItemMod) {
         let enclosing_opaque = self.opaque_context;
         self.opaque_context |= has_opaque_attribute(&node.attrs);
+        let items = node.content.as_ref().map_or(&[][..], |(_, items)| items.as_slice());
+        let enclosing_scope = std::mem::replace(&mut self.module_scope, Rc::new(ModuleScope::of_items(items)));
         self.module.push(node.ident.to_string());
         syn::visit::visit_item_mod(self, node);
         self.module.pop();
+        self.module_scope = enclosing_scope;
         self.opaque_context = enclosing_opaque;
     }
 
     fn visit_item_trait(&mut self, node: &'ast syn::ItemTrait) {
         let enclosing_opaque = self.opaque_context;
         self.opaque_context |= has_opaque_attribute(&node.attrs);
-        self.trait_generics = Some(node.generics.clone());
+        self.trait_context = Some((node.generics.clone(), Rc::new(EnclosingHeader::of_trait(node))));
         syn::visit::visit_item_trait(self, node);
-        self.trait_generics = None;
+        self.trait_context = None;
         self.opaque_context = enclosing_opaque;
     }
 
@@ -488,6 +531,10 @@ impl<'ast> Visit<'ast> for FunctionCollector {
             enclosing_generics: syn::Generics::default(),
             signature: node.sig.clone(),
             block: (*node.block).clone(),
+            outer_scope: OuterScope {
+                module: Rc::clone(&self.module_scope),
+                header: None,
+            },
         });
     }
 
@@ -497,6 +544,10 @@ impl<'ast> Visit<'ast> for FunctionCollector {
             _ => FunctionContainer::Dispatched,
         };
         let opaque_context = self.opaque_context || has_opaque_attribute(&node.attrs);
+        let outer_scope = OuterScope {
+            module: Rc::clone(&self.module_scope),
+            header: Some(Rc::new(EnclosingHeader::of_impl(node))),
+        };
         for item in &node.items {
             if let syn::ImplItem::Fn(function) = item {
                 self.functions.push(CollectedFunction {
@@ -508,6 +559,7 @@ impl<'ast> Visit<'ast> for FunctionCollector {
                     enclosing_generics: node.generics.clone(),
                     signature: function.sig.clone(),
                     block: function.block.clone(),
+                    outer_scope: outer_scope.clone(),
                 });
             }
         }
@@ -515,15 +567,24 @@ impl<'ast> Visit<'ast> for FunctionCollector {
 
     fn visit_trait_item_fn(&mut self, node: &'ast syn::TraitItemFn) {
         if let Some(block) = &node.default {
+            let (enclosing_generics, header) = self
+                .trait_context
+                .as_ref()
+                .map(|(generics, header)| (generics.clone(), Some(Rc::clone(header))))
+                .unwrap_or_default();
             self.functions.push(CollectedFunction {
                 name: node.sig.ident.to_string(),
                 module: self.module.clone(),
                 container: FunctionContainer::Dispatched,
                 opaque_context: self.opaque_context,
                 attrs: node.attrs.clone(),
-                enclosing_generics: self.trait_generics.clone().unwrap_or_default(),
+                enclosing_generics,
                 signature: node.sig.clone(),
                 block: block.clone(),
+                outer_scope: OuterScope {
+                    module: Rc::clone(&self.module_scope),
+                    header,
+                },
             });
         }
     }
@@ -569,6 +630,323 @@ fn is_inert_attribute(attribute: &syn::Attribute) -> bool {
         (Some(name), None, None) => INERT_ATTRIBUTES.iter().any(|inert| name == inert),
         (Some(tool), Some(_), None) => INERT_TOOLS.iter().any(|inert| tool == inert),
         _ => false,
+    }
+}
+
+impl OuterScope {
+    /// Renders the caller's module and where each of `leading_names` resolves outside the caller,
+    /// as `module=self::a; name=binding`. Call-site IDs bind this text, so a reviewed summary goes
+    /// stale when a callee's leading name starts resolving elsewhere, while edits to declarations
+    /// of other names leave it alone. A name the module does not declare resolves to the prelude
+    /// (or an extern crate), or to whatever a glob `use` or item macro in the module brings in.
+    fn resolution_text(&self, module: &[String], leading_names: &BTreeSet<String>) -> String {
+        let mut text = String::from("module=self");
+        for segment in module {
+            text.push_str("::");
+            text.push_str(segment);
+        }
+        for name in leading_names {
+            text.push_str("; ");
+            text.push_str(name);
+            text.push('=');
+            let (module_name, header_visible) =
+                name.strip_prefix("self::").map_or((name.as_str(), true), |rest| (rest, false));
+            let header = self.header.as_deref().filter(|header| header_visible && header.names.contains(module_name));
+            if let Some(header) = header {
+                text.push_str(&header.text);
+            } else if let Some(bindings) = self.module.names.get(module_name) {
+                push_joined(&mut text, bindings);
+            } else if self.module.wildcards.is_empty() {
+                text.push_str("prelude");
+            } else {
+                text.push_str("prelude or ");
+                push_joined(&mut text, &self.module.wildcards);
+            }
+        }
+        text
+    }
+}
+
+fn push_joined(text: &mut String, items: &BTreeSet<String>) {
+    for (index, item) in items.iter().enumerate() {
+        if index > 0 {
+            text.push_str(", ");
+        }
+        text.push_str(item);
+    }
+}
+
+impl ModuleScope {
+    fn of_items(items: &[syn::Item]) -> Self {
+        let mut scope = Self::default();
+        for item in items {
+            scope.declare_item(item);
+        }
+        scope
+    }
+
+    fn declare(&mut self, name: &syn::Ident, attrs: &[syn::Attribute], declaration: String) {
+        self.names.entry(name.to_string()).or_default().insert(with_attributes(attrs, declaration));
+    }
+
+    fn declare_wildcard(&mut self, attrs: &[syn::Attribute], declaration: String) {
+        self.wildcards.insert(with_attributes(attrs, declaration));
+    }
+
+    /// Records what `item` binds. Type-like items and functions bind by kind and name: the callee
+    /// a path through them reaches is bound by its own function address. Aliases, constants,
+    /// statics, and extern crates bind by their full tokens, since those decide what a path
+    /// through them names.
+    fn declare_item(&mut self, item: &syn::Item) {
+        match item {
+            syn::Item::Use(node) => {
+                let leading_colon = node.leading_colon.is_some();
+                self.declare_use_tree(&node.tree, &node.attrs, leading_colon, &mut Vec::new());
+            }
+            syn::Item::Fn(node) => self.declare(&node.sig.ident, &node.attrs, format!("fn {}", node.sig.ident)),
+            syn::Item::Mod(node) => self.declare(&node.ident, &node.attrs, format!("mod {}", node.ident)),
+            syn::Item::Struct(node) => self.declare(&node.ident, &node.attrs, format!("struct {}", node.ident)),
+            syn::Item::Enum(node) => self.declare(&node.ident, &node.attrs, format!("enum {}", node.ident)),
+            syn::Item::Union(node) => self.declare(&node.ident, &node.attrs, format!("union {}", node.ident)),
+            syn::Item::Trait(node) => self.declare(&node.ident, &node.attrs, format!("trait {}", node.ident)),
+            syn::Item::TraitAlias(node) => {
+                let syn::ItemTraitAlias {
+                    trait_token,
+                    ident,
+                    generics,
+                    eq_token,
+                    bounds,
+                    ..
+                } = node;
+                let where_clause = &generics.where_clause;
+                let tokens = quote::quote!(#trait_token #ident #generics #eq_token #bounds #where_clause);
+                self.declare(ident, &node.attrs, tokens.to_string());
+            }
+            syn::Item::Type(node) => {
+                let syn::ItemType {
+                    type_token,
+                    ident,
+                    generics,
+                    eq_token,
+                    ty,
+                    ..
+                } = node;
+                let where_clause = &generics.where_clause;
+                let tokens = quote::quote!(#type_token #ident #generics #where_clause #eq_token #ty);
+                self.declare(ident, &node.attrs, tokens.to_string());
+            }
+            syn::Item::Const(node) => {
+                let syn::ItemConst {
+                    const_token,
+                    ident,
+                    generics,
+                    colon_token,
+                    ty,
+                    eq_token,
+                    expr,
+                    ..
+                } = node;
+                let tokens = quote::quote!(#const_token #ident #generics #colon_token #ty #eq_token #expr);
+                self.declare(ident, &node.attrs, tokens.to_string());
+            }
+            syn::Item::Static(node) => {
+                let syn::ItemStatic {
+                    static_token,
+                    mutability,
+                    ident,
+                    colon_token,
+                    ty,
+                    eq_token,
+                    expr,
+                    ..
+                } = node;
+                let tokens = quote::quote!(#static_token #mutability #ident #colon_token #ty #eq_token #expr);
+                self.declare(ident, &node.attrs, tokens.to_string());
+            }
+            syn::Item::ExternCrate(node) => {
+                let declaration = match &node.rename {
+                    Some((_, rename)) => format!("extern crate {} as {rename}", node.ident),
+                    None => format!("extern crate {}", node.ident),
+                };
+                self.declare(node.rename.as_ref().map_or(&node.ident, |(_, rename)| rename), &node.attrs, declaration);
+            }
+            syn::Item::ForeignMod(node) => {
+                for foreign in &node.items {
+                    match foreign {
+                        syn::ForeignItem::Fn(item) => {
+                            self.declare(&item.sig.ident, &item.attrs, format!("extern fn {}", item.sig.ident));
+                        }
+                        syn::ForeignItem::Static(item) => {
+                            self.declare(&item.ident, &item.attrs, format!("extern static {}", item.ident));
+                        }
+                        syn::ForeignItem::Type(item) => {
+                            self.declare(&item.ident, &item.attrs, format!("extern type {}", item.ident));
+                        }
+                        other => self.declare_wildcard(&[], other.to_token_stream().to_string()),
+                    }
+                }
+            }
+            syn::Item::Macro(node) => match &node.ident {
+                Some(ident) if node.mac.path.is_ident("macro_rules") => {
+                    self.declare(ident, &node.attrs, format!("macro_rules! {ident}"));
+                }
+                _ => self.declare_wildcard(&node.attrs, node.mac.to_token_stream().to_string()),
+            },
+            syn::Item::Impl(_) => {}
+            other => self.declare_wildcard(&[], other.to_token_stream().to_string()),
+        }
+    }
+
+    /// Records the names a `use` tree binds, each as the full path it imports, so a grouped
+    /// import binds each name exactly as a separate `use` would.
+    fn declare_use_tree<'a>(
+        &mut self,
+        tree: &'a syn::UseTree,
+        attrs: &[syn::Attribute],
+        leading_colon: bool,
+        segments: &mut Vec<&'a syn::Ident>,
+    ) {
+        match tree {
+            syn::UseTree::Path(node) => {
+                segments.push(&node.ident);
+                self.declare_use_tree(&node.tree, attrs, leading_colon, segments);
+                segments.pop();
+            }
+            // `use a::b::{self}` binds `b` to `use a::b`.
+            syn::UseTree::Name(node) if node.ident == "self" => {
+                if let Some(&name) = segments.last() {
+                    self.declare(name, attrs, use_text(leading_colon, segments, None));
+                }
+            }
+            syn::UseTree::Name(node) => {
+                segments.push(&node.ident);
+                self.declare(&node.ident, attrs, use_text(leading_colon, segments, None));
+                segments.pop();
+            }
+            syn::UseTree::Rename(node) if node.ident == "self" => {
+                self.declare(&node.rename, attrs, use_text(leading_colon, segments, Some(&node.rename)));
+            }
+            syn::UseTree::Rename(node) => {
+                segments.push(&node.ident);
+                self.declare(&node.rename, attrs, use_text(leading_colon, segments, Some(&node.rename)));
+                segments.pop();
+            }
+            syn::UseTree::Glob(_) => {
+                let mut declaration = use_text(leading_colon, segments, None);
+                declaration.push_str(if segments.is_empty() { "*" } else { "::*" });
+                self.declare_wildcard(attrs, declaration);
+            }
+            syn::UseTree::Group(node) => {
+                for item in &node.items {
+                    self.declare_use_tree(item, attrs, leading_colon, segments);
+                }
+            }
+        }
+    }
+}
+
+fn use_text(leading_colon: bool, segments: &[&syn::Ident], rename: Option<&syn::Ident>) -> String {
+    let mut text = String::from(if leading_colon { "use ::" } else { "use " });
+    for (index, segment) in segments.iter().enumerate() {
+        if index > 0 {
+            text.push_str("::");
+        }
+        text.push_str(&segment.to_string());
+    }
+    if let Some(rename) = rename {
+        text.push_str(" as ");
+        text.push_str(&rename.to_string());
+    }
+    text
+}
+
+/// Prefixes a declaration with its attributes other than documentation, so that `cfg` on an
+/// import, for example, stays part of what the name binds.
+fn with_attributes(attrs: &[syn::Attribute], declaration: String) -> String {
+    let mut binding = attrs.iter().filter(|attribute| !attribute.path().is_ident("doc")).fold(
+        String::new(),
+        |mut text, attribute| {
+            text.push_str(&attribute.to_token_stream().to_string());
+            text.push(' ');
+            text
+        },
+    );
+    if binding.is_empty() {
+        return declaration;
+    }
+    binding.push_str(&declaration);
+    binding
+}
+
+impl EnclosingHeader {
+    fn of_impl(node: &syn::ItemImpl) -> Self {
+        let syn::ItemImpl {
+            defaultness,
+            unsafety,
+            impl_token,
+            generics,
+            trait_,
+            self_ty,
+            ..
+        } = node;
+        let trait_tokens = trait_.as_ref().map(|(bang, path, for_token)| quote::quote!(#bang #path #for_token));
+        let where_clause = &generics.where_clause;
+        Self {
+            names: header_names(generics),
+            text: quote::quote!(#defaultness #unsafety #impl_token #generics #trait_tokens #self_ty #where_clause)
+                .to_string(),
+        }
+    }
+
+    fn of_trait(node: &syn::ItemTrait) -> Self {
+        let syn::ItemTrait {
+            unsafety,
+            auto_token,
+            trait_token,
+            ident,
+            generics,
+            colon_token,
+            supertraits,
+            ..
+        } = node;
+        let where_clause = &generics.where_clause;
+        Self {
+            names: header_names(generics),
+            text: quote::quote!(#unsafety #auto_token #trait_token #ident #generics #colon_token #supertraits #where_clause)
+                .to_string(),
+        }
+    }
+}
+
+/// `Self` and the type and const parameters an `impl` or trait header brings into scope.
+fn header_names(generics: &syn::Generics) -> BTreeSet<String> {
+    let parameters = generics.params.iter().filter_map(|parameter| match parameter {
+        syn::GenericParam::Type(parameter) => Some(parameter.ident.to_string()),
+        syn::GenericParam::Const(parameter) => Some(parameter.ident.to_string()),
+        syn::GenericParam::Lifetime(_) => None,
+    });
+    parameters.chain(std::iter::once("Self".to_owned())).collect()
+}
+
+/// The names through which `path` resolves in the caller's outer scope: its first segment, the
+/// segment after a leading `self::`, and nothing for a leading `::`, `crate::`, or `super::` path,
+/// which the caller's source path and module already bind.
+fn path_leading_name(path: &syn::Path, names: &mut BTreeSet<String>) {
+    if path.leading_colon.is_some() {
+        return;
+    }
+    let mut segments = path.segments.iter().map(|segment| &segment.ident);
+    match segments.next() {
+        Some(first) if first == "self" => {
+            if let Some(item) = segments.next() {
+                names.insert(format!("self::{item}"));
+            }
+        }
+        Some(first) if first == "crate" || first == "super" => {}
+        Some(first) => {
+            names.insert(first.to_string());
+        }
+        None => {}
     }
 }
 
@@ -755,13 +1133,21 @@ impl<'a> BodyScanner<'a> {
         }
     }
 
-    fn record_call(&mut self, shape: String, kind: RawCallKind, effects: BTreeSet<Effect>, locally_resolvable: bool) {
+    fn record_call(
+        &mut self,
+        shape: String,
+        kind: RawCallKind,
+        effects: BTreeSet<Effect>,
+        locally_resolvable: bool,
+        leading_names: BTreeSet<String>,
+    ) {
         self.direct_effects.extend(effects.iter().copied());
         self.calls.push(RawCall {
             shape,
             kind,
             effects,
             locally_resolvable,
+            leading_names,
         });
     }
 
@@ -769,7 +1155,15 @@ impl<'a> BodyScanner<'a> {
         let (shape_path, effect_path) = expr_path_text(node);
         let effects = classify_path_call(&effect_path, self.foreign_functions).unwrap_or_default();
         let locally_resolvable = node.qself.is_none() && self.bindings.admits_local_path(&node.path);
-        self.record_call(format!("{}{shape_path}", kind.shape_prefix()), kind, effects, locally_resolvable);
+        let mut leading_names = BTreeSet::new();
+        if let Some(syn::Type::Path(self_type)) = node.qself.as_ref().map(|qself| qself.ty.as_ref())
+            && self_type.qself.is_none()
+        {
+            path_leading_name(&self_type.path, &mut leading_names);
+        }
+        path_leading_name(&node.path, &mut leading_names);
+        let shape = format!("{}{shape_path}", kind.shape_prefix());
+        self.record_call(shape, kind, effects, locally_resolvable, leading_names);
     }
 
     /// Whether `path` reads `self` or a local value in lexical scope at the current scan position.
@@ -839,6 +1233,7 @@ impl<'ast> Visit<'ast> for BodyScanner<'_> {
                     RawCallKind::Function,
                     BTreeSet::from([Effect::Unknown]),
                     false,
+                    BTreeSet::new(),
                 );
                 self.visit_expr(callee);
             }
@@ -1026,6 +1421,7 @@ impl<'ast> Visit<'ast> for BodyScanner<'_> {
             RawCallKind::Method,
             effects,
             true,
+            BTreeSet::new(),
         );
         syn::visit::visit_expr_method_call(self, node);
     }
@@ -1034,7 +1430,8 @@ impl<'ast> Visit<'ast> for BodyScanner<'_> {
         let path = path_text(&node.path);
         let mut effects = classify_macro(&path).unwrap_or_default();
         effects.insert(Effect::Unknown);
-        self.record_call(format!("{}{path}", RawCallKind::Macro.shape_prefix()), RawCallKind::Macro, effects, false);
+        let shape = format!("{}{path}", RawCallKind::Macro.shape_prefix());
+        self.record_call(shape, RawCallKind::Macro, effects, false, BTreeSet::new());
         syn::visit::visit_macro(self, node);
     }
 
@@ -1470,7 +1867,9 @@ fn validate_receipt_structure(receipt: &EffectClosureReceipt) -> Vec<String> {
         for call in &node.calls {
             if call.shape.trim().is_empty()
                 || !is_blake3_identity(&call.call_site_id)
-                || call.call_site_id != call_site_identity(&node.function_address, &call.shape, call.occurrence)
+                || call.scope.trim().is_empty()
+                || call.call_site_id
+                    != call_site_identity(&node.function_address, &node.path, &call.scope, &call.shape, call.occurrence)
                 || !is_sorted_unique(&call.effects)
             {
                 diagnostics.push(format!(
@@ -1722,10 +2121,21 @@ fn validate_admitted_roles(receipt: &EffectClosureReceipt, policy: &WorkspacePol
     }
 }
 
-pub fn call_site_identity(function_address: &str, shape: &str, occurrence: usize) -> String {
-    full_hash(&format!(
-        "domain={CALL_SITE_DOMAIN}\ncaller={function_address}\nshape={shape}\noccurrence={occurrence}\n"
-    ))
+/// The stable ID of one call site. It binds the caller's function address and source path, the
+/// call's resolution scope (the caller's module and what each leading name of the call path
+/// resolves to outside the caller), its shape, and its occurrence in the caller, so a reviewed
+/// summary neither survives a change of what the callee path resolves to nor transfers to an
+/// identical function in another file or module.
+pub fn call_site_identity(function_address: &str, path: &str, scope: &str, shape: &str, occurrence: usize) -> String {
+    let payload = serde_json::json!({
+        "domain": CALL_SITE_DOMAIN,
+        "caller": function_address,
+        "path": path,
+        "scope": scope,
+        "shape": shape,
+        "occurrence": occurrence,
+    });
+    full_hash(&payload.to_string())
 }
 
 fn role_map(
@@ -1800,6 +2210,7 @@ fn parse_function_drafts(sources: &[SourceEnvelope], diagnostics: &mut Vec<Closu
                     enclosing_generics: function.enclosing_generics,
                     signature: function.signature,
                     block: function.block,
+                    outer_scope: function.outer_scope,
                     source_identity: source.source_identity.clone(),
                 }));
             }
@@ -1949,7 +2360,14 @@ fn build_nodes(
 
         let mut calls = Vec::new();
         for (occurrence, raw_call) in scanner.calls.into_iter().enumerate() {
-            let call_site_id = call_site_identity(&function.function_address, &raw_call.shape, occurrence);
+            let scope = function.draft.outer_scope.resolution_text(&function.draft.module, &raw_call.leading_names);
+            let call_site_id = call_site_identity(
+                &function.function_address,
+                &function.draft.path,
+                &scope,
+                &raw_call.shape,
+                occurrence,
+            );
             let local = resolve_local_call(&raw_call, function, &local_names);
             let edge = if let Some(callee) = local {
                 let role_edge = RoleEdge {
@@ -1974,6 +2392,7 @@ fn build_nodes(
                     call_site_id,
                     occurrence,
                     shape: raw_call.shape,
+                    scope,
                     resolution: CallResolution::Local,
                     callee_function_address: Some(callee.function_address.clone()),
                     provider: None,
@@ -1993,6 +2412,7 @@ fn build_nodes(
                             call_site_id,
                             occurrence,
                             shape: raw_call.shape,
+                            scope,
                             resolution: CallResolution::ReviewedSummary,
                             callee_function_address: None,
                             provider: Some(summary.provider.clone()),
@@ -2014,7 +2434,7 @@ fn build_nodes(
                             Some(function.function_address.clone()),
                             Some(call_site_id.clone()),
                         ));
-                        unknown_edge(call_site_id, occurrence, raw_call.shape)
+                        unknown_edge(call_site_id, occurrence, raw_call.shape, scope)
                     }
                     None => {
                         scanner.direct_effects.insert(Effect::Unknown);
@@ -2025,7 +2445,7 @@ fn build_nodes(
                             Some(function.function_address.clone()),
                             Some(call_site_id.clone()),
                         ));
-                        unknown_edge(call_site_id, occurrence, raw_call.shape)
+                        unknown_edge(call_site_id, occurrence, raw_call.shape, scope)
                     }
                 }
             } else {
@@ -2037,7 +2457,7 @@ fn build_nodes(
                     Some(function.function_address.clone()),
                     Some(call_site_id.clone()),
                 ));
-                unknown_edge(call_site_id, occurrence, raw_call.shape)
+                unknown_edge(call_site_id, occurrence, raw_call.shape, scope)
             };
             calls.push(edge);
         }
@@ -2358,11 +2778,12 @@ fn expr_path_text(node: &syn::ExprPath) -> (String, String) {
     (shape, format!("{self_type}::{rest}"))
 }
 
-fn unknown_edge(call_site_id: String, occurrence: usize, shape: String) -> ClosureCallEdge {
+fn unknown_edge(call_site_id: String, occurrence: usize, shape: String, scope: String) -> ClosureCallEdge {
     ClosureCallEdge {
         call_site_id,
         occurrence,
         shape,
+        scope,
         resolution: CallResolution::Unknown,
         callee_function_address: None,
         provider: None,
@@ -2541,6 +2962,14 @@ mod tests {
         }
     }
 
+    /// The resolution scope of a file-root caller in `TEST_PATH` whose call path starts with a
+    /// name the file does not declare.
+    fn prelude_scope(shape: &str) -> String {
+        let path = shape.split_once(':').map_or(shape, |(_, path)| path);
+        let leading = path.split("::").next().unwrap_or(path);
+        format!("module=self; {leading}=prelude")
+    }
+
     fn toolchain_summary(
         function_address: &str,
         shape: &str,
@@ -2557,7 +2986,7 @@ mod tests {
             features: Vec::new(),
         };
         let summary = CallSummary {
-            call_site_id: call_site_identity(function_address, shape, occurrence),
+            call_site_id: call_site_identity(function_address, TEST_PATH, &prelude_scope(shape), shape, occurrence),
             review_label: format!("reviewed `{shape}` toolchain call"),
             callee: shape.trim_start_matches("call:").to_owned(),
             provider: provider.clone(),
@@ -2696,7 +3125,9 @@ mod tests {
     fn exact_dependency_summary_is_identity_bound() {
         let source = "fn root() { mystery(); }\n";
         let function_address = address("root", '9');
-        let call_site_id = call_site_identity(&function_address.function_address, "call:mystery", 0);
+        let shape = "call:mystery";
+        let call_site_id =
+            call_site_identity(&function_address.function_address, TEST_PATH, &prelude_scope(shape), shape, 0);
         let provider = ProviderIdentity {
             kind: ProviderKind::CargoPackage,
             name: "mystery".to_owned(),
@@ -3310,5 +3741,131 @@ unsafe fn risky(values: &[u8]) -> u8 {
             assert_eq!(receipt.status, AdmissionStatus::Admitted, "{source}: {:?}", receipt.diagnostics);
             assert!(receipt.nodes[0].direct_effects.is_empty(), "{source}");
         }
+    }
+
+    /// Reviews every call of a denied run the way an operator would: one exact summary per call
+    /// site, keyed by the call-site ID the receipt reports.
+    fn reviewed_summaries(receipt: &EffectClosureReceipt, provider: &ProviderIdentity) -> Vec<CallSummary> {
+        let mut summaries = receipt
+            .nodes
+            .iter()
+            .flat_map(|node| &node.calls)
+            .map(|call| CallSummary {
+                call_site_id: call.call_site_id.clone(),
+                review_label: format!("reviewed `{}`", call.shape),
+                callee: call.shape.clone(),
+                provider: provider.clone(),
+                effects: Vec::new(),
+                evidence: EvidenceReference {
+                    kind: "reviewed-source-summary-v1".to_owned(),
+                    locator: "Cargo.lock#dep".to_owned(),
+                    blake3: TEST_LOCK_HASH.to_owned(),
+                },
+            })
+            .collect::<Vec<_>>();
+        summaries.sort();
+        summaries
+    }
+
+    fn dependency_provider() -> ProviderIdentity {
+        ProviderIdentity {
+            kind: ProviderKind::CargoPackage,
+            name: "dep".to_owned(),
+            version: "1.0.0".to_owned(),
+            source: "registry+test".to_owned(),
+            target: TEST_TARGET.to_owned(),
+            features: Vec::new(),
+        }
+    }
+
+    fn reviewed_input(source: &str, summaries: Vec<CallSummary>) -> ClosureInput {
+        let mut closure_input = input(source, vec![address("root", '5')], policy(summaries));
+        closure_input.resolved_providers.push(dependency_provider());
+        closure_input
+    }
+
+    // r[verify octet.effect_closure.dependency_summaries.invalid]
+    // r[verify octet.effect_closure.verification.adversarial]
+    #[test]
+    fn call_summaries_are_bound_to_the_callee_resolution_in_scope() {
+        let reviewed = "use dep::tidy;\nuse dep::Store;\nfn root() { tidy(); Store::open(); }\n";
+        let denied = compute_closure(input(reviewed, vec![address("root", '5')], policy(Vec::new())));
+        assert_eq!(denied.status, AdmissionStatus::Denied);
+        let summaries = reviewed_summaries(&denied, &dependency_provider());
+        let admitted = compute_closure(reviewed_input(reviewed, summaries.clone()));
+        assert_eq!(admitted.status, AdmissionStatus::Admitted, "{:?}", admitted.diagnostics);
+        assert!(verify_receipt_identity(&admitted).is_empty());
+
+        // Edits that leave each callee's resolution alone keep every reviewed summary.
+        for unchanged in [
+            "use dep::tidy;\nuse other::unrelated;\nuse dep::Store;\nconst LIMIT: u8 = 1;\nfn root() { tidy(); Store::open(); }\n",
+            "use dep::{Store, tidy};\nfn root() { tidy(); Store::open(); }\n",
+        ] {
+            let receipt = compute_closure(reviewed_input(unchanged, summaries.clone()));
+            assert_eq!(receipt.status, AdmissionStatus::Admitted, "{unchanged}: {:?}", receipt.diagnostics);
+        }
+
+        // The same caller address under a different resolution of a callee's leading segment
+        // leaves that summary stale and the call unknown.
+        for (changed, shape) in [
+            ("use other::tidy;\nuse dep::Store;\nfn root() { tidy(); Store::open(); }\n", "call:tidy"),
+            ("use dep::other as tidy;\nuse dep::Store;\nfn root() { tidy(); Store::open(); }\n", "call:tidy"),
+            ("use dep::*;\nuse dep::Store;\nfn root() { tidy(); Store::open(); }\n", "call:tidy"),
+            (
+                "use dep::tidy;\ntype Store = other::Store;\nfn root() { tidy(); Store::open(); }\n",
+                "call:Store::open",
+            ),
+            (
+                "use dep::tidy;\nuse dep::Store;\nmod inner {\n    fn root() { tidy(); Store::open(); }\n}\n",
+                "call:tidy",
+            ),
+        ] {
+            let receipt = compute_closure(reviewed_input(changed, summaries.clone()));
+            assert_eq!(receipt.status, AdmissionStatus::Denied, "{changed}");
+            assert!(
+                receipt.diagnostics.iter().any(|diagnostic| diagnostic.code == DIAGNOSTIC_SUMMARY_STALE),
+                "{changed}"
+            );
+            assert_eq!(call_edge(&receipt, "root", shape).resolution, CallResolution::Unknown, "{changed}");
+        }
+
+        // A generic parameter or `Self` resolves through the enclosing `impl` header.
+        let generic = "struct Store<T>(T);\nimpl<T: dep::Persist> Store<T> {\n    fn root() { T::make(); }\n}\n";
+        let denied = compute_closure(input(generic, vec![address("root", '5')], policy(Vec::new())));
+        let summaries = reviewed_summaries(&denied, &dependency_provider());
+        let admitted = compute_closure(reviewed_input(generic, summaries.clone()));
+        assert_eq!(admitted.status, AdmissionStatus::Admitted, "{:?}", admitted.diagnostics);
+        let rebound = generic.replace("dep::Persist", "other::Persist");
+        let receipt = compute_closure(reviewed_input(&rebound, summaries));
+        assert_eq!(call_edge(&receipt, "root", "call:T::make").resolution, CallResolution::Unknown);
+    }
+
+    // r[verify octet.effect_closure.dependency_summaries.invalid]
+    // r[verify octet.effect_closure.verification.adversarial]
+    #[test]
+    fn call_summaries_do_not_transfer_to_identical_functions_in_other_files() {
+        const OTHER_PATH: &str = "crates/domain/src/other.rs";
+        let reviewed = "use dep::tidy;\nfn root() { tidy(); }\n";
+        let denied = compute_closure(input(reviewed, vec![address("root", '5')], policy(Vec::new())));
+        let summaries = reviewed_summaries(&denied, &dependency_provider());
+
+        let mut closure_input = reviewed_input(reviewed, summaries);
+        closure_input.sources.push(SourceEnvelope {
+            path: OTHER_PATH.to_owned(),
+            source: "use other::tidy;\nfn root() { tidy(); }\n".to_owned(),
+            source_identity: TEST_SOURCE_ID.to_owned(),
+        });
+        closure_input.function_addresses.push(address_at(OTHER_PATH, "root", '5'));
+        closure_input.policy.module_roles.push(ModuleRoleAssignment {
+            path: OTHER_PATH.to_owned(),
+            role: ModuleRole::Core,
+        });
+        let receipt = compute_closure(closure_input);
+
+        assert_eq!(receipt.status, AdmissionStatus::Denied);
+        let other = receipt.nodes.iter().find(|node| node.path == OTHER_PATH).expect("other node");
+        assert_eq!(other.calls[0].resolution, CallResolution::Unknown);
+        let reviewed_node = receipt.nodes.iter().find(|node| node.path == TEST_PATH).expect("reviewed node");
+        assert_eq!(reviewed_node.calls[0].resolution, CallResolution::ReviewedSummary);
     }
 }
