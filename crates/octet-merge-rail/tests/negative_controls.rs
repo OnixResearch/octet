@@ -60,7 +60,7 @@ fn vacuous_precondition_is_unknown_not_verified() {
 #[test]
 fn changed_callee_is_unsupported_without_an_observable_mapping() {
     let mut request = common::callee_request();
-    common::set_body(&mut request, Role::A, "h", Expr::plus(Expr::Arg(0), Expr::Int(2)));
+    common::set_body(&mut request, Role::A, "h", &Expr::plus(Expr::Arg(0), Expr::Int(2)));
     common::reseal(&mut request);
     let receipt = check_request(&request).expect("request structure is valid");
     match &receipt.outcome {
@@ -100,7 +100,7 @@ fn wrong_source_binding_is_rejected() {
 #[test]
 fn wrong_subject_binding_is_rejected() {
     let mut request = common::base_request();
-    common::set_body(&mut request, Role::A, "f", Expr::plus(Expr::Arg(0), Expr::Int(2)));
+    common::set_body(&mut request, Role::A, "f", &Expr::plus(Expr::Arg(0), Expr::Int(2)));
     common::reseal(&mut request);
     let replacement = request
         .bindings
@@ -153,7 +153,7 @@ fn swapped_roles_are_detected() {
 #[test]
 fn unsupported_construct_is_reported_without_evaluation() {
     let mut request = common::base_request();
-    common::set_body(&mut request, Role::A, "f", Expr::Unsupported {
+    common::set_body(&mut request, Role::A, "f", &Expr::Unsupported {
         construct: UnsupportedConstruct::MacroExpansion,
     });
     common::reseal(&mut request);

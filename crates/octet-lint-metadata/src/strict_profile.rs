@@ -66,6 +66,10 @@ pub struct StrictProfileCatalog {
 /// minimum, the compatibility exclusions, the narrow expectation format, and
 /// the prohibited broad suppressions. Validation fails closed before lint
 /// execution when a value would weaken the full-catalog gate.
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "the policy records independent prohibition flags, not mutually exclusive states"
+)]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct BooleanApiPolicy {
     pub public_scope: Vec<String>,

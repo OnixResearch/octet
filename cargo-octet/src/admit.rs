@@ -1373,6 +1373,10 @@ fn verify_bundle_inner(
     })
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "the bundle verifier keeps the ordered identity, parent, and artifact checks together"
+)]
 fn verify_kamacite_bundle(
     files: &BTreeMap<String, Vec<u8>>,
     receipt: Option<&EffectClosureReceipt>,
@@ -1484,13 +1488,13 @@ fn verify_kamacite_bundle(
                 ) {
                     (Ok(stored), Ok(expected)) if stored == expected => {}
                     (Ok(_), Ok(_)) => {
-                        diagnostics.push("Kamacite handoff artifact is stale or does not match its parents".to_owned())
+                        diagnostics.push("Kamacite handoff artifact is stale or does not match its parents".to_owned());
                     }
                     (Err(error), _) | (_, Err(error)) => diagnostics.push(error),
                 }
             }
             Err(error) => {
-                diagnostics.push(format!("malformed admission artifact `{KAMACITE_HANDOFF_ARTIFACT}`: {error}"))
+                diagnostics.push(format!("malformed admission artifact `{KAMACITE_HANDOFF_ARTIFACT}`: {error}"));
             }
         },
         (Some(_), None) => {
@@ -1956,6 +1960,10 @@ mod tests {
 
     // r[verify octet.effect_closure.kamacite_fixtures]
     #[test]
+    #[allow(
+        clippy::too_many_lines,
+        reason = "the fixture exercises the complete positive and tamper matrix in one deterministic test"
+    )]
     fn kamacite_handoff_bundle_verifies_and_tampering_fails_closed() {
         let temp = tempfile::tempdir().expect("tempdir");
         let fixture = bundle_fixture("fn root() {}\n", &[("root", 'a')], Vec::new(), Vec::new());

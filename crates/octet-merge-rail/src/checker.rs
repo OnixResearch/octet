@@ -140,8 +140,8 @@ pub fn check_request_with_backend_and_command(
         &admitted.items,
         &admitted.bindings,
         &admitted.budget,
-        &admitted.provenance,
-        backend.identity(),
+        admitted.provenance.as_ref(),
+        &backend.identity(),
         command,
         admitted.identity(),
         evidence,
@@ -153,6 +153,10 @@ pub fn check_request_with_backend_and_command(
 /// Default command label for library callers.
 pub const DEFAULT_COMMAND: &str = "octet-merge-rail check --profile bounded";
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "admission keeps the closed role, item, observable, budget, and provenance checks together so a new check cannot be skipped"
+)]
 fn admit(request: &MergeRequest) -> Result<Admitted, AdmissionError> {
     let mut variants = BTreeMap::new();
     for variant in &request.variants {
@@ -320,6 +324,10 @@ pub(crate) struct CheckEvidence {
     pub(crate) work: WorkReport,
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "the finite-domain evaluator and receipt projection share one admitted request and must remain visibly in order"
+)]
 fn run_check(admitted: &Admitted, backend: &dyn Backend) -> CheckEvidence {
     let roles = computed_role_identities(admitted);
     let mut observable_identities = admitted

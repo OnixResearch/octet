@@ -753,7 +753,7 @@ fn read_bundle(dir: &Path) -> crate::artifact::ArtifactBundleInput {
     let mut files = Vec::new();
     for entry in std::fs::read_dir(dir).unwrap_or_else(|error| panic!("read bundle: {error}")) {
         let entry = entry.unwrap_or_else(|error| panic!("read bundle entry: {error}"));
-        if entry.file_type().map(|kind| kind.is_file()).unwrap_or(false) {
+        if entry.file_type().is_ok_and(|kind| kind.is_file()) {
             let name = entry.file_name().to_string_lossy().into_owned();
             let contents = std::fs::read(entry.path()).unwrap_or_else(|error| panic!("read {name}: {error}"));
             files.push(crate::artifact::BundleFile { name, contents });

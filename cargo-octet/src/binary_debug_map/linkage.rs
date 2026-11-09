@@ -151,7 +151,7 @@ pub(crate) fn link_row(request: &LinkRequest<'_>) -> LinkResult {
     if in_span.len() == 1 {
         let record = in_span[0];
         result.function_address = Some(record.function_address.clone());
-        result.source_identity = record.source_identity.clone();
+        result.source_identity.clone_from(&record.source_identity);
         link_requirement(request, record, &mut result);
         return result;
     }
@@ -208,7 +208,7 @@ fn link_requirement(request: &LinkRequest<'_>, record: &FunctionAddressRecord, r
         registry_identity: references.registry_identity.clone(),
         requirement_id: entry.requirement_id.clone(),
     });
-    result.legacy_requirement_ids = entry.legacy_requirement_ids.clone();
+    result.legacy_requirement_ids.clone_from(&entry.legacy_requirement_ids);
 }
 
 /// Whether a typed requirement reference is internally well-formed. Recorded-only

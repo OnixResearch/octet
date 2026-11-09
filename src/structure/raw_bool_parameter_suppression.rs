@@ -108,7 +108,7 @@ fn lint_attrs(
             .iter()
             .filter_map(|item| item.meta_item())
             .find(|meta| meta.has_name(rustc_span::sym::reason))
-            .and_then(|meta| meta.value_str());
+            .and_then(rustc_ast::MetaItem::value_str);
         let message = if is_broad_group_named_item {
             "broad warning or structure-group suppression can hide `raw_bool_parameter`; use a local owned compatibility expectation"
         } else if is_allow {

@@ -272,7 +272,7 @@ fn run_cli(cli: Cli) -> Result<bool, CliError> {
         Command::NickelExportManifest(args) => run_nickel_export_manifest_command(&args),
         Command::CustomsGate(args) => run_customs_gate_command(&args),
         Command::FixtureCoverage(args) => run_fixture_coverage_command(args),
-        Command::StorageFaultAssurance(args) => run_storage_fault_assurance_command(args),
+        Command::StorageFaultAssurance(args) => run_storage_fault_assurance_command(&args),
     }
 }
 
@@ -504,7 +504,7 @@ struct StorageFaultAssuranceArgs {
     output: OutputFormat,
 }
 
-fn run_storage_fault_assurance_command(args: StorageFaultAssuranceArgs) -> Result<bool, CliError> {
+fn run_storage_fault_assurance_command(args: &StorageFaultAssuranceArgs) -> Result<bool, CliError> {
     let profile_text = read_text(&args.profile)?;
     let producer_text = read_text(&args.producer_receipt)?;
     let cairn_text = read_text(&args.cairn_receipt)?;

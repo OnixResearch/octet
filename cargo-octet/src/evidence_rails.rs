@@ -1148,7 +1148,7 @@ fn receipt_command_argv(
         input.config_path,
         None,
         input.requested_command,
-        disables_advisory_fetch(AdvisoryFetchEvidence {
+        disables_advisory_fetch(&AdvisoryFetchEvidence {
             locked: input.locked,
             advisory_updated: input.advisory_updated_by_prior_step,
         }),
@@ -3252,7 +3252,7 @@ fn parse_kani_model_check(input: &EvaluationInput<'_>) -> RailParseOutput {
         let boundary_stub_seen = push_kani_stub_findings(&value, &mut findings, &mut diagnostics);
         validate_kani_claims(
             &value,
-            KaniClaimEvidence {
+            &KaniClaimEvidence {
                 unwind_passed,
                 contract_passed,
                 boundary_stub_seen,
@@ -4175,7 +4175,7 @@ struct KaniClaimEvidence {
     boundary_stub_seen: bool,
 }
 
-fn validate_kani_claims(value: &serde_json::Value, evidence: KaniClaimEvidence, diagnostics: &mut Vec<String>) {
+fn validate_kani_claims(value: &serde_json::Value, evidence: &KaniClaimEvidence, diagnostics: &mut Vec<String>) {
     let Some(claims) = value.get("claims") else {
         return;
     };
@@ -5057,7 +5057,7 @@ fn run_mode_command_argv(args: &EvidenceRailArgs) -> Result<Vec<String>, String>
         config_path.as_deref(),
         baseline_path.as_deref(),
         args.command.as_deref(),
-        disables_advisory_fetch(AdvisoryFetchEvidence {
+        disables_advisory_fetch(&AdvisoryFetchEvidence {
             locked: args.locked,
             advisory_updated: args.update_advisory_database,
         }),
@@ -5072,7 +5072,7 @@ struct AdvisoryFetchEvidence {
 
 /// Locked dependency-audit evidence that was not preceded by an explicit advisory update must
 /// reuse the local advisory database instead of fetching it.
-fn disables_advisory_fetch(evidence: AdvisoryFetchEvidence) -> bool {
+fn disables_advisory_fetch(evidence: &AdvisoryFetchEvidence) -> bool {
     evidence.locked && !evidence.advisory_updated
 }
 
@@ -6686,6 +6686,10 @@ mod tests {
     }
 
     #[test]
+    #[allow(
+        clippy::too_many_lines,
+        reason = "the fixture keeps every changed-bundle and changed-profile rejection case in one table"
+    )]
     fn ast_grep_import_rejects_envelopes_for_a_changed_rule_bundle_or_profile() {
         const PROFILE_PATH: &str = "standards/ast-grep/generated/profile.json";
         const RULE_PATH: &str = "standards/ast-grep/rules/unsafe-block-review.yml";

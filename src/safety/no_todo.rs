@@ -43,6 +43,7 @@ pub struct NoTodo {
 }
 
 /// Independent lint selections for the shared `todo!()` and escape-hatch pass.
+#[derive(Clone, Copy)]
 pub struct NoTodoLintSelection {
     pub todo: bool,
     pub unjustified_allow: bool,

@@ -919,6 +919,7 @@ impl<'tcx> Visitor<'tcx> for ConstSubsetVisitor<'_, 'tcx> {
 }
 
 /// Observed signature and body signals for one `#[tigerstyle::pure]` callable.
+#[derive(Clone, Copy)]
 struct PureContractSignals {
     global_state: bool,
     mutating_input: bool,

@@ -88,7 +88,9 @@ impl Expected {
     #[must_use]
     pub fn matches(&self, outcome: &Outcome) -> bool {
         match (self, outcome) {
-            (Self::Verified, Outcome::Verified { .. }) => true,
+            (Self::Verified, Outcome::Verified { .. })
+            | (Self::Timeout, Outcome::Timeout { .. })
+            | (Self::ToolError, Outcome::ToolError { .. }) => true,
             (Self::Counterexample { observable, class }, Outcome::Counterexample { counterexamples, .. }) => {
                 counterexamples.first().is_some_and(|counterexample| {
                     counterexample.observable == *observable && counterexample.class == *class
@@ -96,8 +98,6 @@ impl Expected {
             }
             (Self::Unknown { reason }, Outcome::Unknown { reason: actual, .. }) => reason == actual,
             (Self::Unsupported { reason }, Outcome::Unsupported { reason: actual, .. }) => reason == actual,
-            (Self::Timeout, Outcome::Timeout { .. }) => true,
-            (Self::ToolError, Outcome::ToolError { .. }) => true,
             _ => false,
         }
     }
@@ -179,12 +179,12 @@ pub struct ExperimentReport {
 /// Run the reviewed corpus through the built-in backend.
 #[must_use]
 pub fn run_experiment() -> ExperimentReport {
-    run_cases(corpus())
+    run_cases(&corpus())
 }
 
 /// Run an explicit case list.
 #[must_use]
-pub fn run_cases(cases: Vec<CorpusCase>) -> ExperimentReport {
+pub fn run_cases(cases: &[CorpusCase]) -> ExperimentReport {
     let mut reports = Vec::with_capacity(cases.len());
     let mut matched_expected = 0usize;
     let mut produced_receipts = 0usize;
@@ -197,7 +197,7 @@ pub fn run_cases(cases: Vec<CorpusCase>) -> ExperimentReport {
         ("tool-error".to_owned(), 0),
     ]);
     let mut total_work_units = 0usize;
-    for case in &cases {
+    for case in cases {
         match check_request_with_backend_and_command(&case.request, &IrBackend, EXPERIMENT_COMMAND) {
             Ok(receipt) => {
                 produced_receipts += 1;
@@ -270,6 +270,11 @@ fn outcome_label(outcome: &Outcome) -> String {
 }
 
 /// Compute and install role bindings for a request's supplied variants.
+///
+/// # Panics
+///
+/// Panics only if the fixed role-binding serialization becomes infallible-in-name-only;
+/// the serializer is total for these scalar identities.
 #[must_use]
 pub fn sealed_bindings(variants: &[Variant]) -> Vec<RoleBinding> {
     variants

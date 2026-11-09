@@ -72,6 +72,10 @@ pub(crate) struct SourceRoot {
     pub(crate) repository_root: String,
 }
 
+#[allow(
+    clippy::struct_field_names,
+    reason = "the profile schema names every resource bound with the shared `max_` prefix"
+)]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct ResourceLimits {
@@ -99,6 +103,10 @@ pub(crate) struct ProfileSeverities {
     pub(crate) resource_limit: String,
 }
 
+#[allow(
+    clippy::struct_field_names,
+    reason = "the reviewed profile schema keeps its stable `profile_` field prefix"
+)]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Profile {

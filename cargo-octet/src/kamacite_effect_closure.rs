@@ -628,7 +628,7 @@ fn validate_dispositions(profile: &KamaciteEffectProfile, issues: &mut Vec<Valid
             )),
             (_, AmbientDisposition::Denied) if !allowed_profile_local => {}
             (_, AmbientDisposition::Denied) => {
-                issues.push(ValidationIssue::new(code, "`alloc` must remain profile-local in the v1 mapping profile"))
+                issues.push(ValidationIssue::new(code, "`alloc` must remain profile-local in the v1 mapping profile"));
             }
         }
     }

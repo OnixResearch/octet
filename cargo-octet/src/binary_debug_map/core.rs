@@ -301,10 +301,7 @@ fn require_debug_sections(file: &object::File<'_>, profile: &Profile) -> Result<
 
 fn section_bytes<'a>(file: &object::File<'a>, name: &str) -> Option<&'a [u8]> {
     let section = file.section_by_name(name)?;
-    let compressed = section
-        .compressed_file_range()
-        .map(|range| range.format != object::CompressionFormat::None)
-        .unwrap_or(false);
+    let compressed = section.compressed_file_range().is_ok_and(|range| range.format != object::CompressionFormat::None);
     if compressed {
         return None;
     }
@@ -527,6 +524,10 @@ fn collect_subprograms(
 }
 
 #[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_lines,
+    reason = "one row emission keeps the profile, linkage, and resource facts visible together"
+)]
 fn emit_row(
     facts: &mut Facts,
     input: &AnalysisInput<'_>,
@@ -828,6 +829,10 @@ fn canonical_relative(path: &str) -> Option<String> {
     Some(path.to_owned())
 }
 
+#[allow(
+    clippy::match_same_arms,
+    reason = "the explicit malformed-code inventory is kept visible and the closed default intentionally repeats it"
+)]
 fn severity_for(profile: &Profile, code: &str, downgrade: bool) -> String {
     if downgrade {
         return SEVERITY_MANUAL_REVIEW.to_owned();

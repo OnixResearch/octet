@@ -181,8 +181,8 @@ impl MergeRailReceipt {
         items: &[ItemMapping],
         bindings: &BTreeMap<Role, RoleBinding>,
         budget: &Budget,
-        provenance: &Option<PijulProvenance>,
-        backend: BackendIdentity,
+        provenance: Option<&PijulProvenance>,
+        backend: &BackendIdentity,
         command: &str,
         input_identity: String,
         evidence: CheckEvidence,
@@ -208,13 +208,18 @@ impl MergeRailReceipt {
             command: command.to_owned(),
             work: evidence.work,
             outcome: evidence.outcome,
-            provenance: provenance.clone(),
+            provenance: provenance.cloned(),
             non_claims: NON_CLAIMS.iter().map(|claim| (*claim).to_owned()).collect(),
             receipt_identity: String::new(),
         }
     }
 
     /// Compute the receipt identity over the payload with a cleared identity field.
+    ///
+    /// # Panics
+    ///
+    /// Panics only if the fixed receipt payload cannot be serialized; the serializer is total for
+    /// the receipt's scalar and string fields.
     #[must_use]
     pub fn computed_identity(&self) -> String {
         let mut copy = self.clone();
@@ -340,7 +345,7 @@ fn validate_bindings(receipt: &MergeRailReceipt, issues: &mut Vec<ReceiptIssue>)
                 ));
             }
             None => {
-                issues.push(ReceiptIssue::new("binding_inventory_invalid", "binding has no matching role identity"))
+                issues.push(ReceiptIssue::new("binding_inventory_invalid", "binding has no matching role identity"));
             }
             _ => {}
         }

@@ -77,13 +77,13 @@ impl<'tcx> LateLintPass<'tcx> for RetryAfterError {
             .chain(block.expr);
         let mut pending: Vec<String> = Vec::new();
         for statement in statements {
-            let mut scan = StatementScan::new(cx, context.catalog(), boundary);
-            scan.visit_expr(statement);
-            if scan.recovered {
+            let mut statement_scan = StatementScan::new(cx, context.catalog(), boundary);
+            statement_scan.visit_expr(statement);
+            if statement_scan.recovered {
                 pending.clear();
                 continue;
             }
-            report_retries(context, cx, &scan.calls, &mut pending);
+            report_retries(context, cx, &statement_scan.calls, &mut pending);
         }
     }
 }

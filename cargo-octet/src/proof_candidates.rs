@@ -151,7 +151,7 @@ pub(crate) fn run(args: &ProveArgs) -> Result<i32, String> {
     let report = build_report(args)?;
     let blocking = report.is_blocking();
     print_candidate_report(args.output_format, &report)?;
-    Ok(if blocking { 1 } else { 0 })
+    Ok(i32::from(blocking))
 }
 
 pub(crate) fn build_report(args: &ProveArgs) -> Result<ProofCandidateReport, String> {
@@ -168,7 +168,7 @@ pub(crate) fn build_report(args: &ProveArgs) -> Result<ProofCandidateReport, Str
         None => None,
     };
     let reference_paths = discover_reference_paths(&args.proof_refs);
-    let references = load_references(&reference_paths, &mut diagnostics)?;
+    let references = load_references(&reference_paths, &mut diagnostics);
 
     let mut candidates = Vec::new();
     let mut discharged = 0;
@@ -342,7 +342,7 @@ fn evaluate_reference(
         &source.display,
         allowance.line,
     ) {
-        status.status = STATUS_UNBOUND.to_owned();
+        STATUS_UNBOUND.clone_into(&mut status.status);
         status.diagnostics.push(format!(
             "proof-ref `{}` consumer_context does not name `{}:{}`",
             reference.reference_id, source.display, allowance.line
@@ -350,7 +350,7 @@ fn evaluate_reference(
         return status;
     }
     let Some(deck) = deck else {
-        status.status = STATUS_UNVALIDATED.to_owned();
+        STATUS_UNVALIDATED.clone_into(&mut status.status);
         status
             .diagnostics
             .push(format!("proof-ref `{}` has no --proof-cards deck to validate against", loaded.path));
@@ -359,9 +359,9 @@ fn evaluate_reference(
     let validation =
         proof_ref::validate_reference_against_source(reference, deck, &reference.consumer_source_path, &source.text);
     if validation.is_empty() {
-        status.status = STATUS_VALIDATED.to_owned();
+        STATUS_VALIDATED.clone_into(&mut status.status);
     } else {
-        status.status = STATUS_INVALID.to_owned();
+        STATUS_INVALID.clone_into(&mut status.status);
         status.diagnostics = validation;
     }
     if !status.diagnostics.is_empty() {
@@ -408,7 +408,7 @@ fn discover_reference_paths(explicit: &[PathBuf]) -> Vec<PathBuf> {
     paths
 }
 
-fn load_references(paths: &[PathBuf], diagnostics: &mut Vec<String>) -> Result<Vec<LoadedReference>, String> {
+fn load_references(paths: &[PathBuf], diagnostics: &mut Vec<String>) -> Vec<LoadedReference> {
     let mut loaded = Vec::new();
     for path in paths {
         match proof_ref::read_reference_file(path) {
@@ -419,7 +419,7 @@ fn load_references(paths: &[PathBuf], diagnostics: &mut Vec<String>) -> Result<V
             Err(error) => diagnostics.push(format!("cannot load proof-ref `{}`: {error}", path.display())),
         }
     }
-    Ok(loaded)
+    loaded
 }
 
 fn collect_sources(paths: &[PathBuf], diagnostics: &mut Vec<String>) -> Result<Vec<SourceInput>, String> {
@@ -467,7 +467,7 @@ fn collect_rust_files(path: &Path, files: &mut Vec<PathBuf>) -> Result<(), Strin
         .map_err(|error| format!("read source directory {}: {error}", path.display()))?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|error| format!("read source directory {}: {error}", path.display()))?;
-    entries.sort_by_key(|entry| entry.file_name());
+    entries.sort_by_key(std::fs::DirEntry::file_name);
     for entry in entries {
         let file_type = entry.file_type().map_err(|error| format!("inspect {}: {error}", entry.path().display()))?;
         if file_type.is_symlink() {
@@ -983,6 +983,10 @@ fn print_candidate_report(output_format: OutputFormat, report: &ProofCandidateRe
     }
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "the negative-check path keeps deck loading, mutant comparison, and report writing in one auditable sequence"
+)]
 pub(crate) fn run_record_negative_check(args: &NegativeCheckArgs, output_format: OutputFormat) -> Result<i32, String> {
     let mut diagnostics = Vec::new();
     let baseline_text = fs::read_to_string(&args.proof_cards)
@@ -1011,7 +1015,7 @@ pub(crate) fn run_record_negative_check(args: &NegativeCheckArgs, output_format:
             baseline_positions.len()
         ));
     }
-    let mutant_cards = mutant.get("cards").and_then(serde_json::Value::as_array).map(Vec::as_slice).unwrap_or(&[]);
+    let mutant_cards = mutant.get("cards").and_then(serde_json::Value::as_array).map_or(&[][..], Vec::as_slice);
     let mutant_positions = card_positions(mutant_cards, &args.proof_or_property_id);
     if mutant_positions.len() != 1 {
         diagnostics.push(format!(
@@ -1092,7 +1096,7 @@ pub(crate) fn run_record_negative_check(args: &NegativeCheckArgs, output_format:
         non_claims: vec![NEGATIVE_CHECK_NON_CLAIM.to_owned()],
     };
     print_negative_check_report(output_format, &report)?;
-    Ok(if status == NEGATIVE_STATUS_DEMONSTRATED { 0 } else { 1 })
+    Ok(i32::from(status != NEGATIVE_STATUS_DEMONSTRATED))
 }
 
 fn string_field<'a>(card: &'a serde_json::Value, field: &str) -> Option<&'a str> {

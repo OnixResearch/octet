@@ -813,6 +813,11 @@ impl BoundedDatalogRuntime {
     }
 
     /// Evaluates one request. A different snapshot is rejected before any facts are read.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RuntimeError::StaleSnapshot`] when the runtime's bound snapshot identity
+    /// differs from the supplied snapshot.
     pub fn evaluate(
         &mut self,
         snapshot: &EvidenceSnapshot,
@@ -829,6 +834,11 @@ impl BoundedDatalogRuntime {
 }
 
 /// Evaluates with the selected evaluator. The Datalog path always uses a fresh runtime.
+///
+/// # Errors
+///
+/// Returns [`RuntimeError::StaleSnapshot`] when the selected evaluator rejects a stale
+/// snapshot.
 pub fn evaluate(
     snapshot: &EvidenceSnapshot,
     request: &ReachabilityRequest,

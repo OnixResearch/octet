@@ -120,7 +120,7 @@ pub fn observable(logical: &str) -> Observable {
 }
 
 /// Replace one item body in one role.
-pub fn set_body(request: &mut MergeRequest, role: Role, item: &str, body: Expr) {
+pub fn set_body(request: &mut MergeRequest, role: Role, item: &str, body: &Expr) {
     for variant in &mut request.variants {
         if variant.role == role
             && let Some(function) = variant.program.get_mut(item)
