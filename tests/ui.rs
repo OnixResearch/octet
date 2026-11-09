@@ -1588,6 +1588,31 @@ fn compiler_architecture_observability_and_synchronization_effects() {
 
 #[test]
 #[ignore = "run via cargo test --test ui compiler_architecture -- --ignored --nocapture"]
+fn compiler_architecture_value_types_under_effect_paths_are_effect_free() {
+    use octet_architecture_ir::CapabilityFamily;
+
+    let toolchain = rustup_toolchain();
+    let library = build_library(&toolchain);
+    let host = host_triple();
+    let driver = build_driver(&toolchain);
+    let shard = run_compiler_architecture_fixture(&driver, &library, &host, "negative/effect_free_value_types.rs");
+    assert_eq!(shard.collection_status, CollectionStatus::Complete);
+    assert_valid_compiler_shard(&shard);
+    // Address, ordering, thread-id, exit-status, metadata, duration, and path
+    // values compute without I/O; connecting and reading do not.
+    let effects = compiler_effects(&shard)
+        .into_iter()
+        .map(|(caller, family, primitive)| (caller.trim_start_matches("effect_free_value_types::"), family, primitive))
+        .collect::<std::collections::BTreeSet<_>>();
+    let expected = std::collections::BTreeSet::from([
+        ("connect", CapabilityFamily::Network, "std::net::TcpStream::connect"),
+        ("read", CapabilityFamily::Filesystem, "std::fs::read_to_string"),
+    ]);
+    assert_eq!(effects, expected);
+}
+
+#[test]
+#[ignore = "run via cargo test --test ui compiler_architecture -- --ignored --nocapture"]
 fn compiler_architecture_value_flow_limits_mark_shard_incomplete() {
     const VALUE_FLOW_LIMIT_TARGET: &str = "compiler-selected-value-flow";
     type RestrictLimits = fn(&mut ArchitectureCollectionLimits);

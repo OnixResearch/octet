@@ -129,6 +129,41 @@ const SYNCHRONIZATION_PATHS: &[&str] = &[
 // name, counts.
 const NON_SYNCHRONIZING_OPERATIONS: &[&str] = &["new", "get_mut", "into_inner"];
 
+// Plain values defined under otherwise effectful paths. Their operations,
+// including overloaded operators such as `==`, compute on the value alone, so
+// none of them is an effect. Handles to processes, files, sockets, threads,
+// and locks stay classified.
+const EFFECT_FREE_VALUE_TYPES: &[&str] = &[
+    "core::sync::atomic::Ordering",
+    "std::env::JoinPathsError",
+    "std::env::VarError",
+    "std::fs::FileTimes",
+    "std::fs::FileType",
+    "std::fs::Metadata",
+    "std::fs::Permissions",
+    "std::net::AddrParseError",
+    "std::net::IpAddr",
+    "std::net::Ipv4Addr",
+    "std::net::Ipv6Addr",
+    "std::net::Shutdown",
+    "std::net::SocketAddr",
+    "std::net::SocketAddrV4",
+    "std::net::SocketAddrV6",
+    "std::process::ExitStatus",
+    "std::process::ExitStatusError",
+    "std::process::Output",
+    "std::sync::BarrierWaitResult",
+    "std::sync::OnceState",
+    "std::sync::atomic::Ordering",
+    "std::sync::mpsc::RecvError",
+    "std::sync::mpsc::RecvTimeoutError",
+    "std::sync::mpsc::SendError",
+    "std::sync::mpsc::TryRecvError",
+    "std::sync::mpsc::TrySendError",
+    "std::thread::AccessError",
+    "std::thread::ThreadId",
+];
+
 fn load_collector_context() -> Result<Option<(PathBuf, CompilerArchitectureCollectorContext)>, String> {
     load_collector_context_at(std::env::var_os(octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_ENV))
 }
@@ -2241,6 +2276,12 @@ fn overloaded_primitive_definition<'tcx>(
 }
 
 fn effect_family(definition: &str) -> Option<CapabilityFamily> {
+    let on_value_type = EFFECT_FREE_VALUE_TYPES.iter().any(|value_type| {
+        definition.strip_prefix(value_type).is_some_and(|rest| rest.is_empty() || rest.starts_with("::"))
+    });
+    if on_value_type {
+        return None;
+    }
     if SYNCHRONIZATION_PATHS.iter().any(|prefix| definition.starts_with(prefix)) {
         let operation = definition.rsplit_once("::").map_or(definition, |(_, operation)| operation);
         return (!NON_SYNCHRONIZING_OPERATIONS.contains(&operation)).then_some(CapabilityFamily::Concurrency);
@@ -2578,6 +2619,34 @@ mod tests {
             "alloc::fmt::format",
         ] {
             assert_eq!(effect_family(definition), None, "{definition}");
+        }
+    }
+
+    #[test]
+    fn value_types_under_effect_paths_are_not_effects() {
+        for definition in [
+            "std::net::IpAddr::eq",
+            "std::net::Ipv4Addr::is_loopback",
+            "std::net::SocketAddr::port",
+            "std::sync::atomic::Ordering::eq",
+            "core::sync::atomic::Ordering::eq",
+            "std::sync::mpsc::SendError::<T>::eq",
+            "std::thread::ThreadId::eq",
+            "std::fs::Metadata::len",
+            "std::process::ExitStatus::success",
+        ] {
+            assert_eq!(effect_family(definition), None, "{definition}");
+        }
+        for (definition, family) in [
+            ("std::net::TcpStream::connect", CapabilityFamily::Network),
+            ("std::net::UdpSocket::bind", CapabilityFamily::Network),
+            ("std::fs::File::open", CapabilityFamily::Filesystem),
+            ("std::process::Command::spawn", CapabilityFamily::Process),
+            ("std::thread::Thread::unpark", CapabilityFamily::Concurrency),
+            // A name that only starts like an excluded type is not that type.
+            ("std::net::IpAddrResolver::lookup", CapabilityFamily::Network),
+        ] {
+            assert_eq!(effect_family(definition), Some(family), "{definition}");
         }
     }
 
