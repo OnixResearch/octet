@@ -57,12 +57,20 @@ Changes that can add findings, fail a build, or change identities:
   scope to be an outbound adapter, which the gate already demanded.
 - Effect-closure admission treats any attribute that is not an inert built-in
   (doc, lint levels, `inline`, `must_use`, and similar) as `unknown`, so
-  procedural attribute macros, `#[test]`, and `#[derive]` no longer pass.
-  Call-site IDs (domain `octet-effect-closure-call-site/v2`) bind the caller's
-  source path and what the callee's leading name resolves to, so a reviewed
-  summary goes stale when that `use` or item changes; existing summaries must
-  be re-reviewed. Receipts move to `octet-effect-closure-receipt/v2` (call
-  edges carry `scope`), and `admit verify`/`artifact verify` reject v1
+  procedural attribute macros, `#[test]`, `#[derive]`, and tool attributes
+  such as `#[rustfmt::skip]` (whose tool name a dependency rename could
+  shadow) no longer pass. Call-site IDs (domain
+  `octet-effect-closure-call-site/v2`) bind the caller's source path and what
+  the callee's full path resolves to: `crate::`, `super::`, and `self::` paths
+  are followed through selected modules, `use` bindings, re-exports, and
+  globs; method calls bind the module's imports, trait items, and enclosing
+  impl header; items carrying a derive or attribute macro count as wildcards.
+  A reviewed summary therefore goes stale when any of these changes, and a
+  path through a module the selected sources cannot prove (an unselected
+  module, a `#[path]`/`cfg`/macro-declared module, or a file whose crate root
+  is not selected) is `unknown` and cannot be summarized; existing summaries
+  must be re-reviewed. Receipts move to `octet-effect-closure-receipt/v2`
+  (call edges carry `scope`), and `admit verify`/`artifact verify` reject v1
   receipts as unsupported.
 - Wasm artifact verification recomputes the receipt status from its findings
   and requires `config_identity` to equal `registry_identity`, so a relabelled
