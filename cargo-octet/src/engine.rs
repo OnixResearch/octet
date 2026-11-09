@@ -303,7 +303,7 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
         };
         canonicalize_findings(&mut findings);
         if check.cache {
-            update_lint_cache(&cfg.workspace_root, &mut findings)?;
+            update_lint_cache(&cfg.workspace_root, &run_metadata, &mut findings)?;
         }
         let base_outcome = output::RunOutcome::classify(&findings, cargo_process_exit);
         let baseline_evaluation = match check.baseline.as_deref() {
@@ -1167,39 +1167,102 @@ fn classify_cargo_process_exit(status: std::process::ExitStatus) -> output::Carg
     }
 }
 
-fn update_lint_cache(workspace_root: &Path, findings: &mut [Finding]) -> Result<(), String> {
-    let cache_root = CacheRoot::open_or_create(&workspace_root.join(LINT_CACHE_DIR))?;
-    let cache_locator = RootRelativePath::new(LINT_CACHE_FILE)?;
-    let mut cached: std::collections::BTreeSet<String> = match cache_root.read_to_string_optional(&cache_locator)? {
-        Some(contents) => {
-            serde_json::from_str(&contents).map_err(|error| format!("parse cache path `{LINT_CACHE_FILE}`: {error}"))?
-        }
-        None => std::collections::BTreeSet::new(),
-    };
+/// Format version of `.octet/cache/findings.json`. Releases before the key existed wrote a bare
+/// array of semantic IDs.
+const LINT_CACHE_SCHEMA_VERSION: u32 = 2;
 
-    // Hit/miss is decided against the cache as read before this run; IDs first seen in this run are
-    // merged afterwards, so repeated semantic IDs within one cold run all report `miss`.
-    let mut new_ids = Vec::new();
+/// Inputs a `--cache` hit vouches for. A semantic ID already covers the lint, crate, message,
+/// suggestion, snippet, config hash, and Octet version; the compiler and the dependency graph can
+/// change what a lint reports without changing that ID, so the key adds them.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+struct LintCacheKey {
+    tool_version: String,
+    toolchain: String,
+    rustc_version: String,
+    config_hash: String,
+    crate_graph_hash: String,
+}
+
+impl LintCacheKey {
+    /// `None` when the compiler identity is unknown, because two different compilers would then
+    /// share one key.
+    fn for_run(metadata: &RunMetadata, crate_graph_hash: String) -> Option<Self> {
+        (metadata.rustc_version != determinism::UNKNOWN_RUSTC_VERSION).then(|| Self {
+            tool_version: metadata.tool_version.to_owned(),
+            toolchain: metadata.toolchain.clone(),
+            rustc_version: metadata.rustc_version.clone(),
+            config_hash: metadata.config_hash.clone(),
+            crate_graph_hash,
+        })
+    }
+}
+
+/// The semantic IDs the latest `--cache` run reported, under that run's key.
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+struct LintCacheFile {
+    schema_version: u32,
+    key: LintCacheKey,
+    semantic_ids: std::collections::BTreeSet<String>,
+}
+
+/// Labels findings `hit` when the previous `--cache` run reported the same semantic ID under the
+/// same key, `miss` otherwise, and `bypassed` when the finding has no computed identity or the
+/// run has no key. The label is informational: every run still lints everything and reports its
+/// own findings. Hit/miss is decided against the cache as read before this run, so repeated
+/// semantic IDs within one cold run all report `miss`. Returns what to store: this run's
+/// computed IDs under its key, so IDs from another key or no longer reported are dropped.
+fn label_lint_cache(
+    previous: Option<&LintCacheFile>,
+    key: Option<LintCacheKey>,
+    findings: &mut [Finding],
+) -> Option<LintCacheFile> {
+    let previous_ids = previous.filter(|stored| key.as_ref() == Some(&stored.key)).map(|stored| &stored.semantic_ids);
+    let mut semantic_ids = std::collections::BTreeSet::new();
     for finding in findings {
-        if finding.identity_status != "computed" {
-            finding.cache_status.clear();
+        finding.cache_status.clear();
+        if key.is_none() || finding.identity_status != "computed" {
             finding.cache_status.push_str("bypassed");
             continue;
         }
-        finding.cache_status.clear();
-        if cached.contains(&finding.semantic_id) {
-            finding.cache_status.push_str("hit");
-        } else {
-            finding.cache_status.push_str("miss");
-            new_ids.push(finding.semantic_id.clone());
-        }
+        let seen = previous_ids.is_some_and(|ids| ids.contains(&finding.semantic_id));
+        finding.cache_status.push_str(if seen { "hit" } else { "miss" });
+        semantic_ids.insert(finding.semantic_id.clone());
     }
+    key.map(|key| LintCacheFile {
+        schema_version: LINT_CACHE_SCHEMA_VERSION,
+        key,
+        semantic_ids,
+    })
+}
 
-    if !new_ids.is_empty() {
-        cached.extend(new_ids);
-        let mut rendered =
-            serde_json::to_string_pretty(&cached).map_err(|error| format!("serialize lint cache: {error}"))?;
-        rendered.push('\n');
+/// Reads the stored cache. JSON without the current schema, such as the keyless array older
+/// releases wrote, cannot vouch for this run's key and counts as empty; text that is not JSON
+/// fails the run.
+fn parse_lint_cache(contents: &str) -> Result<Option<LintCacheFile>, String> {
+    let value = serde_json::from_str::<serde_json::Value>(contents)
+        .map_err(|error| format!("parse cache path `{LINT_CACHE_FILE}`: {error}"))?;
+    Ok(serde_json::from_value::<LintCacheFile>(value)
+        .ok()
+        .filter(|stored| stored.schema_version == LINT_CACHE_SCHEMA_VERSION))
+}
+
+fn update_lint_cache(
+    workspace_root: &Path,
+    run_metadata: &RunMetadata,
+    findings: &mut [Finding],
+) -> Result<(), String> {
+    let cache_root = CacheRoot::open_or_create(&workspace_root.join(LINT_CACHE_DIR))?;
+    let cache_locator = RootRelativePath::new(LINT_CACHE_FILE)?;
+    let stored = cache_root.read_to_string_optional(&cache_locator)?;
+    let previous = stored.as_deref().map(parse_lint_cache).transpose()?.flatten();
+    let key = LintCacheKey::for_run(run_metadata, determinism::crate_graph_hash(workspace_root));
+    let Some(next) = label_lint_cache(previous.as_ref(), key, findings) else {
+        return Ok(());
+    };
+
+    let mut rendered = serde_json::to_string_pretty(&next).map_err(|error| format!("serialize lint cache: {error}"))?;
+    rendered.push('\n');
+    if stored.as_deref() != Some(rendered.as_str()) {
         cache_root.write(&cache_locator, rendered.as_bytes())?;
     }
 
@@ -2425,50 +2488,156 @@ mod tests {
         }
     }
 
+    fn cache_test_finding(index: &str, semantic_id: &str) -> super::Finding {
+        super::Finding {
+            version: 2,
+            index: index.to_owned(),
+            stable_id: semantic_id.to_owned(),
+            semantic_id: semantic_id.to_owned(),
+            identity_status: "computed".to_owned(),
+            normalized_snippet_hash: "b3:snippet".to_owned(),
+            config_hash: "b3:config".to_owned(),
+            cache_status: "pending".to_owned(),
+            lint: "no_unwrap".to_owned(),
+            group: "octet::safety".to_owned(),
+            severity: "warning".to_owned(),
+            file: "src/lib.rs".to_owned(),
+            line: 1,
+            column: 1,
+            message: "use of `.unwrap()`".to_owned(),
+            suggestion: None,
+            applicability: None,
+            principle: "Safety".to_owned(),
+            effect_family: "failure".to_owned(),
+            evidence_tier: crate::evidence::EvidenceTier::StaticLint,
+            crate_name: "consumer".to_owned(),
+        }
+    }
+
+    fn cache_test_metadata() -> crate::determinism::RunMetadata {
+        crate::determinism::RunMetadata {
+            tool_name: "cargo-octet",
+            tool_version: "0.1.0",
+            rustc_version: "rustc 1.96.0-nightly (0123456789 2026-03-20)".to_owned(),
+            toolchain: "nightly-2026-03-21".to_owned(),
+            profile_name: "workspace-metadata".to_owned(),
+            profile_hash: "b3:profile".to_owned(),
+            config_hash: "b3:config".to_owned(),
+        }
+    }
+
+    /// Runs the lint cache over findings with the given semantic IDs and returns their labels.
+    fn cache_test_run(workspace: &Path, metadata: &crate::determinism::RunMetadata, ids: &[&str]) -> Vec<String> {
+        let mut findings = ids
+            .iter()
+            .enumerate()
+            .map(|(offset, id)| cache_test_finding(&format!("F{}", offset + 1), id))
+            .collect::<Vec<_>>();
+        super::update_lint_cache(workspace, metadata, &mut findings).expect("update lint cache");
+        findings.into_iter().map(|finding| finding.cache_status).collect()
+    }
+
+    fn cache_test_file(workspace: &Path) -> std::path::PathBuf {
+        workspace.join(super::LINT_CACHE_DIR).join(super::LINT_CACHE_FILE)
+    }
+
     #[test]
     fn lint_cache_labels_duplicate_semantic_ids_against_pre_run_cache() {
-        fn cached_finding(index: &str, semantic_id: &str) -> super::Finding {
-            super::Finding {
-                version: 2,
-                index: index.to_owned(),
-                stable_id: semantic_id.to_owned(),
-                semantic_id: semantic_id.to_owned(),
-                identity_status: "computed".to_owned(),
-                normalized_snippet_hash: "b3:snippet".to_owned(),
-                config_hash: "b3:config".to_owned(),
-                cache_status: "pending".to_owned(),
-                lint: "no_unwrap".to_owned(),
-                group: "octet::safety".to_owned(),
-                severity: "warning".to_owned(),
-                file: "src/lib.rs".to_owned(),
-                line: 1,
-                column: 1,
-                message: "use of `.unwrap()`".to_owned(),
-                suggestion: None,
-                applicability: None,
-                principle: "Safety".to_owned(),
-                effect_family: "failure".to_owned(),
-                evidence_tier: crate::evidence::EvidenceTier::StaticLint,
-                crate_name: "consumer".to_owned(),
-            }
-        }
         let workspace = tempfile::tempdir().expect("lint cache workspace");
-        let run = || {
-            let mut findings = vec![
-                cached_finding("F1", "b3:shared"),
-                cached_finding("F2", "b3:shared"),
-                cached_finding("F3", "b3:unique"),
-            ];
-            super::update_lint_cache(workspace.path(), &mut findings).expect("update lint cache");
-            findings.into_iter().map(|finding| finding.cache_status).collect::<Vec<_>>()
-        };
+        let metadata = cache_test_metadata();
+        let ids = ["b3:shared", "b3:shared", "b3:unique"];
 
-        assert_eq!(run(), ["miss", "miss", "miss"], "a cold cache has no hits, even for repeated semantic IDs");
-        assert_eq!(run(), ["hit", "hit", "hit"], "the second run reuses every ID merged by the first run");
-        let cached = std::fs::read_to_string(workspace.path().join(super::LINT_CACHE_DIR).join(super::LINT_CACHE_FILE))
-            .expect("read lint cache");
-        let cached = serde_json::from_str::<BTreeSet<String>>(&cached).expect("parse lint cache");
-        assert_eq!(cached, BTreeSet::from(["b3:shared".to_owned(), "b3:unique".to_owned()]));
+        assert_eq!(
+            cache_test_run(workspace.path(), &metadata, &ids),
+            ["miss", "miss", "miss"],
+            "a cold cache has no hits, even for repeated semantic IDs"
+        );
+        assert_eq!(
+            cache_test_run(workspace.path(), &metadata, &ids),
+            ["hit", "hit", "hit"],
+            "the second run sees every ID the first run reported"
+        );
+        let cached = std::fs::read_to_string(cache_test_file(workspace.path())).expect("read lint cache");
+        let cached = serde_json::from_str::<serde_json::Value>(&cached).expect("parse lint cache");
+        assert_eq!(cached["semantic_ids"], serde_json::json!(["b3:shared", "b3:unique"]));
+    }
+
+    #[test]
+    fn lint_cache_key_covers_version_toolchain_config_and_crate_graph() {
+        let workspace = tempfile::tempdir().expect("lint cache workspace");
+        let lockfile = workspace.path().join("Cargo.lock");
+        std::fs::write(&lockfile, "version = 4\n").expect("write Cargo.lock");
+        let metadata = cache_test_metadata();
+        let run = |metadata: &crate::determinism::RunMetadata| cache_test_run(workspace.path(), metadata, &["b3:item"]);
+        assert_eq!(run(&metadata), ["miss"]);
+        assert_eq!(run(&metadata), ["hit"], "an unchanged key reports a hit");
+
+        std::fs::write(&lockfile, "version = 4\n\n[[package]]\nname = \"serde\"\nversion = \"1.0.228\"\n")
+            .expect("bump Cargo.lock");
+        assert_eq!(run(&metadata), ["miss"], "a changed Cargo.lock is a different crate graph");
+        assert_eq!(run(&metadata), ["hit"]);
+
+        let changed = [
+            crate::determinism::RunMetadata {
+                rustc_version: "rustc 1.96.0-nightly (fedcba9876 2026-03-27)".to_owned(),
+                ..cache_test_metadata()
+            },
+            crate::determinism::RunMetadata {
+                toolchain: "nightly-2026-03-28".to_owned(),
+                ..cache_test_metadata()
+            },
+            crate::determinism::RunMetadata {
+                config_hash: "b3:other-config".to_owned(),
+                ..cache_test_metadata()
+            },
+            crate::determinism::RunMetadata {
+                tool_version: "0.2.0",
+                ..cache_test_metadata()
+            },
+        ];
+        for other in &changed {
+            assert_eq!(run(&metadata), ["hit"]);
+            assert_eq!(run(other), ["miss"], "a different key reports a miss: {other:?}");
+            assert_eq!(run(&metadata), ["miss"], "switching keys replaces the stored IDs: {other:?}");
+        }
+    }
+
+    #[test]
+    fn lint_cache_keeps_only_the_latest_run_and_bypasses_unknown_compilers() {
+        let workspace = tempfile::tempdir().expect("lint cache workspace");
+        let metadata = cache_test_metadata();
+        let cache_file = cache_test_file(workspace.path());
+        std::fs::create_dir_all(cache_file.parent().expect("cache dir")).expect("create cache dir");
+        std::fs::write(&cache_file, "[\"b3:fixed\", \"b3:kept\"]\n").expect("write keyless cache");
+        assert_eq!(
+            cache_test_run(workspace.path(), &metadata, &["b3:kept"]),
+            ["miss"],
+            "a keyless cache from an older release cannot vouch for this toolchain or crate graph"
+        );
+        assert_eq!(cache_test_run(workspace.path(), &metadata, &["b3:new"]), ["miss"]);
+        assert_eq!(
+            cache_test_run(workspace.path(), &metadata, &["b3:kept", "b3:new"]),
+            ["miss", "hit"],
+            "an ID the previous run did not report is forgotten"
+        );
+
+        let stored = std::fs::read_to_string(&cache_file).expect("read lint cache");
+        let unknown_compiler = crate::determinism::RunMetadata {
+            rustc_version: crate::determinism::UNKNOWN_RUSTC_VERSION.to_owned(),
+            ..cache_test_metadata()
+        };
+        assert_eq!(cache_test_run(workspace.path(), &unknown_compiler, &["b3:kept"]), ["bypassed"]);
+        assert_eq!(std::fs::read_to_string(&cache_file).expect("reread lint cache"), stored);
+
+        let mut unsupported = cache_test_finding("F1", "b3:kept");
+        unsupported.identity_status = "unsupported".to_owned();
+        let mut findings = vec![unsupported];
+        super::update_lint_cache(workspace.path(), &metadata, &mut findings).expect("update lint cache");
+        assert_eq!(findings[0].cache_status, "bypassed");
+
+        std::fs::write(&cache_file, "not json").expect("corrupt lint cache");
+        let error = super::update_lint_cache(workspace.path(), &metadata, &mut []).expect_err("corrupt cache");
+        assert!(error.contains(super::LINT_CACHE_FILE), "{error}");
     }
 
     /// `cargo check --all-targets` compiles a library twice (the `lib` unit and its `lib (test)`

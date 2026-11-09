@@ -226,25 +226,27 @@ The lint MUST NOT warn on clones that are moved into ownership-consuming APIs, s
 
 ### Requirement: Content Identity Lint Cache [r[content-identity-lint-cache]]
 
-The system MUST support an optional deterministic lint-result cache keyed by Octet version, rustc/toolchain identity, lint config hash, crate graph hash, lint ID, and semantic item identity. The cache MUST be disabled or bypassed for findings that cannot prove deterministic inputs.
+The system MUST support an optional deterministic lint cache that labels each finding with whether an earlier run already reported it. The cache key MUST cover the Octet version, rustc/toolchain identity, lint config hash, and crate graph hash (the root `Cargo.toml` and `Cargo.lock` bytes); each finding's lint ID and semantic item identity select its entry. The cache MUST be disabled or bypassed for findings that cannot prove deterministic inputs and for runs whose rustc identity is unknown. The cache is a label, not result reuse: every run lints every selected crate and reports its own findings.
 
 #### Scenario: Unchanged item uses cached finding [r[content-identity-lint-cache.scenario.unchanged-item-uses-cached-finding]]
 
-- GIVEN an item identity, config hash, crate graph hash, and toolchain identity are unchanged between runs
+- GIVEN an item identity, config hash, crate graph hash, toolchain identity, and Octet version are unchanged between runs
 - WHEN `cargo octet check --cache` runs again
-- THEN deterministic findings for that item are loaded from cache and reported with cache-hit metadata
+- THEN the finding for that item reports `cache_status: hit`
+- AND the finding still comes from the current run's lint results
 
 #### Scenario: Config change invalidates cache [r[content-identity-lint-cache.scenario.config-change-invalidates-cache]]
 
-- GIVEN the lint config hash changes between two runs
+- GIVEN the lint config hash, toolchain identity, crate graph hash, or Octet version changes between two runs
 - WHEN `cargo octet check --cache` runs
-- THEN previous cached findings are not reused for affected lint IDs
+- THEN its findings report `cache_status: miss`
+- AND the cache keeps only the semantic IDs of the latest run under the latest key, so an ID the latest run did not report is forgotten
 
 #### Scenario: Non-deterministic input bypasses cache [r[content-identity-lint-cache.scenario.non-deterministic-input-bypasses-cache]]
 
-- GIVEN an item lacks semantic identity or depends on unsupported macro expansion context
+- GIVEN an item lacks semantic identity or depends on unsupported macro expansion context, or the run cannot read its rustc identity
 - WHEN the cache key is computed
-- THEN the item is marked cache-ineligible and linting runs normally
+- THEN the item is marked `cache_status: bypassed` and linting runs normally
 
 ### Requirement: Pure Result Cache [r[pure-result-cache]]
 

@@ -237,6 +237,20 @@ When `--artifact-dir` is set, the runner writes `command.txt`, `status.json`, `s
 
 The artifact directory holds the check bundle alone. `--artifact-dir` must not be the workspace root or one of its ancestors, and a `--baseline` or `--write-baseline` path or the `--cache` directory (`.octet/cache` under the workspace root) must not lie inside it. The runner resolves symlinks and `..` components and refuses such a combination with exit `2` before Cargo runs.
 
+`--cache` labels findings; it does not reuse results. Every run still lints
+every selected crate and reports its own findings. The runner stores the
+semantic IDs of the latest `--cache` run in `.octet/cache/findings.json` under a
+key of the `cargo-octet` version, the toolchain name and `rustc -Vv` version
+line, the config hash, and the crate graph hash (the root `Cargo.toml` and
+`Cargo.lock` bytes). A finding reports `cache_status: hit` when the previous
+`--cache` run reported the same semantic ID under the same key, and `miss`
+otherwise; a key change or an ID the previous run did not report is a miss, and
+each run replaces the stored IDs with its own. Findings without a computed
+identity report `bypassed`, and so does every finding when the runner cannot
+read the rustc version; such a run leaves the stored cache untouched. A cache
+file from a release before the key existed counts as empty. Without `--cache`,
+findings report `disabled`.
+
 ### 3a. Optional formal proof rails
 
 Formal proof rails are separate from the starter lint path. Consumers can list

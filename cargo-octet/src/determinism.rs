@@ -212,6 +212,9 @@ fn file_hash(path: &Path) -> Option<String> {
     fs::read(path).ok().map(|bytes| format!("b3:{}", blake3::hash(&bytes).to_hex()))
 }
 
+/// `RunMetadata::rustc_version` when `rustc -Vv` cannot be run or read.
+pub const UNKNOWN_RUSTC_VERSION: &str = "unknown";
+
 fn rustc_version(toolchain: &str) -> String {
     Command::new("rustc")
         .env("RUSTUP_TOOLCHAIN", toolchain)
@@ -220,7 +223,8 @@ fn rustc_version(toolchain: &str) -> String {
         .ok()
         .filter(|output| output.status.success())
         .and_then(|output| String::from_utf8(output.stdout).ok())
-        .map_or_else(|| "unknown".to_owned(), |text| text.lines().next().unwrap_or("unknown").to_owned())
+        .and_then(|text| text.lines().next().map(ToOwned::to_owned))
+        .unwrap_or_else(|| UNKNOWN_RUSTC_VERSION.to_owned())
 }
 
 #[cfg(test)]
