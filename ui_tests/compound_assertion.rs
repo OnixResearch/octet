@@ -55,3 +55,12 @@ fn check_or_closure(ready: bool, fallback: fn(fn() -> bool) -> bool) {
     // Should warn: top-level `||` even though the right side is a call
     assert!(ready || fallback(|| true));
 }
+
+fn check_commented_clauses(ready: bool, done: bool) {
+    // Should warn without a split: a comment inside a clause would swallow the `)`
+    assert!(
+        ready // set by init
+            && done
+    );
+    assert!(ready /* set by init */ && done);
+}

@@ -1193,7 +1193,7 @@ The lint MUST keep flagging the division when the earlier arm matches another va
 
 The `compound_assertion` lint MUST decide whether an `assert!` condition is compound from the parsed condition's top-level `&&` or `||` operator, not from its source text. A `&&` token that is part of an operand, such as the double reference in `assert!(item == &&expected)`, MUST NOT be reported as a conjunction.
 
-The `MachineApplicable` split MUST cut the source text only at the spans of the top-level operators, so each emitted `assert!` holds one complete operand.
+The `MachineApplicable` split MUST cut the source text only at the spans of the top-level operators, so each emitted `assert!` holds one complete operand. When any clause holds a `//` or `/* */` comment outside string and char literals, the lint MUST still warn but MUST NOT offer the split.
 
 #### Scenario: Double reference is not a conjunction
 
@@ -1207,6 +1207,12 @@ The `MachineApplicable` split MUST cut the source text only at the spans of the 
 - WHEN tigerstyle emits the structured suggestion
 - THEN the suggestion rewrites it to `assert!(item == &&expected);` followed by `assert!(ready);`
 - AND the rewritten code compiles
+
+#### Scenario: Commented clause gets no split
+
+- GIVEN production code `assert!(ready // set by init` on one line followed by `&& done);` on the next
+- WHEN the lint runs
+- THEN `compound_assertion` warns without a structured suggestion
 
 ### Requirement: Catch-All On Enum Scope And Suggestion
 

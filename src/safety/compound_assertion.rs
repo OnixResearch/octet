@@ -72,12 +72,21 @@ fn collect_operator_spans(expr: &Expr, op: BinOpKind, spans: &mut Vec<Span>) {
     }
 }
 
+/// Whether `text` holds a `//` or `/* */` comment outside string and char
+/// literals.
+fn contains_comment(text: &str) -> bool {
+    rustc_lexer::tokenize(text, rustc_lexer::FrontmatterAllowed::No).any(|token| {
+        matches!(token.kind, rustc_lexer::TokenKind::LineComment { .. } | rustc_lexer::TokenKind::BlockComment { .. })
+    })
+}
+
 /// Split the source text of `assert!(condition)` into one clause per operand of
 /// the top-level operator chain. `condition` and `operators` are byte ranges
 /// into `call_text` taken from the parsed condition, so `&&` inside a clause
 /// (a double reference such as `&&expected`) never splits it. Returns `None`
-/// when the call carries a panic message or is not the plain `assert!(...)`
-/// shape that a rewrite can reproduce.
+/// when the call carries a panic message, when a clause holds a comment (a
+/// trailing `//` comment would swallow the clause's closing `)`), or when the
+/// call is not the plain `assert!(...)` shape that a rewrite can reproduce.
 fn split_assertion_call(
     call_text: &str,
     condition: Range<usize>,
@@ -105,7 +114,7 @@ fn split_assertion_call(
         start = operator.end;
     }
     clauses.push(call_text.get(start..condition.end)?.trim().to_owned());
-    if clauses.len() < 2 || clauses.iter().any(String::is_empty) {
+    if clauses.len() < 2 || clauses.iter().any(|clause| clause.is_empty() || contains_comment(clause)) {
         return None;
     }
 
@@ -281,5 +290,25 @@ mod tests {
     #[test]
     fn rejects_a_condition_without_an_operator() {
         assert_eq!(split("assert!(ready)", "ready", &[]), None);
+    }
+
+    #[test]
+    fn rejects_clauses_with_comments() {
+        assert_eq!(
+            split(
+                "assert!(\n    ready // set by init\n        && done\n)",
+                "ready // set by init\n        && done",
+                &[29]
+            ),
+            None
+        );
+        assert_eq!(split("assert!(ready /* init */ && done)", "ready /* init */ && done", &[17]), None);
+        assert_eq!(
+            split("assert!(path == \"a//b\" && done)", "path == \"a//b\" && done", &[15]),
+            Some(AssertionSplit {
+                clauses: vec!["path == \"a//b\"".into(), "done".into()],
+                has_trailing_semicolon: false,
+            })
+        );
     }
 }
