@@ -147,3 +147,107 @@ trait SparseDefault {
         t
     }
 }
+
+fn comment_marker_in_string(data: &[u8]) -> usize {
+    // Should NOT warn: `/*` inside a string literal does not start a comment
+    let marker = "/*";
+    let a = data.len() + marker.len();
+    assert!(a > 0);
+    let b = a + 1;
+    let c = b + 2;
+    let d = c + 3;
+    let e = d + 4;
+    let f = e + 5;
+    let g = f + 6;
+    let h = g + 7;
+    let i = h + 8;
+    let j = i + 9;
+    let k = j + 10;
+    let l = k + 11;
+    let m = l + 12;
+    let n = m + 13;
+    let o = n + 14;
+    let p = o + 15;
+    let q = p + 16;
+    let r = q + 17;
+    assert!(r > 0);
+    r
+}
+
+#[cfg(test)]
+fn test_only_sparse(data: &[u8]) -> usize {
+    // Should NOT warn: `cfg(test)` code is test-only (the fixture runs with `--cfg test`)
+    let a = data.len();
+    let a = a + 1;
+    let a = a + 2;
+    let a = a + 3;
+    let a = a + 4;
+    let a = a + 5;
+    let a = a + 6;
+    let a = a + 7;
+    let a = a + 8;
+    let a = a + 9;
+    let a = a + 10;
+    let a = a + 11;
+    let a = a + 12;
+    let a = a + 13;
+    let a = a + 14;
+    let a = a + 15;
+    let a = a + 16;
+    let a = a + 17;
+    let a = a + 18;
+    let a = a + 19;
+    a
+}
+
+#[cfg(all(test, unix))]
+fn test_and_unix_sparse(data: &[u8]) -> usize {
+    // Should NOT warn: `all(test, unix)` requires `test`
+    let a = data.len();
+    let a = a + 1;
+    let a = a + 2;
+    let a = a + 3;
+    let a = a + 4;
+    let a = a + 5;
+    let a = a + 6;
+    let a = a + 7;
+    let a = a + 8;
+    let a = a + 9;
+    let a = a + 10;
+    let a = a + 11;
+    let a = a + 12;
+    let a = a + 13;
+    let a = a + 14;
+    let a = a + 15;
+    let a = a + 16;
+    let a = a + 17;
+    let a = a + 18;
+    let a = a + 19;
+    a
+}
+
+#[cfg(any(test, unix))]
+fn test_or_unix_sparse(data: &[u8]) -> usize {
+    // Should warn: `any(test, unix)` also holds in production builds
+    let a = data.len();
+    let a = a + 1;
+    let a = a + 2;
+    let a = a + 3;
+    let a = a + 4;
+    let a = a + 5;
+    let a = a + 6;
+    let a = a + 7;
+    let a = a + 8;
+    let a = a + 9;
+    let a = a + 10;
+    let a = a + 11;
+    let a = a + 12;
+    let a = a + 13;
+    let a = a + 14;
+    let a = a + 15;
+    let a = a + 16;
+    let a = a + 17;
+    let a = a + 18;
+    let a = a + 19;
+    a
+}

@@ -291,6 +291,7 @@ fn extra_rustc_args(name: &str) -> &'static [&'static str] {
         | "too_many_parameters"
         | "sentinel_fallback"
         | "raw_arithmetic_overflow"
+        | "assertion_density"
         | "verified/verified_purity" => &["--cfg", "test"],
         "ambient_clock_test_harness"
         | "function_length_test_harness"

@@ -7,7 +7,6 @@ use rustc_lint::EarlyLintPass;
 use rustc_lint::LintContext;
 use rustc_session::declare_tool_lint;
 use rustc_session::impl_lint_pass;
-use rustc_span::sym;
 
 use crate::diagnostics::emit_tiger_style_lint;
 
@@ -63,39 +62,22 @@ const ASSERT_PATTERNS: &[&str] = &[
     "debug_assert_ne!(",
 ];
 
+/// Removes comments from `source` with the Rust lexer, so `/*` or `//` inside
+/// string and char literals stays code and nested block comments end where
+/// rustc ends them. Each comment becomes one space to keep tokens apart.
 fn strip_comments(source: &str) -> String {
     let mut out = String::with_capacity(source.len());
-    let mut chars = source.chars().peekable();
-    let mut in_block_comment = false;
-
-    while let Some(ch) = chars.next() {
-        if in_block_comment {
-            if ch == '*' && chars.peek() == Some(&'/') {
-                let _ = chars.next();
-                in_block_comment = false;
-            }
-            continue;
+    let mut cursor = rustc_lexer::Cursor::new(source, rustc_lexer::FrontmatterAllowed::No);
+    loop {
+        let rest = cursor.as_str();
+        let token = cursor.advance_token();
+        let text = rest.strip_suffix(cursor.as_str()).unwrap_or(rest);
+        match token.kind {
+            rustc_lexer::TokenKind::Eof => break,
+            rustc_lexer::TokenKind::LineComment { .. } | rustc_lexer::TokenKind::BlockComment { .. } => out.push(' '),
+            _ => out.push_str(text),
         }
-
-        if ch == '/' && chars.peek() == Some(&'/') {
-            for next in chars.by_ref() {
-                if next == '\n' {
-                    out.push('\n');
-                    break;
-                }
-            }
-            continue;
-        }
-
-        if ch == '/' && chars.peek() == Some(&'*') {
-            let _ = chars.next();
-            in_block_comment = true;
-            continue;
-        }
-
-        out.push(ch);
     }
-
     out
 }
 
@@ -134,20 +116,8 @@ fn is_single_expression_body(body: &Block) -> bool {
 
 impl AssertionDensity {
     fn check_function(&self, cx: &EarlyContext<'_>, attrs: &[rustc_ast::Attribute], func: &rustc_ast::Fn) {
-        // Skip test functions
-        if attrs.iter().any(|a| a.has_name(sym::test)) {
-            return;
-        }
-
-        // Skip #[cfg(test)] items
-        if attrs.iter().any(|attr| {
-            if attr.has_name(sym::cfg) {
-                let source = format!("{attr:?}");
-                source.contains("test")
-            } else {
-                false
-            }
-        }) {
+        // Skip `#[test]` functions and items whose `cfg` can only hold under `cfg(test)`
+        if crate::test_context::ast_attrs_indicate_test(cx.sess(), attrs) {
             return;
         }
 
@@ -220,5 +190,13 @@ mod tests {
     fn plain_and_path_qualified_assertions_count() {
         assert_eq!(count_assertions("{ assert!(a); std::assert_eq!(a, b); assert_ne!(a, c); }"), 3);
         assert_eq!(count_assertions("{ my_assert!(a); }"), 0);
+    }
+
+    #[test]
+    fn comment_markers_in_literals_are_code() {
+        assert_eq!(count_assertions(r#"{ let s = "/*"; assert!(a); assert!(b); }"#), 2);
+        assert_eq!(count_assertions(r#"{ let s = r"//"; let c = '"'; assert!(a); }"#), 1);
+        assert_eq!(count_assertions("{ /* assert!(a); */ assert!(b); // assert!(c);\n }"), 1);
+        assert_eq!(count_assertions("{ /* outer /* nested */ assert!(a); */ assert!(b); }"), 1);
     }
 }
