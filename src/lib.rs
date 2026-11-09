@@ -187,7 +187,7 @@ lint_inventory! {
         lint_store.register_early_pass(|| Box::new(structure::compound_condition::CompoundCondition::default()));
     },
     "verified_purity", purity::verified_purity::VERIFIED_PURITY => |lint_store, _cfg| {
-        lint_store.register_early_pass(|| Box::new(purity::verified_purity::VerifiedPurity));
+        lint_store.register_early_pass(|| Box::new(purity::verified_purity::VerifiedPurity::default()));
     },
     "unjustified_allow", structure::unjustified_allow::UNJUSTIFIED_ALLOW => |lint_store, _cfg| {
         lint_store.register_early_pass(|| Box::new(structure::unjustified_allow::UnjustifiedAllow));

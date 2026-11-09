@@ -46,6 +46,51 @@ LL | | }
    = help: Tiger Style (Verified Module Purity): keep verified modules free of runtime-only side effects and shell concerns Example: pub fn next_state(input: Input) -> Output
    = note: see Tiger Style guide: Verified Module Purity
 
+error: async function in verified module
+  --> $DIR/verified/verified_purity.rs:30:5
+   |
+LL |     async fn sync_remote(&self) {}
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Verified Module Purity): keep verified modules free of runtime-only side effects and shell concerns Example: pub fn next_state(input: Input) -> Output
+   = note: see Tiger Style guide: Verified Module Purity
+
+error: async function in verified module
+  --> $DIR/verified/verified_purity.rs:35:5
+   |
+LL |     async fn load(&self) -> u64;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Verified Module Purity): keep verified modules free of runtime-only side effects and shell concerns Example: pub fn next_state(input: Input) -> Output
+   = note: see Tiger Style guide: Verified Module Purity
+
+error: async block in verified module
+  --> $DIR/verified/verified_purity.rs:40:5
+   |
+LL |     async move { 1 }
+   |     ^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Verified Module Purity): keep verified modules free of runtime-only side effects and shell concerns Example: pub fn next_state(input: Input) -> Output
+   = note: see Tiger Style guide: Verified Module Purity
+
+error: system time access in verified module
+  --> $DIR/verified/verified_purity.rs:54:9
+   |
+LL |         time::Instant::now()
+   |         ^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Verified Module Purity): keep verified modules free of runtime-only side effects and shell concerns Example: pub fn next_state(input: Input) -> Output
+   = note: see Tiger Style guide: Verified Module Purity
+
+error: system time access in verified module
+  --> $DIR/verified/verified_purity.rs:69:9
+   |
+LL |         SystemTime::now()
+   |         ^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Verified Module Purity): keep verified modules free of runtime-only side effects and shell concerns Example: pub fn next_state(input: Input) -> Output
+   = note: see Tiger Style guide: Verified Module Purity
+
 warning: direct system clock read in production code
   --> $DIR/verified/verified_purity.rs:19:5
    |
@@ -62,5 +107,35 @@ LL -     Instant::now()
 LL +     /* inject time parameter */
    |
 
-error: aborting due to 5 previous errors; 1 warning emitted
+warning: direct system clock read in production code
+  --> $DIR/verified/verified_purity.rs:54:9
+   |
+LL |         time::Instant::now()
+   |         ^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Functional Core): pass time into core logic or isolate clock reads in a shell-boundary helper with a narrow allow reason Example: #[allow(tigerstyle::ambient_clock, reason = "shell boundary clock read")] fn read_now() -> Instant { Instant::now() }
+   = note: structured suggestion applicability: HasPlaceholders
+   = note: see Tiger Style guide: Functional Core / Imperative Shell
+help: inject time as a parameter instead of reading the system clock
+   |
+LL -         time::Instant::now()
+LL +         /* inject time parameter */
+   |
+
+warning: direct system clock read in production code
+  --> $DIR/verified/verified_purity.rs:69:9
+   |
+LL |         SystemTime::now()
+   |         ^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Functional Core): pass time into core logic or isolate clock reads in a shell-boundary helper with a narrow allow reason Example: #[allow(tigerstyle::ambient_clock, reason = "shell boundary clock read")] fn read_now() -> Instant { Instant::now() }
+   = note: structured suggestion applicability: HasPlaceholders
+   = note: see Tiger Style guide: Functional Core / Imperative Shell
+help: inject time as a parameter instead of reading the system clock
+   |
+LL -         SystemTime::now()
+LL +         /* inject time parameter */
+   |
+
+error: aborting due to 10 previous errors; 3 warnings emitted
 

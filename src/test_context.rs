@@ -53,6 +53,21 @@ pub(crate) fn hir_attrs_indicate_test(sess: &Session, attrs: &[hir::Attribute]) 
     attrs.iter().any(|attr| hir_attr_indicates_test(sess, attr))
 }
 
+/// Early-pass counterpart of [`hir_attrs_indicate_test`]: whether AST
+/// attributes mark an item as test-only, through `#[test]` or a `cfg` that
+/// can only hold under `cfg(test)`. Expansion renames a satisfied `#[cfg]` to
+/// a `cfg_trace` attribute that keeps the original source span.
+pub(crate) fn ast_attrs_indicate_test(sess: &Session, attrs: &[rustc_ast::Attribute]) -> bool {
+    attrs.iter().any(|attr| {
+        attr.has_name(sym::test)
+            || ((attr.has_name(sym::cfg) || attr.has_name(sym::cfg_trace))
+                && sess
+                    .source_map()
+                    .span_to_snippet(attr.span)
+                    .is_ok_and(|source| cfg_attr_source_requires_test(&source)))
+    })
+}
+
 pub(crate) fn late_hir_id_is_in_test_context(cx: &LateContext<'_>, hir_id: hir::HirId, _span: Span) -> bool {
     for (_, node) in cx.tcx.hir_parent_iter(hir_id) {
         let in_test = match node {
