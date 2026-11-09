@@ -248,6 +248,8 @@ pub(crate) struct ArchitectureCollector {
     type_ids: BTreeSet<String>,
     module_paths: BTreeSet<String>,
     selected_type_items: BTreeMap<String, (LocalDefId, String, String)>,
+    // `None` for the package's library target; see `cargo_target_qualifier`.
+    target_qualifier: Option<String>,
     incomplete: bool,
 }
 
@@ -261,10 +263,26 @@ impl ArchitectureCollector {
             type_ids: BTreeSet::new(),
             module_paths: BTreeSet::new(),
             selected_type_items: BTreeMap::new(),
+            target_qualifier: cargo_target_qualifier(
+                &selected.unit.target_kind,
+                &selected.unit.target_name,
+                selected.test_configuration,
+            ),
             incomplete: false,
             context,
             selected,
         }
+    }
+
+    fn item_identity(&self, qualified_path: &str, item_kind: ItemKind, signature_id: Option<&str>) -> String {
+        item_identity(
+            &self.selected.unit.package_name,
+            self.target_qualifier.as_deref(),
+            qualified_path,
+            item_kind,
+            signature_id,
+            &self.selected.unit.source_blake3,
+        )
     }
 
     fn collect_item(
@@ -278,13 +296,7 @@ impl ArchitectureCollector {
         let qualified_path = qualified_definition(cx, def_id.to_def_id());
         let span_id = self.collect_span(cx, span);
         let signature_id = signature.then(|| signature_shape_identity(cx, def_id));
-        let item_id = item_identity(
-            &self.selected.unit.package_name,
-            &qualified_path,
-            item_kind,
-            signature_id.as_deref(),
-            &self.selected.unit.source_blake3,
-        );
+        let item_id = self.item_identity(&qualified_path, item_kind, signature_id.as_deref());
         self.insert_item_identity(def_id, &item_id);
         if let Some(signature_id) = &signature_id {
             self.collect_signature(cx, def_id, &item_id, signature_id);
@@ -397,10 +409,19 @@ impl ArchitectureCollector {
         let display = resolved.to_string();
         let (definition_path, origin_crate, type_kind) =
             type_metadata(cx, resolved, &self.selected.unit.package_name, &self.context.selected_units);
-        let type_id = octet_architecture_ir::canonical_identity(
-            TYPE_ID_DOMAIN,
-            &(&display, &definition_path, &origin_crate, type_kind, &self.selected.unit.source_blake3),
-        )
+        // Types reached from the library crate keep their library identity in
+        // every unit; only definitions local to a non-library target are qualified.
+        let target_qualifier = self.target_qualifier.as_deref().filter(|_| mentions_local_definition(resolved));
+        let type_id = match target_qualifier {
+            None => octet_architecture_ir::canonical_identity(
+                TYPE_ID_DOMAIN,
+                &(&display, &definition_path, &origin_crate, type_kind, &self.selected.unit.source_blake3),
+            ),
+            Some(target) => octet_architecture_ir::canonical_identity(
+                TYPE_ID_DOMAIN,
+                &(target, &display, &definition_path, &origin_crate, type_kind, &self.selected.unit.source_blake3),
+            ),
+        }
         .expect("compiler type identity must serialize");
         if self.type_ids.contains(&type_id) {
             return type_id;
@@ -657,13 +678,7 @@ impl ArchitectureCollector {
         let qualified_path = qualified_definition(cx, def_id.to_def_id());
         let kind = def_kind_to_item_kind(cx.tcx.def_kind(def_id));
         let signature_id = matches!(kind, ItemKind::Function).then(|| signature_shape_identity(cx, def_id));
-        item_identity(
-            &self.selected.unit.package_name,
-            &qualified_path,
-            kind,
-            signature_id.as_deref(),
-            &self.selected.unit.source_blake3,
-        )
+        self.item_identity(&qualified_path, kind, signature_id.as_deref())
     }
 
     fn caller_item_id(&mut self, cx: &LateContext<'_>, hir_id: hir::HirId) -> String {
@@ -676,13 +691,7 @@ impl ArchitectureCollector {
             let span_id = self.collect_span(cx, span);
             let qualified_path =
                 closure_qualified_path(cx, span, &self.selected.unit.package_name, &self.context.workspace_root);
-            let item_id = item_identity(
-                &self.selected.unit.package_name,
-                &qualified_path,
-                ItemKind::Other,
-                None,
-                &self.selected.unit.source_blake3,
-            );
+            let item_id = self.item_identity(&qualified_path, ItemKind::Other, None);
             let mut fact = CompilerArchitectureFact::Item {
                 fact_id: String::new(),
                 item_id: item_id.clone(),
@@ -1740,18 +1749,59 @@ fn item_kind(kind: &hir::ItemKind<'_>) -> (ItemKind, bool) {
     }
 }
 
+const LIBRARY_TARGET_KINDS: &[&str] = &["lib", "rlib", "dylib", "cdylib", "staticlib", "proc-macro"];
+
+// r[impl octet.compiler_architecture_ir.identity]
+// A package has at most one library target, so its identities stay
+// package-scoped. Binaries, examples, tests, benches, and build scripts
+// compile as separate crates that can reuse the library's crate name, so their
+// identities name the Cargo target. A test configuration keeps its target's
+// identities, as it does for the production obligations it retains.
+fn cargo_target_qualifier(target_kind: &str, target_name: &str, test_configuration: bool) -> Option<String> {
+    let kind = if test_configuration {
+        target_kind.strip_suffix("+test").unwrap_or(target_kind)
+    } else {
+        target_kind
+    };
+    let library = kind.split('+').all(|current| LIBRARY_TARGET_KINDS.contains(&current));
+    (!library).then(|| format!("{kind}:{target_name}"))
+}
+
 fn item_identity(
     package_name: &str,
+    target_qualifier: Option<&str>,
     qualified_path: &str,
     item_kind: ItemKind,
     signature_id: Option<&str>,
     source_blake3: &str,
 ) -> String {
-    octet_architecture_ir::canonical_identity(
-        ITEM_ID_DOMAIN,
-        &(package_name, qualified_path, item_kind, signature_id, source_blake3),
-    )
+    match target_qualifier {
+        None => octet_architecture_ir::canonical_identity(
+            ITEM_ID_DOMAIN,
+            &(package_name, qualified_path, item_kind, signature_id, source_blake3),
+        ),
+        Some(target) => octet_architecture_ir::canonical_identity(
+            ITEM_ID_DOMAIN,
+            &(package_name, target, qualified_path, item_kind, signature_id, source_blake3),
+        ),
+    }
     .expect("compiler item identity must serialize")
+}
+
+// Whether a type names a definition from the crate being compiled.
+fn mentions_local_definition(resolved: Ty<'_>) -> bool {
+    resolved.walk().filter_map(ty::GenericArg::as_type).any(|current| match current.kind() {
+        ty::Adt(definition, _) => definition.did().is_local(),
+        ty::Foreign(def_id)
+        | ty::FnDef(def_id, _)
+        | ty::Closure(def_id, _)
+        | ty::CoroutineClosure(def_id, _)
+        | ty::Coroutine(def_id, _)
+        | ty::CoroutineWitness(def_id, _) => def_id.is_local(),
+        ty::Alias(_, alias) => alias.def_id.is_local(),
+        ty::Dynamic(predicates, _) => predicates.principal_def_id().is_some_and(DefId::is_local),
+        _ => false,
+    })
 }
 
 fn signature_shape_identity(cx: &LateContext<'_>, def_id: LocalDefId) -> String {
@@ -2220,6 +2270,34 @@ mod tests {
         ] {
             assert_eq!(effect_family(definition), None, "{definition}");
         }
+    }
+
+    // r[verify octet.compiler_architecture_ir.identity]
+    #[test]
+    fn only_non_library_targets_qualify_identities() {
+        for (kind, test) in [
+            ("lib", false),
+            ("lib+test", true),
+            ("rlib", false),
+            ("cdylib+rlib", false),
+            ("proc-macro", false),
+            ("proc-macro+test", true),
+        ] {
+            assert_eq!(cargo_target_qualifier(kind, "fixture", test), None, "{kind}");
+        }
+        for (kind, test, qualifier) in [
+            ("bin", false, "bin:fixture"),
+            ("bin+test", true, "bin:fixture"),
+            ("test+test", true, "test:fixture"),
+            ("example", false, "example:fixture"),
+            ("bench", false, "bench:fixture"),
+            ("custom-build", false, "custom-build:fixture"),
+        ] {
+            assert_eq!(cargo_target_qualifier(kind, "fixture", test).as_deref(), Some(qualifier), "{kind}");
+        }
+        let identity = |target| item_identity("fixture", target, "fixture::run", ItemKind::Function, None, "source");
+        assert_ne!(identity(None), identity(Some("bin:fixture")));
+        assert_ne!(identity(Some("bin:fixture")), identity(Some("example:fixture")));
     }
 
     fn selected_unit(package: &str, crate_name: &str, crate_type: &str, test: bool) -> CollectorCompilationUnit {

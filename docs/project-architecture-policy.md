@@ -103,6 +103,10 @@ Closures keep their separate identities, and selected value-provenance facts obs
 Each selected value-provenance fact references a recorded type: a tracked type from another crate, including one passed by reference, is recorded with its defining crate.
 This repair does not change targets, roles, exemptions, or schemas.
 
+Item identities, and the identities of types defined in the compiled crate, are package-scoped for a package's library target.
+Binary, example, test, bench, and build-script targets compile as separate crates that can share the library's crate name, so their identities also bind the Cargo target kind and name.
+A `src/main.rs` item therefore never shares an identity with a same-named `src/lib.rs` item. A target's test configuration keeps that target's identities.
+
 The collector classifies the root `getrandom` functions `fill`, `fill_uninit`, `u32`, and `u64` as randomness effects.
 It uses the defining crate and root-function shape from compiler metadata, because diagnostic paths can retain consumer aliases.
 Recorded call and effect paths remain equal. Their callers, spans, and production unit memberships remain attached.

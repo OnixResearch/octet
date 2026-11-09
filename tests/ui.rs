@@ -1084,6 +1084,21 @@ fn compiler_item_id<'a>(shard: &'a CompilerArchitectureShard, qualified_path: &s
     item_id
 }
 
+fn compiler_type_id<'a>(shard: &'a CompilerArchitectureShard, definition_path: &str) -> &'a str {
+    shard
+        .facts
+        .iter()
+        .find_map(|fact| match fact {
+            CompilerArchitectureFact::Type {
+                type_id,
+                definition_path: Some(current),
+                ..
+            } if current == definition_path => Some(type_id.as_str()),
+            _ => None,
+        })
+        .unwrap_or_else(|| panic!("missing type {definition_path}: {:#?}", shard.facts))
+}
+
 fn compiler_effects(
     shard: &CompilerArchitectureShard,
 ) -> std::collections::BTreeSet<(&str, octet_architecture_ir::CapabilityFamily, &str)> {
@@ -1307,6 +1322,43 @@ fn compiler_architecture_value_flow_limits_mark_shard_incomplete() {
         assert!(limited(&shard), "{bound}: {:#?}", shard.unknowns);
         assert_eq!(shard.collection_status, CollectionStatus::Incomplete, "{bound}");
     }
+}
+
+#[test]
+#[ignore = "run via cargo test --test ui compiler_architecture -- --ignored --nocapture"]
+fn compiler_architecture_library_and_binary_identities_differ() {
+    let toolchain = rustup_toolchain();
+    let library = build_library(&toolchain);
+    let host = host_triple();
+    let driver = build_driver(&toolchain);
+    // One source compiled as a library and as a binary shares its crate name,
+    // as `src/lib.rs` and `src/main.rs` do in one package.
+    let compile = |crate_type, test_configuration| {
+        run_compiler_architecture_target(
+            &driver,
+            &library,
+            &host,
+            CompilerFixtureTarget {
+                crate_type,
+                test_configuration,
+                ..library_fixture("targets/shared_crate_name.rs")
+            },
+            Vec::new(),
+        )
+    };
+    let lib = compile("rlib", false);
+    let lib_test = compile("rlib", true);
+    let bin = compile("bin", false);
+    let bin_test = compile("bin", true);
+    let run = "shared_crate_name::run";
+    let settings = "shared_crate_name::Settings";
+    assert_ne!(compiler_item_id(&lib, run), compiler_item_id(&bin, run));
+    assert_ne!(compiler_type_id(&lib, settings), compiler_type_id(&bin, settings));
+    // Test configurations of one Cargo target keep that target's identities.
+    assert_eq!(compiler_item_id(&lib, run), compiler_item_id(&lib_test, run));
+    assert_eq!(compiler_type_id(&lib, settings), compiler_type_id(&lib_test, settings));
+    assert_eq!(compiler_item_id(&bin, run), compiler_item_id(&bin_test, run));
+    assert_eq!(compiler_type_id(&bin, settings), compiler_type_id(&bin_test, settings));
 }
 
 #[test]
