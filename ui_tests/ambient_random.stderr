@@ -1,5 +1,5 @@
 warning: direct randomness source `rand::thread_rng(` makes core behavior non-deterministic
-  --> $DIR/ambient_random.rs:58:16
+  --> $DIR/ambient_random.rs:60:16
    |
 LL |     let _rng = rand::thread_rng();
    |                ^^^^^^^^^^^^^^^^^^
@@ -9,7 +9,7 @@ LL |     let _rng = rand::thread_rng();
    = note: `#[warn(tigerstyle::ambient_random)]` on by default
 
 warning: direct randomness source `getrandom::fill(` makes core behavior non-deterministic
-  --> $DIR/ambient_random.rs:60:27
+  --> $DIR/ambient_random.rs:62:27
    |
 LL |     let _fill_succeeded = getrandom::fill(&mut bytes).is_ok();
    |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -18,7 +18,7 @@ LL |     let _fill_succeeded = getrandom::fill(&mut bytes).is_ok();
    = note: see Tiger Style guide: Functional Core / Imperative Shell
 
 warning: direct randomness source `rand::random(` makes core behavior non-deterministic
-  --> $DIR/ambient_random.rs:61:6
+  --> $DIR/ambient_random.rs:63:6
    |
 LL |     (rand::random(), uuid::Uuid::new_v4())
    |      ^^^^^^^^^^^^^^
@@ -27,7 +27,7 @@ LL |     (rand::random(), uuid::Uuid::new_v4())
    = note: see Tiger Style guide: Functional Core / Imperative Shell
 
 warning: direct randomness source `uuid::Uuid::new_v4(` makes core behavior non-deterministic
-  --> $DIR/ambient_random.rs:61:22
+  --> $DIR/ambient_random.rs:63:22
    |
 LL |     (rand::random(), uuid::Uuid::new_v4())
    |                      ^^^^^^^^^^^^^^^^^^^^
@@ -36,7 +36,7 @@ LL |     (rand::random(), uuid::Uuid::new_v4())
    = note: see Tiger Style guide: Functional Core / Imperative Shell
 
 warning: direct randomness source `rand::random(` makes core behavior non-deterministic
-  --> $DIR/ambient_random.rs:65:11
+  --> $DIR/ambient_random.rs:67:11
    |
 LL |     (Some(rand::random()), Ok(uuid::Uuid::new_v4()))
    |           ^^^^^^^^^^^^^^
@@ -45,7 +45,7 @@ LL |     (Some(rand::random()), Ok(uuid::Uuid::new_v4()))
    = note: see Tiger Style guide: Functional Core / Imperative Shell
 
 warning: direct randomness source `uuid::Uuid::new_v4(` makes core behavior non-deterministic
-  --> $DIR/ambient_random.rs:65:31
+  --> $DIR/ambient_random.rs:67:31
    |
 LL |     (Some(rand::random()), Ok(uuid::Uuid::new_v4()))
    |                               ^^^^^^^^^^^^^^^^^^^^
@@ -54,7 +54,7 @@ LL |     (Some(rand::random()), Ok(uuid::Uuid::new_v4()))
    = note: see Tiger Style guide: Functional Core / Imperative Shell
 
 warning: direct randomness source `fastrand::shuffle(` makes core behavior non-deterministic
-  --> $DIR/ambient_random.rs:69:5
+  --> $DIR/ambient_random.rs:71:5
    |
 LL |     fastrand::shuffle(items);
    |     ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -63,7 +63,7 @@ LL |     fastrand::shuffle(items);
    = note: see Tiger Style guide: Functional Core / Imperative Shell
 
 warning: direct randomness source `fastrand::u64(` makes core behavior non-deterministic
-  --> $DIR/ambient_random.rs:70:6
+  --> $DIR/ambient_random.rs:72:6
    |
 LL |     (fastrand::u64(..), fastrand::Rng::new())
    |      ^^^^^^^^^^^^^^^^^
@@ -72,7 +72,7 @@ LL |     (fastrand::u64(..), fastrand::Rng::new())
    = note: see Tiger Style guide: Functional Core / Imperative Shell
 
 warning: direct randomness source `fastrand::Rng::new(` makes core behavior non-deterministic
-  --> $DIR/ambient_random.rs:70:25
+  --> $DIR/ambient_random.rs:72:25
    |
 LL |     (fastrand::u64(..), fastrand::Rng::new())
    |                         ^^^^^^^^^^^^^^^^^^^^

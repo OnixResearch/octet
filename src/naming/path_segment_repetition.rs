@@ -170,12 +170,6 @@ fn item_path_segments(cx: &LateContext<'_>, item: &hir::Item<'_>, crate_name_seg
     segments
 }
 
-fn is_unrelated_fixture(cx: &LateContext<'_>, item: &hir::Item<'_>) -> bool {
-    let filename = cx.sess().source_map().span_to_filename(item.span);
-    let path = filename.prefer_local_unconditionally().to_string();
-    path.contains("tests/fixtures") || (path.contains("ui_tests/") && !path.contains("path_segment_repetition"))
-}
-
 impl<'tcx> LateLintPass<'tcx> for PathSegmentRepetition {
     fn check_crate(&mut self, cx: &LateContext<'tcx>) {
         let facts = CrateFacts {
@@ -198,7 +192,7 @@ impl<'tcx> LateLintPass<'tcx> for PathSegmentRepetition {
     }
 
     fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx hir::Item<'tcx>) {
-        if item.span.from_expansion() || is_unrelated_fixture(cx, item) {
+        if item.span.from_expansion() {
             return;
         }
 

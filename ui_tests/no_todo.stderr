@@ -1,5 +1,5 @@
 warning: `todo!()` marks unfinished production code
-  --> $DIR/no_todo.rs:3:5
+  --> $DIR/no_todo.rs:5:5
    |
 LL |     todo!("implement later");
    |     ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -15,7 +15,7 @@ LL +     return Err(/* TODO: implement error */);
    |
 
 warning: `todo!()` marks unfinished production code
-  --> $DIR/no_todo.rs:8:5
+  --> $DIR/no_todo.rs:10:5
    |
 LL |     todo!();
    |     ^^^^^^^
@@ -30,7 +30,7 @@ LL +     return Err(/* TODO: implement error */);
    |
 
 warning: `todo!()` marks unfinished production code
-  --> $DIR/no_todo.rs:13:5
+  --> $DIR/no_todo.rs:15:5
    |
 LL |     std::todo!("implement later");
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

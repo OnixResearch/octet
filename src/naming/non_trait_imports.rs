@@ -71,12 +71,6 @@ fn imports_trait(path: &hir::UsePath<'_>) -> bool {
         && (path.res.macro_ns.is_none() || is_derive_macro_res(path.res.macro_ns))
 }
 
-fn is_unrelated_ui_fixture(cx: &LateContext<'_>, item: &hir::Item<'_>) -> bool {
-    let filename = cx.sess().source_map().span_to_filename(item.span);
-    let path = filename.prefer_local_unconditionally().to_string();
-    path.contains("ui_tests/") && !path.contains("non_trait_imports")
-}
-
 fn imported_name(path: &hir::UsePath<'_>, ident: Ident) -> String {
     let segments = path_segments(path);
     let source = segments.last().cloned().unwrap_or_else(|| ident.name.as_str().to_owned());
@@ -95,7 +89,6 @@ impl<'tcx> LateLintPass<'tcx> for NonTraitImports {
 
         if item.span.from_expansion()
             || is_prelude(path)
-            || is_unrelated_ui_fixture(cx, item)
             || is_generated_source_span(cx.sess().source_map(), item.span, &self.workspace_root, self.exceptions)
             || cx.tcx.visibility(item.owner_id.def_id).is_public()
             || imports_trait(path)

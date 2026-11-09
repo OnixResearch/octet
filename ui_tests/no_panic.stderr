@@ -1,5 +1,5 @@
 warning: `panic!` will abort the process on execution
-  --> $DIR/no_panic.rs:3:5
+  --> $DIR/no_panic.rs:5:5
    |
 LL |     panic!("something went wrong");
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -9,7 +9,7 @@ LL |     panic!("something went wrong");
    = note: `#[warn(tigerstyle::no_panic)]` on by default
 
 warning: `unimplemented!` will abort the process on execution
-  --> $DIR/no_panic.rs:8:5
+  --> $DIR/no_panic.rs:10:5
    |
 LL |     unimplemented!("not done");
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -18,7 +18,7 @@ LL |     unimplemented!("not done");
    = note: see Tiger Style guide: Error Handling / Panics
 
 warning: `panic!` will abort the process on execution
-  --> $DIR/no_panic.rs:13:5
+  --> $DIR/no_panic.rs:15:5
    |
 LL |     panic!();
    |     ^^^^^^^^
@@ -27,7 +27,7 @@ LL |     panic!();
    = note: see Tiger Style guide: Error Handling / Panics
 
 warning: `unreachable!` will abort the process on execution
-  --> $DIR/no_panic.rs:18:5
+  --> $DIR/no_panic.rs:20:5
    |
 LL |     unreachable!();
    |     ^^^^^^^^^^^^^^
@@ -36,7 +36,7 @@ LL |     unreachable!();
    = note: see Tiger Style guide: Error Handling / Panics
 
 warning: `unimplemented!` will abort the process on execution
-  --> $DIR/no_panic.rs:23:5
+  --> $DIR/no_panic.rs:25:5
    |
 LL |     unimplemented!();
    |     ^^^^^^^^^^^^^^^^
@@ -45,7 +45,7 @@ LL |     unimplemented!();
    = note: see Tiger Style guide: Error Handling / Panics
 
 warning: `panic!` will abort the process on execution
-  --> $DIR/no_panic.rs:28:5
+  --> $DIR/no_panic.rs:30:5
    |
 LL |     std::panic!("qualified panic");
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -54,7 +54,7 @@ LL |     std::panic!("qualified panic");
    = note: see Tiger Style guide: Error Handling / Panics
 
 warning: `unreachable!` will abort the process on execution
-  --> $DIR/no_panic.rs:33:5
+  --> $DIR/no_panic.rs:35:5
    |
 LL |     core::unreachable!("qualified unreachable");
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

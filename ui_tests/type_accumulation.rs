@@ -1,4 +1,5 @@
 #![warn(type_accumulation)]
+#![allow(path_segment_repetition, reason = "fixture targets another lint; the import and path-naming lints have their own fixtures")]
 
 pub mod crowded {
     pub struct Thing;

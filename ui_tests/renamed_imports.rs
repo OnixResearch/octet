@@ -1,4 +1,5 @@
 #![allow(dead_code, unused_imports)]
+#![allow(non_trait_imports, path_segment_repetition, reason = "fixture targets another lint; the import and path-naming lints have their own fixtures")]
 
 mod transport {
     pub struct Config;

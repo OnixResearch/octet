@@ -333,6 +333,8 @@ The lint MUST allow public owner-type re-exports when the imported item is inten
 
 The lint MUST NOT warn on prelude imports or generated code.
 
+The lint MUST NOT exempt a file because of a substring of its source path: a downstream file such as `crates/gui_tests/src/lib.rs` or one under `tests/fixtures/` is checked like any other source.
+
 #### Scenario: Struct imported into local scope [r[non-trait-import-detection.scenario.struct-imported]]
 
 - GIVEN production code with `use crate::addr::Addr;` followed by local uses of `Addr`
@@ -362,6 +364,8 @@ The lint MUST NOT warn on `as _` trait imports used only for method resolution.
 The lint MUST NOT warn when the imported item is a public re-export that preserves a documented compatibility alias.
 
 The lint MUST treat an alias as documented when its doc comments, or the contiguous comment lines between and directly above its outer attributes, contain `compat` or `compatibility` as a whole word. Words inside other words, such as `compat` in `incompatible`, do not count. For an alias inside a `{...}` group, such as `pub use crate::octet::{Config as LegacyConfig};`, the comment lines above the whole `use` statement count, on one line or across several.
+
+The lint MUST NOT exempt a file because of a substring of its source path: a downstream file such as `crates/gui_tests/src/lib.rs` or one under `tests/fixtures/` is checked like any other source.
 
 #### Scenario: Renamed private import [r[renamed-import-detection.scenario.renamed-private-import]]
 
@@ -394,6 +398,8 @@ The crate name MUST count only for library crates and the `--test` build of a li
 The lint MUST NOT warn when the repeated word is required to disambiguate a public compatibility name or an externally mandated trait/API name.
 
 The lint MUST treat an item as such a name when its doc comments, or the contiguous comment lines between and directly above its outer attributes, contain `compat`, `compatibility`, `external`, `mandated`, or `api` as a whole word. Words inside other words, such as `api` in `rapid`, do not count.
+
+The lint MUST NOT exempt a file because of a substring of its source path: a downstream file such as `crates/gui_tests/src/lib.rs` or one under `tests/fixtures/` is checked like any other source.
 
 #### Scenario: Function repeats module name [r[path-segment-repetition-detection.scenario.function-repeats-module]]
 

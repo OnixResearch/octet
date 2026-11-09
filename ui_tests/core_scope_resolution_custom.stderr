@@ -3,7 +3,7 @@ warning: octet `core_source_scopes` entry `..` in `dylint.toml` resolves to a ta
 warning: octet `core_source_scopes` entry `ui_tests/..` in `dylint.toml` resolves to the workspace root itself, so it matches nothing; name a source directory or file below the root
 
 warning: core scope performs direct filesystem effect; inject a port or move the call to the shell
-  --> $DIR/core_scope_resolution_custom/core_scope_resolution_custom.rs:4:5
+  --> $DIR/core_scope_resolution_custom/core_scope_resolution_custom.rs:6:5
    |
 LL |     std::fs::read_to_string(path).unwrap_or_else(|_error| String::new())
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

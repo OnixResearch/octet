@@ -1,3 +1,5 @@
+#![allow(non_trait_imports, renamed_imports, reason = "fixture targets another lint; the import and path-naming lints have their own fixtures")]
+
 use std::sync::mpsc::channel as std_channel;
 
 use crossbeam::channel::unbounded as crossbeam_unbounded;

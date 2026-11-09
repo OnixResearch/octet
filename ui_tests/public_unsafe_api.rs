@@ -4,6 +4,7 @@
 #![allow(tigerstyle::no_panic)]
 #![allow(tigerstyle::unchecked_narrowing)]
 #![allow(tigerstyle::no_unwrap)]
+#![allow(path_segment_repetition, reason = "fixture targets another lint; the import and path-naming lints have their own fixtures")]
 
 pub unsafe fn read_public_raw(ptr: *const u8) -> u8 {
     unsafe { *ptr }

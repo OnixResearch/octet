@@ -1,5 +1,5 @@
 warning: core scope performs direct filesystem effect; inject a port or move the call to the shell
-  --> $DIR/impure_call_in_core/impure_call_in_core.rs:4:5
+  --> $DIR/impure_call_in_core/impure_call_in_core.rs:6:5
    |
 LL |     std::fs::read_to_string(path).unwrap_or_else(|_error| String::new())
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -9,7 +9,7 @@ LL |     std::fs::read_to_string(path).unwrap_or_else(|_error| String::new())
    = note: `#[warn(tigerstyle::impure_call_in_core)]` on by default
 
 warning: core scope performs direct filesystem effect; inject a port or move the call to the shell
-  --> $DIR/impure_call_in_core/impure_call_in_core.rs:8:13
+  --> $DIR/impure_call_in_core/impure_call_in_core.rs:10:13
    |
 LL |     Ok(Some(std::fs::read_to_string(path)?))
    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

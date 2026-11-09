@@ -1,5 +1,5 @@
 warning: `as usize` from `u32` is platform-dependent
-  --> $DIR/platform_dependent_cast.rs:7:5
+  --> $DIR/platform_dependent_cast.rs:9:5
    |
 LL |     x as usize
    |     ^^^^^^^^^^
@@ -15,7 +15,7 @@ LL +     usize::try_from(x).unwrap_or_else(|_| /* handle out-of-range value */)
    |
 
 warning: `as usize` from `u64` is platform-dependent
-  --> $DIR/platform_dependent_cast.rs:22:8
+  --> $DIR/platform_dependent_cast.rs:24:8
    |
 LL |     Ok(x as usize)
    |        ^^^^^^^^^^
@@ -30,7 +30,7 @@ LL +     Ok(usize::try_from(x)?)
    |
 
 warning: `as isize` from `i64` is platform-dependent
-  --> $DIR/platform_dependent_cast.rs:27:8
+  --> $DIR/platform_dependent_cast.rs:29:8
    |
 LL |     Ok(x as isize)
    |        ^^^^^^^^^^
@@ -45,7 +45,7 @@ LL +     Ok(isize::try_from(x)?)
    |
 
 warning: `as usize` from `u64` is platform-dependent
-  --> $DIR/platform_dependent_cast.rs:33:8
+  --> $DIR/platform_dependent_cast.rs:35:8
    |
 LL |     Ok(x as usize)
    |        ^^^^^^^^^^
@@ -60,7 +60,7 @@ LL +     Ok(usize::try_from(x).map_err(|_| /* error */)?)
    |
 
 warning: `as usize` from `u32` is platform-dependent
-  --> $DIR/platform_dependent_cast.rs:38:10
+  --> $DIR/platform_dependent_cast.rs:40:10
    |
 LL |     Some(x as usize)
    |          ^^^^^^^^^^
@@ -75,7 +75,7 @@ LL +     Some(usize::try_from(x).ok()?)
    |
 
 warning: `as usize` from `u32` is platform-dependent
-  --> $DIR/platform_dependent_cast.rs:43:55
+  --> $DIR/platform_dependent_cast.rs:45:55
    |
 LL |     values.iter().map(|value| -> Option<usize> { Some(*value as usize) }).collect()
    |                                                       ^^^^^^^^^^^^^^^
@@ -90,7 +90,7 @@ LL +     values.iter().map(|value| -> Option<usize> { Some(usize::try_from(*valu
    |
 
 warning: `as usize` from `u16` is platform-dependent
-  --> $DIR/platform_dependent_cast.rs:48:6
+  --> $DIR/platform_dependent_cast.rs:50:6
    |
 LL |     (x as usize, y as isize)
    |      ^^^^^^^^^^
@@ -105,7 +105,7 @@ LL +     (usize::from(x), y as isize)
    |
 
 warning: `as isize` from `i8` is platform-dependent
-  --> $DIR/platform_dependent_cast.rs:48:18
+  --> $DIR/platform_dependent_cast.rs:50:18
    |
 LL |     (x as usize, y as isize)
    |                  ^^^^^^^^^^
@@ -120,7 +120,7 @@ LL +     (x as usize, isize::from(y))
    |
 
 warning: `as usize` from `u32` is platform-dependent
-  --> $DIR/platform_dependent_cast.rs:52:26
+  --> $DIR/platform_dependent_cast.rs:54:26
    |
 LL | const CONST_LEN: usize = 4u32 as usize;
    |                          ^^^^^^^^^^^^^
@@ -129,7 +129,7 @@ LL | const CONST_LEN: usize = 4u32 as usize;
    = note: see Tiger Style guide: Explicit Types
 
 warning: `as usize` from `u8` is platform-dependent
-  --> $DIR/platform_dependent_cast.rs:58:9
+  --> $DIR/platform_dependent_cast.rs:60:9
    |
 LL |         $value as usize
    |         ^^^^^^^^^^^^^^^
@@ -142,7 +142,7 @@ LL |     (widen_index!(x), small_value!() as usize)
    = note: this warning originates in the macro `widen_index` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 warning: `as usize` from `u16` is platform-dependent
-  --> $DIR/platform_dependent_cast.rs:71:23
+  --> $DIR/platform_dependent_cast.rs:73:23
    |
 LL |     (widen_index!(x), small_value!() as usize)
    |                       ^^^^^^^^^^^^^^^^^^^^^^^

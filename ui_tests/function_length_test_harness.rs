@@ -1,3 +1,5 @@
+#![allow(path_segment_repetition, reason = "fixture targets another lint; the import and path-naming lints have their own fixtures")]
+
 // Compiled with `--test`: rustc consumes `#[test]` and registers each test
 // through a same-named sibling const, so the function itself keeps no test
 // attribute after expansion.

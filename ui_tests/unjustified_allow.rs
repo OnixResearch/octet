@@ -5,6 +5,7 @@
 
 // Should NOT warn: a crate-level allow with a justification comment.
 #![allow(clippy::pedantic)]
+#![allow(path_segment_repetition, reason = "fixture targets another lint; the import and path-naming lints have their own fixtures")]
 
 #[path = "unjustified_allow_clippy/src/path_module.rs"]
 mod path_module;

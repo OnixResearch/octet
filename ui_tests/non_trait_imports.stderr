@@ -1,5 +1,5 @@
 warning: non-trait import `Addr` hides the owner path; prefer the qualified path at the use site
-  --> $DIR/non_trait_imports.rs:23:1
+  --> $DIR/non_trait_imports.rs:24:1
    |
 LL | use crate::addr::Addr;
    | ^^^^^^^^^^^^^^^^^^^^^^
@@ -9,7 +9,7 @@ LL | use crate::addr::Addr;
    = note: `#[warn(tigerstyle::non_trait_imports)]` on by default
 
 warning: non-trait import `Registry` hides the owner path; prefer the qualified path at the use site
-  --> $DIR/non_trait_imports.rs:26:1
+  --> $DIR/non_trait_imports.rs:27:1
    |
 LL | use crate::registry::Registry;
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

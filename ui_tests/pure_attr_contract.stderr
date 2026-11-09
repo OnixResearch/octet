@@ -1,5 +1,5 @@
 warning: marked pure function contains direct filesystem impurity; this lint checks direct effects only, not transitive proof
-  --> $DIR/pure_attr_contract/pure_attr_contract.rs:11:1
+  --> $DIR/pure_attr_contract/pure_attr_contract.rs:12:1
    |
 LL | / fn pure_reads_file() {
 LL | |     let _bytes = std::fs::read("state.bin");
@@ -11,7 +11,7 @@ LL | | }
    = note: `#[warn(tigerstyle::pure_attr_contract)]` on by default
 
 warning: marked pure function contains direct environment impurity; this lint checks direct effects only, not transitive proof
-  --> $DIR/pure_attr_contract/pure_attr_contract.rs:16:1
+  --> $DIR/pure_attr_contract/pure_attr_contract.rs:17:1
    |
 LL | / fn pure_reads_env() {
 LL | |     let _home = std::env::var("HOME");
@@ -22,7 +22,7 @@ LL | | }
    = note: see Tiger Style guide: Functional Core / Imperative Shell
 
 warning: marked pure function contains direct randomness impurity; this lint checks direct effects only, not transitive proof
-  --> $DIR/pure_attr_contract/pure_attr_contract.rs:21:1
+  --> $DIR/pure_attr_contract/pure_attr_contract.rs:22:1
    |
 LL | / fn pure_random() -> u64 {
 LL | |     rand::random()
@@ -33,7 +33,7 @@ LL | | }
    = note: see Tiger Style guide: Functional Core / Imperative Shell
 
 warning: marked pure function contains direct logging impurity; this lint checks direct effects only, not transitive proof
-  --> $DIR/pure_attr_contract/pure_attr_contract.rs:26:1
+  --> $DIR/pure_attr_contract/pure_attr_contract.rs:27:1
    |
 LL | / fn pure_logs(value: u64) {
 LL | |     println!("{value}");
@@ -44,7 +44,7 @@ LL | | }
    = note: see Tiger Style guide: Functional Core / Imperative Shell
 
 warning: marked pure function contains direct logging impurity; this lint checks direct effects only, not transitive proof
-  --> $DIR/pure_attr_contract/pure_attr_contract.rs:31:1
+  --> $DIR/pure_attr_contract/pure_attr_contract.rs:32:1
    |
 LL | / fn pure_prints(value: u64) {
 LL | |     print!("{value}");
@@ -55,7 +55,7 @@ LL | | }
    = note: see Tiger Style guide: Functional Core / Imperative Shell
 
 warning: marked pure function contains direct logging impurity; this lint checks direct effects only, not transitive proof
-  --> $DIR/pure_attr_contract/pure_attr_contract.rs:36:1
+  --> $DIR/pure_attr_contract/pure_attr_contract.rs:37:1
    |
 LL | / fn pure_eprints(value: u64) {
 LL | |     eprint!("{value}");
@@ -66,7 +66,7 @@ LL | | }
    = note: see Tiger Style guide: Functional Core / Imperative Shell
 
 warning: marked pure function contains direct task spawning impurity; this lint checks direct effects only, not transitive proof
-  --> $DIR/pure_attr_contract/pure_attr_contract.rs:41:1
+  --> $DIR/pure_attr_contract/pure_attr_contract.rs:42:1
    |
 LL | / fn pure_spawns() {
 LL | |     let _handle = std::thread::spawn(|| {});
@@ -77,7 +77,7 @@ LL | | }
    = note: see Tiger Style guide: Functional Core / Imperative Shell
 
 warning: marked pure function contains direct global state impurity; this lint checks direct effects only, not transitive proof
-  --> $DIR/pure_attr_contract/pure_attr_contract.rs:46:1
+  --> $DIR/pure_attr_contract/pure_attr_contract.rs:47:1
    |
 LL | / fn pure_global_state() {
 LL | |     static mut VALUE: u64 = 0;
@@ -89,7 +89,7 @@ LL | | }
    = note: see Tiger Style guide: Functional Core / Imperative Shell
 
 warning: marked pure function contains direct interior mutability impurity; this lint checks direct effects only, not transitive proof
-  --> $DIR/pure_attr_contract/pure_attr_contract.rs:52:1
+  --> $DIR/pure_attr_contract/pure_attr_contract.rs:53:1
    |
 LL | / fn pure_interior_mutability() {
 LL | |     let _cell = std::cell::RefCell::new(0);
@@ -100,7 +100,7 @@ LL | | }
    = note: see Tiger Style guide: Functional Core / Imperative Shell
 
 warning: marked pure function contains direct mutating input impurity; this lint checks direct effects only, not transitive proof
-  --> $DIR/pure_attr_contract/pure_attr_contract.rs:57:1
+  --> $DIR/pure_attr_contract/pure_attr_contract.rs:58:1
    |
 LL | / fn pure_mutating_input(counter: &mut u64) -> u64 {
 LL | |     *counter
@@ -111,7 +111,7 @@ LL | | }
    = note: see Tiger Style guide: Functional Core / Imperative Shell
 
 warning: marked pure function contains direct panic impurity; this lint checks direct effects only, not transitive proof
-  --> $DIR/pure_attr_contract/pure_attr_contract.rs:62:1
+  --> $DIR/pure_attr_contract/pure_attr_contract.rs:63:1
    |
 LL | / fn pure_panics() {
 LL | |     panic!("pure panic");
@@ -122,7 +122,7 @@ LL | | }
    = note: see Tiger Style guide: Functional Core / Imperative Shell
 
 warning: marked pure function contains direct resource return impurity; this lint checks direct effects only, not transitive proof
-  --> $DIR/pure_attr_contract/pure_attr_contract.rs:67:1
+  --> $DIR/pure_attr_contract/pure_attr_contract.rs:68:1
    |
 LL | / fn pure_returns_file() -> std::fs::File {
 LL | |     loop {}
@@ -133,7 +133,7 @@ LL | | }
    = note: see Tiger Style guide: Functional Core / Imperative Shell
 
 warning: marked pure function contains direct environment impurity; this lint checks direct effects only, not transitive proof
-  --> $DIR/pure_attr_contract/pure_attr_contract.rs:86:5
+  --> $DIR/pure_attr_contract/pure_attr_contract.rs:87:5
    |
 LL | /     fn impure_helper() {
 LL | |         let _home = std::env::var("HOME");

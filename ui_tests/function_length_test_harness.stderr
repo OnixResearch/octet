@@ -1,5 +1,5 @@
 warning: function `long_helper_in_harness` is 72 lines (limit: 70)
-  --> $DIR/function_length_test_harness.rs:83:29
+  --> $DIR/function_length_test_harness.rs:85:29
    |
 LL |   fn long_helper_in_harness() {
    |  _____________________________^
@@ -16,7 +16,7 @@ LL | | }
    = note: `#[warn(tigerstyle::function_length)]` on by default
 
 warning: function `long_harness_test` is 72 lines (limit: 70)
-  --> $DIR/function_length_test_harness.rs:160:39
+  --> $DIR/function_length_test_harness.rs:162:39
    |
 LL |       pub(super) fn long_harness_test() {
    |  _______________________________________^

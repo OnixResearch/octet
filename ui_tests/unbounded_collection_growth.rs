@@ -1,4 +1,5 @@
 #![allow(explicit_defaults, no_unwrap, unbounded_loop)]
+#![allow(non_trait_imports, reason = "fixture targets another lint; the import and path-naming lints have their own fixtures")]
 
 use std::collections::BTreeMap;
 use std::collections::HashMap;

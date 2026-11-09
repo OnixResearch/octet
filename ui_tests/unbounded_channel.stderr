@@ -1,5 +1,5 @@
 warning: unbounded channel — use a bounded channel with explicit capacity
-  --> $DIR/unbounded_channel/unbounded_channel.rs:7:13
+  --> $DIR/unbounded_channel/unbounded_channel.rs:9:13
    |
 LL |     let _ = std_channel::<u8>();
    |             ^^^^^^^^^^^^^^^^^^^
@@ -15,7 +15,7 @@ LL +     let _ = std::sync::mpsc::sync_channel::<u8>(/* CAPACITY */);
    |
 
 warning: unbounded channel — use a bounded channel with explicit capacity
-  --> $DIR/unbounded_channel/unbounded_channel.rs:11:13
+  --> $DIR/unbounded_channel/unbounded_channel.rs:13:13
    |
 LL |     let _ = crossbeam_unbounded::<u8>();
    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -30,7 +30,7 @@ LL +     let _ = crossbeam::channel::bounded::<u8>(/* CAPACITY */);
    |
 
 warning: unbounded channel — use a bounded channel with explicit capacity
-  --> $DIR/unbounded_channel/unbounded_channel.rs:15:13
+  --> $DIR/unbounded_channel/unbounded_channel.rs:17:13
    |
 LL |     let _ = tokio_unbounded_channel::<u8>();
    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -45,7 +45,7 @@ LL +     let _ = tokio::sync::mpsc::channel::<u8>(/* CAPACITY */);
    |
 
 warning: unbounded channel — use a bounded channel with explicit capacity
-  --> $DIR/unbounded_channel/unbounded_channel.rs:24:13
+  --> $DIR/unbounded_channel/unbounded_channel.rs:26:13
    |
 LL |     let _ = std::sync::mpsc::channel::<()>();
    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -60,7 +60,7 @@ LL +     let _ = std::sync::mpsc::sync_channel::<()>(/* CAPACITY */);
    |
 
 warning: unbounded channel — use a bounded channel with explicit capacity
-  --> $DIR/unbounded_channel/unbounded_channel.rs:40:13
+  --> $DIR/unbounded_channel/unbounded_channel.rs:42:13
    |
 LL |     let _ = unbounded::<u8>();
    |             ^^^^^^^^^^^^^^^^^
@@ -75,7 +75,7 @@ LL +     let _ = crossbeam::channel::bounded::<u8>(/* CAPACITY */);
    |
 
 warning: unbounded channel — use a bounded channel with explicit capacity
-  --> $DIR/unbounded_channel/unbounded_channel.rs:45:13
+  --> $DIR/unbounded_channel/unbounded_channel.rs:47:13
    |
 LL |     let _ = tokio_mpsc::unbounded_channel::<u8>();
    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -90,7 +90,7 @@ LL +     let _ = tokio_mpsc::channel::<u8>(/* CAPACITY */);
    |
 
 warning: unbounded channel — use a bounded channel with explicit capacity
-  --> $DIR/unbounded_channel/unbounded_channel.rs:57:13
+  --> $DIR/unbounded_channel/unbounded_channel.rs:59:13
    |
 LL |     let _ = queues::make_queue::<u8>();
    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -105,7 +105,7 @@ LL +     let _ = std::sync::mpsc::sync_channel::<u8>(/* CAPACITY */);
    |
 
 warning: unbounded channel — use a bounded channel with explicit capacity
-  --> $DIR/unbounded_channel/unbounded_channel.rs:62:13
+  --> $DIR/unbounded_channel/unbounded_channel.rs:64:13
    |
 LL |     let _ = local_queue::<u8>();
    |             ^^^^^^^^^^^^^^^^^^^
@@ -120,7 +120,7 @@ LL +     let _ = std::sync::mpsc::sync_channel::<u8>(/* CAPACITY */);
    |
 
 warning: unbounded channel — use a bounded channel with explicit capacity
-  --> $DIR/unbounded_channel/unbounded_channel.rs:67:13
+  --> $DIR/unbounded_channel/unbounded_channel.rs:69:13
    |
 LL |     let _ = queues::channel::<u8>();
    |             ^^^^^^^^^^^^^^^^^^^^^^^
@@ -135,7 +135,7 @@ LL +     let _ = std::sync::mpsc::sync_channel::<u8>(/* CAPACITY */);
    |
 
 warning: unbounded channel — use a bounded channel with explicit capacity
-  --> $DIR/unbounded_channel/unbounded_channel.rs:72:13
+  --> $DIR/unbounded_channel/unbounded_channel.rs:74:13
    |
 LL |     let _ = crate::queues::channel::<u8>();
    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -150,7 +150,7 @@ LL +     let _ = std::sync::mpsc::sync_channel::<u8>(/* CAPACITY */);
    |
 
 warning: unbounded channel — use a bounded channel with explicit capacity
-  --> $DIR/unbounded_channel/unbounded_channel.rs:81:13
+  --> $DIR/unbounded_channel/unbounded_channel.rs:83:13
    |
 LL |     let _ = bounded_queues::channel::<u8>();
    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

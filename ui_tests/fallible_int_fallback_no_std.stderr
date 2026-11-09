@@ -1,5 +1,5 @@
 warning: fallible integer conversion hides an out-of-range error behind a sentinel fallback
-  --> $DIR/fallible_int_fallback_no_std.rs:8:5
+  --> $DIR/fallible_int_fallback_no_std.rs:9:5
    |
 LL |     u32::try_from(count).unwrap_or(0)
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -9,7 +9,7 @@ LL |     u32::try_from(count).unwrap_or(0)
    = note: `#[warn(tigerstyle::fallible_int_fallback)]` on by default
 
 warning: fallible integer conversion hides an out-of-range error behind a sentinel fallback
-  --> $DIR/fallible_int_fallback_no_std.rs:12:5
+  --> $DIR/fallible_int_fallback_no_std.rs:13:5
    |
 LL |     u8::try_from(count).unwrap_or(u8::MAX)
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -18,7 +18,7 @@ LL |     u8::try_from(count).unwrap_or(u8::MAX)
    = note: see Tiger Style guide: Error Handling
 
 warning: fallible integer conversion hides an out-of-range error behind a default fallback
-  --> $DIR/fallible_int_fallback_no_std.rs:16:5
+  --> $DIR/fallible_int_fallback_no_std.rs:17:5
    |
 LL |     u16::try_from(count).unwrap_or_default()
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

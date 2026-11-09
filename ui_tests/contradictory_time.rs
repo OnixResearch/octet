@@ -1,4 +1,5 @@
 #![allow(ambient_clock)]
+#![allow(non_trait_imports, reason = "fixture targets another lint; the import and path-naming lints have their own fixtures")]
 
 use std::time::Duration;
 use std::time::Instant;

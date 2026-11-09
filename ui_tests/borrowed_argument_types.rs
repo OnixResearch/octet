@@ -1,4 +1,5 @@
 #![allow(improper_ctypes_definitions, missing_abi)]
+#![allow(non_trait_imports, reason = "fixture targets another lint; the import and path-naming lints have their own fixtures")]
 
 use std::path::Path;
 use std::path::PathBuf;

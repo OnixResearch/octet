@@ -1,5 +1,5 @@
 error: system time access in verified module
-  --> $DIR/verified/verified_purity.rs:3:5
+  --> $DIR/verified/verified_purity.rs:5:5
    |
 LL | use std::time::Instant;
    |     ^^^^^^^^^^^^^^^^^^
@@ -9,7 +9,7 @@ LL | use std::time::Instant;
    = note: `#[deny(tigerstyle::verified_purity)]` on by default
 
 error: I/O operation in verified module
-  --> $DIR/verified/verified_purity.rs:5:5
+  --> $DIR/verified/verified_purity.rs:7:5
    |
 LL | use std::fs::File;
    |     ^^^^^^^^^^^^^
@@ -18,7 +18,7 @@ LL | use std::fs::File;
    = note: see Tiger Style guide: Verified Module Purity
 
 error: I/O operation in verified module
-  --> $DIR/verified/verified_purity.rs:7:11
+  --> $DIR/verified/verified_purity.rs:9:11
    |
 LL | use std::{fs, time::SystemTime};
    |           ^^
@@ -27,7 +27,7 @@ LL | use std::{fs, time::SystemTime};
    = note: see Tiger Style guide: Verified Module Purity
 
 error: system time access in verified module
-  --> $DIR/verified/verified_purity.rs:7:15
+  --> $DIR/verified/verified_purity.rs:9:15
    |
 LL | use std::{fs, time::SystemTime};
    |               ^^^^^^^^^^^^^^^^
@@ -36,7 +36,7 @@ LL | use std::{fs, time::SystemTime};
    = note: see Tiger Style guide: Verified Module Purity
 
 error: async function in verified module
-  --> $DIR/verified/verified_purity.rs:9:1
+  --> $DIR/verified/verified_purity.rs:11:1
    |
 LL | / pub async fn impure_async() {
 LL | |     // Should error: async fn in verified module
@@ -47,7 +47,7 @@ LL | | }
    = note: see Tiger Style guide: Verified Module Purity
 
 error: async function in verified module
-  --> $DIR/verified/verified_purity.rs:30:5
+  --> $DIR/verified/verified_purity.rs:32:5
    |
 LL |     async fn sync_remote(&self) {}
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -56,7 +56,7 @@ LL |     async fn sync_remote(&self) {}
    = note: see Tiger Style guide: Verified Module Purity
 
 error: async function in verified module
-  --> $DIR/verified/verified_purity.rs:35:5
+  --> $DIR/verified/verified_purity.rs:37:5
    |
 LL |     async fn load(&self) -> u64;
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -65,7 +65,7 @@ LL |     async fn load(&self) -> u64;
    = note: see Tiger Style guide: Verified Module Purity
 
 error: async block in verified module
-  --> $DIR/verified/verified_purity.rs:40:5
+  --> $DIR/verified/verified_purity.rs:42:5
    |
 LL |     async move { 1 }
    |     ^^^^^^^^^^^^^^^^
@@ -74,7 +74,7 @@ LL |     async move { 1 }
    = note: see Tiger Style guide: Verified Module Purity
 
 error: system time access in verified module
-  --> $DIR/verified/verified_purity.rs:54:9
+  --> $DIR/verified/verified_purity.rs:56:9
    |
 LL |         time::Instant::now()
    |         ^^^^^^^^^^^^^^^^^^
@@ -83,7 +83,7 @@ LL |         time::Instant::now()
    = note: see Tiger Style guide: Verified Module Purity
 
 error: system time access in verified module
-  --> $DIR/verified/verified_purity.rs:69:9
+  --> $DIR/verified/verified_purity.rs:71:9
    |
 LL |         SystemTime::now()
    |         ^^^^^^^^^^^^^^^
@@ -92,7 +92,7 @@ LL |         SystemTime::now()
    = note: see Tiger Style guide: Verified Module Purity
 
 warning: direct system clock read in production code
-  --> $DIR/verified/verified_purity.rs:19:5
+  --> $DIR/verified/verified_purity.rs:21:5
    |
 LL |     Instant::now()
    |     ^^^^^^^^^^^^^^
@@ -108,7 +108,7 @@ LL +     /* inject time parameter */
    |
 
 warning: direct system clock read in production code
-  --> $DIR/verified/verified_purity.rs:54:9
+  --> $DIR/verified/verified_purity.rs:56:9
    |
 LL |         time::Instant::now()
    |         ^^^^^^^^^^^^^^^^^^^^
@@ -123,7 +123,7 @@ LL +         /* inject time parameter */
    |
 
 warning: direct system clock read in production code
-  --> $DIR/verified/verified_purity.rs:69:9
+  --> $DIR/verified/verified_purity.rs:71:9
    |
 LL |         SystemTime::now()
    |         ^^^^^^^^^^^^^^^^^

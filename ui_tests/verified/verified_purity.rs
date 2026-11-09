@@ -1,3 +1,5 @@
+#![allow(non_trait_imports, path_segment_repetition, reason = "fixture targets another lint; the import and path-naming lints have their own fixtures")]
+
 use std::time::Duration;
 // Should error: importing a wall-clock type is itself the violation.
 use std::time::Instant;

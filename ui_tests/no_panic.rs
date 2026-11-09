@@ -1,3 +1,5 @@
+#![allow(path_segment_repetition, reason = "fixture targets another lint; the import and path-naming lints have their own fixtures")]
+
 fn will_panic() {
     // Should warn: panic! in production code
     panic!("something went wrong");

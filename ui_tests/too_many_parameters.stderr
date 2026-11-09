@@ -1,5 +1,5 @@
 warning: function has 6 parameters (limit: 5) — consider an options struct
-  --> $DIR/too_many_parameters.rs:4:1
+  --> $DIR/too_many_parameters.rs:6:1
    |
 LL | / fn connect(host: &str, port: u16, timeout_ms: u64, retries: u32, tls: bool, proxy: &str) {
 LL | |     let _ = (host, port, timeout_ms, retries, tls, proxy);
@@ -11,7 +11,7 @@ LL | | }
    = note: `#[warn(tigerstyle::too_many_parameters)]` on by default
 
 warning: function has 6 parameters (limit: 5) — consider an options struct
-  --> $DIR/too_many_parameters.rs:15:5
+  --> $DIR/too_many_parameters.rs:17:5
    |
 LL | /     fn method(&self, host: &str, port: u16, timeout_ms: u64, retries: u32, tls: bool, proxy: &str) {
 LL | |         let _ = (host, port, timeout_ms, retries, tls, proxy);
@@ -22,7 +22,7 @@ LL | |     }
    = note: see Tiger Style guide: Explicit Interfaces
 
 warning: function has 6 parameters (limit: 5) — consider an options struct
-  --> $DIR/too_many_parameters.rs:39:5
+  --> $DIR/too_many_parameters.rs:41:5
    |
 LL | /     fn build(host: &str, port: u16, timeout_ms: u64, retries: u32, tls: bool, proxy: &str) -> Self {
 LL | |         let _ = (host, port, timeout_ms, retries, tls, proxy);
@@ -34,7 +34,7 @@ LL | |     }
    = note: see Tiger Style guide: Explicit Interfaces
 
 warning: function has 6 parameters (limit: 5) — consider an options struct
-  --> $DIR/too_many_parameters.rs:51:5
+  --> $DIR/too_many_parameters.rs:53:5
    |
 LL |     fn connect(&self, host: &str, port: u16, timeout_ms: u64, retries: u32, tls: bool, proxy: &str);
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

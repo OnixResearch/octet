@@ -1,5 +1,5 @@
 warning: function takes time parameter `now_ms` but also reads system time
-  --> $DIR/contradictory_time.rs:8:14
+  --> $DIR/contradictory_time.rs:9:14
    |
 LL |     let _t = Instant::now();
    |              ^^^^^^^^^^^^^^
@@ -15,7 +15,7 @@ LL +     let _t = now_ms;
    |
 
 warning: function takes time parameter `timestamp` but also reads system time
-  --> $DIR/contradictory_time.rs:24:14
+  --> $DIR/contradictory_time.rs:25:14
    |
 LL |     let _t = std::time::SystemTime::now();
    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -30,7 +30,7 @@ LL +     let _t = timestamp;
    |
 
 warning: function takes time parameter `elapsed` but also reads system time
-  --> $DIR/contradictory_time.rs:32:14
+  --> $DIR/contradictory_time.rs:33:14
    |
 LL |     let _t = Monotonic::now();
    |              ^^^^^^^^^^^^^^^^
@@ -45,7 +45,7 @@ LL +     let _t = elapsed;
    |
 
 warning: function takes time parameter `now_ms` but also reads system time
-  --> $DIR/contradictory_time.rs:68:14
+  --> $DIR/contradictory_time.rs:69:14
    |
 LL |     let _t = Instant::now();
    |              ^^^^^^^^^^^^^^
@@ -60,7 +60,7 @@ LL +     let _t = now_ms;
    |
 
 warning: function takes time parameter `deadline_ms` but also reads system time
-  --> $DIR/contradictory_time.rs:75:18
+  --> $DIR/contradictory_time.rs:76:18
    |
 LL |         let _t = std::time::SystemTime::now();
    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -75,7 +75,7 @@ LL +         let _t = deadline_ms;
    |
 
 warning: function takes time parameter `timeout_ms` but also reads system time
-  --> $DIR/contradictory_time.rs:83:18
+  --> $DIR/contradictory_time.rs:84:18
    |
 LL |         let _t = Instant::now();
    |                  ^^^^^^^^^^^^^^
@@ -90,7 +90,7 @@ LL +         let _t = timeout_ms;
    |
 
 warning: function takes time parameter `now_ms` but also reads system time
-  --> $DIR/contradictory_time.rs:97:18
+  --> $DIR/contradictory_time.rs:98:18
    |
 LL |         let _t = Instant::now();
    |                  ^^^^^^^^^^^^^^

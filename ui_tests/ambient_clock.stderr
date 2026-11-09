@@ -1,5 +1,5 @@
 warning: direct system clock read in production code
-  --> $DIR/ambient_clock.rs:5:5
+  --> $DIR/ambient_clock.rs:7:5
    |
 LL |     Instant::now() + timeout
    |     ^^^^^^^^^^^^^^
@@ -15,7 +15,7 @@ LL +     /* inject time parameter */ + timeout
    |
 
 warning: direct system clock read in production code
-  --> $DIR/ambient_clock.rs:13:9
+  --> $DIR/ambient_clock.rs:15:9
    |
 LL |         Clock::now()
    |         ^^^^^^^^^^^^
@@ -30,7 +30,7 @@ LL +         /* inject time parameter */
    |
 
 warning: direct system clock read in production code
-  --> $DIR/ambient_clock.rs:21:5
+  --> $DIR/ambient_clock.rs:23:5
    |
 LL |     WallClock::now()
    |     ^^^^^^^^^^^^^^^^
@@ -45,7 +45,7 @@ LL +     /* inject time parameter */
    |
 
 warning: direct system clock read in production code
-  --> $DIR/ambient_clock.rs:43:37
+  --> $DIR/ambient_clock.rs:45:37
    |
 LL |     *seen.entry(key).or_insert_with(Instant::now)
    |                                     ^^^^^^^^^^^^
@@ -60,7 +60,7 @@ LL +     *seen.entry(key).or_insert_with(/* inject time parameter */)
    |
 
 warning: direct system clock read in production code
-  --> $DIR/ambient_clock.rs:48:5
+  --> $DIR/ambient_clock.rs:50:5
    |
 LL |     SystemTime::now
    |     ^^^^^^^^^^^^^^^
@@ -75,7 +75,7 @@ LL +     /* inject time parameter */
    |
 
 warning: direct system clock read in production code
-  --> $DIR/ambient_clock.rs:58:5
+  --> $DIR/ambient_clock.rs:60:5
    |
 LL |     started.elapsed()
    |     ^^^^^^^^^^^^^^^^^
@@ -90,7 +90,7 @@ LL +     /* inject time parameter */
    |
 
 warning: direct system clock read in production code
-  --> $DIR/ambient_clock.rs:63:5
+  --> $DIR/ambient_clock.rs:65:5
    |
 LL |     Instant::elapsed(&started)
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -105,7 +105,7 @@ LL +     /* inject time parameter */
    |
 
 warning: direct system clock read in production code
-  --> $DIR/ambient_clock.rs:68:5
+  --> $DIR/ambient_clock.rs:70:5
    |
 LL |     started.elapsed()
    |     ^^^^^^^^^^^^^^^^^

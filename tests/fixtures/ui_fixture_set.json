@@ -166,6 +166,7 @@
     "path_segment_repetition_compat",
     "path_segment_repetition_non_repeating",
     "path_segment_repetition",
+    "gui_tests/gui_tests",
     "pure_attr_contract/pure_attr_contract",
     "purity_effect_lints_guardrails",
     "resource_return_from_core/resource_return_from_core",

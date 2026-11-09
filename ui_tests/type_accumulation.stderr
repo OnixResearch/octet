@@ -2,9 +2,9 @@ warning: module exposes 13 public items (limit: 12) — split unrelated public s
   --> $DIR/type_accumulation.rs:1:1
    |
 LL | / #![warn(type_accumulation)]
+LL | | #![allow(path_segment_repetition, reason = "fixture targets another lint; the import and path-naming lints have their own fixtures")]
 LL | |
 LL | | pub mod crowded {
-LL | |     pub struct Thing;
 ...  |
 LL | | fn main() {}
    | |____________^
@@ -19,7 +19,7 @@ LL | #![warn(type_accumulation)]
    = note: `#[warn(tigerstyle::type_accumulation)]` implied by `#[warn(type_accumulation)]`
 
 warning: type `crowded::Thing` has more than 4 inherent impl blocks; split responsibilities or consolidate cohesive behavior
-  --> $DIR/type_accumulation.rs:10:5
+  --> $DIR/type_accumulation.rs:11:5
    |
 LL |     impl Thing { pub fn e(&self) {} }
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -28,7 +28,7 @@ LL |     impl Thing { pub fn e(&self) {} }
    = note: see Tiger Style guide: Structure / Cohesion
 
 warning: module exposes 13 public items (limit: 12) — split unrelated public surface into focused modules
-  --> $DIR/type_accumulation.rs:15:1
+  --> $DIR/type_accumulation.rs:16:1
    |
 LL | pub mod filebacked;
    | ^^^^^^^^^^^^^^^^^^^
@@ -37,7 +37,7 @@ LL | pub mod filebacked;
    = note: see Tiger Style guide: Structure / Cohesion
 
 warning: type `spelled::Spelled` has more than 4 inherent impl blocks; split responsibilities or consolidate cohesive behavior
-  --> $DIR/type_accumulation.rs:67:5
+  --> $DIR/type_accumulation.rs:68:5
    |
 LL |     impl super::spelled::Spelled { pub fn e(&self) {} }
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

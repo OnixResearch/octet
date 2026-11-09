@@ -67,12 +67,6 @@ fn imports_only_trait(path: &hir::UsePath<'_>) -> bool {
     is_trait_res(path.res.type_ns) && path.res.value_ns.is_none() && path.res.macro_ns.is_none()
 }
 
-fn is_unrelated_ui_fixture(cx: &LateContext<'_>, item: &hir::Item<'_>) -> bool {
-    let filename = cx.sess().source_map().span_to_filename(item.span);
-    let path = filename.prefer_local_unconditionally().to_string();
-    path.contains("ui_tests/") && !path.contains("renamed_imports")
-}
-
 impl<'tcx> LateLintPass<'tcx> for RenamedImports {
     fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx hir::Item<'tcx>) {
         let hir::ItemKind::Use(path, hir::UseKind::Single(ident)) = item.kind else {
@@ -81,7 +75,6 @@ impl<'tcx> LateLintPass<'tcx> for RenamedImports {
 
         if item.span.from_expansion()
             || is_prelude(path)
-            || is_unrelated_ui_fixture(cx, item)
             || is_generated_source_span(cx.sess().source_map(), item.span, &self.workspace_root, self.exceptions)
         {
             return;

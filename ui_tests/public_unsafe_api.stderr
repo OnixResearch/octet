@@ -1,5 +1,5 @@
 warning: public unsafe API leaks caller obligations; prefer a safe public wrapper around a small private unsafe helper
-  --> $DIR/public_unsafe_api.rs:8:1
+  --> $DIR/public_unsafe_api.rs:9:1
    |
 LL | / pub unsafe fn read_public_raw(ptr: *const u8) -> u8 {
 LL | |     unsafe { *ptr }
@@ -11,7 +11,7 @@ LL | | }
    = note: `#[warn(tigerstyle::public_unsafe_api)]` on by default
 
 warning: public unsafe API leaks caller obligations; prefer a safe public wrapper around a small private unsafe helper
-  --> $DIR/public_unsafe_api.rs:17:5
+  --> $DIR/public_unsafe_api.rs:18:5
    |
 LL | /     pub unsafe fn from_public_raw(ptr: *mut u8) -> Self {
 LL | |         Self { ptr }
@@ -22,7 +22,7 @@ LL | |     }
    = note: see Tiger Style guide: Unsafe Containment
 
 warning: public unsafe API leaks caller obligations; prefer a safe public wrapper around a small private unsafe helper
-  --> $DIR/public_unsafe_api.rs:73:5
+  --> $DIR/public_unsafe_api.rs:74:5
    |
 LL | /     pub unsafe fn read_reexported_raw(ptr: *const u8) -> u8 {
 LL | |         unsafe { *ptr }

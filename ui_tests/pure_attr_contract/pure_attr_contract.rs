@@ -1,5 +1,6 @@
 #![feature(register_tool, stmt_expr_attributes)]
 #![register_tool(tigerstyle)]
+#![allow(path_segment_repetition, reason = "fixture targets another lint; the import and path-naming lints have their own fixtures")]
 
 mod rand {
     pub fn random() -> u64 {

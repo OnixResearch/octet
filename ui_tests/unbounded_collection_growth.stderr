@@ -1,5 +1,5 @@
 warning: collection grows in loop without a prior reservation or explicit local bound
-  --> $DIR/unbounded_collection_growth.rs:17:9
+  --> $DIR/unbounded_collection_growth.rs:18:9
    |
 LL |         items.push(next_byte());
    |         ^^^^^^^^^^^^^^^^^^^^^^^
@@ -15,7 +15,7 @@ LL +     let mut items = Vec::with_capacity(/* LIMIT */);
    |
 
 warning: collection grows in loop without a prior reservation or explicit local bound
-  --> $DIR/unbounded_collection_growth.rs:24:9
+  --> $DIR/unbounded_collection_growth.rs:25:9
    |
 LL |         items.insert(next_byte(), next_byte());
    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -24,7 +24,7 @@ LL |         items.insert(next_byte(), next_byte());
    = note: see Tiger Style guide: Bounded Resource Growth
 
 warning: collection grows in loop without a prior reservation or explicit local bound
-  --> $DIR/unbounded_collection_growth.rs:31:9
+  --> $DIR/unbounded_collection_growth.rs:32:9
    |
 LL |         items.extend([next_byte()]);
    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -39,7 +39,7 @@ LL +     let mut items = Vec::with_capacity(/* LIMIT */);
    |
 
 warning: collection grows in loop without a prior reservation or explicit local bound
-  --> $DIR/unbounded_collection_growth.rs:38:9
+  --> $DIR/unbounded_collection_growth.rs:39:9
    |
 LL |         items.push(value);
    |         ^^^^^^^^^^^^^^^^^
@@ -54,7 +54,7 @@ LL +     let mut items = Vec::with_capacity(/* LIMIT */);
    |
 
 warning: collection grows in loop without a prior reservation or explicit local bound
-  --> $DIR/unbounded_collection_growth.rs:78:13
+  --> $DIR/unbounded_collection_growth.rs:79:13
    |
 LL |             items.push(next_byte());
    |             ^^^^^^^^^^^^^^^^^^^^^^^
@@ -69,7 +69,7 @@ LL +     let mut items = Vec::with_capacity(/* LIMIT */);
    |
 
 warning: collection grows in loop without a prior reservation or explicit local bound
-  --> $DIR/unbounded_collection_growth.rs:125:9
+  --> $DIR/unbounded_collection_growth.rs:126:9
    |
 LL |         items.insert(next_byte(), next_byte());
    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -78,7 +78,7 @@ LL |         items.insert(next_byte(), next_byte());
    = note: see Tiger Style guide: Bounded Resource Growth
 
 warning: collection grows in loop without a prior reservation or explicit local bound
-  --> $DIR/unbounded_collection_growth.rs:140:9
+  --> $DIR/unbounded_collection_growth.rs:141:9
    |
 LL |         items.push(next_byte());
    |         ^^^^^^^^^^^^^^^^^^^^^^^
@@ -93,7 +93,7 @@ LL +     let mut items = Vec::with_capacity(/* LIMIT */);
    |
 
 warning: collection grows in loop without a prior reservation or explicit local bound
-  --> $DIR/unbounded_collection_growth.rs:160:13
+  --> $DIR/unbounded_collection_growth.rs:161:13
    |
 LL |             items.push(next_byte());
    |             ^^^^^^^^^^^^^^^^^^^^^^^

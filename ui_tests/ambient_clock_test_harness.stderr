@@ -1,5 +1,5 @@
 warning: direct system clock read in production code
-  --> $DIR/ambient_clock_test_harness.rs:18:17
+  --> $DIR/ambient_clock_test_harness.rs:20:17
    |
 LL |     let start = Instant::now();
    |                 ^^^^^^^^^^^^^^
@@ -15,7 +15,7 @@ LL +     let start = /* inject time parameter */;
    |
 
 warning: direct system clock read in production code
-  --> $DIR/ambient_clock_test_harness.rs:20:5
+  --> $DIR/ambient_clock_test_harness.rs:22:5
    |
 LL |     start.now()
    |     ^^^^^^^^^^^

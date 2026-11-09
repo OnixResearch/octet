@@ -1,5 +1,5 @@
 warning: explicitly dropping a must-use value hides the required handling
-  --> $DIR/drop_must_use.rs:21:5
+  --> $DIR/drop_must_use.rs:22:5
    |
 LL |     drop(result);
    |     ^^^^^^^^^^^^
@@ -9,7 +9,7 @@ LL |     drop(result);
    = note: `#[warn(tigerstyle::drop_must_use)]` on by default
 
 warning: explicitly dropping a must-use value hides the required handling
-  --> $DIR/drop_must_use.rs:25:5
+  --> $DIR/drop_must_use.rs:26:5
    |
 LL |     drop(build_token());
    |     ^^^^^^^^^^^^^^^^^^^
@@ -18,7 +18,7 @@ LL |     drop(build_token());
    = note: see Tiger Style guide: Error Handling
 
 warning: explicitly dropping a must-use value hides the required handling
-  --> $DIR/drop_must_use.rs:78:5
+  --> $DIR/drop_must_use.rs:79:5
    |
 LL |     drop(token);
    |     ^^^^^^^^^^^

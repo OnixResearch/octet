@@ -1,5 +1,5 @@
 warning: `Result` value silently discarded with `let _ = ...`
-  --> $DIR/tokio_async/ignored_result_try_send_tokio.rs:4:5
+  --> $DIR/tokio_async/ignored_result_try_send_tokio.rs:6:5
    |
 LL |     let _ = tx.try_send(1);
    |     ^^^^^^^^^^^^^^^^^^^^^^^
@@ -15,7 +15,7 @@ LL +     tx.try_send(1)?;
    |
 
 warning: `Result` value silently discarded with `let _ = ...`
-  --> $DIR/tokio_async/ignored_result_try_send_tokio.rs:13:9
+  --> $DIR/tokio_async/ignored_result_try_send_tokio.rs:15:9
    |
 LL |         let _ = self.tx.try_send(1);
    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

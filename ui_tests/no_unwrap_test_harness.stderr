@@ -1,5 +1,5 @@
 warning: `.expect()` in production code will panic on failure
-  --> $DIR/no_unwrap_test_harness.rs:8:5
+  --> $DIR/no_unwrap_test_harness.rs:10:5
    |
 LL |     val.expect("helper")
    |     ^^^^^^^^^^^^^^^^^^^^
@@ -15,7 +15,7 @@ LL +     val?
    |
 
 warning: `.expect()` in production code will panic on failure
-  --> $DIR/no_unwrap_test_harness.rs:31:9
+  --> $DIR/no_unwrap_test_harness.rs:33:9
    |
 LL |         val.expect("nested production")
    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -30,7 +30,7 @@ LL +         val?
    |
 
 warning: `.expect()` in production code will panic on failure
-  --> $DIR/no_unwrap_test_harness.rs:40:9
+  --> $DIR/no_unwrap_test_harness.rs:42:9
    |
 LL |         val.expect("production")
    |         ^^^^^^^^^^^^^^^^^^^^^^^^
