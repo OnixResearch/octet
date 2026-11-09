@@ -123,6 +123,7 @@ r[octet.type_driven_domain_modeling.raw_domain_value.core]
 - GIVEN a declared `SourceId` domain uses `String` as its wire representation
 - WHEN a checked core API exposes `source_id: String`
 - THEN `raw_domain_value` MUST report the raw core boundary.
+- AND a parameter or result that borrows the raw representation (`&String`, `str`, or `&str` for `String` storage; `Path` or `&Path` for `PathBuf` storage) MUST count as that representation.
 
 #### Scenario: Compatibility DTO remains accepted
 

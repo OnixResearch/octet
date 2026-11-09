@@ -57,28 +57,6 @@ pub(super) fn container_kind(path: &str) -> ContainerKind {
     }
 }
 
-fn direct_representation(
-    cx: &rustc_lint::LateContext<'_>,
-    resolved: rustc_middle::ty::Ty<'_>,
-) -> Option<octet_lint_metadata::nominal_domain::RawRepresentation> {
-    match resolved.kind() {
-        rustc_middle::ty::Uint(rustc_middle::ty::UintTy::U64) => {
-            Some(octet_lint_metadata::nominal_domain::RawRepresentation::U64)
-        }
-        rustc_middle::ty::Uint(rustc_middle::ty::UintTy::Usize) => {
-            Some(octet_lint_metadata::nominal_domain::RawRepresentation::Usize)
-        }
-        rustc_middle::ty::Adt(definition, _) => match cx.tcx.def_path_str(definition.did()).as_str() {
-            "alloc::string::String" | "std::string::String" => {
-                Some(octet_lint_metadata::nominal_domain::RawRepresentation::String)
-            }
-            "std::path::PathBuf" => Some(octet_lint_metadata::nominal_domain::RawRepresentation::Path),
-            _ => None,
-        },
-        _ => None,
-    }
-}
-
 fn primitive_occurrences<'tcx>(
     cx: &rustc_lint::LateContext<'tcx>,
     resolved: rustc_middle::ty::Ty<'tcx>,
@@ -89,7 +67,8 @@ fn primitive_occurrences<'tcx>(
         return primitive_occurrences(cx, *referent, default_kind);
     }
 
-    if let Some(representation) = direct_representation(cx, resolved) {
+    // Owned storage and its borrowed view (`str`, `Path`) expose the same raw value.
+    if let Some(representation) = super::newtype_invariant_bypass::raw_representation_or_view(cx, resolved) {
         return vec![PrimitiveOccurrence {
             representation,
             kind: default_kind,

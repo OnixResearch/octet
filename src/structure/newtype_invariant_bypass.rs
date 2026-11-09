@@ -101,7 +101,7 @@ fn direct_raw_representation(
 /// Raw representation that `resolved` stores or borrows: the owned storage
 /// itself, a reference to it (`&String`), or its borrowed view (`str`, `&str`,
 /// `Path`, `&Path`).
-fn raw_representation_or_view(
+pub(super) fn raw_representation_or_view(
     cx: &rustc_lint::LateContext<'_>,
     resolved: rustc_middle::ty::Ty<'_>,
 ) -> Option<octet_lint_metadata::nominal_domain::RawRepresentation> {

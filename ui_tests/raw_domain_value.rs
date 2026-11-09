@@ -64,6 +64,19 @@ mod borrowed {
     }
 }
 
+// `borrowed_argument_types` recommends `&str` over `&String`; the view still exposes raw storage.
+mod viewed {
+    // Should warn: a borrowed string view parameter still exposes raw storage.
+    pub fn open_session(session: &str) -> usize {
+        session.len()
+    }
+
+    // Should warn: a borrowed string view result still exposes raw storage.
+    pub fn current_session() -> &'static str {
+        "session"
+    }
+}
+
 fn main() {
     let raw = RawDomainFixture { session: current_session() };
     let map = RawMapFixture { sessions: BTreeMap::new() };
