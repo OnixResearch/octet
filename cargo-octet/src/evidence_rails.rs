@@ -5609,15 +5609,16 @@ mod tests {
         assert!(validate_receipt(&receipt).iter().any(|diagnostic| diagnostic.contains("recorded_only or boundary")));
     }
 
-    /// A pipe reopened through `/proc/self/fd` yields its bytes once, then end-of-file,
-    /// like `--input /dev/stdin`: any second read of the path observes different bytes.
+    /// A pipe reopened through `/dev/fd`, which Linux and macOS both provide, yields its bytes
+    /// once, then end-of-file, like `--input /dev/stdin`: any second read of the path observes
+    /// different bytes.
     fn one_shot(bytes: &[u8]) -> (std::io::PipeReader, std::path::PathBuf) {
         use std::io::Write as _;
         use std::os::fd::AsRawFd as _;
 
         let (reader, mut writer) = std::io::pipe().expect("create one-shot pipe");
         writer.write_all(bytes).expect("fill one-shot pipe");
-        let path = std::path::PathBuf::from(format!("/proc/self/fd/{}", reader.as_raw_fd()));
+        let path = std::path::PathBuf::from(format!("/dev/fd/{}", reader.as_raw_fd()));
         (reader, path)
     }
 
