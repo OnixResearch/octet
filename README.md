@@ -277,6 +277,15 @@ cargo octet proof-ref validate \
 cargo octet artifact verify --artifact-dir artifacts/octet-proofs
 ```
 
+`cargo octet prove --candidates` lists Tiger Style allowances and waivers in the
+checked source that have no validated proof-ref, grouped by lint and ranked by
+lint severity and trust-boundary membership. Use `--json` for the stable
+`octet-proof-candidates/v1` report. Only existing rails are mapped; every other
+candidate is reported as unsupported. A rail that still passes against a mutant
+source is recorded as `property_not_demonstrated` by
+`cargo octet prove --record-negative-check`. The guided agent path lives in
+[`docs/skills/prove-a-candidate/SKILL.md`](docs/skills/prove-a-candidate/SKILL.md).
+
 `cargo octet check` and `cargo octet prove` write separate bundles, so give each
 its own artifact directory; `cargo octet prove` refuses a directory that holds a
 `check` bundle. Both commands, and `cargo octet evidence collect`, prune only

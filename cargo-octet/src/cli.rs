@@ -297,6 +297,20 @@ pub struct ProveArgs {
     pub command_line: String,
     pub list: bool,
     pub explain: bool,
+    pub candidates: bool,
+    pub proof_cards: Option<PathBuf>,
+    pub proof_refs: Vec<PathBuf>,
+    pub trust_boundary: Option<PathBuf>,
+    pub negative_check: Option<NegativeCheckArgs>,
+}
+
+#[derive(Debug)]
+pub struct NegativeCheckArgs {
+    pub proof_cards: PathBuf,
+    pub mutant_cards: PathBuf,
+    pub proof_or_property_id: String,
+    pub mutant_source: String,
+    pub output: Option<PathBuf>,
 }
 
 #[derive(Debug)]
@@ -471,7 +485,9 @@ Usage:
   cargo octet object supplement check --family hir|thir|mir [--spike rustc-hir-fixture|rustc-thir-fixture|rustc-mir-fixture] [--fixture-shape checked-arithmetic|branch-control-flow|call-return] --receipt RECEIPT.json [--function NAME] [PATHS...]
   cargo octet provider-manifest export --driver PATH --lint-library PATH --config PATH [--standards-policy PATH]
   cargo octet provider-manifest validate --manifest PATH
+  cargo octet prove --candidates [--source PATH] [--proof-cards PATH] [--proof-ref PATH] [--trust-boundary PATH] [--json]
   cargo octet prove --policy-artifacts-dir PATH --source PATH [--artifact-dir artifacts/octet-proofs] [--rail POLICY[#rail-N]] [--list] [--explain] [--output-format human|json]
+  cargo octet prove --record-negative-check --proof-cards PATH --mutant-cards PATH --proof-or-property-id ID --mutant-source PATH [--output PATH]
   cargo octet proof-ref validate --proof-cards PATH --ref PATH [--output-format human|json]
   cargo octet proof-ref scaffold --proof-cards PATH --proof-or-property-id ID --reference-id ID --consumer-context TEXT --consumer-source PATH --anchor TEXT [--output PATH]
   cargo octet roadmap <artifact|capsule|ability|pointer|session|pure-cache> ...
@@ -581,7 +597,19 @@ Exports or validates the deterministic Octet compiler-policy provider manifest c
 
 const PROVE_HELP: &str = "cargo octet prove
 
-Options: --registry PATH or --policy-artifacts-dir PATH, --source PATH (repeatable), --family NAME, --rail POLICY[#rail-N], --artifact-dir PATH (default artifacts/octet-proofs), --list, --explain, --output-format human|json.
+Modes:
+  --candidates [--source PATH] [--proof-cards PATH] [--proof-ref PATH] [--trust-boundary PATH] [--json]
+      Lists Tiger Style allowances and waivers without a validated proof-ref, grouped by lint,
+      with the existing rail mapped to the lint when one exists. Ranking uses lint severity and
+      trust-boundary membership from the trust-boundary document. Validated references drop off
+      the list. This mode runs no verifier and emits no formal_proof provenance.
+  --record-negative-check --proof-cards PATH --mutant-cards PATH --proof-or-property-id ID --mutant-source PATH [--output PATH]
+      Compares a baseline proof-card deck with a mutant-run deck and records the result in the
+      card. A rail that still passes against the mutant is reported as
+      `property_not_demonstrated`; only a mutant failure reports `property_demonstrated`, scoped
+      to that mutation.
+
+Run options: --registry PATH or --policy-artifacts-dir PATH, --source PATH (repeatable), --family NAME, --rail POLICY[#rail-N], --artifact-dir PATH (default artifacts/octet-proofs), --list, --explain, --output-format human|json.
 
 Runs selected standards proof rails through argv-based commands, writes structured proof receipts under the artifact directory, emits formal_proof provenance only for validated receipts with verifier identity and proof artifact identity, and keeps ordinary cargo octet check behavior unchanged. Use --rail to narrow selection to one policy or property ID, --list to show selected rails without executing them, and --explain to prefix failure diagnostics with remediation context.
 ";
@@ -2241,6 +2269,15 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
     let mut output_format = OutputFormat::Human;
     let mut list = false;
     let mut explain = false;
+    let mut candidates = false;
+    let mut proof_cards = None;
+    let mut proof_refs = Vec::new();
+    let mut trust_boundary = None;
+    let mut record_negative_check = false;
+    let mut mutant_cards = None;
+    let mut proof_or_property_id = None;
+    let mut mutant_source = None;
+    let mut output = None;
     let mut index = 0;
     while index < args.len() {
         let arg = &args[index];
@@ -2281,6 +2318,46 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
                 explain = true;
                 index += 1;
             }
+            "--candidates" => {
+                candidates = true;
+                index += 1;
+            }
+            "--json" => {
+                output_format = OutputFormat::Json;
+                index += 1;
+            }
+            "--proof-cards" => {
+                proof_cards = Some(PathBuf::from(required_arg_at(args, index, arg)?));
+                index += 2;
+            }
+            "--proof-ref" => {
+                proof_refs.push(PathBuf::from(required_arg_at(args, index, arg)?));
+                index += 2;
+            }
+            "--trust-boundary" => {
+                trust_boundary = Some(PathBuf::from(required_arg_at(args, index, arg)?));
+                index += 2;
+            }
+            "--record-negative-check" => {
+                record_negative_check = true;
+                index += 1;
+            }
+            "--mutant-cards" => {
+                mutant_cards = Some(PathBuf::from(required_arg_at(args, index, arg)?));
+                index += 2;
+            }
+            "--proof-or-property-id" => {
+                proof_or_property_id = Some(required_arg_at(args, index, arg)?);
+                index += 2;
+            }
+            "--mutant-source" => {
+                mutant_source = Some(required_arg_at(args, index, arg)?);
+                index += 2;
+            }
+            "--output" => {
+                output = Some(PathBuf::from(required_arg_at(args, index, arg)?));
+                index += 2;
+            }
             _ if arg.starts_with("--registry=") => {
                 registry = Some(PathBuf::from(arg.trim_start_matches("--registry=")));
                 index += 1;
@@ -2305,6 +2382,34 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
                 artifact_dir = Some(PathBuf::from(arg.trim_start_matches("--artifact-dir=")));
                 index += 1;
             }
+            _ if arg.starts_with("--proof-cards=") => {
+                proof_cards = Some(PathBuf::from(arg.trim_start_matches("--proof-cards=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--proof-ref=") => {
+                proof_refs.push(PathBuf::from(arg.trim_start_matches("--proof-ref=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--trust-boundary=") => {
+                trust_boundary = Some(PathBuf::from(arg.trim_start_matches("--trust-boundary=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--mutant-cards=") => {
+                mutant_cards = Some(PathBuf::from(arg.trim_start_matches("--mutant-cards=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--proof-or-property-id=") => {
+                proof_or_property_id = Some(arg.trim_start_matches("--proof-or-property-id=").to_owned());
+                index += 1;
+            }
+            _ if arg.starts_with("--mutant-source=") => {
+                mutant_source = Some(arg.trim_start_matches("--mutant-source=").to_owned());
+                index += 1;
+            }
+            _ if arg.starts_with("--output=") => {
+                output = Some(PathBuf::from(arg.trim_start_matches("--output=")));
+                index += 1;
+            }
             _ if arg.starts_with("--output-format=") => {
                 output_format = parse_output_format(arg.trim_start_matches("--output-format="))?;
                 index += 1;
@@ -2317,14 +2422,83 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
         }
     }
 
+    if output_format == OutputFormat::Sarif {
+        return Err("prove does not support SARIF output; use human or json".to_owned());
+    }
+
+    if record_negative_check {
+        if candidates || list || explain {
+            return Err(
+                "`--record-negative-check` cannot be combined with `--candidates`, `--list`, or `--explain`".to_owned()
+            );
+        }
+        let proof_cards =
+            proof_cards.ok_or_else(|| "`--record-negative-check` requires `--proof-cards PATH`".to_owned())?;
+        let mutant_cards =
+            mutant_cards.ok_or_else(|| "`--record-negative-check` requires `--mutant-cards PATH`".to_owned())?;
+        let proof_or_property_id = proof_or_property_id
+            .ok_or_else(|| "`--record-negative-check` requires `--proof-or-property-id ID`".to_owned())?;
+        let mutant_source =
+            mutant_source.ok_or_else(|| "`--record-negative-check` requires `--mutant-source PATH`".to_owned())?;
+        return Ok(ProveArgs {
+            registry,
+            policy_artifacts_dir,
+            source,
+            family,
+            rail,
+            artifact_dir: artifact_dir.unwrap_or_else(|| PathBuf::from("artifacts/octet-proofs")),
+            output_format,
+            command_line,
+            list,
+            explain,
+            candidates,
+            proof_cards: Some(proof_cards.clone()),
+            proof_refs,
+            trust_boundary,
+            negative_check: Some(NegativeCheckArgs {
+                proof_cards,
+                mutant_cards,
+                proof_or_property_id,
+                mutant_source,
+                output,
+            }),
+        });
+    }
+
+    if (proof_cards.is_some() || !proof_refs.is_empty() || trust_boundary.is_some()) && !candidates {
+        return Err("`--proof-cards`, `--proof-ref`, and `--trust-boundary` require `--candidates`".to_owned());
+    }
+    if mutant_cards.is_some() || proof_or_property_id.is_some() || mutant_source.is_some() || output.is_some() {
+        return Err("negative-check flags require `--record-negative-check`".to_owned());
+    }
+    if candidates {
+        if !rail.is_empty() || !family.is_empty() {
+            return Err("`--candidates` does not accept `--rail` or `--family`".to_owned());
+        }
+        return Ok(ProveArgs {
+            registry,
+            policy_artifacts_dir,
+            source,
+            family,
+            rail,
+            artifact_dir: artifact_dir.unwrap_or_else(|| PathBuf::from("artifacts/octet-proofs")),
+            output_format,
+            command_line,
+            list,
+            explain,
+            candidates,
+            proof_cards,
+            proof_refs,
+            trust_boundary,
+            negative_check: None,
+        });
+    }
+
     if registry.is_some() == policy_artifacts_dir.is_some() {
         return Err("prove requires exactly one of `--registry PATH` or `--policy-artifacts-dir PATH`".to_owned());
     }
     if source.is_empty() {
         return Err("prove requires at least one `--source PATH`".to_owned());
-    }
-    if output_format == OutputFormat::Sarif {
-        return Err("prove does not support SARIF output; use human or json".to_owned());
     }
 
     Ok(ProveArgs {
@@ -2338,6 +2512,11 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
         command_line,
         list,
         explain,
+        candidates,
+        proof_cards,
+        proof_refs,
+        trust_boundary,
+        negative_check: None,
     })
 }
 
@@ -4606,6 +4785,101 @@ mod tests {
         assert_eq!(format_command_line("cargo", &["arg with spaces".to_owned()]), "cargo 'arg with spaces'");
         assert_eq!(format_command_line("cargo", &["can't".to_owned()]), "cargo 'can'\"'\"'t'");
         assert_eq!(format_command_line("cargo", &[String::new()]), "cargo ''");
+    }
+
+    #[test]
+    fn prove_parse_accepts_candidate_mode_without_registry() {
+        let parsed = parse(
+            [
+                "cargo",
+                "octet",
+                "prove",
+                "--candidates",
+                "--source",
+                "fixtures/proof-candidates/src",
+                "--proof-cards",
+                "artifacts/octet-proofs/proof-cards.json",
+                "--proof-ref",
+                "fixtures/proof-candidates/proof-ref.json",
+                "--trust-boundary",
+                "fixtures/proof-candidates/trust-boundary.md",
+                "--json",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse candidate mode");
+
+        match parsed {
+            CommandArgs::Prove(args) => {
+                assert!(args.candidates);
+                assert!(args.registry.is_none());
+                assert_eq!(args.source, vec![std::path::PathBuf::from("fixtures/proof-candidates/src")]);
+                assert_eq!(args.proof_cards, Some(std::path::PathBuf::from("artifacts/octet-proofs/proof-cards.json")));
+                assert_eq!(args.proof_refs, vec![std::path::PathBuf::from("fixtures/proof-candidates/proof-ref.json")]);
+                assert_eq!(
+                    args.trust_boundary,
+                    Some(std::path::PathBuf::from("fixtures/proof-candidates/trust-boundary.md"))
+                );
+                assert_eq!(args.output_format, OutputFormat::Json);
+                assert!(args.negative_check.is_none());
+            }
+            other => panic!("expected prove args, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn prove_parse_accepts_record_negative_check_mode() {
+        let parsed = parse(
+            [
+                "cargo",
+                "octet",
+                "prove",
+                "--record-negative-check",
+                "--proof-cards",
+                "baseline/proof-cards.json",
+                "--mutant-cards",
+                "mutant/proof-cards.json",
+                "--proof-or-property-id",
+                "octet.verus_proof_rails.addition-bound-production#rail-0",
+                "--mutant-source",
+                "src/codec_mutant.rs",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse negative-check mode");
+
+        match parsed {
+            CommandArgs::Prove(args) => {
+                let negative = args.negative_check.expect("negative check args");
+                assert_eq!(negative.proof_cards, std::path::PathBuf::from("baseline/proof-cards.json"));
+                assert_eq!(negative.mutant_cards, std::path::PathBuf::from("mutant/proof-cards.json"));
+                assert_eq!(negative.proof_or_property_id, "octet.verus_proof_rails.addition-bound-production#rail-0");
+                assert_eq!(negative.mutant_source, "src/codec_mutant.rs");
+                assert!(negative.output.is_none());
+            }
+            other => panic!("expected prove args, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn prove_parse_rejects_candidate_only_flags_in_run_mode() {
+        let error = parse(
+            [
+                "cargo",
+                "octet",
+                "prove",
+                "--registry",
+                "octet-policies.json",
+                "--source",
+                "src/verified",
+                "--proof-cards",
+                "artifacts/octet-proofs/proof-cards.json",
+            ]
+            .map(OsString::from),
+        )
+        .expect_err("proof cards require candidate mode");
+
+        assert!(error.contains("require `--candidates`"));
     }
 
     #[test]

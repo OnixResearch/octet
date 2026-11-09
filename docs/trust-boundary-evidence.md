@@ -268,6 +268,26 @@ claim whole-program correctness, certification, business-domain validation,
 semantic equivalence, full safety, or a verified runtime without separate
 evidence.
 
+## Trust-boundary source prefixes
+
+`cargo octet prove --candidates` ranks an unproven Tiger Style allowance higher
+when the site is on a declared trust boundary. The machine-read block below is
+the authority for that input. The block lists repository-relative path
+prefixes; a candidate is on a trust boundary when its checked-source path equals
+a prefix or starts with it. Keep entries narrow: a prefix is a review signal, not
+a correctness claim.
+
+```text trust-boundary-prefixes
+src/verified/
+cargo-octet/src/proof_ref.rs
+cargo-octet/src/prove.rs
+crates/octet-standards/src/formal_proof.rs
+crates/octet-standards/src/proof.rs
+```
+
+Adding a prefix does not prove that code is correct; it only says a suppressed
+claim there deserves earlier proof triage.
+
 ## Provenance chain
 
 A provenance record connects a claim to its source and artifact:

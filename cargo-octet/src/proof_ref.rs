@@ -54,47 +54,67 @@ const OVERCLAIM_PHRASES: &[(&str, &str)] = &[
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ProofEvidenceRef {
-    pub schema_version: String,
-    pub reference_id: String,
-    pub consumer_context: String,
+    pub(crate) schema_version: String,
+    pub(crate) reference_id: String,
+    pub(crate) consumer_context: String,
     #[serde(default)]
-    pub consumer_source_path: String,
+    pub(crate) consumer_source_path: String,
     #[serde(default)]
-    pub consumer_source_blake3: String,
+    pub(crate) consumer_source_blake3: String,
     #[serde(default)]
-    pub consumer_source_anchor: String,
-    pub proof_or_property_id: String,
-    pub source_requirement_or_policy_id: String,
-    pub checked_rust_source_scope: String,
-    pub expected_evidence_tier: String,
-    pub required_status: String,
-    pub required_artifacts: Vec<String>,
-    pub non_claims: Vec<String>,
+    pub(crate) consumer_source_anchor: String,
+    pub(crate) proof_or_property_id: String,
+    pub(crate) source_requirement_or_policy_id: String,
+    pub(crate) checked_rust_source_scope: String,
+    pub(crate) expected_evidence_tier: String,
+    pub(crate) required_status: String,
+    pub(crate) required_artifacts: Vec<String>,
+    pub(crate) non_claims: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-struct ProofCardDeck {
-    schema_version: String,
-    cards: Vec<ProofCard>,
+pub(crate) struct ProofCardDeck {
+    pub(crate) schema_version: String,
+    pub(crate) cards: Vec<ProofCard>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-struct ProofCardArtifactIdentity {
-    artifact: String,
-    blake3: String,
+pub(crate) struct ProofCardArtifactIdentity {
+    pub(crate) artifact: String,
+    pub(crate) blake3: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-struct ProofCard {
-    proof_or_property_id: String,
-    source_requirement_or_policy_id: String,
-    checked_rust_source_scope: String,
-    evidence_tier: String,
-    evidence_origin: String,
-    status: String,
-    artifact_blake3_identities: Vec<ProofCardArtifactIdentity>,
-    non_claims: Vec<String>,
-    diagnostics: Vec<String>,
+pub(crate) struct ProofCard {
+    pub(crate) proof_or_property_id: String,
+    pub(crate) source_requirement_or_policy_id: String,
+    pub(crate) checked_rust_source_scope: String,
+    pub(crate) evidence_tier: String,
+    pub(crate) evidence_origin: String,
+    pub(crate) status: String,
+    pub(crate) artifact_blake3_identities: Vec<ProofCardArtifactIdentity>,
+    pub(crate) non_claims: Vec<String>,
+    pub(crate) diagnostics: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) negative_check: Option<ProofCardNegativeCheck>,
+}
+
+/// Bounded negative-check record attached to one proof card.
+///
+/// A mutant rail run is evidence that the rail discriminated the mutation, not evidence that the
+/// theorem matches the intended property in general. `status` is `property_demonstrated` only when
+/// the mutant run failed the same proof/property rail; a still-passing mutant yields
+/// `property_not_demonstrated`.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub(crate) struct ProofCardNegativeCheck {
+    pub(crate) schema_version: String,
+    pub(crate) status: String,
+    pub(crate) mutant_source: String,
+    pub(crate) mutant_card_status: String,
+    pub(crate) mutant_card_evidence_tier: String,
+    pub(crate) mutant_cards_blake3: String,
+    pub(crate) non_claims: Vec<String>,
+    pub(crate) diagnostics: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -222,6 +242,34 @@ fn canonical_output_path(output: &Path) -> Result<PathBuf, String> {
 fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<T, String> {
     let text = fs::read_to_string(path).map_err(|error| format!("read {}: {error}", path.display()))?;
     serde_json::from_str(&text).map_err(|error| format!("parse {} as JSON: {error}", path.display()))
+}
+
+/// Reads a saved `ProofEvidenceRef` for the proof-candidate lister.
+pub(crate) fn read_reference_file(path: &Path) -> Result<ProofEvidenceRef, String> {
+    read_json(path)
+}
+
+/// Reads a saved `proof-cards.json` deck for the proof-candidate lister.
+pub(crate) fn read_deck_file(path: &Path) -> Result<ProofCardDeck, String> {
+    read_json(path)
+}
+
+/// Validates a saved reference against a deck and the already-loaded candidate source text.
+///
+/// The candidate lister resolves source paths relative to the scanned workspace rather than the
+/// process working directory, so it hands the exact bytes and display path to this helper.
+pub(crate) fn validate_reference_against_source(
+    reference: &ProofEvidenceRef,
+    deck: &ProofCardDeck,
+    source_path: &str,
+    source_text: &str,
+) -> Vec<String> {
+    let source = ConsumerSourceArtifact {
+        path: source_path.to_owned(),
+        blake3: blake3::hash(source_text.as_bytes()).to_hex().to_string(),
+        text: source_text.to_owned(),
+    };
+    validate_proof_evidence_ref(reference, deck, Some(&source)).diagnostics
 }
 
 fn read_scaffold_source_artifact(path: &Path) -> Result<ConsumerSourceArtifact, String> {
@@ -1092,6 +1140,7 @@ mod tests {
             ],
             non_claims: required_non_claims().iter().map(|claim| (*claim).to_owned()).collect(),
             diagnostics: Vec::new(),
+            negative_check: None,
         }
     }
 }

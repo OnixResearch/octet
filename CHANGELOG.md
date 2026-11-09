@@ -20,6 +20,22 @@ validate saved producer and Cairn receipts without executing a producer.
 
 `cargo-octet` gains the opt-in `evidence_multihop` library module over the existing evidence codebase index. It keeps explicit parent links, provenance references, asserted dependency/support, shared labels, and content identity distinct; a shared requirement or policy label is relatedness only, content identity is not proof, and asserted support is reported unavailable because the index carries no such field. A typed-edge breadth-first reference and a bounded fixed-rule Datalog-equivalent evaluator return reached records with typed reasons and one deterministic selected witness, subject to depth, fact, tuple, work, memory, and output limits. The one-expansion `query_evidence_index`, `cargo octet check`, discovery, process execution, and publication are unchanged. The external Datalog dependency decision is stop: one rule program over one typed graph does not justify a new dependency. This is an experiment boundary, not whole-program correctness, semantic equivalence, complete dependency closure, release eligibility, or formal proof.
 
+## 2026-11-09: Ranked proof candidates and negative-check proof cards
+
+`cargo octet prove --candidates [--json]` lists Tiger Style allowances and
+waivers in the checked source that have no validated `proof-ref`, grouped by
+lint. Only existing rails are mapped; unmapped lints are reported explicitly as
+unsupported. Ranking uses lint severity and trust-boundary membership read from
+the fenced prefix list in `docs/trust-boundary-evidence.md`.
+
+`cargo octet prove --record-negative-check` compares a baseline proof-card deck
+with a mutant-run deck and records the result in the card. A rail that still
+passes against the mutant is reported as `property_not_demonstrated`; only a
+mutant failure reports `property_demonstrated`, scoped to that mutation. The new
+`docs/skills/prove-a-candidate/SKILL.md` walks the list, prove, proof-ref,
+artifact-verify, and negative-check path without promoting linkage evidence to
+proof of the suppressed property.
+
 ## 2026-11-09: Conservative const-helper classification
 
 `missing_const_fn` now requires a private free-function body in a conservative

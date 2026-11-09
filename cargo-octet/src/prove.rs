@@ -267,6 +267,8 @@ struct ProofCard {
     external_reference: Option<ProofCardExternalReference>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     formal_proof_envelope: Option<FormalProofEnvelope>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    negative_check: Option<crate::proof_ref::ProofCardNegativeCheck>,
     diagnostics: Vec<String>,
 }
 
@@ -352,6 +354,12 @@ struct CommandOutcome {
 }
 
 pub fn run(args: &ProveArgs) -> Result<i32, String> {
+    if let Some(negative_check) = &args.negative_check {
+        return crate::proof_candidates::run_record_negative_check(negative_check, args.output_format);
+    }
+    if args.candidates {
+        return crate::proof_candidates::run(args);
+    }
     let registry = load_registry(args)?;
     let working_dir = proof_root(&args.source)?;
     let sources = load_sources(&args.source, &working_dir)?;
@@ -2177,6 +2185,7 @@ fn initial_aeneas_proof_card(
         provenance_artifact: PROVENANCE_ARTIFACT_NAME.to_owned(),
         external_reference: None,
         formal_proof_envelope: None,
+        negative_check: None,
         diagnostics: row.diagnostics.clone(),
     }
 }
@@ -2258,6 +2267,7 @@ fn initial_proof_card(
         provenance_artifact: PROVENANCE_ARTIFACT_NAME.to_owned(),
         external_reference: None,
         formal_proof_envelope: None,
+        negative_check: None,
         diagnostics: row.diagnostics.clone(),
     }
 }
@@ -2309,6 +2319,7 @@ fn proof_card_for_imported_bundle(bundle: &ImportedProofBundle) -> ProofCard {
             promotion_command_argv: bundle.promotion_command_argv.clone(),
         }),
         formal_proof_envelope: None,
+        negative_check: None,
         diagnostics,
     };
     let card_diagnostics = proof_card_validation_diagnostics(&card, None, None);
@@ -2918,6 +2929,11 @@ mod tests {
             command_line: "cargo octet prove fixture".to_owned(),
             list: false,
             explain: false,
+            candidates: false,
+            proof_cards: None,
+            proof_refs: Vec::new(),
+            trust_boundary: None,
+            negative_check: None,
         })
         .expect("prove run");
         assert_eq!(code, EXIT_PROOF_VALID);
@@ -2954,6 +2970,11 @@ mod tests {
             command_line: "cargo octet prove fixture".to_owned(),
             list: false,
             explain: false,
+            candidates: false,
+            proof_cards: None,
+            proof_refs: Vec::new(),
+            trust_boundary: None,
+            negative_check: None,
         })
         .expect("prove run");
 
@@ -3184,6 +3205,11 @@ mod tests {
             command_line: "cargo octet prove fixture".to_owned(),
             list: false,
             explain: true,
+            candidates: false,
+            proof_cards: None,
+            proof_refs: Vec::new(),
+            trust_boundary: None,
+            negative_check: None,
         })
         .expect("prove run");
 
@@ -3219,6 +3245,11 @@ mod tests {
             command_line: "cargo octet prove fixture-production-negative".to_owned(),
             list: false,
             explain: false,
+            candidates: false,
+            proof_cards: None,
+            proof_refs: Vec::new(),
+            trust_boundary: None,
+            negative_check: None,
         })
         .expect("prove run");
 
@@ -3353,6 +3384,11 @@ mod tests {
             command_line: "cargo octet prove fixture".to_owned(),
             list: false,
             explain: false,
+            candidates: false,
+            proof_cards: None,
+            proof_refs: Vec::new(),
+            trust_boundary: None,
+            negative_check: None,
         })
         .expect("prove run");
 
@@ -3432,6 +3468,11 @@ mod tests {
             command_line: "cargo octet prove fixture".to_owned(),
             list: false,
             explain: false,
+            candidates: false,
+            proof_cards: None,
+            proof_refs: Vec::new(),
+            trust_boundary: None,
+            negative_check: None,
         })
         .expect("prove run");
         assert_eq!(code, EXIT_PROOF_INVALID);
@@ -3654,6 +3695,11 @@ mod tests {
             command_line: "cargo octet prove --rail fixture".to_owned(),
             list: false,
             explain: false,
+            candidates: false,
+            proof_cards: None,
+            proof_refs: Vec::new(),
+            trust_boundary: None,
+            negative_check: None,
         })
         .expect("prove run");
 
@@ -3682,6 +3728,11 @@ mod tests {
             command_line: "cargo octet prove --rail missing".to_owned(),
             list: false,
             explain: false,
+            candidates: false,
+            proof_cards: None,
+            proof_refs: Vec::new(),
+            trust_boundary: None,
+            negative_check: None,
         })
         .expect("prove run");
 
@@ -3710,6 +3761,11 @@ mod tests {
             command_line: "cargo octet prove --rail fixture --rail missing".to_owned(),
             list: false,
             explain: false,
+            candidates: false,
+            proof_cards: None,
+            proof_refs: Vec::new(),
+            trust_boundary: None,
+            negative_check: None,
         })
         .expect("prove run");
 
@@ -3739,6 +3795,11 @@ mod tests {
             command_line: "cargo octet prove --list fixture".to_owned(),
             list: true,
             explain: false,
+            candidates: false,
+            proof_cards: None,
+            proof_refs: Vec::new(),
+            trust_boundary: None,
+            negative_check: None,
         })
         .expect("prove list");
 
@@ -4232,6 +4293,11 @@ mod tests {
             command_line: "cargo octet prove fixture".to_owned(),
             list: false,
             explain: false,
+            candidates: false,
+            proof_cards: None,
+            proof_refs: Vec::new(),
+            trust_boundary: None,
+            negative_check: None,
         }
     }
 
@@ -4265,6 +4331,11 @@ mod tests {
             command_line: "cargo octet prove fixture".to_owned(),
             list: false,
             explain: false,
+            candidates: false,
+            proof_cards: None,
+            proof_refs: Vec::new(),
+            trust_boundary: None,
+            negative_check: None,
         })
         .expect("prove run");
         assert_eq!(code, EXIT_PROOF_INVALID);
@@ -4289,6 +4360,11 @@ mod tests {
             command_line: "cargo octet prove fixture".to_owned(),
             list: false,
             explain: false,
+            candidates: false,
+            proof_cards: None,
+            proof_refs: Vec::new(),
+            trust_boundary: None,
+            negative_check: None,
         })
         .expect("prove run");
         assert_eq!(code, EXIT_PROOF_INVALID);
@@ -4590,6 +4666,7 @@ mod tests {
             provenance_artifact: PROVENANCE_ARTIFACT_NAME.to_owned(),
             external_reference: None,
             formal_proof_envelope: None,
+            negative_check: None,
             diagnostics: Vec::new(),
         }
     }
