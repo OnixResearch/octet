@@ -12,10 +12,14 @@ use crate::determinism;
 const SCHEMA_VERSION: u32 = 1;
 const BLAKE3_IDENTITY_PREFIX: &str = "b3:";
 const BLAKE3_HEX_LENGTH: usize = 64;
-/// Stands in for an absolute-path string value so identities do not depend on local paths.
-const ABSOLUTE_PATH_PLACEHOLDER: &str = "<absolute-path>";
+/// Stands in for the workspace root (the current directory) at the start of a path string.
+const WORKSPACE_PLACEHOLDER: &str = "<workspace>";
+/// Stands in for `HOME` at the start of a path string.
+const HOME_PLACEHOLDER: &str = "<home>";
+/// Stands in for the temporary directory at the start of a path string.
+const TEMP_PLACEHOLDER: &str = "<temp>";
 /// What [`normalize_value`] guarantees about stored artifacts and capsules.
-const REDACTION_STATUS: &str = "secret-like-and-local-fields-dropped-absolute-paths-normalized";
+const REDACTION_STATUS: &str = "secret-like-and-local-fields-dropped-local-roots-normalized";
 const PURE_CACHE_KEY_FIELDS: [&str; 5] = [
     "command_identity",
     "input_hashes",
@@ -105,12 +109,18 @@ pub fn parse(args: &[String]) -> Result<RoadmapCommand, String> {
 
 pub fn run(command: RoadmapCommand) -> Result<i32, String> {
     match command {
-        RoadmapCommand::ArtifactStore { kind, input, store_dir } => artifact_store(&kind, &input, &store_dir),
+        RoadmapCommand::ArtifactStore { kind, input, store_dir } => {
+            artifact_store(&kind, &input, &store_dir, &local_roots_from_environment())
+        }
         RoadmapCommand::ArtifactInspect { hash, store_dir } => artifact_inspect(&hash, &store_dir),
         RoadmapCommand::ArtifactReplay { hash, store_dir } => artifact_replay(&hash, &store_dir),
-        RoadmapCommand::CapsuleCapture { input, capsule } => capsule_capture(&input, &capsule),
+        RoadmapCommand::CapsuleCapture { input, capsule } => {
+            capsule_capture(&input, &capsule, &local_roots_from_environment())
+        }
         RoadmapCommand::CapsuleInspect { capsule } => capsule_inspect(&capsule),
-        RoadmapCommand::CapsuleReplay { capsule, observed } => capsule_replay(&capsule, &observed),
+        RoadmapCommand::CapsuleReplay { capsule, observed } => {
+            capsule_replay(&capsule, &observed, &local_roots_from_environment())
+        }
         RoadmapCommand::AbilityRegistry => ability_registry(),
         RoadmapCommand::AbilitySummary { findings } => ability_summary(&findings),
         RoadmapCommand::AbilityEnforce { manifest, trace } => ability_enforce(&manifest, &trace),
@@ -346,8 +356,8 @@ struct ArtifactRecord {
     redaction_status: &'static str,
 }
 
-fn artifact_store(kind: &str, input: &Path, store_dir: &Path) -> Result<i32, String> {
-    let normalized = normalize_value(read_json(input)?);
+fn artifact_store(kind: &str, input: &Path, store_dir: &Path, local_roots: &LocalRoots) -> Result<i32, String> {
+    let normalized = normalize_value(read_json(input)?, local_roots);
     let dependencies = artifact_dependencies(&normalized)?;
     let hash = artifact_hash(&Value::from(SCHEMA_VERSION), kind, &normalized)?;
     let record = ArtifactRecord {
@@ -488,8 +498,8 @@ fn missing_dependency(root: &str, dependencies: &[String], store_dir: &Path) -> 
     Ok(None)
 }
 
-fn capsule_capture(input: &Path, capsule_path: &Path) -> Result<i32, String> {
-    let mut manifest = normalize_value(read_json(input)?);
+fn capsule_capture(input: &Path, capsule_path: &Path, local_roots: &LocalRoots) -> Result<i32, String> {
+    let mut manifest = normalize_value(read_json(input)?, local_roots);
     for field in [
         "command_argv",
         "run_kind",
@@ -550,9 +560,9 @@ fn capsule_inspect(capsule_path: &Path) -> Result<i32, String> {
     Ok(0)
 }
 
-fn capsule_replay(capsule_path: &Path, observed_path: &Path) -> Result<i32, String> {
+fn capsule_replay(capsule_path: &Path, observed_path: &Path, local_roots: &LocalRoots) -> Result<i32, String> {
     let capsule = read_json(capsule_path)?;
-    let mut observed = normalize_value(read_json(observed_path)?);
+    let mut observed = normalize_value(read_json(observed_path)?, local_roots);
     if observed.get("octet_binary_identity").is_none()
         && let Some(legacy_identity) = observed.get("slotcar_binary_identity").cloned()
     {
@@ -1037,19 +1047,55 @@ fn differing_fields(left: &Value, right: &Value) -> Vec<String> {
         .collect()
 }
 
-/// Normalizes a DTO for content identity: drops secret-like and local-only fields and replaces
-/// absolute-path string values with [`ABSOLUTE_PATH_PLACEHOLDER`].
-fn normalize_value(value: Value) -> Value {
-    normalize_json(value, true)
+/// Local directories whose location must not affect content identity, each paired with the
+/// placeholder that replaces it, longest first so the most specific root wins.
+struct LocalRoots {
+    roots: Vec<(String, &'static str)>,
+}
+
+impl LocalRoots {
+    /// Keeps each root that is absolute, valid UTF-8, and not a filesystem root, without trailing
+    /// separators; on equal length the workspace wins over home, and home over temp.
+    fn new(workspace: Option<&Path>, home: Option<&Path>, temp: Option<&Path>) -> Self {
+        let mut roots: Vec<(String, &'static str)> = [
+            (workspace, WORKSPACE_PLACEHOLDER),
+            (home, HOME_PLACEHOLDER),
+            (temp, TEMP_PLACEHOLDER),
+        ]
+        .into_iter()
+        .filter_map(|(root, placeholder)| {
+            let root = root.filter(|root| root.is_absolute() && root.parent().is_some())?;
+            Some((root.to_str()?.trim_end_matches(std::path::is_separator).to_owned(), placeholder))
+        })
+        .collect();
+        roots.sort_by_key(|(root, _)| std::cmp::Reverse(root.len()));
+        Self { roots }
+    }
+
+    /// `text` with a leading local root replaced by its placeholder, keeping the relative
+    /// remainder; `None` when `text` does not start with a local root at a path boundary.
+    fn normalize(&self, text: &str) -> Option<String> {
+        self.roots.iter().find_map(|(root, placeholder)| {
+            let remainder = text.strip_prefix(root.as_str())?;
+            (remainder.is_empty() || remainder.starts_with(std::path::is_separator))
+                .then(|| format!("{placeholder}{remainder}"))
+        })
+    }
+}
+
+/// Normalizes a DTO for content identity: drops secret-like and local-only fields and replaces a
+/// leading local root in string values with its placeholder, except under identity fields.
+fn normalize_value(value: Value, local_roots: &LocalRoots) -> Value {
+    normalize_json(value, Some(local_roots))
 }
 
 /// Drops secret-like and local-only fields but keeps every other value, for keys whose path
 /// values must keep distinguishing entries.
 fn redact_secret_fields(value: Value) -> Value {
-    normalize_json(value, false)
+    normalize_json(value, None)
 }
 
-fn normalize_json(value: Value, normalize_paths: bool) -> Value {
+fn normalize_json(value: Value, local_roots: Option<&LocalRoots>) -> Value {
     match value {
         Value::Object(map) => {
             let mut out = serde_json::Map::new();
@@ -1057,18 +1103,23 @@ fn normalize_json(value: Value, normalize_paths: bool) -> Value {
                 if is_redacted_key(&key) {
                     continue;
                 }
-                out.insert(key, normalize_json(value, normalize_paths));
+                let value_roots = local_roots.filter(|_| !is_identity_key(&key));
+                out.insert(key, normalize_json(value, value_roots));
             }
             Value::Object(out)
         }
-        Value::Array(items) => {
-            Value::Array(items.into_iter().map(|item| normalize_json(item, normalize_paths)).collect())
-        }
-        Value::String(text) if normalize_paths && is_absolute_path(&text) => {
-            Value::String(ABSOLUTE_PATH_PLACEHOLDER.to_owned())
+        Value::Array(items) => Value::Array(items.into_iter().map(|item| normalize_json(item, local_roots)).collect()),
+        Value::String(text) => {
+            Value::String(local_roots.and_then(|local_roots| local_roots.normalize(&text)).unwrap_or(text))
         }
         other => other,
     }
+}
+
+/// Whether a field names an identity, such as `octet_binary_identity`, whose value is compared
+/// verbatim and therefore never path-normalized.
+fn is_identity_key(key: &str) -> bool {
+    key_words(key).last().is_some_and(|word| word == "identity")
 }
 
 /// Words that, right before a trailing `token`, mark it as a credential rather than a vocabulary
@@ -1139,17 +1190,6 @@ fn key_words(key: &str) -> Vec<String> {
     words
 }
 
-/// Whole-string absolute paths: Unix `/…` without whitespace, Windows drive `C:\…` or `C:/…`,
-/// and UNC `\\host\…` on a single line.
-fn is_absolute_path(text: &str) -> bool {
-    match text.as_bytes() {
-        [b'/', ..] => !text.chars().any(char::is_whitespace),
-        [b'\\', b'\\', ..] => !text.chars().any(char::is_control),
-        [drive, b':', b'/' | b'\\', ..] if drive.is_ascii_alphabetic() => !text.chars().any(char::is_control),
-        _ => false,
-    }
-}
-
 fn canonical_json(value: &Value) -> Result<String, String> {
     serde_json::to_string(value).map_err(|error| format!("serialize canonical json: {error}"))
 }
@@ -1176,6 +1216,14 @@ fn hash_file_name(hash: &str) -> String {
 /// lowercase hex digits, and `.json`.
 fn is_hash_file_name(name: &str) -> bool {
     name.strip_suffix(".json").and_then(|stem| stem.strip_prefix("b3_")).is_some_and(is_blake3_hex)
+}
+
+/// The local roots of this process: the current directory as the workspace, `HOME`, and the
+/// temporary directory.
+fn local_roots_from_environment() -> LocalRoots {
+    let workspace = std::env::current_dir().ok();
+    let home = std::env::var_os("HOME").map(PathBuf::from);
+    LocalRoots::new(workspace.as_deref(), home.as_deref(), Some(&std::env::temp_dir()))
 }
 
 fn read_json(path: &Path) -> Result<Value, String> {
@@ -1344,40 +1392,58 @@ mod tests {
     }
 
     #[test]
-    fn normalize_value_replaces_absolute_path_strings_only() {
-        let normalized = normalize_value(serde_json::json!({
-            "unix": "/home/alice/repo",
-            "root": "/",
-            "drive": "C:\\Users\\alice",
-            "drive_slash": "d:/work",
-            "unc": "\\\\host\\share",
-            "argv": ["cargo", "--manifest-path", "/Users/bob/Cargo.toml"],
-            "relative": "src/lib.rs",
-            "dot_relative": "./Cargo.toml",
-            "hash": "b3:abc",
-            "url": "https://example.com/a/b",
-            "sentence": "/review this change",
-            "drive_word": "C:",
-            "empty": "",
-            "number": 3
-        }));
-        let placeholder = serde_json::json!("<absolute-path>");
-        for field in ["unix", "root", "drive", "drive_slash", "unc"] {
-            assert_eq!(normalized[field], placeholder, "{field}");
-        }
-        assert_eq!(normalized["argv"], serde_json::json!(["cargo", "--manifest-path", "<absolute-path>"]));
-        for (field, kept) in [
+    fn normalize_value_replaces_local_root_prefixes_only() {
+        let roots = LocalRoots::new(
+            Some(Path::new("/home/alice/repo/")),
+            Some(Path::new("/home/alice")),
+            Some(Path::new("/tmp")),
+        );
+        let normalized = normalize_value(
+            serde_json::json!({
+                "workspace": "/home/alice/repo",
+                "source": "/home/alice/repo/src/lib.rs",
+                "config": "/home/alice/.config/octet.toml",
+                "scratch": "/tmp/run-1/out.json",
+                "argv": ["cargo", "--manifest-path", "/home/alice/repo/crates/a/Cargo.toml"],
+                "octet_binary_identity": "/home/alice/.cargo/bin/cargo-octet",
+                "nested_identity": {"binary": "/tmp/cargo-octet"},
+                "sibling": "/home/alice/repository",
+                "outside": "/srv/shared/repo",
+                "route": "/v1/chat/completions",
+                "pointer": "/definitions/finding",
+                "root": "/",
+                "relative": "src/lib.rs",
+                "embedded": "--manifest-path=/home/alice/repo/Cargo.toml",
+                "number": 3
+            }),
+            &roots,
+        );
+        for (field, expected) in [
+            ("workspace", "<workspace>"),
+            ("source", "<workspace>/src/lib.rs"),
+            ("config", "<home>/.config/octet.toml"),
+            ("scratch", "<temp>/run-1/out.json"),
+            ("octet_binary_identity", "/home/alice/.cargo/bin/cargo-octet"),
+            ("sibling", "<home>/repository"),
+            ("outside", "/srv/shared/repo"),
+            ("route", "/v1/chat/completions"),
+            ("pointer", "/definitions/finding"),
+            ("root", "/"),
             ("relative", "src/lib.rs"),
-            ("dot_relative", "./Cargo.toml"),
-            ("hash", "b3:abc"),
-            ("url", "https://example.com/a/b"),
-            ("sentence", "/review this change"),
-            ("drive_word", "C:"),
-            ("empty", ""),
+            ("embedded", "--manifest-path=/home/alice/repo/Cargo.toml"),
         ] {
-            assert_eq!(normalized[field], kept, "{field}");
+            assert_eq!(normalized[field], expected, "{field}");
         }
+        assert_eq!(normalized["argv"][2], "<workspace>/crates/a/Cargo.toml");
+        assert_eq!(normalized["nested_identity"]["binary"], "/tmp/cargo-octet");
         assert_eq!(normalized["number"], 3);
+    }
+
+    #[test]
+    fn local_roots_skip_relative_and_filesystem_roots() {
+        let roots = LocalRoots::new(Some(Path::new("/")), Some(Path::new("relative/home")), None);
+        assert_eq!(roots.normalize("/home/alice/repo"), None);
+        assert_eq!(roots.normalize("relative/home/x"), None);
     }
 
     fn args(values: &[&str]) -> Vec<String> {

@@ -44,12 +44,24 @@ capitalized word (`AWSSecretAccessKey` is `aws secret access key`,
 - Any word is `apikey` or `privatekey`, or a word that is `private` or ends in
   `api` is followed by `key` (`api_key`, `x-api-key`, `private_key`).
 
-Any whole string value that is an absolute path (Unix `/…` without whitespace, Windows
-`C:\…` or `C:/…`, or UNC `\\host\…`), such as a `--manifest-path` entry in
-`command_argv`, becomes `<absolute-path>`, so the same run on different
-machines yields the same `capsule_hash`. Replay normalizes the observed run the
-same way. Secrets and paths embedded inside longer strings are not detected.
-The same normalization applies to `cargo octet roadmap artifact store`.
+Capture then normalizes local path presentation. A string value that starts
+with a local root, followed by a path separator or nothing, has that root
+replaced by a placeholder and keeps the relative remainder. The local roots are
+the current directory as `<workspace>` (run the command from the workspace
+root), `HOME` as `<home>`, and the temporary directory as `<temp>`; the longest
+matching root wins. So `--manifest-path /home/alice/repo/Cargo.toml` captured
+from `/home/alice/repo` becomes `--manifest-path <workspace>/Cargo.toml`, and
+the same project at another checkout path or under another home yields the
+same `capsule_hash`. Strings outside those roots, such as HTTP routes, JSON
+pointers, or `/nix/store/…` paths, stay verbatim, and values under a field
+whose last word is `identity`, such as `octet_binary_identity`, are never
+normalized. A changed path inside the workspace or a different binary identity
+is therefore still drift. Replay normalizes the observed run the same way,
+using the replaying process's roots. Secrets and paths embedded inside longer
+strings, such as `--manifest-path=/home/alice/repo/Cargo.toml`, are not
+detected. The same normalization applies to `cargo octet roadmap artifact
+store`, and both report `redaction_status`
+`secret-like-and-local-fields-dropped-local-roots-normalized`.
 
 ## Inspect and replay
 

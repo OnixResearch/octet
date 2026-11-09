@@ -4,7 +4,7 @@ This executable transcript documents the Unison-inspired agent-facing roadmap su
 
 ```octet-transcript
 $ cargo octet roadmap artifact store --kind prompt --input prompt.json --store-dir store
-=> drops secret-like and local-only fields, replaces absolute-path values with <absolute-path>, rejects non-hash dependencies, and returns a stable b3: artifact hash
+=> drops secret-like and local-only fields, replaces a leading workspace, HOME, or temp-dir root in string values with <workspace>, <home>, or <temp> while keeping the relative remainder and leaving other strings and identity fields verbatim, rejects non-hash dependencies, and returns a stable b3: artifact hash
 
 $ cargo octet roadmap artifact inspect --hash b3:<artifact> --store-dir store
 => accepts only b3: plus 64 lowercase hex, re-hashes the stored record, and reports artifact_kind, dependencies, and replay prerequisites

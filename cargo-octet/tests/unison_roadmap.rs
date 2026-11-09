@@ -86,7 +86,7 @@ fn artifact_hash_inspect_and_replay_are_content_addressed() {
     ));
     assert_eq!(a["hash"], b["hash"]);
     assert!(a["hash"].as_str().unwrap().starts_with("b3:"));
-    assert_eq!(a["redaction_status"], "secret-like-and-local-fields-dropped-absolute-paths-normalized");
+    assert_eq!(a["redaction_status"], "secret-like-and-local-fields-dropped-local-roots-normalized");
     assert!(!a.to_string().contains("do-not-store"));
 
     let hash = a["hash"].as_str().unwrap();
@@ -1114,118 +1114,221 @@ fn artifact_store_rejects_malformed_dependencies() {
     assert_eq!(stored["dependencies"], serde_json::json!([valid]));
 }
 
-#[test]
-fn artifact_identity_excludes_secret_fields_and_local_paths() {
-    let temp = tempfile::tempdir().unwrap();
-    let store = temp.path().join("store");
-    let alice = stored_hash(
-        serde_json::json!({
-            "prompt": "x",
-            "api_key": "sk-live-1",
-            "workspace": "/home/alice/repo",
-            "file": "src/lib.rs",
-            "nested": [{"accessToken": "tok-alice", "cwd": "C:\\Users\\alice\\repo"}],
-            "max_tokens": 5
-        }),
-        "alice.json",
-        &store,
-        temp.path(),
-    );
-    let bob = stored_hash(
-        serde_json::json!({
-            "prompt": "x",
-            "API_KEY": "sk-live-2",
-            "Password": "hunter2",
-            "workspace": "/Users/bob/src/repo",
-            "file": "src/lib.rs",
-            "nested": [{"accessToken": "tok-bob", "cwd": "\\\\host\\share\\repo"}],
-            "max_tokens": 5
-        }),
-        "bob.json",
-        &store,
-        temp.path(),
-    );
-    assert_eq!(alice, bob, "DTOs differing only in secrets and local paths must share an identity");
+fn run_with_home(args: &[&str], cwd: &Path, home: &str) -> std::process::Output {
+    Command::new(cargo_octet()).args(args).current_dir(cwd).env("HOME", home).output().unwrap()
+}
 
-    let stored = fs::read_to_string(record_path(&store, &alice)).unwrap();
-    for leaked in ["sk-live-1", "tok-alice", "/home/alice", "alice\\\\repo"] {
-        assert!(!stored.contains(leaked), "stored record leaked {leaked}: {stored}");
-    }
-    let record: serde_json::Value = serde_json::from_str(&stored).unwrap();
-    assert_eq!(record["normalized"]["file"], "src/lib.rs");
-    assert_eq!(record["normalized"]["max_tokens"], 5);
-
-    let relative_change = stored_hash(
-        serde_json::json!({"prompt": "x", "workspace": "/home/alice/repo", "file": "src/main.rs", "max_tokens": 5}),
-        "relative.json",
-        &store,
-        temp.path(),
-    );
-    let relative_base = stored_hash(
-        serde_json::json!({"prompt": "x", "workspace": "/home/alice/repo", "file": "src/lib.rs", "max_tokens": 5}),
-        "base.json",
-        &store,
-        temp.path(),
-    );
-    let budget_change = stored_hash(
-        serde_json::json!({"prompt": "x", "workspace": "/home/alice/repo", "file": "src/lib.rs", "max_tokens": 6}),
-        "budget.json",
-        &store,
-        temp.path(),
-    );
-    assert_ne!(relative_change, relative_base, "relative strings are content");
-    assert_ne!(budget_change, relative_base, "non-secret token counts are content");
+/// A fresh checkout directory and its canonical path, which `current_dir` reports as the workspace.
+fn checkout() -> (tempfile::TempDir, String) {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().canonicalize().unwrap().to_str().unwrap().to_owned();
+    (dir, root)
 }
 
 #[test]
-fn replay_capsule_identity_excludes_local_argv_paths() {
-    let temp = tempfile::tempdir().unwrap();
+fn artifact_identity_excludes_secret_fields_and_local_root_presentation() {
     let mut hashes = Vec::new();
     for (index, home) in ["/home/alice", "/Users/bob"].iter().enumerate() {
-        let input = temp.path().join(format!("input-{index}.json"));
-        let capsule = temp.path().join(format!("capsule-{index}.json"));
+        let (dir, workspace) = checkout();
+        let store = dir.path().join("store");
+        let input = dir.path().join("dto.json");
+        let mut dto = serde_json::json!({
+            "prompt": "x",
+            "workspace": workspace,
+            "file": format!("{workspace}/src/lib.rs"),
+            "nested": [{"accessToken": format!("tok-{index}"), "config": format!("{home}/.config/octet.toml")}],
+            "max_tokens": 5
+        });
+        dto[["api_key", "API_KEY"][index]] = serde_json::json!(format!("sk-live-{index}"));
+        write_json(&input, dto);
+        let args = [
+            "roadmap",
+            "artifact",
+            "store",
+            "--kind",
+            "prompt",
+            "--input",
+            input.to_str().unwrap(),
+            "--store-dir",
+            store.to_str().unwrap(),
+        ];
+        let hash = stdout_json(&run_with_home(&args, dir.path(), home))["hash"].as_str().unwrap().to_owned();
+        let stored = fs::read_to_string(record_path(&store, &hash)).unwrap();
+        for leaked in [
+            format!("sk-live-{index}"),
+            format!("tok-{index}"),
+            (*home).to_owned(),
+            workspace.clone(),
+        ] {
+            assert!(!stored.contains(&leaked), "stored record leaked {leaked}: {stored}");
+        }
+        let record: serde_json::Value = serde_json::from_str(&stored).unwrap();
+        assert_eq!(record["normalized"]["workspace"], "<workspace>");
+        assert_eq!(record["normalized"]["file"], "<workspace>/src/lib.rs");
+        assert_eq!(record["normalized"]["nested"][0]["config"], "<home>/.config/octet.toml");
+        assert_eq!(record["normalized"]["max_tokens"], 5);
+        hashes.push(hash);
+    }
+    assert_eq!(hashes[0], hashes[1], "DTOs differing only in secrets and local roots must share an identity");
+
+    let (dir, workspace) = checkout();
+    let store = dir.path().join("store");
+    let identity = |file: &str, max_tokens: u32, name: &str| {
+        stored_hash(
+            serde_json::json!({"prompt": "x", "file": file, "max_tokens": max_tokens}),
+            name,
+            &store,
+            dir.path(),
+        )
+    };
+    let base = identity(&format!("{workspace}/src/lib.rs"), 5, "base.json");
+    assert_ne!(
+        identity(&format!("{workspace}/src/main.rs"), 5, "relative.json"),
+        base,
+        "in-root remainders are content"
+    );
+    assert_ne!(
+        identity(&format!("{workspace}/src/lib.rs"), 6, "budget.json"),
+        base,
+        "non-secret token counts are content"
+    );
+}
+
+#[test]
+fn artifact_identity_keeps_absolute_strings_outside_local_roots() {
+    let (dir, _) = checkout();
+    let store = dir.path().join("store");
+    for (index, (left, right)) in [
+        ("/v1/chat/completions", "/v1/embeddings"),
+        ("/definitions/finding/properties/id", "/definitions/finding/properties/path"),
+        ("/srv/shared/a.toml", "/srv/shared/b.toml"),
+    ]
+    .iter()
+    .enumerate()
+    {
+        let left_hash =
+            stored_hash(serde_json::json!({"route": left}), &format!("left-{index}.json"), &store, dir.path());
+        let right_hash =
+            stored_hash(serde_json::json!({"route": right}), &format!("right-{index}.json"), &store, dir.path());
+        assert_ne!(left_hash, right_hash, "{left} and {right} must keep distinct identities");
+        let record: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(record_path(&store, &left_hash)).unwrap()).unwrap();
+        assert_eq!(record["normalized"]["route"], *left);
+    }
+}
+
+fn capture_capsule(manifest: serde_json::Value, name: &str, cwd: &Path, home: &str) -> serde_json::Value {
+    let input = cwd.join(format!("{name}-input.json"));
+    let capsule = cwd.join(format!("{name}.json"));
+    write_json(&input, manifest);
+    stdout_json(&run_with_home(
+        &[
+            "roadmap",
+            "capsule",
+            "capture",
+            "--input",
+            input.to_str().unwrap(),
+            "--capsule",
+            capsule.to_str().unwrap(),
+        ],
+        cwd,
+        home,
+    ))
+}
+
+fn replay_observation(observed: serde_json::Value, name: &str, cwd: &Path, home: &str) -> std::process::Output {
+    let observed_path = cwd.join(format!("{name}-observed.json"));
+    write_json(&observed_path, observed);
+    run_with_home(
+        &[
+            "roadmap",
+            "capsule",
+            "replay",
+            "--capsule",
+            cwd.join(format!("{name}.json")).to_str().unwrap(),
+            "--observed",
+            observed_path.to_str().unwrap(),
+        ],
+        cwd,
+        home,
+    )
+}
+
+#[test]
+fn replay_capsule_identity_excludes_local_root_presentation() {
+    let mut hashes = Vec::new();
+    for (index, home) in ["/home/alice", "/Users/bob"].iter().enumerate() {
+        let (dir, workspace) = checkout();
         let mut manifest = capsule_manifest_input();
         manifest["command_argv"] = serde_json::json!([
             "cargo",
             "octet",
             "check",
             "--manifest-path",
-            format!("{home}/repo/Cargo.toml")
+            format!("{workspace}/Cargo.toml"),
+            "--config",
+            format!("{home}/.config/octet.toml")
         ]);
+        let mut observation = manifest.clone();
         manifest["client_secret"] = serde_json::json!(format!("secret-{index}"));
-        write_json(&input, manifest);
-        let captured = stdout_json(&run(
-            &[
-                "roadmap",
-                "capsule",
-                "capture",
-                "--input",
-                input.to_str().unwrap(),
-                "--capsule",
-                capsule.to_str().unwrap(),
-            ],
-            temp.path(),
-        ));
-        let text = fs::read_to_string(&capsule).unwrap();
+        let captured = capture_capsule(manifest, "capsule", dir.path(), home);
+        assert_eq!(captured["manifest"]["command_argv"][4], "<workspace>/Cargo.toml");
+        assert_eq!(captured["manifest"]["command_argv"][6], "<home>/.config/octet.toml");
+        let text = fs::read_to_string(dir.path().join("capsule.json")).unwrap();
         assert!(!text.contains(home), "capsule kept local path {home}");
+        assert!(!text.contains(&workspace), "capsule kept workspace root {workspace}");
         assert!(!text.contains(&format!("secret-{index}")), "capsule kept secret");
         hashes.push(captured["capsule_hash"].clone());
 
-        let observed = temp.path().join(format!("observed-{index}.json"));
-        let mut observation = capsule_manifest_input();
-        observation["command_argv"] = serde_json::json!([
-            "cargo",
-            "octet",
-            "check",
-            "--manifest-path",
-            format!("{home}/repo/Cargo.toml")
-        ]);
         observation["exit_code"] = serde_json::json!(0);
-        write_json(&observed, observation);
-        let replay = stdout_json(&capsule_replay(&capsule, &observed, temp.path()));
+        let replay = stdout_json(&replay_observation(observation, "capsule", dir.path(), home));
         assert_eq!(replay["status"], "replayed");
     }
     assert_eq!(hashes[0], hashes[1]);
+}
+
+#[test]
+fn replay_capsule_reports_in_workspace_argv_and_binary_identity_drift() {
+    let (dir, workspace) = checkout();
+    let home = "/home/alice";
+    let mut manifest = capsule_manifest_input();
+    manifest["command_argv"] = serde_json::json!([
+        "cargo",
+        "octet",
+        "check",
+        "--manifest-path",
+        format!("{workspace}/crates/a/Cargo.toml")
+    ]);
+    manifest["octet_binary_identity"] = serde_json::json!("/nix/store/aaaa-cargo-octet/bin/cargo-octet");
+    let captured = capture_capsule(manifest.clone(), "capsule", dir.path(), home);
+    assert_eq!(captured["manifest"]["octet_binary_identity"], "/nix/store/aaaa-cargo-octet/bin/cargo-octet");
+
+    let mut observation = manifest;
+    observation["exit_code"] = serde_json::json!(0);
+    let exact = stdout_json(&replay_observation(observation.clone(), "capsule", dir.path(), home));
+    assert_eq!(exact["status"], "replayed");
+
+    for (field, drifted) in [
+        (
+            "command_argv",
+            serde_json::json!([
+                "cargo",
+                "octet",
+                "check",
+                "--manifest-path",
+                format!("{workspace}/crates/b/Cargo.toml")
+            ]),
+        ),
+        ("octet_binary_identity", serde_json::json!("/nix/store/bbbb-cargo-octet/bin/cargo-octet")),
+    ] {
+        let mut observed = observation.clone();
+        observed[field] = drifted;
+        let output = replay_observation(observed, "capsule", dir.path(), home);
+        assert_eq!(output.status.code(), Some(1), "{field} drift must fail closed");
+        let report: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(report["status"], "drifted", "{field}");
+        assert_eq!(report["mismatches"], serde_json::json!([field]));
+    }
 }
 
 fn cache_check(key: serde_json::Value, output_hash: &str, cwd: &Path) -> std::process::Output {
