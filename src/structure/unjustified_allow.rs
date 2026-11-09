@@ -335,12 +335,18 @@ impl UnjustifiedAllow {
                     continue;
                 };
                 let is_governed = if name == "warn" {
-                    !body_lowered_lints(&self.floor_paths, attribute, later).is_empty()
+                    match body_lowered_lints(&self.floor_paths, attribute, later) {
+                        Some(lowered) => !lowered.is_empty(),
+                        None => continue,
+                    }
                 } else {
                     attribute.lint_paths().any(is_governed_lint_path)
                 };
-                // The profile guard reports an attribute it reaches as an error.
-                if !is_governed || !body_lowered_lints(&self.guarded_paths, attribute, later).is_empty() {
+                // The profile guard reports an attribute it reaches as an
+                // error; one it might reach is left to the expansion site.
+                let is_guarded =
+                    body_lowered_lints(&self.guarded_paths, attribute, later).is_none_or(|lowered| !lowered.is_empty());
+                if !is_governed || is_guarded {
                     continue;
                 }
                 let has_reason = match attribute.reason {
@@ -390,18 +396,28 @@ fn body_lowering_level_name(attribute: &BodyAttribute) -> Option<&'static str> {
 }
 
 /// Lints of `set` that a macro-body attribute lowers and no later `deny` or
-/// `forbid` in its run of attributes raises back.
-fn body_lowered_lints(set: &LintPathSet, attribute: &BodyAttribute, later: &[BodyAttribute]) -> Vec<&'static str> {
+/// `forbid` in its run of attributes raises back, or `None` when it lowers
+/// some but a `$(...)` repetition later in the run may raise them, which only
+/// an expansion decides.
+fn body_lowered_lints(
+    set: &LintPathSet,
+    attribute: &BodyAttribute,
+    later: &[BodyAttribute],
+) -> Option<Vec<&'static str>> {
     let mut lowered = set.reached_lints(attribute.lint_paths());
-    if !lowered.is_empty() {
-        let raised = later
-            .iter()
-            .filter(|raise| raise.name == sym::deny || raise.name == sym::forbid)
-            .flat_map(|raise| set.reached_lints(raise.lint_paths()))
-            .collect::<Vec<_>>();
-        lowered.retain(|lint_name| !raised.contains(lint_name));
+    if lowered.is_empty() {
+        return Some(lowered);
     }
-    lowered
+    if attribute.is_raise_undecided {
+        return None;
+    }
+    let raised = later
+        .iter()
+        .filter(|raise| raise.name == sym::deny || raise.name == sym::forbid)
+        .flat_map(|raise| set.reached_lints(raise.lint_paths()))
+        .collect::<Vec<_>>();
+    lowered.retain(|lint_name| !raised.contains(lint_name));
+    Some(lowered)
 }
 
 /// Report deduplication shared by both passes.
@@ -601,7 +617,7 @@ impl EarlyLintPass for SuppressionGovernanceGuard {
                 let Some(name) = body_lowering_level_name(attribute) else {
                     continue;
                 };
-                let reached = body_lowered_lints(&self.protected, attribute, &run[index + 1..]);
+                let reached = body_lowered_lints(&self.protected, attribute, &run[index + 1..]).unwrap_or_default();
                 if !reached.is_empty() && self.dedupe.is_first_definition_report(attribute.span) {
                     self.report(cx, attribute.span, name, &reached);
                 }

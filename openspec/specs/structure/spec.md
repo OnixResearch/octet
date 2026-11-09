@@ -187,7 +187,10 @@ check. An attribute in a local macro body MUST be reported once, however
 often the macro expands, whether the definition-site or the expansion-site
 check reports it. A macro definition that expanding another crate's macro
 produces is that crate's code: this lint and the profile guard MUST NOT check
-its body in the expanding crate.
+its body in the expanding crate. In a body, a `///` doc comment between
+attributes MUST NOT end their attribute list, and a lowering attribute that a
+`$(...)` repetition follows in its list MUST be left to the expansion-site
+check, since the repetition may expand into a later raise.
 
 The lint MUST NOT fire on workspace-level lint configuration in
 `Cargo.toml` (those are outside Clippy's reach anyway).

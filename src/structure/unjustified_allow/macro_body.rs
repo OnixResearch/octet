@@ -37,6 +37,10 @@ pub(super) struct BodyAttribute {
     /// expansion decides what it names.
     pub(super) paths: Vec<Vec<Symbol>>,
     pub(super) reason: Reason,
+    /// A `$(...)` repetition follows this attribute in its run. It may expand
+    /// into a later `deny` or `forbid` that raises what this attribute lowers,
+    /// so only an expansion can tell, and the definition-site check defers.
+    pub(super) is_raise_undecided: bool,
 }
 
 impl BodyAttribute {
@@ -82,6 +86,28 @@ fn collect_runs(stream: &TokenStream, runs: &mut Vec<Vec<BodyAttribute>>) {
             index += consumed;
             continue;
         }
+        // A `///` doc comment is an attribute of the same item.
+        if matches!(
+            rest.first(),
+            Some(TokenTree::Token(
+                Token {
+                    kind: TokenKind::DocComment(..),
+                    ..
+                },
+                _
+            ))
+        ) {
+            index += 1;
+            continue;
+        }
+        if let Some((inner, consumed)) = repetition_at(rest) {
+            for attribute in &mut run {
+                attribute.is_raise_undecided = true;
+            }
+            collect_runs(inner, runs);
+            index += consumed;
+            continue;
+        }
         if !run.is_empty() {
             runs.push(std::mem::take(&mut run));
         }
@@ -93,6 +119,27 @@ fn collect_runs(stream: &TokenStream, runs: &mut Vec<Vec<BodyAttribute>>) {
     if !run.is_empty() {
         runs.push(run);
     }
+}
+
+/// A `$( ... ) separator? operator` repetition starting at `trees`: its
+/// contents and the number of trees it spans.
+fn repetition_at<'a>(trees: &[&'a TokenTree]) -> Option<(&'a TokenStream, usize)> {
+    let [
+        dollar,
+        TokenTree::Delimited(_, _, Delimiter::Parenthesis, inner),
+        after @ ..,
+    ] = trees
+    else {
+        return None;
+    };
+    if !is_token(dollar, &TokenKind::Dollar) {
+        return None;
+    }
+    let is_operator = |tree: &&TokenTree| {
+        [TokenKind::Star, TokenKind::Plus, TokenKind::Question].iter().any(|kind| is_token(tree, kind))
+    };
+    let operator_offset = after.iter().take(2).position(is_operator).map_or(0, |offset| offset + 1);
+    Some((inner, 2 + operator_offset))
 }
 
 /// The lint-level attributes of an attribute starting at `trees`, with the
@@ -157,6 +204,7 @@ fn level_attributes(trees: &[&TokenTree], written: Option<Span>, attributes: &mu
         span: written.unwrap_or_else(|| name_span.to(dspan.close)),
         paths: Vec::new(),
         reason: Reason::Absent,
+        is_raise_undecided: false,
     };
     for argument in arguments.split(|tree| is_token(tree, &TokenKind::Comma)) {
         if let Some(reason) = reason_argument(argument) {
@@ -224,6 +272,8 @@ fn literal_path(argument: &[&TokenTree]) -> Option<Vec<Symbol>> {
 
 #[cfg(test)]
 mod tests {
+    use rustc_ast::AttrStyle;
+    use rustc_ast::token::CommentKind;
     use rustc_ast::token::Delimiter;
     use rustc_ast::token::IdentIsRaw;
     use rustc_ast::token::Lit;
@@ -342,6 +392,36 @@ mod tests {
             let runs = attribute_runs(&body, false);
 
             assert_eq!(names(&runs), [vec!["allow", "warn"]]);
+        });
+    }
+
+    #[test]
+    fn doc_comments_keep_runs_and_repetitions_leave_raises_undecided() {
+        rustc_span::create_default_session_globals_then(|| {
+            let doc = token(TokenKind::DocComment(CommentKind::Line, AttrStyle::Outer, Symbol::intern(" docs")));
+            let mut transcriber = attribute("allow", path(&["tigerstyle", "structure"]));
+            transcriber.push(doc);
+            transcriber.extend(attribute("deny", path(&["unjustified_allow"])));
+            transcriber.extend([ident("fn"), ident("documented")]);
+            transcriber.extend(attribute("warn", path(&["tigerstyle", "safety"])));
+            transcriber.extend([
+                token(TokenKind::Dollar),
+                group(Delimiter::Parenthesis, attribute("allow", path(&["clippy", "all"]))),
+                token(TokenKind::Star),
+            ]);
+            transcriber.extend(attribute("deny", path(&["tigerstyle", "no_unwrap"])));
+            transcriber.extend([ident("mod"), ident("repeated")]);
+            let body = TokenStream::new(transcriber);
+
+            let runs = attribute_runs(&body, false);
+
+            // The repetition's own attributes form a run of their own.
+            assert_eq!(names(&runs), [vec!["allow", "deny"], vec!["allow"], vec!["warn", "deny"]]);
+            let undecided = runs
+                .iter()
+                .map(|run| run.iter().map(|attribute| attribute.is_raise_undecided).collect::<Vec<_>>())
+                .collect::<Vec<_>>();
+            assert_eq!(undecided, [vec![false, false], vec![false], vec![true, false]]);
         });
     }
 

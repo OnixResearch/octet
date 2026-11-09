@@ -106,3 +106,24 @@ macro_rules! exported_cfg_attr_silenced {
         mod exported_cfg_attr_silenced {}
     };
 }
+
+// Should error: a doc comment does not hide the allow.
+#[macro_export]
+macro_rules! exported_documented_silenced {
+    () => {
+        #[allow(tigerstyle::structure)]
+        /// Generated helper.
+        fn documented() {}
+    };
+}
+
+macro_rules! repeated_attributes {
+    ($(#[$meta:meta])* $name:ident) => {
+        #[warn(tigerstyle::safety)]
+        $(#[$meta])*
+        mod $name {}
+    };
+}
+
+// Should error at the expansion: this invocation adds no later raise.
+repeated_attributes!(lowered_by_invocation);

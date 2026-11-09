@@ -42,3 +42,28 @@ fn main() {
     let _ = first(&[1]);
     let _ = Reading { celsius_milli: 1 };
 }
+
+// A doc comment inside a run of attributes does not end it: the later `deny`
+// still raises the governance lint back, as it would outside a macro.
+#[macro_export]
+macro_rules! exported_documented {
+    () => {
+        // Generated helpers keep their structure findings for review.
+        #[allow(tigerstyle::structure)]
+        /// Generated helper.
+        #[deny(tigerstyle::unjustified_allow, tigerstyle::unjustified_no_todo_allow)]
+        fn documented() {}
+    };
+}
+
+// A `$(...)` repetition may expand into a later raise, so the definition
+// defers to the expansion site, where this invocation raises the lint back.
+macro_rules! repeated_attributes {
+    ($(#[$meta:meta])* $name:ident) => {
+        #[warn(tigerstyle::safety)]
+        $(#[$meta])*
+        mod $name {}
+    };
+}
+
+repeated_attributes!(#[deny(tigerstyle::safety)] raised_by_invocation);
