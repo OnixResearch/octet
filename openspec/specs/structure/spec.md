@@ -434,7 +434,7 @@ The lint MUST warn on inline numeric literals in production code when the litera
 
 For this rule, a named constant is a `const` or `static` item whose identifier contains at least one non-generic domain word beyond the numeric type or unit.
 
-For this rule, a unit-bearing binding is a binding or constant name ending in an explicit unit suffix already accepted by Octet numeric-unit naming rules.
+For this rule, a unit-bearing binding is a binding or constant name ending in an explicit unit suffix already accepted by Octet numeric-unit naming rules. A binding documents only the literal that is its whole initializer (optionally cast or negated); it does not document literals nested deeper in that initializer, such as a threshold inside an `if` condition.
 
 For this rule, a domain-specific wrapper is a constructor call or associated constructor whose type name is not a primitive integer/float type and whose argument is the literal.
 
@@ -449,6 +449,18 @@ The lint SHOULD suggest extracting the literal into a named constant or configur
 - GIVEN production code with `if elapsed_ms > 30_000 { reconnect(); }`
 - WHEN the lint runs
 - THEN `magic_number` warns that `30_000` should be named or configured
+
+#### Scenario: Field and method operands name the policy [r[magic-number-detection.scenario.field-and-method-operands]]
+
+- GIVEN production code with `if self.elapsed_ms > 30_000 { reconnect(); }`, `if cfg.retry_attempts > 5 { reconnect(); }`, or `if cfg.retry_limit() > 5 { reconnect(); }`
+- WHEN the lint runs
+- THEN `magic_number` warns on the literal, because a field or method operand with a unit suffix or domain word names the policy just like a local binding
+
+#### Scenario: Binding does not document a nested threshold [r[magic-number-detection.scenario.binding-nested-threshold]]
+
+- GIVEN production code with `let retry_delay_ms = if elapsed_ms > 30_000 { 50 } else { 10 };`
+- WHEN the lint runs
+- THEN `magic_number` warns on `30_000`, because the binding names the selected delay rather than the threshold
 
 #### Scenario: Named constant [r[magic-number-detection.scenario.named-constant]]
 
