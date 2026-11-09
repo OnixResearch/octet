@@ -29,22 +29,41 @@ capitalized word (`AWSSecretAccessKey` is `aws secret access key`,
 `OpenAIAPIKey` is `open aiapi key`). A field is dropped when any of these hold:
 
 - Its words are exactly `absolute path`, `timestamp`, `username`, or `env dump`.
-- Any word is `secret(s)`, `password(s)`, `passwd`, or `credential(s)`, and no
-  word is one of the metadata words `count`, `has`, `is`, `min`, `max`,
+- Any word is `secret(s)`, `passwd`, `pass`, `pwd`, `credential(s)`,
+  `authorization`, `auth`, `bearer`, `cookie(s)`, `jwt`, or `sessionid`, any
+  word contains `password` (`PGPASSWORD`), or the words include `session id`;
+  and no word is one of the metadata words `count`, `has`, `is`, `min`, `max`,
   `length`, `len`, `policy`, `helper`, `enabled`, `required`, `name`,
-  `expiry`, `expires`, or `rotation`. So `client_secret` and `dbPassword` are
-  dropped, while `secret_count`, `has_secrets`, `password_min_length`, and
-  `credential_helper` stay.
-- Its last word is `token`, unless the word before it is one of the
-  non-credential words `eos`, `bos`, `pad`, `unk`, `sep`, `cls`, `mask`,
-  `start`, `end`, `special`, `page`, `next`, `continuation`, `cancellation`,
-  `sync`, `max`, `num`, or `count`. So `token`, `access_token`, `GITHUB_TOKEN`,
-  `VAULT_TOKEN`, `HF_TOKEN`, `CI_JOB_TOKEN`, and
-  `CARGO_REGISTRIES_<NAME>_TOKEN` are dropped, while `eos_token`, `pad_token`,
-  `next_page_token`, and `cancellation_token` stay. Fields where `token` is not
-  the last word, such as `max_tokens` or `token_count`, also stay.
-- Any word is `apikey` or `privatekey`, or a word that is `private` or ends in
-  `api` is followed by `key` (`api_key`, `x-api-key`, `private_key`).
+  `expiry`, `expires`, or `rotation`. So `client_secret`, `dbPassword`,
+  `PGPASSWORD`, `MYSQL_PWD`, `DB_PASS`, `Authorization`, `cookie`,
+  `session_id`, and `jwt` are dropped, while `secret_count`, `has_secrets`,
+  `password_min_length`, `credential_helper`, `auth_required`, and
+  `cookie_name` stay.
+- Its last word is `token` or `tokens`, possibly followed by digits
+  (`GITHUB_TOKEN2`), after skipping trailing all-digit words and the
+  environment words `prod`, `production`, `dev`, `development`, `staging`,
+  `stage`, `test`, `testing`, `qa`, `uat`, `ci`, `local`, `live`, `sandbox`,
+  `preview`, `old`, `new`, `primary`, `secondary`, and `backup`
+  (`GITHUB_TOKEN_2`, `NPM_TOKEN_PROD`). The field stays when any word is one of
+  the count words `max`, `min`, `num`, or `total`, or when the word before the
+  token is one of the non-credential words `eos`, `bos`, `eot`, `eod`, `pad`,
+  `unk`, `sep`, `cls`, `mask`, `start`, `stop`, `end`, `special`, `first`,
+  `last`, `prev`, `previous`, `page`, `pagination`, `next`, `continuation`,
+  `resume`, `cursor`, `cancellation`, `sync`, `prompt`, `completion`, `input`,
+  `output`, `cached`, `reasoning`, `capability`, or `count`. So `token`,
+  `tokens`, `access_token`, `GITHUB_TOKEN`, `VAULT_TOKEN`, `HF_TOKEN`,
+  `CI_JOB_TOKEN`, and `CARGO_REGISTRIES_<NAME>_TOKEN` are dropped, while
+  `eos_token`, `stop_token`, `last_token`, `resume_token`, `next_page_token`,
+  `PaginationToken`, `cancellation_token`, `max_tokens`, `max_new_tokens`, and
+  `prompt_tokens` stay. Fields where `token` is not the last word, such as
+  `token_count` or `token_limit`, also stay.
+- Any word is `apikey` or `privatekey`, or `key` follows any word other than
+  the lookup, schema, and public-key words `primary`, `foreign`, `composite`,
+  `unique`, `sort`, `partition`, `shard`, `index`, `row`, `group`, `dedup`,
+  `cache`, `map`, `dict`, `hash`, `lookup`, or `public`. So `api_key`,
+  `x-api-key`, `private_key`, `STRIPE_KEY`, `SIGNING_KEY`, and
+  `AWS_ACCESS_KEY_ID` are dropped, while `key`, `key_id`, `primary_key`,
+  `cache_key`, and `public_key` stay.
 
 Capture then normalizes local path presentation. A string value that starts
 with a local root, followed by a path separator or nothing, has that root

@@ -1124,32 +1124,116 @@ fn is_identity_key(key: &str) -> bool {
     key_words(key).last().is_some_and(|word| word == "identity")
 }
 
-/// Words that, right before a trailing `token`, mark it as a vocabulary, pagination, or
-/// coordination token rather than a credential (`eos_token`, `next_page_token`,
-/// `cancellation_token`). Any other trailing `token` is treated as a credential, so unlisted
-/// names such as `VAULT_TOKEN` or `CARGO_REGISTRIES_<NAME>_TOKEN` fail closed.
-const NON_CREDENTIAL_TOKEN_QUALIFIERS: [&str; 18] = [
+/// Words that, right before a trailing `token` or `tokens`, mark it as a vocabulary, position,
+/// pagination, usage-count, or coordination token rather than a credential (`eos_token`,
+/// `stop_token`, `next_page_token`, `PaginationToken`, `prompt_tokens`, `cancellation_token`).
+/// Any other trailing `token` is treated as a credential, so unlisted names such as
+/// `VAULT_TOKEN` or `CARGO_REGISTRIES_<NAME>_TOKEN` fail closed.
+const NON_CREDENTIAL_TOKEN_QUALIFIERS: [&str; 33] = [
     "eos",
     "bos",
+    "eot",
+    "eod",
     "pad",
     "unk",
     "sep",
     "cls",
     "mask",
     "start",
+    "stop",
     "end",
     "special",
+    "first",
+    "last",
+    "prev",
+    "previous",
     "page",
+    "pagination",
     "next",
     "continuation",
+    "resume",
+    "cursor",
     "cancellation",
     "sync",
-    "max",
-    "num",
+    "prompt",
+    "completion",
+    "input",
+    "output",
+    "cached",
+    "reasoning",
+    "capability",
     "count",
 ];
-/// Words that make a `secret`, `password`, or `credential` field describe the secret instead of
-/// holding it (`secret_count`, `password_min_length`, `credential_helper`).
+/// Words that make a `token` or `tokens` field a count or limit wherever they appear
+/// (`max_tokens`, `max_new_tokens`, `num_tokens`).
+const TOKEN_COUNT_WORDS: [&str; 4] = ["max", "min", "num", "total"];
+/// Trailing words that only number or place a credential, skipped before looking for a trailing
+/// `token` (`GITHUB_TOKEN_2`, `NPM_TOKEN_PROD`). An all-digit word is skipped too.
+const CREDENTIAL_SUFFIX_WORDS: [&str; 20] = [
+    "prod",
+    "production",
+    "dev",
+    "development",
+    "staging",
+    "stage",
+    "test",
+    "testing",
+    "qa",
+    "uat",
+    "ci",
+    "local",
+    "live",
+    "sandbox",
+    "preview",
+    "old",
+    "new",
+    "primary",
+    "secondary",
+    "backup",
+];
+/// Words that hold or carry a credential wherever they appear, unless a secret metadata word
+/// marks the field as describing it. Any word containing `password` (`PGPASSWORD`) counts too.
+const CREDENTIAL_WORDS: [&str; 14] = [
+    "secret",
+    "secrets",
+    "passwd",
+    "pass",
+    "pwd",
+    "credential",
+    "credentials",
+    "authorization",
+    "auth",
+    "bearer",
+    "cookie",
+    "cookies",
+    "jwt",
+    "sessionid",
+];
+/// Words that, right before `key`, name a lookup, schema, or public key rather than key material
+/// (`primary_key`, `cache_key`, `public_key`). Any other qualified `key` is key material, so
+/// `api_key`, `STRIPE_KEY`, `SIGNING_KEY`, and `AWS_ACCESS_KEY_ID` fail closed; a bare `key`
+/// names nothing secret.
+const NON_SECRET_KEY_QUALIFIERS: [&str; 17] = [
+    "primary",
+    "foreign",
+    "composite",
+    "unique",
+    "sort",
+    "partition",
+    "shard",
+    "index",
+    "row",
+    "group",
+    "dedup",
+    "cache",
+    "map",
+    "dict",
+    "hash",
+    "lookup",
+    "public",
+];
+/// Words that make a credential-word field describe the credential instead of holding it
+/// (`secret_count`, `password_min_length`, `credential_helper`, `cookie_name`).
 const SECRET_METADATA_WORDS: [&str; 15] = [
     "count", "has", "is", "min", "max", "length", "len", "policy", "helper", "enabled", "required", "name", "expiry",
     "expires", "rotation",
@@ -1161,18 +1245,32 @@ fn is_redacted_key(key: &str) -> bool {
     let words = key_words(key);
     let words: Vec<&str> = words.iter().map(String::as_str).collect();
     let local_only = matches!(words.as_slice(), ["timestamp" | "username"] | ["absolute", "path"] | ["env", "dump"]);
-    let names_secret = words.iter().any(|word| {
-        matches!(*word, "secret" | "secrets" | "password" | "passwords" | "passwd" | "credential" | "credentials")
-    });
+    let names_secret = words.iter().any(|word| CREDENTIAL_WORDS.contains(word) || word.contains("password"))
+        || words.windows(2).any(|pair| pair == ["session", "id"]);
     let describes_secret = words.iter().any(|word| SECRET_METADATA_WORDS.contains(word));
-    let credential_token = match words.as_slice() {
-        [.., qualifier, "token"] => !NON_CREDENTIAL_TOKEN_QUALIFIERS.contains(qualifier),
-        [.., "token"] => true,
-        _ => false,
-    };
     let key_material = words.iter().any(|word| matches!(*word, "apikey" | "privatekey"))
-        || words.windows(2).any(|pair| pair[1] == "key" && (pair[0] == "private" || pair[0].ends_with("api")));
-    local_only || (names_secret && !describes_secret) || credential_token || key_material
+        || words.windows(2).any(|pair| pair[1] == "key" && !NON_SECRET_KEY_QUALIFIERS.contains(&pair[0]));
+    local_only || (names_secret && !describes_secret) || is_credential_token(&words) || key_material
+}
+
+/// Whether the last word, after numbering or environment suffixes, is `token` or `tokens`
+/// (optionally with trailing digits) and neither its qualifier nor a count word marks it as
+/// a non-credential token.
+fn is_credential_token(words: &[&str]) -> bool {
+    let suffix_start = words
+        .iter()
+        .rposition(|word| !(CREDENTIAL_SUFFIX_WORDS.contains(word) || word.bytes().all(|byte| byte.is_ascii_digit())))
+        .map_or(0, |last_core| last_core + 1);
+    let core = &words[..suffix_start];
+    let Some((last, qualifiers)) = core.split_last() else {
+        return false;
+    };
+    if !matches!(last.trim_end_matches(|character: char| character.is_ascii_digit()), "token" | "tokens") {
+        return false;
+    }
+    let counted = core.iter().any(|word| TOKEN_COUNT_WORDS.contains(word));
+    let non_credential = qualifiers.last().is_some_and(|qualifier| NON_CREDENTIAL_TOKEN_QUALIFIERS.contains(qualifier));
+    !counted && !non_credential
 }
 
 /// Lowercase words of a field name, split at non-alphanumeric characters, at `camelCase` humps,
@@ -1428,6 +1526,99 @@ mod tests {
             "is_password_required",
             "secretRotationEnabled",
             "credentials_expires",
+        ] {
+            assert!(!is_redacted_key(key), "{key} must stay in the identity");
+        }
+    }
+
+    #[test]
+    fn redacted_keys_cover_credential_spellings_and_keep_vocabulary_and_lookup_names() {
+        for key in [
+            "tokens",
+            "api_tokens",
+            "GITHUB_TOKEN_2",
+            "GITHUB_TOKEN2",
+            "githubToken2",
+            "NPM_TOKEN_PROD",
+            "slack_token_staging",
+            "PGPASSWORD",
+            "MYSQL_PWD",
+            "DB_PASS",
+            "Authorization",
+            "proxy_authorization",
+            "bearer",
+            "cookie",
+            "set_cookies",
+            "session_id",
+            "sessionId",
+            "SESSIONID",
+            "jwt",
+            "auth",
+            "basic_auth",
+            "AWS_ACCESS_KEY_ID",
+            "STRIPE_KEY",
+            "SIGNING_KEY",
+            "encryption_key",
+            "OpenAIAPIKey",
+        ] {
+            assert!(is_redacted_key(key), "{key} must be redacted");
+        }
+        for key in [
+            "stop_token",
+            "eot_token",
+            "eod_token",
+            "first_token",
+            "last_token",
+            "prev_token",
+            "previous_token",
+            "resume_token",
+            "cursor_token",
+            "PaginationToken",
+            "pagination_token",
+            "max_tokens",
+            "max_new_tokens",
+            "min_tokens",
+            "num_tokens",
+            "token_count",
+            "token_limit",
+            "tokens_used_count",
+            "prompt_tokens",
+            "completion_tokens",
+            "input_tokens",
+            "output_tokens",
+            "total_tokens",
+            "cached_tokens",
+            "reasoning_tokens",
+            "capability_tokens",
+            "eos_token_2",
+            "primary_key",
+            "foreign_key",
+            "composite_key",
+            "unique_key",
+            "sort_key",
+            "partition_key",
+            "shard_key",
+            "index_key",
+            "row_key",
+            "group_key",
+            "dedup_key",
+            "cache_key",
+            "map_key",
+            "dict_key",
+            "hash_key",
+            "lookup_key",
+            "public_key",
+            "public_key_id",
+            "key",
+            "key_id",
+            "auth_required",
+            "cookie_name",
+            "jwt_expiry",
+            "pass_count",
+            "session",
+            "passes",
+            "authority",
+            "currently_authorized",
         ] {
             assert!(!is_redacted_key(key), "{key} must stay in the identity");
         }
