@@ -87,6 +87,14 @@ struct RecorderTracker {
     state: Mutex<u32>,
 }
 
+// Should NOT warn: the note above a parsed attribute such as `#[repr(C)]` documents it.
+// Lock ordering: acquire `count` before `state`.
+#[repr(C)]
+struct ReprTracker {
+    count: Mutex<u64>,
+    state: Mutex<u32>,
+}
+
 fn main() {
     let _ = Tracker {
         count: Mutex::new(0),

@@ -72,6 +72,71 @@ pub(crate) fn span_in_scopes(sess: &rustc_session::Session, span: rustc_span::Sp
     path_in_scopes(relative.as_deref().unwrap_or(&path), scopes)
 }
 
+/// The comment lines that document an item from above, nearest first: comments
+/// between its outer attributes and the contiguous comment lines above the
+/// earliest attribute. `prefix` is the source text before the item. A comment
+/// line must touch the attribute, comment, or item below it; attributes may be
+/// separated by blank lines.
+///
+/// Attributes are recognised from source text because HIR cannot report the
+/// span of every parsed attribute, such as `#[inline]` or `#[repr(C)]`.
+pub(crate) fn leading_comment_lines(prefix: &str) -> impl Iterator<Item = &str> {
+    let mut rest = prefix;
+    std::iter::from_fn(move || {
+        loop {
+            let code = rest.trim_end();
+            let line_start = code.rfind('\n').map_or(0, |index| index + 1);
+            let last_line = code[line_start..].trim_start();
+            if last_line.starts_with("//") {
+                let has_blank_line_below = rest[code.len()..].matches('\n').nth(1).is_some();
+                if has_blank_line_below {
+                    return None;
+                }
+                rest = &code[..line_start];
+                return Some(last_line);
+            }
+            rest = &code[..outer_attribute_start(code)?];
+        }
+    })
+}
+
+/// Byte offset of the `#[` that opens the outer attribute ending `code`.
+fn outer_attribute_start(code: &str) -> Option<usize> {
+    if !code.ends_with(']') {
+        return None;
+    }
+    let mut depth = 0_usize;
+    for (index, byte) in code.bytes().enumerate().rev() {
+        match byte {
+            b']' => depth += 1,
+            b'[' => {
+                depth = depth.checked_sub(1)?;
+                if depth == 0 {
+                    let hash = index.checked_sub(1)?;
+                    return (code.as_bytes()[hash] == b'#').then_some(hash);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+/// Whether any of [`leading_comment_lines`] for the item at `item_span`
+/// satisfies `predicate`.
+pub(crate) fn any_leading_comment_line(
+    source_map: &rustc_span::source_map::SourceMap,
+    item_span: rustc_span::Span,
+    predicate: impl FnMut(&str) -> bool,
+) -> bool {
+    let file = source_map.lookup_source_file(item_span.lo());
+    let offset = rustc_span::Pos::to_usize(&(item_span.lo() - file.start_pos));
+    file.src
+        .as_deref()
+        .and_then(|src| src.get(..offset))
+        .is_some_and(|prefix| leading_comment_lines(prefix).any(predicate))
+}
+
 #[cfg(test)]
 mod tests {
     fn fixture() -> rustc_span::SourceFile {
@@ -140,5 +205,21 @@ mod tests {
             assert!(!super::path_in_scopes(std::path::Path::new(path), &scopes), "{path} is out of scope");
         }
         assert!(!super::path_in_scopes(std::path::Path::new("src/lib.rs"), &[String::new()]));
+    }
+
+    #[test]
+    fn leading_comment_lines_cross_attributes_and_stop_at_gaps() {
+        let prefix = "struct Before;\n\n// detached\n\n// first\n/// second\n#[inline]\n// between\n#[cfg_attr(\n    test,\n    derive(Debug)\n)]\n\n#[doc(hidden)]\n    ";
+        let lines = super::leading_comment_lines(prefix).collect::<Vec<_>>();
+        assert_eq!(lines, ["// between", "/// second", "// first"]);
+    }
+
+    #[test]
+    fn leading_comment_lines_stop_at_code_and_inner_attributes() {
+        assert_eq!(super::leading_comment_lines("const A: [u8; 1] = [0];\n").count(), 0);
+        assert_eq!(super::leading_comment_lines("#![allow(dead_code)]\n").count(), 0);
+        assert_eq!(super::leading_comment_lines("// note\n\nfn f() {}\n").count(), 0);
+        assert_eq!(super::leading_comment_lines("mod m { ").count(), 0);
+        assert_eq!(super::leading_comment_lines("// note\n").collect::<Vec<_>>(), ["// note"]);
     }
 }

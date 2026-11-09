@@ -296,6 +296,8 @@ The lint MUST NOT warn on `as _` trait imports used only for method resolution.
 
 The lint MUST NOT warn when the imported item is a public re-export that preserves a documented compatibility alias.
 
+The lint MUST treat an alias as documented when its doc comments, or the contiguous comment lines between and directly above its outer attributes, contain `compat` or `compatibility` as a whole word. Words inside other words, such as `compat` in `incompatible`, do not count.
+
 #### Scenario: Renamed private import [r[renamed-import-detection.scenario.renamed-private-import]]
 
 - GIVEN production code with `use crate::transport::Config as TransportConfig;`
@@ -323,6 +325,8 @@ The lint MUST warn when an item name repeats underscore-separated words that are
 The lint MUST compare normalized snake-case word segments, treating hyphens in crate names as separators.
 
 The lint MUST NOT warn when the repeated word is required to disambiguate a public compatibility name or an externally mandated trait/API name.
+
+The lint MUST treat an item as such a name when its doc comments, or the contiguous comment lines between and directly above its outer attributes, contain `compat`, `compatibility`, `external`, `mandated`, or `api` as a whole word. Words inside other words, such as `api` in `rapid`, do not count.
 
 #### Scenario: Function repeats module name [r[path-segment-repetition-detection.scenario.function-repeats-module]]
 

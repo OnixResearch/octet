@@ -13,6 +13,8 @@ use crate::diagnostics::emit_tiger_style_lint;
 use crate::naming::indexable_exceptions::is_generated_source_span;
 use crate::naming::indexable_exceptions::is_lint_identity_name;
 
+/// Whole words that document a compatibility or externally mandated name;
+/// `rapid` does not count as `api`.
 const COMPATIBILITY_WORDS: &[&str] = &["compat", "compatibility", "external", "mandated", "api"];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -125,24 +127,6 @@ fn item_path_segments(cx: &LateContext<'_>, item: &hir::Item<'_>) -> Vec<String>
     segments
 }
 
-fn has_compatibility_documentation(cx: &LateContext<'_>, item: &hir::Item<'_>) -> bool {
-    let source_map = cx.sess().source_map();
-
-    let Ok(lines) = source_map.span_to_lines(item.span) else {
-        return false;
-    };
-
-    lines.lines.first().is_some_and(|first_line| {
-        let line_idx = first_line.line_index;
-        line_idx > 0
-            && lines.file.get_line(line_idx - 1).is_some_and(|line| {
-                let lower = line.trim().to_ascii_lowercase();
-                (lower.starts_with("//") || lower.starts_with("///"))
-                    && COMPATIBILITY_WORDS.iter().any(|word| lower.contains(word))
-            })
-    })
-}
-
 fn is_unrelated_fixture(cx: &LateContext<'_>, item: &hir::Item<'_>) -> bool {
     let filename = cx.sess().source_map().span_to_filename(item.span);
     let path = filename.prefer_local_unconditionally().to_string();
@@ -163,10 +147,6 @@ impl<'tcx> LateLintPass<'tcx> for PathSegmentRepetition {
             return;
         }
 
-        if has_compatibility_documentation(cx, item) {
-            return;
-        }
-
         let segments = item_path_segments(cx, item);
         if is_lint_identity_name(ident.name.as_str(), &segments, self.exceptions) {
             return;
@@ -175,6 +155,9 @@ impl<'tcx> LateLintPass<'tcx> for PathSegmentRepetition {
         let Some(repetition) = repeated_path_word(ident.name.as_str(), &segment_refs) else {
             return;
         };
+        if crate::naming::indexable_exceptions::item_documentation_mentions(cx, item, COMPATIBILITY_WORDS) {
+            return;
+        }
 
         emit_tiger_style_lint(
             cx,

@@ -108,41 +108,15 @@ fn item_order_comment_fact(cx: &LateContext<'_>, item: &hir::Item<'_>) -> bool {
         return true;
     }
 
-    // `item.span` excludes outer attributes; widen it so comments interleaved
-    // with attributes count too.
+    // Comments inside the struct body.
     let source_map = cx.sess().source_map();
-    let item_lo = attrs
-        .iter()
-        .map(hir::Attribute::span)
-        .filter(|span| !span.from_expansion() && span.lo() < item.span.lo())
-        .map(rustc_span::Span::lo)
-        .min()
-        .unwrap_or(item.span.lo());
-    if source_map
-        .span_to_snippet(item.span.with_lo(item_lo))
-        .is_ok_and(|snippet| has_order_specific_lock_comment(&snippet))
-    {
+    if source_map.span_to_snippet(item.span).is_ok_and(|snippet| has_order_specific_lock_comment(&snippet)) {
         return true;
     }
 
-    // Plain comment lines directly above the item (and its attributes).
-    let Ok(item_line) = source_map.lookup_line(item_lo) else {
-        return false;
-    };
-    let mut line_index = item_line.line;
-    while let Some(previous_index) = line_index.checked_sub(1) {
-        line_index = previous_index;
-        let Some(line) = item_line.sf.get_line(line_index) else {
-            return false;
-        };
-        if !line.trim_start().starts_with("//") {
-            return false;
-        }
-        if comment_line_is_lock_order(&line) {
-            return true;
-        }
-    }
-    false
+    // Comments between the outer attributes and directly above them;
+    // `item.span` excludes outer attributes.
+    crate::source::any_leading_comment_line(source_map, item.span, comment_line_is_lock_order)
 }
 
 impl<'tcx> LateLintPass<'tcx> for MultiLockOrdering {

@@ -131,6 +131,24 @@ pub(crate) fn is_generated_source_span(
     is_generated_source_path(&path, workspace_root, exceptions)
 }
 
+/// Whether the documentation of `item` names one of `words` as a whole word.
+/// Documentation is the item's doc attributes plus the comment lines between
+/// its outer attributes and directly above them, so a note above
+/// `#[doc(hidden)]` or on the first line of a multi-line doc comment counts.
+pub(crate) fn item_documentation_mentions(
+    cx: &rustc_lint::LateContext<'_>,
+    item: &rustc_hir::Item<'_>,
+    words: &[&str],
+) -> bool {
+    let mentions = |text: &str| crate::naming::identifier_words::identifier_has_word(text, words);
+    cx.tcx
+        .hir_attrs(item.hir_id())
+        .iter()
+        .filter_map(rustc_hir::Attribute::doc_str)
+        .any(|doc| mentions(doc.as_str()))
+        || crate::source::any_leading_comment_line(cx.tcx.sess.source_map(), item.span, mentions)
+}
+
 #[cfg(test)]
 mod tests {
     use super::is_canonical_rustc_private_alias;
