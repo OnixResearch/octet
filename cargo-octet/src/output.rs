@@ -458,7 +458,9 @@ pub fn render_sarif(
 
 /// Encodes a workspace-relative `/`-separated path as a SARIF `artifactLocation.uri` relative
 /// reference. Each byte outside RFC 3986 `pchar` is percent-encoded, as are `%` and `:`, so a
-/// path with spaces, `#`, `?`, or a colon in its first segment stays an unambiguous URI.
+/// path with spaces, `#`, `?`, or a colon in its first segment stays an unambiguous URI. Octet's
+/// own SARIF intake still rejects a decoded first-segment colon, which reads as a drive letter or
+/// scheme, so only colons in later segments round-trip.
 pub fn sarif_artifact_uri(path: &str) -> String {
     const HEX: &[u8; 16] = b"0123456789ABCDEF";
     let mut uri = String::with_capacity(path.len());
