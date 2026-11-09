@@ -868,62 +868,76 @@ impl ModuleIndex {
     }
 }
 
-/// How deep re-exports, imports, and module hops are followed before a path counts as hidden.
-const MAX_RESOLUTION_DEPTH: usize = 16;
+/// Bounds on following one referenced path: nesting of imports and module hops, and total lookup
+/// steps. Past either bound the path counts as hidden, so resolution fails closed.
+const MAX_RESOLUTION_DEPTH: usize = 32;
+const MAX_RESOLUTION_STEPS: usize = 1024;
 
-/// Where a referenced path resolves outside its caller.
-struct Resolution<'a> {
-    /// The declarations the path resolves through, for the call-site scope.
-    text: String,
-    target: ResolvedTarget<'a>,
+/// Everything one referenced path resolves through, across every candidate: imports,
+/// re-exports, globs, and module hops. Each (module, path) lookup runs once, so a glob cycle adds
+/// nothing new, and the scope grows with the distinct declarations reached rather than with the
+/// tree of candidates.
+#[derive(Default)]
+struct Lookup<'a> {
+    /// Each declaration reached, labelled with its module and the name it declares.
+    reached: BTreeSet<String>,
+    /// Selected functions reached as a final target.
+    locals: Vec<&'a AddressedFunction>,
+    /// Final targets that are not selected functions: dependencies, the prelude, local items.
+    declarations: usize,
+    /// Whether a candidate goes through a module the selected sources cannot prove.
+    hidden: bool,
+    visited: BTreeSet<(ModuleLocator, Vec<String>)>,
+    steps: usize,
 }
 
-enum ResolvedTarget<'a> {
-    /// A declaration other than a selected function: a dependency, the prelude, or a local item.
-    Declaration,
-    /// The selected function the path proves.
-    Local(&'a AddressedFunction),
-    /// A module or import the selected sources cannot prove; no summary may stand in for it.
-    Hidden,
+impl<'a> Lookup<'a> {
+    fn reach(&mut self, label: &str, name: &str, declaration: &str) {
+        self.reached.insert(format!("{label} {name}: {declaration}"));
+    }
+
+    /// A final target other than a selected function.
+    fn reach_declaration(&mut self, label: &str, name: &str, declaration: &str) {
+        self.declarations += 1;
+        self.reach(label, name, declaration);
+    }
+
+    fn hide(&mut self, label: &str, name: &str, reason: &str) {
+        self.hidden = true;
+        self.reach(label, name, reason);
+    }
+
+    /// Counts one lookup step; past the depth or step bound the path is hidden.
+    fn step(&mut self, depth: usize) -> bool {
+        self.steps += 1;
+        if depth > MAX_RESOLUTION_DEPTH || self.steps > MAX_RESOLUTION_STEPS {
+            self.hide("", "*", "resolution limit");
+            return false;
+        }
+        true
+    }
+
+    /// The selected function the path proves: the only final target, reached without hiding.
+    fn local_target(&self) -> Option<&'a AddressedFunction> {
+        match self.locals.as_slice() {
+            [function] if !self.hidden && self.declarations == 0 => Some(function),
+            _ => None,
+        }
+    }
+
+    fn text(&self) -> String {
+        self.reached.iter().map(String::as_str).collect::<Vec<_>>().join(", ")
+    }
 }
 
-impl Resolution<'_> {
-    fn declaration(text: impl Into<String>) -> Self {
-        Self {
-            text: text.into(),
-            target: ResolvedTarget::Declaration,
-        }
+/// The selected source path and inline-module chain of a module, as `path::a::b`.
+fn module_label(locator: &ModuleLocator) -> String {
+    let mut label = locator.0.clone();
+    for segment in &locator.1 {
+        label.push_str("::");
+        label.push_str(segment);
     }
-
-    fn hidden(text: impl Into<String>) -> Self {
-        Self {
-            text: text.into(),
-            target: ResolvedTarget::Hidden,
-        }
-    }
-
-    /// `declaration`, followed by what it leads to.
-    fn through(declaration: &str, next: Self) -> Self {
-        Self {
-            text: format!("{declaration} -> {}", next.text),
-            target: next.target,
-        }
-    }
-
-    /// Several candidate resolutions of one path: hidden if any is, local only if it is the sole
-    /// candidate.
-    fn any_of(mut candidates: Vec<Self>) -> Self {
-        if candidates.len() == 1 {
-            return candidates.remove(0);
-        }
-        let hidden = candidates.iter().any(|candidate| matches!(candidate.target, ResolvedTarget::Hidden));
-        let text = candidates.into_iter().map(|candidate| candidate.text).collect::<Vec<_>>().join(", ");
-        if hidden {
-            Self::hidden(text)
-        } else {
-            Self::declaration(text)
-        }
-    }
+    label
 }
 
 /// How an undeclared name resolves where it is looked up.
@@ -966,7 +980,7 @@ impl<'a> ScopeResolver<'a> {
         }
     }
 
-    /// Renders `module=self::a; path=resolution` for every path the call references.
+    /// Renders `module=self::a; path=declarations` for every path the call references.
     fn call_scope(&self, caller: &AddressedFunction, bindings: &CallerBindings, raw_call: &RawCall) -> CallScope<'a> {
         let draft = &caller.draft;
         let locator = (draft.path.clone(), draft.module.clone());
@@ -976,19 +990,15 @@ impl<'a> ScopeResolver<'a> {
             hidden: false,
         };
         for path in &raw_call.referenced_paths {
-            let resolution = self.resolve_from_caller(&locator, &draft.outer_scope, bindings, path);
+            let mut lookup = Lookup::default();
+            self.resolve_from_caller(&mut lookup, &locator, &draft.outer_scope, bindings, path);
             scope.text.push_str("; ");
             scope.text.push_str(&path.join("::"));
             scope.text.push('=');
-            scope.text.push_str(&resolution.text);
-            match resolution.target {
-                ResolvedTarget::Local(function)
-                    if raw_call.locally_resolvable && raw_call.referenced_paths.len() == 1 =>
-                {
-                    scope.local = Some(function);
-                }
-                ResolvedTarget::Hidden => scope.hidden = true,
-                ResolvedTarget::Local(_) | ResolvedTarget::Declaration => {}
+            scope.text.push_str(&lookup.text());
+            scope.hidden |= lookup.hidden;
+            if raw_call.locally_resolvable && raw_call.referenced_paths.len() == 1 {
+                scope.local = lookup.local_target();
             }
         }
         scope
@@ -998,223 +1008,216 @@ impl<'a> ScopeResolver<'a> {
     /// caller's module.
     fn resolve_from_caller(
         &self,
+        lookup: &mut Lookup<'a>,
         locator: &ModuleLocator,
         outer: &OuterScope,
         bindings: &CallerBindings,
         path: &[String],
-    ) -> Resolution<'a> {
+    ) {
         let Some((first, rest)) = path.split_first() else {
-            return Resolution::hidden("empty path");
+            lookup.hide("", "", "empty path");
+            return;
         };
         if is_path_keyword(first) {
-            return self.resolve_qualified(locator, path, 0);
+            self.resolve_qualified(lookup, locator, path, 0);
+            return;
         }
         if let Some(imports) = bindings.imports.get(first) {
-            return Resolution::through("body", self.resolve_imports(locator, imports, rest, 0));
+            for import in imports {
+                lookup.reach("body", first, &import_text(import));
+                self.follow_import(lookup, locator, import, rest, 0);
+            }
+            return;
         }
         if let Some(header) = outer.header.as_deref().filter(|header| header.names.contains(first)) {
-            return Resolution::declaration(header.text.clone());
+            lookup.reach_declaration("header", first, &header.text);
+            return;
         }
-        let resolution = self.resolve_name(locator, path, NameContext::Unqualified, 0);
-        if bindings.glob_imports.is_empty() {
-            return resolution;
+        self.resolve_name(lookup, locator, path, NameContext::Unqualified, 0);
+        for glob in &bindings.glob_imports {
+            lookup.reach("body", "*", &format!("{}::*", import_text(glob)));
+            if self.is_local_import(locator, glob) {
+                let mut segments = glob.segments.clone();
+                segments.extend(path.iter().cloned());
+                self.resolve_import_path(lookup, locator, &segments, 1);
+            }
         }
-        let mut candidates = vec![resolution];
-        candidates.extend(self.follow_globs(locator, &bindings.glob_imports, path, 0));
-        Resolution::through("body glob", Resolution::any_of(candidates))
     }
 
-    fn resolve_qualified(&self, locator: &ModuleLocator, path: &[String], depth: usize) -> Resolution<'a> {
-        if depth > MAX_RESOLUTION_DEPTH {
-            return Resolution::hidden("resolution too deep");
+    fn resolve_qualified(&self, lookup: &mut Lookup<'a>, locator: &ModuleLocator, path: &[String], depth: usize) {
+        if !lookup.step(depth) {
+            return;
         }
         let Some((first, rest)) = path.split_first() else {
-            return Resolution::hidden("path names a module");
+            lookup.hide(&module_label(locator), "", "path names a module");
+            return;
         };
         let next = match first.as_str() {
             "self" => Some(locator.clone()),
             "super" => self.modules.parent(locator),
             "crate" => self.modules.crate_root(locator),
-            _ => return self.resolve_name(locator, path, NameContext::Qualified, depth),
+            _ => {
+                self.resolve_name(lookup, locator, path, NameContext::Qualified, depth);
+                return;
+            }
         };
         match next {
-            Some(module) => self.resolve_qualified(&module, rest, depth + 1),
-            None => Resolution::hidden(format!("{first} is not a proven selected module")),
+            Some(module) => self.resolve_qualified(lookup, &module, rest, depth + 1),
+            None => lookup.hide(&module_label(locator), first, "not a proven selected module"),
         }
     }
 
     /// Resolves the first segment of `path` among the declarations of the module at `locator`,
-    /// then the rest of the path through what it declares.
+    /// then the rest of the path through what it declares. A lookup already made for the same
+    /// module and path adds nothing.
     fn resolve_name(
         &self,
+        lookup: &mut Lookup<'a>,
         locator: &ModuleLocator,
         path: &[String],
         context: NameContext,
         depth: usize,
-    ) -> Resolution<'a> {
-        if depth > MAX_RESOLUTION_DEPTH {
-            return Resolution::hidden("resolution too deep");
+    ) {
+        if !lookup.step(depth) {
+            return;
         }
+        let label = module_label(locator);
         let (Some(scope), Some((name, rest))) = (self.modules.scopes.get(locator), path.split_first()) else {
-            return Resolution::hidden("module not selected");
+            lookup.hide(&label, "", "module not selected");
+            return;
         };
-        if !rest.is_empty() && scope.modules.contains_key(name) {
-            return match self.modules.child(locator, name) {
-                Some(child) => {
-                    Resolution::through(&format!("mod {name}"), self.resolve_qualified(&child, rest, depth + 1))
-                }
-                None => Resolution::hidden(format!("mod {name} is not a proven selected module")),
-            };
+        if !lookup.visited.insert((locator.clone(), path.to_vec())) {
+            return;
         }
         let declarations = scope.names.get(name);
+        for declaration in declarations.into_iter().flatten() {
+            lookup.reach(&label, name, declaration);
+        }
+        if !rest.is_empty() && scope.modules.contains_key(name) {
+            match self.modules.child(locator, name) {
+                Some(child) => self.resolve_qualified(lookup, &child, rest, depth + 1),
+                None => lookup.hide(&label, name, "not a proven selected module"),
+            }
+            return;
+        }
         if declarations.is_some_and(|declarations| declarations.len() == 1) {
             if rest.is_empty() && scope.functions.contains(name) {
-                return self.local(locator, &FunctionContainer::Module, name);
+                self.local(lookup, locator, &FunctionContainer::Module, name);
+                return;
             }
             if let [method] = rest
                 && scope.types.contains(name)
             {
-                return self.local(locator, &FunctionContainer::InherentImpl(name.clone()), method);
+                self.local(lookup, locator, &FunctionContainer::InherentImpl(name.clone()), method);
+                return;
             }
             if let Some(imports) = scope.imports.get(name) {
-                return self.resolve_imports(locator, imports, rest, depth);
+                for import in imports {
+                    self.follow_import(lookup, locator, import, rest, depth);
+                }
+                return;
             }
         }
-        if let Some(declarations) = declarations {
-            let mut text = String::new();
-            push_joined(&mut text, declarations);
-            return Resolution::declaration(text);
+        if declarations.is_some() {
+            lookup.declarations += 1;
+            return;
         }
-        let mut text = String::from(match context {
+        lookup.reach_declaration(&label, name, match context {
             NameContext::Unqualified => "prelude",
             NameContext::Qualified => "undeclared",
             NameContext::Import => "extern",
         });
-        if !scope.wildcards.is_empty() {
-            text.push_str(" or ");
-            push_joined(&mut text, &scope.wildcards);
+        for wildcard in &scope.wildcards {
+            lookup.reach(&label, "*", wildcard);
         }
-        let globs = self.follow_globs(locator, &scope.glob_imports, path, depth);
-        if globs.is_empty() {
-            return Resolution::declaration(text);
-        }
-        let mut candidates = vec![Resolution::declaration(text)];
-        candidates.extend(globs);
-        // A name brought in by a glob is never followed as a local edge.
-        let resolution = Resolution::any_of(candidates);
-        match resolution.target {
-            ResolvedTarget::Local(_) => Resolution::declaration(resolution.text),
-            _ => resolution,
+        for glob in scope.glob_imports.iter().filter(|glob| self.is_local_import(locator, glob)) {
+            let mut segments = glob.segments.clone();
+            segments.extend(path.iter().cloned());
+            self.resolve_import_path(lookup, locator, &segments, depth + 1);
         }
     }
 
-    /// Follows each import of a name, appending the rest of the path.
-    fn resolve_imports(
+    /// Follows one import of a name, appending the rest of the path.
+    fn follow_import(
         &self,
+        lookup: &mut Lookup<'a>,
         locator: &ModuleLocator,
-        imports: &[ImportPath],
+        import: &ImportPath,
         rest: &[String],
         depth: usize,
-    ) -> Resolution<'a> {
-        let candidates = imports
-            .iter()
-            .map(|import| {
-                let declaration =
-                    format!("use {}{}", if import.leading_colon { "::" } else { "" }, import.segments.join("::"));
-                let next = if import.leading_colon {
-                    Resolution::declaration("extern")
-                } else {
-                    let mut segments = import.segments.clone();
-                    segments.extend(rest.iter().cloned());
-                    self.resolve_import_path(locator, &segments, depth + 1)
-                };
-                Resolution::through(&declaration, next)
-            })
-            .collect();
-        Resolution::any_of(candidates)
+    ) {
+        if import.leading_colon {
+            let head = import.segments.first().map_or("", String::as_str);
+            lookup.reach_declaration(&module_label(locator), head, "extern");
+            return;
+        }
+        let mut segments = import.segments.clone();
+        segments.extend(rest.iter().cloned());
+        self.resolve_import_path(lookup, locator, &segments, depth + 1);
     }
 
     /// Resolves a `use` path: from a keyword, from a name the module declares, or else from an
     /// extern crate.
-    fn resolve_import_path(&self, locator: &ModuleLocator, segments: &[String], depth: usize) -> Resolution<'a> {
+    fn resolve_import_path(&self, lookup: &mut Lookup<'a>, locator: &ModuleLocator, segments: &[String], depth: usize) {
         let Some(first) = segments.first() else {
-            return Resolution::hidden("empty import");
+            lookup.hide(&module_label(locator), "", "empty import");
+            return;
         };
         if is_path_keyword(first) {
-            return self.resolve_qualified(locator, segments, depth);
-        }
-        let declared = self.modules.scopes.get(locator).is_some_and(|scope| scope.declares_path_head(first));
-        if declared {
-            self.resolve_name(locator, segments, NameContext::Import, depth)
+            self.resolve_qualified(lookup, locator, segments, depth);
+        } else if self.modules.scopes.get(locator).is_some_and(|scope| scope.declares_path_head(first)) {
+            self.resolve_name(lookup, locator, segments, NameContext::Import, depth);
         } else {
-            Resolution::declaration("extern")
+            lookup.reach_declaration(&module_label(locator), first, "extern");
         }
     }
 
-    /// Follows the glob imports of a module whose path is local; extern globs stay in the
-    /// module's wildcard text.
-    fn follow_globs(
-        &self,
-        locator: &ModuleLocator,
-        globs: &[ImportPath],
-        path: &[String],
-        depth: usize,
-    ) -> Vec<Resolution<'a>> {
-        let declared = |first: &String| {
-            is_path_keyword(first)
-                || self.modules.scopes.get(locator).is_some_and(|scope| scope.declares_path_head(first))
-        };
-        globs
-            .iter()
-            .filter(|glob| !glob.leading_colon && glob.segments.first().is_some_and(declared))
-            .map(|glob| {
-                let mut segments = glob.segments.clone();
-                segments.extend(path.iter().cloned());
-                let declaration = format!("use {}::*", glob.segments.join("::"));
-                Resolution::through(&declaration, self.resolve_import_path(locator, &segments, depth + 1))
+    /// Whether an import's path starts from the module rather than an extern crate; extern globs
+    /// stay in the module's wildcard text.
+    fn is_local_import(&self, locator: &ModuleLocator, import: &ImportPath) -> bool {
+        !import.leading_colon
+            && import.segments.first().is_some_and(|head| {
+                is_path_keyword(head)
+                    || self.modules.scopes.get(locator).is_some_and(|scope| scope.declares_path_head(head))
             })
-            .collect()
     }
 
     /// The selected function `name` in `container` of the module at `locator`.
-    fn local(&self, locator: &ModuleLocator, container: &FunctionContainer, name: &str) -> Resolution<'a> {
-        let mut text = String::from("fn ");
-        text.push_str(&locator.0);
-        for segment in &locator.1 {
-            text.push_str("::");
-            text.push_str(segment);
-        }
-        if let FunctionContainer::InherentImpl(owner) = container {
-            text.push_str("::");
-            text.push_str(owner);
-        }
-        text.push_str("::");
-        text.push_str(name);
+    fn local(&self, lookup: &mut Lookup<'a>, locator: &ModuleLocator, container: &FunctionContainer, name: &str) {
         let candidates = self.functions.get(locator.0.as_str()).map_or(&[][..], Vec::as_slice);
         let mut matching = candidates.iter().filter(|function| {
             function.draft.module == locator.1 && function.draft.container == *container && function.draft.name == name
         });
         match (matching.next(), matching.next()) {
-            (Some(function), None) if function.function_address != MISSING_FUNCTION_ADDRESS => Resolution {
-                text,
-                target: ResolvedTarget::Local(function),
-            },
-            _ => Resolution::declaration(text),
+            (Some(function), None) if function.function_address != MISSING_FUNCTION_ADDRESS => {
+                lookup.locals.push(function);
+            }
+            _ => {
+                let owner = match container {
+                    FunctionContainer::InherentImpl(owner) => format!("{owner}::"),
+                    _ => String::new(),
+                };
+                lookup.reach_declaration(&module_label(locator), &format!("{owner}{name}"), "fn");
+            }
         }
     }
+}
+
+fn import_text(import: &ImportPath) -> String {
+    format!("use {}{}", if import.leading_colon { "::" } else { "" }, import.segments.join("::"))
 }
 
 fn is_path_keyword(segment: &str) -> bool {
     matches!(segment, "crate" | "self" | "super")
 }
 
-fn push_joined(text: &mut String, items: &BTreeSet<String>) {
-    for (index, item) in items.iter().enumerate() {
-        if index > 0 {
-            text.push_str(", ");
-        }
-        text.push_str(item);
-    }
+/// The resolution scope of a call from a file-root function in `source_path` whose call path
+/// starts with a name the file does not declare, for tests that build summaries directly.
+#[cfg(test)]
+pub(crate) fn prelude_call_scope(source_path: &str, shape: &str) -> String {
+    let path = shape.split_once(':').map_or(shape, |(_, path)| path);
+    let head = path.split("::").next().unwrap_or(path);
+    format!("module=self; {path}={source_path} {head}: prelude")
 }
 
 fn item_attributes(item: &syn::Item) -> &[syn::Attribute] {
@@ -3671,13 +3674,6 @@ mod tests {
         }
     }
 
-    /// The resolution scope of a file-root caller in `TEST_PATH` whose call path starts with a
-    /// name the file does not declare.
-    fn prelude_scope(shape: &str) -> String {
-        let path = shape.split_once(':').map_or(shape, |(_, path)| path);
-        format!("module=self; {path}=prelude")
-    }
-
     fn toolchain_summary(
         function_address: &str,
         shape: &str,
@@ -3694,7 +3690,13 @@ mod tests {
             features: Vec::new(),
         };
         let summary = CallSummary {
-            call_site_id: call_site_identity(function_address, TEST_PATH, &prelude_scope(shape), shape, occurrence),
+            call_site_id: call_site_identity(
+                function_address,
+                TEST_PATH,
+                &prelude_call_scope(TEST_PATH, shape),
+                shape,
+                occurrence,
+            ),
             review_label: format!("reviewed `{shape}` toolchain call"),
             callee: shape.trim_start_matches("call:").to_owned(),
             provider: provider.clone(),
@@ -3834,8 +3836,8 @@ mod tests {
         let source = "fn root() { mystery(); }\n";
         let function_address = address("root", '9');
         let shape = "call:mystery";
-        let call_site_id =
-            call_site_identity(&function_address.function_address, TEST_PATH, &prelude_scope(shape), shape, 0);
+        let scope = prelude_call_scope(TEST_PATH, shape);
+        let call_site_id = call_site_identity(&function_address.function_address, TEST_PATH, &scope, shape, 0);
         let provider = ProviderIdentity {
             kind: ProviderKind::CargoPackage,
             name: "mystery".to_owned(),
@@ -4781,5 +4783,52 @@ unsafe fn risky(values: &[u8]) -> u8 {
             "use other::tidy;\nfn root() { tidy(); }\n",
             "call:tidy",
         )]);
+    }
+
+    // r[verify octet.effect_closure.dependency_summaries]
+    #[test]
+    fn glob_cycles_keep_prelude_calls_summarizable() {
+        // A child re-importing its parent while the parent re-exports the child is a cycle that
+        // never declares `Some`: the prelude call stays summarizable.
+        let cycle = "mod inner {\n    use super::*;\n    pub fn helper() {}\n}\npub use inner::*;\npub fn root() -> Option<u8> { Some(1) }\n";
+        let addresses = || vec![address("helper", '6'), address("root", '5')];
+        let denied = compute_closure(input(cycle, addresses(), policy(Vec::new())));
+        let summaries = reviewed_summaries(&denied, &dependency_provider());
+        let mut closure_input = input(cycle, addresses(), policy(summaries));
+        closure_input.resolved_providers.push(dependency_provider());
+        let admitted = compute_closure(closure_input);
+        assert_eq!(admitted.status, AdmissionStatus::Admitted, "{:?}", admitted.diagnostics);
+    }
+
+    // r[verify octet.effect_closure.dependency_summaries]
+    #[test]
+    fn glob_fan_out_stays_bounded() {
+        // Eight modules that each glob-import their parent and all eight siblings resolve in
+        // bounded work, with a scope bounded by the distinct declarations reached.
+        let siblings = ["a", "b", "c", "d", "e", "f", "g", "h"];
+        let globs = siblings.iter().map(|sibling| format!("{sibling}::*")).collect::<Vec<_>>().join(", ");
+        let modules = siblings
+            .iter()
+            .map(|module| {
+                [
+                    "mod ",
+                    module,
+                    " {\n    pub use super::*;\n    pub use super::{",
+                    &globs,
+                    "};\n}\n",
+                ]
+                .concat()
+            })
+            .collect::<String>();
+        let source = format!(
+            "pub use self::{{{globs}}};\n{modules}pub fn root() {{ let _ = (Some(1), Some(2), Some(3), Some(4), Some(5)); }}\n"
+        );
+        let receipt = compute_closure(input(&source, vec![address("root", '5')], policy(Vec::new())));
+        let calls = &receipt.nodes[0].calls;
+        assert_eq!(calls.len(), 5);
+        for call in calls {
+            assert!(call.scope.len() < 16 * 1024, "scope of {} bytes", call.scope.len());
+        }
+        assert!(!receipt.diagnostics.iter().any(|diagnostic| diagnostic.message.contains("cannot prove")));
     }
 }

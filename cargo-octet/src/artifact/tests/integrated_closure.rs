@@ -42,9 +42,7 @@ fn toolchain_summary(shape: &str) -> CallSummary {
         target: TARGET.to_owned(),
         features: Vec::new(),
     };
-    // Fixture callers are file-root functions whose call path starts with an undeclared name.
-    let path = shape.trim_start_matches("call:");
-    let scope = format!("module=self; {path}=prelude");
+    let scope = closure::prelude_call_scope(SOURCE_PATH, shape);
     CallSummary {
         call_site_id: closure::call_site_identity(FUNCTION_ADDRESS, SOURCE_PATH, &scope, shape, 0),
         review_label: format!("reviewed `{shape}` toolchain call"),
