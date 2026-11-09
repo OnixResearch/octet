@@ -24,7 +24,9 @@ Changes that can add findings, fail a build, or change identities:
   `&Path`; `magic_number` treats field and method operands
   (`self.elapsed_ms > 30_000`) as names and no longer lets an enclosing
   unit-named `let` document a nested threshold; `ignored_join_handle` reports
-  handles discarded inside `Result` or `Option` (`thread::Builder::spawn`).
+  freshly spawned handles discarded inside `Result` or `Option`
+  (`thread::Builder::spawn`, `cond.then(|| thread::spawn(..))`), but not the
+  previous entry `HashMap::insert` returns or a discarded `&JoinHandle`.
 - `non_trait_imports`, `renamed_imports`, and `path_segment_repetition` no
   longer skip files whose path contains `ui_tests/` or `tests/fixtures`, such as
   `crates/gui_tests/src/lib.rs`.
@@ -56,15 +58,20 @@ Changes that can add findings, fail a build, or change identities:
   status or swapped registry fails even with regenerated summary and
   provenance. A rejected external runtime report stays a finding at the
   profile's `external_evidence` severity instead of being stored as evidence,
-  so `advisory` and `warning` now take effect.
+  so `advisory` and `warning` now take effect. Each such finding names the
+  report by its `--external-report` position and, when it parses, its claimed
+  producer and `report_identity`; the new message text changes these
+  findings' IDs.
 
 Fewer false positives:
 
 - `unchecked_division` accepts match-arm zero guards (`0 => ..`, `d if d != 0`).
   `compound_assertion` reads `&&`/`||` from the parsed `assert!` condition, so
   `assert!(item == &&expected)` is no longer flagged or split into code that
-  does not compile. `catch_all_on_enum` skips `Option` and `Result` and lists
-  only variants earlier arms don't handle.
+  does not compile, and it offers no split when a clause holds a comment,
+  which the rewritten assertion's closing parenthesis would land inside.
+  `catch_all_on_enum` skips `Option` and `Result` and lists only variants
+  earlier arms don't handle.
 - `clone_then_borrow` no longer warns when the original is moved later
   (`drop(guard)`) or the clone detaches from a temporary lock guard.
   `allocation_in_loop` skips allocations on `return` and `break` exit paths.
@@ -93,15 +100,27 @@ Runner and artifacts:
 - A finding that the same lint reports at the same place from several
   compilation units (`--all-targets` builds a library and its test harness) is
   reported once in totals, summaries, `results.jsonl`, SARIF, and baselines.
-- The `--cache` file moves to schema 2, keyed on the cargo-octet version,
-  toolchain and rustc version, config hash, and crate graph, and keeps only the
-  latest run, so `cache_status: hit` means the previous run reported the same
-  finding with the same toolchain and dependencies. An older cache file reads
-  as empty.
+- The `--cache` file moves to schema 2 and keeps one entry for each of the 8
+  most recently used keys. A key covers the cargo-octet version, toolchain and
+  rustc version, config hash (which includes the effective scope and `cargo
+  check` arguments), and crate graph; its entry holds the IDs of the latest
+  complete run with that key, so a narrower run such as `-p a` no longer
+  erases the full-workspace entry and a run whose `cargo check` failed records
+  nothing. `cache_status: hit` means the latest complete run with the same key
+  reported the same finding. An older, empty, truncated, or unreadable cache
+  file reads as empty instead of failing the run.
+- Concurrent `cargo octet check --cache` runs in one workspace, and other
+  writers of atomically replaced files (Cargo-home configs, evidence-rail
+  receipts), no longer make each other fail: each write stages to its own
+  hidden `.<file>.<pid>.<n>.octet-stage` file and renames it into place, and
+  the last writer wins. A run killed mid-write can leave its hidden stage file
+  behind; it is never read and can be deleted.
 - Repository tests no longer leave build output behind: UI fixtures, autofix
-  crates, and fixture dependency builds use scratch directories removed after
-  each run; consumer-integration tests build their CLI under the checkout's
-  `target/tmp` and keep the embedded-source cache in their temp dir.
+  crates, compiler-architecture fixture shards, and fixture dependency builds
+  use scratch directories in `TMPDIR` removed after each run, and the UI tests
+  build and link the lint library once per run; consumer-integration tests
+  build their CLI under the checkout's `target/tmp` and keep the
+  embedded-source cache in their temp dir.
 
 ## Unreleased: suppression governance, scope matching, and rail fixes
 
