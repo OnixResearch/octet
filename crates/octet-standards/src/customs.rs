@@ -39,7 +39,19 @@ static PACKAGE_KINDS: &[&str] = &[
     "generated-contract",
     "contract",
 ];
-static SECRET_MARKERS: &[&str] = &["BEGIN PRIVATE KEY", "password =", "token =", "secret =", "api_key ="];
+/// Credential key names that mark an assignment such as `password = "..."` or `"api_key": "..."`.
+static SECRET_KEY_NAMES: &[&str] = &[
+    "password",
+    "passwd",
+    "token",
+    "secret",
+    "api_key",
+    "apikey",
+    "private_key",
+];
+const PEM_HEADER_START: &str = "-----begin ";
+const PRIVATE_KEY_LABEL: &str = "private key";
+const BARE_PRIVATE_KEY_HEADER: &str = "begin private key";
 static REMOTE_FETCH_MARKERS: &[&str] = &["https://", "http://", "curl ", "wget ", "git clone"];
 
 /// One package-generated artifact tracked by customs.
@@ -431,7 +443,25 @@ fn contains_remote_fetch(value: &str) -> bool {
 
 fn contains_secret_marker(value: &str) -> bool {
     let lowered = value.to_ascii_lowercase();
-    SECRET_MARKERS.iter().any(|marker| lowered.contains(&marker.to_ascii_lowercase()))
+    lowered.lines().any(|line| has_private_key_header(line) || has_secret_assignment(line))
+}
+
+/// Match PEM private-key headers such as `-----BEGIN EC PRIVATE KEY-----`.
+fn has_private_key_header(line: &str) -> bool {
+    line.contains(BARE_PRIVATE_KEY_HEADER)
+        || line.find(PEM_HEADER_START).is_some_and(|start| line[start..].contains(PRIVATE_KEY_LABEL))
+}
+
+/// Match a credential key name followed by optional quotes and whitespace, then `=` or `:`.
+fn has_secret_assignment(line: &str) -> bool {
+    SECRET_KEY_NAMES.iter().any(|key| {
+        line.match_indices(key).any(|(start, _)| {
+            let rest = line[start + key.len()..].trim_start_matches(|character: char| {
+                character == '"' || character == '\'' || character.is_whitespace()
+            });
+            rest.starts_with('=') || rest.starts_with(':')
+        })
+    })
 }
 
 fn push_blank(value: &str, field: &str, diagnostics: &mut Vec<CustomsDiagnostic>) {
@@ -581,6 +611,93 @@ mod tests {
         assert!(secret_fields.contains(&POSITIVE_FIXTURE), "{:?}", report.diagnostics);
         assert!(secret_fields.contains(&NEGATIVE_FIXTURE), "{:?}", report.diagnostics);
         assert!(secret_fields.contains(&SOURCE_PATH), "{:?}", report.diagnostics);
+    }
+
+    #[test]
+    fn secret_scan_matches_key_headers_and_assignment_spellings() {
+        let secret_texts = [
+            "-----BEGIN RSA PRIVATE KEY-----\n",
+            "-----BEGIN OPENSSH PRIVATE KEY-----\n",
+            "-----BEGIN EC PRIVATE KEY-----\n",
+            "-----BEGIN ENCRYPTED PRIVATE KEY-----\n",
+            "BEGIN PRIVATE KEY\n",
+            "password=\"hunter2\"\n",
+            "password = \"hunter2\"\n",
+            "{\"api_key\": \"abc\"}\n",
+            "{ 'apikey' : 'abc' }\n",
+            "API_KEY=abc\n",
+            "api_key = \"abc\"\n",
+            "passwd: hunter2\n",
+            "token=abc\n",
+            "token = abc\n",
+            "\"token\":\"abc\"\n",
+            "client_secret = \"abc\"\n",
+            "secret=abc\n",
+            "secret = abc\n",
+            "private_key: abc\n",
+        ];
+        let accepted = secret_texts.iter().filter(|text| !contains_secret_marker(text)).collect::<Vec<_>>();
+        assert!(accepted.is_empty(), "secret material passed the scan: {accepted:?}");
+
+        // Markers pinned by `nickel-export-core` at the Cargo-locked revision.
+        let core_markers = [
+            "begin private key",
+            "password=",
+            "password =",
+            "token=",
+            "token =",
+            "secret=",
+            "secret =",
+            "api_key=",
+            "api_key =",
+        ];
+        let missed = core_markers
+            .iter()
+            .filter(|marker| !contains_secret_marker(&format!("{marker}x\n")))
+            .collect::<Vec<_>>();
+        assert!(missed.is_empty(), "pinned nickel-export-core markers passed the scan: {missed:?}");
+
+        let ordinary_texts = [
+            "tokenizer = \"bpe\"\n",
+            "secretary: \"Ada\"\n",
+            "secret_exclusion_rationale = \"\"\n",
+            "passwords are rotated by the operator\n",
+            "the token expires after one hour\n",
+            "-----BEGIN PUBLIC KEY-----\n",
+            "api_keys_rotated = true\n",
+        ];
+        let rejected = ordinary_texts.iter().filter(|text| contains_secret_marker(text)).collect::<Vec<_>>();
+        assert!(rejected.is_empty(), "ordinary text tripped the secret scan: {rejected:?}");
+    }
+
+    #[test]
+    fn secret_scan_rejects_alternate_spellings_in_package_sources() {
+        let mut package = valid_package();
+        let mut sources = valid_sources();
+        for (path, text) in [
+            ("rsa-key.pem", "-----BEGIN RSA PRIVATE KEY-----\nMIIE\n-----END RSA PRIVATE KEY-----\n"),
+            ("compact.ncl", "{ password=\"hunter2\" }\n"),
+            ("json-key.json", "{\"api_key\": \"abc\"}\n"),
+        ] {
+            sources.push(SourceFile::new(path, text));
+            package.source_paths.push(path.to_owned());
+        }
+        let registry = valid_registry();
+        let artifact_manifest = valid_manifest();
+        let artifacts = valid_artifacts();
+
+        let report = report_for(&package, &registry, &artifact_manifest, &sources, &artifacts);
+
+        for path in ["rsa-key.pem", "compact.ncl", "json-key.json"] {
+            assert!(
+                report
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.field == path && diagnostic.remediation == REMEDIATION_SECRETS),
+                "{path}: {:?}",
+                report.diagnostics
+            );
+        }
     }
 
     #[test]
