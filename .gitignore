@@ -26,3 +26,5 @@ data/
 /.agent
 /.pi
 .pi/
+# Property-test example databases written by Hegel test runs
+.hegel/
