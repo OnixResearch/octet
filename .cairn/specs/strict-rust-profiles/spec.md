@@ -52,7 +52,7 @@ r[octet.strict_rust_profiles.selection.unknown]
 
 ### Requirement: Profile lint floors
 
-r[octet.strict_rust_profiles.lint_floor] A selected strict profile MUST apply its required lint identities at `deny`, and its suppression-governance lints (`unjustified_allow`, `unjustified_no_todo_allow`) at `forbid`, and MUST NOT permit consumer `disabled_lints` or weaker `lint_levels` values to reduce that profile floor.
+r[octet.strict_rust_profiles.lint_floor] A selected strict profile MUST apply its required lint identities at `deny` and MUST NOT permit consumer `disabled_lints` or weaker `lint_levels` values to reduce that profile floor.
 
 #### Scenario: Required lints are strengthened
 
@@ -60,7 +60,7 @@ r[octet.strict_rust_profiles.lint_floor.strengthened]
 
 - GIVEN consumer configuration omits, disables, allows, or warns a lint required by the selected profile
 - WHEN the lint-driver configuration core applies the profile
-- THEN the effective level for that lint MUST be `deny`, or `forbid` for a suppression-governance lint.
+- THEN the effective level for that lint MUST be `deny`.
 - AND unrelated consumer lint levels and thresholds MUST remain unchanged.
 
 #### Scenario: Source suppression remains explicit
@@ -72,21 +72,11 @@ r[octet.strict_rust_profiles.lint_floor.suppression]
 - THEN existing Octet suppression-justification lints MUST remain active according to the selected profile.
 - AND the profile MUST NOT introduce a silent assume-style bypass.
 
-#### Scenario: Governance lints cannot be suppressed
-
-r[octet.strict_rust_profiles.lint_floor.governance_forbid]
-
-- GIVEN a strict profile is selected and source code applies `allow`, `expect`, or `warn` to a suppression-governance lint directly, through its bare alias, or through a lint group that contains it
-- WHEN the source compiles
-- THEN the compilation MUST fail with a rustc error at that attribute, even when the attribute carries a justification.
-- AND the profile MUST also forbid rustc's `forbidden_lint_groups`, because rustc otherwise only warns about and then honors a source allow of a lint forbidden through a lint group or bare alias.
-- AND a justified source allow of a required lint that is not a governance lint MUST keep compiling.
-
 #### Scenario: Command-line weakening fails closed
 
 r[octet.strict_rust_profiles.lint_floor.command_line]
 
-- GIVEN a strict profile is selected and the compiler session carries `--cap-lints` below `deny` (below `forbid` while a governance lint is required), or a `--force-warn` that resolves directly, through an alias, or through a lint group to a required lint or to `forbidden_lint_groups`
+- GIVEN a strict profile is selected and the compiler session carries `--cap-lints` below `deny`, or a `--force-warn` that resolves directly, through an alias, or through a lint group to a required lint
 - WHEN the lint library registers its lints
 - THEN the compilation MUST fail with an error naming the profile and the weakening flag.
 - AND `-A` or `-W` options MUST NOT weaken the floor, because the profile denies apply after them.

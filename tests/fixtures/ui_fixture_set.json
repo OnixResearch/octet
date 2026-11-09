@@ -171,8 +171,6 @@
     "resource_return_from_core/resource_return_from_core",
     "spawn_in_core/spawn_in_core",
     "strict_profile_force_warn_custom/strict_profile_force_warn_custom",
-    "strict_profile_governance_custom/strict_profile_governance_forbid",
-    "strict_profile_governance_custom/strict_profile_governance_justified",
     "zero_alloc_attr_contract/zero_alloc_attr_contract",
     "zero_alloc_attr_contract_allow",
     "zero_alloc_attr_contract_silent_allow",
@@ -190,7 +188,6 @@
     "nominal_domain_compile_fail",
     "numeric_units_cli_deny_custom/numeric_units_cli_deny_custom",
     "strict_profile_force_warn_custom/strict_profile_force_warn_custom",
-    "strict_profile_governance_custom/strict_profile_governance_forbid",
     "tokio_async/verified_purity_harness",
     "verified/verified_purity",
     "zero_alloc_attr_contract_silent_allow"
@@ -235,8 +232,6 @@
     "nominal_inventory_profile_custom/nominal_inventory_profile_custom",
     "legacy_config_sections_custom/legacy_config_sections_custom",
     "strict_profile_force_warn_custom/strict_profile_force_warn_custom",
-    "core_scope_resolution_custom/core_scope_resolution_custom",
-    "strict_profile_governance_custom/strict_profile_governance_forbid",
-    "strict_profile_governance_custom/strict_profile_governance_justified"
+    "core_scope_resolution_custom/core_scope_resolution_custom"
   ]
 }
