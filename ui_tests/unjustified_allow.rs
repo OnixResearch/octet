@@ -276,3 +276,23 @@ macro_rules! exported_justified {
         $item
     };
 }
+
+// Should warn at the definition: a `cfg_attr` in an exported macro body
+// expands into the same allow.
+#[macro_export]
+macro_rules! exported_cfg_attr_quiet {
+    ($item:item) => {
+        #[cfg_attr(all(), allow(tigerstyle::no_unwrap))]
+        $item
+    };
+}
+
+// Should NOT warn: a justified `cfg_attr` allow in an exported macro body.
+#[macro_export]
+macro_rules! exported_cfg_attr_justified {
+    ($item:item) => {
+        // Callers only wrap items whose unwraps a bounds check precedes.
+        #[cfg_attr(all(), allow(tigerstyle::no_unwrap))]
+        $item
+    };
+}

@@ -97,3 +97,12 @@ macro_rules! exported_silenced {
         mod exported_silenced {}
     };
 }
+
+// Should error at the definition: `cfg_attr` would expand into the allow.
+#[macro_export]
+macro_rules! exported_cfg_attr_silenced {
+    () => {
+        #[cfg_attr(all(), allow(tigerstyle::structure))]
+        mod exported_cfg_attr_silenced {}
+    };
+}

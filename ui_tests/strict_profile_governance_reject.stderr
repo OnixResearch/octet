@@ -82,5 +82,11 @@ error: strict profile `robust` requires `unjustified_allow` at `deny`, but this 
 LL |         #[allow(tigerstyle::structure)]
    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-error: aborting due to 14 previous errors
+error: strict profile `robust` requires `unjustified_allow` at `deny`, but this `#[allow(...)]` would silence it; source attributes cannot lower a profile's suppression-governance lints, so remove the attribute
+  --> $DIR/strict_profile_governance_custom/strict_profile_governance_reject.rs:105:27
+   |
+LL |         #[cfg_attr(all(), allow(tigerstyle::structure))]
+   |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: aborting due to 15 previous errors
 

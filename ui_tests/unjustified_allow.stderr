@@ -317,5 +317,21 @@ LL ~         // TODO(octet): explain why this allow is safe here
 LL ~         #[allow(tigerstyle::no_unwrap)]
    |
 
-warning: 21 warnings emitted
+warning: `#[allow(...)]` without justification comment
+  --> $DIR/unjustified_allow.rs:284:27
+   |
+LL |         #[cfg_attr(all(), allow(tigerstyle::no_unwrap))]
+   |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Documented Suppression): every lint suppression needs a local reason tied to the code shape Example: // Verified casts: Verus checks every narrowing in this module.
+           #[allow(clippy::cast_possible_truncation)]
+   = note: structured suggestion applicability: HasPlaceholders
+   = note: see Tiger Style guide: Documented Suppression
+help: add a local justification comment
+   |
+LL ~         #[cfg_attr(all(), // TODO(octet): explain why this allow is safe here
+LL ~                           allow(tigerstyle::no_unwrap))]
+   |
+
+warning: 22 warnings emitted
 

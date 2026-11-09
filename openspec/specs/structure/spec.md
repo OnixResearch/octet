@@ -176,7 +176,8 @@ spans borrowed from user tokens. A forwarded attribute is reported at its
 name, without an autofix suggestion.
 
 The lint MUST also check, where a macro is defined, each lint-level attribute
-written literally in a `macro_rules!` transcriber or `macro` body, with the
+written literally in a `macro_rules!` transcriber or `macro` body, including
+each one a literal `cfg_attr(predicate, ...)` there would expand into, with the
 same scope, justification, and later-raise rules, whether or not the macro is
 invoked in that crate. This covers `#[macro_export]` macros whose expansions
 land in other crates, where those crates treat the attribute as another

@@ -76,9 +76,9 @@ fn collect_runs(stream: &TokenStream, runs: &mut Vec<Vec<BodyAttribute>>) {
     let mut run = Vec::new();
     let mut index = 0;
     while let Some(rest) = trees.get(index..).filter(|rest| !rest.is_empty()) {
-        if let Some((attribute, consumed)) = attribute_at(rest) {
+        if let Some((attributes, consumed)) = attribute_at(rest) {
             // Any attribute, such as `#[inline]` or `#[$meta]`, keeps the run.
-            run.extend(attribute);
+            run.extend(attributes);
             index += consumed;
             continue;
         }
@@ -95,10 +95,11 @@ fn collect_runs(stream: &TokenStream, runs: &mut Vec<Vec<BodyAttribute>>) {
     }
 }
 
-/// An attribute starting at `trees`, with the number of trees it spans, or
-/// `None` when `trees` does not start with one. The attribute itself is `None`
-/// unless it is a literal lint-level attribute.
-fn attribute_at(trees: &[&TokenTree]) -> Option<(Option<BodyAttribute>, usize)> {
+/// The lint-level attributes of an attribute starting at `trees`, with the
+/// number of trees it spans, or `None` when `trees` does not start with one.
+/// The list is empty unless the attribute is a literal lint-level attribute or
+/// a `cfg_attr` that expands into some.
+fn attribute_at(trees: &[&TokenTree]) -> Option<(Vec<BodyAttribute>, usize)> {
     let (TokenTree::Token(pound, _), rest) = trees.split_first()? else {
         return None;
     };
@@ -112,38 +113,51 @@ fn attribute_at(trees: &[&TokenTree]) -> Option<(Option<BodyAttribute>, usize)> 
     let TokenTree::Delimited(dspan, _, Delimiter::Bracket, inner) = rest.first()? else {
         return None;
     };
-    Some((level_attribute(pound.span.to(dspan.close), inner), 2 + bang))
+    let mut attributes = Vec::new();
+    level_attributes(&inner.iter().collect::<Vec<_>>(), Some(pound.span.to(dspan.close)), &mut attributes);
+    Some((attributes, 2 + bang))
 }
 
 fn is_level_name(name: Symbol) -> bool {
     [sym::allow, sym::expect, sym::warn, sym::deny, sym::forbid].contains(&name)
 }
 
-fn level_attribute(span: Span, inner: &TokenStream) -> Option<BodyAttribute> {
-    let trees = inner.iter().collect::<Vec<_>>();
+/// Collects the lint-level attributes that the attribute content `trees`
+/// yields: itself when it is `name(...)` with a level name, or, for
+/// `cfg_attr(predicate, a(...), b(...))`, each attribute after the predicate.
+/// `written` is the span of the whole written attribute; an attribute that a
+/// `cfg_attr` expands into is spanned from its name to its closing
+/// parenthesis instead, as rustc spans the attribute it expands into.
+fn level_attributes(trees: &[&TokenTree], written: Option<Span>, attributes: &mut Vec<BodyAttribute>) {
     let [
         TokenTree::Token(
             Token {
                 kind: TokenKind::Ident(name, _),
-                ..
+                span: name_span,
             },
             _,
         ),
-        TokenTree::Delimited(_, _, Delimiter::Parenthesis, arguments),
-    ] = trees.as_slice()
+        TokenTree::Delimited(dspan, _, Delimiter::Parenthesis, arguments),
+    ] = trees
     else {
-        return None;
+        return;
     };
+    let arguments = arguments.iter().collect::<Vec<_>>();
+    if *name == sym::cfg_attr {
+        for expanded in arguments.split(|tree| is_token(tree, &TokenKind::Comma)).skip(1) {
+            level_attributes(expanded, None, attributes);
+        }
+        return;
+    }
     if !is_level_name(*name) {
-        return None;
+        return;
     }
     let mut attribute = BodyAttribute {
         name: *name,
-        span,
+        span: written.unwrap_or_else(|| name_span.to(dspan.close)),
         paths: Vec::new(),
         reason: Reason::Absent,
     };
-    let arguments = arguments.iter().collect::<Vec<_>>();
     for argument in arguments.split(|tree| is_token(tree, &TokenKind::Comma)) {
         if let Some(reason) = reason_argument(argument) {
             attribute.reason = reason;
@@ -151,7 +165,7 @@ fn level_attribute(span: Span, inner: &TokenStream) -> Option<BodyAttribute> {
             attribute.paths.push(path);
         }
     }
-    Some(attribute)
+    attributes.push(attribute);
 }
 
 fn reason_argument(argument: &[&TokenTree]) -> Option<Reason> {
@@ -307,6 +321,27 @@ mod tests {
             let paths = warn.lint_paths().map(Iterator::collect::<Vec<_>>).collect::<Vec<_>>();
             assert_eq!(paths, [vec!["tigerstyle", "safety"], vec!["no_unwrap"]]);
             assert_eq!(warn.reason, Reason::Literal(Symbol::intern("audited")));
+        });
+    }
+
+    #[test]
+    fn expands_cfg_attr_into_each_level_attribute_after_the_predicate() {
+        rustc_span::create_default_session_globals_then(|| {
+            let mut arguments = vec![ident("all"), group(Delimiter::Parenthesis, Vec::new())];
+            arguments.push(token(TokenKind::Comma));
+            arguments.extend([
+                ident("allow"),
+                group(Delimiter::Parenthesis, path(&["tigerstyle", "structure"])),
+            ]);
+            arguments.push(token(TokenKind::Comma));
+            arguments.extend([ident("inline")]);
+            arguments.push(token(TokenKind::Comma));
+            arguments.extend([ident("warn"), group(Delimiter::Parenthesis, path(&["no_unwrap"]))]);
+            let body = TokenStream::new(attribute("cfg_attr", arguments));
+
+            let runs = attribute_runs(&body, false);
+
+            assert_eq!(names(&runs), [vec!["allow", "warn"]]);
         });
     }
 
