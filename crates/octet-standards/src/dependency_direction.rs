@@ -518,7 +518,7 @@ fn declared_path_matches_manifest(declared_path: &str, manifest_path: &str) -> b
 }
 
 /// Returns true when `suffix` equals `path` or matches its trailing whole path components.
-fn path_ends_with_components(path: &str, suffix: &str) -> bool {
+pub(crate) fn path_ends_with_components(path: &str, suffix: &str) -> bool {
     let Some(prefix) = path.strip_suffix(suffix) else {
         return false;
     };

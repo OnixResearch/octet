@@ -87,6 +87,10 @@ mod tests {
     const THICK_ROOT_LINE_COUNT: usize = 50;
     const BOUNDED_CHANNEL_CAPACITY: u16 = 16;
     const UNBOUNDED_CHANNEL_LINE: &str = "fn start() { let (_tx, _rx) = tokio::sync::mpsc::unbounded_channel(); }";
+    const CLOCK_HANDLER_ARTIFACT: &str = "standards/check-fixtures/capability/clock-handler.txt";
+    const FS_HANDLER_ARTIFACT: &str = "standards/check-fixtures/capability/fs-handler.txt";
+    const COVERED_HANDLER_TRANSCRIPT: &str =
+        "success path: handler returns the fixture value\nfailure path: handler returns the configured error\n";
     const PUBLIC_API_BUDGET_FIXTURE_PATH: &str =
         "standards/check-fixtures/architecture/advisory/public-api-budget/src/lib.rs";
     const PUBLIC_API_BUDGET_FIXTURE_SOURCE: &str =
@@ -751,6 +755,80 @@ fn concurrency() { let _ = std::thread::spawn(|| ()); }\n";
                 .iter()
                 .any(|diagnostic| { diagnostic.message.contains("capability scope resolution is ambiguous") })
         );
+    }
+
+    #[test]
+    fn capability_manifest_requires_a_replay_command_and_artifact_per_handler() {
+        let selection = FamilySelection::from_families(["architecture"]);
+        let sources = vec![
+            SourceFile::new(CLOCK_HANDLER_ARTIFACT, COVERED_HANDLER_TRANSCRIPT),
+            SourceFile::new(FS_HANDLER_ARTIFACT, COVERED_HANDLER_TRANSCRIPT),
+        ];
+        let mut complete = sample_capability_handler_registry();
+        let mechanism = &mut complete.policies[0].mechanisms[0];
+        mechanism.capability_deterministic_handlers.push("FakeFs".to_owned());
+        mechanism.capability_handler_replay_commands.push("cargo test fake_fs_handler".to_owned());
+        mechanism.capability_handler_artifacts.push(FS_HANDLER_ARTIFACT.to_owned());
+        let mut missing_command = complete.clone();
+        missing_command.policies[0].mechanisms[0].capability_handler_replay_commands.pop();
+        let mut missing_artifact = complete.clone();
+        missing_artifact.policies[0].mechanisms[0].capability_handler_artifacts.pop();
+
+        let complete_check = check_capability_manifest(&complete, &sources, &selection);
+        let missing_command_check = check_capability_manifest(&missing_command, &sources, &selection);
+        let missing_artifact_check = check_capability_manifest(&missing_artifact, &sources, &selection);
+
+        assert!(complete_check.diagnostics.is_empty(), "{:?}", complete_check.diagnostics);
+        for (check, missing) in [
+            (&missing_command_check, "replay command"),
+            (&missing_artifact_check, "artifact"),
+        ] {
+            assert_eq!(
+                check
+                    .diagnostics
+                    .iter()
+                    .map(|diagnostic| (diagnostic.severity, diagnostic.message.contains("`FakeFs`")))
+                    .collect::<Vec<_>>(),
+                vec![(Severity::Error, true)],
+                "{missing}: {:?}",
+                check.diagnostics
+            );
+        }
+        let fake_fs_command = missing_command_check.reports[0]
+            .handler_evidence
+            .iter()
+            .find(|evidence| evidence.handler == "FakeFs")
+            .map(|evidence| evidence.replay_command.as_str());
+        assert_ne!(fake_fs_command, Some("cargo test fake_clock_handler"));
+    }
+
+    #[test]
+    fn capability_manifest_matches_handler_artifacts_on_whole_path_components() {
+        let selection = FamilySelection::from_families(["architecture"]);
+        let mut registry = sample_capability_handler_registry();
+        registry.policies[0].mechanisms[0].capability_handler_artifacts = vec!["tests/fs-handler.txt".to_owned()];
+
+        let lookalike = check_capability_manifest(
+            &registry,
+            &[SourceFile::new(
+                "fixtures/legacy_tests/fs-handler.txt",
+                COVERED_HANDLER_TRANSCRIPT,
+            )],
+            &selection,
+        );
+        let nested = check_capability_manifest(
+            &registry,
+            &[SourceFile::new(
+                "crates/app/tests/fs-handler.txt",
+                COVERED_HANDLER_TRANSCRIPT,
+            )],
+            &selection,
+        );
+
+        assert!(lookalike.reports[0].handler_evidence[0].blake3.is_empty());
+        assert!(lookalike.diagnostics.iter().any(|diagnostic| diagnostic.message.contains("tests/fs-handler.txt")));
+        assert!(!nested.reports[0].handler_evidence[0].blake3.is_empty());
+        assert!(nested.diagnostics.is_empty(), "{:?}", nested.diagnostics);
     }
 
     #[test]
