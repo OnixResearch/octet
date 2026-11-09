@@ -45,9 +45,13 @@ const DYNAMIC_PROFILE_MIRI_SHORT: &str = "miri";
 const DYNAMIC_COMMAND_MIRI_TEST: &str = "cargo miri test";
 const DYNAMIC_PROFILE_LOOM_CONCURRENCY: &str = "loom-concurrency";
 const DYNAMIC_PROFILE_LOOM_SHORT: &str = "loom";
-/// Loom models compile only under `--cfg loom`, which Cargo takes from `RUSTFLAGS`, not argv.
+/// Loom models compile only under `--cfg loom`, which Cargo takes from its rustflags environment,
+/// not argv.
 const DYNAMIC_COMMAND_LOOM_TEST: &str = "cargo test";
 const DYNAMIC_LOOM_RUSTFLAGS: &str = "--cfg loom";
+/// `--cfg loom` in the `\x1f`-separated form of `CARGO_ENCODED_RUSTFLAGS`, which Cargo reads before
+/// `RUSTFLAGS`.
+const DYNAMIC_LOOM_ENCODED_RUSTFLAGS: &str = "--cfg\x1floom";
 /// Acceptance signal declared by the built-in Miri and Loom dynamic evidence profiles.
 const DYNAMIC_ACCEPTANCE_SIGNAL_PASSED: &str = "passed";
 const CARGO_VET_CONCLUSION_SUCCESS: &str = "success";
@@ -4772,10 +4776,15 @@ fn allowed_dynamic_command(profile: &str) -> Option<&'static str> {
     }
 }
 
-/// Child environment that a built-in dynamic profile sets on top of the inherited environment.
+/// Child environment that a built-in dynamic profile sets on top of the inherited environment. The
+/// Loom profile replaces both rustflags variables: Cargo reads `CARGO_ENCODED_RUSTFLAGS` before
+/// `RUSTFLAGS`, so an inherited encoded value would otherwise drop `--cfg loom`.
 fn dynamic_profile_env(profile: Option<&str>) -> &'static [(&'static str, &'static str)] {
     match profile {
-        Some(DYNAMIC_PROFILE_LOOM_CONCURRENCY | DYNAMIC_PROFILE_LOOM_SHORT) => &[("RUSTFLAGS", DYNAMIC_LOOM_RUSTFLAGS)],
+        Some(DYNAMIC_PROFILE_LOOM_CONCURRENCY | DYNAMIC_PROFILE_LOOM_SHORT) => &[
+            ("CARGO_ENCODED_RUSTFLAGS", DYNAMIC_LOOM_ENCODED_RUSTFLAGS),
+            ("RUSTFLAGS", DYNAMIC_LOOM_RUSTFLAGS),
+        ],
         _ => &[],
     }
 }
@@ -6879,9 +6888,27 @@ mod tests {
         assert!(dynamic_run_command_argv(Some(DYNAMIC_PROFILE_LOOM_SHORT), Some("cargo test --cfg loom")).is_err());
         let loom = run(DYNAMIC_PROFILE_LOOM_CONCURRENCY, "cargo test", EXIT_SUCCESS);
         assert_eq!(loom.status, STATUS_PASSED, "{:?}", loom.diagnostics);
-        assert_eq!(dynamic_profile_env(Some(DYNAMIC_PROFILE_LOOM_SHORT)), &[("RUSTFLAGS", "--cfg loom")]);
-        assert_eq!(dynamic_profile_env(Some(DYNAMIC_PROFILE_LOOM_CONCURRENCY)), &[("RUSTFLAGS", "--cfg loom")]);
+        for profile in [DYNAMIC_PROFILE_LOOM_SHORT, DYNAMIC_PROFILE_LOOM_CONCURRENCY] {
+            assert_eq!(dynamic_profile_env(Some(profile)), &[
+                ("CARGO_ENCODED_RUSTFLAGS", "--cfg\u{1f}loom"),
+                ("RUSTFLAGS", "--cfg loom")
+            ]);
+        }
         assert!(dynamic_profile_env(Some(DYNAMIC_PROFILE_MIRI_UNSAFE_BOUNDARY)).is_empty());
+    }
+
+    #[test]
+    fn loom_child_sees_cfg_loom_in_the_rustflags_cargo_reads_first() {
+        // Cargo reads `CARGO_ENCODED_RUSTFLAGS` before `RUSTFLAGS`, so an inherited encoded value
+        // would otherwise drop `--cfg loom` and the Loom models would not compile.
+        let output = run_bounded_rail_command(
+            &string_vec(&["sh", "-c", "printf '%s' \"$CARGO_ENCODED_RUSTFLAGS\""]),
+            None,
+            dynamic_profile_env(Some(DYNAMIC_PROFILE_LOOM_CONCURRENCY)),
+        )
+        .expect("shell runs");
+        assert_eq!(output.exit_code, EXIT_SUCCESS);
+        assert_eq!(String::from_utf8_lossy(&output.stdout), "--cfg\u{1f}loom");
     }
 
     #[test]
