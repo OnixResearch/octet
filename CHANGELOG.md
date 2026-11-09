@@ -11,17 +11,25 @@ For rollout profiles, see `docs/downstream-rollout.md`.
 Changes that can add findings or fail a build:
 
 - `unjustified_allow` now governs `allow` and `expect` attributes written in
-  source (including `cfg_attr`-expanded ones) that suppress Clippy lints,
-  Octet lints and groups (`tigerstyle::...`), or Octet bare aliases such as
-  `no_unwrap`, at the crate root and on statements, fields, variants, and
-  every other lint-level node. Scope comes from the lint paths, not the file
-  path. A justification is a non-doc `//` comment on the attribute's lines (a
-  trailing comment counts) or the line directly above, or a non-empty
-  `reason`; doc comments and the lint's own `TODO(octet)` placeholder do not
-  count. Allows that proc macros such as `#[tokio::main]` generate onto user
-  spans are not governed. Every strict profile requires this lint, so
-  unjustified suppressions of Octet lints now deny. `#[expect]` findings use a
-  new message, and the lint summary changed.
+  source (including `cfg_attr`-expanded ones and those inside a local
+  `macro_rules!`) that suppress Clippy lints, Octet lints and groups
+  (`tigerstyle::...`), or Octet bare aliases such as `no_unwrap`, at the crate
+  root and on statements, fields, variants, and every other lint-level node.
+  Scope comes from the lint paths, not the file path. A justification is a
+  non-doc `//` comment on the attribute's lines (a trailing comment counts) or
+  the line directly above, or a non-empty `reason`; doc comments and the
+  lint's own `TODO(octet)` placeholder do not count. Attributes that other
+  crates' macros generate, including proc-macro output re-spanned onto user
+  code such as `#[tokio::main]`'s allow block, are not governed. Every strict
+  profile requires this lint, so unjustified suppressions of Octet lints now
+  deny. `#[expect]` findings use a new message, and the lint summary changed.
+- Under a strict profile, any `allow`, `expect`, or `warn` written in source
+  that reaches `unjustified_allow` or `unjustified_no_todo_allow`, by bare
+  name, `tigerstyle::` name, or a group such as `tigerstyle::structure` or
+  `tigerstyle::safety`, is a compile error naming the attribute, the lint, and
+  the profile, even when justified. The governance lints stay at `deny` and
+  nothing is forbidden crate-wide, so a crate's own group forbids next to
+  derive output behave as before.
 - A selected strict profile fails the compilation, naming the flag, when
   `--force-warn` or a `--cap-lints` below `deny` would weaken a required lint.
 - `unjustified_no_todo_allow` checks `no_todo` escape hatches wherever rustc
@@ -87,14 +95,17 @@ Configuration:
 
 - `core_source_scopes`, `state_machine_core_scopes`, and
   `state_machine_generated_adapter_scopes` are normalized as `cargo octet`
-  normalizes them (trim, drop a leading `./` and a trailing `/`), resolved on
-  disk through symlinks and `..`, and matched by whole workspace-relative path
-  components. `./crates/domain/src/` matches again, an in-root `linked -> src`
-  scope covers `src/`, and `crates/core` no longer covers `crates/core-shell`;
-  a scope that matched only as a substring (`domain-core/src` for
-  `crates/domain-core/src`) must be rewritten from the workspace root. Scopes
-  that normalize to empty warn (`empty_source_scope`), and scopes that name
-  nothing, resolve to the workspace root, or resolve outside it warn
+  normalizes them (trim, drop a leading `./` and a trailing `/`) and matched
+  by whole workspace-relative path components. A scope always matches files
+  compiled through its own path, and an in-root scope that resolves through a
+  symlink or `..` also covers its canonical target. `./crates/domain/src/`
+  matches again, an in-root `linked -> src` scope covers `src/`, and
+  `crates/core` no longer covers `crates/core-shell`; a scope that matched
+  only as a substring (`domain-core/src` for `crates/domain-core/src`) must be
+  rewritten from the workspace root. Scopes that normalize to empty warn
+  (`empty_source_scope`). Scopes that name nothing or resolve to the workspace
+  root warn that they match nothing, and a scope whose symlink target lies
+  outside the workspace warns that it covers only its in-root path
   (`unmatched_source_scope`).
 - Octet parses only the `dylint.toml` section it uses. A shadowed `[slotcar]`
   or `[tigerstyle]` section produces a warning instead of being dropped
@@ -127,15 +138,17 @@ Evidence rails and artifacts:
   changes.
 - Roadmap capsule and artifact-store redaction drops plural, numbered, and
   environment-suffixed tokens (`api_tokens`, `GITHUB_TOKEN_2`,
-  `NPM_TOKEN_PROD`), a trailing `pass` or `pwd` (`DB_PASS`, `MYSQL_PWD`), any
-  word containing `password` (`PGPASSWORD`), `Authorization`, bearer, cookie,
-  session-ID, JWT, and auth fields, and qualified keys such as
-  `AWS_ACCESS_KEY_ID`, `STRIPE_KEY`, and `SIGNING_KEY`. It keeps vocabulary,
-  position, and pagination tokens (`stop_token`, `last_token`,
+  `NPM_TOKEN_PROD`), any word containing `password` (`PGPASSWORD`),
+  `passphrase`, `Authorization`, bearer, cookie, session-ID, JWT, and auth
+  fields. A `pass`, `pwd`, or non-lookup qualified `key` (`DB_PASS`,
+  `MYSQL_PWD`, `AWS_ACCESS_KEY_ID`, `STRIPE_KEY_V2`, `SIGNING_KEY_PEM`) is
+  dropped unless the next word only describes or locates it. It keeps
+  vocabulary, position, and pagination tokens (`stop_token`, `last_token`,
   `PaginationToken`), plural usage counts (`input_tokens`, `prompt_tokens`;
-  a singular `INPUT_TOKEN` is still dropped), and identity fields such as
-  `pass_signal` and `changed_key_components`. Capsule and artifact hashes
-  change for inputs that carry those fields.
+  a singular `INPUT_TOKEN` is still dropped), and descriptive or identity
+  fields such as `pass_signal`, `signing_key_path`, and
+  `changed_key_components`. Capsule and artifact hashes change for inputs
+  that carry those fields.
 
 Proof rails:
 
