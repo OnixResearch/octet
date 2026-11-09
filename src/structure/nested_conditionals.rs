@@ -6,6 +6,7 @@ use rustc_ast::visit::Visitor;
 use rustc_ast::visit::{self};
 use rustc_lint::EarlyContext;
 use rustc_lint::EarlyLintPass;
+use rustc_lint::LintContext;
 use rustc_session::declare_tool_lint;
 use rustc_session::impl_lint_pass;
 
@@ -16,7 +17,8 @@ declare_tool_lint! {
     /// (default: 3) inside a function or method body. Deep nesting buries
     /// the important logic and makes control flow hard to follow. An
     /// `else if` continues its chain at the same depth. Conditionals that
-    /// macros expand to, such as those inside `assert_eq!`, do not count.
+    /// external macros expand to, such as those inside `assert_eq!`, do not
+    /// count; conditionals built by local `macro_rules!` do.
     ///
     /// Configure in `dylint.toml`:
     /// ```toml
@@ -49,9 +51,9 @@ struct NestingVisitor<'a, 'b> {
 
 impl NestingVisitor<'_, '_> {
     /// Enters one branching level; returns `false` (after reporting) when the
-    /// new depth exceeds the limit. Only conditionals written in local source
+    /// new depth exceeds the limit. Conditionals from external macros never
     /// enter a level, so `reported` is set only for a diagnostic at a span
-    /// rustc keeps, never for one inside an external macro that rustc drops.
+    /// rustc keeps: local source or a local `macro_rules!` body.
     fn enter_branch(&mut self, expr: &Expr) -> bool {
         self.depth += 1;
         if self.depth <= self.max_depth {
@@ -79,10 +81,11 @@ impl<'ast> Visitor<'ast> for NestingVisitor<'_, '_> {
             return;
         }
 
-        // Conditionals that macros expand to, such as the `match` and `if`
-        // inside `assert_eq!`, are not nesting the author wrote. Their
-        // operands are still walked at the current depth.
-        if expr.span.from_expansion() {
+        // Conditionals that external macros expand to, such as the `match`
+        // and `if` inside `assert_eq!`, are not nesting the author wrote, and
+        // rustc drops diagnostics at their spans. Their operands are still
+        // walked at the current depth. Local `macro_rules!` bodies count.
+        if expr.span.in_external_macro(self.cx.sess().source_map()) {
             visit::walk_expr(self, expr);
             return;
         }

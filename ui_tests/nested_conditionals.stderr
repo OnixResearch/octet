@@ -54,5 +54,20 @@ LL | |                 }
    = help: Tiger Style (Simple Control Flow): flatten control flow with guards, early returns, or helper predicates Example: if !is_ready { return; }
    = note: see Tiger Style guide: Simple Control Flow
 
-warning: 5 warnings emitted
+warning: conditional nesting is 4 levels deep (limit: 3)
+  --> $DIR/nested_conditionals.rs:127:9
+   |
+LL |           if $condition $body
+   |           ^^^^^^^^^^^^^^^^^^^
+...
+LL | /                 when!(value > 3, {
+LL | |                     return true;
+LL | |                 });
+   | |__________________- in this macro invocation
+   |
+   = help: Tiger Style (Simple Control Flow): flatten control flow with guards, early returns, or helper predicates Example: if !is_ready { return; }
+   = note: see Tiger Style guide: Simple Control Flow
+   = note: this warning originates in the macro `when` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: 6 warnings emitted
 

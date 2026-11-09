@@ -121,3 +121,25 @@ fn assertion_at_limit(value: u32) {
         }
     }
 }
+
+macro_rules! when {
+    ($condition:expr, $body:block) => {
+        if $condition $body
+    };
+}
+
+// Should warn: nesting built by a local `macro_rules!` is nesting the author
+// wrote, and rustc keeps diagnostics inside local macro bodies.
+fn nested_through_local_macro(value: u32) -> bool {
+    when!(value > 0, {
+        when!(value > 1, {
+            when!(value > 2, {
+                when!(value > 3, {
+                    return true;
+                });
+            });
+        });
+    });
+
+    false
+}
