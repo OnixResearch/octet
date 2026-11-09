@@ -773,6 +773,9 @@ fn extract_facts(bytes: &[u8], profile: &WasmArtifactProfile) -> FactExtraction 
     };
     let mut scopes = Vec::<BinaryScope>::new();
     let mut stack = Vec::<usize>::new();
+    // Set once an unresolved exported alias is seen: it may refer back to any
+    // local definition, so no scope's imports can be proven bound.
+    let mut all_escape = false;
     for payload in Parser::new(0).parse_all(bytes) {
         let payload = match payload {
             Ok(payload) => payload,
@@ -799,7 +802,7 @@ fn extract_facts(bytes: &[u8], profile: &WasmArtifactProfile) -> FactExtraction 
             stack.push(id);
         }
         let Some(&id) = stack.last() else { continue };
-        record_scope_links(&payload, id, &mut scopes, &mut extraction);
+        record_scope_links(&payload, id, &mut scopes, &mut all_escape, &mut extraction);
         let ended = matches!(payload, Payload::End(_));
         extract_payload(payload, &mut scopes[id].extraction);
         if ended {
@@ -812,6 +815,7 @@ fn extract_facts(bytes: &[u8], profile: &WasmArtifactProfile) -> FactExtraction 
     extraction.facts.artifact_kind.clone_from(&scopes[0].extraction.facts.artifact_kind);
     let mut multipliers = vec![1_u64; scopes.len()];
     for id in 0..scopes.len() {
+        scopes[id].escapes |= all_escape;
         if let Some(parent) = scopes[id].parent {
             multipliers[id] = multipliers[parent].saturating_mul(scopes[id].instances.max(1));
             let parent_escapes = scopes[parent].escapes;
@@ -842,7 +846,13 @@ fn extract_facts(bytes: &[u8], profile: &WasmArtifactProfile) -> FactExtraction 
     extraction
 }
 
-fn record_scope_links(payload: &Payload<'_>, id: usize, scopes: &mut [BinaryScope], extraction: &mut FactExtraction) {
+fn record_scope_links(
+    payload: &Payload<'_>,
+    id: usize,
+    scopes: &mut [BinaryScope],
+    all_escape: &mut bool,
+    extraction: &mut FactExtraction,
+) {
     use wasmparser::ComponentAlias;
     use wasmparser::ComponentExternalKind;
     use wasmparser::ComponentOuterAliasKind;
@@ -901,7 +911,7 @@ fn record_scope_links(payload: &Payload<'_>, id: usize, scopes: &mut [BinaryScop
                     }
                     wasmparser::ComponentInstance::FromExports(exports) => {
                         for export in &exports {
-                            record_scope_export(export, id, scopes);
+                            record_scope_export(export, id, scopes, all_escape);
                         }
                     }
                 }
@@ -909,7 +919,7 @@ fn record_scope_links(payload: &Payload<'_>, id: usize, scopes: &mut [BinaryScop
         }
         Payload::ComponentExportSection(reader) => {
             for export in reader.clone().into_iter().flatten() {
-                record_scope_export(&export, id, scopes);
+                record_scope_export(&export, id, scopes, all_escape);
                 // Component exports append aliases to their entity index
                 // spaces, unlike exports used only to construct an instance.
                 // Keep the local definition identity so later numeric indices
@@ -927,7 +937,12 @@ fn record_scope_links(payload: &Payload<'_>, id: usize, scopes: &mut [BinaryScop
     }
 }
 
-fn record_scope_export(export: &wasmparser::ComponentExport<'_>, id: usize, scopes: &mut [BinaryScope]) {
+fn record_scope_export(
+    export: &wasmparser::ComponentExport<'_>,
+    id: usize,
+    scopes: &mut [BinaryScope],
+    all_escape: &mut bool,
+) {
     let child = match export.kind {
         wasmparser::ComponentExternalKind::Module => scopes[id].modules.get(export.index as usize),
         wasmparser::ComponentExternalKind::Component => scopes[id].components.get(export.index as usize),
@@ -940,9 +955,9 @@ fn record_scope_export(export: &wasmparser::ComponentExport<'_>, id: usize, scop
     } else {
         // An exported generative alias may refer back to any local definition.
         // Without an exact link, retain every potentially unresolved import.
-        for scope in scopes {
-            scope.escapes = true;
-        }
+        // Set one flag instead of marking every scope per export, which is
+        // quadratic for crafted inputs with many scopes and such exports.
+        *all_escape = true;
     }
 }
 
@@ -2185,6 +2200,66 @@ mod tests {
         let report = analyze(&wat::parse_str(repeated).expect("repeated instantiation"), &registry, &[]);
         assert_eq!(report.details.facts.table_count, 2);
         assert!(report.details.findings.iter().any(|finding| finding.issue_code == RESOURCE_LIMIT_ISSUE));
+    }
+
+    #[test]
+    fn unresolved_exports_retain_authority_of_every_definition() {
+        let registry = valid_registry();
+        let adapter = r#"
+            (core module $provider
+                (table (export "table") 1 1 funcref)
+                (func (export "f")))
+            (core instance $provider-instance (instantiate $provider))
+            (core module $adapter
+                (import "env" "f" (func))
+                (import "env" "table" (table 1 1 funcref)))
+            (core instance (instantiate $adapter (with "env" (instance $provider-instance))))"#;
+        let reexport = r#"(export "reexported" (core module $imported))"#;
+        let adapter_import_is_unbound = |source: String| {
+            let report = analyze(&wat::parse_str(source).expect("re-exported imported module"), &registry, &[]);
+            let unbound = report.details.facts.imports.iter().any(|item| item.namespace == "env" && item.name == "f");
+            let bound = report.details.facts.bound_imports.iter().any(|item| item.name == "f");
+            assert_ne!(unbound, bound, "{:?}", report.details.facts);
+            unbound
+        };
+
+        let unexported = format!(r#"(component (import "m" (core module $imported)) {adapter})"#);
+        assert!(!adapter_import_is_unbound(unexported));
+        // An export without a local link may alias any definition, wherever it appears.
+        for source in [
+            format!(r#"(component (import "m" (core module $imported)) {adapter} {reexport})"#),
+            format!(r#"(component (import "m" (core module $imported)) {reexport} {adapter})"#),
+        ] {
+            assert!(adapter_import_is_unbound(source));
+        }
+    }
+
+    #[test]
+    fn unresolved_exports_mark_escaping_scopes_in_constant_work() {
+        const SCOPES: usize = 4096;
+        const EXPORTS: u32 = 8192;
+        let mut scopes = std::iter::repeat_with(BinaryScope::default).take(SCOPES).collect::<Vec<_>>();
+        // Index 0 is an imported module; every other index is out of range.
+        scopes[0].modules.push(None);
+        let mut all_escape = false;
+        for index in 0..EXPORTS {
+            let export = wasmparser::ComponentExport {
+                name: wasmparser::ComponentExternName {
+                    name: "reexported",
+                    implements: None,
+                    version_suffix: None,
+                    external_id: None,
+                },
+                kind: wasmparser::ComponentExternalKind::Module,
+                index: index % 2,
+                ty: None,
+            };
+            record_scope_export(&export, 0, &mut scopes, &mut all_escape);
+        }
+        // Unresolved exports set one flag instead of writing every scope per
+        // export; the multiplier pass applies it once per scope.
+        assert!(all_escape);
+        assert!(scopes.iter().all(|scope| !scope.escapes));
     }
 
     #[test]
