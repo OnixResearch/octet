@@ -891,11 +891,8 @@ impl ArchitectureCollector {
         }
         let body_def_ids = self.value_flow_body_def_ids(cx);
         if body_def_ids.len() > self.context.limits.max_value_flow_bodies {
-            self.push_unknown(
+            self.exceed_value_flow_limit(
                 UnknownFactKind::UnsupportedCompilerShape,
-                None,
-                Some(VALUE_FLOW_LIMIT_TARGET),
-                None,
                 "selected MIR body count exceeded the configured value-flow bound",
             );
             return;
@@ -935,11 +932,8 @@ impl ArchitectureCollector {
                     &mut steps,
                 );
                 let Ok(result) = result else {
-                    self.push_unknown(
+                    self.exceed_value_flow_limit(
                         UnknownFactKind::UnsupportedCompilerShape,
-                        None,
-                        Some(VALUE_FLOW_LIMIT_TARGET),
-                        None,
                         "selected MIR transfer steps exceeded the configured value-flow bound",
                     );
                     return;
@@ -970,11 +964,8 @@ impl ArchitectureCollector {
             }
         }
         if !converged {
-            self.push_unknown(
+            self.exceed_value_flow_limit(
                 UnknownFactKind::AmbiguousValueProvenance,
-                None,
-                Some(VALUE_FLOW_LIMIT_TARGET),
-                None,
                 "selected MIR provenance did not converge within the configured round bound",
             );
             return;
@@ -982,6 +973,13 @@ impl ArchitectureCollector {
         for (_, (caller_def_id, observation)) in final_observations {
             self.push_value_provenance_fact(cx, caller_def_id, &observation);
         }
+    }
+
+    // r[impl octet.compiler_architecture_ir.boundary]
+    // Value flow stops at its bound, so the shard cannot claim complete facts.
+    fn exceed_value_flow_limit(&mut self, kind: UnknownFactKind, detail: &str) {
+        self.incomplete = true;
+        self.push_unknown(kind, None, Some(VALUE_FLOW_LIMIT_TARGET), None, detail);
     }
 
     fn push_value_provenance_fact(

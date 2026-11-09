@@ -650,6 +650,24 @@ fn run_compiler_architecture_target(
     target: CompilerFixtureTarget<'_>,
     value_flow_selections: Vec<CompilerValueFlowSelection>,
 ) -> CompilerArchitectureShard {
+    run_compiler_architecture_target_with_limits(
+        driver,
+        library,
+        host,
+        target,
+        value_flow_selections,
+        compiler_fixture_limits(),
+    )
+}
+
+fn run_compiler_architecture_target_with_limits(
+    driver: &Path,
+    library: &Path,
+    host: &str,
+    target: CompilerFixtureTarget<'_>,
+    value_flow_selections: Vec<CompilerValueFlowSelection>,
+    limits: ArchitectureCollectionLimits,
+) -> CompilerArchitectureShard {
     let fixture_name = target.fixture_name;
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let source_scope = "fixtures/compiler-architecture-ir";
@@ -664,7 +682,7 @@ fn run_compiler_architecture_target(
         schema_version: octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_SCHEMA_VERSION.to_owned(),
         workspace_root: root.display().to_string(),
         output_directory: shard_dir.display().to_string(),
-        limits: compiler_fixture_limits(),
+        limits,
         selected_units: vec![CollectorCompilationUnit {
             rustc_crate_name: crate_name.clone(),
             manifest_dir: String::new(),
@@ -931,14 +949,8 @@ fn compiler_architecture_struct_literal_construction() {
     }
 }
 
-#[test]
-#[ignore = "run via cargo test --test ui compiler_architecture -- --ignored --nocapture"]
-fn compiler_architecture_closure_value_provenance() {
-    let toolchain = rustup_toolchain();
-    let library = build_library(&toolchain);
-    let host = host_triple();
-    let driver = build_driver(&toolchain);
-    let selection = CompilerValueFlowSelection {
+fn closure_value_flow_selection() -> CompilerValueFlowSelection {
+    CompilerValueFlowSelection {
         tracked_callee_definitions: vec!["closure_effect_provenance::publish".to_owned()],
         tracked_type_definitions: vec![
             "closure_effect_provenance::ActorAuthority".to_owned(),
@@ -946,14 +958,23 @@ fn compiler_architecture_closure_value_provenance() {
         ],
         root_origin_definitions: vec!["closure_effect_provenance::authorize_publication".to_owned()],
         propagation_definitions: Vec::new(),
-    };
+    }
+}
+
+#[test]
+#[ignore = "run via cargo test --test ui compiler_architecture -- --ignored --nocapture"]
+fn compiler_architecture_closure_value_provenance() {
+    let toolchain = rustup_toolchain();
+    let library = build_library(&toolchain);
+    let host = host_triple();
+    let driver = build_driver(&toolchain);
     let shard = run_compiler_architecture_fixture_with_selection(
         &driver,
         &library,
         &host,
         "positive/closure_effect_provenance.rs",
         None,
-        vec![selection],
+        vec![closure_value_flow_selection()],
     );
     assert_valid_compiler_shard(&shard);
     let closure_item_ids = shard
@@ -1244,6 +1265,48 @@ fn compiler_architecture_observability_and_synchronization_effects() {
     .map(|(caller, family)| (caller, std::collections::BTreeSet::from([family])))
     .collect::<std::collections::BTreeMap<_, _>>();
     assert_eq!(families, expected, "{:#?}", compiler_effects(&shard));
+}
+
+#[test]
+#[ignore = "run via cargo test --test ui compiler_architecture -- --ignored --nocapture"]
+fn compiler_architecture_value_flow_limits_mark_shard_incomplete() {
+    const VALUE_FLOW_LIMIT_TARGET: &str = "compiler-selected-value-flow";
+    type RestrictLimits = fn(&mut ArchitectureCollectionLimits);
+    let toolchain = rustup_toolchain();
+    let library = build_library(&toolchain);
+    let host = host_triple();
+    let driver = build_driver(&toolchain);
+    let run = |limits| {
+        run_compiler_architecture_target_with_limits(
+            &driver,
+            &library,
+            &host,
+            library_fixture("positive/closure_effect_provenance.rs"),
+            vec![closure_value_flow_selection()],
+            limits,
+        )
+    };
+    let limited = |shard: &CompilerArchitectureShard| {
+        shard
+            .unknowns
+            .iter()
+            .any(|unknown| unknown.target_identity.as_deref() == Some(VALUE_FLOW_LIMIT_TARGET))
+    };
+    let within = run(compiler_fixture_limits());
+    assert_eq!(within.collection_status, CollectionStatus::Complete);
+    assert!(!limited(&within));
+    let bounds: [(&str, RestrictLimits); 3] = [
+        ("bodies", |limits| limits.max_value_flow_bodies = 0),
+        ("steps", |limits| limits.max_value_flow_steps = 1),
+        ("rounds", |limits| limits.max_value_flow_rounds = 1),
+    ];
+    for (bound, restrict) in bounds {
+        let mut limits = compiler_fixture_limits();
+        restrict(&mut limits);
+        let shard = run(limits);
+        assert!(limited(&shard), "{bound}: {:#?}", shard.unknowns);
+        assert_eq!(shard.collection_status, CollectionStatus::Incomplete, "{bound}");
+    }
 }
 
 #[test]

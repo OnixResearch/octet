@@ -285,7 +285,7 @@ The witness fields must be restricted to the witness owner module. The witness m
 
 A `consume` witness is one-shot. A `borrow` witness needs an explicit reusable scope and reason. A borrow declaration does not grant wider authority.
 
-The compiler traces only selected protocol types and calls through optimized MIR. It follows local moves, projections, parameters, returns, and wrappers. Empty, merged, unresolved, or over-limit provenance becomes a blocking typed unknown in strict modes.
+The compiler traces only selected protocol types and calls through optimized MIR. It follows local moves, projections, parameters, returns, and wrappers. Empty, merged, unresolved, or over-limit provenance becomes a blocking typed unknown in strict modes. Exceeding a selected MIR body, step, or round limit also makes that unit's shard incomplete.
 
 A protected executor must have the witness in its compiler-resolved input types. The effect site must remain in the declared executor method and outbound-adapter scope.
 
