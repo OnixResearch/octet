@@ -250,8 +250,12 @@ otherwise. A run replaces only its own key's entry, so `cargo octet check
 eight most recently written keys. A run whose `cargo check` did not succeed may
 have skipped crates, so it is labelled but records nothing. Findings without a
 computed identity report `bypassed`, and so does every finding when the runner
-cannot read the rustc version; such a run also records nothing. The file is
-replaced by an atomic rename. A cache file the runner cannot parse, including an
+cannot read the rustc version; such a run also records nothing. Each run writes
+the file to its own hidden `.findings.json.<pid>.<n>.octet-stage` file and
+renames it into place, so concurrent `--cache` runs in one workspace (a
+pre-commit hook and an editor, say) both succeed and the last one to finish
+wins. A run killed mid-write can leave its hidden stage file behind; it is
+never read and can be deleted. A cache file the runner cannot parse, including an
 empty or truncated one or one from a release before the key existed, counts as
 empty and is replaced by the next complete run. Without `--cache`, findings
 report `disabled`.

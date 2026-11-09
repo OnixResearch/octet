@@ -18,6 +18,11 @@ const ABSOLUTE_COMPONENT: &str = "absolute";
 const PREFIX_COMPONENT: &str = "prefix";
 const EMPTY_LOCATOR: &str = "empty";
 const ATOMIC_STAGE_SUFFIX: &str = ".octet-stage";
+/// Stage names tried before giving up; a name is skipped only when a leftover file holds it.
+const ATOMIC_STAGE_CREATE_ATTEMPTS: u32 = 16;
+
+/// With the process ID, gives every atomic write in this process its own stage name.
+static ATOMIC_STAGE_SEQUENCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct RootRelativePath {
@@ -318,11 +323,42 @@ impl CapabilityRoot {
         })
     }
 
+    /// Publishes `bytes` at `relative` by writing a stage file beside it and renaming the stage
+    /// over the target, so readers see the old file or the new one, never a partial one. Every
+    /// call stages under its own name, `.{file}.{pid}.{sequence}.octet-stage`, created
+    /// exclusively, so concurrent writers to one locator, in this process or another, never
+    /// share or delete each other's stage: all of them succeed and the last rename wins. A write
+    /// that fails after creating its stage removes it. A process killed between creating and
+    /// renaming its stage leaves that hidden file behind; nothing sweeps such files, and later
+    /// writes never reuse an existing name.
     fn write_atomic(&self, relative: &RootRelativePath, bytes: &[u8]) -> Result<(), String> {
         if let Some(parent) = relative.as_path().parent().filter(|parent| !parent.as_os_str().is_empty()) {
             let parent = RootRelativePath::new(parent)?;
             self.create_dir_all(&parent)?;
         }
+        let (stage, mut file) = self.create_atomic_stage(relative)?;
+        let written = std::io::Write::write_all(&mut file, bytes).map_err(|error| {
+            format!("write atomic {kind} stage `{locator}`: {error}", kind = self.kind, locator = stage.display())
+        });
+        drop(file);
+        let published = written.and_then(|()| {
+            self.dir.rename(stage.as_path(), &self.dir, relative.as_path()).map_err(|error| {
+                format!(
+                    "publish atomic {kind} path `{locator}`: {error}",
+                    kind = self.kind,
+                    locator = relative.display()
+                )
+            })
+        });
+        if published.is_err() {
+            // Best effort: the publish error is the one to report.
+            let _ = self.dir.remove_file(stage.as_path());
+        }
+        published
+    }
+
+    /// Creates a new, exclusively owned stage file for `relative` in the same directory.
+    fn create_atomic_stage(&self, relative: &RootRelativePath) -> Result<(RootRelativePath, File), String> {
         let file_name = relative.as_path().file_name().and_then(OsStr::to_str).ok_or_else(|| {
             format!(
                 "atomic {kind} path `{locator}` has no UTF-8 file name",
@@ -330,28 +366,32 @@ impl CapabilityRoot {
                 locator = relative.display()
             )
         })?;
-        let stage_name = format!(".{file_name}{ATOMIC_STAGE_SUFFIX}");
-        let stage = relative
-            .as_path()
-            .parent()
-            .filter(|parent| !parent.as_os_str().is_empty())
-            .map_or_else(|| PathBuf::from(&stage_name), |parent| parent.join(&stage_name));
-        let stage = RootRelativePath::new(stage)?;
-        match self.dir.remove_file(stage.as_path()) {
-            Ok(()) => {}
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-            Err(error) => {
-                return Err(format!(
-                    "remove stale atomic {kind} stage `{locator}`: {error}",
-                    kind = self.kind,
-                    locator = stage.display()
-                ));
+        let parent = relative.as_path().parent().filter(|parent| !parent.as_os_str().is_empty());
+        let mut options = cap_std::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        for _ in 0..ATOMIC_STAGE_CREATE_ATTEMPTS {
+            let sequence = ATOMIC_STAGE_SEQUENCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            let stage_name = format!(".{file_name}.{}.{sequence}{ATOMIC_STAGE_SUFFIX}", std::process::id());
+            let stage = RootRelativePath::new(
+                parent.map_or_else(|| PathBuf::from(&stage_name), |parent| parent.join(&stage_name)),
+            )?;
+            match self.dir.open_with(stage.as_path(), &options) {
+                Ok(file) => return Ok((stage, file)),
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+                Err(error) => {
+                    return Err(format!(
+                        "create atomic {kind} stage `{locator}`: {error}",
+                        kind = self.kind,
+                        locator = stage.display()
+                    ));
+                }
             }
         }
-        self.write(&stage, bytes)?;
-        self.dir.rename(stage.as_path(), &self.dir, relative.as_path()).map_err(|error| {
-            format!("publish atomic {kind} path `{locator}`: {error}", kind = self.kind, locator = relative.display())
-        })
+        Err(format!(
+            "create atomic {kind} stage for `{locator}`: {ATOMIC_STAGE_CREATE_ATTEMPTS} candidate names already exist",
+            kind = self.kind,
+            locator = relative.display()
+        ))
     }
 
     fn create_dir_all(&self, relative: &RootRelativePath) -> Result<(), String> {
@@ -677,7 +717,50 @@ mod tests {
             std::fs::read_to_string(root_path.join(COMMAND_FILE)).expect("read replaced file"),
             REPLACEMENT_TEXT
         );
-        assert!(!root_path.join(format!(".{COMMAND_FILE}{ATOMIC_STAGE_SUFFIX}")).exists());
+        let leftovers = std::fs::read_dir(&root_path)
+            .expect("list artifact root")
+            .map(|entry| entry.expect("artifact entry").file_name())
+            .collect::<Vec<_>>();
+        assert_eq!(leftovers, [std::ffi::OsString::from(COMMAND_FILE)], "no stage file remains");
+    }
+
+    #[test]
+    fn concurrent_atomic_writers_all_publish_one_complete_payload() {
+        const WRITERS: usize = 8;
+        const ROUNDS: usize = 25;
+        const PAYLOAD_BYTES: usize = 64 * 1024;
+
+        let tempdir = tempfile::tempdir().expect("tempdir");
+        let root_path = tempdir.path().join(CACHE_ROOT);
+        let cache = CacheRoot::open_or_create(&root_path).expect("cache root");
+        let locator = RootRelativePath::new(CACHE_FILE).expect("cache locator");
+        let payloads = (0..WRITERS)
+            .map(|writer| vec![b'a' + u8::try_from(writer).expect("writer index fits in u8"); PAYLOAD_BYTES])
+            .collect::<Vec<_>>();
+        let start = std::sync::Barrier::new(WRITERS);
+
+        let results = std::thread::scope(|scope| {
+            let handles = payloads
+                .iter()
+                .map(|payload| {
+                    let (cache, locator, start) = (&cache, &locator, &start);
+                    scope.spawn(move || {
+                        start.wait();
+                        (0..ROUNDS).map(|_| cache.write_atomic(locator, payload)).collect::<Vec<_>>()
+                    })
+                })
+                .collect::<Vec<_>>();
+            handles.into_iter().flat_map(|handle| handle.join().expect("writer thread")).collect::<Vec<_>>()
+        });
+
+        assert!(results.iter().all(Result::is_ok), "every concurrent writer succeeds: {results:?}");
+        let published = std::fs::read(root_path.join(CACHE_FILE)).expect("read published file");
+        assert!(payloads.contains(&published), "the file holds exactly one writer's complete payload");
+        let entries = std::fs::read_dir(&root_path)
+            .expect("list cache root")
+            .map(|entry| entry.expect("cache entry").file_name())
+            .collect::<Vec<_>>();
+        assert_eq!(entries, [std::ffi::OsString::from(CACHE_FILE)], "no stage file remains");
     }
 
     #[cfg(unix)]
