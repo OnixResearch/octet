@@ -2,8 +2,6 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::io::Read as _;
 use std::path::Path;
-use std::process::Command;
-use std::process::Stdio;
 
 use serde::Deserialize;
 use serde::Serialize;
@@ -26,6 +24,14 @@ const EXIT_RAIL_FAILURE: i32 = 1;
 const EXIT_INTEGRATION_FAILURE: i32 = 2;
 const STATUS_PASSED: &str = "passed";
 const STATUS_FAILED: &str = "failed";
+/// Bytes retained per output stream of an evidence rail tool run. A run that writes more fails
+/// closed: no receipt is parsed from a truncated prefix.
+const RAIL_RUN_STREAM_MAX_BYTES: usize = 16 * 1_024 * 1_024;
+/// Deadline for one evidence rail tool run: four hours.
+const RAIL_RUN_TIMEOUT_MS: u64 = 4 * 60 * 60 * 1_000;
+const RAIL_RUN_STDIN_MAX_BYTES: usize = 1;
+const RAIL_RUN_POLL_INTERVAL_MS: u64 = 10;
+const RAIL_RUN_TEARDOWN_TIMEOUT_MS: u64 = 5_000;
 const STATUS_MANUAL_REVIEW_REQUIRED: &str = "manual_review_required";
 const MODE_IMPORT: &str = "import";
 const MODE_RUN: &str = "run";
@@ -4305,28 +4311,119 @@ fn run_tool(
     let command_parts = prepared_clippy_run
         .map(|prepared| prepared.command_argv.clone())
         .map_or_else(|| run_mode_command_argv(args), Ok)?;
-    let (program, rest) =
-        command_parts.split_first().ok_or_else(|| "evidence rail command argv is empty".to_owned())?;
-    let mut command = Command::new(program);
-    command.args(rest).stdout(Stdio::piped()).stderr(Stdio::piped());
-    if args.rail == EvidenceRailKind::DynamicEvidence {
-        command.envs(dynamic_profile_env(args.profile.as_deref()).iter().copied());
-    }
-    if let Some(workspace_root) = args.workspace_root.as_deref() {
-        command.current_dir(workspace_root);
-    }
-    let output = command
-        .output()
-        .map_err(|error| format!("run evidence rail command `{}`: {error}", command_parts.join(" ")))?;
-    let mut stdout_stderr = String::new();
-    stdout_stderr.push_str(&String::from_utf8_lossy(&output.stdout));
+    let environment = if args.rail == EvidenceRailKind::DynamicEvidence {
+        dynamic_profile_env(args.profile.as_deref())
+    } else {
+        &[]
+    };
+    let output = run_bounded_rail_command(&command_parts, args.workspace_root.as_deref(), environment)?;
+    let mut stdout_stderr = String::from_utf8_lossy(&output.stdout).into_owned();
     if args.rail != EvidenceRailKind::ClippyCoReporting {
         stdout_stderr.push_str(&String::from_utf8_lossy(&output.stderr));
     }
     Ok(ToolOutput {
         stdout_stderr,
-        exit_code: output.status.code().unwrap_or(EXIT_INTEGRATION_FAILURE),
+        exit_code: output.exit_code,
     })
+}
+
+struct RailRunOutput {
+    stdout: Vec<u8>,
+    stderr: Vec<u8>,
+    exit_code: i32,
+}
+
+/// Runs one evidence rail tool through Bounded Exec in its own process group, inheriting the
+/// ambient environment plus `environment`. `argv[0]` resolves through `PATH` the way `execvp`
+/// would. Each output stream keeps at most [`RAIL_RUN_STREAM_MAX_BYTES`]; a run that writes more,
+/// or outlives [`RAIL_RUN_TIMEOUT_MS`], fails without a result instead of being parsed partially.
+fn run_bounded_rail_command(
+    argv: &[String],
+    workspace_root: Option<&Path>,
+    environment: &[(&str, &str)],
+) -> Result<RailRunOutput, String> {
+    let command_line = argv.join(" ");
+    let (program, rest) = argv.split_first().ok_or_else(|| "evidence rail command argv is empty".to_owned())?;
+    let current_dir = std::path::absolute(workspace_root.unwrap_or_else(|| Path::new(".")))
+        .map_err(|error| format!("resolve evidence rail command `{command_line}` working directory: {error}"))?;
+    let program = resolve_rail_program(program, &current_dir, std::env::var_os("PATH").as_deref())
+        .ok_or_else(|| format!("run evidence rail command `{command_line}`: executable `{program}` was not found"))?;
+    let output = bounded_exec::run(bounded_exec::RunRequest {
+        command: bounded_exec::CommandSpec {
+            program,
+            args: rest.iter().map(std::ffi::OsString::from).collect(),
+            current_dir,
+            environment_mode: bounded_exec::EnvironmentMode::Inherit,
+            environment: environment.iter().map(|(name, value)| ((*name).into(), (*value).into())).collect(),
+            input: bounded_exec::Input::Null,
+        },
+        limits: bounded_exec::ExecutionLimits {
+            timeout_ms: RAIL_RUN_TIMEOUT_MS,
+            stdin_max_bytes: RAIL_RUN_STDIN_MAX_BYTES,
+            stdout_max_bytes: RAIL_RUN_STREAM_MAX_BYTES,
+            stderr_max_bytes: RAIL_RUN_STREAM_MAX_BYTES,
+            poll_interval_ms: RAIL_RUN_POLL_INTERVAL_MS,
+            teardown_timeout_ms: RAIL_RUN_TEARDOWN_TIMEOUT_MS,
+        },
+        termination_scope: bounded_exec::TerminationScope::ProcessGroup,
+        outcome_policy: bounded_exec::OutcomePolicy::new(vec![EXIT_SUCCESS], true, true)
+            .map_err(|error| format!("construct evidence rail outcome policy: {error:?}"))?,
+    })
+    .map_err(|error| format!("run evidence rail command `{command_line}`: {error}"))?;
+    let exit_code = rail_run_exit_code(output.disposition, output.exit_code, &command_line)?;
+    Ok(RailRunOutput {
+        stdout: output.stdout.bytes,
+        stderr: output.stderr.bytes,
+        exit_code,
+    })
+}
+
+/// Maps a Bounded Exec disposition to the tool exit code the rail evaluates. Nonzero exits are
+/// rail evidence; an output-cap overflow, a timeout, or a cancellation is not.
+fn rail_run_exit_code(
+    disposition: bounded_exec::Disposition,
+    exit_code: Option<i32>,
+    command_line: &str,
+) -> Result<i32, String> {
+    match disposition {
+        bounded_exec::Disposition::Succeeded | bounded_exec::Disposition::ExitFailed => {
+            Ok(exit_code.unwrap_or(EXIT_INTEGRATION_FAILURE))
+        }
+        bounded_exec::Disposition::OutputLimitExceeded(streams) => Err(format!(
+            "evidence rail command `{command_line}` exceeded the {RAIL_RUN_STREAM_MAX_BYTES}-byte per-stream output cap on {streams:?}; truncated output is not evidence"
+        )),
+        bounded_exec::Disposition::TimedOut => {
+            Err(format!("evidence rail command `{command_line}` exceeded the {RAIL_RUN_TIMEOUT_MS} ms run deadline"))
+        }
+        bounded_exec::Disposition::Cancelled => Err(format!("evidence rail command `{command_line}` was cancelled")),
+    }
+}
+
+/// Resolves `program` the way `execvp` would for the child: a path containing `/` is relative to
+/// the child's working directory, and a bare name is searched in `search_path`.
+fn resolve_rail_program(
+    program: &str,
+    current_dir: &Path,
+    search_path: Option<&std::ffi::OsStr>,
+) -> Option<std::path::PathBuf> {
+    if program.contains('/') {
+        return Some(current_dir.join(program));
+    }
+    std::env::split_paths(search_path?)
+        .map(|directory| current_dir.join(directory).join(program))
+        .find(|candidate| is_executable_file(candidate))
+}
+
+#[cfg(unix)]
+fn is_executable_file(path: &Path) -> bool {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    fs::metadata(path).is_ok_and(|metadata| metadata.is_file() && metadata.permissions().mode() & 0o111 != 0)
+}
+
+#[cfg(not(unix))]
+fn is_executable_file(path: &Path) -> bool {
+    path.is_file()
 }
 
 fn analyze_ast_grep_import(args: &EvidenceRailArgs, prepared: &PreparedAstGrep) -> Result<String, String> {
@@ -4343,14 +4440,10 @@ fn analyze_ast_grep_import(args: &EvidenceRailArgs, prepared: &PreparedAstGrep) 
 
 fn run_ast_grep_tool(args: &EvidenceRailArgs, prepared: &PreparedAstGrep) -> Result<ToolOutput, String> {
     check_ast_grep_bundle(args, &prepared.profile)?;
-    let workspace_root = args.workspace_root.as_deref().unwrap_or_else(|| Path::new("."));
+    let workspace_root = args.workspace_root.as_deref();
 
-    let version_output = Command::new("ast-grep")
-        .arg("--version")
-        .current_dir(workspace_root)
-        .output()
-        .map_err(|error| format!("run ast-grep --version: {error}"))?;
-    if !version_output.status.success() {
+    let version_output = run_bounded_rail_command(&string_vec(&["ast-grep", "--version"]), workspace_root, &[])?;
+    if version_output.exit_code != EXIT_SUCCESS {
         return Err(format!("ast-grep --version failed: {}", String::from_utf8_lossy(&version_output.stderr).trim()));
     }
     let version_text = String::from_utf8_lossy(&version_output.stdout);
@@ -4361,16 +4454,9 @@ fn run_ast_grep_tool(args: &EvidenceRailArgs, prepared: &PreparedAstGrep) -> Res
         .to_owned();
 
     let command_parts = crate::ast_grep_rail::scan_command_argv(&prepared.profile);
-    let (program, rest) = command_parts.split_first().ok_or_else(|| "ast-grep command argv is empty".to_owned())?;
-    let output = Command::new(program)
-        .args(rest)
-        .current_dir(workspace_root)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .map_err(|error| format!("run ast-grep structural rail: {error}"))?;
-    let exit_code = output.status.code().unwrap_or(EXIT_INTEGRATION_FAILURE);
-    let source_findings = if output.stdout.is_empty() && !output.status.success() {
+    let output = run_bounded_rail_command(&command_parts, workspace_root, &[])?;
+    let exit_code = output.exit_code;
+    let source_findings = if output.stdout.is_empty() && exit_code != EXIT_SUCCESS {
         serde_json::Value::Array(Vec::new())
     } else {
         serde_json::from_slice(&output.stdout).map_err(|error| format!("parse ast-grep JSON output: {error}"))?
@@ -5251,6 +5337,41 @@ mod tests {
             update_advisory_database: false,
             run: false,
             command_line: "cargo octet evidence collect --rail dynamic-evidence --profile cargo-fuzz-libfuzzer --input fixture.json".to_owned(),
+        }
+    }
+
+    fn explicit_run_args(workspace_root: &Path, command: String) -> crate::cli::EvidenceRailArgs {
+        crate::cli::EvidenceRailArgs {
+            rail: EvidenceRailKind::Z4Solver,
+            input: None,
+            artifact_dir: workspace_root.join("artifacts"),
+            workspace_root: Some(workspace_root.to_path_buf()),
+            config: None,
+            baseline: None,
+            profile: None,
+            command: Some(command),
+            parent_artifacts: Vec::new(),
+            external_reports: Vec::new(),
+            output_format: OutputFormat::Json,
+            locked: false,
+            update_advisory_database: false,
+            run: true,
+            command_line: "cargo octet evidence collect --rail z4-solver --run".to_owned(),
+        }
+    }
+
+    #[test]
+    fn rail_run_fails_closed_when_output_exceeds_the_stream_cap() {
+        let workspace = tempfile::tempdir().expect("tempdir");
+        let within = run_tool(&explicit_run_args(workspace.path(), "printf {}".to_owned()), None, None)
+            .expect("small output is captured");
+        assert_eq!(within.stdout_stderr, "{}");
+        assert_eq!(within.exit_code, EXIT_SUCCESS);
+
+        let overflow = format!("head -c {} /dev/zero", RAIL_RUN_STREAM_MAX_BYTES + 1);
+        match run_tool(&explicit_run_args(workspace.path(), overflow), None, None) {
+            Ok(output) => panic!("overflowing run was parsed from {} captured bytes", output.stdout_stderr.len()),
+            Err(error) => assert!(error.contains("output cap"), "{error}"),
         }
     }
 
