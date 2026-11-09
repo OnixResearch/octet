@@ -4907,8 +4907,10 @@ fn advisory_database_update(
 const CARGO_DENY_CHECKS: [&str; 4] = ["advisories", "bans", "licenses", "sources"];
 
 /// Maps a cargo-deny diagnostic code to its check and the Octet rule family. Codes come from the
-/// cargo-deny diagnostic reference; duplicate-version codes are bans diagnostics that Octet reports
-/// as the `duplicates` family. Unknown codes, such as configuration errors, stay `unclassified`.
+/// cargo-deny 0.20.2 `advisories`, `bans`, `licenses`, and `sources` code lists; duplicate-version
+/// codes are bans diagnostics that Octet reports as the `duplicates` family. Codes without an
+/// owning check, such as the general `deprecated` code or codes added by a newer cargo-deny, stay
+/// `unclassified`.
 fn cargo_deny_check_and_category(code: &str) -> (Option<&'static str>, &'static str) {
     match code {
         "vulnerability"
@@ -4962,8 +4964,9 @@ fn cargo_deny_check_and_category(code: &str) -> (Option<&'static str>, &'static 
         | "unmatched-glob"
         | "unmatched-allow-build-script"
         | "allowed-crate-without-build-script"
-        | "non-root-path"
-        | "non-utf8-path" => (Some("bans"), "bans"),
+        | "non-utf8-path"
+        | "replaced-in-std"
+        | "unmatched-replacement-ignore" => (Some("bans"), "bans"),
         "rejected"
         | "accepted"
         | "unlicensed"
@@ -4988,10 +4991,13 @@ fn cargo_deny_check_and_category(code: &str) -> (Option<&'static str>, &'static 
 /// Converts the JSON lines that `cargo deny --format json check` writes to stderr into the pinned
 /// `cargo-deny-diagnostics/v1` document the dependency-audit importer validates. Every line must be
 /// a `diagnostic`, `log`, or `summary` record, and the error and warning counts in the single
-/// `summary` line must match the diagnostics, so missing or partial output fails closed.
+/// `summary` line must match the diagnostics, so missing or partial output fails closed. A
+/// diagnostic with a known code counts against its check; an `unclassified` one counts against the
+/// part of each severity's summary total that the known codes leave unattributed.
 fn cargo_deny_report_from_json_lines(stderr: &str) -> Result<String, String> {
     let mut diagnostics = Vec::new();
     let mut observed = BTreeMap::<(&str, &str), u64>::new();
+    let mut unclassified = BTreeMap::<&str, u64>::new();
     let mut logged_errors = Vec::new();
     let mut summary = None;
     for (index, line) in stderr.lines().enumerate().filter(|(_, line)| !line.trim().is_empty()) {
@@ -5014,8 +5020,12 @@ fn cargo_deny_report_from_json_lines(stderr: &str) -> Result<String, String> {
                     "warning" => Some("warning"),
                     _ => None,
                 };
-                if let (Some(check), Some(counted_severity)) = (check, counted_severity) {
-                    *observed.entry((check, counted_severity)).or_default() += 1;
+                match (check, counted_severity) {
+                    (Some(check), Some(counted_severity)) => {
+                        *observed.entry((check, counted_severity)).or_default() += 1;
+                    }
+                    (None, Some(counted_severity)) => *unclassified.entry(counted_severity).or_default() += 1,
+                    (_, None) => {}
                 }
                 diagnostics.push(serde_json::json!({
                     "category": category,
@@ -5049,18 +5059,24 @@ fn cargo_deny_report_from_json_lines(stderr: &str) -> Result<String, String> {
             format!("cargo-deny output has no summary line; cargo-deny logged: {}", logged_errors.join("; "))
         });
     };
-    for check in CARGO_DENY_CHECKS {
-        for (severity, counter) in [("error", "errors"), ("warning", "warnings")] {
+    for (severity, counter) in [("error", "errors"), ("warning", "warnings")] {
+        let mut unattributed = 0_u64;
+        for check in CARGO_DENY_CHECKS {
             let expected = summary
                 .get(check)
                 .and_then(|counts| u64_field(counts, counter))
                 .ok_or_else(|| format!("cargo-deny summary lacks an integer `{check}.{counter}` count"))?;
-            let actual = observed.get(&(check, severity)).copied().unwrap_or_default();
-            if actual != expected {
-                return Err(format!(
-                    "cargo-deny summary reports {expected} {check} {counter} but the output carries {actual}"
-                ));
-            }
+            let classified = observed.get(&(check, severity)).copied().unwrap_or_default();
+            let unclaimed = expected.checked_sub(classified).ok_or_else(|| {
+                format!("cargo-deny summary reports {expected} {check} {counter} but the output carries {classified}")
+            })?;
+            unattributed = unattributed.saturating_add(unclaimed);
+        }
+        let unclassified = unclassified.get(severity).copied().unwrap_or_default();
+        if unclassified != unattributed {
+            return Err(format!(
+                "cargo-deny summary leaves {unattributed} {counter} unattributed to known codes but the output carries {unclassified} unclassified {counter}"
+            ));
         }
     }
     serde_json::to_string(&serde_json::json!({
@@ -5716,6 +5732,81 @@ mod tests {
             ("non-JSON line", format!("warning: noise\n{BANNED}")),
             ("unknown record type", format!("{{\"type\":\"progress\",\"fields\":{{}}}}\n{BANNED}")),
             ("duplicate summary", format!("{BANNED}{CLEAN}")),
+        ] {
+            assert!(cargo_deny_report_from_json_lines(&output).is_err(), "{label}");
+        }
+    }
+
+    #[test]
+    fn cargo_deny_json_lines_reconcile_std_replacement_and_unknown_codes() {
+        // Unmodified stderr of cargo-deny 0.20.2 `--format json --locked --offline check` with
+        // `[bans.std-replacements]` at `warn` and an ignore entry that matches nothing.
+        const STD_REPLACEMENT: &str =
+            include_str!("../tests/fixtures/evidence-rails/cargo-deny-json-lines-std-replacement.jsonl");
+        const BANS_FAILED_EXIT: i32 = 2;
+        let run = |report: &str, exit_code: i32| {
+            evaluate(EvaluationInput {
+                rail: EvidenceRailKind::DependencyAudit,
+                mode: MODE_RUN,
+                import_text: report,
+                config_path: Some(DENY_CONFIG),
+                locked: true,
+                profile: None,
+                requested_command: None,
+                tool_exit_code: Some(exit_code),
+                ..dynamic_input()
+            })
+        };
+
+        let replaced = cargo_deny_report_from_json_lines(STD_REPLACEMENT).expect("bans std-replacement codes map");
+        let receipt = run(&replaced, EXIT_SUCCESS);
+        assert_eq!(receipt.status, STATUS_PASSED, "{:?}", receipt.diagnostics);
+        assert_eq!(receipt.finding_counts.get("bans"), Some(&2));
+
+        let unknown_warning =
+            STD_REPLACEMENT.replace("\"code\":\"unmatched-replacement-ignore\"", "\"code\":\"future-code\"");
+        let report = cargo_deny_report_from_json_lines(&unknown_warning).expect("unknown warning reconciles");
+        let receipt = run(&report, EXIT_SUCCESS);
+        assert_eq!(receipt.status, STATUS_PASSED, "{:?}", receipt.diagnostics);
+        assert_eq!(receipt.finding_counts.get("bans"), Some(&1));
+        assert_eq!(receipt.finding_counts.get("unclassified"), Some(&1));
+
+        let unknown_error = unknown_warning
+            .replace(
+                "\"severity\":\"warning\"},\"type\":\"diagnostic\"}\n{\"fields\":{\"advisories\"",
+                "\"severity\":\"error\"},\"type\":\"diagnostic\"}\n{\"fields\":{\"advisories\"",
+            )
+            .replace(
+                "\"bans\":{\"errors\":0,\"helps\":0,\"notes\":0,\"warnings\":2}",
+                "\"bans\":{\"errors\":1,\"helps\":0,\"notes\":0,\"warnings\":1}",
+            );
+        let report = cargo_deny_report_from_json_lines(&unknown_error).expect("unknown error reconciles");
+        let receipt = run(&report, BANS_FAILED_EXIT);
+        assert_eq!(receipt.status, STATUS_FAILED);
+        assert!(receipt.diagnostics.is_empty(), "{:?}", receipt.diagnostics);
+        assert_eq!(
+            receipt
+                .findings
+                .iter()
+                .find(|finding| finding.family == "unclassified")
+                .map(|finding| finding.severity.as_str()),
+            Some("error")
+        );
+
+        let lines = unknown_warning.lines().collect::<Vec<_>>();
+        for (label, output) in [
+            ("dropped unknown diagnostic", [lines[0], lines[2]].join("\n")),
+            (
+                "unknown error counted as warning",
+                unknown_error.replace("\"errors\":1", "\"errors\":0").replace("\"warnings\":1", "\"warnings\":2"),
+            ),
+            (
+                "known code beyond its check count",
+                STD_REPLACEMENT.replace("\"warnings\":2", "\"warnings\":1").replace(
+                    "\"sources\":{\"errors\":0,\"helps\":0,\"notes\":0,\"warnings\":0}",
+                    "\"sources\":{\"errors\":0,\"helps\":0,\"notes\":0,\"warnings\":1}",
+                ),
+            ),
         ] {
             assert!(cargo_deny_report_from_json_lines(&output).is_err(), "{label}");
         }
