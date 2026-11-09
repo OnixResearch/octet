@@ -31,6 +31,8 @@ Octet derives these companion paths from the pointer:
 - policy contract: `octet-architecture.contracts.ncl`
 - freshness manifest: `octet-architecture.manifest.json`
 
+The policy source must import the contract companion, and the two files must not import anything else. Octet scans their `import` targets and rejects a policy whose import closure differs from that one contract file.
+
 Generate the runtime export and BLAKE3 freshness manifest with the reviewed
 Nickel evaluator. `nickel --version` must print exactly
 `nickel-lang-cli nickel 1.17.0 (rev 1320a98)`; the manifest generator rejects

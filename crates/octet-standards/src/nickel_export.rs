@@ -4,7 +4,11 @@
 //! diagnostics, and receipt semantics are owned by the pinned
 //! `nickel-export-core` dependency. This module retains only Octet's v1 spec and
 //! manifest projection so existing generated artifacts and commands remain
-//! compatible during migration.
+//! compatible during migration. The evaluator-observed dependency closure the
+//! core checks comes from statically scanning `import` targets in the supplied
+//! source and dependency texts, not from the spec's declared list.
+
+mod imports;
 
 use std::collections::BTreeSet;
 
@@ -263,7 +267,8 @@ fn build_canonical_receipt(input: &NickelExportInput<'_>) -> Result<canonical::E
             bytes: dependency.text.as_bytes(),
         })
         .collect::<Vec<_>>();
-    let observed_dependencies = input.dependencies.iter().map(|dependency| dependency.path).collect::<Vec<_>>();
+    let observed_closure = imports::observed_import_closure(&input.spec.source, input.source_text, &input.dependencies);
+    let observed_dependencies = observed_closure.iter().map(String::as_str).collect::<Vec<_>>();
     let contract_diagnostics = input
         .contract_diagnostics
         .iter()
@@ -468,7 +473,9 @@ mod tests {
     const FAMILY_ID: &str = "octet.dynamic-evidence-profile-config";
     const SOURCE_PATH: &str = "templates/dynamic-evidence-profiles.ncl";
     const OUTPUT_PATH: &str = "dynamic-evidence-profiles.json";
-    const SOURCE_TEXT: &str = "{ schema_version = \"octet-dynamic-evidence-profiles/v1\" }\n";
+    const SOURCE_TEXT: &str = "let contracts = import \"../standards/policies/contracts.ncl\" in\n{ schema_version = \"octet-dynamic-evidence-profiles/v1\" }\n";
+    const DEPENDENCY_PATH: &str = "standards/policies/contracts.ncl";
+    const DEPENDENCY_TEXT: &str = "{ Contract = String }\n";
     const OUTPUT_TEXT: &str = "{\"schema_version\":\"octet-dynamic-evidence-profiles/v1\"}\n";
     const NICKEL_IDENTITY: &str = REVIEWED_NICKEL_EVALUATOR_IDENTITY;
 
@@ -615,7 +622,7 @@ mod tests {
         stale_spec.dependencies = vec!["templates/shared.ncl".to_owned()];
         let stale_input = NickelExportInput {
             spec: &stale_spec,
-            source_text: "{ schema_version = \"changed\" }\n",
+            source_text: "let shared = import \"shared.ncl\" in { schema_version = \"changed\" }\n",
             dependencies: vec![NamedText {
                 path: "templates/shared.ncl",
                 text: "{ inherited = true }\n",
@@ -707,6 +714,85 @@ mod tests {
         let diagnostics = validate_export_acceptance(&input);
 
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("raw secret material")));
+    }
+
+    #[test]
+    // r[verify octet.nickel_export_helpers.repository_extraction.imperative_shell.undeclared_import]
+    fn undeclared_or_unused_imports_block_acceptance_and_manifest() {
+        let spec = json_spec();
+        let direct = "let contracts = import \"../standards/policies/contracts.ncl\" in\nlet hidden = import \"../standards/policies/hidden.ncl\" in\n{ schema_version = \"v1\" }\n";
+        let interpolated = "let contracts = import \"../standards/policies/contracts.ncl\" in\n{ label = \"%{(import \"../standards/policies/hidden.ncl\").name}\" }\n";
+        let transitive = "let shared = import \"./shared.ncl\" in { Contract = String }\n";
+        let unused = "{ schema_version = \"v1\" }\n";
+        let cases = [
+            ("direct", direct, DEPENDENCY_TEXT),
+            ("interpolated", interpolated, DEPENDENCY_TEXT),
+            ("transitive", SOURCE_TEXT, transitive),
+            ("unused declaration", unused, DEPENDENCY_TEXT),
+        ];
+
+        let accepted = cases
+            .iter()
+            .filter(|(_, source_text, dependency_text)| {
+                let input = NickelExportInput {
+                    spec: &spec,
+                    source_text,
+                    dependencies: vec![NamedText {
+                        path: DEPENDENCY_PATH,
+                        text: dependency_text,
+                    }],
+                    output_text: OUTPUT_TEXT,
+                    nickel_identity: NICKEL_IDENTITY,
+                    contract_diagnostics: Vec::new(),
+                };
+                validate_export_acceptance(&input).is_empty() || manifest_for_exports(&[input]).is_ok()
+            })
+            .map(|(label, _, _)| *label)
+            .collect::<Vec<_>>();
+
+        assert!(accepted.is_empty(), "incomplete import closures were accepted: {accepted:?}");
+    }
+
+    #[test]
+    fn import_closure_resolves_relative_paths_and_skips_comments_and_strings() {
+        let mut spec = json_spec();
+        spec.dependencies.push("standards/policies/shared.ncl".to_owned());
+        let source_text = concat!(
+            "# import \"ignored-comment.ncl\"\n",
+            "let contracts = import \"./../standards/policies/contracts.ncl\" in\n",
+            "{\n",
+            "  note = \"import \\\"ignored-string.ncl\\\"\",\n",
+            "  text = m%\"import \"ignored-multiline.ncl\"\"%,\n",
+            "  label = \"%{ \"nested\" }\",\n",
+            "}\n",
+        );
+        let input = NickelExportInput {
+            spec: &spec,
+            source_text,
+            dependencies: vec![
+                NamedText {
+                    path: DEPENDENCY_PATH,
+                    text: "let shared = import \"shared.ncl\" in { Contract = String }\n",
+                },
+                NamedText {
+                    path: "standards/policies/shared.ncl",
+                    text: "{ Shared = Number }\n",
+                },
+            ],
+            output_text: OUTPUT_TEXT,
+            nickel_identity: NICKEL_IDENTITY,
+            contract_diagnostics: Vec::new(),
+        };
+
+        let diagnostics = validate_export_acceptance(&input);
+        assert!(diagnostics.is_empty(), "{diagnostics:?}");
+        let manifest = manifest_for_exports(&[input]).expect("declared import closure should produce a manifest");
+        let dependencies = manifest.exports[0]
+            .dependencies
+            .iter()
+            .map(|dependency| dependency.path.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(dependencies, vec![DEPENDENCY_PATH, "standards/policies/shared.ncl"]);
     }
 
     fn supported_format_specs() -> Vec<NickelExportSpec> {
