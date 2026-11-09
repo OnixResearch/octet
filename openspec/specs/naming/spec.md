@@ -360,6 +360,8 @@ The lint MUST warn when an item name repeats underscore-separated words that are
 
 The lint MUST compare normalized snake-case word segments, treating hyphens in crate names as separators.
 
+The crate name MUST count only for library crates and the `--test` build of a library, because only a library's name appears in paths users write. Crate names that Cargo derives from target or file names MUST NOT count: build scripts (`build_script_build`), binaries, examples, integration tests, and benches.
+
 The lint MUST NOT warn when the repeated word is required to disambiguate a public compatibility name or an externally mandated trait/API name.
 
 The lint MUST treat an item as such a name when its doc comments, or the contiguous comment lines between and directly above its outer attributes, contain `compat`, `compatibility`, `external`, `mandated`, or `api` as a whole word. Words inside other words, such as `api` in `rapid`, do not count.
@@ -372,9 +374,15 @@ The lint MUST treat an item as such a name when its doc comments, or the contigu
 
 #### Scenario: Item repeats crate name [r[path-segment-repetition-detection.scenario.item-repeats-crate]]
 
-- GIVEN production code in crate `octet-vm` that defines `fn vm_config()` at the crate root or in any module
+- GIVEN production code in library crate `octet-vm` that defines `fn vm_config()` at the crate root or in any module
 - WHEN the lint runs
 - THEN `path_segment_repetition` warns that `vm` is already supplied by the crate name
+
+#### Scenario: Non-library crate name [r[path-segment-repetition-detection.scenario.non-library-crate]]
+
+- GIVEN a build script that defines `fn build_protos()`, or a binary `src/bin/load_gen.rs` that defines `fn load_tool()`
+- WHEN the lint runs
+- THEN `path_segment_repetition` does NOT fire, because `build_script_build` and `load_gen` are not path segments
 
 #### Scenario: Non-repeating item name [r[path-segment-repetition-detection.scenario.non-repeating-item]]
 

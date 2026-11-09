@@ -35,6 +35,9 @@ declare_tool_lint! {
 pub struct PathSegmentRepetition {
     exceptions: IndexableLintExceptions,
     workspace_root: std::path::PathBuf,
+    /// The crate name when users write it as a path segment; see
+    /// [`crate_name_is_path_segment`].
+    crate_name_segment: Option<String>,
 }
 
 impl PathSegmentRepetition {
@@ -42,11 +45,49 @@ impl PathSegmentRepetition {
         Self {
             exceptions,
             workspace_root: crate::source::workspace_root(),
+            crate_name_segment: None,
         }
     }
 }
 
 impl_lint_pass!(PathSegmentRepetition => [PATH_SEGMENT_REPETITION]);
+
+/// The non-library target kind Cargo marks in the compiler's environment.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum CargoTargetMark {
+    /// No mark: a library, a build script, or a plain `rustc` run.
+    Unmarked,
+    /// `CARGO_BIN_NAME`: binaries and examples, including their `--test`
+    /// builds.
+    Binary,
+    /// `CARGO_TARGET_TMPDIR`: integration tests and benches.
+    IntegrationTest,
+}
+
+/// How the crate being compiled was built.
+#[derive(Clone, Copy, Debug)]
+struct CrateFacts {
+    /// `crate_types()` holds a library type such as `lib`, `rlib`, or `proc-macro`.
+    is_library: bool,
+    /// Built with `--test`.
+    is_test_harness: bool,
+    cargo_target: CargoTargetMark,
+}
+
+/// Only a library's crate name is a path segment users write
+/// (`octet::naming::...`). Cargo derives the crate names of build scripts
+/// (`build_script_build`), binaries, examples, integration tests, and benches
+/// from target or file names that no path spells. The `--test` build of a
+/// library keeps the library's name and its paths.
+///
+/// Build scripts and binaries compile as executables without `--test`.
+/// Comparing `CARGO_CRATE_NAME` with `CARGO_PKG_NAME` would miss a custom
+/// `[lib] name` and would match an integration test named after its package,
+/// so the `--test` case relies on the variables Cargo sets for the other
+/// target kinds instead.
+fn crate_name_is_path_segment(facts: CrateFacts) -> bool {
+    facts.is_library || (facts.is_test_harness && facts.cargo_target == CargoTargetMark::Unmarked)
+}
 
 fn identifier_for_item(item: &hir::Item<'_>) -> Option<Ident> {
     match item.kind {
@@ -116,11 +157,13 @@ fn repeated_path_word(item_name: &str, path_segments: &[&str]) -> Option<Repetit
     })
 }
 
-/// The crate name followed by the ancestor module path of `item`.
-/// `def_path_str` omits the local crate name, so it is prepended here.
-fn item_path_segments(cx: &LateContext<'_>, item: &hir::Item<'_>) -> Vec<String> {
+/// The crate name, when it is a path segment, followed by the ancestor module
+/// path of `item`. `def_path_str` omits the local crate name.
+fn item_path_segments(cx: &LateContext<'_>, item: &hir::Item<'_>, crate_name_segment: Option<&str>) -> Vec<String> {
     let path = cx.tcx.def_path_str(item.owner_id.def_id.to_def_id());
-    let mut segments = std::iter::once(cx.tcx.crate_name(rustc_hir::def_id::LOCAL_CRATE).as_str().to_owned())
+    let mut segments = crate_name_segment
+        .map(str::to_owned)
+        .into_iter()
         .chain(path.split("::").map(str::to_owned))
         .collect::<Vec<_>>();
     segments.pop();
@@ -134,6 +177,26 @@ fn is_unrelated_fixture(cx: &LateContext<'_>, item: &hir::Item<'_>) -> bool {
 }
 
 impl<'tcx> LateLintPass<'tcx> for PathSegmentRepetition {
+    fn check_crate(&mut self, cx: &LateContext<'tcx>) {
+        let facts = CrateFacts {
+            is_library: cx
+                .tcx
+                .crate_types()
+                .iter()
+                .any(|crate_type| *crate_type != rustc_session::config::CrateType::Executable),
+            is_test_harness: cx.sess().opts.test,
+            cargo_target: if std::env::var_os("CARGO_BIN_NAME").is_some() {
+                CargoTargetMark::Binary
+            } else if std::env::var_os("CARGO_TARGET_TMPDIR").is_some() {
+                CargoTargetMark::IntegrationTest
+            } else {
+                CargoTargetMark::Unmarked
+            },
+        };
+        self.crate_name_segment = crate_name_is_path_segment(facts)
+            .then(|| cx.tcx.crate_name(rustc_hir::def_id::LOCAL_CRATE).as_str().to_owned());
+    }
+
     fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx hir::Item<'tcx>) {
         if item.span.from_expansion() || is_unrelated_fixture(cx, item) {
             return;
@@ -147,7 +210,7 @@ impl<'tcx> LateLintPass<'tcx> for PathSegmentRepetition {
             return;
         }
 
-        let segments = item_path_segments(cx, item);
+        let segments = item_path_segments(cx, item, self.crate_name_segment.as_deref());
         if is_lint_identity_name(ident.name.as_str(), &segments, self.exceptions) {
             return;
         }
@@ -176,7 +239,53 @@ impl<'tcx> LateLintPass<'tcx> for PathSegmentRepetition {
 
 #[cfg(test)]
 mod tests {
+    use super::CargoTargetMark;
+    use super::CrateFacts;
+    use super::crate_name_is_path_segment;
     use super::repeated_path_word;
+
+    fn facts() -> CrateFacts {
+        CrateFacts {
+            is_library: false,
+            is_test_harness: false,
+            cargo_target: CargoTargetMark::Unmarked,
+        }
+    }
+
+    #[test]
+    fn only_library_crate_names_are_path_segments() {
+        let library = CrateFacts {
+            is_library: true,
+            ..facts()
+        };
+        let library_unit_tests = CrateFacts {
+            is_test_harness: true,
+            ..facts()
+        };
+        // Build scripts and binaries compile as plain executables.
+        let build_script_or_binary = facts();
+        let example = CrateFacts {
+            cargo_target: CargoTargetMark::Binary,
+            ..facts()
+        };
+        let binary_unit_tests = CrateFacts {
+            is_test_harness: true,
+            cargo_target: CargoTargetMark::Binary,
+            ..facts()
+        };
+        let integration_test_or_bench = CrateFacts {
+            is_test_harness: true,
+            cargo_target: CargoTargetMark::IntegrationTest,
+            ..facts()
+        };
+
+        assert!(crate_name_is_path_segment(library));
+        assert!(crate_name_is_path_segment(library_unit_tests));
+        assert!(!crate_name_is_path_segment(build_script_or_binary));
+        assert!(!crate_name_is_path_segment(example));
+        assert!(!crate_name_is_path_segment(binary_unit_tests));
+        assert!(!crate_name_is_path_segment(integration_test_or_bench));
+    }
 
     #[test]
     fn crate_name_hyphens_separate_words() {

@@ -1,3 +1,6 @@
+// A library crate: its name `path_segment_repetition` is a path segment users write.
+#![crate_type = "lib"]
+
 mod guest {
     pub fn spawn_guest_vm() {}
 }
