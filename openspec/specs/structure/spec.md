@@ -164,11 +164,14 @@ justification. An empty or whitespace-only reason MUST NOT count.
 The lint MUST NOT fire on `#[allow(dead_code)]` in `#[cfg(test)]` blocks.
 
 The lint MUST govern only attributes the user wrote in source, including an
-allow expanded from `cfg_attr(..., allow(...))` and an allow inside a local
-`macro_rules!` body. It MUST NOT fire on attributes that a macro from another
-crate generates, including proc-macro output such as the
-`#[allow(clippy::...)]` block `#[tokio::main]` emits with spans borrowed from
-user tokens.
+allow expanded from `cfg_attr(..., allow(...))`, an allow inside a local
+`macro_rules!` body, an allow forwarded through a local macro's `meta` or
+`ident` fragment, and an attribute with comments inside it. Whether the user
+wrote an attribute MUST be decided from its name token. It MUST NOT fire on
+attributes that a macro from another crate generates, including proc-macro
+output such as the `#[allow(clippy::...)]` block `#[tokio::main]` emits with
+spans borrowed from user tokens. A forwarded attribute is reported at its
+name, without an autofix suggestion.
 
 The lint MUST NOT fire on workspace-level lint configuration in
 `Cargo.toml` (those are outside Clippy's reach anyway).

@@ -193,3 +193,56 @@ justified_quiet! {
         value.unwrap()
     }
 }
+
+// Should warn: an allow forwarded through a local macro's `meta` fragment is
+// still the user's own suppression.
+macro_rules! forward_meta {
+    ($(#[$meta:meta])* $name:ident { $($item:item)* }) => {
+        $(#[$meta])*
+        mod $name {
+            $($item)*
+        }
+    };
+}
+
+forward_meta! {
+    #[allow(clippy::needless_return)]
+    forwarded_meta {
+        pub fn early() -> u32 {
+            return 16;
+        }
+    }
+}
+
+// Should NOT warn: a justified allow forwarded through a `meta` fragment.
+forward_meta! {
+    // Early return mirrors the protocol state table.
+    #[allow(clippy::needless_return)]
+    justified_forwarded_meta {
+        pub fn early() -> u32 {
+            return 17;
+        }
+    }
+}
+
+// Should warn: the attribute name forwarded as an `ident` fragment.
+macro_rules! forward_level {
+    ($level:ident $item:item) => {
+        #[$level(tigerstyle::no_unwrap)]
+        $item
+    };
+}
+
+forward_level! {
+    allow
+    fn forwarded_level_allow(value: Option<u8>) -> u8 {
+        value.unwrap()
+    }
+}
+
+// Should warn: a comment inside the attribute does not hide it.
+
+#[/**/allow(clippy::needless_return)]
+fn comment_padded_allow() -> u32 {
+    return 15;
+}

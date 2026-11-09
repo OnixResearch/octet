@@ -274,5 +274,40 @@ LL ~         // TODO(octet): explain why this allow is safe here
 LL ~         #[allow(tigerstyle::no_unwrap)]
    |
 
-warning: 17 warnings emitted
+warning: `#[allow(...)]` without justification comment
+  --> $DIR/unjustified_allow.rs:209:7
+   |
+LL |     #[allow(clippy::needless_return)]
+   |       ^^^^^
+   |
+   = help: Tiger Style (Documented Suppression): every lint suppression needs a local reason tied to the code shape Example: // Verified casts: Verus checks every narrowing in this module.
+           #[allow(clippy::cast_possible_truncation)]
+   = note: see Tiger Style guide: Documented Suppression
+
+warning: `#[allow(...)]` without justification comment
+  --> $DIR/unjustified_allow.rs:237:5
+   |
+LL |     allow
+   |     ^^^^^
+   |
+   = help: Tiger Style (Documented Suppression): every lint suppression needs a local reason tied to the code shape Example: // Verified casts: Verus checks every narrowing in this module.
+           #[allow(clippy::cast_possible_truncation)]
+   = note: see Tiger Style guide: Documented Suppression
+
+warning: `#[allow(...)]` without justification comment
+  --> $DIR/unjustified_allow.rs:245:1
+   |
+LL | #[/**/allow(clippy::needless_return)]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Documented Suppression): every lint suppression needs a local reason tied to the code shape Example: // Verified casts: Verus checks every narrowing in this module.
+           #[allow(clippy::cast_possible_truncation)]
+   = note: structured suggestion applicability: HasPlaceholders
+   = note: see Tiger Style guide: Documented Suppression
+help: add a local justification comment
+   |
+LL + // TODO(octet): explain why this allow is safe here
+   |
+
+warning: 20 warnings emitted
 

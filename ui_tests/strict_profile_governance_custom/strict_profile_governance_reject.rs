@@ -35,6 +35,32 @@ mod warned {}
 #[allow(tigerstyle::safety)]
 fn quiet() {}
 
+macro_rules! module {
+    ($(#[$meta:meta])* $name:ident { $($item:item)* }) => {
+        $(#[$meta])*
+        mod $name {
+            $($item)*
+        }
+    };
+}
+
+macro_rules! leveled {
+    ($level:ident $name:ident) => {
+        #[$level(tigerstyle::structure)]
+        mod $name {}
+    };
+}
+
+// Should error: the allow is forwarded through a local macro's `meta` fragment.
+module!(#[allow(tigerstyle::structure)] forwarded {});
+
+// Should error: the attribute name is forwarded as an `ident` fragment.
+leveled!(allow forwarded_level);
+
+// Should error: a comment inside the attribute does not hide it.
+#[/**/allow(tigerstyle::structure)]
+mod padded {}
+
 fn main() {
     let _ = grouped::early();
     quiet();

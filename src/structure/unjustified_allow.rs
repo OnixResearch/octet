@@ -7,9 +7,11 @@ use rustc_lint::EarlyLintPass;
 use rustc_lint::LintContext;
 use rustc_session::declare_tool_lint;
 use rustc_session::impl_lint_pass;
+use rustc_span::Span;
 use rustc_span::sym;
 
 use crate::diagnostics::LintSuggestion;
+use crate::diagnostics::emit_tiger_style_lint;
 use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
 
 declare_tool_lint! {
@@ -151,45 +153,59 @@ fn has_reason_argument(items: &[MetaItemInner]) -> bool {
     })
 }
 
-/// Whether `snippet`, the source text at an attribute's span, spells that
-/// attribute: `#[name(`, `#![name(`, or `name(` for one expanded from
-/// `cfg_attr(..., name(...))`. Proc macros such as `#[tokio::main]` re-span
-/// generated attributes onto user tokens, whose text spells something else.
-fn snippet_spells_attribute(snippet: &str, name: &str) -> bool {
-    let body = match snippet.strip_prefix('#') {
-        Some(rest) => {
-            let rest = rest.trim_start();
-            let rest = rest.strip_prefix('!').unwrap_or(rest).trim_start();
-            let Some(rest) = rest.strip_prefix('[') else {
-                return false;
-            };
-            rest.trim_start()
+/// Where a user-written lint-level attribute sits in source.
+#[derive(Clone, Copy)]
+enum AttributeSite {
+    /// The attribute's own span covers its name: written directly, through
+    /// `cfg_attr`, or literally in a local `macro_rules!` body.
+    Whole(Span),
+    /// Only the attribute name is the user's text: the attribute was
+    /// forwarded through a local macro's `meta` or `ident` fragment, so its
+    /// own span points at the macro body. Reported at the name.
+    Forwarded(Span),
+}
+
+impl AttributeSite {
+    fn span(self) -> Span {
+        match self {
+            Self::Whole(span) | Self::Forwarded(span) => span,
         }
-        None => snippet,
-    };
-    body.strip_prefix(name).is_some_and(|rest| rest.trim_start().starts_with('('))
+    }
 }
 
-/// Whether the user wrote this attribute in source, rather than a macro from
-/// another crate generating it. An attribute in a local `macro_rules!` body is
-/// the user's own suppression and stays governed.
-fn is_user_written(cx: &EarlyContext<'_>, attr: &Attribute, name: &str) -> bool {
+/// Site of a lint-level attribute the user wrote, or `None` when a macro from
+/// another crate generated it. The decision follows the attribute's name
+/// token: user text spelling `name`, outside another crate's macro. The name
+/// segment's ident span is used because a name forwarded through an `ident`
+/// fragment keeps the user's span there, while the path span points at the
+/// macro body. Proc macros such as `#[tokio::main]` re-span generated
+/// attributes onto user tokens, whose text spells something else.
+fn user_attribute_site(cx: &EarlyContext<'_>, attr: &Attribute, name: &str) -> Option<AttributeSite> {
     let source_map = cx.sess().source_map();
-    !attr.span.in_external_macro(source_map)
-        && source_map.span_to_snippet(attr.span).is_ok_and(|snippet| snippet_spells_attribute(&snippet, name))
+    let path_span = attr.get_normal_item().path.segments.last()?.ident.span;
+    let is_user_name = !path_span.in_external_macro(source_map)
+        && source_map.span_to_snippet(path_span).is_ok_and(|snippet| snippet == name);
+    if !is_user_name {
+        return None;
+    }
+    Some(if attr.span.contains(path_span) {
+        AttributeSite::Whole(attr.span)
+    } else {
+        AttributeSite::Forwarded(path_span)
+    })
 }
 
-fn justification_stub(cx: &EarlyContext<'_>, attr: &Attribute) -> String {
+fn justification_stub(cx: &EarlyContext<'_>, span: Span) -> String {
     let source_map = cx.sess().source_map();
-    let indent_width = source_map.lookup_char_pos(attr.span.lo()).col.0;
+    let indent_width = source_map.lookup_char_pos(span.lo()).col.0;
     let indent = " ".repeat(indent_width);
     format!("// {PLACEHOLDER_PREFIX}: explain why this allow is safe here\n{indent}")
 }
 
 /// Whether a justifying comment sits on the attribute's own source lines or on
 /// the line directly above them.
-fn has_comment_nearby(cx: &EarlyContext<'_>, attr: &Attribute) -> bool {
-    let Ok(lines) = cx.sess().source_map().span_to_lines(attr.span) else {
+fn has_comment_nearby(cx: &EarlyContext<'_>, span: Span) -> bool {
+    let Ok(lines) = cx.sess().source_map().span_to_lines(span) else {
         return true; // assume justified if we can't read source
     };
     let Some(first_line_idx) = lines.lines.first().map(|line| line.line_index) else {
@@ -245,20 +261,30 @@ fn check_attrs(cx: &EarlyContext<'_>, attrs: &[Attribute], floor_paths: &LintPat
         let Some(name) = governed_level_name(attr, &items, floor_paths) else {
             continue;
         };
-        if is_user_written(cx, attr, name) && !has_reason_argument(&items) && !has_comment_nearby(cx, attr) {
-            emit_tiger_style_lint_with_suggestion(
+        let Some(site) = user_attribute_site(cx, attr, name) else {
+            continue;
+        };
+        if has_reason_argument(&items) || has_comment_nearby(cx, site.span()) {
+            continue;
+        }
+        let message = format!("`#[{name}(...)]` without justification comment");
+        match site {
+            AttributeSite::Whole(span) => emit_tiger_style_lint_with_suggestion(
                 cx,
                 UNJUSTIFIED_ALLOW,
-                attr.span,
-                format!("`#[{name}(...)]` without justification comment"),
+                span,
+                message,
                 "unjustified_allow",
                 LintSuggestion::Single {
-                    span: attr.span.shrink_to_lo(),
+                    span: span.shrink_to_lo(),
                     message: "add a local justification comment".to_owned(),
-                    replacement: justification_stub(cx, attr),
+                    replacement: justification_stub(cx, span),
                     applicability: Applicability::HasPlaceholders,
                 },
-            );
+            ),
+            AttributeSite::Forwarded(span) => {
+                emit_tiger_style_lint(cx, UNJUSTIFIED_ALLOW, span, message, "unjustified_allow");
+            }
         }
     }
 }
@@ -399,12 +425,15 @@ impl EarlyLintPass for SuppressionGovernanceGuard {
                 continue;
             };
             let reached = self.protected.reached_lints(lint_paths(&items));
-            if reached.is_empty() || !is_user_written(cx, attr, name) {
+            if reached.is_empty() {
                 continue;
             }
+            let Some(site) = user_attribute_site(cx, attr, name) else {
+                continue;
+            };
             let lints = reached.iter().map(|lint_name| format!("`{lint_name}`")).collect::<Vec<_>>().join(", ");
             cx.sess().dcx().span_err(
-                attr.span,
+                site.span(),
                 format!(
                     "strict profile `{}` requires {lints} at `deny`, but this `#[{name}(...)]` would silence it; source attributes cannot lower a profile's suppression-governance lints, so remove the attribute",
                     self.profile_id
@@ -422,7 +451,6 @@ mod tests {
     use super::is_governed_lint_path;
     use super::is_justifying_line_comment;
     use super::line_has_justifying_comment;
-    use super::snippet_spells_attribute;
 
     fn governed(path: &str) -> bool {
         is_governed_lint_path(path.split("::"))
@@ -468,19 +496,6 @@ mod tests {
         ));
         assert!(!line_has_justifying_comment("#[allow(clippy::x, reason = \"see https://example.com\")]"));
         assert!(!line_has_justifying_comment("#[allow(clippy::x)] /// Doc for the item."));
-    }
-
-    #[test]
-    fn only_source_text_that_spells_the_attribute_is_user_written() {
-        assert!(snippet_spells_attribute("#[allow(clippy::needless_return)]", "allow"));
-        assert!(snippet_spells_attribute("#![allow(clippy::all)]", "allow"));
-        assert!(snippet_spells_attribute("# [ expect (clippy::x)]", "expect"));
-        assert!(snippet_spells_attribute("allow(clippy::needless_return)", "allow"));
-        assert!(!snippet_spells_attribute(";", "allow"));
-        assert!(!snippet_spells_attribute("run().await", "allow"));
-        assert!(!snippet_spells_attribute("{ #[allow(clippy::x)] let value = 1; }", "allow"));
-        assert!(!snippet_spells_attribute("#[expect(clippy::x)]", "allow"));
-        assert!(!snippet_spells_attribute("allowed(value)", "allow"));
     }
 
     fn reached_paths(paths_set: &LintPathSet, paths: &[&str]) -> Vec<&'static str> {
