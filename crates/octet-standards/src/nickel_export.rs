@@ -722,11 +722,13 @@ mod tests {
         let spec = json_spec();
         let direct = "let contracts = import \"../standards/policies/contracts.ncl\" in\nlet hidden = import \"../standards/policies/hidden.ncl\" in\n{ schema_version = \"v1\" }\n";
         let interpolated = "let contracts = import \"../standards/policies/contracts.ncl\" in\n{ label = \"%{(import \"../standards/policies/hidden.ncl\").name}\" }\n";
+        let multiline_interpolated = "let contracts = import \"../standards/policies/contracts.ncl\" in\n{ label = m%\"%%{(import \"../standards/policies/hidden.ncl\").name}\"% }\n";
         let transitive = "let shared = import \"./shared.ncl\" in { Contract = String }\n";
         let unused = "{ schema_version = \"v1\" }\n";
         let cases = [
             ("direct", direct, DEPENDENCY_TEXT),
             ("interpolated", interpolated, DEPENDENCY_TEXT),
+            ("multiline interpolated", multiline_interpolated, DEPENDENCY_TEXT),
             ("transitive", SOURCE_TEXT, transitive),
             ("unused declaration", unused, DEPENDENCY_TEXT),
         ];

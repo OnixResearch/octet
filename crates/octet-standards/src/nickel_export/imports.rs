@@ -21,7 +21,8 @@ enum Mode {
     Code { braces: usize },
     /// Standard `"…"` string.
     Standard,
-    /// Multiline or symbolic string delimited by `percents` `%` characters.
+    /// Multiline (`m%"`) or symbolic (`prefix-s%"`) string whose opener has
+    /// `percents` `%` characters.
     Multiline { percents: usize },
 }
 
@@ -79,15 +80,14 @@ fn import_targets(text: &str) -> Vec<ImportTarget> {
                     stack.push(Mode::Standard);
                     pos + 1
                 }
-                b'%' if pos > 0 && is_identifier_byte(bytes[pos - 1]) => {
-                    let percents = run_length(bytes, pos, b'%');
-                    if bytes.get(pos + percents) == Some(&b'"') {
-                        stack.push(Mode::Multiline { percents });
-                        pos + percents + 1
-                    } else {
-                        pos + percents
+                b'\'' => match bytes.get(pos + 1) {
+                    Some(b'"') => {
+                        stack.push(Mode::Standard);
+                        pos + 2
                     }
-                }
+                    Some(byte) if is_identifier_start(*byte) => identifier_end(bytes, pos + 1),
+                    _ => pos + 1,
+                },
                 b'{' => {
                     *braces += 1;
                     pos + 1
@@ -100,9 +100,13 @@ fn import_targets(text: &str) -> Vec<ImportTarget> {
                     }
                     pos + 1
                 }
+                byte if byte.is_ascii_digit() => number_end(bytes, pos),
                 byte if is_identifier_start(byte) => {
                     let end = identifier_end(bytes, pos);
-                    if &bytes[pos..end] == IMPORT_KEYWORD
+                    if let Some(percents) = string_opener_percents(bytes, &bytes[pos..end], end) {
+                        stack.push(Mode::Multiline { percents });
+                        end + percents + 1
+                    } else if &bytes[pos..end] == IMPORT_KEYWORD
                         && let Some((target, next)) = import_target(bytes, end)
                     {
                         targets.push(target);
@@ -125,21 +129,30 @@ fn import_targets(text: &str) -> Vec<ImportTarget> {
                 }
                 _ => pos + 1,
             },
-            Some(Mode::Multiline { percents }) => {
-                let percents = *percents;
-                match bytes[pos] {
-                    b'"' if run_length(bytes, pos + 1, b'%') >= percents => {
-                        stack.pop();
-                        pos + 1 + percents
+            Some(Mode::Multiline { percents }) => match bytes[pos] {
+                // Nickel lexes `"%…{` and `%…{` as one candidate interpolation
+                // and `"%…` as a candidate end. Interpolation needs at least the
+                // opener's `%` count, and any extra leading `%` stay literal.
+                // An end needs at least that count; a longer run is a Nickel
+                // lexical error.
+                byte @ (b'"' | b'%') => {
+                    let quote = usize::from(byte == b'"');
+                    let run = run_while(bytes, pos + quote, |byte| byte == b'%');
+                    let after = pos + quote + run;
+                    if run > 0 && bytes.get(after) == Some(&b'{') {
+                        if run >= *percents {
+                            stack.push(Mode::Code { braces: 0 });
+                        }
+                        after + 1
+                    } else {
+                        if quote == 1 && run >= *percents {
+                            stack.pop();
+                        }
+                        after
                     }
-                    b'%' if run_length(bytes, pos, b'%') == percents && bytes.get(pos + percents) == Some(&b'{') => {
-                        stack.push(Mode::Code { braces: 0 });
-                        pos + percents + 1
-                    }
-                    b'%' => pos + run_length(bytes, pos, b'%'),
-                    _ => pos + 1,
                 }
-            }
+                _ => pos + 1,
+            },
             None => bytes.len(),
         };
     }
@@ -224,8 +237,49 @@ fn skip_line(bytes: &[u8], pos: usize) -> usize {
     bytes[pos..].iter().position(|byte| *byte == b'\n').map_or(bytes.len(), |offset| pos + offset + 1)
 }
 
-fn run_length(bytes: &[u8], pos: usize, expected: u8) -> usize {
-    bytes.get(pos..).map_or(0, |rest| rest.iter().take_while(|byte| **byte == expected).count())
+/// Count the `%` of a multiline (`m%"`) or symbolic (`prefix-s%"`) string
+/// opener whose identifier part `word` ends at `end`.
+///
+/// Nickel only lexes these openers when the whole identifier token is `m` or
+/// a letter-led prefix ending in `-s`, so `foom%"` is `foom % "…"`.
+fn string_opener_percents(bytes: &[u8], word: &[u8], end: usize) -> Option<usize> {
+    let opener = word == b"m" || (word.len() >= 3 && word[0].is_ascii_alphabetic() && word.ends_with(b"-s"));
+    let percents = run_while(bytes, end, |byte| byte == b'%');
+    (opener && percents > 0 && bytes.get(end + percents) == Some(&b'"')).then_some(percents)
+}
+
+/// Return the end of the numeric literal starting at `pos`, following Nickel's
+/// decimal, exponent, and `0x`/`0o`/`0b` forms, so its letters never start an
+/// identifier.
+fn number_end(bytes: &[u8], pos: usize) -> usize {
+    let radix_digits = match bytes.get(pos..pos + 2) {
+        Some(b"0x") => run_while(bytes, pos + 2, |byte| byte.is_ascii_hexdigit()),
+        Some(b"0o") => run_while(bytes, pos + 2, |byte| matches!(byte, b'0'..=b'7')),
+        Some(b"0b") => run_while(bytes, pos + 2, |byte| matches!(byte, b'0' | b'1')),
+        _ => 0,
+    };
+    if radix_digits > 0 {
+        return pos + 2 + radix_digits;
+    }
+    let mut end = pos + run_while(bytes, pos, |byte| byte.is_ascii_digit());
+    if bytes.get(end) == Some(&b'.') {
+        let fraction = run_while(bytes, end + 1, |byte| byte.is_ascii_digit());
+        if fraction > 0 {
+            end += 1 + fraction;
+        }
+    }
+    if matches!(bytes.get(end), Some(b'e' | b'E')) {
+        let sign = usize::from(matches!(bytes.get(end + 1), Some(b'+' | b'-')));
+        let exponent = run_while(bytes, end + 1 + sign, |byte| byte.is_ascii_digit());
+        if exponent > 0 {
+            end += 1 + sign + exponent;
+        }
+    }
+    end
+}
+
+fn run_while(bytes: &[u8], pos: usize, predicate: impl Fn(u8) -> bool) -> usize {
+    bytes.get(pos..).map_or(0, |rest| rest.iter().take_while(|byte| predicate(**byte)).count())
 }
 
 fn identifier_end(bytes: &[u8], pos: usize) -> usize {
@@ -273,6 +327,44 @@ mod tests {
             ImportTarget::Path("multi-interp.ncl".to_owned()),
             ImportTarget::Path("after.ncl".to_owned()),
         ]);
+    }
+
+    #[test]
+    fn string_delimiters_and_interpolations_follow_the_nickel_lexer() {
+        let cases = [
+            ("multiline", r#"m%"import "lit.ncl" %{ import "found.ncl" }"%"#),
+            (
+                "double-percent multiline",
+                r#"m%%"import "lit.ncl" %{ import "lit.ncl" } %%{ import "found.ncl" }"%%"#,
+            ),
+            ("extra percents before interpolation", r#"m%"import "lit.ncl" %%{ import "found.ncl" }"%"#),
+            (
+                "extra percents before double-percent interpolation",
+                r#"m%%"%%%{ import "found.ncl" } "% import "lit.ncl" "%%"#,
+            ),
+            ("quote before interpolation", r#"m%" "%{ import "found.ncl" } import "lit.ncl" "%"#),
+            ("quote before short interpolation", r#"m%%" "%{ import "lit.ncl" } "%%{ import "found.ncl" } "%%"#),
+            (
+                "quote and extra percents before interpolation",
+                r#"m%%" "%%%{ import "found.ncl" } import "lit.ncl" "%%"#,
+            ),
+            ("symbolic string", r#"nix-s%%"import "lit.ncl" %{ import "lit.ncl" } %%{ import "found.ncl" }"%%"#),
+            ("number before multiline", r#"1e2m%"import "lit.ncl" %{ import "found.ncl" }"%"#),
+            ("enum tag before standard string", r#"'foo-s%"import \"lit.ncl\" %{ import "found.ncl" }""#),
+            ("modulo before standard string", r#"foom%"import \"lit.ncl\" %{ import "found.ncl" }""#),
+            ("standard string", r#""import \"lit.ncl\" \%{ import \"lit.ncl\" } %%{ import "found.ncl" }""#),
+        ];
+
+        let mismatches = cases
+            .iter()
+            .filter_map(|(label, string)| {
+                let source = format!("{{ s = {string}, after = import \"after.ncl\" }}");
+                let observed = observed_import_closure("main.ncl", &source, &[]);
+                (observed != ["after.ncl", "found.ncl"]).then_some((*label, observed))
+            })
+            .collect::<Vec<_>>();
+
+        assert!(mismatches.is_empty(), "{mismatches:?}");
     }
 
     #[test]
