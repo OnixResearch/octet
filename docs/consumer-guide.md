@@ -342,6 +342,7 @@ cargo octet evidence collect --rail benchmark-evidence --profile octet-metadata-
 cargo octet evidence collect --rail kani-model-check --input target/kani-summary.json --artifact-dir artifacts/kani-model-check
 cargo octet evidence collect --rail hegel-property --profile octet-pure-core-laws-v1 --config standards/hegel/profiles.json --workspace-root . --run --locked --artifact-dir artifacts/hegel-property
 cargo octet evidence collect --rail hegel-property --input target/hegel-property-v1.json --artifact-dir artifacts/hegel-property-import
+cargo octet evidence collect --rail binary-debug-map --input target/release/example --debug-companion target/release/example.debug --config standards/binary-debug-map/profiles.json --profile elf-dwarf-v1 --function-address-artifact artifacts/function-addresses.json --artifact-dir artifacts/binary-debug-map
 cargo octet artifact verify --artifact-dir artifacts/dependency-audit
 ```
 

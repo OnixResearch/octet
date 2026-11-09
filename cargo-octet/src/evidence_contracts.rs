@@ -16,6 +16,7 @@ const SARIF_DETAILS_CONTRACT_NAME: &str = "SarifImportReceiptDetailsV1";
 const COVERAGE_DETAILS_CONTRACT_NAME: &str = "CoverageBaselineReceiptDetailsV1";
 const MUTATION_DETAILS_CONTRACT_NAME: &str = "CargoMutantsReceiptDetailsV1";
 const BENCHMARK_DETAILS_CONTRACT_NAME: &str = "BenchmarkEvidenceReceiptDetailsV1";
+const BINARY_DEBUG_MAP_DETAILS_CONTRACT_NAME: &str = "BinaryDebugMapReceiptDetailsV1";
 const CHAOSCONTROL_PROOF_STYLE_INPUT_CONTRACT_NAME: &str = "ChaosControlProofStyleInputContractV1";
 const CHAOSCONTROL_PROOF_STYLE_INPUT_SCHEMA_VERSION: &str = "octet-chaoscontrol-proof-style-input-contract/v1";
 const CHAOSCONTROL_CONSUMER_REPO: &str = "github:OnixResearch/chaoscontrol";
@@ -247,6 +248,31 @@ static BENCHMARK_DETAILS_FIELDS: &[ContractField] = &[
     ContractField::required("non_claims", FieldKind::StringArray),
 ];
 
+static BINARY_DEBUG_MAP_DETAILS_FIELDS: &[ContractField] = &[
+    ContractField::required("schema_version", FieldKind::ExactString(crate::binary_debug_map::RECEIPT_SCHEMA)),
+    ContractField::required("profile_id", FieldKind::ExactString(crate::binary_debug_map::PROFILE_ID)),
+    ContractField::required("profile_identity", FieldKind::NonEmptyString),
+    ContractField::required("registry_identity", FieldKind::NonEmptyString),
+    ContractField::required("object_format", FieldKind::ExactString("elf")),
+    ContractField::required("architecture", FieldKind::NonEmptyString),
+    ContractField::required("debug_format", FieldKind::ExactString("dwarf")),
+    ContractField::required("binary_identity", FieldKind::NonEmptyString),
+    ContractField::optional("debug_companion", FieldKind::Dyn),
+    ContractField::optional_string("build_identity"),
+    ContractField::required("debug_source", FieldKind::NonEmptyString),
+    ContractField::optional_string("function_address_identity"),
+    ContractField::optional_string("requirement_refs_identity"),
+    ContractField::optional_string("requirement_registry_identity"),
+    ContractField::required("source_roots", FieldKind::DynArray),
+    ContractField::required("limits", FieldKind::Dyn),
+    ContractField::required("rows", FieldKind::DynArray),
+    ContractField::required("excluded_rows", FieldKind::Number),
+    ContractField::required("findings", FieldKind::DynArray),
+    ContractField::required("truncation", FieldKind::Dyn),
+    ContractField::required("verification_role", FieldKind::ExactString(crate::binary_debug_map::RECORDED_ONLY_ROLE)),
+    ContractField::required("non_claims", FieldKind::StringArray),
+];
+
 static CHAOSCONTROL_PROOF_STYLE_INPUT_FIELDS: &[ContractField] = &[
     ContractField::required("schema_version", FieldKind::ExactString(CHAOSCONTROL_PROOF_STYLE_INPUT_SCHEMA_VERSION)),
     ContractField::required("consumer_repo", FieldKind::NonEmptyString),
@@ -356,6 +382,7 @@ static EVIDENCE_RAIL_RECEIPT_FIELDS: &[ContractField] = &[
         default: Some(EMPTY_RECORD_DEFAULT),
     },
     ContractField::optional("dependency_trust", FieldKind::Dyn),
+    ContractField::optional("binary_debug_map", FieldKind::Dyn),
 ];
 
 #[derive(Clone, Copy)]
@@ -401,6 +428,7 @@ pub fn render_generated_contracts() -> String {
         coverage_details_schema(),
         mutation_details_schema(),
         benchmark_details_schema(),
+        binary_debug_map_details_schema(),
         evidence_rail_receipt_schema(),
         chaoscontrol_proof_style_input_schema(),
     ];
@@ -507,6 +535,13 @@ fn benchmark_details_schema() -> ContractSchema {
     ContractSchema {
         name: BENCHMARK_DETAILS_CONTRACT_NAME,
         fields: BENCHMARK_DETAILS_FIELDS,
+    }
+}
+
+fn binary_debug_map_details_schema() -> ContractSchema {
+    ContractSchema {
+        name: BINARY_DEBUG_MAP_DETAILS_CONTRACT_NAME,
+        fields: BINARY_DEBUG_MAP_DETAILS_FIELDS,
     }
 }
 
@@ -718,6 +753,7 @@ mod tests {
         "standards/evidence/fixtures/valid/sarif_import_details_v1.ncl",
         "standards/evidence/fixtures/valid/coverage_baseline_details_v1.ncl",
         "standards/evidence/fixtures/valid/cargo_mutants_details_v1.ncl",
+        "standards/evidence/fixtures/valid/binary_debug_map_details_v1.ncl",
         "standards/evidence/fixtures/valid/evidence_rail_receipt_v1.ncl",
         "standards/evidence/fixtures/valid/chaoscontrol_proof_style_input_v1.ncl",
     ];
@@ -734,6 +770,7 @@ mod tests {
         "standards/evidence/fixtures/invalid/sarif_import_bad_version.ncl",
         "standards/evidence/fixtures/invalid/coverage_baseline_bad_profile.ncl",
         "standards/evidence/fixtures/invalid/cargo_mutants_bad_profile.ncl",
+        "standards/evidence/fixtures/invalid/binary_debug_map_missing_non_claims.ncl",
         "standards/evidence/fixtures/invalid/evidence_rail_receipt_missing_non_claims.ncl",
         "standards/evidence/fixtures/invalid/evidence_rail_receipt_missing_finding_counts.ncl",
         "standards/evidence/fixtures/invalid/chaoscontrol_missing_profile.ncl",
@@ -895,6 +932,12 @@ mod tests {
                 Some("cargo test hegel_property"),
             )),
             emitted_receipt_record(&rail_receipt(
+                evidence_rails::EvidenceRailKind::BinaryDebugMap,
+                include_str!("../tests/fixtures/evidence-rails/binary-debug-map-envelope.json"),
+                Some(crate::binary_debug_map::PROFILE_ID),
+                None,
+            )),
+            emitted_receipt_record(&rail_receipt(
                 evidence_rails::EvidenceRailKind::Z4Solver,
                 include_str!("../tests/fixtures/evidence-rails/z4-solver-sat-diagnostic.json"),
                 Some("bounded-diagnostic"),
@@ -1017,6 +1060,7 @@ mod tests {
             cargo_mutants: _,
             benchmark_evidence: _,
             dependency_trust: _,
+            binary_debug_map: _,
         } = receipt;
         [
             "schema_version",
@@ -1055,6 +1099,7 @@ mod tests {
             "cargo_mutants",
             "benchmark_evidence",
             "dependency_trust",
+            "binary_debug_map",
         ]
         .into_iter()
         .map(str::to_owned)

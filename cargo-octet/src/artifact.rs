@@ -204,6 +204,8 @@ pub struct ValenceReceiptEnvelope {
     pub cargo_mutants: Option<crate::mutation::ReceiptDetails>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub benchmark_evidence: Option<crate::benchmark::ReceiptDetails>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binary_debug_map: Option<crate::binary_debug_map::BinaryDebugMapReceiptDetails>,
     pub non_claims: Vec<String>,
 }
 
@@ -525,6 +527,7 @@ fn valence_receipt_envelope(
         coverage_baseline: matching_evidence_rail_receipt.and_then(|receipt| receipt.coverage_baseline.clone()),
         cargo_mutants: matching_evidence_rail_receipt.and_then(|receipt| receipt.cargo_mutants.clone()),
         benchmark_evidence: matching_evidence_rail_receipt.and_then(|receipt| receipt.benchmark_evidence.clone()),
+        binary_debug_map: matching_evidence_rail_receipt.and_then(|receipt| receipt.binary_debug_map.clone()),
         non_claims: non_claims_for_record(matching_evidence_rail_receipt),
     }
 }
@@ -710,6 +713,9 @@ fn validate_valence_receipt(record: &ValenceProvenanceRecord, diagnostics: &mut 
     if record.checker_id == crate::evidence::CHECKER_HEGEL_RS {
         validate_hegel_valence_receipt(record, diagnostics);
     }
+    if record.source_id == "octet.artifact.binary-debug-map" {
+        validate_binary_debug_map_valence_receipt(record, diagnostics);
+    }
 }
 
 fn validate_ast_grep_valence_receipt(record: &ValenceProvenanceRecord, diagnostics: &mut Vec<String>) {
@@ -741,6 +747,31 @@ fn validate_wasm_valence_receipt(record: &ValenceProvenanceRecord, diagnostics: 
     }
     if !record.receipt.non_claims.iter().any(|claim| claim == crate::wasm_artifact::REQUIRED_NON_CLAIM) {
         diagnostics.push("Wasm Valence export missing execution non-claim".to_owned());
+    }
+}
+
+fn validate_binary_debug_map_valence_receipt(record: &ValenceProvenanceRecord, diagnostics: &mut Vec<String>) {
+    if record.evidence_tier == FORMAL_PROOF_TIER {
+        diagnostics.push("binary debug-map Valence export must not use formal_proof tier".to_owned());
+    }
+    if record.evidence_tier != TRANSCRIPT_ASSERTION_TIER {
+        diagnostics.push(format!(
+            "binary debug-map Valence export must remain `{TRANSCRIPT_ASSERTION_TIER}` evidence, got `{}`",
+            record.evidence_tier
+        ));
+    }
+    match record.receipt.binary_debug_map.as_ref() {
+        Some(details) => {
+            if details.verification_role != crate::binary_debug_map::RECORDED_ONLY_ROLE {
+                diagnostics.push("binary debug-map Valence export must remain recorded_only".to_owned());
+            }
+            let mut role_diagnostics = crate::binary_debug_map::validate_handoff_role(&details.verification_role);
+            diagnostics.append(&mut role_diagnostics);
+        }
+        None => diagnostics.push("binary debug-map Valence export missing binary_debug_map receipt details".to_owned()),
+    }
+    if !record.receipt.non_claims.iter().any(|claim| claim == crate::binary_debug_map::REQUIRED_NON_CLAIM) {
+        diagnostics.push("binary debug-map Valence export missing the required linkage non-claim".to_owned());
     }
 }
 

@@ -100,7 +100,7 @@ const CARGO_VET_CONCLUSION_VETTING_FAILED: &str = "fail (vetting)";
 const CARGO_VET_CONCLUSION_VIOLATION: &str = "fail (violation)";
 const CARGO_VET_GAP_FAMILY: &str = "unaudited-gap";
 const CARGO_VET_EXEMPTION_FAMILY: &str = "exemption";
-const SUPPORTED_EVIDENCE_RAILS: &str = "dependency-audit, clippy-co-reporting, ast-grep, wasm-artifact, charon-semantic, dependency-trust, api-stability, dynamic-evidence, sarif-import, release-supply-chain, mutation-testing, coverage-baseline, benchmark-evidence, kani-model-check, hegel-property, z4-solver, or verifier-fixture";
+const SUPPORTED_EVIDENCE_RAILS: &str = "dependency-audit, clippy-co-reporting, ast-grep, wasm-artifact, charon-semantic, dependency-trust, api-stability, dynamic-evidence, sarif-import, release-supply-chain, mutation-testing, coverage-baseline, benchmark-evidence, kani-model-check, hegel-property, z4-solver, verifier-fixture, or binary-debug-map";
 /// cargo-vet's store directory under the workspace root unless `metadata.vet.store.path` moves it.
 const CARGO_VET_DEFAULT_STORE: &str = "supply-chain";
 const CARGO_VET_STORE_CONFIG: &str = "config.toml";
@@ -168,6 +168,7 @@ pub enum EvidenceRailKind {
     HegelProperty,
     Z4Solver,
     VerifierFixture,
+    BinaryDebugMap,
 }
 
 const DEPENDENCY_AUDIT_RULE_FAMILIES: &[&str] = &["advisories", "licenses", "bans", "sources", "duplicates"];
@@ -296,6 +297,16 @@ const VERIFIER_FIXTURE_RULE_FAMILIES: &[&str] = &[
     "role-and-non-claims",
 ];
 
+const BINARY_DEBUG_MAP_RULE_FAMILIES: &[&str] = &[
+    "profile-and-source-root-identity",
+    "exact-binary-and-companion-identity",
+    "bounded-elf-dwarf-normalization",
+    "symbol-address-and-source-span-rows",
+    "function-address-and-requirement-linkage",
+    "resource-limit-failure-boundary",
+    "recorded-only-valence-handoff",
+];
+
 impl EvidenceRailKind {
     pub fn parse(value: &str) -> Result<Self, String> {
         match value {
@@ -316,6 +327,7 @@ impl EvidenceRailKind {
             "hegel-property" | "hegel" | "hegel-rs" => Ok(Self::HegelProperty),
             "z4-solver" | "z4" => Ok(Self::Z4Solver),
             "verifier-fixture" | "verifier-fixture-intake" => Ok(Self::VerifierFixture),
+            "binary-debug-map" | "elf-dwarf" | "binary-debug" => Ok(Self::BinaryDebugMap),
             other => Err(format!("unsupported evidence rail `{other}`; expected {SUPPORTED_EVIDENCE_RAILS}")),
         }
     }
@@ -339,6 +351,7 @@ impl EvidenceRailKind {
             Self::HegelProperty => "hegel-property",
             Self::Z4Solver => "z4-solver",
             Self::VerifierFixture => "verifier-fixture",
+            Self::BinaryDebugMap => "binary-debug-map",
         }
     }
 
@@ -347,7 +360,9 @@ impl EvidenceRailKind {
             Self::DependencyAudit => crate::evidence::CHECKER_CARGO_DENY,
             Self::ClippyCoReporting => crate::evidence::CHECKER_CLIPPY,
             Self::AstGrepStructural => crate::evidence::CHECKER_AST_GREP,
-            Self::WasmArtifact | Self::CharonSemantic | Self::VerifierFixture => crate::evidence::CHECKER_CARGO_OCTET,
+            Self::WasmArtifact | Self::CharonSemantic | Self::VerifierFixture | Self::BinaryDebugMap => {
+                crate::evidence::CHECKER_CARGO_OCTET
+            }
             Self::DependencyTrust => crate::evidence::CHECKER_CARGO_VET,
             Self::ApiStability => crate::evidence::CHECKER_CARGO_SEMVER_CHECKS,
             Self::DynamicEvidence => crate::evidence::CHECKER_OCTET_DYNAMIC_EVIDENCE,
@@ -381,6 +396,7 @@ impl EvidenceRailKind {
             Self::HegelProperty => "octet.dynamic_evidence.hegel-property",
             Self::Z4Solver => "octet.experimental_solver_rails.z4-solver",
             Self::VerifierFixture => "octet.runner.verifier-fixture-intake",
+            Self::BinaryDebugMap => "octet.artifact.binary-debug-map",
         }
     }
 
@@ -395,7 +411,8 @@ impl EvidenceRailKind {
             | Self::KaniModelCheck
             | Self::HegelProperty
             | Self::Z4Solver
-            | Self::VerifierFixture => EvidenceTier::TranscriptAssertion,
+            | Self::VerifierFixture
+            | Self::BinaryDebugMap => EvidenceTier::TranscriptAssertion,
             _ => EvidenceTier::PolicyCheck,
         }
     }
@@ -419,6 +436,7 @@ impl EvidenceRailKind {
             Self::HegelProperty => HEGEL_PROPERTY_RULE_FAMILIES,
             Self::Z4Solver => Z4_SOLVER_RULE_FAMILIES,
             Self::VerifierFixture => VERIFIER_FIXTURE_RULE_FAMILIES,
+            Self::BinaryDebugMap => BINARY_DEBUG_MAP_RULE_FAMILIES,
         })
     }
 
@@ -512,6 +530,13 @@ impl EvidenceRailKind {
                 "Verifier fixture intake is optional and not part of starter cargo octet check",
                 "Verifier fixtures are normalized regression inputs and do not require external verifier runtimes",
                 VERIFIER_FIXTURE_NON_CLAIM,
+            ]),
+            Self::BinaryDebugMap => string_vec(&[
+                crate::binary_debug_map::REQUIRED_NON_CLAIM,
+                "Demangled symbol text is display metadata and is not a canonical function identity",
+                "Raw binary-local addresses are not stable cross-build function identities",
+                "Binary debug-map evidence is optional and not part of starter cargo octet check",
+                crate::binary_debug_map::HANDOFF_ROLE_NON_CLAIM,
             ]),
         }
     }
@@ -698,6 +723,8 @@ pub struct EvidenceRailReceipt {
     pub benchmark_evidence: Option<crate::benchmark::ReceiptDetails>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dependency_trust: Option<DependencyTrustReceiptDetails>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binary_debug_map: Option<crate::binary_debug_map::BinaryDebugMapReceiptDetails>,
 }
 
 pub struct EvaluationInput<'a> {
@@ -768,17 +795,22 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
         config_path = Some(prepared.config_path.clone());
     }
     let prepared_ast_grep = prepare_ast_grep(args)?;
-    let ((mode, import_text, tool_exit_code), analyzed_wasm) = if args.rail == EvidenceRailKind::WasmArtifact {
-        let (envelope, analyzed) = analyze_wasm_input(args)?;
-        ((MODE_IMPORT, envelope, None), Some(analyzed))
-    } else {
-        (input_text(args, prepared_clippy_run.as_ref(), prepared_ast_grep.as_ref())?, None)
-    };
+    let ((mode, import_text, tool_exit_code), analyzed_wasm, analyzed_binary_debug_map) =
+        if args.rail == EvidenceRailKind::WasmArtifact {
+            let (envelope, analyzed) = analyze_wasm_input(args)?;
+            ((MODE_IMPORT, envelope, None), Some(analyzed), None)
+        } else if args.rail == EvidenceRailKind::BinaryDebugMap {
+            let (envelope, registry_identity) = analyze_binary_debug_map_input(args)?;
+            ((MODE_IMPORT, envelope, None), None, Some(registry_identity))
+        } else {
+            (input_text(args, prepared_clippy_run.as_ref(), prepared_ast_grep.as_ref())?, None, None)
+        };
     let identities = input_identities(
         args,
         prepared_clippy_run.as_ref(),
         prepared_ast_grep.as_ref(),
         analyzed_wasm.as_ref(),
+        analyzed_binary_debug_map.as_deref(),
         workspace_root,
         &import_text,
     )?;
@@ -857,6 +889,7 @@ fn input_identities(
     prepared_clippy_run: Option<&PreparedClippyRun>,
     prepared_ast_grep: Option<&PreparedAstGrep>,
     analyzed_wasm: Option<&AnalyzedWasmInput>,
+    analyzed_binary_debug_map: Option<&str>,
     workspace_root: &Path,
     import_text: &str,
 ) -> Result<InputIdentities, String> {
@@ -884,6 +917,9 @@ fn input_identities(
     } else if let Some(analyzed) = analyzed_wasm {
         // `analyze_wasm_input` bound these registry bytes into the envelope; never re-read `--config`.
         Some(analyzed.registry_identity.clone())
+    } else if let Some(registry_identity) = analyzed_binary_debug_map {
+        // `analyze_binary_debug_map_input` hashed the profile bytes it parsed.
+        Some(registry_identity.to_owned())
     } else if let Some(prepared) = prepared_ast_grep {
         // `prepare_ast_grep` hashed the profile bytes it parsed; never re-read `--config`.
         Some(prepared.config_identity.clone())
@@ -912,6 +948,12 @@ fn normalized_run_command(
     prepared_clippy_run: Option<&PreparedClippyRun>,
     prepared_ast_grep: Option<&PreparedAstGrep>,
 ) -> Result<Option<String>, String> {
+    if args.rail == EvidenceRailKind::BinaryDebugMap {
+        if args.run {
+            return Err("binary-debug-map rail analyzes supplied bytes and rejects `--run`".to_owned());
+        }
+        return Ok(args.command.clone());
+    }
     if args.rail == EvidenceRailKind::HegelProperty && args.profile.as_deref() == Some(crate::hegel::PROFILE_ID) {
         return crate::hegel::selected_profile(crate::hegel::PROFILE_ID)
             .map(|profile| Some(profile.command_argv.join(" ")));
@@ -951,6 +993,11 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
     };
     let wasm_artifact = if input.rail == EvidenceRailKind::WasmArtifact {
         crate::wasm_artifact::evaluate_envelope(input.import_text).details
+    } else {
+        None
+    };
+    let binary_debug_map = if input.rail == EvidenceRailKind::BinaryDebugMap {
+        crate::binary_debug_map::evaluate_envelope(input.import_text).details
     } else {
         None
     };
@@ -1015,6 +1062,7 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
         cargo_mutants,
         benchmark_evidence,
         dependency_trust: None,
+        binary_debug_map,
     }
 }
 
@@ -1538,6 +1586,7 @@ pub fn validate_receipt(receipt: &EvidenceRailReceipt) -> Vec<String> {
     validate_ast_grep_receipt(rail, receipt, &mut diagnostics);
     validate_wasm_artifact_receipt(rail, receipt, &mut diagnostics);
     validate_charon_semantic_receipt(rail, receipt, &mut diagnostics);
+    validate_binary_debug_map_receipt(rail, receipt, &mut diagnostics);
     diagnostics.extend(hegel_diagnostics(rail, receipt));
     diagnostics.extend(z4_diagnostics(rail, receipt));
     diagnostics.extend(verifier_diagnostics(rail, receipt));
@@ -1994,6 +2043,7 @@ fn parse_rail_input(input: &EvaluationInput<'_>) -> RailParseOutput {
         EvidenceRailKind::HegelProperty => parse_hegel_property(input),
         EvidenceRailKind::Z4Solver => parse_z4_solver(input),
         EvidenceRailKind::VerifierFixture => parse_verifier_fixture(input),
+        EvidenceRailKind::BinaryDebugMap => parse_binary_debug_map(input),
     };
     push_unexplained_tool_exit(input, &mut parsed);
     parsed
@@ -2195,6 +2245,85 @@ fn parse_wasm_artifact(input: &EvaluationInput<'_>) -> RailParseOutput {
         hegel_property: None,
         z4_solver: None,
         verifier_fixtures: None,
+    }
+}
+
+fn parse_binary_debug_map(input: &EvaluationInput<'_>) -> RailParseOutput {
+    let evaluation = crate::binary_debug_map::evaluate_envelope(input.import_text);
+    let findings = evaluation
+        .details
+        .as_ref()
+        .map(|details| {
+            details
+                .findings
+                .iter()
+                .map(|finding| EvidenceRailFinding {
+                    family: finding.issue_code.clone(),
+                    severity: finding.severity.clone(),
+                    message: finding.message.clone(),
+                    source_severity: Some(finding.severity.clone()),
+                    file: None,
+                    line: None,
+                    column: None,
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let finding_counts = counts_by_family(&findings);
+    let status = binary_debug_map_status(evaluation.status).to_owned();
+    let profile = evaluation.details.as_ref().map(|details| details.profile_id.clone());
+    RailParseOutput {
+        findings,
+        finding_counts,
+        diagnostics: evaluation.diagnostics,
+        status,
+        profile,
+        property_classes: Vec::new(),
+        hegel_property: None,
+        z4_solver: None,
+        verifier_fixtures: None,
+    }
+}
+
+fn binary_debug_map_status(status: crate::binary_debug_map::BinaryDebugMapStatus) -> &'static str {
+    match status {
+        crate::binary_debug_map::BinaryDebugMapStatus::Passed => STATUS_PASSED,
+        crate::binary_debug_map::BinaryDebugMapStatus::ManualReview => STATUS_MANUAL_REVIEW_REQUIRED,
+        crate::binary_debug_map::BinaryDebugMapStatus::Failed => STATUS_FAILED,
+    }
+}
+
+fn validate_binary_debug_map_receipt(
+    rail: EvidenceRailKind,
+    receipt: &EvidenceRailReceipt,
+    diagnostics: &mut Vec<String>,
+) {
+    match (rail, receipt.binary_debug_map.as_ref()) {
+        (EvidenceRailKind::BinaryDebugMap, Some(details)) => {
+            crate::binary_debug_map::validate_receipt_details(details, &receipt.non_claims, diagnostics);
+            if receipt.config_identity.as_deref() != Some(details.registry_identity.as_str()) {
+                diagnostics
+                    .push("binary-debug-map receipt config_identity does not match its registry_identity".to_owned());
+            }
+            let expected_status = if receipt.diagnostics.is_empty() {
+                binary_debug_map_status(crate::binary_debug_map::status_for(Some(details), &[]))
+            } else {
+                STATUS_FAILED
+            };
+            if receipt.status != expected_status {
+                diagnostics.push(format!(
+                    "binary-debug-map receipt status `{}` does not match its recorded findings; expected `{expected_status}`",
+                    receipt.status
+                ));
+            }
+        }
+        (EvidenceRailKind::BinaryDebugMap, None) => {
+            diagnostics.push("binary-debug-map receipt missing binary_debug_map details".to_owned());
+        }
+        (_, Some(_)) => {
+            diagnostics.push("binary_debug_map details are only valid on binary-debug-map rail receipts".to_owned());
+        }
+        (_, None) => {}
     }
 }
 
@@ -4085,6 +4214,11 @@ fn input_text(
     if args.rail == EvidenceRailKind::WasmArtifact {
         return Err("wasm-artifact input is analyzed with its exact bytes by `analyze_wasm_input`".to_owned());
     }
+    if args.rail == EvidenceRailKind::BinaryDebugMap {
+        return Err(
+            "binary-debug-map input is analyzed with its exact bytes by `analyze_binary_debug_map_input`".to_owned()
+        );
+    }
     if args.rail == EvidenceRailKind::CharonSemantic {
         return analyze_charon_semantic_input(args);
     }
@@ -4503,6 +4637,32 @@ fn analyze_wasm_input(args: &EvidenceRailArgs) -> Result<(String, AnalyzedWasmIn
         artifact_bytes,
         registry_identity,
     }))
+}
+
+fn analyze_binary_debug_map_input(args: &EvidenceRailArgs) -> Result<(String, String), String> {
+    if args.run {
+        return Err("binary-debug-map rail analyzes `--input PATH` directly and rejects `--run`".to_owned());
+    }
+    let binary = args.input.as_deref().ok_or_else(|| "binary-debug-map rail requires `--input PATH`".to_owned())?;
+    let config = args
+        .config
+        .as_deref()
+        .ok_or_else(|| "binary-debug-map rail requires `--config PATH` to a generated profile registry".to_owned())?;
+    let profile_id = args
+        .profile
+        .as_deref()
+        .ok_or_else(|| "binary-debug-map rail requires `--profile NAME`".to_owned())?;
+    let workspace_root = args.workspace_root.as_deref().unwrap_or_else(|| Path::new("."));
+    let output = crate::binary_debug_map::shell::run(&crate::binary_debug_map::shell::ShellRequest {
+        workspace_root,
+        binary,
+        companion: args.debug_companion.as_deref(),
+        config,
+        profile_id,
+        function_addresses: args.function_address_artifact.as_deref(),
+        requirement_refs: args.requirement_refs.as_deref(),
+    })?;
+    Ok((output.envelope_json, output.registry_identity))
 }
 
 struct ToolOutput {
@@ -4932,6 +5092,9 @@ fn command_argv(
         EvidenceRailKind::WasmArtifact => {
             string_vec(&["cargo", "octet", "evidence", "collect", "--rail", "wasm-artifact"])
         }
+        EvidenceRailKind::BinaryDebugMap => {
+            string_vec(&["cargo", "octet", "evidence", "collect", "--rail", "binary-debug-map"])
+        }
         EvidenceRailKind::CharonSemantic => crate::charon_semantic::profile_command_argv().unwrap_or_default(),
         EvidenceRailKind::DependencyTrust => string_vec(&["cargo", "vet", "--output-format=json"]),
         EvidenceRailKind::ApiStability => {
@@ -5037,12 +5200,14 @@ fn write_artifacts(
     );
     let root = prepare_artifact_dir(artifact_dir)?;
     remove_stale_artifacts(&root, additional_artifacts.keys())?;
-    root.write_atomic(&RootRelativePath::new(RECEIPT_ARTIFACT_NAME)?, receipt_json.as_bytes())?;
-    root.write_atomic(&RootRelativePath::new(SUMMARY_ARTIFACT_NAME)?, summary.as_bytes())?;
-    root.write_atomic(&RootRelativePath::new(PROVENANCE_ARTIFACT_NAME)?, provenance_jsonl.as_bytes())?;
     for (name, bytes) in additional_artifacts {
         root.write_atomic(&RootRelativePath::new(name)?, bytes)?;
     }
+    root.write_atomic(&RootRelativePath::new(SUMMARY_ARTIFACT_NAME)?, summary.as_bytes())?;
+    root.write_atomic(&RootRelativePath::new(PROVENANCE_ARTIFACT_NAME)?, provenance_jsonl.as_bytes())?;
+    // Publish the receipt last so an interrupted write never leaves a bundle that
+    // claims a successful collection without its sidecars.
+    root.write_atomic(&RootRelativePath::new(RECEIPT_ARTIFACT_NAME)?, receipt_json.as_bytes())?;
     Ok(())
 }
 
@@ -5785,6 +5950,9 @@ mod tests {
             command: None,
             parent_artifacts: Vec::new(),
             external_reports: Vec::new(),
+            debug_companion: None,
+            function_address_artifact: None,
+            requirement_refs: None,
             output_format: OutputFormat::Human,
             locked: false,
             update_advisory_database: false,
@@ -5805,6 +5973,9 @@ mod tests {
             command: Some(command),
             parent_artifacts: Vec::new(),
             external_reports: Vec::new(),
+            debug_companion: None,
+            function_address_artifact: None,
+            requirement_refs: None,
             output_format: OutputFormat::Json,
             locked: false,
             update_advisory_database: false,
@@ -5840,6 +6011,9 @@ mod tests {
             command: None,
             parent_artifacts: Vec::new(),
             external_reports: Vec::new(),
+            debug_companion: None,
+            function_address_artifact: None,
+            requirement_refs: None,
             output_format: OutputFormat::Human,
             locked: false,
             update_advisory_database: false,
@@ -5864,6 +6038,9 @@ mod tests {
             command: command.map(ToOwned::to_owned),
             parent_artifacts: Vec::new(),
             external_reports: Vec::new(),
+            debug_companion: None,
+            function_address_artifact: None,
+            requirement_refs: None,
             output_format: OutputFormat::Human,
             locked: false,
             update_advisory_database: false,
@@ -6531,6 +6708,9 @@ mod tests {
             command: None,
             parent_artifacts: Vec::new(),
             external_reports: Vec::new(),
+            debug_companion: None,
+            function_address_artifact: None,
+            requirement_refs: None,
             output_format: OutputFormat::Human,
             locked: false,
             update_advisory_database: false,
@@ -6727,6 +6907,37 @@ mod tests {
     }
 
     #[test]
+    fn binary_debug_map_collect_rejects_run_and_requires_exact_inputs() {
+        let workspace = tempfile::tempdir().expect("create workspace");
+        let args = crate::cli::EvidenceRailArgs {
+            rail: EvidenceRailKind::BinaryDebugMap,
+            input: None,
+            artifact_dir: workspace.path().join("artifacts"),
+            workspace_root: Some(workspace.path().to_path_buf()),
+            config: None,
+            debug_companion: None,
+            function_address_artifact: None,
+            requirement_refs: None,
+            baseline: None,
+            profile: None,
+            command: None,
+            parent_artifacts: Vec::new(),
+            external_reports: Vec::new(),
+            output_format: OutputFormat::Human,
+            locked: false,
+            update_advisory_database: false,
+            run: false,
+            command_line: "cargo octet evidence collect --rail binary-debug-map".to_owned(),
+        };
+        let error = analyze_binary_debug_map_input(&args).expect_err("missing input fails");
+        assert!(error.contains("--input PATH"), "{error}");
+
+        let error = analyze_binary_debug_map_input(&crate::cli::EvidenceRailArgs { run: true, ..args })
+            .expect_err("run mode fails");
+        assert!(error.contains("rejects `--run`"), "{error}");
+    }
+
+    #[test]
     fn wasm_artifact_collect_bundles_the_bytes_it_analyzed() {
         let registry_bytes = include_bytes!("../../standards/wasm-artifact/generated/profiles.json");
         let artifact = wat::parse_str(include_str!("../../standards/wasm-artifact/fixtures/positive/module.wat"))
@@ -6746,6 +6957,9 @@ mod tests {
             command: None,
             parent_artifacts: Vec::new(),
             external_reports: Vec::new(),
+            debug_companion: None,
+            function_address_artifact: None,
+            requirement_refs: None,
             output_format: OutputFormat::Human,
             locked: false,
             update_advisory_database: false,
@@ -6798,6 +7012,9 @@ mod tests {
             command: None,
             parent_artifacts: Vec::new(),
             external_reports: Vec::new(),
+            debug_companion: None,
+            function_address_artifact: None,
+            requirement_refs: None,
             output_format: OutputFormat::Human,
             locked: false,
             update_advisory_database: false,
@@ -6851,8 +7068,8 @@ mod tests {
             normalized_run_command(&args, None, Some(&prepared)).expect("ast-grep run command"),
             Some(crate::ast_grep_rail::scan_command_argv(&prepared.profile).join(" "))
         );
-        let identities =
-            input_identities(&args, None, Some(&prepared), None, Path::new("."), "").expect("ast-grep identities");
+        let identities = input_identities(&args, None, Some(&prepared), None, None, Path::new("."), "")
+            .expect("ast-grep identities");
         assert_eq!(identities.config, Some(prefixed_identity(profile_bytes)));
 
         let commanded = crate::cli::EvidenceRailArgs {
@@ -6889,6 +7106,9 @@ mod tests {
             command: None,
             parent_artifacts: Vec::new(),
             external_reports: vec![parent],
+            debug_companion: None,
+            function_address_artifact: None,
+            requirement_refs: None,
             output_format: OutputFormat::Human,
             locked: false,
             update_advisory_database: false,
@@ -7011,6 +7231,9 @@ mod tests {
                 command: None,
                 parent_artifacts: Vec::new(),
                 external_reports: Vec::new(),
+                debug_companion: None,
+                function_address_artifact: None,
+                requirement_refs: None,
                 output_format: OutputFormat::Human,
                 locked: false,
                 update_advisory_database: false,
@@ -7640,6 +7863,9 @@ mod tests {
                 command: None,
                 parent_artifacts: Vec::new(),
                 external_reports: Vec::new(),
+                debug_companion: None,
+                function_address_artifact: None,
+                requirement_refs: None,
                 output_format: OutputFormat::Human,
                 locked: false,
                 update_advisory_database: false,
@@ -7668,6 +7894,9 @@ mod tests {
                 artifact_dir: artifacts.clone(),
                 workspace_root: Some(directory.path().to_path_buf()),
                 config: Some(std::path::PathBuf::from("standards/benchmark/profiles.json")),
+                debug_companion: None,
+                function_address_artifact: None,
+                requirement_refs: None,
                 baseline: None,
                 profile: Some(crate::benchmark::PROFILE_ID.to_owned()),
                 command: command.map(ToOwned::to_owned),
@@ -7708,6 +7937,9 @@ mod tests {
             artifact_dir: artifacts.clone(),
             workspace_root: Some(directory.path().to_path_buf()),
             config: Some(std::path::PathBuf::from("standards/benchmark/profiles.json")),
+            debug_companion: None,
+            function_address_artifact: None,
+            requirement_refs: None,
             baseline: None,
             profile: Some(crate::benchmark::PROFILE_ID.to_owned()),
             command: None,
@@ -7903,8 +8135,8 @@ mod tests {
             ..sarif_import_args(directory.path().to_path_buf())
         };
 
-        let identities =
-            input_identities(&args, None, None, None, directory.path(), "").expect("workspace-relative identities");
+        let identities = input_identities(&args, None, None, None, None, directory.path(), "")
+            .expect("workspace-relative identities");
         assert_eq!(identities.config, Some(prefixed_identity(CONFIG_BYTES)));
         assert_eq!(identities.baseline, Some(prefixed_identity(BASELINE_BYTES)));
     }
@@ -8117,6 +8349,9 @@ mod tests {
             command: Some("arbitrary scanner".to_owned()),
             parent_artifacts: Vec::new(),
             external_reports: vec!["source-manifest.json".into()],
+            debug_companion: None,
+            function_address_artifact: None,
+            requirement_refs: None,
             output_format: OutputFormat::Human,
             locked: true,
             update_advisory_database: false,
@@ -8162,6 +8397,9 @@ mod tests {
             command: None,
             parent_artifacts: Vec::new(),
             external_reports: vec!["source-manifest.json".into()],
+            debug_companion: None,
+            function_address_artifact: None,
+            requirement_refs: None,
             output_format: OutputFormat::Human,
             locked: true,
             update_advisory_database: false,
@@ -8649,6 +8887,9 @@ mod tests {
             command: Some("cargo test".to_owned()),
             parent_artifacts: Vec::new(),
             external_reports: Vec::new(),
+            debug_companion: None,
+            function_address_artifact: None,
+            requirement_refs: None,
             output_format: OutputFormat::Human,
             locked: false,
             update_advisory_database: false,
@@ -8679,6 +8920,9 @@ mod tests {
             command: None,
             parent_artifacts: Vec::new(),
             external_reports: Vec::new(),
+            debug_companion: None,
+            function_address_artifact: None,
+            requirement_refs: None,
             output_format: OutputFormat::Human,
             locked: false,
             update_advisory_database: false,
@@ -8713,6 +8957,9 @@ mod tests {
             command: None,
             parent_artifacts: Vec::new(),
             external_reports: Vec::new(),
+            debug_companion: None,
+            function_address_artifact: None,
+            requirement_refs: None,
             output_format: OutputFormat::Human,
             locked: false,
             update_advisory_database: false,
@@ -8748,6 +8995,9 @@ mod tests {
             command: None,
             parent_artifacts: Vec::new(),
             external_reports: Vec::new(),
+            debug_companion: None,
+            function_address_artifact: None,
+            requirement_refs: None,
             output_format: OutputFormat::Human,
             locked: false,
             update_advisory_database: false,

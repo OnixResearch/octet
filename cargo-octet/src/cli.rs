@@ -104,6 +104,9 @@ pub struct EvidenceRailArgs {
     pub artifact_dir: PathBuf,
     pub workspace_root: Option<PathBuf>,
     pub config: Option<PathBuf>,
+    pub debug_companion: Option<PathBuf>,
+    pub function_address_artifact: Option<PathBuf>,
+    pub requirement_refs: Option<PathBuf>,
     pub baseline: Option<PathBuf>,
     pub profile: Option<String>,
     pub command: Option<String>,
@@ -521,7 +524,7 @@ The codebase subcommands build a deterministic, content-addressed review index o
 
 const EVIDENCE_RAIL_HELP: &str = "cargo octet evidence collect
 
-Options: --rail dependency-audit|clippy-co-reporting|ast-grep|wasm-artifact|charon-semantic|dependency-trust|api-stability|dynamic-evidence|sarif-import|release-supply-chain|mutation-testing|coverage-baseline|kani-model-check|hegel-property|z4-solver|verifier-fixture, --input PATH or --run, --artifact-dir PATH, --workspace-root PATH, --config PATH, --baseline PATH, --profile NAME, --command COMMAND, --parent-artifact PATH, --external-report PATH, --locked, --update-advisory-database, --output-format human|json.
+Options: --rail dependency-audit|clippy-co-reporting|ast-grep|wasm-artifact|charon-semantic|dependency-trust|api-stability|dynamic-evidence|sarif-import|release-supply-chain|mutation-testing|coverage-baseline|kani-model-check|hegel-property|z4-solver|verifier-fixture|binary-debug-map, --input PATH or --run, --artifact-dir PATH, --workspace-root PATH, --config PATH, --baseline PATH, --profile NAME, --command COMMAND, --debug-companion PATH, --function-address-artifact PATH, --requirement-refs PATH, --parent-artifact PATH, --external-report PATH, --locked, --update-advisory-database, --output-format human|json.
 
 Collects optional non-starter evidence from external tools or saved tool output into a Rust-owned evidence-rail receipt, summary, and provenance bundle. Clippy run mode selects the shipped checked restriction catalog with `--profile production-safety|canonical-determinism|shell-boundary-inventory`; `--config PATH` may supply another checked catalog. It constructs fixed workspace/all-target argv and rejects arbitrary command authority; the blanket `clippy::restriction` group is unsupported. The ast-grep run mode requires a checked generated profile and rejects arbitrary command authority. The wasm-artifact rail requires exact `--input` bytes plus `--config` and `--profile`, never executes the artifact, and embeds JSON/SARIF findings in a self-verifiable exact-byte bundle. SpaceWasm profiles may link identity-verified Mantle, ChaosControl, or Molten observations with repeated `--external-report`; linked observations remain recorded-only and cannot change static conformance. The charon-semantic rail requires the shipped profile, reuses the pinned network-denied Charon stage, rejects arbitrary command authority, and records optional source/token comparisons without merging authority. The `cargo-fuzz-libfuzzer` dynamic profile binds the generated Nickel registry, fixed argv, bounded corpus identities, crash roles, replay argv, and transcript-only non-claims; it rejects arbitrary `--command` input. The `sarif-import` rail accepts only checked local producer profiles and preserves raw and normalized identities without running a scanner. Hegel run mode requires the checked `octet-pure-core-laws-v1` producer profile, uses a fixed command and dedicated bounded summary, and rejects `--command`. Legacy Hegel v1 import remains available. Z4 and verifier-fixture run modes require explicit commands and never bootstrap their tools automatically. These rails are complementary to cargo octet check; they do not upgrade validation evidence into formal proof.
 ";
@@ -1195,6 +1198,9 @@ fn parse_evidence_collect(args: &[String], command_line: String) -> Result<Evide
     let mut artifact_dir = None;
     let mut workspace_root = None;
     let mut config = None;
+    let mut debug_companion = None;
+    let mut function_address_artifact = None;
+    let mut requirement_refs = None;
     let mut baseline = None;
     let mut profile = None;
     let mut command = None;
@@ -1228,6 +1234,18 @@ fn parse_evidence_collect(args: &[String], command_line: String) -> Result<Evide
             }
             "--config" => {
                 config = Some(PathBuf::from(required_arg_at(args, index, arg)?));
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            "--debug-companion" => {
+                debug_companion = Some(PathBuf::from(required_arg_at(args, index, arg)?));
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            "--function-address-artifact" => {
+                function_address_artifact = Some(PathBuf::from(required_arg_at(args, index, arg)?));
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            "--requirement-refs" => {
+                requirement_refs = Some(PathBuf::from(required_arg_at(args, index, arg)?));
                 index += FLAG_AND_VALUE_ARGS;
             }
             "--baseline" => {
@@ -1286,6 +1304,18 @@ fn parse_evidence_collect(args: &[String], command_line: String) -> Result<Evide
                 config = Some(PathBuf::from(arg.trim_start_matches("--config=")));
                 index += 1;
             }
+            _ if arg.starts_with("--debug-companion=") => {
+                debug_companion = Some(PathBuf::from(arg.trim_start_matches("--debug-companion=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--function-address-artifact=") => {
+                function_address_artifact = Some(PathBuf::from(arg.trim_start_matches("--function-address-artifact=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--requirement-refs=") => {
+                requirement_refs = Some(PathBuf::from(arg.trim_start_matches("--requirement-refs=")));
+                index += 1;
+            }
             _ if arg.starts_with("--baseline=") => {
                 baseline = Some(PathBuf::from(arg.trim_start_matches("--baseline=")));
                 index += 1;
@@ -1328,6 +1358,9 @@ fn parse_evidence_collect(args: &[String], command_line: String) -> Result<Evide
         artifact_dir: artifact_dir.unwrap_or_else(|| PathBuf::from("artifacts/octet-evidence")),
         workspace_root,
         config,
+        debug_companion,
+        function_address_artifact,
+        requirement_refs,
         baseline,
         profile,
         command,
@@ -3277,6 +3310,54 @@ mod tests {
         )
         .expect_err("missing external report path fails");
         assert!(missing.contains("missing value after `--external-report`"));
+    }
+
+    #[test]
+    fn binary_debug_map_collect_parse_binds_explicit_companion_and_linkage_inputs() {
+        let parsed = parse(
+            [
+                "cargo",
+                "octet",
+                "evidence",
+                "collect",
+                "--rail=binary-debug-map",
+                "--input=target/release/example",
+                "--debug-companion=target/release/example.debug",
+                "--config=standards/binary-debug-map/profiles.json",
+                "--profile=elf-dwarf-v1",
+                "--function-address-artifact=artifacts/function-addresses.json",
+                "--requirement-refs=artifacts/requirement-refs.json",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse binary debug-map evidence collect args");
+
+        match parsed {
+            CommandArgs::EvidenceRail(args) => {
+                assert_eq!(args.rail, crate::evidence_rails::EvidenceRailKind::BinaryDebugMap);
+                assert_eq!(args.debug_companion, Some(std::path::PathBuf::from("target/release/example.debug")));
+                assert_eq!(
+                    args.function_address_artifact,
+                    Some(std::path::PathBuf::from("artifacts/function-addresses.json"))
+                );
+                assert_eq!(args.requirement_refs, Some(std::path::PathBuf::from("artifacts/requirement-refs.json")));
+            }
+            other => panic!("expected evidence rail args, got {other:?}"),
+        }
+
+        let missing = parse(
+            [
+                "cargo",
+                "octet",
+                "evidence",
+                "collect",
+                "--rail=binary-debug-map",
+                "--debug-companion",
+            ]
+            .map(OsString::from),
+        )
+        .expect_err("missing companion path fails");
+        assert!(missing.contains("missing value after `--debug-companion`"));
     }
 
     #[test]

@@ -56,6 +56,19 @@ and anonymous access to exact dependency sources. Maintainers must also finish
 the final history/privacy and binary-closure reviews in the
 [release checklist](docs/release-candidate.md#open-source-publication-prerequisites).
 
+## 2026-11-09: Optional binary debug-map evidence rail
+
+`cargo octet evidence collect --rail binary-debug-map` derives bounded
+ELF/DWARF binary-to-source linkage from exact supplied bytes. The
+Nickel-authored `elf-dwarf-v1` profile binds admitted formats, explicit
+source-root mappings, and every resource limit; Rust-owned receipt DTOs generate
+the checked Nickel contract. Inline and split-debug companions are matched by
+build identity, and rows link to function-address artifacts only on exact path,
+source-name, and bounded-span agreement. Unmapped absolute paths, wrong
+companions, stale or ambiguous spans, malformed sections, and limit overflow fail
+closed without publishing a successful receipt. The rail is optional, stays out
+of starter `cargo octet check`, and preserves the recorded-only Valence role.
+
 ## Unreleased: artifact-dir safety, effect coverage, and lint precision
 
 Changes that can add findings, fail a build, or change identities:

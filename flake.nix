@@ -1887,6 +1887,40 @@
               touch "$out"
             '';
 
+        binaryDebugMapRailCheck =
+          pkgs.runCommand "octet-binary-debug-map-rail-check"
+            {
+              nativeBuildInputs = with pkgs; [
+                diffutils
+                jq
+                nickel
+              ];
+            }
+            ''
+              cd ${./.}
+              generated_profiles=$(mktemp)
+              nickel typecheck standards/binary-debug-map/profiles.ncl
+              nickel export --format json standards/binary-debug-map/profiles.ncl > "$generated_profiles"
+              diff -u standards/binary-debug-map/profiles.json "$generated_profiles"
+              jq --exit-status '
+                .schema_version == "octet-binary-debug-map-profiles/v1"
+                and (.profiles | length) == 1
+                and .profiles[0].profile_id == "elf-dwarf-v1"
+                and .profiles[0].object_format == "elf"
+                and .profiles[0].debug_format == "dwarf"
+                and .profiles[0].verification_role == "recorded_only"
+                and (.profiles[0].source_roots | length) > 0
+                and (.profiles[0].resource_limits | keys | length) == 10
+                and (.profiles[0].non_claims | length) > 0
+              ' "$generated_profiles" >/dev/null
+              nickel export --format json standards/evidence/fixtures/valid/binary_debug_map_details_v1.ncl >/dev/null
+              if nickel export --format json standards/evidence/fixtures/invalid/binary_debug_map_missing_non_claims.ncl >/dev/null 2>&1; then
+                echo "invalid binary debug-map evidence fixture passed" >&2
+                exit 1
+              fi
+              touch "$out"
+            '';
+
         wasmArtifactRailCheck =
           pkgs.runCommand "octet-wasm-artifact-rail-check"
             {
@@ -4776,6 +4810,7 @@
             cairn-cob-conflict-pilot = cairnCobConflictPilotCheck;
             ast-grep-structural-rail = astGrepStructuralRailCheck;
             wasm-artifact-rail = wasmArtifactRailCheck;
+            binary-debug-map-rail = binaryDebugMapRailCheck;
             dynamic-evidence-profiles = dynamicEvidenceProfilesCheck;
             sarif-profiles = sarifProfilesCheck;
             coverage-profiles = coverageProfilesCheck;
@@ -4851,6 +4886,7 @@
                   "project-architecture-policy"
                   "compiler-architecture-targets"
                   "wasm-artifact-rail"
+                  "binary-debug-map-rail"
                   "ast-grep-structural-rail"
                   "dynamic-evidence-profiles"
                   "sarif-profiles"
