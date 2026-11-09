@@ -387,3 +387,43 @@ store, or downstream integrations do after Octet writes local files.
 | scope-boundary | [What Octet does not claim](#what-octet-does-not-claim) and [safety-critical guide](safety-critical.md) | unsupported claims paired with supported capabilities |
 | proof-to-implementation gap | [Proof-to-implementation gap](proof-implementation-gap.md) | named specification-assumption failure class with the interleaving, fault-handling, and unverified-extension layers, and the system-level testing that closes each layer |
 | controlled-deployment | [Controlled deployment posture](#controlled-deployment-posture) and [downstream rollout kit](downstream-rollout.md) | local/CI execution, pinned runner, source-visible toolchain, local artifacts |
+
+## Binary debug-map evidence references
+
+r[impl octet.evidence_provenance.binary_debug_map_profile]
+r[impl octet.evidence_provenance.binary_debug_map_linkage]
+r[impl octet.evidence_provenance.binary_debug_map_failure_boundary]
+r[impl octet.evidence_provenance.binary_debug_map_handoff]
+
+## Artifact bundle and architecture gate traceability
+
+This maintained index links the accepted artifact-bundle-verification and project-architecture-gate requirements to their selected implementation and test roots. It is a linkage index, not additional behavioral evidence.
+
+r[impl octet.artifact_bundle_verification.command]
+r[impl octet.artifact_bundle_verification.command.local]
+r[impl octet.artifact_bundle_verification.command.deterministic_output]
+r[impl octet.artifact_bundle_verification.complete_bundle]
+r[impl octet.artifact_bundle_verification.complete_bundle.passes]
+r[impl octet.artifact_bundle_verification.complete_bundle.exact]
+r[impl octet.artifact_bundle_verification.fail_closed]
+r[impl octet.artifact_bundle_verification.fail_closed.file_set]
+r[impl octet.artifact_bundle_verification.fail_closed.provenance]
+r[impl octet.artifact_bundle_verification.cap_std_boundary.root_wrappers]
+r[impl octet.artifact_bundle_verification.cap_std_boundary.tests.positive]
+r[impl octet.artifact_bundle_verification.cap_std_boundary.tests.negative]
+r[impl octet.artifact_bundle_verification.cap_std_boundary.dependency]
+r[impl octet.artifact_bundle_verification.cap_std_boundary.conversion]
+r[impl octet.artifact_bundle_verification.cap_std_boundary.docs]
+r[impl octet.artifact_bundle_verification.cap_std_boundary.validation]
+r[impl octet.project_architecture_gate.orchestration]
+r[impl octet.project_architecture_gate.input_integrity]
+r[impl octet.project_architecture_gate.role_graph]
+r[impl octet.project_architecture_gate.fcis]
+r[impl octet.project_architecture_gate.modes]
+r[impl octet.project_architecture_gate.admission]
+r[impl octet.project_architecture_gate.waivers]
+r[impl octet.project_architecture_gate.evidence]
+r[impl octet.project_architecture_gate.compatibility]
+r[impl octet.project_architecture_gate.verification]
+r[impl octet.project_architecture_gate.authority_scoped_receipt_ids]
+r[impl octet.project_architecture_gate.test_ownership]
