@@ -216,7 +216,7 @@ pub(crate) fn prepare_collector(
             let mut crate_types = if test_configuration {
                 vec!["bin".to_owned()]
             } else {
-                canonical_rustc_crate_types(&cargo_target.kind, cargo_target.crate_types.clone())
+                canonical_rustc_crate_types(cargo_target.crate_types.clone())
             };
             crate_types.sort();
             crate_types.dedup();
@@ -423,11 +423,13 @@ pub(crate) fn normalize_collected_shards(prepared: &PreparedCollector) -> Result
     })
 }
 
-fn canonical_rustc_crate_types(target_kinds: &[String], crate_types: Vec<String>) -> Vec<String> {
+// Cargo's `lib` crate type is rustc's default library type, `rlib`, for every
+// target kind, including an example declared with `crate-type = ["lib"]`.
+fn canonical_rustc_crate_types(crate_types: Vec<String>) -> Vec<String> {
     crate_types
         .into_iter()
         .map(|crate_type| {
-            if crate_type == "lib" && target_kinds.iter().any(|kind| kind == "lib") {
+            if crate_type == "lib" {
                 "rlib".to_owned()
             } else {
                 crate_type
@@ -1306,8 +1308,11 @@ mod tests {
 
     #[test]
     fn implicit_cargo_library_kind_matches_rustc_rlib() {
-        assert_eq!(canonical_rustc_crate_types(&["lib".to_owned()], vec!["lib".to_owned()]), vec!["rlib".to_owned()]);
-        assert_eq!(canonical_rustc_crate_types(&["cdylib".to_owned()], vec!["cdylib".to_owned()]), vec![
+        assert_eq!(canonical_rustc_crate_types(vec!["lib".to_owned()]), vec!["rlib".to_owned()]);
+        assert_eq!(canonical_rustc_crate_types(vec!["cdylib".to_owned()]), vec!["cdylib".to_owned()]);
+        // Target kind plays no part: an `[[example]]` with `crate-type = ["lib"]` is an rlib too.
+        assert_eq!(canonical_rustc_crate_types(vec!["lib".to_owned(), "cdylib".to_owned()]), vec![
+            "rlib".to_owned(),
             "cdylib".to_owned()
         ]);
     }
