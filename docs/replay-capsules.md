@@ -23,11 +23,14 @@ The input manifest records `command_argv`, `run_kind`, `octet_binary_identity`,
 `config_hash`, `input_hashes`, `output_hashes`, and an integer
 `expected_exit_code`; capture rejects a missing field or a non-integer
 `expected_exit_code`. Before hashing, capture drops local-only and secret-like
-fields. Field names are split into lowercase words at punctuation and `camelCase`
-boundaries; a field is dropped when its words are `absolute path`, `timestamp`,
-`username`, or `env dump`, when any word is `secret(s)`, `password(s)`,
-`passwd`, `credential(s)`, `apikey`, or `privatekey`, when two consecutive words
-are `api key` or `private key`, or when the last word is `token`. Any whole
+fields. Field names are split into lowercase words at punctuation, at `camelCase`
+boundaries, and before the last capital of an acronym run that starts a
+capitalized word (`AWSSecretAccessKey` is `aws secret access key`,
+`OpenAIAPIKey` is `open aiapi key`); a field is dropped when its words are
+`absolute path`, `timestamp`, `username`, or `env dump`, when any word is
+`secret(s)`, `password(s)`, `passwd`, `credential(s)`, `apikey`, or
+`privatekey`, when a word that is `private` or ends in `api` is followed by
+`key`, or when the last word is `token`. Any whole
 string value that is an absolute path (Unix `/…` without whitespace, Windows
 `C:\…` or `C:/…`, or UNC `\\host\…`), such as a `--manifest-path` entry in
 `command_argv`, becomes `<absolute-path>`, so the same run on different

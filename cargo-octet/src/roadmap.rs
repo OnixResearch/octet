@@ -1082,28 +1082,36 @@ fn is_redacted_key(key: &str) -> bool {
             )
         })
         || words.last().is_some_and(|word| word == "token")
-        || words
-            .windows(2)
-            .any(|pair| matches!((pair[0].as_str(), pair[1].as_str()), ("api" | "private", "key")))
+        || words.windows(2).any(|pair| pair[1] == "key" && (pair[0] == "private" || pair[0].ends_with("api")))
 }
 
-/// Lowercase words of a field name, split at non-alphanumeric characters and `camelCase` humps.
+/// Lowercase words of a field name, split at non-alphanumeric characters, at `camelCase` humps,
+/// and before the last capital of an acronym run that starts a capitalized word
+/// (`AWSSecret` → `aws`, `secret`).
 fn key_words(key: &str) -> Vec<String> {
     let mut words = Vec::new();
     let mut current = String::new();
-    let mut after_lowercase_or_digit = false;
-    for character in key.chars() {
+    let mut previous: Option<char> = None;
+    let mut characters = key.chars().peekable();
+    while let Some(character) = characters.next() {
         if !character.is_alphanumeric() {
             if !current.is_empty() {
                 words.push(std::mem::take(&mut current));
             }
-            after_lowercase_or_digit = false;
+            previous = None;
             continue;
         }
-        if character.is_uppercase() && after_lowercase_or_digit {
+        let next = characters.peek().copied();
+        let starts_word = character.is_uppercase()
+            && previous.is_some_and(|previous| {
+                previous.is_lowercase()
+                    || previous.is_numeric()
+                    || (previous.is_uppercase() && next.is_some_and(char::is_lowercase))
+            });
+        if starts_word {
             words.push(std::mem::take(&mut current));
         }
-        after_lowercase_or_digit = character.is_lowercase() || character.is_numeric();
+        previous = Some(character);
         current.extend(character.to_lowercase());
     }
     if !current.is_empty() {
@@ -1229,6 +1237,36 @@ mod tests {
             "file",
             "name",
         ] {
+            assert!(!is_redacted_key(key), "{key} must stay in the identity");
+        }
+    }
+
+    #[test]
+    fn key_words_split_acronym_runs_before_a_capitalized_word() {
+        for (key, words) in [
+            ("AWSSecretAccessKey", &["aws", "secret", "access", "key"][..]),
+            ("DBPassword", &["db", "password"]),
+            ("GITHUBToken", &["github", "token"]),
+            ("OpenAIAPIKey", &["open", "aiapi", "key"]),
+            ("HTTPServer", &["http", "server"]),
+            ("accessToken", &["access", "token"]),
+            ("API_KEY", &["api", "key"]),
+            ("sha256Digest", &["sha256", "digest"]),
+        ] {
+            assert_eq!(key_words(key), words, "{key}");
+        }
+        for key in [
+            "AWSSecretAccessKey",
+            "DBPassword",
+            "GITHUBToken",
+            "JWTSecret",
+            "SSHPrivateKey",
+            "XApiKey",
+            "OpenAIAPIKey",
+        ] {
+            assert!(is_redacted_key(key), "{key} must be redacted");
+        }
+        for key in ["HTTPServer", "URLPath", "IOError", "JSONSchema"] {
             assert!(!is_redacted_key(key), "{key} must stay in the identity");
         }
     }
