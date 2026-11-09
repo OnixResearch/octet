@@ -23,6 +23,12 @@ fn signed_max_then_min(x: i64) -> i32 {
     x.max(i32::MIN as i64).min(i32::MAX as i64) as i32
 }
 
+#[allow(platform_dependent_cast)]
+fn usize_min_bounded(x: usize) -> u16 {
+    // Should NOT warn: bounded by target max before cast
+    x.min(u16::MAX as usize) as u16
+}
+
 fn main() {
     min_bounded(100);
     bare_narrow(100);

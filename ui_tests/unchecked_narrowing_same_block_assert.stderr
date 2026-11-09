@@ -74,5 +74,20 @@ LL -     x as u32
 LL +     u32::try_from(x)?
    |
 
-warning: 5 warnings emitted
+warning: narrowing cast from `usize` to `u32` without bounds check
+  --> $DIR/unchecked_narrowing_same_block_assert.rs:56:5
+   |
+LL |     x as u32
+   |     ^^^^^^^^
+   |
+   = help: Tiger Style (Safe Narrowing): narrow integers with checked conversions instead of `as` Example: let small = u32::try_from(value)?;
+   = note: structured suggestion applicability: MaybeIncorrect
+   = note: see Tiger Style guide: Safe Narrowing / Conversions
+help: replace with `u32::try_from(...)`
+   |
+LL -     x as u32
+LL +     u32::try_from(x)?
+   |
+
+warning: 6 warnings emitted
 

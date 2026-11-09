@@ -119,5 +119,35 @@ LL -     x as u32
 LL +     u32::try_from(x)?
    |
 
-warning: 8 warnings emitted
+warning: narrowing cast from `usize` to `u32` without bounds check
+  --> $DIR/unchecked_narrowing.rs:141:5
+   |
+LL |     values.len() as u32
+   |     ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Safe Narrowing): narrow integers with checked conversions instead of `as` Example: let small = u32::try_from(value)?;
+   = note: structured suggestion applicability: MaybeIncorrect
+   = note: see Tiger Style guide: Safe Narrowing / Conversions
+help: replace with `u32::try_from(...)`
+   |
+LL -     values.len() as u32
+LL +     u32::try_from(values.len())?
+   |
+
+warning: narrowing cast from `isize` to `i8` without bounds check
+  --> $DIR/unchecked_narrowing.rs:146:5
+   |
+LL |     x as i8
+   |     ^^^^^^^
+   |
+   = help: Tiger Style (Safe Narrowing): narrow integers with checked conversions instead of `as` Example: let small = u32::try_from(value)?;
+   = note: structured suggestion applicability: MaybeIncorrect
+   = note: see Tiger Style guide: Safe Narrowing / Conversions
+help: replace with `i8::try_from(...)`
+   |
+LL -     x as i8
+LL +     i8::try_from(x)?
+   |
+
+warning: 10 warnings emitted
 

@@ -44,6 +44,18 @@ fn signed_both_asserts(x: i64) -> u32 {
     x as u32
 }
 
+#[allow(platform_dependent_cast)]
+fn asserted_usize_narrow(x: usize) -> u32 {
+    // Should NOT warn: earlier same-block assert proves bound
+    assert!(x <= u32::MAX as usize);
+    x as u32
+}
+
+fn unasserted_usize_narrow(x: usize) -> u32 {
+    // Should warn: no bound on the `usize` source
+    x as u32
+}
+
 fn main() {
     asserted_narrow(100);
     unrelated_assert(100, 100);

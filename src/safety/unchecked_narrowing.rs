@@ -16,7 +16,8 @@ use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
 
 declare_tool_lint! {
     /// Detects `as u32`, `as u16`, `as u8`, `as i32`, `as i16`, `as i8`
-    /// casts from a wider integer type without a prior bounds check.
+    /// casts from a wider integer type, including `usize` and `isize`,
+    /// without a prior bounds check.
     /// Unchecked narrowing casts silently truncate — use `TryFrom` or
     /// a checked conversion function.
     pub tigerstyle::UNCHECKED_NARROWING,
@@ -26,11 +27,27 @@ declare_tool_lint! {
 
 declare_lint_pass!(UncheckedNarrowing => [UNCHECKED_NARROWING]);
 
+/// Width assumed for `usize`/`isize` sources. Findings must not depend on the
+/// compilation target, so pointer-sized sources use the widest pointer width
+/// Rust supports (64 bits): `len() as u32` truncates on 64-bit targets.
+const POINTER_SIZED_SOURCE_BITS: u64 = 64;
+
+/// Width of a fixed-width integer type; `None` for `usize`/`isize`, whose
+/// width depends on the target.
 fn int_width(ty: Ty<'_>) -> Option<u64> {
     match ty.kind() {
         ty::Int(int_ty) => int_ty.bit_width(),
         ty::Uint(uint_ty) => uint_ty.bit_width(),
         _ => None,
+    }
+}
+
+/// Width of a cast source: fixed-width integers use their own width, and
+/// `usize`/`isize` use [`POINTER_SIZED_SOURCE_BITS`].
+fn source_int_width(ty: Ty<'_>) -> Option<u64> {
+    match ty.kind() {
+        ty::Int(ty::IntTy::Isize) | ty::Uint(ty::UintTy::Usize) => Some(POINTER_SIZED_SOURCE_BITS),
+        _ => int_width(ty),
     }
 }
 
@@ -459,9 +476,10 @@ impl<'tcx> LateLintPass<'tcx> for UncheckedNarrowing {
         let source_ty = cx.typeck_results().expr_ty(inner);
         let target_ty = cx.typeck_results().expr_ty(expr);
 
-        let Some(source_width) = int_width(source_ty) else {
+        let Some(source_width) = source_int_width(source_ty) else {
             return;
         };
+        // Casts to `usize`/`isize` belong to `platform_dependent_cast`.
         let Some(target_width) = int_width(target_ty) else {
             return;
         };

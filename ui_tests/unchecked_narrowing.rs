@@ -136,6 +136,39 @@ fn deny_is_not_allow(x: u64) -> u32 {
     x as u32
 }
 
+fn usize_len_narrow(values: &[u8]) -> u32 {
+    // Should warn: `usize` is treated as 64 bits wide
+    values.len() as u32
+}
+
+fn isize_narrow(x: isize) -> i8 {
+    // Should warn: `isize` is treated as 64 bits wide
+    x as i8
+}
+
+#[allow(platform_dependent_cast)]
+fn usize_guarded_narrow(x: usize) -> u32 {
+    // Should NOT warn: bounded by if guard with MAX
+    if x <= u32::MAX as usize { x as u32 } else { u32::MAX }
+}
+
+#[allow(platform_dependent_cast)]
+fn isize_both_bounds_allowed(x: isize) -> i8 {
+    // Should NOT warn: lower and upper bounds are both proven
+    if x >= i8::MIN as isize && x <= i8::MAX as isize { x as i8 } else { i8::MIN }
+}
+
+fn usize_to_u64_is_not_narrowing(x: usize) -> u64 {
+    // Should NOT warn: no supported target is wider than 64 bits
+    x as u64
+}
+
+#[allow(platform_dependent_cast)]
+fn u64_to_usize_is_left_to_platform_dependent_cast(x: u64) -> usize {
+    // Should NOT warn: casts to `usize`/`isize` belong to `platform_dependent_cast`
+    x as usize
+}
+
 fn main() {
     bare_narrow(SAMPLE_U64);
     guarded_narrow(SAMPLE_U64);
