@@ -49,7 +49,7 @@ Octet independently measures the bytes and records the handoff. It does not impo
 
 ## Optional runtime observations
 
-Identity-verified Mantle, ChaosControl, or Molten observations can be linked with repeated `--external-report PATH`. Reports must bind the exact artifact, selected profile, reviewed SpaceWasm cohort, canonical report identity, recorded-only role, result, and no-claim-transfer boundary. Runtime success never changes a static denial.
+Identity-verified Mantle, ChaosControl, or Molten observations can be linked with repeated `--external-report PATH`. Reports must bind the exact artifact, selected profile, reviewed SpaceWasm cohort, canonical report identity, recorded-only role, result, and no-claim-transfer boundary. Only a report that passes every check is recorded in `wasm_artifact.external_evidence`. A report that fails any check is not recorded; each failed check becomes an `external-evidence-mismatch` finding at the profile's declared `external_evidence` severity, so an `advisory` or `warning` severity leaves the receipt reviewable instead of failed. Runtime success never changes a static denial.
 
 ## Corpora
 

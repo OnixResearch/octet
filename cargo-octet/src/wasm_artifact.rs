@@ -623,10 +623,15 @@ fn evaluate_external_reports(
         };
         let diagnostics =
             external_report_diagnostics(&report, exact_artifact_identity, profile_identity, target_runtime);
+        // Only verified reports are recorded evidence. A rejected report stays a
+        // finding at the declared severity; recording it would make receipt
+        // validation re-reject it and fail the receipt regardless of severity.
+        if diagnostics.is_empty() {
+            reports.push(report);
+        }
         for diagnostic in diagnostics {
             findings.push(finding(EXTERNAL_EVIDENCE_ISSUE, severity, diagnostic));
         }
-        reports.push(report);
     }
     reports.sort_by(|left, right| left.report_identity.cmp(&right.report_identity));
     (reports, findings)
@@ -2822,6 +2827,48 @@ mod tests {
         let rejected =
             analyze_profile_with_external(&denied_bytes, &registry, SPACEWASM_PROFILE_ID, &[], &[promoted_text]);
         assert!(rejected.details.findings.iter().any(|finding| finding.issue_code == EXTERNAL_EVIDENCE_ISSUE));
+    }
+
+    #[test]
+    fn rejected_external_reports_take_the_declared_external_evidence_severity() {
+        let bytes =
+            wat::parse_str(include_str!("../../standards/wasm-artifact/spacewasm/fixtures/positive/mvp-module.wat"))
+                .expect("SpaceWasm fixture");
+        for (severity, expected_status) in [
+            ("advisory", WasmEvaluationStatus::ManualReview),
+            ("warning", WasmEvaluationStatus::ManualReview),
+            (ERROR_SEVERITY, WasmEvaluationStatus::Failed),
+        ] {
+            let mut registry = valid_registry();
+            let profile = registry
+                .profiles
+                .iter_mut()
+                .find(|profile| profile.profile_id == SPACEWASM_PROFILE_ID)
+                .expect("SpaceWasm profile");
+            severity.clone_into(&mut profile.severity.external_evidence);
+            let static_report = analyze_profile(&bytes, &registry, SPACEWASM_PROFILE_ID, &[]);
+            assert!(static_report.details.findings.is_empty(), "{:?}", static_report.details.findings);
+            let mut mismatched = external_report_for(&static_report.details, "chaoscontrol", "executed-successfully");
+            mismatched.artifact_identity = format!("{BLAKE3_PREFIX}{}", "0".repeat(BLAKE3_HEX_LENGTH));
+            mismatched.report_identity = external_report_identity(&mismatched).expect("mismatched identity");
+            let mismatched_text = serde_json::to_string(&mismatched).expect("serialize mismatched report");
+
+            let report =
+                analyze_profile_with_external(&bytes, &registry, SPACEWASM_PROFILE_ID, &[], &[mismatched_text]);
+
+            assert!(report.details.external_evidence.is_empty(), "{severity}: rejected report must not be recorded");
+            let findings = &report.details.findings;
+            assert!(!findings.is_empty());
+            assert!(
+                findings
+                    .iter()
+                    .all(|finding| finding.issue_code == EXTERNAL_EVIDENCE_ISSUE && finding.severity == severity),
+                "{findings:?}"
+            );
+            let evaluation = evaluate_envelope(&render_envelope(&report).expect("render envelope"));
+            assert!(evaluation.diagnostics.is_empty(), "{severity}: {:?}", evaluation.diagnostics);
+            assert_eq!(evaluation.status, expected_status, "{severity}");
+        }
     }
 
     #[test]
