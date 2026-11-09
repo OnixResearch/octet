@@ -134,7 +134,7 @@ The default artifact directory is `target/octet-admission`; `--artifact-dir` may
 - `command.txt` — normalized admission invocation;
 - `workspace-policy.json` — exact consumed policy bytes;
 - `dependency-graph.json` — canonical resolved providers, target/toolchain, and lock identity;
-- `effect-closure.json` — canonical nodes, calls, direct/closure effects, diagnostics, input identities, non-claims, and BLAKE3 receipt identity;
+- `effect-closure.json` — schema `octet-effect-closure-receipt/v2`: canonical nodes, calls (each with its resolution scope), direct/closure effects, diagnostics, input identities, non-claims, and BLAKE3 receipt identity;
 - `status.json` — admitted/denied phase status;
 - `summary.txt` — deterministic operator summary;
 - `provenance.jsonl` — artifact hashes and parent links.
@@ -146,6 +146,8 @@ cargo octet admit verify --artifact-dir target/octet-admission --output-format j
 ```
 
 Verification reruns the ordinary artifact verifier over the complete strict-profile parent, recomputes closure receipt and artifact identities, validates parent profile/config/function-address/source/policy/dependency linkage, regenerates status/summary/provenance expectations, and rejects tampering. For an `admitted` receipt it also requires the node set to equal the records in `check/function-addresses.json`, each reviewed-summary edge to equal its `workspace-policy.json` call summary, and every policy call summary to be used. It also requires each selected source to have exactly one `core` role in `workspace-policy.json`, every node to have role `core`, and every local edge to follow the catalog's role-edge matrix. Each reviewed summary's evidence must still match the receipt's recorded Cargo.lock identity (Cargo and workspace providers) or its provider identity (toolchain providers), as admission requires. A denied receipt therefore cannot be relabelled admitted. `cargo octet artifact verify` applies the same checks to the closure artifacts of an architecture admission run. This proves stored identity/linkage consistency only; unkeyed BLAKE3 receipts provide no signer authenticity, authorization, or defense against an actor who can coherently replace every artifact and trust root.
+
+Both verifiers read the receipt's `schema_version` before decoding anything else. A receipt under any other schema, including `octet-effect-closure-receipt/v1` from before call edges carried their resolution scope, is reported as an unsupported effect-closure receipt schema; rerun admission to produce a v2 receipt.
 
 ## Valence dogfood
 

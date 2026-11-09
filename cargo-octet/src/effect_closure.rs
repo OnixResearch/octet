@@ -9,7 +9,7 @@ use syn::visit::Visit;
 
 pub const CATALOG_SCHEMA_VERSION: &str = "octet-effect-closure-catalog/v1";
 pub const WORKSPACE_POLICY_SCHEMA_VERSION: &str = "octet-effect-closure-workspace-policy/v1";
-pub const RECEIPT_SCHEMA_VERSION: &str = "octet-effect-closure-receipt/v1";
+pub const RECEIPT_SCHEMA_VERSION: &str = "octet-effect-closure-receipt/v2";
 pub const DETERMINISTIC_CORE_PROFILE: &str = "deterministic-core";
 pub const CLAIM_SCOPE: &str = "selected-source-token-effect-closure";
 pub const WORKSPACE_POLICY_FILE: &str = "octet-effect-closure.json";
@@ -17,7 +17,7 @@ pub const RECEIPT_FILE: &str = "effect-closure.json";
 
 const CATALOG_JSON: &str = include_str!("../../standards/effect-closure/generated/effect-closure-catalog.json");
 const CALL_SITE_DOMAIN: &str = "octet-effect-closure-call-site/v2";
-const RECEIPT_DOMAIN: &str = "octet-effect-closure-receipt/v1";
+const RECEIPT_DOMAIN: &str = "octet-effect-closure-receipt/v2";
 const MISSING_FUNCTION_ADDRESS: &str = "b3:missing-function-address";
 const DIAGNOSTIC_CATALOG: &str = "catalog_invalid";
 const DIAGNOSTIC_POLICY: &str = "workspace_policy_invalid";
@@ -1740,10 +1740,31 @@ pub fn compute_closure(input: ClosureInput) -> EffectClosureReceipt {
     })
 }
 
+/// Reads only the `schema_version` of stored receipt bytes and reports it when it is not
+/// [`RECEIPT_SCHEMA_VERSION`], so a receipt written under another schema (whose body this version
+/// cannot decode) is refused as unsupported rather than as a missing or unknown field. Bytes that
+/// are not a JSON object return `None` and are left to the full parse to report as malformed.
+pub fn unsupported_receipt_schema(bytes: &[u8]) -> Option<String> {
+    #[derive(Deserialize)]
+    struct SchemaVersion {
+        schema_version: Option<serde_json::Value>,
+    }
+    match serde_json::from_slice::<SchemaVersion>(bytes).ok()?.schema_version {
+        Some(serde_json::Value::String(version)) if version == RECEIPT_SCHEMA_VERSION => None,
+        Some(serde_json::Value::String(version)) => Some(unsupported_receipt_schema_diagnostic(&version)),
+        Some(other) => Some(unsupported_receipt_schema_diagnostic(&other.to_string())),
+        None => Some(unsupported_receipt_schema_diagnostic("<missing>")),
+    }
+}
+
+fn unsupported_receipt_schema_diagnostic(version: &str) -> String {
+    format!("unsupported effect-closure receipt schema `{version}`; expected `{RECEIPT_SCHEMA_VERSION}`")
+}
+
 pub fn verify_receipt_identity(receipt: &EffectClosureReceipt) -> Vec<String> {
     let mut diagnostics = Vec::new();
     if receipt.schema_version != RECEIPT_SCHEMA_VERSION {
-        diagnostics.push(format!("unsupported effect-closure receipt schema `{}`", receipt.schema_version));
+        diagnostics.push(unsupported_receipt_schema_diagnostic(&receipt.schema_version));
     }
     if receipt.claim_scope != CLAIM_SCOPE {
         diagnostics.push(format!("effect-closure claim_scope must be `{CLAIM_SCOPE}`"));
@@ -3867,5 +3888,32 @@ unsafe fn risky(values: &[u8]) -> u8 {
         assert_eq!(other.calls[0].resolution, CallResolution::Unknown);
         let reviewed_node = receipt.nodes.iter().find(|node| node.path == TEST_PATH).expect("reviewed node");
         assert_eq!(reviewed_node.calls[0].resolution, CallResolution::ReviewedSummary);
+    }
+
+    // r[verify octet.effect_closure.evidence.tamper]
+    #[test]
+    fn stored_receipt_schema_is_checked_before_decoding() {
+        let receipt =
+            compute_closure(input("fn root() { mystery(); }\n", vec![address("root", '1')], policy(Vec::new())));
+        let current = serde_json::to_vec(&receipt).expect("receipt JSON");
+        assert_eq!(unsupported_receipt_schema(&current), None);
+        assert!(serde_json::from_slice::<EffectClosureReceipt>(&current).is_ok());
+
+        for stored in [
+            r#"{"schema_version":"octet-effect-closure-receipt/v1","nodes":[{"calls":[{"shape":"call:x"}]}]}"#,
+            r#"{"schema_version":2}"#,
+            r#"{"status":"admitted"}"#,
+        ] {
+            let diagnostic = unsupported_receipt_schema(stored.as_bytes());
+            assert!(
+                diagnostic
+                    .as_deref()
+                    .is_some_and(|message| message.contains("unsupported effect-closure receipt schema")),
+                "{stored}: {diagnostic:?}"
+            );
+        }
+        // Bytes that are not a JSON object are left to the full parse to report as malformed.
+        assert_eq!(unsupported_receipt_schema(b"not json"), None);
+        assert_eq!(unsupported_receipt_schema(b"[]"), None);
     }
 }

@@ -986,7 +986,16 @@ fn verify_bundle_inner(
             Err(error) => diagnostics.push(error),
         }
     }
-    let receipt = parse_required::<EffectClosureReceipt>(&files, effect_closure::RECEIPT_FILE, &mut diagnostics);
+    let unsupported_schema = files
+        .get(effect_closure::RECEIPT_FILE)
+        .and_then(|bytes| effect_closure::unsupported_receipt_schema(bytes));
+    let receipt = match unsupported_schema {
+        Some(diagnostic) => {
+            diagnostics.push(diagnostic);
+            None
+        }
+        None => parse_required::<EffectClosureReceipt>(&files, effect_closure::RECEIPT_FILE, &mut diagnostics),
+    };
     let status = parse_required::<AdmissionStatusArtifact>(&files, STATUS_FILE, &mut diagnostics);
     let policy = parse_required::<WorkspacePolicy>(&files, WORKSPACE_POLICY_ARTIFACT, &mut diagnostics);
     let graph = parse_required::<DependencyGraphArtifact>(&files, DEPENDENCY_GRAPH_ARTIFACT, &mut diagnostics);
@@ -1466,6 +1475,49 @@ mod tests {
             },
         };
         (summary, provider)
+    }
+
+    /// Rewrites the stored receipt the way the previous schema wrote it: schema label `v1` and
+    /// call edges without the `scope` field that schema v2 requires.
+    fn downgrade_receipt_to_v1(receipt: &EffectClosureReceipt) -> Vec<u8> {
+        let mut value = serde_json::to_value(receipt).expect("receipt JSON");
+        value["schema_version"] = serde_json::Value::from("octet-effect-closure-receipt/v1");
+        for node in value["nodes"].as_array_mut().expect("receipt nodes") {
+            for call in node["calls"].as_array_mut().expect("node calls") {
+                call.as_object_mut().expect("call object").remove("scope");
+            }
+        }
+        serde_json::to_vec_pretty(&value).expect("v1 receipt JSON")
+    }
+
+    // r[verify octet.effect_closure.evidence.tamper]
+    #[test]
+    fn previous_receipt_schema_is_reported_unsupported() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let fixture = bundle_fixture("fn root() { mystery(); }\n", &[("root", 'a')], Vec::new(), Vec::new());
+        let receipt = effect_closure::compute_closure(fixture.input.clone());
+        assert!(!receipt.nodes[0].calls.is_empty());
+        write_bundle(temp.path(), &fixture, &receipt);
+        fs::write(temp.path().join(effect_closure::RECEIPT_FILE), downgrade_receipt_to_v1(&receipt))
+            .expect("write v1 receipt");
+
+        let report = verify_bundle_inner(temp.path(), false).expect("verification report");
+
+        assert_eq!(report.status, STATUS_INVALID);
+        assert!(
+            report
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("unsupported effect-closure receipt schema")
+                    && diagnostic.contains("octet-effect-closure-receipt/v1")),
+            "{:?}",
+            report.diagnostics
+        );
+        assert!(
+            !report.diagnostics.iter().any(|diagnostic| diagnostic.contains("malformed")),
+            "{:?}",
+            report.diagnostics
+        );
     }
 
     // r[verify octet.effect_closure.evidence.visible]

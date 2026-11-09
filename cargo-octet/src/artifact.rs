@@ -1223,6 +1223,22 @@ fn validate_project_architecture_status(
     }
 }
 
+/// Parses the integrated closure receipt, refusing a receipt under another schema before its body
+/// is decoded so it reports an unsupported schema rather than a field error.
+fn parse_effect_closure_receipt(
+    file_map: &BTreeMap<String, Vec<u8>>,
+    diagnostics: &mut Vec<String>,
+) -> Option<crate::effect_closure::EffectClosureReceipt> {
+    let unsupported_schema = file_map
+        .get(EFFECT_CLOSURE_RECEIPT_ARTIFACT_NAME)
+        .and_then(|bytes| crate::effect_closure::unsupported_receipt_schema(bytes));
+    if let Some(diagnostic) = unsupported_schema {
+        diagnostics.push(diagnostic);
+        return None;
+    }
+    parse_project_architecture_artifact(file_map, EFFECT_CLOSURE_RECEIPT_ARTIFACT_NAME, diagnostics)
+}
+
 fn validate_integrated_effect_closure_bundle(file_map: &BTreeMap<String, Vec<u8>>, diagnostics: &mut Vec<String>) {
     let present = EFFECT_CLOSURE_ARTIFACT_NAMES.iter().filter(|name| file_map.contains_key(**name)).count();
     if present == 0 {
@@ -1232,11 +1248,7 @@ fn validate_integrated_effect_closure_bundle(file_map: &BTreeMap<String, Vec<u8>
         diagnostics.push("integrated effect-closure artifact set is incomplete".to_owned());
         return;
     }
-    let receipt = parse_project_architecture_artifact::<crate::effect_closure::EffectClosureReceipt>(
-        file_map,
-        EFFECT_CLOSURE_RECEIPT_ARTIFACT_NAME,
-        diagnostics,
-    );
+    let receipt = parse_effect_closure_receipt(file_map, diagnostics);
     let policy = parse_project_architecture_artifact::<crate::effect_closure::WorkspacePolicy>(
         file_map,
         EFFECT_CLOSURE_POLICY_ARTIFACT_NAME,

@@ -135,8 +135,18 @@ fn closure_fixture(source: &str, role: ModuleRole, call_summaries: Vec<CallSumma
 
 /// Stores `receipt` the way the runner writes an integrated admission: the closure receipt, the
 /// architecture receipt's closure link, `status.json`, and provenance all agree with it.
-fn integrated_bundle(mut files: BTreeMap<String, Vec<u8>>, receipt: &EffectClosureReceipt) -> ArtifactBundleInput {
-    insert_json(&mut files, EFFECT_CLOSURE_RECEIPT_ARTIFACT_NAME, receipt);
+fn integrated_bundle(files: BTreeMap<String, Vec<u8>>, receipt: &EffectClosureReceipt) -> ArtifactBundleInput {
+    integrated_bundle_storing(files, receipt, &serde_json::to_value(receipt).expect("receipt JSON"))
+}
+
+/// Like [`integrated_bundle`], but stores `stored` as the closure receipt artifact while linking
+/// the architecture receipt and status to `receipt`.
+fn integrated_bundle_storing(
+    mut files: BTreeMap<String, Vec<u8>>,
+    receipt: &EffectClosureReceipt,
+    stored: &serde_json::Value,
+) -> ArtifactBundleInput {
+    insert_json(&mut files, EFFECT_CLOSURE_RECEIPT_ARTIFACT_NAME, stored);
     let mut parent: gate::ProjectArchitectureReceipt =
         serde_json::from_slice(&files[PROJECT_ARCHITECTURE_RECEIPT_ARTIFACT_NAME]).expect("architecture receipt");
     parent.effect_closure = Some(gate::EffectClosureParent {
@@ -234,5 +244,36 @@ fn integrated_admitted_closure_must_match_function_address_root_and_envelopes() 
                 serde_json::json!(crate::determinism::full_hash("fn root() { std::fs::remove_dir_all(\"/\"); }\n"));
         }),
         "receipt sources do not match function-address source envelopes",
+    );
+}
+
+// r[verify octet.effect_closure.evidence.tamper]
+#[test]
+fn integrated_previous_receipt_schema_is_reported_unsupported() {
+    let fixture = closure_fixture(ALLOCATING_SOURCE, ModuleRole::Core, vec![toolchain_summary("call:Vec::new")]);
+    let receipt = closure::compute_closure(fixture.input.clone());
+    assert!(!receipt.nodes[0].calls.is_empty());
+    // The previous schema labelled receipts `v1` and wrote call edges without `scope`.
+    let mut stored = serde_json::to_value(&receipt).expect("receipt JSON");
+    stored["schema_version"] = serde_json::json!("octet-effect-closure-receipt/v1");
+    for node in stored["nodes"].as_array_mut().expect("receipt nodes") {
+        for call in node["calls"].as_array_mut().expect("node calls") {
+            call.as_object_mut().expect("call object").remove("scope");
+        }
+    }
+
+    let report = verify_bundle(integrated_bundle_storing(fixture.files, &receipt, &stored));
+
+    assert_eq!(report.status, STATUS_INVALID);
+    let expected = "unsupported effect-closure receipt schema `octet-effect-closure-receipt/v1`";
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| diagnostic.contains(expected)),
+        "{:?}",
+        report.diagnostics
+    );
+    assert!(
+        !report.diagnostics.iter().any(|diagnostic| diagnostic.contains("malformed")),
+        "{:?}",
+        report.diagnostics
     );
 }
