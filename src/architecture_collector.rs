@@ -40,6 +40,8 @@ use rustc_lint::LintContext;
 use rustc_middle::mir;
 use rustc_middle::ty;
 use rustc_middle::ty::Ty;
+use rustc_middle::ty::adjustment::Adjust;
+use rustc_middle::ty::adjustment::DerefAdjustKind;
 use rustc_session::impl_lint_pass;
 use rustc_span::Span;
 use rustc_span::Spanned;
@@ -594,6 +596,40 @@ impl ArchitectureCollector {
         def_id: Option<DefId>,
         dispatch: DispatchKind,
     ) {
+        let const_evaluated = const_evaluated_call(cx, expr);
+        let (caller_item_id, span_id) = self.record_call(cx, expr, def_id, dispatch, const_evaluated, None);
+        self.collect_constructor(cx, expr, &caller_item_id, def_id, &span_id);
+    }
+
+    // An overloaded operator or deref calls a trait method. Its effect is named by
+    // the Self type of the implementation it resolves to, such as
+    // `std::sync::LazyLock::deref`, because the trait method names no effect.
+    fn collect_overloaded_call<'tcx>(
+        &mut self,
+        cx: &LateContext<'tcx>,
+        expr: &hir::Expr<'_>,
+        def_id: DefId,
+        args: ty::GenericArgsRef<'tcx>,
+    ) {
+        let dispatch = dispatch_kind(cx, def_id, Some(args));
+        let primitive_definition = overloaded_primitive_definition(cx, def_id, args);
+        let const_evaluated = const_evaluated_context(cx, expr.hir_id);
+        self.record_call(cx, expr, Some(def_id), dispatch, const_evaluated, primitive_definition.as_deref());
+    }
+
+    // Records the call, its effect, and its unknowns; returns the caller item and
+    // span identities. The effect is classified by `primitive_definition` when
+    // given, by the resolved definition otherwise, and never for a call evaluated
+    // at compile time.
+    fn record_call(
+        &mut self,
+        cx: &LateContext<'_>,
+        expr: &hir::Expr<'_>,
+        def_id: Option<DefId>,
+        dispatch: DispatchKind,
+        const_evaluated: bool,
+        primitive_definition: Option<&str>,
+    ) -> (String, String) {
         let caller_item_id = self.caller_item_id(cx, expr.hir_id);
         let span_id = self.collect_span(cx, expr.span);
         let resolved_definition = def_id.map(|current| qualified_definition(cx, current));
@@ -620,8 +656,8 @@ impl ArchitectureCollector {
         assign_fact_identity(&mut fact);
         self.push_fact(fact);
 
-        if !const_evaluated_call(cx, expr)
-            && let Some(definition) = resolved_definition.as_deref()
+        if !const_evaluated
+            && let Some(definition) = primitive_definition.or(resolved_definition.as_deref())
             && let Some(family) = def_id
                 .and_then(|current| resolved_randomness_family(cx, current))
                 .or_else(|| effect_family(definition))
@@ -656,10 +692,10 @@ impl ArchitectureCollector {
                 "dynamic dispatch target is not statically unique",
             );
         }
-        self.collect_constructor(cx, expr, &caller_item_id, def_id, &span_id);
         if expr.span.from_expansion() {
             self.collect_expansion(cx, expr.span, &span_id);
         }
+        (caller_item_id, span_id)
     }
 
     // Struct literals and unit constructors build values without a call expression.
@@ -1359,7 +1395,27 @@ impl<'tcx> LateLintPass<'tcx> for ArchitectureCollector {
                     self.collect_call(cx, expr, Some(def_id), dispatch);
                 }
             }
+            // Writeback keeps a method only for operators that are not built in.
+            hir::ExprKind::Binary(..)
+            | hir::ExprKind::AssignOp(..)
+            | hir::ExprKind::Unary(..)
+            | hir::ExprKind::Index(..) => {
+                if let Some(def_id) = cx.typeck_results().type_dependent_def_id(expr.hir_id) {
+                    self.collect_overloaded_call(cx, expr, def_id, cx.typeck_results().node_args(expr.hir_id));
+                }
+            }
             _ => {}
+        }
+        // Autoderef through `Deref` impls, as in `CONFIG.port` on a `LazyLock`,
+        // calls `deref` or `deref_mut` on the type before each overloaded step.
+        let typeck_results = cx.typeck_results();
+        let mut source = typeck_results.expr_ty(expr);
+        for adjustment in typeck_results.expr_adjustments(expr) {
+            if let Adjust::Deref(DerefAdjustKind::Overloaded(deref)) = adjustment.kind {
+                let args = cx.tcx.mk_args(&[source.into()]);
+                self.collect_overloaded_call(cx, expr, deref.method_call(cx.tcx), args);
+            }
+            source = adjustment.target;
         }
     }
 
@@ -2162,10 +2218,26 @@ fn randomness_family(crate_name: &str, item_name: &str, is_root_function: bool) 
 // the pointer at runtime, so neither qualifies.
 fn const_evaluated_call(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
     matches!(expr.kind, hir::ExprKind::Call(..) | hir::ExprKind::MethodCall(..))
-        && matches!(
-            cx.tcx.hir_body_const_context(cx.tcx.hir_enclosing_body_owner(expr.hir_id)),
-            Some(hir::ConstContext::Const { .. } | hir::ConstContext::Static(_))
-        )
+        && const_evaluated_context(cx, expr.hir_id)
+}
+
+// Overloaded operators and derefs in such an initializer are evaluated there too.
+fn const_evaluated_context(cx: &LateContext<'_>, hir_id: hir::HirId) -> bool {
+    matches!(
+        cx.tcx.hir_body_const_context(cx.tcx.hir_enclosing_body_owner(hir_id)),
+        Some(hir::ConstContext::Const { .. } | hir::ConstContext::Static(_))
+    )
+}
+
+fn overloaded_primitive_definition<'tcx>(
+    cx: &LateContext<'tcx>,
+    def_id: DefId,
+    args: ty::GenericArgsRef<'tcx>,
+) -> Option<String> {
+    let instance = ty::Instance::try_resolve(cx.tcx, cx.typing_env(), def_id, args).ok().flatten()?;
+    let implementation = cx.tcx.impl_of_assoc(instance.def_id())?;
+    let self_definition = type_definition_path(cx, cx.tcx.type_of(implementation).instantiate_identity())?;
+    Some(format!("{self_definition}::{}", cx.tcx.item_name(def_id)))
 }
 
 fn effect_family(definition: &str) -> Option<CapabilityFamily> {

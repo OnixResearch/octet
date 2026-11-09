@@ -54,3 +54,35 @@ pub fn exclusive(counter: &mut AtomicU32, guarded: Mutex<u32>) -> u32 {
 pub fn constructed() -> Mutex<u32> {
     Mutex::new(0)
 }
+
+pub struct Config {
+    pub port: u16,
+}
+
+fn load() -> Config {
+    Config { port: 8080 }
+}
+
+pub static CONFIG: std::sync::LazyLock<Config> = std::sync::LazyLock::new(load);
+
+pub fn lazy_port() -> u16 {
+    CONFIG.port
+}
+
+pub fn guarded_increment(guard: &std::sync::MutexGuard<'_, u32>) -> u32 {
+    **guard + 1
+}
+
+pub struct Ticks(pub u32);
+
+impl std::ops::Add for Ticks {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        Self(self.0 + other.0)
+    }
+}
+
+pub fn add_ticks(left: Ticks, right: Ticks) -> Ticks {
+    left + right
+}

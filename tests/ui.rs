@@ -1537,10 +1537,13 @@ fn compiler_architecture_observability_and_synchronization_effects() {
             .insert(family);
     }
     // Shared ownership (`Arc`), in-memory formatting, construction, exclusive
-    // access, and const-evaluated initializers are not effects.
+    // access, and const-evaluated initializers are not effects. An implicit
+    // (`CONFIG.port`) or explicit (`**guard`) overloaded deref is a call.
     let expected = [
         ("atomic", CapabilityFamily::Concurrency),
         ("channel", CapabilityFamily::Concurrency),
+        ("guarded_increment", CapabilityFamily::Concurrency),
+        ("lazy_port", CapabilityFamily::Concurrency),
         ("locked", CapabilityFamily::Concurrency),
         ("locked_static", CapabilityFamily::Concurrency),
         ("print_error", CapabilityFamily::Observability),
@@ -1551,6 +1554,30 @@ fn compiler_architecture_observability_and_synchronization_effects() {
     .map(|(caller, family)| (caller, std::collections::BTreeSet::from([family])))
     .collect::<std::collections::BTreeMap<_, _>>();
     assert_eq!(families, expected, "{:#?}", compiler_effects(&shard));
+    let effects = compiler_effects(&shard);
+    for expected in [
+        ("lazy_port", "std::sync::LazyLock::deref"),
+        ("guarded_increment", "std::sync::MutexGuard::deref"),
+    ] {
+        assert!(
+            effects.iter().any(|(caller, family, primitive)| caller
+                .strip_prefix("observability_and_synchronization_effects::")
+                == Some(expected.0)
+                && *family == CapabilityFamily::Concurrency
+                && *primitive == expected.1),
+            "missing {expected:?}: {effects:#?}"
+        );
+    }
+    let add_ticks = compiler_item_id(&shard, "observability_and_synchronization_effects::add_ticks");
+    assert!(
+        shard.facts.iter().any(|fact| matches!(
+            fact,
+            CompilerArchitectureFact::Call { caller_item_id, resolved_definition: Some(definition), .. }
+                if caller_item_id == add_ticks && definition == "std::ops::Add::add"
+        )),
+        "overloaded operator has no call fact: {:#?}",
+        shard.facts
+    );
 }
 
 #[test]
