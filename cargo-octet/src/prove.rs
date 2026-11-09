@@ -1813,8 +1813,9 @@ fn proof_goal_state_for_execution(args: &ProveArgs, execution: &ExecutedProof) -
     })
 }
 
-/// Builds a runnable `cargo octet prove --explain` rerun for one goal from the run's registry
-/// and source inputs. The rerun writes beside the reviewed bundle rather than over it.
+/// Builds a runnable `cargo octet prove --explain` rerun for one goal from the run's registry,
+/// source, and family inputs; without the families, rails from other pillars would be filtered
+/// out of the rerun. The rerun writes beside the reviewed bundle rather than over it.
 fn proof_goal_explain_command(args: &ProveArgs, goal_id: &str) -> String {
     let mut words = vec!["octet".to_owned(), "prove".to_owned()];
     if let Some(registry) = &args.registry {
@@ -1828,6 +1829,9 @@ fn proof_goal_explain_command(args: &ProveArgs, goal_id: &str) -> String {
     }
     for source in &args.source {
         words.extend(["--source".to_owned(), source.display().to_string()]);
+    }
+    for family in &args.family {
+        words.extend(["--family".to_owned(), family.clone()]);
     }
     words.extend([
         "--rail".to_owned(),
@@ -3169,35 +3173,65 @@ mod tests {
         let temp = tempfile::tempdir().expect("tempdir");
         let source = write_fixture_source(temp.path());
         write_fixture_proof(temp.path());
+        let explain_args = |summary: &str| {
+            let explain = summary
+                .lines()
+                .filter_map(|line| line.strip_prefix("proof_goal_state remediation: "))
+                .find(|command| command.starts_with("cargo octet prove "))
+                .expect("blocked goal state names a prove --explain remediation");
+            let shell_words = std::process::Command::new("sh")
+                .arg("-c")
+                .arg(format!("printf '%s\\0' {explain}"))
+                .output()
+                .expect("split remediation with sh");
+            assert!(shell_words.status.success(), "sh could not split `{explain}`");
+            let shell_argv = String::from_utf8(shell_words.stdout).expect("utf-8 shell words");
+            let parsed = crate::cli::parse(shell_argv.trim_end_matches('\0').split('\0').map(std::ffi::OsString::from))
+                .unwrap_or_else(|error| panic!("remediation `{explain}` must parse: {error}"));
+            let crate::cli::CommandArgs::Prove(args) = parsed else {
+                panic!("remediation `{explain}` must parse as prove")
+            };
+            args
+        };
 
         let summary = run_fixture_with_command(temp.path(), &source, vec!["false".to_owned()]);
-        let explain = summary
-            .lines()
-            .filter_map(|line| line.strip_prefix("proof_goal_state remediation: "))
-            .find(|command| command.starts_with("cargo octet prove "))
-            .expect("blocked goal state names a prove --explain remediation");
-        let shell_words = std::process::Command::new("sh")
-            .arg("-c")
-            .arg(format!("printf '%s\\0' {explain}"))
-            .output()
-            .expect("split remediation with sh");
-        assert!(shell_words.status.success(), "sh could not split `{explain}`");
-        let shell_argv = String::from_utf8(shell_words.stdout).expect("utf-8 shell words");
-        let parsed = crate::cli::parse(shell_argv.trim_end_matches('\0').split('\0').map(std::ffi::OsString::from))
-            .unwrap_or_else(|error| panic!("remediation `{explain}` must parse: {error}"));
-
-        let crate::cli::CommandArgs::Prove(args) = parsed else {
-            panic!("remediation `{explain}` must parse as prove")
-        };
+        let args = explain_args(&summary);
         assert!(args.explain);
         assert_eq!(args.rail, vec![proof_or_property_id(POLICY_ID, 0)]);
         assert_eq!(args.registry, Some(temp.path().join("registry.json")));
-        assert_eq!(args.source, vec![source]);
+        assert_eq!(args.source, vec![source.clone()]);
+        assert!(args.family.is_empty(), "the default family needs no flag: {:?}", args.family);
         assert!(
             args.artifact_dir.to_string_lossy().ends_with("-explain"),
             "explain rerun must not overwrite the reviewed bundle: {}",
             args.artifact_dir.display()
         );
+
+        let family = "safety";
+        let mut registry = fixture_registry(temp.path(), PASS_SIGNAL, vec!["false".to_owned()]);
+        family.clone_into(&mut registry.policies[0].pillar);
+        let registry_path = temp.path().join("registry-family.json");
+        fs::write(&registry_path, serde_json::to_string_pretty(&registry).expect("registry json"))
+            .expect("write registry");
+        let artifact_dir = temp.path().join("artifacts-family");
+        let code = run(&ProveArgs {
+            registry: Some(registry_path),
+            policy_artifacts_dir: None,
+            source: vec![source],
+            family: vec![family.to_owned()],
+            rail: Vec::new(),
+            artifact_dir: artifact_dir.clone(),
+            output_format: OutputFormat::Human,
+            command_line: "cargo octet prove fixture".to_owned(),
+            list: false,
+            explain: false,
+        })
+        .expect("prove run");
+        assert_eq!(code, EXIT_PROOF_INVALID);
+        let summary = fs::read_to_string(artifact_dir.join(SUMMARY_ARTIFACT_NAME)).expect("summary");
+        let args = explain_args(&summary);
+        assert_eq!(args.family, vec![family.to_owned()], "the rerun must keep the selected family");
+        assert!(prove_selection(&args.family).includes(&registry.policies[0].pillar));
     }
 
     #[test]

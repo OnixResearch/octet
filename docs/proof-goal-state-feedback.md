@@ -25,10 +25,10 @@ evidence tier are `manual_review_required`, the blockers become run
 diagnostics so the run status is `failed`, and `cargo octet artifact verify`
 still accepts the bundle.
 Its remediation commands include a runnable `cargo octet prove --explain` rerun
-that carries the run's `--registry` or `--policy-artifacts-dir` and `--source`
-paths, selects the goal with `--rail <policy-id>#rail-<N>`, and writes to a
-sibling `<artifact-dir>-explain` directory so the reviewed bundle is not
-overwritten.
+that carries the run's `--registry` or `--policy-artifacts-dir`, `--source`, and
+`--family` arguments, selects the goal with `--rail <policy-id>#rail-<N>`, and
+writes to a sibling `<artifact-dir>-explain` directory so the reviewed bundle is
+not overwritten.
 
 This is operator feedback, not a theorem-prover runtime. Its non-claims are:
 not Lean execution; not solver completeness; not whole-program correctness; not
