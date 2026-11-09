@@ -59,7 +59,7 @@ Rules to keep straight:
 
 | Key | Default | Used by | Notes |
 | --- | --- | --- | --- |
-| `function_length_max` | `70` | `function_length` | maximum non-blank, non-comment lines in a function body |
+| `function_length_max` | `70` | `function_length` | maximum non-blank, non-comment lines between a function body's braces; `#[test]` functions are exempt |
 | `excessive_file_length_max` | `300` | `excessive_file_length` | maximum physical lines in a production source file |
 | `module_file_count_max` | `7` | `module_file_count` | maximum Rust source files in one module directory |
 | `nesting_max_depth` | `3` | `nested_conditionals` | maximum `if` / `match` nesting depth |

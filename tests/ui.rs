@@ -291,7 +291,7 @@ fn extra_rustc_args(name: &str) -> &'static [&'static str] {
         | "too_many_parameters"
         | "sentinel_fallback"
         | "raw_arithmetic_overflow" => &["--cfg", "test"],
-        "ambient_clock_test_harness" | "no_unwrap_test_harness" => &["--test"],
+        "ambient_clock_test_harness" | "function_length_test_harness" | "no_unwrap_test_harness" => &["--test"],
         "numeric_units_cli_deny_custom/numeric_units_cli_deny_custom" => &["-D", "numeric_units"],
         "nominal_inventory_cli_deny_custom/nominal_inventory_cli_deny_custom" => &["-D", "primitive_domain_alias"],
         _ => &[],

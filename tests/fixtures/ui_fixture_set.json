@@ -49,6 +49,7 @@
     "state_machine_exhaustiveness_negative",
     "function_length",
     "function_length_custom/function_length_custom",
+    "function_length_test_harness",
     "group_allow_safety",
     "group_deny_naming",
     "global_state_in_core/global_state_in_core",
