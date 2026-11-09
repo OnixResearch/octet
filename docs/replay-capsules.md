@@ -29,41 +29,55 @@ capitalized word (`AWSSecretAccessKey` is `aws secret access key`,
 `OpenAIAPIKey` is `open aiapi key`). A field is dropped when any of these hold:
 
 - Its words are exactly `absolute path`, `timestamp`, `username`, or `env dump`.
-- Any word is `secret(s)`, `passwd`, `pass`, `pwd`, `credential(s)`,
-  `authorization`, `auth`, `bearer`, `cookie(s)`, `jwt`, or `sessionid`, any
-  word contains `password` (`PGPASSWORD`), or the words include `session id`;
-  and no word is one of the metadata words `count`, `has`, `is`, `min`, `max`,
-  `length`, `len`, `policy`, `helper`, `enabled`, `required`, `name`,
-  `expiry`, `expires`, or `rotation`. So `client_secret`, `dbPassword`,
-  `PGPASSWORD`, `MYSQL_PWD`, `DB_PASS`, `Authorization`, `cookie`,
-  `session_id`, and `jwt` are dropped, while `secret_count`, `has_secrets`,
-  `password_min_length`, `credential_helper`, `auth_required`, and
-  `cookie_name` stay.
-- Its last word is `token` or `tokens`, possibly followed by digits
-  (`GITHUB_TOKEN2`), after skipping trailing all-digit words and the
-  environment words `prod`, `production`, `dev`, `development`, `staging`,
-  `stage`, `test`, `testing`, `qa`, `uat`, `ci`, `local`, `live`, `sandbox`,
-  `preview`, `old`, `new`, `primary`, `secondary`, and `backup`
-  (`GITHUB_TOKEN_2`, `NPM_TOKEN_PROD`). The field stays when any word is one of
-  the count words `max`, `min`, `num`, or `total`, or when the word before the
-  token is one of the non-credential words `eos`, `bos`, `eot`, `eod`, `pad`,
-  `unk`, `sep`, `cls`, `mask`, `start`, `stop`, `end`, `special`, `first`,
-  `last`, `prev`, `previous`, `page`, `pagination`, `next`, `continuation`,
-  `resume`, `cursor`, `cancellation`, `sync`, `prompt`, `completion`, `input`,
-  `output`, `cached`, `reasoning`, `capability`, or `count`. So `token`,
+
+The token, `pass`/`pwd`, and qualified-key rules below first skip trailing
+numbering and environment words: any all-digit word and `prod`, `production`,
+`dev`, `development`, `staging`, `stage`, `test`, `testing`, `qa`, `uat`, `ci`,
+`local`, `live`, `sandbox`, `preview`, `old`, `new`, `primary`, `secondary`,
+and `backup`. The words left are the core words, so `GITHUB_TOKEN_2`,
+`NPM_TOKEN_PROD`, and `DB_PASS_PROD` end in `token`, `token`, and `pass`.
+
+- Any word is `secret(s)`, `passwd`, `credential(s)`, `authorization`, `auth`,
+  `bearer`, `cookie(s)`, `jwt`, or `sessionid`, any word contains `password`
+  (`PGPASSWORD`), the words include `session id`, or the last core word is
+  `pass` or `pwd`; and no word is one of the metadata words `count`, `has`,
+  `is`, `min`, `max`, `length`, `len`, `policy`, `helper`, `enabled`,
+  `required`, `name`, `expiry`, `expires`, or `rotation`. So `client_secret`,
+  `dbPassword`, `PGPASSWORD`, `MYSQL_PWD`, `DB_PASS`, `SMTP_PASS`,
+  `DB_PASS_PROD`, `Authorization`, `cookie`, `session_id`, and `jwt` are
+  dropped, while `secret_count`, `has_secrets`, `password_min_length`,
+  `credential_helper`, `auth_required`, `cookie_name`, and `pass` or `pwd`
+  followed by another word, such as the proof-rail field `pass_signal` or
+  `pass_rate`, stay.
+- The last core word is `token` or `tokens`, possibly followed by digits
+  (`GITHUB_TOKEN2`), and the field is not exempt. Either form is exempt when
+  any word is one of the count words `max`, `min`, `num`, or `total`, or when
+  the word before the token is one of the vocabulary, position, pagination, and
+  coordination words `eos`, `bos`, `eot`, `eod`, `pad`, `unk`, `sep`, `cls`,
+  `mask`, `start`, `stop`, `end`, `special`, `first`, `last`, `prev`,
+  `previous`, `page`, `pagination`, `next`, `continuation`, `resume`, `cursor`,
+  `cancellation`, `sync`, or `count`. Only the plural `tokens` is also exempt
+  after the usage-count and word-list words `prompt`, `completion`, `input`,
+  `output`, `cached`, `reasoning`, `capability`, `normative`, or
+  `placeholder`; a singular `token` after them is a credential, because
+  `INPUT_TOKEN` is how GitHub Actions passes a `token` input. So `token`,
   `tokens`, `access_token`, `GITHUB_TOKEN`, `VAULT_TOKEN`, `HF_TOKEN`,
-  `CI_JOB_TOKEN`, and `CARGO_REGISTRIES_<NAME>_TOKEN` are dropped, while
-  `eos_token`, `stop_token`, `last_token`, `resume_token`, `next_page_token`,
-  `PaginationToken`, `cancellation_token`, `max_tokens`, `max_new_tokens`, and
-  `prompt_tokens` stay. Fields where `token` is not the last word, such as
-  `token_count` or `token_limit`, also stay.
-- Any word is `apikey` or `privatekey`, or `key` follows any word other than
-  the lookup, schema, and public-key words `primary`, `foreign`, `composite`,
-  `unique`, `sort`, `partition`, `shard`, `index`, `row`, `group`, `dedup`,
-  `cache`, `map`, `dict`, `hash`, `lookup`, or `public`. So `api_key`,
-  `x-api-key`, `private_key`, `STRIPE_KEY`, `SIGNING_KEY`, and
+  `CI_JOB_TOKEN`, `CARGO_REGISTRIES_<NAME>_TOKEN`, `INPUT_TOKEN`,
+  `cached_token`, and `capability_token` are dropped, while `eos_token`,
+  `stop_token`, `last_token`, `resume_token`, `next_page_token`,
+  `PaginationToken`, `cancellation_token`, `max_tokens`, `max_new_tokens`,
+  `prompt_tokens`, `input_tokens`, and `capability_tokens` stay. Fields where
+  `token` is not the last core word, such as `token_count` or `token_limit`,
+  also stay.
+- Any word is `apikey` or `privatekey`; or `key` anywhere follows `private`
+  or a word ending in `api` (`api_key`, `x-api-key`, `private_key`,
+  `private_key_path`); or `key` is the last core word or is followed by `id`
+  and follows a word other than the lookup, schema, and public-key words
+  `primary`, `foreign`, `composite`, `unique`, `sort`, `partition`, `shard`,
+  `index`, `row`, `group`, `dedup`, `cache`, `map`, `dict`, `hash`, `lookup`,
+  or `public`. So `STRIPE_KEY`, `SIGNING_KEY`, `STRIPE_KEY_PROD`, and
   `AWS_ACCESS_KEY_ID` are dropped, while `key`, `key_id`, `primary_key`,
-  `cache_key`, and `public_key` stay.
+  `cache_key`, `public_key`, and `changed_key_components` stay.
 
 Capture then normalizes local path presentation. A string value that starts
 with a local root, followed by a path separator or nothing, has that root
