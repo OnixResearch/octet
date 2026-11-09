@@ -324,9 +324,11 @@ struct HandoffIssue {
 
 // Collection walks files, matches baselines, and renders the artifact as one sequential pipeline
 // over shared run state. Callers validate declared scopes with `validate_paths` before Cargo runs,
-// where the error can name the flag or config entry; collection itself still refuses any scope or
-// nested symlink that resolves outside the workspace root, and any record path that is not
-// canonical and workspace-relative.
+// where the error can name the flag or config entry; collection itself still refuses any scope,
+// nested `.rs` symlink, or nested directory symlink inside a declared scope that resolves outside
+// the workspace root, and any record path that is not canonical and workspace-relative. The
+// implicit whole-workspace scope skips escaping directory symlinks, such as a Nix `result` link,
+// without following them.
 #[allow(clippy::too_many_lines)]
 pub fn collect_run(
     check: &FunctionAddressCheck,
@@ -341,13 +343,18 @@ pub fn collect_run(
 
     let mut files = Vec::new();
     let mut scope_prefixes = Vec::new();
+    let escaping_directories = if check.paths.is_empty() {
+        fingerprint::EscapingDirectoryLinks::Skip
+    } else {
+        fingerprint::EscapingDirectoryLinks::Refuse
+    };
     for path in check.enabled_paths(workspace_root) {
         let absolute = if path.is_absolute() {
             path
         } else {
             workspace_root.join(path)
         };
-        fingerprint::collect_contained_rust_files(&absolute, &canonical_root, &mut files)?;
+        fingerprint::collect_contained_rust_files(&absolute, &canonical_root, escaping_directories, &mut files)?;
         scope_prefixes.extend(checked_scope_prefix(workspace_root, &absolute));
     }
     files.sort();
@@ -1480,9 +1487,15 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(paths, ["src/inner/mod.rs", "src/lib.rs"], "in-root links are followed");
 
-        for (link, target) in [("src/escape", shared.clone()), ("src/escape.rs", shared.join("lib.rs"))] {
+        // A declared scope refuses both escaping kinds; the implicit workspace scope still refuses
+        // an escaping `.rs` file link but skips an escaping directory link.
+        let declared = vec![PathBuf::from("src")];
+        for (link, target, refusing_scopes) in [
+            ("src/escape", shared.clone(), vec![declared.clone()]),
+            ("src/escape.rs", shared.join("lib.rs"), vec![declared.clone(), Vec::new()]),
+        ] {
             std::os::unix::fs::symlink(&target, workspace.join(link)).expect("escaping link");
-            for scope in [vec![PathBuf::from("src")], Vec::new()] {
+            for scope in refusing_scopes {
                 match collect_run(&observe(scope.clone()), &workspace, "config") {
                     Ok(run) => panic!(
                         "{link} under {scope:?} must be refused; got records {:?}",
@@ -1492,6 +1505,46 @@ mod tests {
                 }
             }
             std::fs::remove_file(workspace.join(link)).expect("remove escaping link");
+        }
+    }
+
+    #[test]
+    fn implicit_workspace_scope_skips_outside_root_directory_links() {
+        let temp = TempDir::new().expect("temp dir");
+        let workspace = temp.path().join("workspace");
+        let store = temp.path().join("store");
+        std::fs::create_dir_all(workspace.join("src")).expect("create workspace source");
+        std::fs::create_dir_all(workspace.join(".direnv/flake-inputs")).expect("create direnv inputs");
+        std::fs::create_dir_all(store.join("docs/share")).expect("create store output without Rust");
+        std::fs::create_dir_all(store.join("source/src")).expect("create store output with Rust");
+        std::fs::write(workspace.join("src/lib.rs"), "fn inside() -> u32 { 1 }\n").expect("write inside source");
+        std::fs::write(store.join("docs/share/readme.txt"), "not rust\n").expect("write store note");
+        std::fs::write(store.join("source/src/lib.rs"), "fn outside() -> u32 { 1 }\n").expect("write store source");
+        let implicit = FunctionAddressCheck {
+            mode: FunctionAddressMode::Observe,
+            paths: Vec::new(),
+            baseline: None,
+        };
+
+        for (link, target) in [
+            ("result", store.join("docs")),
+            ("result", store.join("source")),
+            (".direnv/flake-inputs/abc-source", store.join("source")),
+        ] {
+            std::os::unix::fs::symlink(&target, workspace.join(link)).expect("tooling link");
+            let run = collect_run(&implicit, &workspace, "config")
+                .unwrap_or_else(|error| panic!("{link} -> {}: {error}", target.display()))
+                .expect("enabled run");
+            let artifact = artifact_value(&run);
+            let paths = artifact["source_envelopes"]
+                .as_array()
+                .expect("source envelopes")
+                .iter()
+                .map(|envelope| envelope["path"].as_str().expect("envelope path").to_owned())
+                .collect::<Vec<_>>();
+            assert_eq!(paths, ["src/lib.rs"], "{link} -> {}", target.display());
+            assert_eq!(artifact["records"][0]["path"], "src/lib.rs", "{link}");
+            std::fs::remove_file(workspace.join(link)).expect("remove tooling link");
         }
     }
 

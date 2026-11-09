@@ -444,19 +444,33 @@ pub(crate) fn collect_rust_files(path: &Path, files: &mut Vec<PathBuf>) -> Resul
     collect_rust_entries(path, None, files)
 }
 
+/// How [`collect_contained_rust_files`] treats a symlinked directory, found while recursing,
+/// whose target resolves outside the root.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum EscapingDirectoryLinks {
+    /// Fail the walk: the scope was named, so its source must not escape or silently shrink.
+    Refuse,
+    /// Skip the link without following it: the scope is the implicit workspace root, where
+    /// tooling links such as a Nix `result` or a nix-direnv `.direnv` input point outside it.
+    /// An escaping `.rs` file link is Rust source in the tree and is still refused.
+    Skip,
+}
+
 /// [`collect_rust_files`] confined to `canonical_root`: the named path, and
-/// every symlinked directory or `.rs` entry found while recursing, must
-/// resolve inside it. An escaping entry is refused with an error rather than
-/// skipped, so a scope never silently hashes or drops source from outside the
+/// every symlinked `.rs` entry found while recursing, must resolve inside it,
+/// and a symlinked directory found while recursing that resolves outside it is
+/// handled by `escaping_directories`. A refused entry is an error rather than a
+/// skip, so a scope never silently hashes or drops source from outside the
 /// workspace. Dangling symlinks select nothing, as in the unconfined walk.
 pub(crate) fn collect_contained_rust_files(
     path: &Path,
     canonical_root: &Path,
+    escaping_directories: EscapingDirectoryLinks,
     files: &mut Vec<PathBuf>,
 ) -> Result<(), String> {
     ensure_rust_scope(path)?;
     ensure_contained(path, canonical_root)?;
-    collect_rust_entries(path, Some(canonical_root), files)
+    collect_rust_entries(path, Some((canonical_root, escaping_directories)), files)
 }
 
 fn ensure_rust_scope(path: &Path) -> Result<(), String> {
@@ -471,7 +485,7 @@ fn ensure_rust_scope(path: &Path) -> Result<(), String> {
 }
 
 fn ensure_contained(path: &Path, canonical_root: &Path) -> Result<(), String> {
-    if fs::canonicalize(path).is_ok_and(|resolved| !resolved.starts_with(canonical_root)) {
+    if resolves_outside(path, canonical_root) {
         return Err(format!(
             "source path `{}` resolves outside the workspace root `{}`",
             path.display(),
@@ -481,11 +495,19 @@ fn ensure_contained(path: &Path, canonical_root: &Path) -> Result<(), String> {
     Ok(())
 }
 
+fn resolves_outside(path: &Path, canonical_root: &Path) -> bool {
+    fs::canonicalize(path).is_ok_and(|resolved| !resolved.starts_with(canonical_root))
+}
+
 fn is_rust_file(path: &Path) -> bool {
     path.extension().is_some_and(|ext| ext == "rs")
 }
 
-fn collect_rust_entries(path: &Path, canonical_root: Option<&Path>, files: &mut Vec<PathBuf>) -> Result<(), String> {
+fn collect_rust_entries(
+    path: &Path,
+    containment: Option<(&Path, EscapingDirectoryLinks)>,
+    files: &mut Vec<PathBuf>,
+) -> Result<(), String> {
     if path.is_file() {
         if is_rust_file(path) {
             files.push(path.to_path_buf());
@@ -499,13 +521,20 @@ fn collect_rust_entries(path: &Path, canonical_root: Option<&Path>, files: &mut 
             if child.file_name().is_some_and(|name| name == "target" || name == ".git") {
                 continue;
             }
-            if let Some(canonical_root) = canonical_root
+            if let Some((canonical_root, escaping_directories)) = containment
                 && child.is_symlink()
-                && (child.is_dir() || is_rust_file(&child))
             {
-                ensure_contained(&child, canonical_root)?;
+                if child.is_dir() {
+                    if escaping_directories == EscapingDirectoryLinks::Skip && resolves_outside(&child, canonical_root)
+                    {
+                        continue;
+                    }
+                    ensure_contained(&child, canonical_root)?;
+                } else if is_rust_file(&child) {
+                    ensure_contained(&child, canonical_root)?;
+                }
             }
-            collect_rust_entries(&child, canonical_root, files)?;
+            collect_rust_entries(&child, containment, files)?;
         }
     }
     Ok(())

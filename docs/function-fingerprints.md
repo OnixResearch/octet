@@ -293,5 +293,11 @@ as an empty one. The same rule applies to `cargo octet object` source paths and 
 `--function-address-path` scopes. Non-Rust files found inside a directory are
 skipped.
 Function-address collection also refuses, rather than skips, a symlinked
-directory or `.rs` file inside a scope whose target resolves outside the
-workspace root; fingerprint and object inputs keep following such links.
+directory or `.rs` file inside a declared scope (`--function-address-path` or
+`core_source_scopes`) whose target resolves outside the workspace root. Without
+a declared scope the whole workspace root is scanned; there a symlinked
+directory that resolves outside the root, such as a Nix `result` link or a
+nix-direnv `.direnv` input, is skipped without being followed, while a
+symlinked `.rs` file that resolves outside the root is still refused because it
+is Rust source in the tree. Fingerprint and object inputs keep following such
+links.
