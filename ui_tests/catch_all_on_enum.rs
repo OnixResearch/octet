@@ -54,3 +54,37 @@ fn main() {
     Permission::Read.is_write();
     check_permission_ref(&Permission::Read);
 }
+
+fn result_value(res: Result<u64, String>) -> u64 {
+    // Should NOT warn: `Result` cannot gain variants
+    match res {
+        Ok(v) => v,
+        _ => 0,
+    }
+}
+
+fn option_flag(value: Option<bool>) -> bool {
+    // Should NOT warn: `Option` cannot gain variants
+    match value {
+        Some(flag) => flag,
+        _ => false,
+    }
+}
+
+enum Access {
+    Grant(u8),
+    Revoke { reason: u8 },
+    Audit,
+    Expire,
+    Renew,
+}
+
+fn check_access(access: &Access, strict: bool) -> bool {
+    // Should warn: the suggestion lists only variants earlier arms leave uncovered
+    match access {
+        Access::Grant(_) | Access::Audit => true,
+        Access::Revoke { reason: 0 } => true,
+        Access::Expire if strict => true,
+        _ => false,
+    }
+}

@@ -1207,3 +1207,21 @@ The `MachineApplicable` split MUST cut the source text only at the spans of the 
 - WHEN tigerstyle emits the structured suggestion
 - THEN the suggestion rewrites it to `assert!(item == &&expected);` followed by `assert!(ready);`
 - AND the rewritten code compiles
+
+### Requirement: Catch-All On Enum Scope And Suggestion
+
+The `catch_all_on_enum` lint MUST NOT fire on matches over `Option` or `Result`, because those enums cannot gain variants.
+
+When the lint suggests expanding the wildcard, the suggestion MUST list only the variants that no earlier arm without a guard matches in full. A variant that an earlier arm matches only for some field values, or only under a guard, MUST stay in the suggestion.
+
+#### Scenario: Result catch-all is not flagged
+
+- GIVEN production code `match res { Ok(v) => v, _ => 0 }`
+- WHEN the lint runs
+- THEN `catch_all_on_enum` does NOT fire
+
+#### Scenario: Suggestion omits variants already handled
+
+- GIVEN production code `match p { Permission::Read => true, _ => false }` over an enum with variants `Read`, `Write`, and `Admin`
+- WHEN the lint runs
+- THEN `catch_all_on_enum` warns and suggests arms for `Permission::Write` and `Permission::Admin` only

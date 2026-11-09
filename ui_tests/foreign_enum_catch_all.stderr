@@ -10,8 +10,7 @@ LL |         _ => false,
    = note: `#[warn(tigerstyle::catch_all_on_enum)]` on by default
 help: expand wildcard into explicit variant arms
    |
-LL ~         std::cmp::Ordering::Less => todo!("handle Less"),
-LL +         std::cmp::Ordering::Equal => todo!("handle Equal"),
+LL ~         std::cmp::Ordering::Equal => todo!("handle Equal"),
 LL ~         std::cmp::Ordering::Greater => todo!("handle Greater"),
    |
 
@@ -41,8 +40,7 @@ LL |         _ => false,
    = note: see Tiger Style guide: Exhaustive Matching
 help: expand wildcard into explicit variant arms
    |
-LL ~         std::cmp::Ordering::Less => todo!("handle Less"),
-LL +         std::cmp::Ordering::Equal => todo!("handle Equal"),
+LL ~         std::cmp::Ordering::Equal => todo!("handle Equal"),
 LL ~         std::cmp::Ordering::Greater => todo!("handle Greater"),
    |
 
@@ -67,8 +65,7 @@ LL |             _ => false,
 help: expand wildcard into explicit variant arms
    |
 LL ~             std::cmp::Ordering::Less => todo!("handle Less"),
-LL +             std::cmp::Ordering::Equal => todo!("handle Equal"),
-LL ~             std::cmp::Ordering::Greater => todo!("handle Greater"),
+LL ~             std::cmp::Ordering::Equal => todo!("handle Equal"),
    |
 
 warning: foreign enum `std::cmp::Ordering` uses a `_` catch-all arm; handle new variants explicitly or document the fallback
