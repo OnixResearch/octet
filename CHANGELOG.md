@@ -19,11 +19,15 @@ Behaviour and format changes:
   (must-use types with a destructor), and `unbounded_channel` suggestions name
   real functions for aliased imports.
 - `function_length` no longer flags `#[test]` functions in `--test` builds and
-  no longer counts the body's own braces, so reported counts drop by 2 and
-  every `function_length` finding ID changes; refresh baselines.
-  `type_accumulation` counts impls by resolved type (warnings name the type
-  by crate path) and checks the crate root. `excessive_file_length` and
-  `module_file_count` check workspace modules named `registry`.
+  no longer counts lines that hold only the body's own braces. Counts for
+  multi-line bodies drop by 2 (by less when code shares a brace line); the
+  count is part of the message, so those finding IDs change, and findings
+  within two lines of the limit can disappear. `type_accumulation` counts
+  impls by resolved type and checks the crate root; impl-block warnings now
+  name the type by its crate-relative path, such as `crowded::Thing`, so those
+  finding IDs change too. Refresh baselines for both lints.
+  `excessive_file_length` and `module_file_count` check workspace modules
+  named `registry`.
   `raw_domain_value` covers `HashMap`/`IndexMap` keys and borrowed values, and
   `borrowed_argument_types` decides its extern exemption from the actual ABI.
 - `bool_naming` and `negated_predicate` renames fall back to a review-required
@@ -39,16 +43,22 @@ Behaviour and format changes:
   conclusions (failures and violations fail, exemptions need manual review,
   documents without a conclusion are rejected; the old
   `imports`/`exemptions`/`unaudited` shape is no longer accepted).
-  Dependency-audit reports must contain `diagnostics`; locked runs execute
-  `cargo deny --config PATH --locked --offline check`, and `--run` converts
-  cargo-deny's JSON lines into the pinned report. Dynamic-evidence imports
-  must carry their own profile, command, and integer `finding_count`; Miri and
-  Loom runs pass on exit status, and Loom runs `cargo test` with
-  `RUSTFLAGS=--cfg loom`, which changes the cargo-fuzz profile identity. Z4
-  receipts accept only recorded non-proof roles, and Kani summaries without
-  complete assumption review are review-incomplete or fail. Rail runs go
-  through Bounded Exec: each output stream is capped at 16 MiB and each run at
-  four hours, and an overrun fails without a receipt.
+  Dependency-audit reports must contain `diagnostics`. Run mode executes
+  `cargo deny --format json [--config PATH] check`, adding `--locked --offline`
+  before `check` when `--locked` is given without `--update-advisory-database`,
+  so every dependency-audit receipt's `command_argv` gains `--format json`;
+  `--run` converts cargo-deny's JSON lines into the pinned report.
+  Dynamic-evidence imports must carry their own profile, command, and integer
+  `finding_count`; Miri and Loom runs pass on exit status. The Loom profiles
+  run `cargo test` with `RUSTFLAGS=--cfg loom`, so Loom imports must record
+  `cargo test`: receipts recorded with `cargo test --cfg loom` are rejected,
+  and the cargo-fuzz profile identity changes. Z4 receipts accept only
+  recorded non-proof roles, and Kani summaries without complete assumption
+  review are review-incomplete or fail. `evidence collect --run` and the
+  ast-grep rail run their tools through Bounded Exec: each output stream is
+  capped at 16 MiB and each run at four hours, and an overrun fails without a
+  receipt. The profiled cargo-fuzz, coverage, mutation, benchmark, and Hegel
+  producers keep their own profile limits.
 - `cargo octet admit verify` and `cargo octet artifact verify` re-derive an
   admitted closure's module roles and reviewed-summary evidence from the
   recorded inputs, and `artifact verify` also validates the stored closure
