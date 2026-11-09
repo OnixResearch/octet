@@ -246,3 +246,11 @@ forward_level! {
 fn comment_padded_allow() -> u32 {
     return 15;
 }
+
+// Should NOT warn again: the allow in `quiet!` is reported once, at its
+// definition, however often the macro expands.
+quiet! {
+    fn second_macro_allow(value: Option<u8>) -> u8 {
+        value.unwrap()
+    }
+}

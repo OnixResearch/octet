@@ -58,5 +58,16 @@ error: strict profile `robust` requires `unjustified_allow` at `deny`, but this 
 LL | #[/**/allow(tigerstyle::structure)]
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-error: aborting due to 10 previous errors
+error: strict profile `robust` requires `unjustified_allow` at `deny`, but this `#[allow(...)]` would silence it; source attributes cannot lower a profile's suppression-governance lints, so remove the attribute
+  --> $DIR/strict_profile_governance_custom/strict_profile_governance_reject.rs:67:9
+   |
+LL |         #[allow(tigerstyle::structure)]
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+LL | silenced!(first_silenced);
+   | ------------------------- in this macro invocation
+   |
+   = note: this error originates in the macro `silenced` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: aborting due to 11 previous errors
 

@@ -61,6 +61,17 @@ leveled!(allow forwarded_level);
 #[/**/allow(tigerstyle::structure)]
 mod padded {}
 
+macro_rules! silenced {
+    ($name:ident) => {
+        // Should error once, at this definition, though the macro expands twice.
+        #[allow(tigerstyle::structure)]
+        mod $name {}
+    };
+}
+
+silenced!(first_silenced);
+silenced!(second_silenced);
+
 fn main() {
     let _ = grouped::early();
     quiet();

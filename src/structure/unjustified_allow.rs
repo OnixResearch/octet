@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use rustc_ast::AttrId;
 use rustc_ast::Attribute;
 use rustc_ast::MetaItemInner;
@@ -7,6 +9,7 @@ use rustc_lint::EarlyLintPass;
 use rustc_lint::LintContext;
 use rustc_session::declare_tool_lint;
 use rustc_session::impl_lint_pass;
+use rustc_span::BytePos;
 use rustc_span::Span;
 use rustc_span::sym;
 
@@ -50,10 +53,7 @@ pub struct UnjustifiedAllow {
     /// skips it rather than also asking for a justification that could never
     /// make it legal. Empty without a profile.
     guarded_paths: LintPathSet,
-    /// rustc reports a statement's attributes once for the statement and again
-    /// for the `let`, item, or expression it wraps; this remembers the first
-    /// attribute of the last checked list so each list is checked once.
-    last_checked: Option<AttrId>,
+    dedupe: ReportDedupe,
 }
 
 impl_lint_pass!(UnjustifiedAllow => [UNJUSTIFIED_ALLOW]);
@@ -67,7 +67,7 @@ impl UnjustifiedAllow {
         Self {
             floor_paths: LintPathSet::for_lints(floor),
             guarded_paths: LintPathSet::for_lints(governance),
-            last_checked: None,
+            dedupe: ReportDedupe::default(),
         }
     }
 }
@@ -251,66 +251,91 @@ fn governed_level_name(attr: &Attribute, items: &[MetaItemInner], floor_paths: &
     }
 }
 
-fn check_attrs(cx: &EarlyContext<'_>, attrs: &[Attribute], pass: &UnjustifiedAllow) {
-    // Skip items in #[cfg(test)] blocks
-    if attrs.iter().any(|a| a.has_name(sym::test)) {
-        return;
-    }
+impl UnjustifiedAllow {
+    fn check_attrs(&mut self, cx: &EarlyContext<'_>, attrs: &[Attribute]) {
+        // Skip items in #[cfg(test)] blocks
+        if attrs.iter().any(|a| a.has_name(sym::test)) {
+            return;
+        }
 
-    for attr in attrs {
-        if lowering_level_name(attr).is_none() {
-            continue;
-        }
-        let Some(items) = attr.meta_item_list() else {
-            continue;
-        };
-        let Some(name) = governed_level_name(attr, &items, &pass.floor_paths) else {
-            continue;
-        };
-        // The profile guard reports this attribute as an error to remove.
-        if !pass.guarded_paths.reached_lints(lint_paths(&items)).is_empty() {
-            continue;
-        }
-        let Some(site) = user_attribute_site(cx, attr, name) else {
-            continue;
-        };
-        if has_reason_argument(&items) || has_comment_nearby(cx, site.span()) {
-            continue;
-        }
-        let message = format!("`#[{name}(...)]` without justification comment");
-        match site {
-            AttributeSite::Whole(span) => emit_tiger_style_lint_with_suggestion(
-                cx,
-                UNJUSTIFIED_ALLOW,
-                span,
-                message,
-                "unjustified_allow",
-                LintSuggestion::Single {
-                    span: span.shrink_to_lo(),
-                    message: "add a local justification comment".to_owned(),
-                    replacement: justification_stub(cx, span),
-                    applicability: Applicability::HasPlaceholders,
-                },
-            ),
-            AttributeSite::Forwarded(span) => {
-                emit_tiger_style_lint(cx, UNJUSTIFIED_ALLOW, span, message, "unjustified_allow");
+        for attr in attrs {
+            if lowering_level_name(attr).is_none() {
+                continue;
+            }
+            let Some(items) = attr.meta_item_list() else {
+                continue;
+            };
+            let Some(name) = governed_level_name(attr, &items, &self.floor_paths) else {
+                continue;
+            };
+            // The profile guard reports this attribute as an error to remove.
+            if !self.guarded_paths.reached_lints(lint_paths(&items)).is_empty() {
+                continue;
+            }
+            let Some(site) = user_attribute_site(cx, attr, name) else {
+                continue;
+            };
+            if has_reason_argument(&items)
+                || has_comment_nearby(cx, site.span())
+                || !self.dedupe.is_first_report(site.span())
+            {
+                continue;
+            }
+            let message = format!("`#[{name}(...)]` without justification comment");
+            match site {
+                AttributeSite::Whole(span) => emit_tiger_style_lint_with_suggestion(
+                    cx,
+                    UNJUSTIFIED_ALLOW,
+                    span,
+                    message,
+                    "unjustified_allow",
+                    LintSuggestion::Single {
+                        span: span.shrink_to_lo(),
+                        message: "add a local justification comment".to_owned(),
+                        replacement: justification_stub(cx, span),
+                        applicability: Applicability::HasPlaceholders,
+                    },
+                ),
+                AttributeSite::Forwarded(span) => {
+                    emit_tiger_style_lint(cx, UNJUSTIFIED_ALLOW, span, message, "unjustified_allow");
+                }
             }
         }
     }
 }
 
-/// Whether `attrs` differs from the list checked last. rustc reports a
-/// statement's attributes once for the statement and again for the `let`,
-/// item, or expression it wraps.
-fn is_new_attribute_list(last_checked: &mut Option<AttrId>, attrs: &[Attribute]) -> bool {
-    let Some(first) = attrs.first() else {
-        return false;
-    };
-    if *last_checked == Some(first.id) {
-        return false;
+/// Report deduplication shared by both passes.
+#[derive(Clone, Default)]
+struct ReportDedupe {
+    /// rustc reports a statement's attributes once for the statement and again
+    /// for the `let`, item, or expression it wraps; this remembers the first
+    /// attribute of the last checked list so each list is checked once.
+    last_checked: Option<AttrId>,
+    /// Definition-site positions of attributes already reported from local
+    /// macro expansions. Each expansion brings fresh attribute ids and syntax
+    /// contexts, so an attribute in a macro body would otherwise be reported
+    /// once per invocation.
+    macro_sites: HashSet<(BytePos, BytePos)>,
+}
+
+impl ReportDedupe {
+    /// Whether `attrs` differs from the list checked last.
+    fn is_new_attribute_list(&mut self, attrs: &[Attribute]) -> bool {
+        let Some(first) = attrs.first() else {
+            return false;
+        };
+        if self.last_checked == Some(first.id) {
+            return false;
+        }
+        self.last_checked = Some(first.id);
+        true
     }
-    *last_checked = Some(first.id);
-    true
+
+    /// Whether a report at `span` has not been made yet: always for source
+    /// spans, once per definition site for spans from a macro expansion.
+    fn is_first_report(&mut self, span: Span) -> bool {
+        !span.from_expansion() || self.macro_sites.insert((span.lo(), span.hi()))
+    }
 }
 
 impl EarlyLintPass for UnjustifiedAllow {
@@ -318,8 +343,8 @@ impl EarlyLintPass for UnjustifiedAllow {
     // root, items, associated and foreign items, statements, fields,
     // variants, expressions, arms, parameters, and generic parameters.
     fn check_attributes(&mut self, cx: &EarlyContext<'_>, attrs: &[Attribute]) {
-        if is_new_attribute_list(&mut self.last_checked, attrs) {
-            check_attrs(cx, attrs, self);
+        if self.dedupe.is_new_attribute_list(attrs) {
+            self.check_attrs(cx, attrs);
         }
     }
 }
@@ -396,7 +421,7 @@ impl LintPathSet {
 pub struct SuppressionGovernanceGuard {
     profile_id: String,
     protected: LintPathSet,
-    last_checked: Option<AttrId>,
+    dedupe: ReportDedupe,
 }
 
 impl_lint_pass!(SuppressionGovernanceGuard => []);
@@ -411,7 +436,7 @@ impl SuppressionGovernanceGuard {
         (!protected.is_empty()).then(|| Self {
             profile_id: profile_id.to_owned(),
             protected,
-            last_checked: None,
+            dedupe: ReportDedupe::default(),
         })
     }
 }
@@ -424,7 +449,7 @@ fn lowering_level_name(attr: &Attribute) -> Option<&'static str> {
 
 impl EarlyLintPass for SuppressionGovernanceGuard {
     fn check_attributes(&mut self, cx: &EarlyContext<'_>, attrs: &[Attribute]) {
-        if !is_new_attribute_list(&mut self.last_checked, attrs) {
+        if !self.dedupe.is_new_attribute_list(attrs) {
             return;
         }
         for attr in attrs {
@@ -441,6 +466,9 @@ impl EarlyLintPass for SuppressionGovernanceGuard {
             let Some(site) = user_attribute_site(cx, attr, name) else {
                 continue;
             };
+            if !self.dedupe.is_first_report(site.span()) {
+                continue;
+            }
             let lints = reached.iter().map(|lint_name| format!("`{lint_name}`")).collect::<Vec<_>>().join(", ");
             cx.sess().dcx().span_err(
                 site.span(),

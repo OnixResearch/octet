@@ -171,7 +171,9 @@ wrote an attribute MUST be decided from its name token. It MUST NOT fire on
 attributes that a macro from another crate generates, including proc-macro
 output such as the `#[allow(clippy::...)]` block `#[tokio::main]` emits with
 spans borrowed from user tokens. A forwarded attribute is reported at its
-name, without an autofix suggestion.
+name, without an autofix suggestion. An attribute in a local `macro_rules!`
+body MUST be reported once at its definition, however often the macro
+expands.
 
 The lint MUST NOT fire on workspace-level lint configuration in
 `Cargo.toml` (those are outside Clippy's reach anyway).
