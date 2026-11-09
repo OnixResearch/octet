@@ -34,8 +34,28 @@ declare_tool_lint! {
 
 declare_lint_pass!(IgnoredJoinHandle => [IGNORED_JOIN_HANDLE]);
 
-fn supported_join_handle_type(cx: &LateContext<'_>, ty: ty::Ty<'_>) -> bool {
-    let ty::Adt(adt, _) = ty.peel_refs().kind() else {
+/// `ty` with `Result`/`Option` wrappers removed: `std::thread::Builder::spawn`
+/// returns `io::Result<JoinHandle<T>>`, which still discards the handle.
+fn peel_result_and_option<'tcx>(cx: &LateContext<'tcx>, mut ty: ty::Ty<'tcx>) -> ty::Ty<'tcx> {
+    loop {
+        let ty::Adt(adt, args) = ty.peel_refs().kind() else {
+            return ty;
+        };
+        let is_wrapper = [rustc_span::sym::Result, rustc_span::sym::Option]
+            .into_iter()
+            .any(|wrapper| cx.tcx.is_diagnostic_item(wrapper, adt.did()));
+        if !is_wrapper {
+            return ty;
+        }
+        let Some(inner) = args.types().next() else {
+            return ty;
+        };
+        ty = inner;
+    }
+}
+
+fn supported_join_handle_type<'tcx>(cx: &LateContext<'tcx>, ty: ty::Ty<'tcx>) -> bool {
+    let ty::Adt(adt, _) = peel_result_and_option(cx, ty).peel_refs().kind() else {
         return false;
     };
 
