@@ -675,15 +675,22 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
     if let Some(prepared) = &prepared_clippy_run {
         config_path = Some(prepared.config_path.clone());
     }
+    let prepared_ast_grep = prepare_ast_grep(args)?;
     let ((mode, import_text, tool_exit_code), analyzed_wasm) = if args.rail == EvidenceRailKind::WasmArtifact {
         let (envelope, analyzed) = analyze_wasm_input(args)?;
         ((MODE_IMPORT, envelope, None), Some(analyzed))
     } else {
-        (input_text(args, prepared_clippy_run.as_ref())?, None)
+        (input_text(args, prepared_clippy_run.as_ref(), prepared_ast_grep.as_ref())?, None)
     };
-    let identities =
-        input_identities(args, prepared_clippy_run.as_ref(), analyzed_wasm.as_ref(), workspace_root, &import_text)?;
-    let normalized_command = normalized_run_command(args, prepared_clippy_run.as_ref())?;
+    let identities = input_identities(
+        args,
+        prepared_clippy_run.as_ref(),
+        prepared_ast_grep.as_ref(),
+        analyzed_wasm.as_ref(),
+        workspace_root,
+        &import_text,
+    )?;
+    let normalized_command = normalized_run_command(args, prepared_clippy_run.as_ref(), prepared_ast_grep.as_ref())?;
     let mut receipt = evaluate(EvaluationInput {
         rail: args.rail,
         mode,
@@ -753,6 +760,7 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
 fn input_identities(
     args: &EvidenceRailArgs,
     prepared_clippy_run: Option<&PreparedClippyRun>,
+    prepared_ast_grep: Option<&PreparedAstGrep>,
     analyzed_wasm: Option<&AnalyzedWasmInput>,
     workspace_root: &Path,
     import_text: &str,
@@ -781,9 +789,12 @@ fn input_identities(
     } else if let Some(analyzed) = analyzed_wasm {
         // `analyze_wasm_input` bound these registry bytes into the envelope; never re-read `--config`.
         Some(analyzed.registry_identity.clone())
-    } else if matches!(args.rail, EvidenceRailKind::AstGrepStructural | EvidenceRailKind::CharonSemantic) {
-        // These rails read and verify `--config` themselves relative to the process cwd; hash those bytes.
-        args.config.as_ref().map(|path| path_identity(path)).transpose()?
+    } else if let Some(prepared) = prepared_ast_grep {
+        // `prepare_ast_grep` hashed the profile bytes it parsed; never re-read `--config`.
+        Some(prepared.config_identity.clone())
+    } else if args.rail == EvidenceRailKind::CharonSemantic {
+        // `analyze_charon_semantic_input` already verified the config bytes against this identity.
+        Some(crate::charon_semantic::EXPECTED_PROFILE_IDENTITY.to_owned())
     } else {
         args.config.as_ref().map(|path| path_identity(&workspace_root.join(path))).transpose()?
     };
@@ -804,6 +815,7 @@ fn input_identities(
 fn normalized_run_command(
     args: &EvidenceRailArgs,
     prepared_clippy_run: Option<&PreparedClippyRun>,
+    prepared_ast_grep: Option<&PreparedAstGrep>,
 ) -> Result<Option<String>, String> {
     if args.rail == EvidenceRailKind::HegelProperty && args.profile.as_deref() == Some(crate::hegel::PROFILE_ID) {
         return crate::hegel::selected_profile(crate::hegel::PROFILE_ID)
@@ -818,9 +830,9 @@ fn normalized_run_command(
         EvidenceRailKind::HegelProperty if args.profile.as_deref() == Some(crate::hegel::PROFILE_ID) => {
             crate::hegel::selected_profile(crate::hegel::PROFILE_ID).map(|profile| Some(profile.command_argv.join(" ")))
         }
-        EvidenceRailKind::AstGrepStructural | EvidenceRailKind::DynamicEvidence => {
-            Ok(Some(run_mode_command_argv(args)?.join(" ")))
-        }
+        EvidenceRailKind::AstGrepStructural => required_ast_grep(prepared_ast_grep)
+            .map(|prepared| Some(crate::ast_grep_rail::scan_command_argv(&prepared.profile).join(" "))),
+        EvidenceRailKind::DynamicEvidence => Ok(Some(run_mode_command_argv(args)?.join(" "))),
         EvidenceRailKind::ClippyCoReporting => Ok(Some(
             prepared_clippy_run
                 .map_or_else(default_clippy_command_argv, |prepared| prepared.command_argv.clone())
@@ -3651,6 +3663,7 @@ fn status_from_kani_findings(findings: &[EvidenceRailFinding]) -> String {
 fn input_text(
     args: &EvidenceRailArgs,
     prepared_clippy_run: Option<&PreparedClippyRun>,
+    prepared_ast_grep: Option<&PreparedAstGrep>,
 ) -> Result<(&'static str, String, Option<i32>), String> {
     if args.rail == EvidenceRailKind::WasmArtifact {
         return Err("wasm-artifact input is analyzed with its exact bytes by `analyze_wasm_input`".to_owned());
@@ -3659,7 +3672,8 @@ fn input_text(
         return analyze_charon_semantic_input(args);
     }
     if args.rail == EvidenceRailKind::AstGrepStructural && !args.run {
-        return analyze_ast_grep_import(args).map(|envelope| (MODE_IMPORT, envelope, None));
+        return analyze_ast_grep_import(args, required_ast_grep(prepared_ast_grep)?)
+            .map(|envelope| (MODE_IMPORT, envelope, None));
     }
     if args.rail == EvidenceRailKind::SarifImport {
         return analyze_sarif_input(args).map(|report| (MODE_IMPORT, report, None));
@@ -3697,9 +3711,8 @@ fn input_text(
             };
             Ok((MODE_IMPORT, text, None))
         }
-        (None, true) => {
-            run_tool(args, prepared_clippy_run).map(|output| (MODE_RUN, output.stdout_stderr, Some(output.exit_code)))
-        }
+        (None, true) => run_tool(args, prepared_clippy_run, prepared_ast_grep)
+            .map(|output| (MODE_RUN, output.stdout_stderr, Some(output.exit_code))),
         (Some(_), true) => Err("evidence collect accepts either `--input PATH` or `--run`, not both".to_owned()),
         (None, false) => Err("evidence collect requires `--input PATH` or `--run`".to_owned()),
     }
@@ -4080,9 +4093,13 @@ struct ToolOutput {
     exit_code: i32,
 }
 
-fn run_tool(args: &EvidenceRailArgs, prepared_clippy_run: Option<&PreparedClippyRun>) -> Result<ToolOutput, String> {
+fn run_tool(
+    args: &EvidenceRailArgs,
+    prepared_clippy_run: Option<&PreparedClippyRun>,
+    prepared_ast_grep: Option<&PreparedAstGrep>,
+) -> Result<ToolOutput, String> {
     if args.rail == EvidenceRailKind::AstGrepStructural {
-        return run_ast_grep_tool(args);
+        return run_ast_grep_tool(args, required_ast_grep(prepared_ast_grep)?);
     }
     let command_parts = prepared_clippy_run
         .map(|prepared| prepared.command_argv.clone())
@@ -4108,20 +4125,20 @@ fn run_tool(args: &EvidenceRailArgs, prepared_clippy_run: Option<&PreparedClippy
     })
 }
 
-fn analyze_ast_grep_import(args: &EvidenceRailArgs) -> Result<String, String> {
+fn analyze_ast_grep_import(args: &EvidenceRailArgs, prepared: &PreparedAstGrep) -> Result<String, String> {
     let input = args
         .input
         .as_deref()
         .ok_or_else(|| "evidence collect requires `--input PATH` or `--run`".to_owned())?;
-    let (profile, _) = checked_ast_grep_bundle(args)?;
+    check_ast_grep_bundle(args, &prepared.profile)?;
     let text =
         fs::read_to_string(input).map_err(|error| format!("read evidence input {}: {error}", input.display()))?;
-    crate::ast_grep_rail::verify_envelope_bundle(&text, &profile)?;
+    crate::ast_grep_rail::verify_envelope_bundle(&text, &prepared.profile)?;
     Ok(text)
 }
 
-fn run_ast_grep_tool(args: &EvidenceRailArgs) -> Result<ToolOutput, String> {
-    let (profile, _) = checked_ast_grep_bundle(args)?;
+fn run_ast_grep_tool(args: &EvidenceRailArgs, prepared: &PreparedAstGrep) -> Result<ToolOutput, String> {
+    check_ast_grep_bundle(args, &prepared.profile)?;
     let workspace_root = args.workspace_root.as_deref().unwrap_or_else(|| Path::new("."));
 
     let version_output = Command::new("ast-grep")
@@ -4139,7 +4156,7 @@ fn run_ast_grep_tool(args: &EvidenceRailArgs) -> Result<ToolOutput, String> {
         .ok_or_else(|| format!("unexpected ast-grep version output `{}`", version_text.trim()))?
         .to_owned();
 
-    let command_parts = crate::ast_grep_rail::scan_command_argv(&profile);
+    let command_parts = crate::ast_grep_rail::scan_command_argv(&prepared.profile);
     let (program, rest) = command_parts.split_first().ok_or_else(|| "ast-grep command argv is empty".to_owned())?;
     let output = Command::new(program)
         .args(rest)
@@ -4155,7 +4172,7 @@ fn run_ast_grep_tool(args: &EvidenceRailArgs) -> Result<ToolOutput, String> {
         serde_json::from_slice(&output.stdout).map_err(|error| format!("parse ast-grep JSON output: {error}"))?
     };
     let envelope = crate::ast_grep_rail::render_scan_envelope(
-        profile,
+        prepared.profile.clone(),
         observed_version,
         source_findings,
         String::from_utf8_lossy(&output.stderr).into_owned(),
@@ -4167,10 +4184,10 @@ fn run_ast_grep_tool(args: &EvidenceRailArgs) -> Result<ToolOutput, String> {
     })
 }
 
-fn checked_ast_grep_bundle(
+fn check_ast_grep_bundle(
     args: &EvidenceRailArgs,
-) -> Result<(crate::ast_grep_rail::AstGrepProfile, BTreeMap<String, Vec<u8>>), String> {
-    let profile = load_ast_grep_profile(args)?;
+    profile: &crate::ast_grep_rail::AstGrepProfile,
+) -> Result<(), String> {
     let workspace_root = args.workspace_root.as_deref().unwrap_or_else(|| Path::new("."));
     let canonical_root = fs::canonicalize(workspace_root)
         .map_err(|error| format!("canonicalize ast-grep workspace root {}: {error}", workspace_root.display()))?;
@@ -4186,7 +4203,7 @@ fn checked_ast_grep_bundle(
             .map_err(|error| format!("read ast-grep bundle input {}: {error}", canonical_path.display()))?;
         bundle_files.insert(relative.clone(), bytes);
     }
-    let observed_identity = crate::ast_grep_rail::compute_bundle_identity(&profile, &bundle_files)
+    let observed_identity = crate::ast_grep_rail::compute_bundle_identity(profile, &bundle_files)
         .map_err(|diagnostics| format!("invalid ast-grep rule bundle:\n- {}", diagnostics.join("\n- ")))?;
     if observed_identity != profile.bundle_identity {
         return Err(format!(
@@ -4194,23 +4211,44 @@ fn checked_ast_grep_bundle(
             profile.bundle_identity
         ));
     }
-    Ok((profile, bundle_files))
+    Ok(())
 }
 
-fn load_ast_grep_profile(args: &EvidenceRailArgs) -> Result<crate::ast_grep_rail::AstGrepProfile, String> {
+/// The ast-grep structural profile parsed from one read of `--config`, with the identity of those
+/// bytes. The import, run, command, and receipt paths all use it; none re-reads `--config`.
+struct PreparedAstGrep {
+    profile: crate::ast_grep_rail::AstGrepProfile,
+    config_identity: String,
+}
+
+fn prepare_ast_grep(args: &EvidenceRailArgs) -> Result<Option<PreparedAstGrep>, String> {
+    if args.rail != EvidenceRailKind::AstGrepStructural {
+        return Ok(None);
+    }
+    if args.run && args.command.as_deref().is_some_and(|command| !command.is_empty()) {
+        return Err("ast-grep run rejects arbitrary --command authority; use the checked profile".to_owned());
+    }
     let path = args
         .config
         .as_deref()
         .ok_or_else(|| "ast-grep evidence requires `--config PATH` to a generated structural profile".to_owned())?;
-    let text = fs::read_to_string(path)
-        .map_err(|error| format!("read ast-grep structural profile {}: {error}", path.display()))?;
-    let profile = crate::ast_grep_rail::parse_profile(&text)?;
+    let bytes =
+        fs::read(path).map_err(|error| format!("read ast-grep structural profile {}: {error}", path.display()))?;
+    let text = std::str::from_utf8(&bytes)
+        .map_err(|error| format!("ast-grep structural profile {} is not UTF-8: {error}", path.display()))?;
+    let profile = crate::ast_grep_rail::parse_profile(text)?;
     let diagnostics = crate::ast_grep_rail::validate_profile(&profile);
-    if diagnostics.is_empty() {
-        Ok(profile)
-    } else {
-        Err(format!("invalid ast-grep structural profile:\n- {}", diagnostics.join("\n- ")))
+    if !diagnostics.is_empty() {
+        return Err(format!("invalid ast-grep structural profile:\n- {}", diagnostics.join("\n- ")));
     }
+    Ok(Some(PreparedAstGrep {
+        profile,
+        config_identity: prefixed_identity(&bytes),
+    }))
+}
+
+fn required_ast_grep(prepared: Option<&PreparedAstGrep>) -> Result<&PreparedAstGrep, String> {
+    prepared.ok_or_else(|| "ast-grep evidence requires the checked structural profile from `--config`".to_owned())
 }
 
 #[derive(Clone, Debug)]
@@ -4286,10 +4324,8 @@ fn run_mode_command_argv(args: &EvidenceRailArgs) -> Result<Vec<String>, String>
             .map(|prepared| prepared.map_or_else(default_clippy_command_argv, |prepared| prepared.command_argv));
     }
     if args.rail == EvidenceRailKind::AstGrepStructural {
-        if args.command.as_deref().is_some_and(|command| !command.is_empty()) {
-            return Err("ast-grep run rejects arbitrary --command authority; use the checked profile".to_owned());
-        }
-        return load_ast_grep_profile(args).map(|profile| crate::ast_grep_rail::scan_command_argv(&profile));
+        // The scan argv comes only from the profile `prepare_ast_grep` checked; never an unchecked default.
+        return Err("ast-grep run argv comes only from the checked structural profile".to_owned());
     }
     if args.rail == EvidenceRailKind::DynamicEvidence {
         return dynamic_run_command_argv(args.profile.as_deref(), args.command.as_deref());
@@ -5461,6 +5497,7 @@ mod tests {
             run: false,
             command_line: "cargo octet evidence collect --rail ast-grep --input scan.json".to_owned(),
         };
+        let prepared = prepare_ast_grep(&args).expect("checked ast-grep profile");
 
         let mut drifted_profiles = Vec::new();
         let mut retooled = profile.clone();
@@ -5498,18 +5535,20 @@ mod tests {
             )
             .expect("ast-grep envelope");
             fs::write(workspace.path().join("scan.json"), envelope).expect("write drifted ast-grep envelope");
-            let profile_error = input_text(&args, None).expect_err("envelope with a different embedded profile");
+            let profile_error =
+                input_text(&args, None, prepared.as_ref()).expect_err("envelope with a different embedded profile");
             assert!(profile_error.contains("stale ast-grep scan envelope"), "{field}: {profile_error}");
         }
 
         write_envelope(profile.clone());
-        let (mode, _, _) = input_text(&args, None).expect("fresh envelope imports");
+        let (mode, _, _) = input_text(&args, None, prepared.as_ref()).expect("fresh envelope imports");
         assert_eq!(mode, MODE_IMPORT);
 
         let mut rescoped = profile.clone();
         rescoped.scan_scope.paths.push("tests".to_owned());
         write_envelope(rescoped);
-        let scope_error = input_text(&args, None).expect_err("envelope with a different scan scope is stale");
+        let scope_error =
+            input_text(&args, None, prepared.as_ref()).expect_err("envelope with a different scan scope is stale");
         assert!(scope_error.contains("stale ast-grep scan envelope"), "{scope_error}");
 
         write_envelope(profile);
@@ -5517,7 +5556,8 @@ mod tests {
         let mut rule_bytes = fs::read(&rule).expect("read copied rule");
         rule_bytes.extend_from_slice(b"\n# rule changed after the scan\n");
         fs::write(&rule, rule_bytes).expect("change copied rule");
-        let rule_error = input_text(&args, None).expect_err("envelope captured before the rule changed is stale");
+        let rule_error =
+            input_text(&args, None, prepared.as_ref()).expect_err("envelope captured before the rule changed is stale");
         assert!(rule_error.contains("stale ast-grep rule bundle identity"), "{rule_error}");
     }
 
@@ -5569,20 +5609,20 @@ mod tests {
         assert!(validate_receipt(&receipt).iter().any(|diagnostic| diagnostic.contains("recorded_only or boundary")));
     }
 
-    #[test]
-    fn wasm_artifact_collect_bundles_the_bytes_it_analyzed() {
+    /// A pipe reopened through `/proc/self/fd` yields its bytes once, then end-of-file,
+    /// like `--input /dev/stdin`: any second read of the path observes different bytes.
+    fn one_shot(bytes: &[u8]) -> (std::io::PipeReader, std::path::PathBuf) {
         use std::io::Write as _;
         use std::os::fd::AsRawFd as _;
 
-        // A pipe reopened through `/proc/self/fd` yields its bytes once, then end-of-file,
-        // like `--input /dev/stdin`: any second read of the path observes different bytes.
-        fn one_shot(bytes: &[u8]) -> (std::io::PipeReader, std::path::PathBuf) {
-            let (reader, mut writer) = std::io::pipe().expect("create one-shot pipe");
-            writer.write_all(bytes).expect("fill one-shot pipe");
-            let path = std::path::PathBuf::from(format!("/proc/self/fd/{}", reader.as_raw_fd()));
-            (reader, path)
-        }
+        let (reader, mut writer) = std::io::pipe().expect("create one-shot pipe");
+        writer.write_all(bytes).expect("fill one-shot pipe");
+        let path = std::path::PathBuf::from(format!("/proc/self/fd/{}", reader.as_raw_fd()));
+        (reader, path)
+    }
 
+    #[test]
+    fn wasm_artifact_collect_bundles_the_bytes_it_analyzed() {
         let registry_bytes = include_bytes!("../../standards/wasm-artifact/generated/profiles.json");
         let artifact = wat::parse_str(include_str!("../../standards/wasm-artifact/fixtures/positive/module.wat"))
             .expect("module fixture");
@@ -5633,6 +5673,130 @@ mod tests {
             files,
         });
         assert!(report.diagnostics.is_empty(), "{:?}", report.diagnostics);
+    }
+
+    fn ast_grep_args(
+        config: std::path::PathBuf,
+        workspace_root: Option<std::path::PathBuf>,
+        input: Option<std::path::PathBuf>,
+        artifact_dir: std::path::PathBuf,
+    ) -> crate::cli::EvidenceRailArgs {
+        crate::cli::EvidenceRailArgs {
+            rail: EvidenceRailKind::AstGrepStructural,
+            run: input.is_none(),
+            input,
+            artifact_dir,
+            workspace_root,
+            config: Some(config),
+            baseline: None,
+            profile: None,
+            command: None,
+            parent_artifacts: Vec::new(),
+            external_reports: Vec::new(),
+            output_format: OutputFormat::Human,
+            locked: false,
+            update_advisory_database: false,
+            command_line: "cargo octet evidence collect --rail ast-grep --config profile.json".to_owned(),
+        }
+    }
+
+    #[test]
+    fn ast_grep_collect_binds_the_profile_bytes_it_evaluated() {
+        let profile_bytes = include_bytes!("../../standards/ast-grep/generated/profile.json");
+        let profile =
+            crate::ast_grep_rail::parse_profile(std::str::from_utf8(profile_bytes).expect("ast-grep profile UTF-8"))
+                .expect("ast-grep profile");
+        let checkout = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let workspace = tempfile::tempdir().expect("create ast-grep collect workspace");
+        for relative in &profile.bundle_inputs {
+            let destination = workspace.path().join(relative);
+            fs::create_dir_all(destination.parent().expect("bundle input parent")).expect("create bundle input parent");
+            fs::copy(checkout.join(relative), destination).expect("copy checked-in bundle input");
+        }
+        let observed_version = profile.tool.version.clone();
+        let envelope = crate::ast_grep_rail::render_scan_envelope(
+            profile,
+            observed_version,
+            serde_json::json!([]),
+            String::new(),
+            0,
+        )
+        .expect("ast-grep envelope");
+        let scan = workspace.path().join("scan.json");
+        fs::write(&scan, envelope).expect("write ast-grep envelope");
+        let (_profile_pipe, profile_path) = one_shot(profile_bytes);
+        let artifacts = workspace.path().join("artifacts");
+        let args = ast_grep_args(profile_path, Some(workspace.path().to_path_buf()), Some(scan), artifacts.clone());
+
+        run(&args).expect("collect ast-grep evidence");
+        let receipt: EvidenceRailReceipt =
+            serde_json::from_str(&fs::read_to_string(artifacts.join(RECEIPT_ARTIFACT_NAME)).expect("read receipt"))
+                .expect("parse receipt");
+        assert_eq!(receipt.config_identity, Some(prefixed_identity(profile_bytes)));
+    }
+
+    #[test]
+    fn ast_grep_run_command_comes_from_the_profile_read_once() {
+        let profile_bytes = include_bytes!("../../standards/ast-grep/generated/profile.json");
+        let (_profile_pipe, profile_path) = one_shot(profile_bytes);
+        let args = ast_grep_args(profile_path, None, None, std::path::PathBuf::from("artifacts/ast-grep"));
+
+        let prepared = prepare_ast_grep(&args).expect("read the profile once").expect("ast-grep rail is prepared");
+        assert_eq!(
+            normalized_run_command(&args, None, Some(&prepared)).expect("ast-grep run command"),
+            Some(crate::ast_grep_rail::scan_command_argv(&prepared.profile).join(" "))
+        );
+        let identities =
+            input_identities(&args, None, Some(&prepared), None, Path::new("."), "").expect("ast-grep identities");
+        assert_eq!(identities.config, Some(prefixed_identity(profile_bytes)));
+
+        let commanded = crate::cli::EvidenceRailArgs {
+            command: Some("ast-grep scan --rule other.yml".to_owned()),
+            ..args
+        };
+        let error = prepare_ast_grep(&commanded).err().expect("arbitrary ast-grep command is rejected");
+        assert!(error.contains("--command authority"), "{error}");
+    }
+
+    #[test]
+    fn charon_semantic_collect_binds_the_profile_bytes_it_verified() {
+        let profile_bytes = include_bytes!("../../standards/charon-semantic/generated/profile.json");
+        let directory = tempfile::tempdir().expect("create Charon collect directory");
+        let snapshot = directory.path().join("llbc.llbc");
+        fs::write(
+            &snapshot,
+            include_str!("../../standards/proof-rails/aeneas-lean/fixtures/valid/artifacts/proofs/aeneas/llbc.llbc"),
+        )
+        .expect("write Charon snapshot");
+        let parent = directory.path().join("comparison-parent.json");
+        fs::write(&parent, include_str!("../../standards/charon-semantic/generated/comparison-parent.json"))
+            .expect("write comparison parent");
+        let (_profile_pipe, profile_path) = one_shot(profile_bytes);
+        let artifacts = directory.path().join("artifacts");
+        let args = crate::cli::EvidenceRailArgs {
+            rail: EvidenceRailKind::CharonSemantic,
+            input: Some(snapshot),
+            artifact_dir: artifacts.clone(),
+            workspace_root: None,
+            config: Some(profile_path),
+            baseline: None,
+            profile: Some(crate::charon_semantic::shipped_profile_id().to_owned()),
+            command: None,
+            parent_artifacts: Vec::new(),
+            external_reports: vec![parent],
+            output_format: OutputFormat::Human,
+            locked: false,
+            update_advisory_database: false,
+            run: false,
+            command_line: "cargo octet evidence collect --rail charon-semantic --input llbc.llbc".to_owned(),
+        };
+
+        run(&args).expect("collect Charon semantic evidence");
+        let receipt: EvidenceRailReceipt =
+            serde_json::from_str(&fs::read_to_string(artifacts.join(RECEIPT_ARTIFACT_NAME)).expect("read receipt"))
+                .expect("parse receipt");
+        assert_eq!(receipt.config_identity.as_deref(), Some(crate::charon_semantic::EXPECTED_PROFILE_IDENTITY));
+        assert!(validate_receipt(&receipt).is_empty(), "{:?}", validate_receipt(&receipt));
     }
 
     #[test]
@@ -6240,7 +6404,7 @@ mod tests {
         };
 
         let identities =
-            input_identities(&args, None, None, directory.path(), "").expect("workspace-relative identities");
+            input_identities(&args, None, None, None, directory.path(), "").expect("workspace-relative identities");
         assert_eq!(identities.config, Some(prefixed_identity(CONFIG_BYTES)));
         assert_eq!(identities.baseline, Some(prefixed_identity(BASELINE_BYTES)));
     }
