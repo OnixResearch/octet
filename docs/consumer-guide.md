@@ -297,7 +297,13 @@ cargo octet artifact verify --artifact-dir artifacts/octet-proofs
 
 `cargo octet check` and `cargo octet prove` write separate bundles, so give each
 its own artifact directory; `cargo octet prove` refuses a directory that holds a
-`check` bundle.
+`check` bundle. Reusing an earlier prove bundle removes only the entries prove
+writes (`command.txt`, `status.json`, `summary.txt`, `provenance.jsonl`,
+`proof-cards.json`, `evidence-log-manifest.json`, and the `proofs/` tree), so a
+`proof-ref.json` or other file kept beside them survives; `cargo octet artifact
+verify` reports it as an unexpected artifact. `--artifact-dir` must not be the
+proof sources' workspace root or one of its ancestors; prove refuses it with
+exit `2` before any rail runs.
 
 External Aeneas consumers use a closed Nickel profile. The receipt binds the
 provider cohort, exact source and span, generated artifacts, theorem,

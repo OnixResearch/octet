@@ -275,7 +275,9 @@ cargo octet artifact verify --artifact-dir artifacts/octet-proofs
 
 `cargo octet check` and `cargo octet prove` write separate bundles, so give each
 its own artifact directory; `cargo octet prove` refuses a directory that holds a
-`check` bundle.
+`check` bundle. Both commands, and `cargo octet evidence collect`, prune only
+their own earlier outputs from a reused bundle and refuse an `--artifact-dir`
+that is the workspace root or one of its ancestors.
 
 The reusable Aeneas consumer profile binds exact downstream source, generated
 artifacts, a maintained theorem, and the existing pinned provider. See

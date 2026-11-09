@@ -103,6 +103,18 @@ const SUMMARY_ARTIFACT_NAME: &str = "summary.txt";
 const PROVENANCE_ARTIFACT_NAME: &str = "provenance.jsonl";
 const PROOF_CARDS_ARTIFACT_NAME: &str = "proof-cards.json";
 const PROOF_ARTIFACT_DIR_NAME: &str = "proofs";
+/// Every top-level entry a prove bundle can hold; receipts, logs, and Aeneas stage artifacts all
+/// live under `proofs/`. Reusing a bundle removes only these, so entries `prove` never writes (a
+/// `proof-ref.json`, an operator's notes) survive.
+const PROVE_BUNDLE_ENTRY_NAMES: &[&str] = &[
+    COMMAND_ARTIFACT_NAME,
+    STATUS_ARTIFACT_NAME,
+    SUMMARY_ARTIFACT_NAME,
+    PROVENANCE_ARTIFACT_NAME,
+    PROOF_CARDS_ARTIFACT_NAME,
+    crate::evidence_log::EVIDENCE_LOG_MANIFEST_ARTIFACT,
+    PROOF_ARTIFACT_DIR_NAME,
+];
 const AENEAS_ARTIFACT_DIR_SUFFIX: &str = "aeneas";
 const AENEAS_LLBC_ARTIFACT: &str = "llbc.llbc";
 const AENEAS_TRANSLATION_ARTIFACT: &str = "translation.json";
@@ -358,7 +370,7 @@ pub fn run(args: &ProveArgs) -> Result<i32, String> {
         });
     }
 
-    ensure_artifact_dir_reusable(&args.artifact_dir)?;
+    ensure_artifact_dir_reusable(&args.artifact_dir, &working_dir)?;
     let mut diagnostics = rail_selection.diagnostics;
     if selected_rails.is_empty() {
         diagnostics.push("no selected proof rails matched the provided sources".to_owned());
@@ -1679,7 +1691,10 @@ fn failed_receipt_text(policy_id: &str, rail_index: usize, diagnostics: &[String
 
 /// Refuses an artifact directory `prepare_artifact_dir` would reject, without creating or pruning
 /// it, so a foreign directory fails before any verifier runs rather than after every selected rail.
-fn ensure_artifact_dir_reusable(artifact_dir: &Path) -> Result<(), String> {
+/// The directory must also not be the proof workspace root or one of its ancestors: a workspace
+/// holding bundle markers would otherwise lose its own `proofs/` tree to pruning.
+fn ensure_artifact_dir_reusable(artifact_dir: &Path, workspace_root: &Path) -> Result<(), String> {
+    crate::cap_fs::reject_artifact_dir_enclosing_workspace(artifact_dir, workspace_root, "prove")?;
     let exists = artifact_dir
         .try_exists()
         .map_err(|error| format!("inspect artifact directory {}: {error}", artifact_dir.display()))?;
@@ -1690,13 +1705,15 @@ fn ensure_artifact_dir_reusable(artifact_dir: &Path) -> Result<(), String> {
 }
 
 /// Opens the artifact directory the way `cargo octet check` does: only an empty directory or an
-/// earlier prove bundle may be reused. An earlier bundle is cleared first, so receipts, logs,
-/// Aeneas stage artifacts, or an evidence-log manifest from a previous run cannot survive into this
-/// one.
+/// earlier prove bundle may be reused. An earlier bundle's outputs are cleared first, so receipts,
+/// logs, Aeneas stage artifacts, or an evidence-log manifest from a previous run cannot survive
+/// into this one; entries outside `PROVE_BUNDLE_ENTRY_NAMES` are left in place.
 fn prepare_artifact_dir(artifact_dir: &Path) -> Result<ArtifactRoot, String> {
     let artifact_root = ArtifactRoot::open_or_create(artifact_dir)?;
     for entry in reusable_artifact_entries(&artifact_root, artifact_dir)? {
-        artifact_root.remove_file_or_dir_all(&RootRelativePath::new(entry.as_str())?)?;
+        if PROVE_BUNDLE_ENTRY_NAMES.contains(&entry.as_str()) {
+            artifact_root.remove_file_or_dir_all(&RootRelativePath::new(entry.as_str())?)?;
+        }
     }
     Ok(artifact_root)
 }
@@ -2614,7 +2631,16 @@ fn write_artifact_text(root: &ArtifactRoot, locator: &str, text: &str) -> Result
 }
 
 fn write_artifact_bytes(root: &ArtifactRoot, locator: &str, bytes: &[u8]) -> Result<(), String> {
-    root.write(&RootRelativePath::new(locator)?, bytes)
+    let relative = RootRelativePath::new(locator)?;
+    debug_assert!(
+        relative
+            .as_path()
+            .components()
+            .next()
+            .is_some_and(|top| PROVE_BUNDLE_ENTRY_NAMES.iter().any(|name| top.as_os_str() == *name)),
+        "every prove output must sit under PROVE_BUNDLE_ENTRY_NAMES so a later run can prune it: {locator}"
+    );
+    root.write(&relative, bytes)
 }
 
 fn json_text<T: Serialize>(value: &T) -> Result<String, String> {
@@ -3787,12 +3813,50 @@ mod tests {
 
         assert_eq!(run(&args).expect("first prove run"), EXIT_PROOF_VALID);
         assert!(artifact_dir.join(&second_receipt).is_file());
+        fs::write(artifact_dir.join("proof-ref.json"), "{}\n").expect("write foreign proof ref");
+        fs::create_dir_all(artifact_dir.join("notes")).expect("create foreign directory");
+        fs::write(artifact_dir.join("notes/review.txt"), "keep\n").expect("write foreign note");
         args.rail = vec![format!("{POLICY_ID}#rail-0")];
         assert_eq!(run(&args).expect("second prove run"), EXIT_PROOF_VALID);
 
         assert!(!artifact_dir.join(&second_receipt).exists(), "stale receipt from the earlier run must be removed");
+        assert!(artifact_dir.join("proof-ref.json").is_file(), "entries prove never writes must survive");
+        assert!(artifact_dir.join("notes/review.txt").is_file(), "directories prove never writes must survive");
+        fs::remove_file(artifact_dir.join("proof-ref.json")).expect("remove foreign proof ref");
+        fs::remove_dir_all(artifact_dir.join("notes")).expect("remove foreign directory");
         let report = verify_bundle(bundle_input(&artifact_dir));
         assert_eq!(report.status, "valid", "unexpected diagnostics: {:?}", report.diagnostics);
+    }
+
+    #[test]
+    fn prove_refuses_artifact_dir_that_is_or_encloses_the_proof_workspace_root() {
+        for nested in [false, true] {
+            let temp = tempfile::tempdir().expect("tempdir");
+            let workspace = if nested {
+                temp.path().join("workspace")
+            } else {
+                temp.path().to_path_buf()
+            };
+            fs::create_dir_all(&workspace).expect("create workspace");
+            let source = write_fixture_source(&workspace);
+            let proof = write_fixture_proof(&workspace);
+            let rail_marker = temp.path().join("rail-ran");
+            let script = format!(": > '{}'; printf '%s\\n' '{PASS_SIGNAL}'", rail_marker.display());
+            let registry =
+                write_fixture_registry(&workspace, PASS_SIGNAL, vec!["sh".to_owned(), "-c".to_owned(), script]);
+            // Prove-bundle markers make the directory look like an earlier bundle, which is reused.
+            fs::write(temp.path().join(STATUS_ARTIFACT_NAME), r#"{"bundle_kind":"prove"}"#).expect("status marker");
+            fs::write(temp.path().join(PROVENANCE_ARTIFACT_NAME), "{}\n").expect("provenance marker");
+
+            let result = run(&fixture_args(registry.clone(), vec![source.clone()], temp.path().to_path_buf()));
+
+            for kept in [&source, &proof, &registry] {
+                assert!(kept.is_file(), "nested={nested}: {} must survive", kept.display());
+            }
+            let error = result.expect_err("an artifact directory enclosing the workspace must be refused");
+            assert!(error.contains("`--artifact-dir`") && error.contains("workspace root"), "{error}");
+            assert!(!rail_marker.exists(), "nested={nested}: proof rails must not run");
+        }
     }
 
     #[test]
