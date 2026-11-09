@@ -459,6 +459,10 @@ impl Config {
     }
 }
 
+/// `dylint.toml` config sections in precedence order: `[octet]`, then the
+/// legacy `[slotcar]` and `[tigerstyle]` sections.
+const DYLINT_TOML_SECTIONS: [&str; 3] = [env!("CARGO_PKG_NAME"), "slotcar", "tigerstyle"];
+
 /// Normalizes configured source scopes the way `cargo octet` does and drops
 /// entries that normalize to an empty path.
 fn normalize_source_scopes(field: &'static str, scopes: &mut Vec<String>, diagnostics: &mut Vec<ConfigDiagnostic>) {
@@ -473,30 +477,50 @@ fn normalize_source_scopes(field: &'static str, scopes: &mut Vec<String>, diagno
     *scopes = kept.into_iter().map(|(scope, _raw)| scope).collect();
 }
 
-fn prefer_octet_or_legacy_config(octet: Option<Config>, slotcar: Option<Config>, tigerstyle: Option<Config>) -> Config {
-    octet.or(slotcar).or(tigerstyle).unwrap_or_default()
+/// Selects the highest-precedence config section that is present. Every
+/// lower-precedence section is left unparsed and reported, because the
+/// selected section replaces it as a whole.
+fn prefer_octet_or_legacy_config<T>(
+    sections: impl IntoIterator<Item = (&'static str, Option<T>)>,
+) -> (Option<(&'static str, T)>, Vec<String>) {
+    let mut present = sections.into_iter().filter_map(|(name, section)| section.map(|section| (name, section)));
+    let selected = present.next();
+    let notices = selected.as_ref().map_or_else(Vec::new, |(winner, _section)| {
+        present
+            .map(|(name, _section)| {
+                format!(
+                    "ignoring legacy `[{name}]` section in `dylint.toml` because `[{winner}]` takes precedence; move its settings into `[octet]`"
+                )
+            })
+            .collect()
+    });
+    (selected, notices)
 }
 
 /// Load the project config from `dylint.toml`, falling back to defaults.
 ///
 /// # Panics
 ///
-/// Panics when Dylint returns malformed TOML for the Octet, Slotcar, or
-/// Tigerstyle config sections; unknown config keys, invalid lint names, and
-/// invalid levels are reported as warnings instead of panics after parsing
-/// succeeds.
+/// Panics when Dylint cannot read `dylint.toml`, when the selected config
+/// section is malformed TOML, or when the selected strict profile cannot
+/// apply. A shadowed legacy section is reported but never parsed; unknown
+/// config keys, invalid lint names, and invalid levels are reported as
+/// warnings instead of panics after parsing succeeds.
 pub fn load(sess: &rustc_session::Session) -> Config {
-    let mut cfg = prefer_octet_or_legacy_config(
-        dylint_linting::config::<Config>(env!("CARGO_PKG_NAME")).unwrap_or_else(|error| {
-            panic!("Could not parse config as `{}`: {}", std::any::type_name::<Config>(), error)
-        }),
-        dylint_linting::config::<Config>("slotcar").unwrap_or_else(|error| {
-            panic!("Could not parse config as `{}`: {}", std::any::type_name::<Config>(), error)
-        }),
-        dylint_linting::config::<Config>("tigerstyle").unwrap_or_else(|error| {
-            panic!("Could not parse config as `{}`: {}", std::any::type_name::<Config>(), error)
-        }),
-    );
+    let sections = DYLINT_TOML_SECTIONS.map(|name| {
+        let section = dylint_linting::config_toml(name)
+            .unwrap_or_else(|error| panic!("Could not read config section `[{name}]`: {error}"));
+        (name, section)
+    });
+    let (selected, notices) = prefer_octet_or_legacy_config(sections);
+    for notice in notices {
+        sess.dcx().warn(notice);
+    }
+    let mut cfg = selected.map_or_else(Config::default, |(name, section)| {
+        section.try_into::<Config>().unwrap_or_else(|error| {
+            panic!("Could not parse config section `[{name}]` as `{}`: {error}", std::any::type_name::<Config>())
+        })
+    });
     for warning in cfg.validate() {
         sess.dcx().warn(warning);
     }
@@ -518,21 +542,13 @@ fn apply_selected_strict_profile(cfg: &mut Config) -> Result<(), String> {
 mod tests {
     use std::collections::HashMap;
 
-    use serde::Deserialize;
-
     use super::Config;
     use super::ConfigDiagnostic;
     use super::ConfigDiagnosticKind;
+    use super::DYLINT_TOML_SECTIONS;
     use super::LintLevel;
     use super::NOMINAL_DOMAIN_LINTS;
     use super::prefer_octet_or_legacy_config;
-
-    #[derive(Deserialize)]
-    struct Wrapper {
-        octet: Option<Config>,
-        slotcar: Option<Config>,
-        tigerstyle: Option<Config>,
-    }
 
     const CONFIG_VALID_LEVEL_LAW: &str = "config valid lint-level overrides normalize deterministically";
     const CONFIG_DISABLED_PRECEDENCE_LAW: &str = "config disabled_lints wins over lint_levels";
@@ -549,9 +565,18 @@ mod tests {
     const CONFIG_DISABLED_PRECEDENCE_CASE_BUDGET: usize = 6;
     const CONFIG_NEGATIVE_LEVEL_CASE_BUDGET: usize = 6;
 
+    /// Selects and parses a config section the way `load` does, returning the
+    /// shadowed-section notices alongside it.
+    fn try_parse_config(doc: &str) -> Result<(Config, Vec<String>), toml::de::Error> {
+        let mut document = toml::from_str::<toml::Table>(doc).expect("parse test dylint.toml");
+        let (selected, notices) =
+            prefer_octet_or_legacy_config(DYLINT_TOML_SECTIONS.map(|name| (name, document.remove(name))));
+        let cfg = selected.map_or_else(|| Ok(Config::default()), |(_name, section)| section.try_into::<Config>())?;
+        Ok((cfg, notices))
+    }
+
     fn parse_config(doc: &str) -> Config {
-        let wrapper = toml::from_str::<Wrapper>(doc).expect("parse test dylint.toml");
-        prefer_octet_or_legacy_config(wrapper.octet, wrapper.slotcar, wrapper.tigerstyle)
+        try_parse_config(doc).expect("parse selected config section").0
     }
 
     fn parse_and_validate(doc: &str) -> (Config, Vec<String>) {
@@ -604,7 +629,7 @@ mod tests {
 
     #[test]
     fn malformed_nominal_domain_mode_fails_toml_deserialization() {
-        let parsed = toml::from_str::<Wrapper>("[octet]\nnominal_domain_mode = \"enforce-everything\"\n");
+        let parsed = try_parse_config("[octet]\nnominal_domain_mode = \"enforce-everything\"\n");
 
         assert!(parsed.is_err());
     }
@@ -750,37 +775,51 @@ mod tests {
 
     #[test]
     fn legacy_slotcar_config_is_used_when_octet_section_is_absent() {
-        let legacy = Config {
-            acronym_allowlist: vec!["IO".to_owned()],
-            ..Default::default()
-        };
-
-        let selected = prefer_octet_or_legacy_config(None, Some(legacy), None);
+        let (selected, notices) =
+            try_parse_config("[slotcar]\nacronym_allowlist = [\"IO\"]\n").expect("slotcar parses");
 
         assert_eq!(selected.acronym_allowlist, vec!["IO".to_owned()]);
+        assert!(notices.is_empty(), "a used legacy section is not reported: {notices:?}");
     }
 
     #[test]
     fn octet_config_wins_over_legacy_slotcar_and_tigerstyle_config() {
-        let primary = Config {
-            acronym_allowlist: vec!["RPC".to_owned()],
-            ..Default::default()
-        };
-        let legacy = Config {
-            acronym_allowlist: vec!["IO".to_owned()],
-            ..Default::default()
-        };
-
-        let selected = prefer_octet_or_legacy_config(
-            Some(primary),
-            Some(legacy),
-            Some(Config {
-                max_parameters: 9,
-                ..Default::default()
-            }),
-        );
+        let (selected, notices) = try_parse_config(
+            "[octet]\nacronym_allowlist = [\"RPC\"]\n\n[slotcar]\nacronym_allowlist = [\"IO\"]\n\n[tigerstyle]\nmax_parameters = 9\n",
+        )
+        .expect("octet parses");
 
         assert_eq!(selected.acronym_allowlist, vec!["RPC".to_owned()]);
+        assert_eq!(selected.max_parameters, Config::default().max_parameters);
+        assert_eq!(notices.len(), 2, "both shadowed legacy sections are reported: {notices:?}");
+        assert!(notices[0].contains("`[slotcar]`") && notices[0].contains("`[octet]`"), "{notices:?}");
+        assert!(notices[1].contains("`[tigerstyle]`") && notices[1].contains("`[octet]`"), "{notices:?}");
+    }
+
+    #[test]
+    fn lint_levels_table_alone_shadows_legacy_settings_with_a_notice() {
+        let (selected, notices) =
+            try_parse_config("[octet.lint_levels]\nno_unwrap = \"deny\"\n\n[tigerstyle]\nmax_parameters = 9\n")
+                .expect("octet parses");
+
+        assert_eq!(selected.max_parameters, Config::default().max_parameters);
+        assert_eq!(notices.len(), 1, "{notices:?}");
+        assert!(notices[0].contains("`[tigerstyle]`"), "{notices:?}");
+    }
+
+    #[test]
+    fn malformed_shadowed_legacy_sections_are_not_parsed() {
+        let (selected, notices) = try_parse_config(
+            "[octet]\nmax_parameters = 6\n\n[slotcar]\nmax_parameters = \"seven\"\n\n[tigerstyle]\ndisabled_lints = 3\n",
+        )
+        .expect("only the selected section is parsed");
+
+        assert_eq!(selected.max_parameters, 6);
+        assert_eq!(notices.len(), 2, "{notices:?}");
+        assert!(
+            try_parse_config("[slotcar]\nmax_parameters = \"seven\"\n").is_err(),
+            "a malformed selected section still fails to parse"
+        );
     }
 
     #[test]

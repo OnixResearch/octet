@@ -47,6 +47,7 @@ Rules to keep straight:
 - `disabled_lints` and `[octet.lint_levels]` use bare lint names
 - `disabled_lints` wins over `lint_levels`
 - explicit command-line levels such as `-D numeric_units` in `DYLINT_RUSTFLAGS` win over `lint_levels`; a selected strict profile's required denies win over both
+- `[octet]` replaces the legacy `[slotcar]` and `[tigerstyle]` sections as a whole, even when it holds only `[octet.lint_levels]`; a shadowed legacy section is not parsed and the run warns that it is ignored
 - allow-by-default lints can be turned on with `#![warn(...)]` or a lint-level override
 - standalone raw-rustc crates and UI fixtures that use tool-scoped attrs need:
 

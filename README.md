@@ -347,7 +347,7 @@ Canonical attributes use `tigerstyle::<lint>`. Domain groups use `tigerstyle::<d
 | Policy commands | `octet-policy-export` and `octet-policy-validate` | Old names are aliases |
 | Lint attributes | `tigerstyle::<lint>` | Bare names remain compatibility aliases |
 | Workspace config | `[workspace.metadata.octet]` | `[workspace.metadata.slotcar]` has lower precedence |
-| Lint config | `[octet]` and `[octet.lint_levels]` | `[slotcar]` has lower precedence |
+| Lint config | `[octet]` and `[octet.lint_levels]` | `[slotcar]` and `[tigerstyle]` have lower precedence; a shadowed section is ignored with a warning |
 | Environment prefix | `OCTET_*` | `TIGERSTYLE_*` remains bootstrap compatibility |
 
 When both forms exist, Octet names take precedence.

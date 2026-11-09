@@ -78,8 +78,11 @@ A minimal starting point can be as small as:
 ```
 
 Use the template comments when you need threshold overrides, allowlists,
-`disabled_lints`, or `[octet.lint_levels]`. Legacy `[slotcar]` config remains
-accepted only as a lower-precedence migration alias.
+`disabled_lints`, or `[octet.lint_levels]`. Legacy `[slotcar]` and
+`[tigerstyle]` config remain accepted only as lower-precedence migration
+aliases. Precedence is per section, not per key: any `[octet]` table, even
+`[octet.lint_levels]` alone, replaces the legacy sections entirely. A shadowed
+legacy section is never parsed, and the lint run warns that it is ignored.
 
 The workspace `dylint.toml` is the only lint config source. Dylint itself would
 read the `DYLINT_TOML` environment variable instead of the file, but Octet's

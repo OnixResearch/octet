@@ -60,6 +60,7 @@
     "impure_call_in_core_sibling_scope/impure_call_in_core_sibling_scope",
     "interior_mutability_in_core/interior_mutability_in_core",
     "ignored_result_shutdown_send",
+    "legacy_config_sections_custom/legacy_config_sections_custom",
     "lint_guardrail_common",
     "logging_in_core/logging_in_core",
     "magic_number",
@@ -221,6 +222,7 @@
     "no_unwrap_disabled_source_attr_custom/no_unwrap_disabled_source_attr_custom",
     "numeric_units_cli_deny_custom/numeric_units_cli_deny_custom",
     "nominal_inventory_deny_custom/nominal_inventory_deny_custom",
-    "nominal_inventory_cli_deny_custom/nominal_inventory_cli_deny_custom"
+    "nominal_inventory_cli_deny_custom/nominal_inventory_cli_deny_custom",
+    "legacy_config_sections_custom/legacy_config_sections_custom"
   ]
 }
