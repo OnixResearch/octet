@@ -63,6 +63,43 @@ fn logical_time(timeout_ms: u64) -> u64 {
     LogicalTicks::now() + timeout_ms
 }
 
+async fn async_contradictory(now_ms: u64) -> u64 {
+    // Should warn: the async body lowers to a nested coroutine body
+    let _t = Instant::now();
+    now_ms
+}
+
+fn closure_contradictory(deadline_ms: u64) -> impl Fn() -> u64 {
+    // Should warn: the clock read sits inside a closure body
+    move || {
+        let _t = std::time::SystemTime::now();
+        deadline_ms
+    }
+}
+
+fn closure_with_own_time_param() -> u64 {
+    // Should warn once: only the closure takes a time parameter
+    let read = |timeout_ms: u64| {
+        let _t = Instant::now();
+        timeout_ms
+    };
+    read(5)
+}
+
+fn closure_without_time_param(values: &[u64]) -> usize {
+    // Should NOT warn: neither the function nor the closure takes a time parameter
+    values.iter().filter(|_| Instant::now().elapsed() > Duration::ZERO).count()
+}
+
+fn nested_time_params(now_ms: u64) -> u64 {
+    // Should warn once: the enclosing function reports the closure's clock read
+    let read = |timeout_ms: u64| {
+        let _t = Instant::now();
+        timeout_ms
+    };
+    read(now_ms)
+}
+
 fn main() {
     contradictory(1000);
     pure_time(1000, 2000);
