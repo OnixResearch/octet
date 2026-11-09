@@ -1246,23 +1246,31 @@ impl<'a> ScopeResolver<'a> {
             })
     }
 
-    /// The selected function `name` in `container` of the module at `locator`.
+    /// The selected function `name` in `container` of the module at `locator`. Without a unique
+    /// one, the owner's declaration (with its attributes, already reached) and, for a method, the
+    /// module's wildcards bind the path: a derive, an attribute macro on an `impl`, or an item
+    /// macro may generate the method.
     fn local(&self, lookup: &mut Lookup<'a>, locator: &ModuleLocator, container: &FunctionContainer, name: &str) {
         let candidates = self.functions.get(locator.0.as_str()).map_or(&[][..], Vec::as_slice);
         let mut matching = candidates.iter().filter(|function| {
             function.draft.module == locator.1 && function.draft.container == *container && function.draft.name == name
         });
-        match (matching.next(), matching.next()) {
-            (Some(function), None) if function.function_address != MISSING_FUNCTION_ADDRESS => {
-                lookup.locals.push(function);
+        if let (Some(function), None) = (matching.next(), matching.next())
+            && function.function_address != MISSING_FUNCTION_ADDRESS
+        {
+            lookup.locals.push(function);
+            return;
+        }
+        let label = module_label(locator);
+        if let FunctionContainer::InherentImpl(owner) = container {
+            lookup.reach_declaration(&label, &format!("{owner}::{name}"), "no selected method");
+            if let Some(scope) = self.modules.scopes.get(locator) {
+                for wildcard in &scope.wildcards {
+                    lookup.reach(&label, "*", wildcard);
+                }
             }
-            _ => {
-                let owner = match container {
-                    FunctionContainer::InherentImpl(owner) => format!("{owner}::"),
-                    _ => String::new(),
-                };
-                lookup.reach_declaration(&module_label(locator), &format!("{owner}{name}"), "fn");
-            }
+        } else {
+            lookup.reach_declaration(&label, name, "no selected function");
         }
     }
 }
@@ -4973,5 +4981,22 @@ unsafe fn risky(values: &[u8]) -> u8 {
         let receipt = compute_closure(reviewed_input(body_module, summaries));
         assert_eq!(receipt.status, AdmissionStatus::Denied);
         assert_eq!(call_edge(&receipt, "root", "call:tidy").resolution, CallResolution::Unknown);
+    }
+
+    // r[verify octet.effect_closure.dependency_summaries.invalid]
+    // r[verify octet.effect_closure.verification.adversarial]
+    #[test]
+    fn owner_paths_bind_the_owner_declaration() {
+        assert_summaries_follow_resolution("pub struct Foo;\npub fn root() { Foo::persist(); }\n", &[], &[
+            (
+                "#[derive(dep_b::Persist)]\npub struct Foo;\npub fn root() { Foo::persist(); }\n",
+                "call:Foo::persist",
+            ),
+            ("#[dep_b::make_persist]\npub struct Foo;\npub fn root() { Foo::persist(); }\n", "call:Foo::persist"),
+            (
+                "pub struct Foo;\n#[dep_b::make_persist]\nimpl Foo {}\npub fn root() { Foo::persist(); }\n",
+                "call:Foo::persist",
+            ),
+        ]);
     }
 }
