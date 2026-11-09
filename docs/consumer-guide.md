@@ -133,6 +133,13 @@ cargo octet check -p crate-a
 cargo octet check -p crate-a -- --all-targets
 ```
 
+With `--all-targets`, Cargo compiles a library both as the library and as its
+unit-test harness and reports a lint in shared code once per compilation. The
+runner reports a finding once when every field except its `F<n>` index agrees,
+so totals, the summary, `results.jsonl`, SARIF, and baselines count it once.
+Findings that differ in message, location, severity, or any other field are all
+kept.
+
 You can also choose machine-readable output, save an artifact bundle, and verify
 that saved bundle before promoting it:
 

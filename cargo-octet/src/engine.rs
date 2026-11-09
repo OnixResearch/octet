@@ -1206,20 +1206,51 @@ fn update_lint_cache(workspace_root: &Path, findings: &mut [Finding]) -> Result<
     Ok(())
 }
 
-fn canonicalize_findings(findings: &mut [Finding]) {
-    findings.sort_by(|left, right| {
-        left.file
-            .cmp(&right.file)
-            .then(left.crate_name.cmp(&right.crate_name))
-            .then(left.line.cmp(&right.line))
-            .then(left.column.cmp(&right.column))
-            .then(left.lint.cmp(&right.lint))
-            .then(left.stable_id.cmp(&right.stable_id))
-    });
+/// Sorts findings into report order, drops repeats, and renumbers them. `cargo check
+/// --all-targets` compiles a library both as the `lib` unit and as its `lib (test)` unit, and Cargo
+/// reports a lint in shared code once per unit with identical JSON. Findings are repeats only when
+/// every field except `index` agrees, so findings that differ in message, location, severity, or
+/// any other reported field all stay.
+fn canonicalize_findings(findings: &mut Vec<Finding>) {
+    findings.sort_by(|left, right| finding_order_key(left).cmp(&finding_order_key(right)));
+    findings.dedup_by(|later, earlier| finding_order_key(later) == finding_order_key(earlier));
 
     for (offset, finding) in findings.iter_mut().enumerate() {
         finding.index = format!("F{}", offset + 1);
     }
+}
+
+/// Every `Finding` field except `index`, report-order fields first: file, crate, line, column,
+/// lint, and stable ID, then the rest. Equal keys mean a repeated finding, and sorting by the full
+/// key makes repeats adjacent.
+type FindingOrderKey<'a> = (
+    (&'a str, &'a str, u32, u32, &'a str, &'a str),
+    (&'a str, &'a str, Option<&'a str>, Option<&'a str>, &'a str, &'a str),
+    (&'a str, &'a str, &'a str, &'a str, &'a str, &'a str),
+    (u32, &'a str),
+);
+
+fn finding_order_key(finding: &Finding) -> FindingOrderKey<'_> {
+    (
+        (&finding.file, &finding.crate_name, finding.line, finding.column, &finding.lint, &finding.stable_id),
+        (
+            &finding.severity,
+            &finding.message,
+            finding.suggestion.as_deref(),
+            finding.applicability.as_deref(),
+            &finding.semantic_id,
+            &finding.identity_status,
+        ),
+        (
+            &finding.normalized_snippet_hash,
+            &finding.config_hash,
+            &finding.group,
+            &finding.principle,
+            &finding.effect_family,
+            finding.evidence_tier.as_str(),
+        ),
+        (finding.version, &finding.cache_status),
+    )
 }
 
 fn normalize_lint_name(code: &str) -> String {
@@ -2438,6 +2469,103 @@ mod tests {
             .expect("read lint cache");
         let cached = serde_json::from_str::<BTreeSet<String>>(&cached).expect("parse lint cache");
         assert_eq!(cached, BTreeSet::from(["b3:shared".to_owned(), "b3:unique".to_owned()]));
+    }
+
+    /// `cargo check --all-targets` compiles a library twice (the `lib` unit and its `lib (test)`
+    /// unit), and Cargo reports a lint in shared code once per unit with byte-identical JSON.
+    #[test]
+    fn identical_findings_from_lib_and_lib_test_units_are_reported_once() {
+        let temporary = tempfile::tempdir().expect("single package fixture");
+        std::fs::write(
+            temporary.path().join("Cargo.toml"),
+            "[package]\nname = \"consumer\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+        )
+        .expect("package manifest");
+        std::fs::create_dir(temporary.path().join("src")).expect("source directory");
+        std::fs::write(temporary.path().join("src/lib.rs"), "pub fn value() {}\n").expect("source file");
+        let toolchain = std::env::var("RUSTUP_TOOLCHAIN").unwrap_or_else(|_| "stable".to_owned());
+        let paths = super::DiagnosticPaths::from_cargo_metadata(temporary.path(), &toolchain, &[], &[])
+            .expect("package Cargo metadata");
+        let package_id = paths.package_dirs.keys().next().expect("package ID").clone();
+        let compiler_message = |line: u64, message: &str| {
+            serde_json::json!({
+                "reason": "compiler-message",
+                "package_id": package_id,
+                "target": {"kind": ["lib"], "crate_types": ["lib"], "name": "consumer", "test": true},
+                "message": {
+                    "message": message,
+                    "code": {"code": "octet::no_unwrap"},
+                    "level": "warning",
+                    "spans": [{
+                        "is_primary": true,
+                        "file_name": "src/lib.rs",
+                        "line_start": line,
+                        "column_start": 5,
+                        "text": [{"text": "    value.unwrap()"}],
+                    }],
+                    "children": [],
+                },
+            })
+            .to_string()
+        };
+        let shared = compiler_message(5, "use of `.unwrap()`");
+        let stream = [
+            shared.clone(),
+            compiler_message(9, "use of `.unwrap()`"),
+            shared,
+            compiler_message(5, "use of `.unwrap()` on an `Option`"),
+        ]
+        .join("\n");
+        let check = crate::cli::CheckArgs {
+            scope_args: Vec::new(),
+            cargo_check_args: None,
+            profile: None,
+            output_format: crate::cli::OutputFormat::Json,
+            artifact_dir: None,
+            baseline: None,
+            write_baseline: None,
+            cache: false,
+            function_addresses: crate::function_address::FunctionAddressCheck::off(),
+            command_line: "cargo octet check --output-format json -- --all-targets".to_owned(),
+        };
+        let metadata = crate::determinism::RunMetadata {
+            tool_name: "cargo-octet",
+            tool_version: "0.1.0",
+            rustc_version: "rustc-test".to_owned(),
+            toolchain: "test".to_owned(),
+            profile_name: "workspace-metadata".to_owned(),
+            profile_hash: "b3:profile".to_owned(),
+            config_hash: "b3:config".to_owned(),
+        };
+        let mut findings = super::read_cargo_messages(
+            std::io::Cursor::new(stream),
+            &check,
+            &crate::output::lint_meta_map(),
+            &metadata,
+            &paths,
+        )
+        .expect("read stubbed cargo stream");
+        assert_eq!(findings.len(), 4, "the stream carries one message per compilation unit");
+
+        super::canonicalize_findings(&mut findings);
+
+        let reported = findings.iter().map(|finding| (finding.line, finding.message.as_str())).collect::<BTreeSet<_>>();
+        assert_eq!(
+            reported,
+            BTreeSet::from([
+                (5, "use of `.unwrap()`"),
+                (5, "use of `.unwrap()` on an `Option`"),
+                (9, "use of `.unwrap()`"),
+            ]),
+            "each distinct finding is kept once; a different message at the same location is not merged"
+        );
+        assert_eq!(findings.len(), 3);
+        assert_eq!(findings.iter().map(|finding| finding.index.as_str()).collect::<Vec<_>>(), ["F1", "F2", "F3"]);
+        assert_eq!(
+            findings.iter().map(|finding| finding.stable_id.as_str()).collect::<BTreeSet<_>>().len(),
+            2,
+            "findings at different locations keep their shared stable ID"
+        );
     }
 
     #[cfg(unix)]
