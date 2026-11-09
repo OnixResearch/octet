@@ -24,3 +24,9 @@ fn main() {
     let _ = justified(&[1]);
     lowered();
 }
+
+// Should NOT be reported: the later `deny` raises `no_unwrap` back.
+
+#[warn(no_unwrap)]
+#[deny(tigerstyle::no_unwrap)]
+mod restored {}

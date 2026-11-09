@@ -149,7 +149,9 @@ canonical name, or an Octet group with a required member, because it lowers
 that lint from the profile's `deny`. A `warn` that reaches no required lint,
 and every `warn` without a profile, MUST NOT be governed. The
 suppression-governance lints themselves are covered by the profile's
-governance guard instead.
+governance guard instead. A required lint that a later `deny` or `forbid`
+attribute on the same node raises back is not lowered, so neither this lint
+nor the guard counts it.
 
 The lint MUST accept a non-doc `//` comment on the attribute's source lines,
 including a trailing comment after the attribute, or on the line immediately

@@ -76,3 +76,14 @@ fn main() {
     let _ = grouped::early();
     quiet();
 }
+
+// Should error: the later `deny` raises `no_unwrap` back, but not
+// `unjustified_no_todo_allow`.
+#[warn(tigerstyle::safety)]
+#[deny(tigerstyle::no_unwrap)]
+mod partly_restored {}
+
+// Should error: a `deny` before the `warn` does not raise it back.
+#[deny(tigerstyle::safety)]
+#[warn(tigerstyle::safety)]
+mod lowered_last {}

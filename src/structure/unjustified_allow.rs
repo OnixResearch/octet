@@ -239,15 +239,47 @@ fn lint_paths(items: &[MetaItemInner]) -> impl Iterator<Item = impl Iterator<Ite
         .map(|meta| meta.path.segments.iter().map(|segment| segment.ident.as_str()))
 }
 
+/// Lints of `set` that a `deny` or `forbid` among `later` attributes raises
+/// back. rustc applies a node's lint attributes in order, so a later raise
+/// undoes an earlier `allow`, `expect`, or `warn` of the same lint.
+fn raised_lints(set: &LintPathSet, later: &[Attribute]) -> Vec<&'static str> {
+    let mut raised = Vec::new();
+    for attr in later.iter().filter(|attr| attr.has_name(sym::deny) || attr.has_name(sym::forbid)) {
+        let Some(items) = attr.meta_item_list() else {
+            continue;
+        };
+        for lint_name in set.reached_lints(lint_paths(&items)) {
+            if !raised.contains(&lint_name) {
+                raised.push(lint_name);
+            }
+        }
+    }
+    raised
+}
+
+/// Lints of `set` that the attribute lowers and no `later` attribute on the
+/// same node raises back.
+fn lowered_lints(set: &LintPathSet, items: &[MetaItemInner], later: &[Attribute]) -> Vec<&'static str> {
+    let mut lowered = set.reached_lints(lint_paths(items));
+    if !lowered.is_empty() {
+        let raised = raised_lints(set, later);
+        lowered.retain(|lint_name| !raised.contains(lint_name));
+    }
+    lowered
+}
+
 /// Name of a lint-level attribute this lint governs: `allow` or `expect`
-/// naming a governed lint, or, under a strict profile, `warn` reaching a
-/// floor lint.
-fn governed_level_name(attr: &Attribute, items: &[MetaItemInner], floor_paths: &LintPathSet) -> Option<&'static str> {
+/// naming a governed lint, or, under a strict profile, `warn` lowering a floor
+/// lint that no `later` attribute raises back.
+fn governed_level_name(
+    attr: &Attribute,
+    items: &[MetaItemInner],
+    later: &[Attribute],
+    floor_paths: &LintPathSet,
+) -> Option<&'static str> {
     match suppression_name(attr) {
         Some(name) => suppresses_governed_lint(items).then_some(name),
-        None => {
-            (attr.has_name(sym::warn) && !floor_paths.reached_lints(lint_paths(items)).is_empty()).then_some("warn")
-        }
+        None => (attr.has_name(sym::warn) && !lowered_lints(floor_paths, items, later).is_empty()).then_some("warn"),
     }
 }
 
@@ -258,18 +290,19 @@ impl UnjustifiedAllow {
             return;
         }
 
-        for attr in attrs {
+        for (index, attr) in attrs.iter().enumerate() {
+            let later = &attrs[index + 1..];
             if lowering_level_name(attr).is_none() {
                 continue;
             }
             let Some(items) = attr.meta_item_list() else {
                 continue;
             };
-            let Some(name) = governed_level_name(attr, &items, &self.floor_paths) else {
+            let Some(name) = governed_level_name(attr, &items, later, &self.floor_paths) else {
                 continue;
             };
             // The profile guard reports this attribute as an error to remove.
-            if !self.guarded_paths.reached_lints(lint_paths(&items)).is_empty() {
+            if !lowered_lints(&self.guarded_paths, &items, later).is_empty() {
                 continue;
             }
             let Some(site) = user_attribute_site(cx, attr, name) else {
@@ -452,14 +485,14 @@ impl EarlyLintPass for SuppressionGovernanceGuard {
         if !self.dedupe.is_new_attribute_list(attrs) {
             return;
         }
-        for attr in attrs {
+        for (index, attr) in attrs.iter().enumerate() {
             let Some(name) = lowering_level_name(attr) else {
                 continue;
             };
             let Some(items) = attr.meta_item_list() else {
                 continue;
             };
-            let reached = self.protected.reached_lints(lint_paths(&items));
+            let reached = lowered_lints(&self.protected, &items, &attrs[index + 1..]);
             if reached.is_empty() {
                 continue;
             }

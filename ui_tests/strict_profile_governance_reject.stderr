@@ -69,5 +69,17 @@ LL | silenced!(first_silenced);
    |
    = note: this error originates in the macro `silenced` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error: aborting due to 11 previous errors
+error: strict profile `robust` requires `unjustified_no_todo_allow` at `deny`, but this `#[warn(...)]` would silence it; source attributes cannot lower a profile's suppression-governance lints, so remove the attribute
+  --> $DIR/strict_profile_governance_custom/strict_profile_governance_reject.rs:82:1
+   |
+LL | #[warn(tigerstyle::safety)]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: strict profile `robust` requires `unjustified_no_todo_allow` at `deny`, but this `#[warn(...)]` would silence it; source attributes cannot lower a profile's suppression-governance lints, so remove the attribute
+  --> $DIR/strict_profile_governance_custom/strict_profile_governance_reject.rs:88:1
+   |
+LL | #[warn(tigerstyle::safety)]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: aborting due to 13 previous errors
 

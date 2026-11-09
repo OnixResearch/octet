@@ -1,5 +1,5 @@
 warning: allow(non_upper_case_globals) incompatible with previous forbid
-  --> $DIR/strict_profile_governance_custom/strict_profile_governance_accept.rs:13:10
+  --> $DIR/strict_profile_governance_custom/strict_profile_governance_accept.rs:18:10
    |
 LL | #![forbid(nonstandard_style)]
    |           ----------------- `forbid` level set here
