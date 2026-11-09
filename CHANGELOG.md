@@ -10,18 +10,28 @@ For rollout profiles, see `docs/downstream-rollout.md`.
 
 Changes that can add findings or fail a build:
 
-- `unjustified_allow` now governs `allow` and `expect` attributes that
-  suppress Clippy lints, Octet lints and groups (`tigerstyle::...`), or Octet
-  bare aliases such as `no_unwrap`, at the crate root and on statements,
-  fields, variants, and every other lint-level node. Scope comes from the lint
-  paths, not the file path. A justification is a non-doc `//` comment on the
-  attribute's lines (a trailing comment counts) or the line directly above, or
-  a non-empty `reason`; doc comments and the lint's own `TODO(octet)`
-  placeholder do not count. Every strict profile requires this lint, so
+- `unjustified_allow` now governs `allow` and `expect` attributes written in
+  source (including `cfg_attr`-expanded ones) that suppress Clippy lints,
+  Octet lints and groups (`tigerstyle::...`), or Octet bare aliases such as
+  `no_unwrap`, at the crate root and on statements, fields, variants, and
+  every other lint-level node. Scope comes from the lint paths, not the file
+  path. A justification is a non-doc `//` comment on the attribute's lines (a
+  trailing comment counts) or the line directly above, or a non-empty
+  `reason`; doc comments and the lint's own `TODO(octet)` placeholder do not
+  count. Allows that proc macros such as `#[tokio::main]` generate onto user
+  spans are not governed. Every strict profile requires this lint, so
   unjustified suppressions of Octet lints now deny. `#[expect]` findings use a
   new message, and the lint summary changed.
+- Under a strict profile, `unjustified_allow` and `unjustified_no_todo_allow`
+  apply at `forbid`, together with rustc's `forbidden_lint_groups`. Any source
+  `allow`, `expect`, or `warn` that reaches them, directly or through a group
+  such as `tigerstyle::structure`, is a compile error even when justified, and
+  allowing any group that contains a forbidden lint (for example
+  `future_incompatible`) is an error too.
 - A selected strict profile fails the compilation, naming the flag, when
-  `--force-warn` or a `--cap-lints` below `deny` would weaken a required lint.
+  `--force-warn` or `--cap-lints` would weaken its floor: a cap below `deny`,
+  a cap of `deny` (which would lower the forbidden governance lints), or a
+  `--force-warn` that reaches a required lint or `forbidden_lint_groups`.
 - `unjustified_no_todo_allow` checks `no_todo` escape hatches wherever rustc
   honours them: `let` statements, closures, match arms, crate-level
   `#![allow(no_todo)]`, and `#[expect(no_todo)]`. A justified `expect` lets
@@ -31,13 +41,20 @@ Changes that can add findings or fail a build:
   `raw_arithmetic_overflow` checks `+=`, `-=`, and `*=` on unsigned places.
   `unbounded_collection_growth` combines guards correctly: `if len >= limit &&
   go() { break; }` no longer bounds growth, and an `||` guard now does.
-- `path_segment_repetition` compares item names against the crate name.
-  `multi_lock_ordering` needs the whole word `lock` with `order`, `ordering`,
-  or `acquisition` in its comment, and the compatibility notes that exempt
-  `renamed_imports` and `path_segment_repetition` items match whole words.
-- `state_machine_exhaustiveness` and `fragile_exhaustive_enum_match` recognise
-  marker attributes by path: a doc comment that names a marker no longer opts
-  a function in, satisfies the fail-closed enum-marker check, or seals an enum.
+- `path_segment_repetition` compares item names in library crates and their
+  unit tests against the crate name; build scripts, binaries, examples,
+  integration tests, and benches are not compared. `multi_lock_ordering` needs
+  the whole word `lock`, `locking`, or `locked` with `order`, `ordered`,
+  `ordering`, or `acquisition` in its comment, and the compatibility notes
+  that exempt `renamed_imports` and `path_segment_repetition` items, including
+  notes above grouped `use` statements, match whole words.
+- Marker attributes are recognised by path. In `state_machine_exhaustiveness`
+  and `fragile_exhaustive_enum_match`, a doc comment that names a marker no
+  longer opts a function in, satisfies the fail-closed enum-marker check, or
+  seals an enum. `pure_attr_contract`, `mutating_input_in_pure`, and
+  `zero_alloc_attr_contract` treat a function as marked only through its own
+  attribute, so a marked nested helper or closure, or marker text in a string,
+  comment, or `#[doc]`, no longer opts the enclosing function in.
 - `verified_purity` sees `std::time` module and glob imports when `verified/`
   is a file-backed module of the crate, and function-local imports.
 
@@ -45,34 +62,48 @@ Fewer false positives, and one compiler crash:
 
 - `multi_lock_ordering` no longer crashes rustc on a struct that holds two
   locks and carries a built-in attribute such as `#[repr(C)]`.
+- `no_unwrap` no longer reports the `.expect("Failed building the Runtime")`
+  that `#[tokio::main]` and `#[tokio::test]` generate at the user's last
+  statement, which failed every `robust`-profile build of a tokio binary.
+  Calls are flagged only where the source text spells the method name, so
+  user-written calls, including those in `macro_rules!` bodies, still are.
 - `underscore_in_module_filename` skips crate root files such as
   `src/bin/load_gen.rs`. `unbounded_loop` counts the `return` produced by `?`
   and `ensure!`/`bail!`-style macros as an exit.
-- Under `--test`, `verified_purity` exempts `#[test]` and `#[tokio::test]`
-  functions and `type_accumulation` ignores the harness `main` and test
-  registrations. `nested_conditionals` ignores conditionals inside
-  `assert_eq!`-style expansions, which used to hide later deep nests.
-  `assertion_density` strips comments with the Rust lexer and skips only items
+- Under `--test`, `verified_purity` and `assertion_density` skip `#[test]` and
+  `#[tokio::test]` functions, and `type_accumulation` ignores the harness
+  `main` and test registrations. `nested_conditionals` ignores conditionals
+  that external macros such as `assert_eq!` expand to, which used to hide
+  later deep nests; nesting built by local `macro_rules!` still counts.
+  `assertion_density` strips comments with the Rust lexer and skips items
   whose `cfg` requires `test`.
-- Suggestions: `negated_predicate` offers no machine-applicable negating
-  rename for a read passed into a macro (`$x:tt`); `platform_dependent_cast`
-  offers no rewrite for casts from macro expansions; `raw_arithmetic_overflow`
-  writes literal left operands as `u64::saturating_mul(2, n)`, which compiles;
-  `unbounded_channel` keeps a written module path only when that module
-  exports the bounded constructor, and otherwise spells the crate path or
-  offers no rewrite.
+- Suggestions: `unchecked_narrowing` shapes its `try_from` rewrite by the
+  enclosing return type, as `platform_dependent_cast` does (`?` for a
+  compatible `Result`, `.ok()?` for `Option`, a placeholder otherwise) instead
+  of a `?` that often did not compile. `negated_predicate` keeps a
+  machine-applicable rename for reads passed into function-like macros:
+  `assert!(!no_x)` becomes `assert!(has_x)`, a whole argument under a
+  macro-generated `!` becomes `(!has_x)`, and only arguments the macro uses
+  directly, such as `if $cond`, need review. `platform_dependent_cast` and
+  `unchecked_narrowing` offer no rewrite for casts from macro expansions or in
+  `const fn`; `raw_arithmetic_overflow` writes literal left operands as
+  `u64::saturating_mul(2, n)`, which compiles; `unbounded_channel` keeps a
+  written module path only when that module exports the bounded constructor,
+  and otherwise spells the crate path or offers no rewrite.
 
 Configuration:
 
 - `core_source_scopes`, `state_machine_core_scopes`, and
   `state_machine_generated_adapter_scopes` are normalized as `cargo octet`
-  normalizes them (trim, drop a leading `./` and a trailing `/`) and match
-  whole workspace-relative path components. `./crates/domain/src/` matches
-  again and `crates/core` no longer covers `crates/core-shell`, but a scope
-  that matched only as a substring (`domain-core/src` for
+  normalizes them (trim, drop a leading `./` and a trailing `/`), resolved on
+  disk through symlinks and `..`, and matched by whole workspace-relative path
+  components. `./crates/domain/src/` matches again, an in-root `linked -> src`
+  scope covers `src/`, and `crates/core` no longer covers `crates/core-shell`;
+  a scope that matched only as a substring (`domain-core/src` for
   `crates/domain-core/src`) must be rewritten from the workspace root. Scopes
   that normalize to empty warn (`empty_source_scope`), and scopes that name
-  nothing under the workspace root warn (`unmatched_source_scope`).
+  nothing, resolve to the workspace root, or resolve outside it warn
+  (`unmatched_source_scope`).
 - Octet parses only the `dylint.toml` section it uses. A shadowed `[slotcar]`
   or `[tigerstyle]` section produces a warning instead of being dropped
   silently, or crashing the build when malformed. Under `bounded-systems` and
@@ -84,9 +115,12 @@ Evidence rails and artifacts:
 - Dependency-audit reconciles every cargo-deny 0.20.2 diagnostic code; codes
   that no check owns, including codes from newer releases, become
   `unclassified` findings instead of ending the run with exit 2 and no
-  receipt. A rail run killed by a signal fails without a receipt. The Loom
-  profiles also set `CARGO_ENCODED_RUSTFLAGS`, so an inherited value can no
-  longer drop `--cfg loom` and produce a false pass.
+  receipt. Configuration diagnostics that cargo-deny leaves out of its summary
+  (the `deprecated` warning for moved `deny.toml` keys and code-less warnings)
+  are reported as `unclassified` without being reconciled. A rail run killed
+  by a signal fails without a receipt. The Loom profiles also set
+  `CARGO_ENCODED_RUSTFLAGS`, so an inherited value can no longer drop `--cfg
+  loom` and produce a false pass.
 - Dependency-trust receipts carry a `dependency_trust` object that binds the
   cargo-vet store's `config.toml`, the declared imports, and the
   `imports.lock` identity. Declaring imports without `imports.lock` fails,
@@ -100,12 +134,16 @@ Evidence rails and artifacts:
   field, so the `function_address_artifact_blake3` in effect-closure receipts
   changes.
 - Roadmap capsule and artifact-store redaction drops plural, numbered, and
-  environment-suffixed tokens, `PGPASSWORD`, `MYSQL_PWD`, `DB_PASS`,
-  `Authorization`, bearer, cookie, session-ID, JWT, and auth fields, and
-  qualified keys such as `AWS_ACCESS_KEY_ID`, `STRIPE_KEY`, and `SIGNING_KEY`.
-  It keeps vocabulary, position, and pagination tokens such as `stop_token`,
-  `last_token`, `resume_token`, and `PaginationToken`. Capsule and artifact
-  hashes change for inputs that carry those fields.
+  environment-suffixed tokens (`api_tokens`, `GITHUB_TOKEN_2`,
+  `NPM_TOKEN_PROD`), a trailing `pass` or `pwd` (`DB_PASS`, `MYSQL_PWD`), any
+  word containing `password` (`PGPASSWORD`), `Authorization`, bearer, cookie,
+  session-ID, JWT, and auth fields, and qualified keys such as
+  `AWS_ACCESS_KEY_ID`, `STRIPE_KEY`, and `SIGNING_KEY`. It keeps vocabulary,
+  position, and pagination tokens (`stop_token`, `last_token`,
+  `PaginationToken`), plural usage counts (`input_tokens`, `prompt_tokens`;
+  a singular `INPUT_TOKEN` is still dropped), and identity fields such as
+  `pass_signal` and `changed_key_components`. Capsule and artifact hashes
+  change for inputs that carry those fields.
 
 ## Unreleased: lint, evidence-rail, admission, and Verus fixes
 
