@@ -58,34 +58,39 @@ impl<'tcx> LateLintPass<'tcx> for BoolNaming {
             return;
         };
 
-        let suggestion = if ident.span.from_expansion() {
-            LintSuggestion::Single {
-                span: ident.span,
-                message: format!("rename binding to `{suggested_name}`"),
-                replacement: suggested_name.clone(),
-                applicability: Applicability::MaybeIncorrect,
-            }
-        } else {
-            let body = use_site_collector::enclosing_body(cx, local.hir_id);
-            if let Some(use_sites) =
-                use_site_collector::collect_local_use_sites(cx, body, binding_hir_id, &suggested_name)
-            {
-                let mut parts = vec![(ident.span, suggested_name.clone())];
-                parts.extend(use_sites);
-                LintSuggestion::Multipart {
-                    message: format!("rename binding to `{suggested_name}`"),
-                    parts,
-                    applicability: Applicability::MachineApplicable,
-                }
-            } else {
+        let suggestion =
+            if ident.span.from_expansion() || use_site_collector::is_name_taken(cx, binding_hir_id, &suggested_name) {
                 LintSuggestion::Single {
                     span: ident.span,
                     message: format!("rename binding to `{suggested_name}`"),
-                    replacement: suggested_name,
+                    replacement: suggested_name.clone(),
                     applicability: Applicability::MaybeIncorrect,
                 }
-            }
-        };
+            } else {
+                let body = use_site_collector::enclosing_body(cx, local.hir_id);
+                if let Some(use_sites) = use_site_collector::collect_local_use_sites(
+                    cx,
+                    body,
+                    binding_hir_id,
+                    &suggested_name,
+                    use_site_collector::ReadRewrite::Rename,
+                ) {
+                    let mut parts = vec![(ident.span, suggested_name.clone())];
+                    parts.extend(use_sites);
+                    LintSuggestion::Multipart {
+                        message: format!("rename binding to `{suggested_name}`"),
+                        parts,
+                        applicability: Applicability::MachineApplicable,
+                    }
+                } else {
+                    LintSuggestion::Single {
+                        span: ident.span,
+                        message: format!("rename binding to `{suggested_name}`"),
+                        replacement: suggested_name,
+                        applicability: Applicability::MaybeIncorrect,
+                    }
+                }
+            };
 
         emit_tiger_style_lint_with_suggestion(
             cx,

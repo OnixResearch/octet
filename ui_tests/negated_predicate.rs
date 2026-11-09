@@ -26,6 +26,34 @@ fn locals() {
     let _ = (no_capacity, no_progress);
 }
 
+// Should warn with a review-required rename: `is_ready` is already a parameter,
+// so the positive name would capture it.
+fn positive_name_is_taken(is_ready: bool) -> bool {
+    let is_not_ready = !is_ready;
+    is_not_ready
+}
+
+// Each local below should warn with a review-required rename: the rewrite
+// cannot negate every read of the binding.
+fn review_required_locals(values: &[u8]) -> bool {
+    // Mutated after its declaration.
+    let mut no_values = values.is_empty();
+    no_values &= values.len() < 2;
+    // Declared without an initializer.
+    let no_items;
+    no_items = values.len() == 0;
+    // Borrowed explicitly.
+    let lacks_header = values.first() != Some(&0);
+    let header_ref = &lacks_header;
+    // Borrowed through method autoref.
+    let cannot_parse = values.len() > 4;
+    let is_copy = cannot_parse.clone();
+    // Read inside a macro.
+    let wont_fit = values.len() > 8;
+    let fit_text = format!("{wont_fit}");
+    no_values && no_items && *header_ref && is_copy && fit_text.is_empty()
+}
+
 fn main() {
     let state = State;
     let _ = is_not_ready(&state);
@@ -34,4 +62,6 @@ fn main() {
     let _ = notify(&state);
     let _ = not(true);
     locals();
+    let _ = positive_name_is_taken(true);
+    let _ = review_required_locals(&[1, 2]);
 }
