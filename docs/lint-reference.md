@@ -199,6 +199,8 @@ Scope notes for the safety lints:
 
 A function or closure is marked pure or zero-alloc only by its own attribute whose path ends in `pure` or `zero_alloc` (`#[octet::pure]`, `#[tigerstyle::zero_alloc]`). A marker on a nested function or closure marks only that item, and marker text in a string, comment, or `#[doc = ...]` attribute marks nothing. `pure_attr_contract`, `mutating_input_in_pure`, and `zero_alloc_attr_contract` all use this rule.
 
+`ambient_clock` counts every wall-clock read outside test code: calls such as `Instant::now()` or `Utc::now()`, a clock `now` passed as a function value such as `or_insert_with(Instant::now)`, and `Instant::elapsed` or `SystemTime::elapsed`, which read the clock internally. Comparing injected instants, as in `end.duration_since(start)`, is not a clock read.
+
 ## Concurrency lints (`tigerstyle::concurrency`)
 
 | Lint | Default | Summary |

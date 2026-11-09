@@ -12,10 +12,13 @@ use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
 use crate::test_context;
 
 declare_tool_lint! {
-    /// Detects direct calls to `Instant::now()`, `SystemTime::now()`,
-    /// and `Utc::now()` (chrono) in production code. Reading the system
-    /// clock is a side effect — core/pure crates should receive time as
-    /// a parameter so the logic stays deterministic and testable.
+    /// Detects reads of the system clock in production code: calls to
+    /// `Instant::now()`, `SystemTime::now()`, and `Utc::now()`/`Local::now()`
+    /// (chrono), those functions passed as values (`or_insert_with(Instant::now)`),
+    /// and `Instant::elapsed`/`SystemTime::elapsed`, which read the clock
+    /// internally. Reading the system clock is a side effect — core/pure
+    /// crates should receive time as a parameter so the logic stays
+    /// deterministic and testable.
     ///
     /// Boundary crates (e.g. a web shell or CLI entry point) that
     /// legitimately own the clock can suppress this with:
@@ -38,47 +41,80 @@ const CLOCK_TYPES: &[&str] = &[
     "Local", // chrono::Local::now()
 ];
 
-/// Whether `callee` is a path resolving to `<ClockType>::now`. The match uses
-/// the definition path rather than the spelled path, so renamed imports
-/// (`use Instant as Clock`) and type aliases (`type Clock = Instant`) are
-/// recognized.
-fn is_clock_now_path(cx: &LateContext<'_>, callee: &hir::Expr<'_>) -> bool {
-    let ExprKind::Path(qpath) = &callee.kind else {
+/// Clock types whose `elapsed` method reads the clock (`now() - self`).
+const ELAPSED_CLOCK_TYPES: &[&str] = &["Instant", "SystemTime"];
+
+/// Whether `def_id` is `<ClockType>::now` or `<Instant|SystemTime>::elapsed`.
+/// The match uses the definition path rather than the spelled path, so
+/// renamed imports (`use Instant as Clock`) and type aliases
+/// (`type Clock = Instant`) are recognized.
+fn is_clock_read_def(cx: &LateContext<'_>, def_id: hir::def_id::DefId) -> bool {
+    let def_path = cx.get_def_path(def_id);
+    let [.., owner, method] = def_path.as_slice() else {
         return false;
     };
-    let hir::def::Res::Def(_, def_id) = cx.typeck_results().qpath_res(qpath, callee.hir_id) else {
+    let owner = owner.as_str();
+    match method.as_str() {
+        "now" => CLOCK_TYPES.contains(&owner),
+        "elapsed" => ELAPSED_CLOCK_TYPES.contains(&owner),
+        _ => false,
+    }
+}
+
+/// Whether `expr` is a path resolving to a clock read (see [`is_clock_read_def`]).
+fn is_clock_read_path(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
+    let ExprKind::Path(qpath) = &expr.kind else {
         return false;
     };
+    let hir::def::Res::Def(_, def_id) = cx.typeck_results().qpath_res(qpath, expr.hir_id) else {
+        return false;
+    };
+    is_clock_read_def(cx, def_id)
+}
+
+/// Whether `expr` is the callee of a call expression; the call itself is
+/// reported instead.
+fn is_call_callee(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
     matches!(
-        cx.get_def_path(def_id).as_slice(),
-        [.., owner, now] if now.as_str() == "now" && CLOCK_TYPES.contains(&owner.as_str())
+        cx.tcx.parent_hir_node(expr.hir_id),
+        hir::Node::Expr(hir::Expr { kind: ExprKind::Call(callee, _), .. }) if callee.hir_id == expr.hir_id
     )
+}
+
+/// Whether a method call reads the clock: `started.elapsed()` resolves to
+/// `Instant::elapsed`, or a `now` method is called on a clock-typed receiver.
+fn is_clock_read_method_call(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
+    let ExprKind::MethodCall(segment, receiver, _, _) = &expr.kind else {
+        return false;
+    };
+    if cx
+        .typeck_results()
+        .type_dependent_def_id(expr.hir_id)
+        .is_some_and(|def_id| is_clock_read_def(cx, def_id))
+    {
+        return true;
+    }
+    segment.ident.name.as_str() == "now"
+        && matches!(
+            cx.typeck_results().expr_ty(receiver).kind(),
+            ty::Adt(adt, _) if CLOCK_TYPES.contains(&cx.tcx.item_name(adt.did()).as_str())
+        )
 }
 
 impl<'tcx> LateLintPass<'tcx> for AmbientClock {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx hir::Expr<'tcx>) {
-        // Match function-style calls: `Instant::now()`, `Utc::now()`
-        if let ExprKind::Call(func, _) = &expr.kind
-            && is_clock_now_path(cx, func)
-            && !test_context::late_hir_id_is_in_test_context(cx, expr.hir_id, expr.span)
-        {
+        let reads_clock = match &expr.kind {
+            // `Instant::now()`, `Instant::elapsed(&started)`
+            ExprKind::Call(callee, _) => is_clock_read_path(cx, callee),
+            // `or_insert_with(Instant::now)`: the function value reads the
+            // clock wherever it is called.
+            ExprKind::Path(_) => !is_call_callee(cx, expr) && is_clock_read_path(cx, expr),
+            // `started.elapsed()`
+            ExprKind::MethodCall(..) => is_clock_read_method_call(cx, expr),
+            _ => false,
+        };
+        if reads_clock && !test_context::late_hir_id_is_in_test_context(cx, expr.hir_id, expr.span) {
             emit(cx, expr);
-            return;
-        }
-
-        // Match method calls where we can resolve the impl type:
-        // `chrono::Utc::now()` sometimes desugars to a method call
-        if let ExprKind::MethodCall(segment, receiver, _, _) = &expr.kind
-            && segment.ident.name.as_str() == "now"
-            && let ty::Adt(adt, _) = cx.typeck_results().expr_ty(receiver).kind()
-        {
-            let name = cx.tcx.item_name(adt.did());
-            let type_name = name.as_str();
-            if CLOCK_TYPES.contains(&type_name)
-                && !test_context::late_hir_id_is_in_test_context(cx, expr.hir_id, expr.span)
-            {
-                emit(cx, expr);
-            }
         }
     }
 }
