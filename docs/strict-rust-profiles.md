@@ -27,7 +27,7 @@ cargo octet artifact verify --artifact-dir artifacts/octet
 
 A selected profile is authoritative for its required lint set. If consumer `dylint.toml` disables a required lint or assigns it `allow` or `warn`, Octet strengthens the effective level to `deny`. The profile denies are applied after command-line lint options, so `-A` or `-W` flags in `DYLINT_RUSTFLAGS` cannot weaken them either. Unrelated thresholds, allowlists, disabled lints, and levels remain consumer-owned; explicit command-line levels win over consumer `lint_levels`.
 
-Source-level Rust suppressions remain possible. Profiles include Octet's suppression-governance lints, so an escape hatch remains an explicit source diff with the existing justification requirements; profiles do not add a silent assume mechanism.
+Source-level Rust suppressions remain possible. Profiles include Octet's suppression-governance lints, so an escape hatch remains an explicit source diff with the existing justification requirements: `unjustified_allow` denies an `allow` or `expect` of a Clippy lint, an Octet lint or group (`tigerstyle::...`), or an Octet bare alias such as `no_unwrap` unless a non-doc `//` comment on or directly above the attribute, or a non-empty `reason = "..."`, explains it, and `unjustified_no_todo_allow` audits `no_todo` allows. Profiles do not add a silent assume mechanism.
 
 The Nix-packaged runner includes Cargo, the pinned Rust toolchain, Dylint driver/library, and linker closure. A dependency-bearing consumer with build scripts or proc macros can therefore run the package directly; it does not need an ambient consumer dev shell merely to link dependencies.
 

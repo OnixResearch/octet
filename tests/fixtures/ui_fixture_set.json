@@ -178,7 +178,8 @@
     "nominal_domain_compile_fail",
     "numeric_units_cli_deny_custom/numeric_units_cli_deny_custom",
     "tokio_async/verified_purity_harness",
-    "verified/verified_purity"
+    "verified/verified_purity",
+    "zero_alloc_attr_contract_silent_allow"
   ],
   "canonical_tool_group_fixtures": [
     "group_allow_safety",

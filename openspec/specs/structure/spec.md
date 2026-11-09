@@ -132,12 +132,22 @@ The lint MUST NOT fire on functions with only 1 parameter of that type.
 
 ### Requirement: Allow Attribute Without Justification
 
-The lint MUST be able to warn on `#[allow(clippy::...)]` and `#![allow(clippy::...)]`
-attributes that are not preceded by a comment explaining why the lint
-is suppressed.
+The lint MUST be able to warn on `allow` and `expect` attributes, outer
+(`#[allow(...)]`) and inner (`#![allow(...)]`), that suppress a governed lint
+without a local justification. Governed lint paths are `clippy::*`,
+`tigerstyle::*` (Octet lints and Octet groups such as `tigerstyle::safety`),
+and Octet's bare compatibility aliases such as `no_unwrap`. rustc's own lints
+are not governed, and `no_todo` allows are audited by
+`unjustified_no_todo_allow` instead. The lint MUST check attributes on the
+crate root, items, associated items, statements, fields, and every other
+lint-level node, and MUST decide scope from the attribute's lint paths only,
+never from the source file path.
 
-The lint MUST accept a comment on the same line or the line immediately
-preceding the attribute.
+The lint MUST accept a non-doc `//` comment on the attribute's source lines,
+including a trailing comment after the attribute, or on the line immediately
+preceding the attribute. Doc comments (`///`, `//!`) MUST NOT count, and
+neither MUST a comment starting with the `TODO(octet)` placeholder that the
+lint's own suggestion inserts.
 
 The lint MUST also accept a non-empty `reason = "..."` argument inside the
 attribute (stable `lint_reasons` syntax since Rust 1.81) as the
@@ -174,6 +184,32 @@ a `# ---` section comment. Unjustified suppression hides real bugs.
 
 - GIVEN `#[allow(clippy::needless_return, reason = "early return mirrors the protocol state table")]`
   with no preceding comment
+- WHEN the lint runs
+- THEN it does NOT fire
+
+#### Scenario: Octet lint, alias, and group allows are governed
+
+- GIVEN `#[allow(tigerstyle::no_unwrap)]`, `#[allow(no_unwrap)]`, or
+  `#[allow(tigerstyle::safety)]` with no justification
+- WHEN the lint runs
+- THEN it warns on each attribute
+
+#### Scenario: Doc comment or placeholder is not a justification
+
+- GIVEN `#[allow(clippy::needless_return)]` directly below a `///` doc comment
+  or below `// TODO(octet): explain why this allow is safe here`
+- WHEN the lint runs
+- THEN it warns
+
+#### Scenario: Trailing comment justifies the attribute
+
+- GIVEN `#[allow(clippy::needless_return)] // Early return mirrors the protocol state table.`
+- WHEN the lint runs
+- THEN it does NOT fire
+
+#### Scenario: rustc lint allow in a path containing `clippy`
+
+- GIVEN `#[allow(dead_code)]` in a file whose path contains `clippy`
 - WHEN the lint runs
 - THEN it does NOT fire
 

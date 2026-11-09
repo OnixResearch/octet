@@ -166,7 +166,7 @@ Scope notes for the safety lints:
 | `concrete_construction_in_core` | `warn` | flag concrete construction calls in declared core source scopes |
 | `type_accumulation` | `allow` | flag excessive inherent impl blocks or module public surface |
 | `compound_condition` | `allow` | flag conditions with 3 or more boolean operators |
-| `unjustified_allow` | `allow` | require a local `//` comment or a non-empty `reason` for `#[allow(clippy::...)]` |
+| `unjustified_allow` | `allow` | require a local `//` comment or a non-empty `reason` on `allow` / `expect` of Clippy or Octet lints |
 | `ambiguous_params` | `allow` | flag repeated same-type primitive or raw boundary parameters |
 | `primitive_domain_alias` | `allow` | inventory registered domain aliases that still resolve to primitive storage |
 | `raw_domain_value` | `allow` | flag registered raw domain values in declared core fields and API signatures |

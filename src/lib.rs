@@ -192,7 +192,7 @@ lint_inventory! {
         lint_store.register_early_pass(|| Box::new(purity::verified_purity::VerifiedPurity::default()));
     },
     "unjustified_allow", structure::unjustified_allow::UNJUSTIFIED_ALLOW => |lint_store, _cfg| {
-        lint_store.register_early_pass(|| Box::new(structure::unjustified_allow::UnjustifiedAllow));
+        lint_store.register_early_pass(|| Box::new(structure::unjustified_allow::UnjustifiedAllow::default()));
     },
     "nested_conditionals", structure::nested_conditionals::NESTED_CONDITIONALS => |lint_store, cfg| {
         let nc_max = cfg.nesting_max_depth;
