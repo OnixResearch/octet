@@ -1271,6 +1271,9 @@ impl<'tcx> LateLintPass<'tcx> for ArchitectureCollector {
             hir::ExprKind::Path(qpath) => {
                 if let Some(def_id) = unit_constructor_definition(cx, expr, qpath) {
                     self.collect_construction(cx, expr, def_id);
+                } else if let Some(def_id) = function_reference_definition(cx, expr, qpath) {
+                    let dispatch = dispatch_kind(cx, def_id, cx.typeck_results().node_args_opt(expr.hir_id));
+                    self.collect_call(cx, expr, Some(def_id), dispatch);
                 }
             }
             _ => {}
@@ -1307,6 +1310,21 @@ fn unit_constructor_definition(cx: &LateContext<'_>, expr: &hir::Expr<'_>, qpath
         Res::SelfCtor(_) => adt.non_enum_variant().ctor_def_id(),
         _ => None,
     }
+}
+
+// A function item named outside a call's callee position, such as
+// `unwrap_or_else(Instant::now)`, is a reference the receiver may call. Record
+// it as a call so effects and dispatch stay visible; callee paths reach
+// `collect_call` through their enclosing call expression.
+fn function_reference_definition(cx: &LateContext<'_>, expr: &hir::Expr<'_>, qpath: &hir::QPath<'_>) -> Option<DefId> {
+    let Res::Def(DefKind::Fn | DefKind::AssocFn, def_id) = cx.qpath_res(qpath, expr.hir_id) else {
+        return None;
+    };
+    let is_callee = matches!(
+        cx.tcx.parent_hir_node(expr.hir_id),
+        hir::Node::Expr(hir::Expr { kind: hir::ExprKind::Call(callee, _), .. }) if callee.hir_id == expr.hir_id
+    );
+    (!is_callee).then_some(def_id)
 }
 
 // rustc prints the local crate root as an empty path; name it by its crate.

@@ -1063,6 +1063,29 @@ fn compiler_item_id<'a>(shard: &'a CompilerArchitectureShard, qualified_path: &s
     item_id
 }
 
+fn compiler_effects(
+    shard: &CompilerArchitectureShard,
+) -> std::collections::BTreeSet<(&str, octet_architecture_ir::CapabilityFamily, &str)> {
+    let items = compiler_item_paths(shard);
+    shard
+        .facts
+        .iter()
+        .filter_map(|fact| match fact {
+            CompilerArchitectureFact::Effect {
+                caller_item_id,
+                capability_family,
+                primitive_definition,
+                ..
+            } => Some((
+                items.get(caller_item_id.as_str()).copied().expect("effect caller item"),
+                *capability_family,
+                primitive_definition.as_str(),
+            )),
+            _ => None,
+        })
+        .collect()
+}
+
 fn library_fixture(fixture_name: &str) -> CompilerFixtureTarget<'_> {
     CompilerFixtureTarget {
         fixture_name,
@@ -1141,6 +1164,47 @@ fn compiler_architecture_dynamic_dispatch_through_pointers_and_paths() {
     .collect::<std::collections::BTreeSet<_>>();
     assert_eq!(unknown_owners, expected);
     assert_eq!(dynamic_callers, expected);
+}
+
+#[test]
+#[ignore = "run via cargo test --test ui compiler_architecture -- --ignored --nocapture"]
+fn compiler_architecture_function_references_record_calls_and_effects() {
+    use octet_architecture_ir::CapabilityFamily;
+
+    let toolchain = rustup_toolchain();
+    let library = build_library(&toolchain);
+    let host = host_triple();
+    let driver = build_driver(&toolchain);
+    let shard = run_compiler_architecture_fixture(&driver, &library, &host, "negative/function_reference_effects.rs");
+    assert_eq!(shard.collection_status, CollectionStatus::Complete);
+    assert_valid_compiler_shard(&shard);
+    let effects = compiler_effects(&shard);
+    for expected in [
+        ("function_reference_effects::deadline_or_now", CapabilityFamily::Time, "std::time::Instant::now"),
+        ("function_reference_effects::read_all", CapabilityFamily::Filesystem, "std::fs::read_to_string"),
+    ] {
+        assert!(effects.contains(&expected), "missing {expected:?}: {effects:#?}");
+    }
+    assert!(
+        effects
+            .iter()
+            .any(|(caller, family, primitive)| caller.starts_with("function_reference_effects::closure@")
+                && *family == CapabilityFamily::Time
+                && *primitive == "std::time::Instant::now"),
+        "closure call lost its effect: {effects:#?}"
+    );
+    assert!(!effects.iter().any(|(caller, ..)| *caller == "function_reference_effects::pure_reference"));
+    let pure_reference = compiler_item_id(&shard, "function_reference_effects::pure_reference");
+    let increment = compiler_item_id(&shard, "function_reference_effects::increment");
+    assert!(
+        shard.facts.iter().any(|fact| matches!(
+            fact,
+            CompilerArchitectureFact::Call { caller_item_id, callee_item_id: Some(callee_item_id), resolved_definition: Some(definition), .. }
+                if caller_item_id == pure_reference && callee_item_id == increment && definition == "function_reference_effects::increment"
+        )),
+        "local function reference has no call fact: {:#?}",
+        shard.facts
+    );
 }
 
 #[test]
