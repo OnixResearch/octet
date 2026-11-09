@@ -321,6 +321,40 @@ fn function_address_paths_outside_workspace_are_rejected_before_cargo() {
 }
 
 #[test]
+fn symlinked_core_source_scope_is_rejected_before_cargo_and_named_as_config() {
+    let escaping =
+        ConsumerFixture::new("core-scope-symlink-escape", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let shared = escaping.repo.parent().expect("fixture root").join("shared");
+    write_file(&shared.join("src/lib.rs"), "pub fn shared() -> u32 { 1 }\n");
+    std::os::unix::fs::symlink(&shared, escaping.repo.join("linked")).expect("symlink shared into repo");
+    write_file(&escaping.repo.join("dylint.toml"), "[octet]\ncore_source_scopes = [\"linked/src\"]\n");
+    let output = run_with_check_args(
+        &escaping,
+        &["--profile", "deterministic-core"],
+        &[cargo_build_finished(true)],
+        EXIT_CODE_SUCCESS,
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(output.status.code(), Some(EXIT_CODE_INTEGRATION_FAILURE), "stderr={stderr}");
+    assert!(stderr.contains("`core_source_scopes`"), "the config entry should be named: {stderr}");
+    assert!(!stderr.contains("--function-address-path"), "no flag was passed: {stderr}");
+    assert!(!escaping.log().contains("ARGS:check"), "symlinked scope must be rejected before Cargo runs");
+
+    let inside = ConsumerFixture::new("core-scope-in-root", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    std::os::unix::fs::symlink(inside.repo.join("src"), inside.repo.join("linked")).expect("symlink inside repo");
+    write_file(&inside.repo.join("dylint.toml"), "[octet]\ncore_source_scopes = [\"linked\"]\n");
+    let output = run_with_check_args(
+        &inside,
+        &["--profile", "deterministic-core"],
+        &[cargo_build_finished(true)],
+        EXIT_CODE_SUCCESS,
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_ne!(output.status.code(), Some(EXIT_CODE_INTEGRATION_FAILURE), "in-root link is a valid scope: {stderr}");
+    assert!(inside.log().contains("ARGS:check"), "in-root scope should reach Cargo: {stderr}");
+}
+
+#[test]
 fn function_address_options_without_mode_or_profile_are_rejected_before_cargo() {
     let fixture =
         ConsumerFixture::new("function-address-inert-options", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));

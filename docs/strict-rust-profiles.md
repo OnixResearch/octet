@@ -42,7 +42,7 @@ Declare the core paths in canonical consumer configuration:
 core_source_scopes = ["crates/domain-core/src/"]
 ```
 
-`deterministic-core` rejects a missing, empty, absolute, or workspace-escaping scope before Cargo runs. When no explicit `--function-address-path` is supplied, these paths also define its function-address universe. Octet reads these scopes, and every other lint setting, only from the workspace `dylint.toml`; `cargo octet check` and `cargo octet admit` exit 2 before Cargo runs if `DYLINT_TOML` is set, because Dylint would otherwise lint under that variable's config while the evidence names the file's.
+`deterministic-core` rejects a missing, empty, absolute, or workspace-escaping scope before Cargo runs; a scope escapes when it has a `..` component or when its symlink-resolved path leaves the workspace root, and the error names `core_source_scopes` in `dylint.toml`. When no explicit `--function-address-path` is supplied, these paths also define its function-address universe. Octet reads these scopes, and every other lint setting, only from the workspace `dylint.toml`; `cargo octet check` and `cargo octet admit` exit 2 before Cargo runs if `DYLINT_TOML` is set, because Dylint would otherwise lint under that variable's config while the evidence names the file's.
 
 First produce and review a source-shape baseline without requesting strict admission:
 
@@ -63,7 +63,7 @@ cargo octet check \
 cargo octet artifact verify --artifact-dir artifacts/octet
 ```
 
-An explicit operator mode stronger than a profile floor is preserved. Explicit function-address paths and baselines are also preserved; a profile only supplies paths when none were requested. `--function-address-path` and `--function-address-baseline` need `--function-addresses observe|warn|deny` or a strict profile (from `--profile` or an architecture admission binding), and each path must stay inside the workspace root; otherwise the check exits 2 before Cargo runs.
+An explicit operator mode stronger than a profile floor is preserved. Explicit function-address paths and baselines are also preserved; a profile only supplies paths when none were requested. `--function-address-path` and `--function-address-baseline` need `--function-addresses observe|warn|deny` or a strict profile (from `--profile` or an architecture admission binding), and each effective function-address path, explicit or profile-supplied, must stay inside the workspace root after resolving symlinks; otherwise the check exits 2 before Cargo runs and names the flag or config entry that supplied the path. While collecting, a symlinked directory or `.rs` file inside a scope that resolves outside the workspace root is refused, not followed.
 
 Function-address evidence remains source-scanner identity. It does not establish HIR/MIR equivalence, semantic dependency closure, compiler correctness, whole-program safety, verifier soundness, or release eligibility.
 

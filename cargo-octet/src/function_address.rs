@@ -139,28 +139,56 @@ impl FunctionAddressCheck {
         }
     }
 
-    /// Rejects explicit `--function-address-path` scopes that escape the workspace root: a `..`
-    /// component, an absolute path outside the root, or a path whose canonical form (after
-    /// symlinks) leaves the root. Record paths are workspace-relative, so an escaping scope would
-    /// emit records that a later baseline comparison rejects as malformed.
-    pub fn validate_paths(&self, workspace_root: &Path) -> Result<(), String> {
-        let canonical_root = std::fs::canonicalize(workspace_root)
-            .map_err(|error| format!("canonicalize workspace root {}: {error}", workspace_root.display()))?;
-        for path in &self.paths {
-            let escapes = path.components().any(|component| component == std::path::Component::ParentDir)
-                || (path.is_absolute() && !path.starts_with(workspace_root))
-                || std::fs::canonicalize(workspace_root.join(path))
-                    .is_ok_and(|canonical| !canonical.starts_with(&canonical_root));
-            if escapes {
-                return Err(format!(
-                    "`--function-address-path` {} must stay within the workspace root {}",
-                    path.display(),
-                    workspace_root.display()
-                ));
-            }
-        }
-        Ok(())
+    /// Rejects function-address scopes that escape the workspace root; see
+    /// [`reject_workspace_escaping_scopes`]. `origin` names where the paths came from, so the
+    /// error points at the flag or config entry the user wrote.
+    pub fn validate_paths(&self, workspace_root: &Path, origin: ScopeOrigin) -> Result<(), String> {
+        reject_workspace_escaping_scopes(workspace_root, &self.paths, origin)
     }
+}
+
+/// Where a set of source scopes was declared.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScopeOrigin {
+    FunctionAddressPathFlag,
+    CoreSourceScopes,
+}
+
+impl ScopeOrigin {
+    fn label(self) -> &'static str {
+        match self {
+            Self::FunctionAddressPathFlag => "`--function-address-path`",
+            Self::CoreSourceScopes => "`core_source_scopes` in `dylint.toml`",
+        }
+    }
+}
+
+/// Rejects scopes that escape the workspace root: a `..` component, an absolute path outside the
+/// root, or a path whose canonical form (after symlinks) leaves the root. Record paths are
+/// workspace-relative, so an escaping scope would emit records that a later baseline comparison
+/// rejects as malformed.
+pub fn reject_workspace_escaping_scopes(
+    workspace_root: &Path,
+    paths: &[PathBuf],
+    origin: ScopeOrigin,
+) -> Result<(), String> {
+    let canonical_root = std::fs::canonicalize(workspace_root)
+        .map_err(|error| format!("canonicalize workspace root {}: {error}", workspace_root.display()))?;
+    for path in paths {
+        let escapes = path.components().any(|component| component == std::path::Component::ParentDir)
+            || (path.is_absolute() && !path.starts_with(workspace_root))
+            || std::fs::canonicalize(workspace_root.join(path))
+                .is_ok_and(|canonical| !canonical.starts_with(&canonical_root));
+        if escapes {
+            return Err(format!(
+                "{} {} must stay within the workspace root {}",
+                origin.label(),
+                path.display(),
+                workspace_root.display()
+            ));
+        }
+    }
+    Ok(())
 }
 
 impl Default for FunctionAddressCheck {
@@ -295,7 +323,10 @@ struct HandoffIssue {
 }
 
 // Collection walks files, matches baselines, and renders the artifact as one sequential pipeline
-// over shared run state.
+// over shared run state. Callers validate declared scopes with `validate_paths` before Cargo runs,
+// where the error can name the flag or config entry; collection itself still refuses any scope or
+// nested symlink that resolves outside the workspace root, and any record path that is not
+// canonical and workspace-relative.
 #[allow(clippy::too_many_lines)]
 pub fn collect_run(
     check: &FunctionAddressCheck,
@@ -305,7 +336,8 @@ pub fn collect_run(
     if !check.mode.is_enabled() {
         return Ok(None);
     }
-    check.validate_paths(workspace_root)?;
+    let canonical_root = std::fs::canonicalize(workspace_root)
+        .map_err(|error| format!("canonicalize workspace root {}: {error}", workspace_root.display()))?;
 
     let mut files = Vec::new();
     let mut scope_prefixes = Vec::new();
@@ -315,7 +347,7 @@ pub fn collect_run(
         } else {
             workspace_root.join(path)
         };
-        fingerprint::collect_rust_files(&absolute, &mut files)?;
+        fingerprint::collect_contained_rust_files(&absolute, &canonical_root, &mut files)?;
         scope_prefixes.extend(checked_scope_prefix(workspace_root, &absolute));
     }
     files.sort();
@@ -701,14 +733,19 @@ fn mode_name(mode: FunctionAddressMode) -> &'static str {
 }
 
 fn function_record_path(workspace_root: &Path, file: &Path) -> Result<String, String> {
-    let relative = file.strip_prefix(workspace_root).map_err(|_| {
-        format!(
-            "function-address source path `{}` is outside workspace root `{}`",
-            file.display(),
-            workspace_root.display()
-        )
-    })?;
-    Ok(determinism::normalize_path(relative))
+    let relative = file
+        .strip_prefix(workspace_root)
+        .ok()
+        .map(determinism::normalize_path)
+        .filter(|relative| is_canonical_relative_path(relative))
+        .ok_or_else(|| {
+            format!(
+                "function-address source path `{}` is outside workspace root `{}`",
+                file.display(),
+                workspace_root.display()
+            )
+        })?;
+    Ok(relative)
 }
 
 /// The function-address marker for a span, if any. `cargo octet fingerprint`
@@ -1391,18 +1428,70 @@ mod tests {
                 let records = run.map(|run| artifact_value(&run)["records"].clone());
                 panic!("{} must not be collected; got records {records:?}", escaping.display());
             }
-            let Err(error) = check.validate_paths(&workspace) else {
-                panic!("{} must be rejected before Cargo runs", escaping.display());
-            };
-            assert!(error.contains("--function-address-path"), "{}: {error}", escaping.display());
+            for (origin, named) in [
+                (ScopeOrigin::FunctionAddressPathFlag, "`--function-address-path`"),
+                (ScopeOrigin::CoreSourceScopes, "`core_source_scopes`"),
+            ] {
+                let Err(error) = check.validate_paths(&workspace, origin) else {
+                    panic!("{} must be rejected before Cargo runs", escaping.display());
+                };
+                assert!(error.contains(named), "{}: {error}", escaping.display());
+            }
         }
 
         for inside in [PathBuf::from("src"), PathBuf::from("./src"), workspace.join("src")] {
             let check = check_for(inside.clone());
-            check.validate_paths(&workspace).unwrap_or_else(|error| panic!("{}: {error}", inside.display()));
+            check
+                .validate_paths(&workspace, ScopeOrigin::FunctionAddressPathFlag)
+                .unwrap_or_else(|error| panic!("{}: {error}", inside.display()));
             let run = collect_test_run(&check, &workspace, "config");
             let artifact = artifact_value(&run);
             assert_eq!(artifact["records"][0]["path"], "src/lib.rs", "{}", inside.display());
+        }
+    }
+
+    #[test]
+    fn nested_symlink_resolving_outside_workspace_root_is_refused() {
+        let temp = TempDir::new().expect("temp dir");
+        let workspace = temp.path().join("workspace");
+        let shared = temp.path().join("shared");
+        std::fs::create_dir_all(workspace.join("src")).expect("create workspace source");
+        std::fs::create_dir_all(workspace.join("vendored")).expect("create in-root link target");
+        std::fs::create_dir_all(&shared).expect("create shared source");
+        std::fs::write(workspace.join("src/lib.rs"), "fn inside() -> u32 { 1 }\n").expect("write inside source");
+        std::fs::write(workspace.join("vendored/mod.rs"), "fn vendored() -> u32 { 1 }\n").expect("write vendored");
+        std::fs::write(shared.join("lib.rs"), "fn outside() -> u32 { 1 }\n").expect("write shared source");
+        std::fs::write(shared.join("notes.txt"), "not rust\n").expect("write shared note");
+        std::os::unix::fs::symlink(workspace.join("vendored"), workspace.join("src/inner")).expect("in-root link");
+        std::os::unix::fs::symlink(shared.join("notes.txt"), workspace.join("src/notes.txt")).expect("note link");
+        std::os::unix::fs::symlink(temp.path().join("missing"), workspace.join("src/dangling")).expect("dangling");
+        let observe = |paths: Vec<PathBuf>| FunctionAddressCheck {
+            mode: FunctionAddressMode::Observe,
+            paths,
+            baseline: None,
+        };
+
+        let run = collect_test_run(&observe(vec![PathBuf::from("src")]), &workspace, "config");
+        let paths = artifact_value(&run)["source_envelopes"]
+            .as_array()
+            .expect("source envelopes")
+            .iter()
+            .map(|envelope| envelope["path"].as_str().expect("envelope path").to_owned())
+            .collect::<Vec<_>>();
+        assert_eq!(paths, ["src/inner/mod.rs", "src/lib.rs"], "in-root links are followed");
+
+        for (link, target) in [("src/escape", shared.clone()), ("src/escape.rs", shared.join("lib.rs"))] {
+            std::os::unix::fs::symlink(&target, workspace.join(link)).expect("escaping link");
+            for scope in [vec![PathBuf::from("src")], Vec::new()] {
+                match collect_run(&observe(scope.clone()), &workspace, "config") {
+                    Ok(run) => panic!(
+                        "{link} under {scope:?} must be refused; got records {:?}",
+                        run.map(|run| artifact_value(&run)["records"].clone())
+                    ),
+                    Err(error) => assert!(error.contains(link), "{link} under {scope:?}: {error}"),
+                }
+            }
+            std::fs::remove_file(workspace.join(link)).expect("remove escaping link");
         }
     }
 

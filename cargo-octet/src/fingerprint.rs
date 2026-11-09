@@ -440,6 +440,26 @@ fn lexically_normalized(path: &Path) -> PathBuf {
 /// exist and be a directory or a `.rs` file, so a typo cannot pass as an
 /// empty scope; entries found while recursing are filtered silently.
 pub(crate) fn collect_rust_files(path: &Path, files: &mut Vec<PathBuf>) -> Result<(), String> {
+    ensure_rust_scope(path)?;
+    collect_rust_entries(path, None, files)
+}
+
+/// [`collect_rust_files`] confined to `canonical_root`: the named path, and
+/// every symlinked directory or `.rs` entry found while recursing, must
+/// resolve inside it. An escaping entry is refused with an error rather than
+/// skipped, so a scope never silently hashes or drops source from outside the
+/// workspace. Dangling symlinks select nothing, as in the unconfined walk.
+pub(crate) fn collect_contained_rust_files(
+    path: &Path,
+    canonical_root: &Path,
+    files: &mut Vec<PathBuf>,
+) -> Result<(), String> {
+    ensure_rust_scope(path)?;
+    ensure_contained(path, canonical_root)?;
+    collect_rust_entries(path, Some(canonical_root), files)
+}
+
+fn ensure_rust_scope(path: &Path) -> Result<(), String> {
     if !path.exists() {
         return Err(format!("source path `{}` does not exist", path.display()));
     }
@@ -447,14 +467,25 @@ pub(crate) fn collect_rust_files(path: &Path, files: &mut Vec<PathBuf>) -> Resul
     if !is_scope {
         return Err(format!("source path `{}` is not a Rust source file or directory", path.display()));
     }
-    collect_rust_entries(path, files)
+    Ok(())
+}
+
+fn ensure_contained(path: &Path, canonical_root: &Path) -> Result<(), String> {
+    if fs::canonicalize(path).is_ok_and(|resolved| !resolved.starts_with(canonical_root)) {
+        return Err(format!(
+            "source path `{}` resolves outside the workspace root `{}`",
+            path.display(),
+            canonical_root.display()
+        ));
+    }
+    Ok(())
 }
 
 fn is_rust_file(path: &Path) -> bool {
     path.extension().is_some_and(|ext| ext == "rs")
 }
 
-fn collect_rust_entries(path: &Path, files: &mut Vec<PathBuf>) -> Result<(), String> {
+fn collect_rust_entries(path: &Path, canonical_root: Option<&Path>, files: &mut Vec<PathBuf>) -> Result<(), String> {
     if path.is_file() {
         if is_rust_file(path) {
             files.push(path.to_path_buf());
@@ -468,7 +499,13 @@ fn collect_rust_entries(path: &Path, files: &mut Vec<PathBuf>) -> Result<(), Str
             if child.file_name().is_some_and(|name| name == "target" || name == ".git") {
                 continue;
             }
-            collect_rust_entries(&child, files)?;
+            if let Some(canonical_root) = canonical_root
+                && child.is_symlink()
+                && (child.is_dir() || is_rust_file(&child))
+            {
+                ensure_contained(&child, canonical_root)?;
+            }
+            collect_rust_entries(&child, canonical_root, files)?;
         }
     }
     Ok(())

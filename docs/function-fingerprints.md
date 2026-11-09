@@ -292,3 +292,6 @@ file; otherwise the command fails before scanning, so a mistyped scope cannot pa
 as an empty one. The same rule applies to `cargo octet object` source paths and to
 `--function-address-path` scopes. Non-Rust files found inside a directory are
 skipped.
+Function-address collection also refuses, rather than skips, a symlinked
+directory or `.rs` file inside a scope whose target resolves outside the
+workspace root; fingerprint and object inputs keep following such links.

@@ -92,7 +92,13 @@ fn load_core_source_scopes(workspace_root: &Path, profile: &StrictProfile) -> Re
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::new(),
         Err(error) => return Err(format!("read {}: {error}", config_path.display())),
     };
-    core_source_scopes_from_toml(&source, profile)
+    let scopes = core_source_scopes_from_toml(&source, profile)?;
+    crate::function_address::reject_workspace_escaping_scopes(
+        workspace_root,
+        &scopes,
+        crate::function_address::ScopeOrigin::CoreSourceScopes,
+    )?;
+    Ok(scopes)
 }
 
 fn core_source_scopes_from_toml(source: &str, profile: &StrictProfile) -> Result<Vec<PathBuf>, String> {

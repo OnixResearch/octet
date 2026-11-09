@@ -129,7 +129,6 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
     let prepared_integrated_closure = admission_binding
         .map(|binding| crate::admit::prepare_integrated_closure(&cfg.workspace_root, binding))
         .transpose()?;
-    check.function_addresses.validate_paths(&cfg.workspace_root)?;
     let mut requested_function_addresses = check.function_addresses.clone();
     if let Some(prepared) = &prepared_integrated_closure {
         requested_function_addresses.baseline = Some(prepared.baseline_path.clone());
@@ -138,6 +137,14 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
         selected_profile.as_ref(),
         &requested_function_addresses,
     )?;
+    // Effective paths differ from the requested ones only when the profile substitutes its core
+    // scopes for an empty `--function-address-path` list.
+    let function_address_scope_origin = if requested_function_addresses.paths.is_empty() {
+        crate::function_address::ScopeOrigin::CoreSourceScopes
+    } else {
+        crate::function_address::ScopeOrigin::FunctionAddressPathFlag
+    };
+    effective_function_addresses.validate_paths(&cfg.workspace_root, function_address_scope_origin)?;
 
     if cargo_check_args.iter().any(|arg| arg.starts_with("--message-format")) {
         return Err("`--message-format` is managed by `--output-format`; remove it from passthrough args".to_owned());
