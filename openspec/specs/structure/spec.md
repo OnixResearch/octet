@@ -185,7 +185,9 @@ crate's macro output. Attributes built from fragments, such as `#[$meta]` or
 `#[$level(...)]`, and a matcher's tokens are left to the expansion-site
 check. An attribute in a local macro body MUST be reported once, however
 often the macro expands, whether the definition-site or the expansion-site
-check reports it.
+check reports it. A macro definition that expanding another crate's macro
+produces is that crate's code: this lint and the profile guard MUST NOT check
+its body in the expanding crate.
 
 The lint MUST NOT fire on workspace-level lint configuration in
 `Cargo.toml` (those are outside Clippy's reach anyway).

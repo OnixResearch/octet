@@ -457,8 +457,16 @@ impl EarlyLintPass for UnjustifiedAllow {
     }
 
     fn check_mac_def(&mut self, cx: &EarlyContext<'_>, mac: &MacroDef) {
-        self.check_macro_body(cx, mac);
+        if !is_external_macro_output(cx, mac) {
+            self.check_macro_body(cx, mac);
+        }
     }
+}
+
+/// Whether a macro definition was produced by expanding another crate's
+/// macro. Its body is that crate's code, checked where that crate defines it.
+fn is_external_macro_output(cx: &EarlyContext<'_>, mac: &MacroDef) -> bool {
+    mac.body.dspan.entire().in_external_macro(cx.sess().source_map())
 }
 
 /// Profile-floor lints that audit source suppressions.
@@ -585,6 +593,9 @@ impl EarlyLintPass for SuppressionGovernanceGuard {
     }
 
     fn check_mac_def(&mut self, cx: &EarlyContext<'_>, mac: &MacroDef) {
+        if is_external_macro_output(cx, mac) {
+            return;
+        }
         for run in macro_body::attribute_runs(&mac.body.tokens, mac.macro_rules) {
             for (index, attribute) in run.iter().enumerate() {
                 let Some(name) = body_lowering_level_name(attribute) else {
