@@ -30,10 +30,19 @@ fn main() {
     collect_file(&repo_root.join("Cargo.lock"), Path::new("Cargo.lock"), &mut files);
     collect_file(&repo_root.join("rust-toolchain.toml"), Path::new("rust-toolchain.toml"), &mut files);
     for relative in ["LICENSE", "NOTICE", "README.md", "THIRD_PARTY_NOTICES.md"] {
-        collect_file(&repo_root.join(relative), Path::new(relative), &mut files);
+        let path = repo_root.join(relative);
+        if path.is_file() {
+            collect_file(&path, Path::new(relative), &mut files);
+        }
     }
     for relative in EMBEDDED_DIRECTORIES {
-        collect_dir(&repo_root.join(relative), Path::new(relative), &mut files);
+        let path = repo_root.join(relative);
+        // The filtered source used by some Nix checks intentionally omits
+        // legal files; the full package source includes them.
+        if *relative == "LICENSES" && !path.is_dir() {
+            continue;
+        }
+        collect_dir(&path, Path::new(relative), &mut files);
     }
     files.sort_by(|left, right| left.0.cmp(&right.0));
 
