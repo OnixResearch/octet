@@ -669,21 +669,21 @@ impl ArchitectureCollector {
         def_id: Option<DefId>,
         span_id: &str,
     ) {
-        let resolved = cx.typeck_results().expr_ty(expr);
-        if !matches!(resolved.kind(), ty::Adt(..)) {
-            return;
-        }
-        let constructed_type_id = self.collect_type(cx, resolved);
+        let mut constructed = Vec::new();
+        owned_adts(cx.typeck_results().expr_ty(expr), &mut constructed);
         let constructor_definition = def_id.map(|current| qualified_definition(cx, current));
-        let mut fact = CompilerArchitectureFact::Constructor {
-            fact_id: String::new(),
-            caller_item_id: caller_item_id.to_owned(),
-            constructed_type_id,
-            constructor_definition,
-            span_id: span_id.to_owned(),
-        };
-        assign_fact_identity(&mut fact);
-        self.push_fact(fact);
+        for current in constructed {
+            let constructed_type_id = self.collect_type(cx, current);
+            let mut fact = CompilerArchitectureFact::Constructor {
+                fact_id: String::new(),
+                caller_item_id: caller_item_id.to_owned(),
+                constructed_type_id,
+                constructor_definition: constructor_definition.clone(),
+                span_id: span_id.to_owned(),
+            };
+            assign_fact_identity(&mut fact);
+            self.push_fact(fact);
+        }
     }
 
     fn local_item_identity(&self, cx: &LateContext<'_>, def_id: LocalDefId) -> String {
@@ -1652,6 +1652,29 @@ fn tracked_type_definition<'tcx>(
 ) -> Option<String> {
     let definition = type_definition_path(cx, ty)?;
     tracked_types.contains(&definition).then_some(definition)
+}
+
+// A value owns the ADTs it carries by value, including those wrapped in `Result`, `Option`,
+// `Box`, `Arc`, tuples, or arrays, so `Adapter::connect(url)?` constructs `Adapter`.
+// References and trait objects construct nothing.
+fn owned_adts<'tcx>(resolved: Ty<'tcx>, found: &mut Vec<Ty<'tcx>>) {
+    match resolved.kind() {
+        ty::Adt(_, args) => {
+            if !found.contains(&resolved) {
+                found.push(resolved);
+            }
+            for current in args.types() {
+                owned_adts(current, found);
+            }
+        }
+        ty::Tuple(items) => {
+            for current in *items {
+                owned_adts(current, found);
+            }
+        }
+        ty::Array(item, _) | ty::Slice(item) => owned_adts(*item, found),
+        _ => {}
+    }
 }
 
 fn type_definition_path<'tcx>(cx: &LateContext<'tcx>, ty: Ty<'tcx>) -> Option<String> {

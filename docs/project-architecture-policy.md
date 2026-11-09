@@ -264,6 +264,7 @@ The application shell interprets plans and invokes application-owned ports. Adap
 
 The composition root can construct concrete adapters. This exception does not give it domain-policy ownership.
 An adapter package can also construct its own types, for example `Self { .. }` in its own constructor. Any other unit that constructs an adapter type gets `adapter-construction-outside-root`.
+A call constructs every type its result holds by value, so `SqlRepo::connect(&url)?` returning `Result<Self, Error>`, or a call returning `Option<Box<SqlRepo>>` or `Arc<SqlRepo>`, constructs `SqlRepo`. References and trait objects in a result construct nothing.
 
 ## Application-owned ports
 

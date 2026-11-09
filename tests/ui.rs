@@ -1024,6 +1024,51 @@ fn compiler_architecture_struct_literal_construction() {
     ] {
         assert!(constructed.contains(expected), "missing constructor for {expected}: {constructed:?}");
     }
+    // A fallible or wrapped constructor still selects the adapter inside its result.
+    for caller in [
+        "struct_literal_construction::compose_fallible",
+        "struct_literal_construction::compose_boxed",
+        "struct_literal_construction::compose_shared",
+    ] {
+        let constructed = compiler_constructed_types(&shard, caller);
+        assert!(
+            constructed.contains("struct_literal_construction::adapters::SqlRepo"),
+            "{caller} omits its wrapped adapter constructor: {constructed:?}"
+        );
+    }
+}
+
+fn compiler_constructed_types<'a>(
+    shard: &'a CompilerArchitectureShard,
+    caller: &str,
+) -> std::collections::BTreeSet<&'a str> {
+    let caller_item_ids = shard
+        .facts
+        .iter()
+        .filter_map(|fact| match fact {
+            CompilerArchitectureFact::Item {
+                item_id,
+                qualified_path,
+                ..
+            } if qualified_path == caller => Some(item_id.as_str()),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(caller_item_ids.len(), 1, "{caller} must resolve to one item");
+    shard
+        .facts
+        .iter()
+        .filter_map(|fact| match fact {
+            CompilerArchitectureFact::Constructor {
+                caller_item_id,
+                constructed_type_id,
+                ..
+            } if caller_item_ids.contains(&caller_item_id.as_str()) => {
+                compiler_type_definition(shard, constructed_type_id)
+            }
+            _ => None,
+        })
+        .collect()
 }
 
 fn closure_value_flow_selection() -> CompilerValueFlowSelection {

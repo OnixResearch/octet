@@ -63,6 +63,12 @@ The gate MUST evaluate direct and configured transitive dependency edges against
 - WHEN dependency evaluation runs
 - THEN the gate MUST emit a forbidden outward-edge or construction diagnostic
 
+#### Scenario: Adapter construction is wrapped in a result
+
+- GIVEN a domain core or application shell calls an adapter constructor returning `Result<Self, _>`, `Option<_>`, `Box<_>`, or `Arc<_>`
+- WHEN construction evaluation runs
+- THEN the gate MUST emit the construction diagnostic for the adapter type held by value in the result
+
 #### Scenario: Composition root selects adapters
 
 - GIVEN a declared composition root constructs permitted inbound and outbound adapters and supplies them to the application shell
