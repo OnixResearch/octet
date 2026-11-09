@@ -1029,14 +1029,6 @@ impl ArchitectureCollector {
         if self.context.value_flow_selections.is_empty() {
             return;
         }
-        let body_def_ids = self.value_flow_body_def_ids(cx);
-        if body_def_ids.len() > self.context.limits.max_value_flow_bodies {
-            self.exceed_value_flow_limit(
-                UnknownFactKind::UnsupportedCompilerShape,
-                "selected MIR body count exceeded the configured value-flow bound",
-            );
-            return;
-        }
         let tracked_callees =
             selected_names(&self.context.value_flow_selections, |selection| &selection.tracked_callee_definitions);
         let tracked_types =
@@ -1045,6 +1037,25 @@ impl ArchitectureCollector {
             selected_names(&self.context.value_flow_selections, |selection| &selection.root_origin_definitions);
         let propagation_definitions =
             selected_names(&self.context.value_flow_selections, |selection| &selection.propagation_definitions);
+        // A body that never holds or passes a tracked value yields no
+        // observation, argument update, or usable return origin, so it costs
+        // no transfer steps and does not count toward the body bound.
+        let mut tracked_definitions = HashMap::new();
+        let body_def_ids = self
+            .value_flow_body_def_ids(cx)
+            .into_iter()
+            .filter(|def_id| {
+                let body = cx.tcx.optimized_mir(def_id.to_def_id());
+                body_carries_tracked_values(cx, body, &tracked_types, &mut tracked_definitions)
+            })
+            .collect::<Vec<_>>();
+        if body_def_ids.len() > self.context.limits.max_value_flow_bodies {
+            self.exceed_value_flow_limit(
+                UnknownFactKind::UnsupportedCompilerShape,
+                "selected MIR body count exceeded the configured value-flow bound",
+            );
+            return;
+        }
         let caller_seeded_bodies = body_def_ids
             .iter()
             .copied()
@@ -1936,6 +1947,35 @@ fn type_definition_path<'tcx>(cx: &LateContext<'tcx>, ty: Ty<'tcx>) -> Option<St
     }
 }
 
+// Whether a body holds a tracked value in a local or passes one to a call. A
+// call argument can be a constant operand of a tracked type, which no local
+// holds. `known` caches the answer per type definition, because naming a
+// definition is costly.
+fn body_carries_tracked_values<'tcx>(
+    cx: &LateContext<'tcx>,
+    body: &mir::Body<'tcx>,
+    tracked_types: &BTreeSet<String>,
+    known: &mut HashMap<DefId, bool>,
+) -> bool {
+    let mut tracked = |ty: Ty<'tcx>| {
+        let definition = match ty.peel_refs().kind() {
+            ty::Adt(definition, _) => definition.did(),
+            ty::Alias(_, alias) => alias.def_id,
+            _ => return false,
+        };
+        *known
+            .entry(definition)
+            .or_insert_with(|| tracked_types.contains(&qualified_definition(cx, definition)))
+    };
+    body.local_decls.iter().any(|decl| tracked(decl.ty))
+        || body.basic_blocks.iter().any(|block| match &block.terminator().kind {
+            mir::TerminatorKind::Call { args, .. } | mir::TerminatorKind::TailCall { args, .. } => {
+                args.iter().any(|argument| tracked(argument.node.ty(&body.local_decls, cx.tcx)))
+            }
+            _ => false,
+        })
+}
+
 fn union_local_origins(target: &mut LocalValueOrigins, source: &LocalValueOrigins) -> bool {
     let mut changed = false;
     for (local, origins) in source {
@@ -1947,7 +1987,14 @@ fn union_local_origins(target: &mut LocalValueOrigins, source: &LocalValueOrigin
     changed
 }
 
+// An empty update records nothing, so it neither creates an entry nor counts
+// as a change: a body without return origins, or an argument without origins,
+// would otherwise force another round. Readers treat a missing return entry as
+// empty and a missing argument entry as the unknown parameter origin.
 fn union_origin_map_entry<K: Eq + Hash>(target: &mut HashMap<K, ValueOrigins>, key: K, origins: &ValueOrigins) -> bool {
+    if origins.is_empty() {
+        return false;
+    }
     let entry = target.entry(key).or_default();
     let before = entry.len();
     entry.extend(origins.iter().cloned());

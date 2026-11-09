@@ -105,6 +105,7 @@ This repair does not change targets, roles, exemptions, or schemas.
 
 A selected value-provenance parameter takes the origins of the function's in-crate direct calls only when those are all of its calls: the function is a private free function or inherent method that no other crate can reach and that exports no symbol, and it is never named outside a direct call nor called from a constant or static initializer. Every other parameter has an unknown origin, so a function also reached through a function pointer or from another crate never reports an exact origin.
 A mutable borrow or raw pointer of a local makes that local's origin unknown from the borrow on. A write to a field or through a pointer adds origins instead of replacing them, and the result of a call through a function pointer has an unknown origin.
+Value flow analyses only bodies that hold a value of a tracked type or pass one to a call; any other body yields no provenance, so it spends none of the `max_value_flow_steps` budget and does not count toward `max_value_flow_bodies`.
 
 Item identities, and the identities of types defined in the compiled crate, are package-scoped for a package's library target.
 Binary, example, test, bench, and build-script targets compile as separate crates that can share the library's crate name, so their identities also bind the Cargo target kind and name.

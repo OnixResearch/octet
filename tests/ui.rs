@@ -1667,6 +1667,72 @@ fn compiler_architecture_value_flow_limits_mark_shard_incomplete() {
 
 #[test]
 #[ignore = "run via cargo test --test ui compiler_architecture -- --ignored --nocapture"]
+fn compiler_architecture_value_flow_skips_bodies_without_tracked_values() {
+    use octet_architecture_ir::ValueProvenanceStatus;
+
+    const PREFIX: &str = "untracked_value_flow_bodies::";
+    let toolchain = rustup_toolchain();
+    let library = build_library(&toolchain);
+    let host = host_triple();
+    let driver = build_driver(&toolchain);
+    let selection = CompilerValueFlowSelection {
+        tracked_callee_definitions: vec![format!("{PREFIX}publish"), format!("{PREFIX}record")],
+        tracked_type_definitions: vec![format!("{PREFIX}Authority"), format!("{PREFIX}Marker")],
+        root_origin_definitions: vec![format!("{PREFIX}authorize")],
+        propagation_definitions: Vec::new(),
+    };
+    // `checksum` alone takes thousands of transfer steps, and it is a sixth
+    // body; the five bodies that hold or pass a tracked value fit both bounds.
+    let mut limits = compiler_fixture_limits();
+    limits.max_value_flow_steps = 256;
+    limits.max_value_flow_bodies = 5;
+    let shard = run_compiler_architecture_target_with_limits(
+        &driver,
+        &library,
+        &host,
+        library_fixture("positive/untracked_value_flow_bodies.rs"),
+        vec![selection],
+        limits,
+    );
+    assert_eq!(shard.collection_status, CollectionStatus::Complete, "{:#?}", shard.unknowns);
+    assert_valid_compiler_shard(&shard);
+    let items = compiler_item_paths(&shard);
+    let statuses = shard
+        .facts
+        .iter()
+        .filter_map(|fact| match fact {
+            CompilerArchitectureFact::CallArgumentProvenance {
+                caller_item_id,
+                callee_definition,
+                origin_definitions,
+                status,
+                ..
+            } => Some((
+                (
+                    items.get(caller_item_id.as_str()).copied().expect("provenance caller item"),
+                    callee_definition.as_str(),
+                ),
+                (*status, origin_definitions.clone()),
+            )),
+            _ => None,
+        })
+        .collect::<HashMap<_, _>>();
+    assert_eq!(
+        statuses.get(&("untracked_value_flow_bodies::execute", "untracked_value_flow_bodies::publish")),
+        Some(&(ValueProvenanceStatus::Exact, vec![format!("{PREFIX}authorize")]))
+    );
+    // A small body that builds a tracked value inline is still analysed and
+    // reports the unapproved constructor as its origin.
+    assert_eq!(
+        statuses.get(&("untracked_value_flow_bodies::forged", "untracked_value_flow_bodies::record")),
+        Some(&(ValueProvenanceStatus::Exact, vec![format!("{PREFIX}Marker")])),
+        "{statuses:#?}"
+    );
+    assert_eq!(statuses.len(), 2, "{statuses:#?}");
+}
+
+#[test]
+#[ignore = "run via cargo test --test ui compiler_architecture -- --ignored --nocapture"]
 fn compiler_architecture_library_and_binary_identities_differ() {
     let toolchain = rustup_toolchain();
     let library = build_library();
