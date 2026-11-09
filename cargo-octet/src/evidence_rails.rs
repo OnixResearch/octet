@@ -724,7 +724,7 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
     if args.rail == EvidenceRailKind::ApiStability {
         // `evaluate` sees only the baseline identity; argv names the `--baseline-root` path.
         let baseline_path = args.baseline.as_ref().map(|path| path.display().to_string());
-        receipt.command_argv = command_argv(args.rail, None, baseline_path.as_deref(), None);
+        receipt.command_argv = command_argv(args.rail, None, baseline_path.as_deref(), None, false);
     }
 
     let mut additional_artifacts = BTreeMap::new();
@@ -1007,7 +1007,13 @@ fn receipt_command_argv(
     {
         return Vec::new();
     }
-    command_argv(input.rail, input.config_path, None, input.requested_command)
+    command_argv(
+        input.rail,
+        input.config_path,
+        None,
+        input.requested_command,
+        disables_advisory_fetch(input.locked, input.advisory_updated_by_prior_step),
+    )
 }
 
 pub fn render_receipt_json(receipt: &EvidenceRailReceipt) -> Result<String, String> {
@@ -4456,7 +4462,19 @@ fn run_mode_command_argv(args: &EvidenceRailArgs) -> Result<Vec<String>, String>
                 .to_owned(),
         );
     }
-    Ok(command_argv(args.rail, config_path.as_deref(), baseline_path.as_deref(), args.command.as_deref()))
+    Ok(command_argv(
+        args.rail,
+        config_path.as_deref(),
+        baseline_path.as_deref(),
+        args.command.as_deref(),
+        disables_advisory_fetch(args.locked, args.update_advisory_database),
+    ))
+}
+
+/// Locked dependency-audit evidence that was not preceded by an explicit advisory update must
+/// reuse the local advisory database instead of fetching it.
+fn disables_advisory_fetch(locked: bool, advisory_updated_by_prior_step: bool) -> bool {
+    locked && !advisory_updated_by_prior_step
 }
 
 fn command_argv(
@@ -4464,14 +4482,22 @@ fn command_argv(
     config_path: Option<&str>,
     baseline_path: Option<&str>,
     requested_command: Option<&str>,
+    advisory_fetch_disabled: bool,
 ) -> Vec<String> {
     match rail {
         EvidenceRailKind::DependencyAudit => {
-            let mut argv = string_vec(&["cargo", "deny", "check"]);
+            // cargo-deny takes `--config`, `--locked`, and `--offline` before the `check` subcommand.
+            // `--offline` is cargo-deny's switch that stops advisory database fetches.
+            let mut argv = string_vec(&["cargo", "deny"]);
             if let Some(config_path) = config_path {
                 argv.push("--config".to_owned());
                 argv.push(config_path.to_owned());
             }
+            if advisory_fetch_disabled {
+                argv.push("--locked".to_owned());
+                argv.push("--offline".to_owned());
+            }
+            argv.push("check".to_owned());
             argv
         }
         EvidenceRailKind::ClippyCoReporting => {
@@ -4659,6 +4685,9 @@ fn advisory_database_update(
 
 fn validate_dependency_audit_report_shape(value: &serde_json::Value, diagnostics: &mut Vec<String>) {
     validate_optional_schema_version(value, DEPENDENCY_AUDIT_SCHEMA_VERSION, "dependency-audit", diagnostics);
+    if value.get("diagnostics").is_none() {
+        diagnostics.push("dependency-audit external schema requires `diagnostics` array".to_owned());
+    }
     validate_array_records(
         value,
         "diagnostics",
@@ -5209,6 +5238,49 @@ mod tests {
                 .iter()
                 .any(|diagnostic| diagnostic.contains("missing non-empty string `message`"))
         );
+    }
+
+    #[test]
+    fn dependency_audit_requires_diagnostics_array() {
+        for report in ["{}", r#"{"schema_version":"cargo-deny-diagnostics/v1"}"#] {
+            let receipt = dependency_audit_receipt(report, Some(DENY_CONFIG));
+            assert_eq!(receipt.status, STATUS_FAILED, "{report}");
+            assert!(
+                receipt.diagnostics.iter().any(|diagnostic| diagnostic.contains("`diagnostics`")),
+                "{report}: {:?}",
+                receipt.diagnostics
+            );
+        }
+        let clean = dependency_audit_receipt(r#"{"diagnostics":[]}"#, Some(DENY_CONFIG));
+        assert_eq!(clean.status, STATUS_PASSED, "{:?}", clean.diagnostics);
+    }
+
+    #[test]
+    fn locked_dependency_audit_records_offline_cargo_deny_argv() {
+        let position = |argv: &[String], arg: &str| argv.iter().position(|candidate| candidate == arg);
+        let locked = dependency_audit_receipt(r#"{"diagnostics":[]}"#, Some(DENY_CONFIG));
+        assert_eq!(locked.advisory_database_update.as_deref(), Some(LOCKED_REUSED));
+        let check = position(&locked.command_argv, "check").expect("check subcommand");
+        // cargo-deny 0.20 accepts `--config`, `--locked`, and `--offline` only before `check`.
+        for global in ["--config", "--locked", "--offline"] {
+            let index = position(&locked.command_argv, global);
+            assert!(index.is_some_and(|index| index < check), "{global}: {:?}", locked.command_argv);
+        }
+
+        for (locked, updated, recorded) in [(false, false, LOCKED_UNAVAILABLE), (true, true, LOCKED_UPDATED_PRIOR)] {
+            let receipt = evaluate(EvaluationInput {
+                rail: EvidenceRailKind::DependencyAudit,
+                import_text: r#"{"diagnostics":[]}"#,
+                config_path: Some(DENY_CONFIG),
+                locked,
+                advisory_updated_by_prior_step: updated,
+                profile: None,
+                requested_command: None,
+                ..dynamic_input()
+            });
+            assert_eq!(receipt.advisory_database_update.as_deref(), Some(recorded));
+            assert!(position(&receipt.command_argv, "--offline").is_none(), "{:?}", receipt.command_argv);
+        }
     }
 
     #[test]
@@ -7093,69 +7165,78 @@ mod tests {
 
     #[test]
     fn run_mode_command_argv_covers_selected_external_tools() {
-        assert_eq!(command_argv(EvidenceRailKind::DependencyAudit, Some(DENY_CONFIG), None, None), vec![
+        assert_eq!(command_argv(EvidenceRailKind::DependencyAudit, Some(DENY_CONFIG), None, None, false), vec![
             "cargo",
             "deny",
-            "check",
             "--config",
-            DENY_CONFIG
+            DENY_CONFIG,
+            "check"
         ]);
-        assert_eq!(command_argv(EvidenceRailKind::ClippyCoReporting, None, None, None), vec![
+        assert_eq!(command_argv(EvidenceRailKind::DependencyAudit, Some(DENY_CONFIG), None, None, true), vec![
+            "cargo",
+            "deny",
+            "--config",
+            DENY_CONFIG,
+            "--locked",
+            "--offline",
+            "check"
+        ]);
+        assert_eq!(command_argv(EvidenceRailKind::ClippyCoReporting, None, None, None, false), vec![
             "cargo",
             "clippy",
             "--message-format=json"
         ]);
-        assert_eq!(command_argv(EvidenceRailKind::DependencyTrust, None, None, None), vec![
+        assert_eq!(command_argv(EvidenceRailKind::DependencyTrust, None, None, None, false), vec![
             "cargo",
             "vet",
             "--output-format=json"
         ]);
-        assert_eq!(command_argv(EvidenceRailKind::ApiStability, None, Some("baseline"), None), vec![
+        assert_eq!(command_argv(EvidenceRailKind::ApiStability, None, Some("baseline"), None, false), vec![
             "cargo",
             "semver-checks",
             "check-release",
             "--baseline-root",
             "baseline"
         ]);
-        assert_eq!(command_argv(EvidenceRailKind::DynamicEvidence, None, None, Some("cargo miri test")), vec![
+        assert_eq!(command_argv(EvidenceRailKind::DynamicEvidence, None, None, Some("cargo miri test"), false), vec![
             "cargo", "miri", "test"
         ]);
-        assert_eq!(command_argv(EvidenceRailKind::ReleaseSupplyChain, None, None, None), vec![
+        assert_eq!(command_argv(EvidenceRailKind::ReleaseSupplyChain, None, None, None, false), vec![
             "cargo",
             "auditable",
             "build"
         ]);
-        assert_eq!(command_argv(EvidenceRailKind::MutationTesting, None, None, None), vec![
+        assert_eq!(command_argv(EvidenceRailKind::MutationTesting, None, None, None, false), vec![
             "cargo", "mutants", "--json"
         ]);
-        assert_eq!(command_argv(EvidenceRailKind::CoverageBaseline, None, None, None), vec![
+        assert_eq!(command_argv(EvidenceRailKind::CoverageBaseline, None, None, None, false), vec![
             "cargo",
             "llvm-cov",
             "--json",
             "--summary-only"
         ]);
-        assert_eq!(command_argv(EvidenceRailKind::KaniModelCheck, None, None, None), vec!["cargo", "kani"]);
+        assert_eq!(command_argv(EvidenceRailKind::KaniModelCheck, None, None, None, false), vec!["cargo", "kani"]);
         assert_eq!(
             command_argv(
                 EvidenceRailKind::HegelProperty,
                 None,
                 None,
-                Some("cargo test -p valence-core hegel_property")
+                Some("cargo test -p valence-core hegel_property"),
+                false
             ),
             vec!["cargo", "test", "-p", "valence-core", "hegel_property"]
         );
-        assert_eq!(command_argv(EvidenceRailKind::Z4Solver, None, None, Some("z4 solve --json query.smt2")), vec![
-            "z4",
-            "solve",
-            "--json",
-            "query.smt2"
-        ]);
+        assert_eq!(
+            command_argv(EvidenceRailKind::Z4Solver, None, None, Some("z4 solve --json query.smt2"), false),
+            vec!["z4", "solve", "--json", "query.smt2"]
+        );
         assert_eq!(
             command_argv(
                 EvidenceRailKind::VerifierFixture,
                 None,
                 None,
-                Some("cargo test verifier_fixture_normalization")
+                Some("cargo test verifier_fixture_normalization"),
+                false
             ),
             vec!["cargo", "test", "verifier_fixture_normalization"]
         );
