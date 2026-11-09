@@ -113,25 +113,6 @@ Octet MUST compare baseline and candidate results only when required workload, p
 - THEN the result MUST fail validation or remain `inconclusive`
 - AND it MUST NOT become a performance gate
 
-### Requirement: Benchmark receipts are independently verifiable
-
-r[octet.benchmark_evidence.receipt]
-
-A benchmark receipt MUST bind profiles, workloads, commands, source states, environments, raw samples, allocation and copy observations, signal oracles, summaries, limits, parent links, and BLAKE3 identities.
-
-#### Scenario: Receipt reproduces its summary
-
-- GIVEN a complete benchmark artifact bundle
-- WHEN artifact validation runs
-- THEN validation MUST remeasure every parent and raw artifact
-- AND it MUST reproduce summary and comparison results from bound inputs and policy
-
-#### Scenario: Raw artifact is stale
-
-- GIVEN a workload, profile, sample, allocation observation, copy artifact, oracle, finding set, summary, comparison, or parent changes after collection
-- WHEN artifact validation runs
-- THEN validation MUST fail with a deterministic identity diagnostic
-
 ### Requirement: Benchmark evidence remains bounded
 
 r[octet.benchmark_evidence.boundary]
@@ -168,6 +149,27 @@ Every published Octet performance, cache, memory, signal, suppression, false-pos
 - GIVEN documentation publishes a benchmark claim without verified evidence or extends it beyond the measured corpus and environment
 - WHEN benchmark claim validation runs
 - THEN validation MUST fail with a missing-evidence or overclaim diagnostic
+
+## MODIFIED Requirements
+
+### Requirement: Benchmark receipts are independently verifiable
+
+r[octet.benchmark_evidence.receipt]
+
+A benchmark receipt MUST bind profiles, workloads, commands, source states, environments, raw samples, allocation and copy observations, signal oracles, summaries, limits, parent links, and BLAKE3 identities.
+
+#### Scenario: Receipt reproduces its summary
+
+- GIVEN a complete benchmark artifact bundle
+- WHEN artifact validation runs
+- THEN validation MUST remeasure every parent and raw artifact
+- AND it MUST reproduce summary and comparison results from bound inputs and policy
+
+#### Scenario: Raw artifact is stale
+
+- GIVEN a workload, profile, sample, allocation observation, copy artifact, oracle, finding set, summary, comparison, or parent changes after collection
+- WHEN artifact validation runs
+- THEN validation MUST fail with a deterministic identity diagnostic
 
 ### Requirement: Benchmark verification covers positive and negative paths
 
