@@ -188,6 +188,7 @@ Test-only witnesses, ports, types, configuration facts, and unknowns cannot sati
 Full bundle replay must reproduce the complete receipt and disposition. Recomputed receipt and provenance hashes do not replace replay or authenticate observations.
 
 JSON, SARIF, status, and human output keep lint and architecture phase records separate. Architecture findings use `policy-check` evidence. They are not lint findings.
+In SARIF, a waived architecture finding has level `note`. An open `integration` finding has level `error` in every mode, because it blocks every mode. An open `policy` finding has level `warning` in `inventory` and `advisory` modes and `error` in `gate` and `admission` modes.
 
 Use `cargo octet artifact verify --artifact-dir PATH` to check stored identities and cross-artifact links.
 

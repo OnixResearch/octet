@@ -528,7 +528,9 @@ pub fn render_integrated_sarif(
     pretty_json(&sarif, "write integrated SARIF")
 }
 
-/// Renders one architecture finding as a SARIF result.
+/// Renders one architecture finding as a SARIF result. Waived findings are notes. Open
+/// `Integration` findings block every mode, so they are errors; open policy findings are errors
+/// only in the blocking `Gate` and `Admission` modes.
 fn architecture_sarif_result(
     finding: &octet_standards::project_architecture_gate::ProjectArchitectureFinding,
     mode: octet_standards::project_architecture_policy::ArchitectureMode,
@@ -536,11 +538,13 @@ fn architecture_sarif_result(
 ) -> serde_json::Value {
     let level = if finding.status == octet_standards::project_architecture_gate::ArchitectureFindingStatus::Waived {
         "note"
-    } else if matches!(
-        mode,
-        octet_standards::project_architecture_policy::ArchitectureMode::Inventory
-            | octet_standards::project_architecture_policy::ArchitectureMode::Advisory
-    ) {
+    } else if finding.severity == octet_standards::project_architecture_gate::ArchitectureFindingSeverity::Policy
+        && matches!(
+            mode,
+            octet_standards::project_architecture_policy::ArchitectureMode::Inventory
+                | octet_standards::project_architecture_policy::ArchitectureMode::Advisory
+        )
+    {
         "warning"
     } else {
         "error"
@@ -964,6 +968,43 @@ mod tests {
 
         let json_lines = render_json_lines(&findings).expect("JSON Lines should render");
         assert!(json_lines.contains("\"file\":\"src/my module.rs\""), "JSON Lines keep raw paths: {json_lines}");
+    }
+
+    #[test]
+    fn architecture_sarif_results_error_on_open_integration_findings_in_every_mode() {
+        use octet_standards::project_architecture_gate::ArchitectureFindingSeverity;
+        use octet_standards::project_architecture_gate::ArchitectureFindingStatus;
+        use octet_standards::project_architecture_policy::ArchitectureMode;
+
+        let finding = |severity, status| octet_standards::project_architecture_gate::ProjectArchitectureFinding {
+            finding_id: "b3:finding".to_owned(),
+            code: "forbidden-role-edge".to_owned(),
+            severity,
+            status,
+            affected_claim: "architecture".to_owned(),
+            package_name: None,
+            unit_id: None,
+            fact_id: None,
+            source_path: Some("src/my module.rs".to_owned()),
+            source_blake3: "b3:source".to_owned(),
+            message: "architecture finding".to_owned(),
+        };
+        for (mode, policy_level) in [
+            (ArchitectureMode::Inventory, "warning"),
+            (ArchitectureMode::Advisory, "warning"),
+            (ArchitectureMode::Gate, "error"),
+            (ArchitectureMode::Admission, "error"),
+        ] {
+            for (severity, status, expected) in [
+                (ArchitectureFindingSeverity::Integration, ArchitectureFindingStatus::Open, "error"),
+                (ArchitectureFindingSeverity::Policy, ArchitectureFindingStatus::Open, policy_level),
+                (ArchitectureFindingSeverity::Policy, ArchitectureFindingStatus::Waived, "note"),
+            ] {
+                let result = architecture_sarif_result(&finding(severity, status), mode, "static_lint");
+                assert_eq!(result["level"], expected, "{mode:?} {severity:?} {status:?}");
+                assert_eq!(result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"], "src/my%20module.rs");
+            }
+        }
     }
 
     #[test]
