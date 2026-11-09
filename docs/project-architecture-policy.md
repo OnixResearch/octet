@@ -219,6 +219,7 @@ admission = {
 ```
 
 The path must stay inside the workspace. Octet does not guess a closure policy. An explicit `--profile` value must match the binding.
+The run checks function addresses against the baseline that the bound closure policy names. A baseline given by `--function-address-baseline`, or named by the policy passed to `cargo octet admit --policy`, must be that same file. Otherwise the run stops with exit code 2 and names both baselines.
 
 An admission run adds these separate closure artifacts:
 

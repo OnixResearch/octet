@@ -130,8 +130,13 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
         .map(|binding| crate::admit::prepare_integrated_closure(&cfg.workspace_root, binding))
         .transpose()?;
     let mut requested_function_addresses = check.function_addresses.clone();
-    if let Some(prepared) = &prepared_integrated_closure {
-        requested_function_addresses.baseline = Some(prepared.baseline_path.clone());
+    if let (Some(prepared), Some(binding)) = (&prepared_integrated_closure, admission_binding) {
+        requested_function_addresses.baseline = Some(bound_function_address_baseline(
+            &cwd,
+            requested_function_addresses.baseline.as_deref(),
+            &prepared.baseline_path,
+            binding,
+        )?);
     }
     let effective_function_addresses = crate::strict_profile::effective_function_address_check(
         selected_profile.as_ref(),
@@ -858,6 +863,34 @@ fn selected_strict_profile_id<'a>(
         ));
     }
     Ok(requested.or_else(|| admission_binding.map(|binding| binding.strict_profile.as_str())))
+}
+
+/// The function-address baseline an architecture admission checks against: the one its bound
+/// closure policy names. A baseline the run also requests (`--function-address-baseline`, or the
+/// baseline of `admit --policy`) must be that same file; Octet does not pick one of two baselines.
+fn bound_function_address_baseline(
+    cwd: &Path,
+    requested: Option<&Path>,
+    bound: &Path,
+    binding: &octet_standards::project_architecture_policy::ArchitectureAdmissionBinding,
+) -> Result<PathBuf, String> {
+    if let Some(requested) = requested {
+        let requested = cwd.join(requested);
+        let same_file = match (std::fs::canonicalize(&requested), std::fs::canonicalize(bound)) {
+            (Ok(requested), Ok(bound)) => requested == bound,
+            _ => requested == bound,
+        };
+        if !same_file {
+            return Err(format!(
+                "architecture admission binding `{}` selects function-address baseline {}, but the run requested \
+                 baseline {}",
+                binding.effect_closure_policy,
+                bound.display(),
+                requested.display()
+            ));
+        }
+    }
+    Ok(bound.to_path_buf())
 }
 
 /// Bundle pruning removes every `--artifact-dir` entry the run does not write, and any other entry
@@ -2042,6 +2075,40 @@ mod tests {
         let mismatch = resolve(workspace.path(), Some("robust"), Some(&binding), &requested)
             .expect_err("a `--profile` that disagrees with the binding fails");
         assert!(mismatch.contains("architecture admission binds strict profile"), "{mismatch}");
+    }
+
+    #[test]
+    fn admission_binding_refuses_a_different_requested_function_address_baseline() {
+        use octet_standards::project_architecture_policy::ArchitectureAdmissionBinding;
+
+        let workspace = tempfile::tempdir().expect("workspace");
+        let bound = workspace.path().join("function-addresses.json");
+        let other = workspace.path().join("other-function-addresses.json");
+        for path in [&bound, &other] {
+            std::fs::write(path, "{}\n").expect("write baseline");
+        }
+        let binding = ArchitectureAdmissionBinding {
+            strict_profile: "deterministic-core".to_owned(),
+            effect_closure_policy: "octet-effect-closure.json".to_owned(),
+        };
+        let resolve = |requested: Option<&Path>| {
+            super::bound_function_address_baseline(workspace.path(), requested, &bound, &binding)
+        };
+
+        assert_eq!(resolve(None), Ok(bound.clone()));
+        for same in [
+            Path::new("function-addresses.json"),
+            Path::new("./function-addresses.json"),
+            bound.as_path(),
+        ] {
+            assert_eq!(resolve(Some(same)), Ok(bound.clone()), "{}", same.display());
+        }
+        for different in [Path::new("other-function-addresses.json"), Path::new("missing.json")] {
+            let error = resolve(Some(different)).expect_err("a different baseline must be refused");
+            assert!(error.contains("octet-effect-closure.json"), "{error}");
+            assert!(error.contains(&bound.display().to_string()), "{error}");
+            assert!(error.contains(&workspace.path().join(different).display().to_string()), "{error}");
+        }
     }
 
     #[test]
