@@ -238,6 +238,10 @@ of `!` or a binary operator. In any other macro-generated position, such as an
 `if` condition, the rename MUST fall back to a review-required suggestion,
 because rustc's `unused_parens` lint flags `(!name)` there and its own fix
 removes the parentheses. Attribute macros do not count as macro arguments.
+A read passed as an `$x:ident` or `$x:path` argument MUST fall back to the
+review-required rename, because neither `!name` nor `(!name)` is an identifier
+or a path. rustc gives these arguments a span from the macro expansion, which
+the rename already treats as macro-generated.
 
 #### Scenario: Negated function name
 
@@ -274,6 +278,12 @@ removes the parentheses. Attribute macros do not count as macro arguments.
 - GIVEN `let no_items = len == 0;` read as `bail_if!(no_items)` where `bail_if!` takes `$cond:tt` and expands to `if $cond { ... }`
 - WHEN the lint runs
 - THEN it warns with a review-required rename instead of a machine-applicable rewrite
+
+#### Scenario: Identifier or path macro argument
+
+- GIVEN `let no_values = values.is_empty();` read as `require!(no_values)` where `require!` takes `$flag:ident` or `$flag:path`
+- WHEN the lint runs
+- THEN it warns with a review-required rename instead of a machine-applicable `require!((!has_values))` rewrite
 
 ### Requirement: Underscore Module Filename Detection [r[underscore-module-filename-detection]]
 

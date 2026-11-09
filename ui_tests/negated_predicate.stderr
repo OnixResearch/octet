@@ -265,5 +265,63 @@ LL ~     let is_no_items = len == 0;
 LL ~     bail_if!(is_no_items);
    |
 
-warning: 17 warnings emitted
+warning: negated predicate name `no_values` — prefer a positive form like `has_values`
+  --> $DIR/negated_predicate.rs:96:9
+   |
+LL |     let no_values = values.is_empty();
+   |         ^^^^^^^^^
+   |
+   = help: Tiger Style (Positive Predicates): prefer positive predicate names over negated forms like `is_not_ready` or `no_capacity` Example: fn is_ready(state: &State) -> bool
+   = note: structured suggestion applicability: MaybeIncorrect
+   = note: see Tiger Style guide: Positive Predicates
+help: rename to `has_values`
+   |
+LL -     let no_values = values.is_empty();
+LL +     let has_values = values.is_empty();
+   |
+
+warning: boolean binding `no_values` should have a predicate prefix
+  --> $DIR/negated_predicate.rs:96:9
+   |
+LL |     let no_values = values.is_empty();
+   |         ^^^^^^^^^
+   |
+   = help: Tiger Style (Positive Predicates): name booleans as predicates so call sites read like questions Example: let is_ready = status == Ready;
+   = note: structured suggestion applicability: MaybeIncorrect
+   = note: see Tiger Style guide: Positive Predicates
+help: rename binding to `is_no_values`
+   |
+LL |     let is_no_values = values.is_empty();
+   |         +++
+
+warning: negated predicate name `no_entries` — prefer a positive form like `has_entries`
+  --> $DIR/negated_predicate.rs:101:9
+   |
+LL |     let no_entries = values.is_empty();
+   |         ^^^^^^^^^^
+   |
+   = help: Tiger Style (Positive Predicates): prefer positive predicate names over negated forms like `is_not_ready` or `no_capacity` Example: fn is_ready(state: &State) -> bool
+   = note: structured suggestion applicability: MaybeIncorrect
+   = note: see Tiger Style guide: Positive Predicates
+help: rename to `has_entries`
+   |
+LL -     let no_entries = values.is_empty();
+LL +     let has_entries = values.is_empty();
+   |
+
+warning: boolean binding `no_entries` should have a predicate prefix
+  --> $DIR/negated_predicate.rs:101:9
+   |
+LL |     let no_entries = values.is_empty();
+   |         ^^^^^^^^^^
+   |
+   = help: Tiger Style (Positive Predicates): name booleans as predicates so call sites read like questions Example: let is_ready = status == Ready;
+   = note: structured suggestion applicability: MaybeIncorrect
+   = note: see Tiger Style guide: Positive Predicates
+help: rename binding to `is_no_entries`
+   |
+LL |     let is_no_entries = values.is_empty();
+   |         +++
+
+warning: 21 warnings emitted
 

@@ -72,6 +72,36 @@ fn macro_token_tree_use(len: usize) -> u8 {
     1
 }
 
+macro_rules! require {
+    ($flag:ident) => {
+        if !$flag {
+            return;
+        }
+    };
+}
+
+macro_rules! require_path {
+    ($flag:path) => {
+        if !$flag {
+            return;
+        }
+    };
+}
+
+// Should warn with a review-required rename: neither `!has_values` nor
+// `(!has_values)` is an identifier or a path. rustc gives `$x:ident` and
+// `$x:path` arguments a span from the macro expansion, so the read is not
+// rewritten.
+fn macro_ident_use(values: &[u8]) {
+    let no_values = values.is_empty();
+    require!(no_values);
+}
+
+fn macro_path_use(values: &[u8]) {
+    let no_entries = values.is_empty();
+    require_path!(no_entries);
+}
+
 fn main() {
     let state = State;
     let _ = is_not_ready(&state);
