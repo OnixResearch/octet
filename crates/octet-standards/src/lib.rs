@@ -86,6 +86,7 @@ mod tests {
     const MISSING_FIXTURE_COVERAGE_DIAGNOSTICS: usize = 8;
     const THICK_ROOT_LINE_COUNT: usize = 50;
     const BOUNDED_CHANNEL_CAPACITY: u16 = 16;
+    const UNBOUNDED_CHANNEL_LINE: &str = "fn start() { let (_tx, _rx) = tokio::sync::mpsc::unbounded_channel(); }";
     const PUBLIC_API_BUDGET_FIXTURE_PATH: &str =
         "standards/check-fixtures/architecture/advisory/public-api-budget/src/lib.rs";
     const PUBLIC_API_BUDGET_FIXTURE_SOURCE: &str =
@@ -115,6 +116,113 @@ mod tests {
         assert_eq!(report.active_suppressions.len(), 1);
         assert_eq!(report.active_suppressions[0].policy_id, DEVTOOLS_POLICY_ID);
         assert_eq!(report.active_suppressions[0].line, 1);
+    }
+
+    #[test]
+    fn next_line_suppression_drops_only_the_covered_hard_rule_diagnostic() {
+        let text = format!(
+            "{}; scope=next-line\n{UNBOUNDED_CHANNEL_LINE}\n{UNBOUNDED_CHANNEL_LINE}\n",
+            valid_suppression_line(EMBEDDED_POLICY_ID)
+        );
+        let report = run_checks(&CheckInput {
+            registry: sample_registry(),
+            sources: vec![SourceFile::new(SOURCE_PATH, text)],
+            selection: FamilySelection::from_families(["embedded"]),
+        });
+
+        assert_eq!(report.active_suppressions.len(), 1);
+        assert_eq!(report.suppressed_diagnostics.iter().map(|diagnostic| diagnostic.line).collect::<Vec<_>>(), vec![
+            Some(2)
+        ]);
+        assert_eq!(
+            report
+                .diagnostics
+                .iter()
+                .map(|diagnostic| (diagnostic.policy_id.as_str(), diagnostic.line))
+                .collect::<Vec<_>>(),
+            vec![(EMBEDDED_POLICY_ID, Some(3))]
+        );
+    }
+
+    #[test]
+    fn line_suppression_lets_the_annotated_line_pass() {
+        let text = format!("{UNBOUNDED_CHANNEL_LINE} {}\n", valid_suppression_line(EMBEDDED_POLICY_ID));
+        let report = run_checks(&CheckInput {
+            registry: sample_registry(),
+            sources: vec![SourceFile::new(SOURCE_PATH, text)],
+            selection: FamilySelection::from_families(["embedded"]),
+        });
+
+        assert!(report.diagnostics.is_empty(), "{:?}", report.diagnostics);
+        assert!(!report.has_blocking_diagnostics());
+        assert_eq!(report.active_suppressions.len(), 1);
+        assert_eq!(report.suppressed_diagnostics.len(), 1);
+    }
+
+    #[test]
+    fn suppression_does_not_cover_other_policies_or_files() {
+        let other_policy =
+            format!("{}; scope=next-line\n{UNBOUNDED_CHANNEL_LINE}\n", valid_suppression_line(DEVTOOLS_POLICY_ID));
+        let suppressed_elsewhere =
+            format!("{}; scope=next-line\nfn idle() {{}}\n", valid_suppression_line(EMBEDDED_POLICY_ID));
+        let report = run_checks(&CheckInput {
+            registry: sample_registry(),
+            sources: vec![
+                SourceFile::new(SOURCE_PATH, other_policy),
+                SourceFile::new("src/other.rs", suppressed_elsewhere),
+                SourceFile::new("src/device.rs", format!("\n{UNBOUNDED_CHANNEL_LINE}\n")),
+            ],
+            selection: FamilySelection::from_families(["devtools", "embedded"]),
+        });
+
+        assert_eq!(report.active_suppressions.len(), 2);
+        assert!(report.suppressed_diagnostics.is_empty(), "{:?}", report.suppressed_diagnostics);
+        assert_eq!(
+            report
+                .diagnostics
+                .iter()
+                .map(|diagnostic| (diagnostic.path.as_str(), diagnostic.line))
+                .collect::<Vec<_>>(),
+            vec![(SOURCE_PATH, Some(2)), ("src/device.rs", Some(2))]
+        );
+    }
+
+    #[test]
+    fn suppression_does_not_cover_suppression_validation_diagnostics() {
+        let text = format!(
+            "{}; scope=next-line\n// tigerstyle-allow: policy=tigerstyle.unknown.rule; source=doc; owner=a; rationale=b; review=c; safer_default=d\n",
+            valid_suppression_line(DEVTOOLS_POLICY_ID)
+        );
+        let report = run_checks(&CheckInput {
+            registry: sample_registry(),
+            sources: vec![SourceFile::new(SOURCE_PATH, text)],
+            selection: FamilySelection::all(),
+        });
+
+        assert!(report.has_blocking_diagnostics());
+        assert!(report.suppressed_diagnostics.is_empty());
+        assert!(report.diagnostics.iter().any(|diagnostic| {
+            diagnostic.policy_id == DEVTOOLS_POLICY_ID && diagnostic.line == Some(2) && diagnostic.is_blocking()
+        }));
+    }
+
+    #[test]
+    fn markdown_lists_suppressed_findings_separately() {
+        let text = format!("{UNBOUNDED_CHANNEL_LINE} {}\n", valid_suppression_line(EMBEDDED_POLICY_ID));
+        let report = run_checks(&CheckInput {
+            registry: sample_registry(),
+            sources: vec![SourceFile::new(SOURCE_PATH, text)],
+            selection: FamilySelection::from_families(["embedded"]),
+        });
+        let markdown = render_markdown(&report);
+        let (findings, _) =
+            markdown.split_once("## Active Suppressions").expect("markdown should list active suppressions");
+        let (_, suppressed) =
+            markdown.split_once("## Suppressed Findings").expect("markdown should list suppressed findings");
+        let finding = format!("`{EMBEDDED_POLICY_ID}` at `{SOURCE_PATH}:1` — ");
+
+        assert!(!findings.contains(&finding), "{markdown}");
+        assert!(suppressed.contains(&finding), "{markdown}");
     }
 
     #[test]

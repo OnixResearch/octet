@@ -2988,6 +2988,18 @@
 
               if octet-standards check \
                 --policy-artifacts-dir "$artifact_dir" \
+                --source standards/check-fixtures/suppressions/hard-rule \
+                --family embedded \
+                --output json > "$noncompliant_json"; then
+                echo "hard-rule suppression fixture hid the unsuppressed finding" >&2
+                exit 1
+              fi
+              jq --exit-status '.active_suppressions | length == 1' "$noncompliant_json" >/dev/null
+              jq --exit-status '[.suppressed_diagnostics[] | [.policy_id, .line]] == [["tigerstyle.embedded.bounded-queues", 3]]' "$noncompliant_json" >/dev/null
+              jq --exit-status '[.diagnostics[] | [.policy_id, .line]] == [["tigerstyle.embedded.bounded-queues", 7]]' "$noncompliant_json" >/dev/null
+
+              if octet-standards check \
+                --policy-artifacts-dir "$artifact_dir" \
                 --source standards/check-fixtures/architecture/noncompliant \
                 --source standards/check-fixtures/capability/clock-handler.txt \
                 --source "$cargo_metadata_json" \

@@ -9,6 +9,7 @@ use crate::proof::check_verified_proof_rails;
 // r[impl octet.runner_self_check.warning_budget.reduction.standards_report]
 // r[impl octet.runner_self_check.warning_budget.reduction.standards_policy_evaluation]
 use crate::source::SourceFile;
+use crate::suppression::apply_suppressions;
 use crate::suppression::validate_suppressions;
 
 /// Inputs for a pure checker run.
@@ -23,21 +24,27 @@ pub struct CheckInput {
 }
 
 /// Runs pure checker logic.
+///
+/// Active suppressions remove the checker diagnostics they cover into
+/// `suppressed_diagnostics`; suppression-validation diagnostics are never suppressed.
 #[must_use]
 pub fn run_checks(input: &CheckInput) -> crate::report::CheckReport {
     let suppression_report = validate_suppressions(&input.registry, &input.sources, &input.selection);
-    let mut diagnostics = suppression_report.diagnostics;
-    diagnostics.extend(check_architecture(&input.registry, &input.sources, &input.selection));
+    let mut checker_diagnostics = check_architecture(&input.registry, &input.sources, &input.selection);
     let capability_manifest = check_capability_manifest(&input.registry, &input.sources, &input.selection);
-    diagnostics.extend(capability_manifest.diagnostics);
-    diagnostics.extend(crate::resource::check_resources(&input.registry, &input.sources, &input.selection));
-    diagnostics.extend(check_verified_proof_rails(&input.registry, &input.sources, &input.selection));
+    checker_diagnostics.extend(capability_manifest.diagnostics);
+    checker_diagnostics.extend(crate::resource::check_resources(&input.registry, &input.sources, &input.selection));
+    checker_diagnostics.extend(check_verified_proof_rails(&input.registry, &input.sources, &input.selection));
+    let checker_diagnostics = apply_suppressions(checker_diagnostics, &suppression_report.active_suppressions);
+    let mut diagnostics = suppression_report.diagnostics;
+    diagnostics.extend(checker_diagnostics.remaining);
     let evaluated_policy_ids = evaluated_policy_ids(&input.registry, &input.selection);
     let policy_evaluations = policy_evaluations(&input.registry, &input.selection);
 
     crate::report::CheckReport {
         diagnostics,
         active_suppressions: suppression_report.active_suppressions,
+        suppressed_diagnostics: checker_diagnostics.suppressed,
         evaluated_policy_ids,
         policy_evaluations,
         capability_reports: capability_manifest.reports,

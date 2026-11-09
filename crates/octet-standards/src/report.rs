@@ -13,6 +13,7 @@ const EMPTY_REPORT_MARKDOWN: &str = "# Tiger Style Standards Report\n\nNo findin
 const REPORT_HEADING: &str = "# Tiger Style Standards Report";
 const FINDINGS_HEADING: &str = "## Findings";
 const SUPPRESSIONS_HEADING: &str = "## Active Suppressions";
+const SUPPRESSED_FINDINGS_HEADING: &str = "## Suppressed Findings";
 const CAPABILITY_REPORTS_HEADING: &str = "## Capability Manifest Reports";
 const NO_SUPPRESSIONS_LINE: &str = "No active suppressions.";
 
@@ -23,6 +24,9 @@ pub struct CheckReport {
     pub diagnostics: Vec<Diagnostic>,
     /// Active suppressions accepted by the run.
     pub active_suppressions: Vec<Suppression>,
+    /// Checker diagnostics an active suppression covers; they do not block.
+    #[serde(default)]
+    pub suppressed_diagnostics: Vec<Diagnostic>,
     /// Evaluated policy IDs.
     pub evaluated_policy_ids: Vec<String>,
     /// Enforcement-mode metadata for evaluated policies.
@@ -80,6 +84,7 @@ pub fn render_markdown(report: &CheckReport) -> String {
     append_heading(&mut markdown);
     append_diagnostics(&mut markdown, &report.diagnostics);
     append_suppressions(&mut markdown, &report.active_suppressions);
+    append_suppressed_diagnostics(&mut markdown, &report.suppressed_diagnostics);
     append_capability_reports(&mut markdown, &report.capability_reports);
     markdown
 }
@@ -143,6 +148,18 @@ fn append_suppressions(markdown: &mut String, suppressions: &[Suppression]) {
         markdown.push_str("` scope=");
         markdown.push_str(&suppression.scope);
         markdown.push('\n');
+    }
+}
+
+fn append_suppressed_diagnostics(markdown: &mut String, diagnostics: &[Diagnostic]) {
+    if diagnostics.is_empty() {
+        return;
+    }
+    markdown.push('\n');
+    markdown.push_str(SUPPRESSED_FINDINGS_HEADING);
+    markdown.push_str("\n\n");
+    for diagnostic in diagnostics {
+        append_diagnostic(markdown, diagnostic);
     }
 }
 

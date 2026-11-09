@@ -288,6 +288,7 @@ fn run_check_command(args: CheckArgs) -> Result<bool, CliError> {
                 let report = CheckReport {
                     diagnostics,
                     active_suppressions: Vec::new(),
+                    suppressed_diagnostics: Vec::new(),
                     evaluated_policy_ids: Vec::new(),
                     policy_evaluations: Vec::new(),
                     capability_reports: Vec::new(),
@@ -471,6 +472,7 @@ fn run_fixture_coverage_command(args: FixtureCoverageArgs) -> Result<bool, CliEr
     let report = CheckReport {
         diagnostics,
         active_suppressions: Vec::new(),
+        suppressed_diagnostics: Vec::new(),
         evaluated_policy_ids: Vec::new(),
         policy_evaluations: Vec::new(),
         capability_reports: Vec::new(),

@@ -29,6 +29,12 @@ evidence.
 - Policy IDs use the `octet.<pillar>.<rule>` namespace.
 - Suppressions use `octet-allow:` comments and MUST cite policy ID, source
   section, owner, rationale, review trigger, and safer default for hard rules.
+  A valid suppression covers only diagnostics of its policy at its own path and
+  line: `scope=line` (the default) covers the annotated line and
+  `scope=next-line` the line after it. Covered diagnostics no longer block;
+  the report records them under `suppressed_diagnostics` (markdown
+  `## Suppressed Findings`) next to `active_suppressions`. Diagnostics about
+  suppressions themselves are never suppressed.
 - Hard policies need positive and negative fixtures before becoming blocking.
 - Policies that target `structural` MUST export at least one mechanism contract
   such as crate-boundary, capability-api, bounded-primitive, or type-state.
