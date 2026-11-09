@@ -53,6 +53,10 @@ const PEM_HEADER_START: &str = "-----begin ";
 const PRIVATE_KEY_LABEL: &str = "private key";
 const BARE_PRIVATE_KEY_HEADER: &str = "begin private key";
 static REMOTE_FETCH_MARKERS: &[&str] = &["https://", "http://", "curl ", "wget ", "git clone"];
+/// Kinds that define contracts, schemas, profiles, templates, or policy rules.
+static EXPORT_COVERAGE_KINDS: &[&str] = &["policy", "profile", "template", "generated-contract", "contract"];
+/// Generation-command markers for deterministic Nickel export coverage.
+static EXPORT_COMMAND_MARKERS: &[&str] = &["nickel export", "nickel-export-manifest"];
 
 /// One package-generated artifact tracked by customs.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -286,6 +290,13 @@ fn validate_registry_coverage(
     registry: &PolicyRegistry,
     diagnostics: &mut Vec<CustomsDiagnostic>,
 ) {
+    if package_is_promotable(package) && package.registry_family_ids.is_empty() {
+        diagnostics.push(diagnostic(
+            "registry_family_ids",
+            "promotable package declares no registry family coverage".to_owned(),
+            REMEDIATION_REGISTRY,
+        ));
+    }
     for family_id in &package.registry_family_ids {
         match registry.config_receipt_families.iter().find(|family| family.family_id == *family_id) {
             Some(family) => validate_registry_family(package, family, diagnostics),
@@ -316,7 +327,22 @@ fn validate_registry_family(
 }
 
 fn validate_generated_artifacts(input: &CustomsInput<'_>, diagnostics: &mut Vec<CustomsDiagnostic>) {
-    for artifact in &input.package.generated_artifacts {
+    let package = input.package;
+    if package_is_promotable(package)
+        && EXPORT_COVERAGE_KINDS.contains(&package.kind.as_str())
+        && package.generated_artifacts.is_empty()
+        && !package.generation_commands.iter().any(|command| is_export_command(command))
+    {
+        diagnostics.push(diagnostic(
+            "generated_artifacts",
+            format!(
+                "promotable {} package declares no generated-artifact freshness or deterministic export coverage",
+                package.kind
+            ),
+            REMEDIATION_ARTIFACTS,
+        ));
+    }
+    for artifact in &package.generated_artifacts {
         push_blank(&artifact.generation_command, &format!("{} generation_command", artifact.path), diagnostics);
         push_blank(&artifact.validation_command, &format!("{} validation_command", artifact.path), diagnostics);
         let Some(text) = text_at(input.artifact_texts, &artifact.path) else {
@@ -434,6 +460,10 @@ fn source_exists(sources: &[SourceFile], path: &str) -> bool {
 
 fn text_at<'a>(texts: &'a [SourceFile], path: &str) -> Option<&'a str> {
     texts.iter().find(|text| text.path == path).map(|text| text.text.as_str())
+}
+
+fn is_export_command(command: &str) -> bool {
+    EXPORT_COMMAND_MARKERS.iter().any(|marker| command.contains(marker))
 }
 
 fn contains_remote_fetch(value: &str) -> bool {
@@ -698,6 +728,62 @@ mod tests {
                 report.diagnostics
             );
         }
+    }
+
+    #[test]
+    fn promotable_package_requires_registry_family_coverage() {
+        let registry = valid_registry();
+        let artifact_manifest = valid_manifest();
+        let sources = valid_sources();
+        let artifacts = valid_artifacts();
+        let mut package = valid_package();
+        package.registry_family_ids.clear();
+
+        let promotable = report_for(&package, &registry, &artifact_manifest, &sources, &artifacts);
+        assert_eq!(promotable.status, "fail");
+        assert!(
+            promotable.diagnostics.iter().any(|diagnostic| diagnostic.field == "registry_family_ids"),
+            "{:?}",
+            promotable.diagnostics
+        );
+
+        package.status = STATUS_DRAFT.to_owned();
+        let draft = report_for(&package, &registry, &artifact_manifest, &sources, &artifacts);
+        assert!(draft.diagnostics.is_empty(), "{:?}", draft.diagnostics);
+    }
+
+    #[test]
+    fn promotable_export_kinds_require_generated_artifact_or_export_coverage() {
+        let registry = valid_registry();
+        let artifact_manifest = valid_manifest();
+        let sources = valid_sources();
+        let artifacts = valid_artifacts();
+        let mut package = valid_package();
+        package.generated_artifacts.clear();
+        for kind in ["policy", "profile", "template", "generated-contract", "contract"] {
+            kind.clone_into(&mut package.kind);
+            let report = report_for(&package, &registry, &artifact_manifest, &sources, &artifacts);
+            assert!(
+                report.diagnostics.iter().any(|diagnostic| diagnostic.field == "generated_artifacts"),
+                "{kind}: {:?}",
+                report.diagnostics
+            );
+        }
+
+        "proof-rail".clone_into(&mut package.kind);
+        let proof_rail = report_for(&package, &registry, &artifact_manifest, &sources, &artifacts);
+        assert!(proof_rail.diagnostics.is_empty(), "{:?}", proof_rail.diagnostics);
+
+        "profile".clone_into(&mut package.kind);
+        package.generation_commands =
+            vec!["nickel export --format json templates/dynamic-evidence-profiles.ncl".to_owned()];
+        let exported = report_for(&package, &registry, &artifact_manifest, &sources, &artifacts);
+        assert!(exported.diagnostics.is_empty(), "{:?}", exported.diagnostics);
+
+        package.generation_commands.clear();
+        package.status = STATUS_DRAFT.to_owned();
+        let draft = report_for(&package, &registry, &artifact_manifest, &sources, &artifacts);
+        assert!(draft.diagnostics.is_empty(), "{:?}", draft.diagnostics);
     }
 
     #[test]
