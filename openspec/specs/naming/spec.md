@@ -332,7 +332,7 @@ The lint MUST NOT warn on `as _` trait imports used only for method resolution.
 
 The lint MUST NOT warn when the imported item is a public re-export that preserves a documented compatibility alias.
 
-The lint MUST treat an alias as documented when its doc comments, or the contiguous comment lines between and directly above its outer attributes, contain `compat` or `compatibility` as a whole word. Words inside other words, such as `compat` in `incompatible`, do not count.
+The lint MUST treat an alias as documented when its doc comments, or the contiguous comment lines between and directly above its outer attributes, contain `compat` or `compatibility` as a whole word. Words inside other words, such as `compat` in `incompatible`, do not count. For an alias inside a `{...}` group, such as `pub use crate::octet::{Config as LegacyConfig};`, the comment lines above the whole `use` statement count, on one line or across several.
 
 #### Scenario: Renamed private import [r[renamed-import-detection.scenario.renamed-private-import]]
 

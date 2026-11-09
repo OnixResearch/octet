@@ -135,6 +135,8 @@ pub(crate) fn is_generated_source_span(
 /// Documentation is the item's doc attributes plus the comment lines between
 /// its outer attributes and directly above them, so a note above
 /// `#[doc(hidden)]` or on the first line of a multi-line doc comment counts.
+/// For an import inside a `{...}` group, the lines above its `use` statement
+/// count.
 pub(crate) fn item_documentation_mentions(
     cx: &rustc_lint::LateContext<'_>,
     item: &rustc_hir::Item<'_>,
@@ -146,7 +148,30 @@ pub(crate) fn item_documentation_mentions(
         .iter()
         .filter_map(rustc_hir::Attribute::doc_str)
         .any(|doc| mentions(doc.as_str()))
-        || crate::source::any_leading_comment_line(cx.tcx.sess.source_map(), item.span, mentions)
+        || crate::source::any_leading_comment_line(cx.tcx.sess.source_map(), use_statement_span(cx, item), mentions)
+}
+
+/// rustc gives an import nested in a `{...}` group the span of its own tree,
+/// such as `Config as LegacyConfig`, which does not reach the comments above
+/// the `use` statement. Returns the span of the outermost group stem (the
+/// `ListStem` item, whose span is the whole statement) that contains `item`,
+/// or `item.span` for any other item.
+fn use_statement_span(cx: &rustc_lint::LateContext<'_>, item: &rustc_hir::Item<'_>) -> rustc_span::Span {
+    if !matches!(item.kind, rustc_hir::ItemKind::Use(_, rustc_hir::UseKind::Single(_) | rustc_hir::UseKind::Glob)) {
+        return item.span;
+    }
+    let (module, ..) = cx.tcx.hir_get_module(cx.tcx.parent_module(item.hir_id()));
+    module
+        .item_ids
+        .iter()
+        .map(|item_id| cx.tcx.hir_item(*item_id))
+        .filter(|stem| {
+            matches!(stem.kind, rustc_hir::ItemKind::Use(_, rustc_hir::UseKind::ListStem))
+                && stem.span.contains(item.span)
+        })
+        .map(|stem| stem.span)
+        .min_by_key(|span| span.lo())
+        .unwrap_or(item.span)
 }
 
 #[cfg(test)]

@@ -19,4 +19,18 @@ pub use crate::octet::Config as SlotcarConfig;
 /// Incompatible with the old loader.
 pub use crate::octet::Config as LoaderConfig;
 
+// Should NOT warn: the note sits above a single-line grouped `use`.
+// compat: kept for 0.x callers
+pub use crate::octet::{Config as GroupedConfig};
+
+// Should NOT warn: the note sits above a multi-line grouped `use`.
+// Compatibility aliases kept for 0.x callers.
+pub use crate::octet::{
+    Config as FirstGroupedConfig,
+    Config as SecondGroupedConfig,
+};
+
+// Should warn: a grouped `use` with no note.
+pub use crate::octet::{Config as UndocumentedConfig};
+
 fn main() {}
