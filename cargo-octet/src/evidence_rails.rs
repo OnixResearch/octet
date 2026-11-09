@@ -80,6 +80,8 @@ const KANI_PROPERTY_CLASS_VALIDITY_RANGE: &str = "validity-range";
 const KANI_PROPERTY_CLASS_LOOP_TERMINATION: &str = "loop-termination";
 const KANI_PROPERTY_CLASS_TRAIT_CONSISTENCY: &str = "trait-consistency";
 const KANI_PROPERTY_CLASS_BOUNDARY_PANIC: &str = "boundary-panic";
+const KANI_ASSUMPTION_STATUS_REVIEWED: &str = "reviewed";
+const KANI_ASSUMPTION_STATUS_VACUOUS: &str = "vacuous";
 const Z4_STATUS_SAT: &str = "sat";
 const Z4_STATUS_UNSAT: &str = "unsat";
 const Z4_STATUS_UNKNOWN: &str = "unknown";
@@ -2898,7 +2900,7 @@ fn parse_kani_model_check(input: &EvaluationInput<'_>) -> RailParseOutput {
         }
 
         push_kani_verdict_finding(&value, &mut findings, &mut diagnostics);
-        validate_kani_assumptions(&value, &mut diagnostics);
+        validate_kani_assumptions(&value, &mut findings, &mut diagnostics);
         push_kani_property_findings(&value, &mut findings, &mut property_classes, &mut diagnostics);
         let unwind_passed = push_kani_unwind_findings(&value, &mut findings, &mut diagnostics);
         let contract_passed = push_kani_contract_findings(&value, &mut findings, &mut diagnostics);
@@ -3653,17 +3655,39 @@ fn push_kani_verdict_finding(
     }
 }
 
-fn validate_kani_assumptions(value: &serde_json::Value, diagnostics: &mut Vec<String>) {
-    if string_field(value, "assumption_status") == Some("vacuous") {
+/// Assumption review is complete only when `assumptions_reviewed` is `true` and
+/// `assumption_status` is `reviewed`. Property evidence with incomplete review fails; any other
+/// report with incomplete review needs manual review.
+fn validate_kani_assumptions(
+    value: &serde_json::Value,
+    findings: &mut Vec<EvidenceRailFinding>,
+    diagnostics: &mut Vec<String>,
+) {
+    let assumption_status = string_field(value, "assumption_status");
+    if assumption_status == Some(KANI_ASSUMPTION_STATUS_VACUOUS) {
         diagnostics.push("Kani assumptions are marked vacuous".to_owned());
+    }
+    let review_complete = value.get("assumptions_reviewed").and_then(serde_json::Value::as_bool) == Some(true)
+        && assumption_status == Some(KANI_ASSUMPTION_STATUS_REVIEWED);
+    if review_complete {
+        return;
     }
     let property_claim = value
         .get("claims")
         .and_then(|claims| claims.get("property_evidence"))
         .and_then(serde_json::Value::as_bool)
         == Some(true);
-    if property_claim && value.get("assumptions_reviewed").and_then(serde_json::Value::as_bool) == Some(false) {
-        diagnostics.push("Kani property evidence requires reviewed assumptions".to_owned());
+    if property_claim {
+        diagnostics.push(
+            "Kani property evidence requires reviewed assumptions: `assumptions_reviewed: true` and `assumption_status: reviewed`"
+                .to_owned(),
+        );
+    } else {
+        findings.push(kani_finding(
+            "assumption-review-incomplete",
+            "manual_review",
+            "Kani report lacks complete assumption review metadata (`assumptions_reviewed`, `assumption_status`)",
+        ));
     }
 }
 
@@ -7336,6 +7360,36 @@ mod tests {
         assert!(guide.contains("cargo octet evidence collect --rail kani-model-check"));
         assert!(template.contains("kani::assume"));
         assert!(template.contains("check_invalid_index_is_rejected"));
+    }
+
+    #[test]
+    fn kani_missing_assumption_metadata_is_review_incomplete() {
+        let reviewed: serde_json::Value =
+            serde_json::from_str(include_str!("../tests/fixtures/evidence-rails/kani-panic-pilot-passed.json"))
+                .expect("parse Kani fixture");
+        let without = |fields: &[&str], property_evidence: bool| {
+            let mut value = reviewed.clone();
+            let object = value.as_object_mut().expect("Kani fixture object");
+            for field in fields {
+                object.remove(*field);
+            }
+            value["claims"]["property_evidence"] = serde_json::Value::from(property_evidence);
+            kani_receipt(&value.to_string())
+        };
+
+        for fields in [&["assumptions_reviewed"][..], &["assumption_status"], &[
+            "assumptions_reviewed",
+            "assumption_status",
+        ]] {
+            let unclaimed = without(fields, false);
+            assert_eq!(unclaimed.status, STATUS_MANUAL_REVIEW_REQUIRED, "{fields:?}: {:?}", unclaimed.diagnostics);
+            assert_eq!(unclaimed.finding_counts.get("assumption-review-incomplete"), Some(&1), "{fields:?}");
+
+            let claimed = without(fields, true);
+            assert_eq!(claimed.status, STATUS_FAILED, "{fields:?}");
+            assert!(!claimed.diagnostics.is_empty(), "{fields:?}");
+        }
+        assert_eq!(without(&[], true).status, STATUS_PASSED);
     }
 
     #[test]
