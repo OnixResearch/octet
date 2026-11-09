@@ -60,6 +60,10 @@ const CARGO_VET_CONCLUSION_VIOLATION: &str = "fail (violation)";
 const CARGO_VET_GAP_FAMILY: &str = "unaudited-gap";
 const CARGO_VET_EXEMPTION_FAMILY: &str = "exemption";
 const SUPPORTED_EVIDENCE_RAILS: &str = "dependency-audit, clippy-co-reporting, ast-grep, wasm-artifact, charon-semantic, dependency-trust, api-stability, dynamic-evidence, sarif-import, release-supply-chain, mutation-testing, coverage-baseline, benchmark-evidence, kani-model-check, hegel-property, z4-solver, or verifier-fixture";
+/// cargo-vet's store directory under the workspace root unless `metadata.vet.store.path` moves it.
+const CARGO_VET_DEFAULT_STORE: &str = "supply-chain";
+const CARGO_VET_STORE_CONFIG: &str = "config.toml";
+const CARGO_VET_IMPORTS_LOCK: &str = "imports.lock";
 const COVERAGE_PERCENT_MIN: f64 = 0.0;
 const COVERAGE_PERCENT_MAX: f64 = 100.0;
 const SCHEMA_VERSION_FIELD: &str = "schema_version";
@@ -576,6 +580,24 @@ pub struct VerifierFixtureReceiptDetails {
     pub fixtures: Vec<VerifierFixtureEntry>,
 }
 
+/// One `[imports.NAME]` audit source declared in the cargo-vet store's `config.toml`.
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct DependencyTrustImport {
+    pub name: String,
+    pub url: Vec<String>,
+}
+
+/// The cargo-vet store inputs a dependency-trust receipt binds. cargo-vet's JSON report does not
+/// name the imported audit sources it relied on, so Octet records the declared imports and the
+/// identity of the `imports.lock` that pins their fetched audits.
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct DependencyTrustReceiptDetails {
+    pub store_config_identity: String,
+    pub imports: Vec<DependencyTrustImport>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub imports_lock_identity: Option<String>,
+}
+
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct EvidenceRailReceipt {
     pub schema_version: String,
@@ -633,6 +655,8 @@ pub struct EvidenceRailReceipt {
     pub cargo_mutants: Option<crate::mutation::ReceiptDetails>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub benchmark_evidence: Option<crate::benchmark::ReceiptDetails>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dependency_trust: Option<DependencyTrustReceiptDetails>,
 }
 
 pub struct EvaluationInput<'a> {
@@ -746,6 +770,9 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
         // `evaluate` sees only the baseline identity; argv names the `--baseline-root` path.
         let baseline_path = args.baseline.as_ref().map(|path| path.display().to_string());
         receipt.command_argv = command_argv(args.rail, None, baseline_path.as_deref(), None, false);
+    }
+    if args.rail == EvidenceRailKind::DependencyTrust {
+        bind_dependency_trust_store(&mut receipt, read_dependency_trust_store(workspace_root));
     }
 
     let mut additional_artifacts = BTreeMap::new();
@@ -945,6 +972,7 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
         coverage_baseline,
         cargo_mutants,
         benchmark_evidence,
+        dependency_trust: None,
     }
 }
 
@@ -1476,6 +1504,7 @@ pub fn validate_receipt(receipt: &EvidenceRailReceipt) -> Vec<String> {
     diagnostics.extend(coverage_diagnostics(rail, receipt));
     diagnostics.extend(mutation_diagnostics(rail, receipt));
     diagnostics.extend(benchmark_diagnostics(rail, receipt));
+    diagnostics.extend(dependency_trust_diagnostics(rail, receipt));
     diagnostics
 }
 
@@ -2285,6 +2314,122 @@ fn cargo_vet_finding(family: &str, severity: &str, message: String) -> EvidenceR
         line: None,
         column: None,
     }
+}
+
+/// Resolves the cargo-vet store directory from the workspace `Cargo.toml` the way cargo-vet does:
+/// `[package.metadata.vet] store.path` wins over `[workspace.metadata.vet] store.path`, and the
+/// default is `supply-chain`.
+fn cargo_vet_store_path(manifest: Option<&str>) -> Result<std::path::PathBuf, String> {
+    let Some(manifest) = manifest else {
+        return Ok(std::path::PathBuf::from(CARGO_VET_DEFAULT_STORE));
+    };
+    let manifest: toml::Table =
+        toml::from_str(manifest).map_err(|error| format!("parse Cargo.toml for the cargo-vet store path: {error}"))?;
+    let store_path = |section: &str| manifest.get(section)?.get("metadata")?.get("vet")?.get("store")?.get("path");
+    match store_path("package").or_else(|| store_path("workspace")) {
+        None => Ok(std::path::PathBuf::from(CARGO_VET_DEFAULT_STORE)),
+        Some(toml::Value::String(path)) => Ok(std::path::PathBuf::from(path)),
+        Some(_) => Err("cargo-vet `metadata.vet.store.path` in Cargo.toml must be a string".to_owned()),
+    }
+}
+
+/// Builds the dependency-trust store binding from the cargo-vet store `config.toml` text. Every
+/// `[imports.NAME]` entry must declare a string or string-array `url`.
+fn dependency_trust_details(
+    config_text: &str,
+    store_config_identity: String,
+    imports_lock_identity: Option<String>,
+) -> Result<DependencyTrustReceiptDetails, String> {
+    let config: toml::Table =
+        toml::from_str(config_text).map_err(|error| format!("parse cargo-vet store config.toml: {error}"))?;
+    let imports = match config.get("imports") {
+        None => Vec::new(),
+        Some(toml::Value::Table(imports)) => {
+            imports.iter().map(|(name, import)| cargo_vet_import(name, import)).collect::<Result<_, _>>()?
+        }
+        Some(_) => return Err("cargo-vet store config.toml field `imports` must be a table".to_owned()),
+    };
+    Ok(DependencyTrustReceiptDetails {
+        store_config_identity,
+        imports,
+        imports_lock_identity,
+    })
+}
+
+fn cargo_vet_import(name: &str, import: &toml::Value) -> Result<DependencyTrustImport, String> {
+    let url = match import.get("url") {
+        Some(toml::Value::String(url)) => vec![url.clone()],
+        Some(toml::Value::Array(urls)) => urls
+            .iter()
+            .map(|url| url.as_str().map(ToOwned::to_owned))
+            .collect::<Option<Vec<_>>>()
+            .unwrap_or_default(),
+        _ => Vec::new(),
+    };
+    if url.is_empty() {
+        return Err(format!("cargo-vet import `{name}` must declare a string or string-array `url`"));
+    }
+    Ok(DependencyTrustImport {
+        name: name.to_owned(),
+        url,
+    })
+}
+
+/// Attaches the cargo-vet store binding to a dependency-trust receipt. The receipt fails when the
+/// store cannot be read or a declared trust import is not bound to an `imports.lock` identity.
+fn bind_dependency_trust_store(
+    receipt: &mut EvidenceRailReceipt,
+    store: Result<DependencyTrustReceiptDetails, String>,
+) {
+    match store {
+        Ok(details) => {
+            receipt.dependency_trust = Some(details);
+            let diagnostics = dependency_trust_diagnostics(EvidenceRailKind::DependencyTrust, receipt);
+            receipt.diagnostics.extend(diagnostics);
+        }
+        Err(error) => receipt.diagnostics.push(error),
+    }
+    if !receipt.diagnostics.is_empty() {
+        STATUS_FAILED.clone_into(&mut receipt.status);
+    }
+}
+
+fn dependency_trust_diagnostics(rail: EvidenceRailKind, receipt: &EvidenceRailReceipt) -> Vec<String> {
+    let mut diagnostics = Vec::with_capacity(SPECIALIZED_DIAGNOSTIC_CAPACITY);
+    match (rail, receipt.dependency_trust.as_ref()) {
+        (EvidenceRailKind::DependencyTrust, Some(details)) => {
+            if !is_b3_identity(&details.store_config_identity) {
+                diagnostics.push("dependency-trust store_config_identity must be a BLAKE3 identity".to_owned());
+            }
+            if details.imports.iter().any(|import| {
+                import.name.trim().is_empty() || import.url.is_empty() || import.url.iter().any(|url| url.trim().is_empty())
+            }) {
+                diagnostics.push("dependency-trust imports must each name the import and its source URL".to_owned());
+            }
+            match details.imports_lock_identity.as_deref() {
+                Some(identity) if !is_b3_identity(identity) => {
+                    diagnostics.push("dependency-trust imports_lock_identity must be a BLAKE3 identity".to_owned());
+                }
+                None if !details.imports.is_empty() => {
+                    let names = details.imports.iter().map(|import| format!("`{}`", import.name)).collect::<Vec<_>>();
+                    diagnostics.push(format!(
+                        "dependency-trust result relies on cargo-vet trust imports {} but the receipt does not bind the identity of the store's imports.lock",
+                        names.join(", ")
+                    ));
+                }
+                _ => {}
+            }
+        }
+        (EvidenceRailKind::DependencyTrust, None) => diagnostics.push(
+            "dependency-trust receipt missing the `dependency_trust` cargo-vet store binding, so its trust imports are unidentified"
+                .to_owned(),
+        ),
+        (_, Some(_)) => {
+            diagnostics.push("dependency_trust details are only valid on dependency-trust rail receipts".to_owned());
+        }
+        (_, None) => {}
+    }
+    diagnostics
 }
 
 fn parse_api_stability(input: &EvaluationInput<'_>) -> RailParseOutput {
@@ -5472,6 +5617,29 @@ fn update_tree_frame(hasher: &mut blake3::Hasher, tag: u8, bytes: &[u8]) {
     hasher.update(blake3::hash(bytes).as_bytes());
 }
 
+/// Reads the cargo-vet store a dependency-trust receipt binds: the store `config.toml` that
+/// declares trust imports and, when present, the `imports.lock` that pins their audits.
+fn read_dependency_trust_store(workspace_root: &Path) -> Result<DependencyTrustReceiptDetails, String> {
+    let manifest_path = workspace_root.join("Cargo.toml");
+    let manifest = match fs::read_to_string(&manifest_path) {
+        Ok(manifest) => Some(manifest),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+        Err(error) => return Err(format!("read {}: {error}", manifest_path.display())),
+    };
+    let store = workspace_root.join(cargo_vet_store_path(manifest.as_deref())?);
+    let config_path = store.join(CARGO_VET_STORE_CONFIG);
+    let config_bytes = fs::read(&config_path).map_err(|error| {
+        format!(
+            "dependency-trust rail must read the cargo-vet store config {} to identify trust imports: {error}",
+            config_path.display()
+        )
+    })?;
+    let config_text = std::str::from_utf8(&config_bytes)
+        .map_err(|error| format!("cargo-vet store config {} is not UTF-8: {error}", config_path.display()))?;
+    let imports_lock_identity = path_identity_if_present(&store.join(CARGO_VET_IMPORTS_LOCK))?;
+    dependency_trust_details(config_text, prefixed_identity(&config_bytes), imports_lock_identity)
+}
+
 fn path_identity_if_present(path: &Path) -> Result<Option<String>, String> {
     match fs::read(path) {
         Ok(bytes) => Ok(Some(prefixed_identity(&bytes))),
@@ -6598,6 +6766,114 @@ mod tests {
             assert_eq!(receipt.status, STATUS_FAILED, "{unrecognised}");
             assert!(!receipt.diagnostics.is_empty(), "{unrecognised}");
         }
+    }
+
+    #[test]
+    fn dependency_trust_collect_binds_declared_trust_imports() {
+        const VET_CONFIG: &str = "[cargo-vet]\nversion = \"0.10\"\n";
+        const IMPORTS: &str = "\n[imports.google]\nurl = \"https://raw.githubusercontent.com/google/supply-chain/main/audits.toml\"\n\n[imports.mirrored]\nurl = [\"https://a.example/audits.toml\", \"https://b.example/audits.toml\"]\n";
+        const IMPORTS_LOCK: &str = "\n# cargo-vet imports lock\n\n[audits.google.audits]\n";
+        let workspace = tempfile::tempdir().expect("create dependency-trust workspace");
+        let store = workspace.path().join("supply-chain");
+        fs::create_dir_all(&store).expect("create cargo-vet store");
+        let report = workspace.path().join("vet.json");
+        fs::write(&report, include_str!("../tests/fixtures/evidence-rails/cargo-vet-success-full.json"))
+            .expect("write cargo-vet report");
+        let collect = |name: &str| {
+            let artifacts = workspace.path().join(name);
+            let exit_code = run(&crate::cli::EvidenceRailArgs {
+                rail: EvidenceRailKind::DependencyTrust,
+                run: false,
+                input: Some(report.clone()),
+                artifact_dir: artifacts.clone(),
+                workspace_root: Some(workspace.path().to_path_buf()),
+                config: None,
+                baseline: None,
+                profile: None,
+                command: None,
+                parent_artifacts: Vec::new(),
+                external_reports: Vec::new(),
+                output_format: OutputFormat::Human,
+                locked: false,
+                update_advisory_database: false,
+                command_line: "cargo octet evidence collect --rail dependency-trust --input vet.json".to_owned(),
+            })
+            .expect("collect dependency-trust evidence");
+            let receipt: EvidenceRailReceipt =
+                serde_json::from_str(&fs::read_to_string(artifacts.join(RECEIPT_ARTIFACT_NAME)).expect("read receipt"))
+                    .expect("parse receipt");
+            (exit_code, receipt)
+        };
+
+        fs::write(store.join("config.toml"), VET_CONFIG).expect("write config without imports");
+        let (exit_code, without_imports) = collect("without-imports");
+        assert_eq!(exit_code, EXIT_SUCCESS, "{:?}", without_imports.diagnostics);
+        assert_eq!(without_imports.status, STATUS_PASSED);
+
+        fs::write(store.join("config.toml"), format!("{VET_CONFIG}{IMPORTS}")).expect("write config with imports");
+        let (exit_code, unbound) = collect("unbound");
+        assert_eq!(exit_code, EXIT_INTEGRATION_FAILURE);
+        assert_eq!(unbound.status, STATUS_FAILED);
+        assert!(
+            unbound.diagnostics.iter().any(|diagnostic| diagnostic.contains("imports.lock")),
+            "{:?}",
+            unbound.diagnostics
+        );
+
+        fs::write(store.join("imports.lock"), IMPORTS_LOCK).expect("write imports lock");
+        let (exit_code, bound) = collect("bound");
+        assert_eq!(exit_code, EXIT_SUCCESS, "{:?}", bound.diagnostics);
+        assert_eq!(bound.status, STATUS_PASSED);
+        assert!(validate_receipt(&bound).is_empty(), "{:?}", validate_receipt(&bound));
+        let details = bound.dependency_trust.as_ref().expect("cargo-vet store binding");
+        assert_eq!(details.imports_lock_identity, Some(prefixed_identity(IMPORTS_LOCK.as_bytes())));
+        assert_eq!(details.store_config_identity, prefixed_identity(format!("{VET_CONFIG}{IMPORTS}").as_bytes()));
+        assert_eq!(details.imports, vec![
+            DependencyTrustImport {
+                name: "google".to_owned(),
+                url: string_vec(&["https://raw.githubusercontent.com/google/supply-chain/main/audits.toml"]),
+            },
+            DependencyTrustImport {
+                name: "mirrored".to_owned(),
+                url: string_vec(&["https://a.example/audits.toml", "https://b.example/audits.toml"]),
+            },
+        ]);
+        let mut stripped = bound.clone();
+        stripped.dependency_trust.as_mut().expect("binding").imports_lock_identity = None;
+        assert!(validate_receipt(&stripped).iter().any(|diagnostic| diagnostic.contains("imports.lock")));
+        stripped.dependency_trust = None;
+        assert!(validate_receipt(&stripped).iter().any(|diagnostic| diagnostic.contains("dependency_trust")));
+        assert!(without_imports.dependency_trust.as_ref().is_some_and(|details| details.imports.is_empty()));
+        assert!(validate_receipt(&without_imports).is_empty(), "{:?}", validate_receipt(&without_imports));
+
+        // cargo-vet honors a `metadata.vet.store.path` override, so the binding follows it.
+        let moved = workspace.path().join("vet-store");
+        fs::rename(&store, &moved).expect("move cargo-vet store");
+        fs::write(
+            workspace.path().join("Cargo.toml"),
+            "[workspace]\nmembers = []\n\n[workspace.metadata.vet]\nstore = { path = \"vet-store\" }\n",
+        )
+        .expect("write workspace manifest");
+        let (exit_code, relocated) = collect("relocated");
+        assert_eq!(exit_code, EXIT_SUCCESS, "{:?}", relocated.diagnostics);
+        assert_eq!(relocated.dependency_trust, bound.dependency_trust);
+        fs::rename(&moved, &store).expect("restore cargo-vet store");
+        fs::remove_file(workspace.path().join("Cargo.toml")).expect("remove workspace manifest");
+
+        fs::write(store.join("config.toml"), format!("{VET_CONFIG}\n[imports.nameless]\ncriteria-map = []\n"))
+            .expect("write config with an import lacking a url");
+        let (exit_code, malformed) = collect("malformed");
+        assert_eq!(exit_code, EXIT_INTEGRATION_FAILURE);
+        assert!(malformed.diagnostics.iter().any(|diagnostic| diagnostic.contains("`nameless`")));
+
+        fs::remove_file(store.join("config.toml")).expect("remove cargo-vet config");
+        let (exit_code, unknown) = collect("without-config");
+        assert_eq!(exit_code, EXIT_INTEGRATION_FAILURE);
+        assert!(
+            unknown.diagnostics.iter().any(|diagnostic| diagnostic.contains("config.toml")),
+            "{:?}",
+            unknown.diagnostics
+        );
     }
 
     #[test]

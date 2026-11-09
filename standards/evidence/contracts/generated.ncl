@@ -228,6 +228,7 @@ let EvidenceTier = std.contract.from_predicate (fun value => std.is_string value
     coverage_baseline | Dyn | default = {},
     cargo_mutants | Dyn | default = {},
     benchmark_evidence | Dyn | default = {},
+    dependency_trust | Dyn | optional,
   },
   ChaosControlProofStyleInputContractV1 = {
     schema_version | std.contract.from_predicate (fun value => value == "octet-chaoscontrol-proof-style-input-contract/v1"),

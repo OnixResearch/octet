@@ -355,6 +355,7 @@ static EVIDENCE_RAIL_RECEIPT_FIELDS: &[ContractField] = &[
         kind: FieldKind::Dyn,
         default: Some(EMPTY_RECORD_DEFAULT),
     },
+    ContractField::optional("dependency_trust", FieldKind::Dyn),
 ];
 
 #[derive(Clone, Copy)]
@@ -1015,6 +1016,7 @@ mod tests {
             coverage_baseline: _,
             cargo_mutants: _,
             benchmark_evidence: _,
+            dependency_trust: _,
         } = receipt;
         [
             "schema_version",
@@ -1052,6 +1054,7 @@ mod tests {
             "coverage_baseline",
             "cargo_mutants",
             "benchmark_evidence",
+            "dependency_trust",
         ]
         .into_iter()
         .map(str::to_owned)
