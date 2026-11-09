@@ -701,8 +701,18 @@ pub fn render_integrated_summary(
         .to_owned();
     writeln!(&mut summary, "Lint phase: {} ({})", lint_outcome.status.as_str(), EvidenceTier::StaticLint.as_str())
         .map_err(|error| format!("write integrated summary: {error}"))?;
-    writeln!(&mut summary, "Architecture phase: {} ({})", receipt.status.as_str(), receipt.evidence_tier)
-        .map_err(|error| format!("write integrated summary: {error}"))?;
+    let waived = waived_architecture_findings(receipt);
+    if waived == 0 {
+        writeln!(&mut summary, "Architecture phase: {} ({})", receipt.status.as_str(), receipt.evidence_tier)
+    } else {
+        writeln!(
+            &mut summary,
+            "Architecture phase: {} with {waived} waived ({})",
+            receipt.status.as_str(),
+            receipt.evidence_tier
+        )
+    }
+    .map_err(|error| format!("write integrated summary: {error}"))?;
     writeln!(&mut summary, "Architecture findings: {}", receipt.findings.len())
         .map_err(|error| format!("write integrated summary: {error}"))?;
     writeln!(&mut summary, "Architecture receipt: {}", receipt.receipt_id)
@@ -736,10 +746,24 @@ fn integrated_phases(
             "evidence_tier": receipt.evidence_tier,
             "receipt_id": receipt.receipt_id,
             "finding_ids": receipt.findings.iter().map(|finding| &finding.finding_id).collect::<Vec<_>>(),
+            "waived_finding_count": waived_architecture_findings(receipt),
             "non_claims": receipt.non_claims,
         },
         "effect_closure": receipt.effect_closure,
     })
+}
+
+/// Waived findings let a `clean` architecture status differ from a run with no findings.
+fn waived_architecture_findings(
+    receipt: &octet_standards::project_architecture_gate::ProjectArchitectureReceipt,
+) -> usize {
+    receipt
+        .findings
+        .iter()
+        .filter(|finding| {
+            finding.status == octet_standards::project_architecture_gate::ArchitectureFindingStatus::Waived
+        })
+        .count()
 }
 
 fn pretty_json(value: &serde_json::Value, label: &str) -> Result<String, String> {
@@ -921,6 +945,99 @@ mod tests {
 
             assert_eq!(invocation["exitCode"], expected_exit);
             assert_eq!(invocation["executionSuccessful"], expected_success, "{:?}", outcome.status);
+        }
+    }
+
+    // r[verify octet.project_architecture_gate.waivers]
+    #[test]
+    fn integrated_status_and_summary_distinguish_waived_clean_from_clean() {
+        use octet_standards::project_architecture_gate::ArchitectureFindingSeverity;
+        use octet_standards::project_architecture_gate::ArchitectureFindingStatus;
+        use octet_standards::project_architecture_gate::ProjectArchitectureFinding;
+
+        let lint = RunOutcome::classify(&[], CargoProcessExit::success());
+        let metadata = RunMetadata {
+            tool_name: "cargo-octet",
+            tool_version: "0.1.0",
+            rustc_version: "rustc-test".to_owned(),
+            toolchain: "nightly".to_owned(),
+            profile_name: "default".to_owned(),
+            profile_hash: "profile-hash".to_owned(),
+            config_hash: TEST_CONFIG_HASH.to_owned(),
+        };
+        let clean = test_architecture_receipt(Vec::new());
+        let waived = test_architecture_receipt(vec![ProjectArchitectureFinding {
+            finding_id: "f".repeat(64),
+            code: "forbidden-role-edge".to_owned(),
+            severity: ArchitectureFindingSeverity::Policy,
+            status: ArchitectureFindingStatus::Waived,
+            affected_claim: "role-aware-dependency-graph".to_owned(),
+            package_name: None,
+            unit_id: None,
+            fact_id: None,
+            source_path: None,
+            source_blake3: "e".repeat(64),
+            message: "domain depends on outbound".to_owned(),
+        }]);
+
+        let mut phase_lines = Vec::new();
+        for (receipt, waived_count) in [(&clean, 0), (&waived, 1)] {
+            let status = render_integrated_status_json(&lint, &lint, "human", &metadata, None, receipt)
+                .expect("integrated status should render");
+            let status = serde_json::from_str::<serde_json::Value>(&status).expect("parse integrated status");
+            assert_eq!(status["phases"]["architecture"]["status"], "clean");
+            assert_eq!(status["phases"]["architecture"]["waived_finding_count"], waived_count);
+
+            let summary = render_integrated_summary(&[], &lint, &lint, &metadata, None, receipt)
+                .expect("integrated summary should render");
+            let phase_line = summary
+                .lines()
+                .find(|line| line.starts_with("Architecture phase: clean"))
+                .expect("architecture phase line")
+                .to_owned();
+            phase_lines.push(phase_line);
+        }
+        assert_ne!(phase_lines[0], phase_lines[1]);
+    }
+
+    fn test_architecture_receipt(
+        findings: Vec<octet_standards::project_architecture_gate::ProjectArchitectureFinding>,
+    ) -> octet_standards::project_architecture_gate::ProjectArchitectureReceipt {
+        let hash = "a".repeat(64);
+        octet_standards::project_architecture_gate::ProjectArchitectureReceipt {
+            schema_version: "test".to_owned(),
+            receipt_id: hash.clone(),
+            project_id: "fixture".to_owned(),
+            mode: octet_standards::project_architecture_policy::ArchitectureMode::Gate,
+            status: octet_standards::project_architecture_gate::ArchitecturePhaseStatus::Clean,
+            evidence_tier: "policy-check".to_owned(),
+            checker_id: "octet-standards.project-architecture-gate".to_owned(),
+            policy_source_blake3: hash.clone(),
+            policy_blake3: hash.clone(),
+            waiver_policy_blake3: hash.clone(),
+            lint_phase_status: "clean".to_owned(),
+            command_blake3: hash.clone(),
+            cargo_graph_id: hash.clone(),
+            architecture_ir_id: hash.clone(),
+            coverage_id: hash.clone(),
+            compiler_receipt_id: hash,
+            toolchain_blake3s: Vec::new(),
+            collector_blake3s: Vec::new(),
+            invocation_blake3s: Vec::new(),
+            targets: Vec::new(),
+            feature_sets: Vec::new(),
+            package_roles: Vec::new(),
+            port_traits: Vec::new(),
+            capability_families: Vec::new(),
+            outbound_effects: Vec::new(),
+            authorized_effect_fact_ids: Vec::new(),
+            authorized_effect_type_ids: Vec::new(),
+            applied_waiver_ids: findings.iter().map(|finding| finding.finding_id.clone()).collect(),
+            findings,
+            unknown_ids: Vec::new(),
+            test_only: None,
+            effect_closure: None,
+            non_claims: vec!["whole-program-correctness".to_owned()],
         }
     }
 

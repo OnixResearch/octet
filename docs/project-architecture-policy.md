@@ -325,6 +325,8 @@ A finding's `source_blake3` names the source it depends on:
 
 A source edit therefore makes stale every waiver whose finding binds that unit's source envelope.
 
+When every policy finding is waived, the architecture status can still be `clean`. The receipt keeps each waived finding and lists it in `applied_waiver_ids`, `status.json` reports `phases.architecture.waived_finding_count`, and the summary's architecture phase line names the waived count.
+
 Waivers apply only to policy findings. Input-integrity findings, such as incomplete compiler coverage, stay open; a waiver that targets one adds an `unwaivable-integration-finding` integration failure.
 
 Rust `#[allow]` attributes do not suppress project architecture findings.
