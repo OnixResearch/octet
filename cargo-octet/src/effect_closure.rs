@@ -327,7 +327,8 @@ struct FunctionDraft {
     name: String,
     module: Vec<String>,
     container: FunctionContainer,
-    conditional: bool,
+    /// Whether an enclosing file, module, impl, or trait carries a non-inert attribute.
+    opaque_context: bool,
     attrs: Vec<syn::Attribute>,
     /// Generic parameters of the enclosing `impl` or trait, which are in scope in the body.
     enclosing_generics: syn::Generics,
@@ -391,8 +392,8 @@ impl RawCallKind {
 struct FunctionCollector {
     functions: Vec<CollectedFunction>,
     module: Vec<String>,
-    /// Whether an enclosing file, module, impl, or trait carries `cfg`/`cfg_attr`.
-    conditional: bool,
+    /// Whether an enclosing file, module, impl, or trait carries a non-inert attribute.
+    opaque_context: bool,
     /// Generic parameters of the enclosing trait while its items are visited.
     trait_generics: Option<syn::Generics>,
 }
@@ -402,7 +403,7 @@ struct CollectedFunction {
     name: String,
     module: Vec<String>,
     container: FunctionContainer,
-    conditional: bool,
+    opaque_context: bool,
     attrs: Vec<syn::Attribute>,
     enclosing_generics: syn::Generics,
     signature: syn::Signature,
@@ -455,26 +456,26 @@ struct BodyScanner<'a> {
 // function, whose body scan already covers their tokens.
 impl<'ast> Visit<'ast> for FunctionCollector {
     fn visit_file(&mut self, node: &'ast syn::File) {
-        self.conditional |= has_conditional_compilation(&node.attrs);
+        self.opaque_context |= has_opaque_attribute(&node.attrs);
         syn::visit::visit_file(self, node);
     }
 
     fn visit_item_mod(&mut self, node: &'ast syn::ItemMod) {
-        let enclosing_conditional = self.conditional;
-        self.conditional |= has_conditional_compilation(&node.attrs);
+        let enclosing_opaque = self.opaque_context;
+        self.opaque_context |= has_opaque_attribute(&node.attrs);
         self.module.push(node.ident.to_string());
         syn::visit::visit_item_mod(self, node);
         self.module.pop();
-        self.conditional = enclosing_conditional;
+        self.opaque_context = enclosing_opaque;
     }
 
     fn visit_item_trait(&mut self, node: &'ast syn::ItemTrait) {
-        let enclosing_conditional = self.conditional;
-        self.conditional |= has_conditional_compilation(&node.attrs);
+        let enclosing_opaque = self.opaque_context;
+        self.opaque_context |= has_opaque_attribute(&node.attrs);
         self.trait_generics = Some(node.generics.clone());
         syn::visit::visit_item_trait(self, node);
         self.trait_generics = None;
-        self.conditional = enclosing_conditional;
+        self.opaque_context = enclosing_opaque;
     }
 
     fn visit_item_fn(&mut self, node: &'ast syn::ItemFn) {
@@ -482,7 +483,7 @@ impl<'ast> Visit<'ast> for FunctionCollector {
             name: node.sig.ident.to_string(),
             module: self.module.clone(),
             container: FunctionContainer::Module,
-            conditional: self.conditional,
+            opaque_context: self.opaque_context,
             attrs: node.attrs.clone(),
             enclosing_generics: syn::Generics::default(),
             signature: node.sig.clone(),
@@ -495,14 +496,14 @@ impl<'ast> Visit<'ast> for FunctionCollector {
             (None, Some(owner)) => FunctionContainer::InherentImpl(owner),
             _ => FunctionContainer::Dispatched,
         };
-        let conditional = self.conditional || has_conditional_compilation(&node.attrs);
+        let opaque_context = self.opaque_context || has_opaque_attribute(&node.attrs);
         for item in &node.items {
             if let syn::ImplItem::Fn(function) = item {
                 self.functions.push(CollectedFunction {
                     name: function.sig.ident.to_string(),
                     module: self.module.clone(),
                     container: container.clone(),
-                    conditional,
+                    opaque_context,
                     attrs: function.attrs.clone(),
                     enclosing_generics: node.generics.clone(),
                     signature: function.sig.clone(),
@@ -518,7 +519,7 @@ impl<'ast> Visit<'ast> for FunctionCollector {
                 name: node.sig.ident.to_string(),
                 module: self.module.clone(),
                 container: FunctionContainer::Dispatched,
-                conditional: self.conditional,
+                opaque_context: self.opaque_context,
                 attrs: node.attrs.clone(),
                 enclosing_generics: self.trait_generics.clone().unwrap_or_default(),
                 signature: node.sig.clone(),
@@ -528,12 +529,47 @@ impl<'ast> Visit<'ast> for FunctionCollector {
     }
 }
 
-fn has_conditional_compilation(attrs: &[syn::Attribute]) -> bool {
-    attrs.iter().any(is_conditional_compilation)
+fn has_opaque_attribute(attrs: &[syn::Attribute]) -> bool {
+    attrs.iter().any(|attribute| !is_inert_attribute(attribute))
 }
 
-fn is_conditional_compilation(attribute: &syn::Attribute) -> bool {
-    attribute.path().is_ident("cfg") || attribute.path().is_ident("cfg_attr")
+/// Whether `attribute` is a built-in attribute that expands to no code and changes no call:
+/// documentation, lint levels, codegen and layout hints, crate-level settings, and attributes of
+/// the built-in `rustfmt`, `clippy`, and `diagnostic` tools. Every other attribute may change what
+/// the annotated item compiles to: `cfg` and `cfg_attr`, `test` and `bench` (which compile only
+/// under the test harness), `derive` (whose generated items can shadow module names inside a
+/// body), and every procedural attribute macro.
+fn is_inert_attribute(attribute: &syn::Attribute) -> bool {
+    const INERT_ATTRIBUTES: &[&str] = &[
+        "allow",
+        "cold",
+        "deny",
+        "deprecated",
+        "doc",
+        "expect",
+        "feature",
+        "forbid",
+        "inline",
+        "must_use",
+        "no_std",
+        "non_exhaustive",
+        "recursion_limit",
+        "register_tool",
+        "repr",
+        "track_caller",
+        "warn",
+    ];
+    const INERT_TOOLS: &[&str] = &["clippy", "diagnostic", "rustfmt"];
+    let path = attribute.path();
+    if path.leading_colon.is_some() {
+        return false;
+    }
+    let mut segments = path.segments.iter().map(|segment| &segment.ident);
+    match (segments.next(), segments.next(), segments.next()) {
+        (Some(name), None, None) => INERT_ATTRIBUTES.iter().any(|inert| name == inert),
+        (Some(tool), Some(_), None) => INERT_TOOLS.iter().any(|inert| tool == inert),
+        _ => false,
+    }
 }
 
 impl CallerBindings {
@@ -781,7 +817,7 @@ impl<'a> BodyScanner<'a> {
 
 impl<'ast> Visit<'ast> for BodyScanner<'_> {
     fn visit_attribute(&mut self, node: &'ast syn::Attribute) {
-        if is_conditional_compilation(node) {
+        if !is_inert_attribute(node) {
             self.direct_effects.insert(Effect::Unknown);
         }
         syn::visit::visit_attribute(self, node);
@@ -1759,7 +1795,7 @@ fn parse_function_drafts(sources: &[SourceEnvelope], diagnostics: &mut Vec<Closu
                     name: function.name,
                     module: function.module,
                     container: function.container,
-                    conditional: function.conditional,
+                    opaque_context: function.opaque_context,
                     attrs: function.attrs,
                     enclosing_generics: function.enclosing_generics,
                     signature: function.signature,
@@ -1893,7 +1929,7 @@ fn build_nodes(
         let bindings = CallerBindings::collect(&function.draft);
         let function_scope = ValueScope::of_signature(&function.draft.enclosing_generics, &function.draft.signature);
         let mut scanner = BodyScanner::new(&foreign_functions, &bindings, function_scope);
-        if function.draft.conditional || function.draft.signature.asyncness.is_some() {
+        if function.draft.opaque_context || function.draft.signature.asyncness.is_some() {
             scanner.direct_effects.insert(Effect::Unknown);
         }
         if function.draft.signature.unsafety.is_some() {
@@ -1902,7 +1938,11 @@ fn build_nodes(
         if function.draft.signature.abi.is_some() {
             scanner.direct_effects.insert(Effect::Ffi);
         }
-        for attribute in &function.draft.attrs {
+        let parameter_attrs = function.draft.signature.inputs.iter().flat_map(|input| match input {
+            syn::FnArg::Receiver(receiver) => &receiver.attrs,
+            syn::FnArg::Typed(typed) => &typed.attrs,
+        });
+        for attribute in function.draft.attrs.iter().chain(parameter_attrs) {
             scanner.visit_attribute(attribute);
         }
         scanner.visit_block(&function.draft.block);
@@ -3230,6 +3270,45 @@ unsafe fn risky(values: &[u8]) -> u8 {
             let receipt = compute_closure(input(source, vec![address("root", '1')], policy(Vec::new())));
             assert_eq!(receipt.status, AdmissionStatus::Denied, "{source}");
             assert!(receipt.nodes[0].direct_effects.contains(&Effect::Unknown), "{source}");
+        }
+    }
+
+    // r[verify octet.effect_closure.inference.unknown]
+    // r[verify octet.effect_closure.verification.adversarial]
+    #[test]
+    fn attribute_macros_make_functions_unknown() {
+        for source in [
+            "#[dep::persist]\nfn root() {}\n",
+            "#[persist]\nfn root() {}\n",
+            "#[test]\nfn root() {}\n",
+            "fn root(#[cfg(test)] _value: u8) {}\n",
+            "struct Tick;\n#[dep::persist]\nimpl Tick {\n    fn root() {}\n}\n",
+            "#[dep::persist]\ntrait Gate {\n    fn root(&self) {}\n}\n",
+            "#[dep::persist]\nmod generated {\n    fn root() {}\n}\n",
+            "mod generated {\n    #![dep::persist]\n    fn root() {}\n}\n",
+            "#![dep::persist]\nfn root() {}\n",
+            "fn root() {\n    #[dep::persist]\n    fn inner() {}\n}\n",
+            "fn root() {\n    #[derive(Clone)]\n    struct Copied;\n}\n",
+        ] {
+            let receipt = compute_closure(input(source, vec![address("root", '1')], policy(Vec::new())));
+            assert_eq!(receipt.status, AdmissionStatus::Denied, "{source}");
+            assert!(receipt.nodes[0].direct_effects.contains(&Effect::Unknown), "{source}");
+        }
+    }
+
+    // r[verify octet.effect_closure.inference.direct]
+    #[test]
+    fn inert_built_in_attributes_keep_functions_admissible() {
+        for source in [
+            "/// Documented.\n#[inline]\n#[must_use]\n#[allow(clippy::pedantic)]\nfn root() -> u8 { 0 }\n",
+            "#![forbid(unsafe_code)]\n#![doc = \"crate docs\"]\n#[cold]\n#[track_caller]\n#[rustfmt::skip]\n#[deny(warnings)]\nfn root() -> u8 { 0 }\n",
+            "#[deprecated(note = \"replaced\")]\n#[expect(dead_code)]\n#[warn(unused)]\nfn root(#[allow(unused)] _value: u8) -> u8 { 0 }\n",
+            "struct Tick;\n/// Inherent.\n#[allow(dead_code)]\nimpl Tick {\n    #[inline(always)]\n    fn root() -> u8 { 0 }\n}\n",
+            "#[doc(hidden)]\nmod quiet {\n    #![allow(dead_code)]\n    #[must_use = \"use it\"]\n    fn root() -> u8 { #[allow(unused)] let value = 0; value }\n}\n",
+        ] {
+            let receipt = compute_closure(input(source, vec![address("root", '1')], policy(Vec::new())));
+            assert_eq!(receipt.status, AdmissionStatus::Admitted, "{source}: {:?}", receipt.diagnostics);
+            assert!(receipt.nodes[0].direct_effects.is_empty(), "{source}");
         }
     }
 }

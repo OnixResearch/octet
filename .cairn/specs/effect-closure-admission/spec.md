@@ -73,7 +73,7 @@ r[octet.effect_closure.inference.direct]
 
 r[octet.effect_closure.inference.unknown]
 
-- GIVEN selected source contains any macro invocation, conditional compilation, async/await, ambiguous trait or method dispatch, unresolved call, unsupported syntax, or another shape outside the v1 resolver
+- GIVEN selected source contains any macro invocation (including an attribute on the function, its parameters, its body, or an enclosing impl, trait, module, or file, other than an inert built-in attribute such as `doc`, `inline`, or a lint level), conditional compilation, async/await, ambiguous trait or method dispatch, unresolved call, unsupported syntax, or another shape outside the v1 resolver
 - WHEN inference runs
 - THEN the caller MUST acquire `unknown` and admission MUST be denied.
 - AND an exact call-site summary MAY resolve only a call edge; it MUST NOT erase direct `unknown`, `unsafe`, `ffi`, `panic`, or another directly inferred effect.
