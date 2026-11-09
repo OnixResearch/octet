@@ -75,13 +75,16 @@ Each stage's outputs are measured before the next stage may run:
   declaration, Rust name, and source lines, and every named Lean file must be
   measured.
 - Also after Aeneas, the maintained theorem source and the generated
-  `Llbc.lean` are scanned as Lean tokens, skipping comments, strings, and
-  character literals. The scan derives the trust closure that the receipt
-  records: `axiom` declarations outside the profile's declared axioms and
-  external models, `opaque` definitions outside its external models,
-  `native_decide`, `ofReduceBool`, `implemented_by`, and `extern` are
-  undeclared inputs, and `sorry`, `admit`, and `sorryAx` are admitted
-  declarations. Either kind fails the rail before Lean runs.
+  `Llbc.lean` are scanned as Lean tokens, skipping comments, string text, and
+  character literals; the `{…}` holes of interpolated strings (`s!`, `m!`,
+  `f!`, other `name!` macros, `trace[…]`, and `throwError`) are scanned as
+  code, and `«…»`-quoted names are never keywords. The scan derives the trust
+  closure that the receipt records: `axiom` declarations outside the profile's
+  declared axioms and external models, `opaque` definitions outside its
+  external models, `native_decide`, `ofReduceBool`, `ofReduceNat`,
+  `implemented_by`, and `extern` are undeclared inputs, and `sorry`, `admit`,
+  and `sorryAx` are admitted declarations. Either kind fails the rail before
+  Lean runs.
 
 ## Supported subset
 

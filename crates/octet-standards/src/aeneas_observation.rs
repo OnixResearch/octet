@@ -35,6 +35,11 @@ const BITS_PER_BYTE: u64 = 8;
 const DECLARATION_COLLECTIONS: [&str; 5] = ["fun_decls", "type_decls", "global_decls", "trait_decls", "trait_impls"];
 const THEOREM_ORIGIN: &str = "theorem";
 const GENERATED_ORIGIN: &str = "generated";
+/// Prefix that resolves a Lean name from the root namespace (`_root_.sorryAx` is `sorryAx`).
+const ROOT_NAMESPACE_PREFIX: &str = "_root_.";
+/// Lean commands whose string argument is parsed as an interpolated string.
+const INTERPOLATING_THROW_ERROR: &str = "throwError";
+const INTERPOLATING_THROW_ERROR_AT: &str = "throwErrorAt";
 
 /// Observe the effective Charon extraction policy from the produced LLBC bytes.
 ///
@@ -460,18 +465,19 @@ enum LeanTrustForm {
     Opaque(String),
     /// `sorry`, `admit`, or `sorryAx`.
     Admitted(String),
-    /// `native_decide`, `ofReduceBool`, `implemented_by`, or `extern`, which trust compiled code.
+    /// `native_decide`, `ofReduceBool`, `ofReduceNat`, `implemented_by`, or `extern`, which trust
+    /// compiled code.
     NativeTrust(String),
 }
 
 /// Observe the theorem trust closure from the maintained theorem and generated Lean sources.
 ///
-/// Both sources are scanned as Lean tokens, skipping comments, strings, and character literals.
-/// `axiom` declarations are declared only when named by the assumption policy's axioms or
-/// external models; `opaque` definitions only when named by its external models. Admitted
+/// Both sources are scanned as Lean tokens, skipping comments, string text, and character
+/// literals. `axiom` declarations are declared only when named by the assumption policy's axioms
+/// or external models; `opaque` definitions only when named by its external models. Admitted
 /// declarations (`sorry`, `admit`, `sorryAx`) are recorded for rejection, and native-code trust
-/// (`native_decide`, `ofReduceBool`, `implemented_by`, `extern`) is always undeclared because the
-/// policy has no way to declare it.
+/// (`native_decide`, `ofReduceBool`, `ofReduceNat`, `implemented_by`, `extern`) is always
+/// undeclared because the policy has no way to declare it.
 // r[impl octet.aeneas_lean_proof_rail.theorem_adequacy]
 #[must_use]
 pub fn observe_aeneas_trust_closure(
@@ -519,64 +525,166 @@ fn lean_trust_forms(source: &str) -> Vec<LeanTrustForm> {
     let tokens = lean_identifier_tokens(source);
     let mut forms = Vec::new();
     for (index, token) in tokens.iter().enumerate() {
-        let next = || tokens.get(index + 1).cloned().unwrap_or_default();
-        match token.as_str() {
-            "axiom" => forms.push(LeanTrustForm::Axiom(next())),
-            "opaque" => forms.push(LeanTrustForm::Opaque(next())),
-            "sorry" | "admit" | "sorryAx" => forms.push(LeanTrustForm::Admitted(token.clone())),
-            "native_decide" | "ofReduceBool" | "Lean.ofReduceBool" | "extern" => {
-                forms.push(LeanTrustForm::NativeTrust(token.clone()));
+        let next = || tokens.get(index + 1).map(|next| next.text.clone()).unwrap_or_default();
+        // `«…»` makes a name out of keyword text, so only unquoted tokens can be Lean keywords;
+        // constant references keep their meaning however they are spelled.
+        let keyword = if token.quoted { "" } else { token.text.as_str() };
+        let reference = token.text.strip_prefix(ROOT_NAMESPACE_PREFIX).unwrap_or(&token.text);
+        match (keyword, reference) {
+            ("axiom", _) => forms.push(LeanTrustForm::Axiom(next())),
+            ("opaque", _) => forms.push(LeanTrustForm::Opaque(next())),
+            ("sorry" | "admit", _) | (_, "sorryAx") => forms.push(LeanTrustForm::Admitted(token.text.clone())),
+            ("native_decide" | "extern", _)
+            | (_, "ofReduceBool" | "Lean.ofReduceBool" | "ofReduceNat" | "Lean.ofReduceNat") => {
+                forms.push(LeanTrustForm::NativeTrust(token.text.clone()));
             }
-            "implemented_by" => forms.push(LeanTrustForm::NativeTrust(format!("implemented_by {}", next()))),
+            ("implemented_by", _) => forms.push(LeanTrustForm::NativeTrust(format!("implemented_by {}", next()))),
             _ => {}
         }
     }
     forms
 }
 
-/// Split Lean source into identifier tokens, skipping comments, strings, and character literals.
-fn lean_identifier_tokens(source: &str) -> Vec<String> {
+/// One Lean identifier with its `«…»` quotes removed.
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct LeanToken {
+    text: String,
+    /// Whether any component was written as a `«…»` quoted name, which Lean never reads as a
+    /// keyword.
+    quoted: bool,
+}
+
+/// Split Lean source into identifier tokens, skipping comments, string text, and character
+/// literals; the `{…}` holes of interpolated strings are scanned as code.
+fn lean_identifier_tokens(source: &str) -> Vec<LeanToken> {
     let characters = source.chars().collect::<Vec<_>>();
-    let mut tokens = Vec::new();
-    let mut index = 0;
-    while index < characters.len() {
-        let character = characters[index];
-        let next = characters.get(index + 1).copied();
-        if character == '-' && next == Some('-') {
-            while index < characters.len() && characters[index] != '\n' {
-                index += 1;
+    let mut scanner = LeanTokenScanner {
+        characters: &characters,
+        index: 0,
+        tokens: Vec::new(),
+        last_token_end: 0,
+    };
+    scanner.scan_code(false);
+    scanner.tokens
+}
+
+struct LeanTokenScanner<'a> {
+    characters: &'a [char],
+    index: usize,
+    tokens: Vec<LeanToken>,
+    /// Character index just past the most recent identifier token.
+    last_token_end: usize,
+}
+
+impl LeanTokenScanner<'_> {
+    fn peek(&self, offset: usize) -> Option<char> {
+        self.characters.get(self.index + offset).copied()
+    }
+
+    /// Scan code up to the end of the source or, inside an interpolation hole, its closing `}`.
+    fn scan_code(&mut self, interpolation_hole: bool) {
+        let mut brace_depth = 0_usize;
+        while let Some(character) = self.peek(0) {
+            let next = self.peek(1);
+            if character == '-' && next == Some('-') {
+                while self.peek(0).is_some_and(|character| character != '\n') {
+                    self.index += 1;
+                }
+            } else if character == '/' && next == Some('-') {
+                self.index = skip_block_comment(self.characters, self.index);
+            } else if character == '"' {
+                let interpolated = self.opens_interpolated_string();
+                self.index += 1;
+                self.scan_string(interpolated);
+            } else if character == 'r' && raw_string_start(self.characters, self.index) {
+                self.index = skip_raw_string(self.characters, self.index + 1);
+            } else if character == '\'' {
+                self.index = skip_character_literal(self.characters, self.index);
+            } else if character == '«' || identifier_start(character) {
+                self.scan_identifier();
+            } else if interpolation_hole && character == '{' {
+                brace_depth += 1;
+                self.index += 1;
+            } else if interpolation_hole && character == '}' {
+                self.index += 1;
+                if brace_depth == 0 {
+                    return;
+                }
+                brace_depth -= 1;
+            } else {
+                self.index += 1;
             }
-        } else if character == '/' && next == Some('-') {
-            index = skip_block_comment(&characters, index);
-        } else if character == '"' {
-            index = skip_string(&characters, index + 1);
-        } else if character == 'r' && raw_string_start(&characters, index) {
-            index = skip_raw_string(&characters, index + 1);
-        } else if character == '\'' {
-            index = skip_character_literal(&characters, index);
-        } else if character == '«' {
-            let start = index + 1;
-            index = start;
-            while index < characters.len() && characters[index] != '»' {
-                index += 1;
-            }
-            tokens.push(characters[start..index].iter().collect());
-            index += 1;
-        } else if identifier_start(character) {
-            let start = index;
-            index += 1;
-            while index < characters.len()
-                && (identifier_continue(characters[index])
-                    || (characters[index] == '.' && characters.get(index + 1).copied().is_some_and(identifier_start)))
-            {
-                index += 1;
-            }
-            tokens.push(characters[start..index].iter().collect());
-        } else {
-            index += 1;
         }
     }
-    tokens
+
+    /// Whether the string literal at the cursor is parsed as `interpolatedStr`.
+    ///
+    /// Lean decides this syntactically: `s!`, `m!`, `f!`, and other `name!` macros, the
+    /// `trace[cls]` family, and `throwError`/`throwErrorAt` take interpolated strings.
+    fn opens_interpolated_string(&self) -> bool {
+        let preceding = self.characters[..self.index].iter().rev().find(|character| !character.is_whitespace());
+        if matches!(preceding, Some('!' | ']')) {
+            return true;
+        }
+        let adjacent_token =
+            self.characters[self.last_token_end..self.index].iter().all(|character| character.is_whitespace());
+        let mut recent = self.tokens.iter().rev().map(|token| token.text.as_str());
+        let last = recent.next();
+        (adjacent_token && matches!(last, Some(INTERPOLATING_THROW_ERROR | INTERPOLATING_THROW_ERROR_AT)))
+            || recent.next() == Some(INTERPOLATING_THROW_ERROR_AT)
+    }
+
+    /// Skip string text up to the closing quote, scanning interpolation holes as code.
+    fn scan_string(&mut self, interpolated: bool) {
+        while let Some(character) = self.peek(0) {
+            match character {
+                '\\' => self.index += 2,
+                '"' => {
+                    self.index += 1;
+                    return;
+                }
+                '{' if interpolated => {
+                    self.index += 1;
+                    self.scan_code(true);
+                }
+                _ => self.index += 1,
+            }
+        }
+    }
+
+    /// Read one dotted identifier whose components are plain or `«…»` quoted.
+    fn scan_identifier(&mut self) {
+        let mut token = LeanToken {
+            text: String::new(),
+            quoted: false,
+        };
+        loop {
+            if self.peek(0) == Some('«') {
+                token.quoted = true;
+                self.index += 1;
+                while let Some(character) = self.peek(0).filter(|character| *character != '»') {
+                    token.text.push(character);
+                    self.index += 1;
+                }
+                self.index += 1;
+            } else {
+                while let Some(character) = self.peek(0).filter(|character| identifier_continue(*character)) {
+                    token.text.push(character);
+                    self.index += 1;
+                }
+            }
+            let continues = self.peek(0) == Some('.')
+                && self.peek(1).is_some_and(|character| character == '«' || identifier_start(character));
+            if !continues {
+                break;
+            }
+            token.text.push('.');
+            self.index += 1;
+        }
+        self.index = self.index.min(self.characters.len());
+        self.last_token_end = self.index;
+        self.tokens.push(token);
+    }
 }
 
 fn skip_block_comment(characters: &[char], start: usize) -> usize {
@@ -595,17 +703,6 @@ fn skip_block_comment(characters: &[char], start: usize) -> usize {
             }
         } else {
             index += 1;
-        }
-    }
-    index
-}
-
-fn skip_string(characters: &[char], mut index: usize) -> usize {
-    while index < characters.len() {
-        match characters[index] {
-            '\\' => index += 2,
-            '"' => return index + 1,
-            _ => index += 1,
         }
     }
     index
@@ -814,5 +911,44 @@ mod tests {
             "theorem: native_decide".to_owned()
         ]);
         assert_eq!(closure.declared_opaque_definitions, vec!["hidden".to_owned()]);
+    }
+
+    // r[verify octet.aeneas_lean_proof_rail.theorem_adequacy]
+    #[test]
+    fn aeneas_trust_closure_scans_string_interpolations_as_code() {
+        let theorem = "def q := s!\"{'\"'}\"\naxiom cheat : False\ndef r := m!\"{\"}\" ++ \"x\"} sorry\"\ndef f := f! \"{ (\"a\" : String) }\"\naxiom other : False\ndef plain := \"{ axiom hidden\"\n";
+        let closure = observe_aeneas_trust_closure(theorem, "", &empty_policy());
+
+        assert_eq!(closure.undeclared_inputs, vec![
+            "theorem: axiom cheat".to_owned(),
+            "theorem: axiom other".to_owned()
+        ]);
+        assert_eq!(closure.declared_admitted_declarations, Vec::<String>::new());
+
+        let commands = "def e := throwError \"{'\"'}\"\naxiom third : False\ndef t := trace[cls] \"{'\"'}\"\naxiom fourth : False\n";
+        let closure = observe_aeneas_trust_closure(commands, "", &empty_policy());
+        assert_eq!(closure.undeclared_inputs, vec![
+            "theorem: axiom fourth".to_owned(),
+            "theorem: axiom third".to_owned()
+        ]);
+
+        let interpolated_code = "def q := s!\"{sorry}\"\n";
+        let closure = observe_aeneas_trust_closure(interpolated_code, "", &empty_policy());
+        assert_eq!(closure.declared_admitted_declarations, vec!["theorem: sorry".to_owned()]);
+    }
+
+    // r[verify octet.aeneas_lean_proof_rail.theorem_adequacy]
+    #[test]
+    fn aeneas_trust_closure_treats_french_quoted_identifiers_as_names_not_keywords() {
+        let theorem = "theorem «axiom» : True := trivial\ndef Foo.«sorry» := 1\ndef «opaque» := Foo.«sorry»\n";
+        let closure = observe_aeneas_trust_closure(theorem, "", &empty_policy());
+
+        assert_eq!(closure.undeclared_inputs, Vec::<String>::new());
+        assert_eq!(closure.declared_admitted_declarations, Vec::<String>::new());
+
+        let references = "axiom «cheat» : False\ntheorem t : 1 = 2 := «sorryAx» _ false\n";
+        let closure = observe_aeneas_trust_closure(references, "", &empty_policy());
+        assert_eq!(closure.undeclared_inputs, vec!["theorem: axiom cheat".to_owned()]);
+        assert_eq!(closure.declared_admitted_declarations, vec!["theorem: sorryAx".to_owned()]);
     }
 }
