@@ -43,6 +43,23 @@ const DEFAULT_INDEXABLE_EXCEPTIONS: &[&str] = &[
     INDEXABLE_EXCEPTION_GENERATED_SEARCHABLE_NAMES,
 ];
 const NOMINAL_DOMAIN_LINTS: &[&str] = &["primitive_domain_alias", "raw_domain_value", "newtype_invariant_bypass"];
+/// Profile-floor lints that audit source suppressions. A selected strict
+/// profile forbids them, so no source `allow` or `expect` can silence its own
+/// audit.
+const SUPPRESSION_GOVERNANCE_LINTS: &[&str] = &["unjustified_allow", "unjustified_no_todo_allow"];
+/// rustc lint for a source attribute that lowers a lint forbidden through a
+/// lint group. Octet's bare lint names are groups, and rustc only warns about
+/// such an `allow` and then honors it unless this lint is forbidden too.
+pub(crate) const FORBIDDEN_LINT_GROUPS: &str = "forbidden_lint_groups";
+
+/// Level a selected strict profile requires for one of its lints.
+fn profile_floor_level(lint_name: &str) -> rustc_lint::Level {
+    if SUPPRESSION_GOVERNANCE_LINTS.contains(&lint_name) {
+        rustc_lint::Level::Forbid
+    } else {
+        rustc_lint::Level::Deny
+    }
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct IndexableLintExceptions {
@@ -277,24 +294,31 @@ impl Config {
     /// rustc applies `lint_opts` in order and the last entry for a lint wins.
     /// Consumer `lint_levels` and the nominal-domain mode go before the
     /// existing options, so explicit command-line `-A`/`-W`/`-D` flags win over
-    /// `dylint.toml`. Selected strict-profile denies go after them, so the
+    /// `dylint.toml`. Selected strict-profile floors go after them, so the
     /// profile floor stays authoritative over `-A`/`-W`. A `--force-warn` or
-    /// `--cap-lints` below `deny` would still beat a later deny in rustc, so
+    /// `--cap-lints` below the floor would still beat it in rustc, so
     /// registration rejects those for floor lints instead.
+    ///
+    /// The floor forbids the suppression-governance lints rather than denying
+    /// them: rustc applies a node's own lint attributes before the lint sees
+    /// that node, so a source `allow` of a governance lint, its bare alias, or
+    /// a group containing it would otherwise silence its own audit.
     pub(crate) fn merge_into_lint_opts(&self, lint_opts: &mut Vec<(String, rustc_lint::Level)>) {
         let mut consumer_levels = Vec::new();
         for lint in crate::LINT_INVENTORY {
             let Some(level) = self.lint_level(lint.name) else {
                 continue;
             };
-            let option = (lint.name.to_owned(), level.rustc_level());
             if self.profile_floor_lints.contains(lint.name) {
-                lint_opts.push(option);
+                lint_opts.push((lint.name.to_owned(), profile_floor_level(lint.name)));
             } else {
-                consumer_levels.push(option);
+                consumer_levels.push((lint.name.to_owned(), level.rustc_level()));
             }
         }
         lint_opts.splice(0..0, consumer_levels);
+        if self.profile_forbids_suppression_governance() {
+            lint_opts.push((FORBIDDEN_LINT_GROUPS.to_owned(), rustc_lint::Level::Forbid));
+        }
     }
 
     /// Identifier of the strict profile applied to this config, if any.
@@ -302,9 +326,20 @@ impl Config {
         self.strict_profile_id.as_deref()
     }
 
-    /// Lints the selected strict profile requires at `deny`.
-    pub(crate) fn profile_floor_lints(&self) -> impl Iterator<Item = &str> {
-        self.profile_floor_lints.iter().map(String::as_str)
+    /// Lints the selected strict profile requires, with the level each needs:
+    /// `forbid` for the suppression-governance lints, `deny` for the rest.
+    pub(crate) fn profile_floor_lints(&self) -> impl Iterator<Item = (&str, rustc_lint::Level)> {
+        self.profile_floor_lints
+            .iter()
+            .map(|lint_name| (lint_name.as_str(), profile_floor_level(lint_name)))
+    }
+
+    /// Whether the selected strict profile forbids a suppression-governance
+    /// lint, which also forbids rustc's `forbidden_lint_groups`.
+    pub(crate) fn profile_forbids_suppression_governance(&self) -> bool {
+        self.profile_floor_lints
+            .iter()
+            .any(|lint_name| SUPPRESSION_GOVERNANCE_LINTS.contains(&lint_name.as_str()))
     }
 
     #[must_use]
@@ -652,6 +687,7 @@ mod tests {
     use super::ConfigDiagnostic;
     use super::ConfigDiagnosticKind;
     use super::DYLINT_TOML_SECTIONS;
+    use super::FORBIDDEN_LINT_GROUPS;
     use super::LintLevel;
     use super::NOMINAL_DOMAIN_LINTS;
     use super::prefer_octet_or_legacy_config;
@@ -1256,12 +1292,19 @@ function_length = "warn"
         let mut lint_opts = vec![
             ("no_panic".to_owned(), rustc_lint::Level::Allow),
             ("function_length".to_owned(), rustc_lint::Level::Allow),
+            ("unjustified_allow".to_owned(), rustc_lint::Level::Allow),
+            (FORBIDDEN_LINT_GROUPS.to_owned(), rustc_lint::Level::Allow),
         ];
 
         cfg.merge_into_lint_opts(&mut lint_opts);
 
         assert_eq!(command_line_level(&lint_opts, "no_panic"), Some(rustc_lint::Level::Deny));
         assert_eq!(command_line_level(&lint_opts, "function_length"), Some(rustc_lint::Level::Allow));
+        // The suppression-governance lints are forbidden, and so is the rustc
+        // lint that keeps their bare-alias forbid from being allowed in source.
+        for lint_name in ["unjustified_allow", "unjustified_no_todo_allow", FORBIDDEN_LINT_GROUPS] {
+            assert_eq!(command_line_level(&lint_opts, lint_name), Some(rustc_lint::Level::Forbid), "{lint_name}");
+        }
     }
 
     #[test]

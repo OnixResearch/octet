@@ -103,10 +103,12 @@ fn lint_id_for_name(lint_name: &str) -> rustc_lint::LintId {
 }
 
 /// Command-line lint options that would keep a selected strict-profile floor
-/// lint below `deny`.
+/// lint below its required level: `forbid` for the suppression-governance
+/// lints (and rustc's `forbidden_lint_groups`, which makes that forbid stick
+/// through lint groups), `deny` for the rest.
 ///
-/// The floor is a `-D` placed after every other lint option, which beats
-/// `-A` and `-W`. rustc never lets a later level override `--force-warn`, and
+/// The floor is placed after every other lint option, which beats `-A`, `-W`,
+/// and `-D`. rustc never lets a later level override `--force-warn`, and
 /// `--cap-lints` lowers every level after the fact, so those fail closed.
 fn profile_floor_weakenings(
     cfg: &Config,
@@ -117,31 +119,52 @@ fn profile_floor_weakenings(
     let Some(profile_id) = cfg.strict_profile_id() else {
         return Vec::new();
     };
-    let capped = lint_cap.filter(|cap| *cap < rustc_lint::Level::Deny).map(|cap| {
-        format!(
-            "strict profile `{profile_id}` requires its lints at `deny`, but `--cap-lints {}` caps them lower; remove the flag",
-            cap.as_str()
-        )
+    let is_governance_forbidden = cfg.profile_forbids_suppression_governance();
+    let capped = lint_cap.and_then(|cap| {
+        if cap < rustc_lint::Level::Deny {
+            Some(format!(
+                "strict profile `{profile_id}` requires its lints at `deny`, but `--cap-lints {}` caps them lower; remove the flag",
+                cap.as_str()
+            ))
+        } else if is_governance_forbidden && cap < rustc_lint::Level::Forbid {
+            Some(format!(
+                "strict profile `{profile_id}` requires its suppression-governance lints at `forbid`, but `--cap-lints {}` caps them lower; remove the flag",
+                cap.as_str()
+            ))
+        } else {
+            None
+        }
     });
-    let floor = cfg
+    let mut floor = cfg
         .profile_floor_lints()
-        .map(|lint_name| (lint_name, lint_id_for_name(lint_name)))
+        .map(|(lint_name, level)| (lint_name, lint_id_for_name(lint_name), level))
         .collect::<Vec<_>>();
+    if is_governance_forbidden {
+        floor.push((
+            config::FORBIDDEN_LINT_GROUPS,
+            rustc_lint::LintId::of(rustc_session::lint::builtin::FORBIDDEN_LINT_GROUPS),
+            rustc_lint::Level::Forbid,
+        ));
+    }
+    let floor = &floor;
     let force_warned = lint_opts
         .iter()
         .filter(|(_name, level)| *level == rustc_lint::Level::ForceWarn)
-        .filter_map(|(option_name, _level)| {
-            let covered = lint_store.find_lints(option_name)?;
-            let weakened = floor
-                .iter()
-                .filter(|(_lint_name, lint_id)| covered.contains(lint_id))
-                .map(|(lint_name, _lint_id)| format!("`{lint_name}`"))
-                .collect::<Vec<_>>();
-            (!weakened.is_empty()).then(|| {
-                format!(
-                    "strict profile `{profile_id}` requires {} at `deny`, but `--force-warn {option_name}` keeps it a warning; remove the flag",
-                    weakened.join(", ")
-                )
+        .filter_map(|(option_name, _level)| Some((option_name, lint_store.find_lints(option_name)?)))
+        .flat_map(|(option_name, covered)| {
+            [rustc_lint::Level::Deny, rustc_lint::Level::Forbid].into_iter().filter_map(move |required| {
+                let weakened = floor
+                    .iter()
+                    .filter(|(_lint_name, lint_id, level)| *level == required && covered.contains(lint_id))
+                    .map(|(lint_name, _lint_id, _level)| format!("`{lint_name}`"))
+                    .collect::<Vec<_>>();
+                (!weakened.is_empty()).then(|| {
+                    format!(
+                        "strict profile `{profile_id}` requires {} at `{}`, but `--force-warn {option_name}` keeps it a warning; remove the flag",
+                        weakened.join(", "),
+                        required.as_str()
+                    )
+                })
             })
         });
     capped.into_iter().chain(force_warned).collect()
@@ -1333,11 +1356,12 @@ mod tests {
     }
 
     #[test]
-    fn strict_profile_rejects_force_warn_and_lint_caps_below_deny() {
+    fn strict_profile_rejects_force_warn_and_lint_caps_below_the_floor() {
         let mut cfg = Config::default();
         let profile = octet_lint_metadata::strict_profile::strict_profile("robust").expect("robust profile");
         cfg.apply_strict_profile(&profile).expect("robust profile should apply");
-        let store = lint_store_with_groups_and_aliases(&cfg);
+        let mut store = lint_store_with_groups_and_aliases(&cfg);
+        store.register_lints(&[rustc_session::lint::builtin::FORBIDDEN_LINT_GROUPS]);
         let weakenings = |cap: Option<rustc_lint::Level>, opts: &[(String, rustc_lint::Level)]| {
             profile_floor_weakenings(&cfg, cap, opts, &store)
         };
@@ -1349,22 +1373,31 @@ mod tests {
             diagnostics::GROUP_SAFETY.to_owned(),
         ] {
             let found = weakenings(None, &force_warn(&name));
+            assert!(
+                found.iter().any(|message| message.contains("`no_unwrap`") && message.contains(&name)),
+                "`--force-warn {name}` weakens the floor: {found:?}"
+            );
+        }
+        // The suppression-governance floor is `forbid`, and so is the rustc
+        // lint that keeps a forbid through a lint group from being allowed.
+        for name in ["unjustified_allow", "forbidden_lint_groups"] {
+            let found = weakenings(None, &force_warn(name));
             assert_eq!(found.len(), 1, "`--force-warn {name}` weakens the floor: {found:?}");
-            assert!(found[0].contains("`no_unwrap`") && found[0].contains(&name), "{found:?}");
+            assert!(found[0].contains(&format!("`{name}` at `forbid`")), "{found:?}");
         }
         for cap in [
             rustc_lint::Level::Allow,
             rustc_lint::Level::Warn,
             rustc_lint::Level::ForceWarn,
+            rustc_lint::Level::Deny,
         ] {
             assert_eq!(weakenings(Some(cap), &[]).len(), 1, "`--cap-lints {}` weakens the floor", cap.as_str());
         }
 
-        // Non-floor lints, unknown names, `-A`, and caps at or above deny keep the floor.
+        // Non-floor lints, unknown names, `-A`, and a forbid cap keep the floor.
         assert!(weakenings(None, &force_warn("function_length")).is_empty());
         assert!(weakenings(None, &force_warn("not_a_lint")).is_empty());
         assert!(weakenings(None, &[("no_unwrap".to_owned(), rustc_lint::Level::Allow)]).is_empty());
-        assert!(weakenings(Some(rustc_lint::Level::Deny), &[]).is_empty());
         assert!(weakenings(Some(rustc_lint::Level::Forbid), &[]).is_empty());
 
         // Without a selected profile there is no floor to weaken.
