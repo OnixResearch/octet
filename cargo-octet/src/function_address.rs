@@ -258,7 +258,7 @@ pub struct FunctionAddressReport {
     pub producer: FunctionAddressProducer,
     pub tool: &'static str,
     pub source_envelopes: Vec<SourceEnvelopeRecord>,
-    pub skipped_directory_links: Vec<SkippedDirectoryLinkRecord>,
+    pub skipped_directory_links: Vec<String>,
     pub records: Vec<FunctionAddressRecord>,
     pub diagnostic_count: usize,
     pub kamacite_projection: KamaciteProjection,
@@ -269,7 +269,9 @@ pub struct FunctionAddressReport {
 
 /// A symlinked directory the implicit whole-workspace scope skipped because it resolves outside the
 /// workspace root: `path` is the workspace-relative link and `target` the link text as written.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
+/// Only `path` enters the artifact; the target is machine-specific (a Nix `result` link names a
+/// fresh store path after every rebuild), so it is reported to the operator but never recorded.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SkippedDirectoryLinkRecord {
     pub path: String,
     pub target: String,
@@ -338,7 +340,8 @@ struct HandoffIssue {
 // nested `.rs` symlink, or nested directory symlink inside a declared scope that resolves outside
 // the workspace root, and any record path that is not canonical and workspace-relative. The
 // implicit whole-workspace scope skips escaping directory symlinks, such as a Nix `result` link,
-// without following them, and records each one in `skipped_directory_links`.
+// without following them, and records each link's workspace-relative path in
+// `skipped_directory_links`.
 #[allow(clippy::too_many_lines)]
 pub fn collect_run(
     check: &FunctionAddressCheck,
@@ -502,7 +505,7 @@ pub fn collect_run(
         },
         tool: env!("CARGO_PKG_VERSION"),
         source_envelopes,
-        skipped_directory_links,
+        skipped_directory_links: skipped_directory_links.iter().map(|skipped| skipped.path.clone()).collect(),
         records,
         diagnostic_count: findings.len(),
         kamacite_projection: KamaciteProjection {
@@ -533,7 +536,7 @@ pub fn collect_run(
     Ok(Some(FunctionAddressRun {
         findings,
         artifact_json,
-        skipped_directory_links: report.skipped_directory_links,
+        skipped_directory_links,
     }))
 }
 
@@ -1560,6 +1563,7 @@ mod tests {
             paths: Vec::new(),
             baseline: None,
         };
+        let mut result_artifacts = Vec::new();
 
         for (link, target) in [
             ("result", store.join("docs")),
@@ -1582,13 +1586,33 @@ mod tests {
             assert_eq!(artifact["records"][0]["path"], "src/lib.rs", "{link}");
             assert_eq!(
                 artifact["skipped_directory_links"],
-                serde_json::json!([{"path": link, "target": target.display().to_string()}]),
+                serde_json::json!([link]),
                 "{link} -> {}",
                 target.display()
             );
-            assert_eq!(run.skipped_directory_links.len(), 1, "{link}");
+            assert_eq!(
+                run.skipped_directory_links,
+                [SkippedDirectoryLinkRecord {
+                    path: link.to_owned(),
+                    target: target.display().to_string(),
+                }],
+                "the operator note keeps the link target"
+            );
+            if link == "result" {
+                result_artifacts.push(run.artifact_json);
+            }
             std::fs::remove_file(workspace.join(link)).expect("remove escaping link");
         }
+        // A rebuilt Nix `result` names a new absolute store path; the artifact must not change.
+        assert_eq!(result_artifacts.len(), 2);
+        assert_eq!(result_artifacts[0], result_artifacts[1], "artifact bytes must not depend on link targets");
+
+        std::os::unix::fs::symlink(store.join("source"), workspace.join("result")).expect("result link");
+        std::os::unix::fs::symlink("../../monorepo/shared", workspace.join("crates/shared")).expect("crate link");
+        let run = collect_test_run(&implicit, &workspace, "config");
+        assert_eq!(artifact_value(&run)["skipped_directory_links"], serde_json::json!(["crates/shared", "result"]));
+        std::fs::remove_file(workspace.join("result")).expect("remove result link");
+        std::fs::remove_file(workspace.join("crates/shared")).expect("remove crate link");
 
         std::fs::create_dir_all(workspace.join("vendored")).expect("create in-root link target");
         std::fs::write(workspace.join("vendored/mod.rs"), "fn vendored() -> u32 { 1 }\n").expect("write vendored");

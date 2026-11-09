@@ -299,14 +299,16 @@ a declared scope the whole workspace root is scanned; there a symlinked
 directory that resolves outside the root, such as a Nix `result` link, a
 nix-direnv `.direnv` input, or a crate linked in from elsewhere in a monorepo, is
 skipped without being followed, while a symlinked `.rs` file that resolves
-outside the root is still refused because it is Rust source in the tree. Each
-skipped link is listed in the function-address artifact's
-`skipped_directory_links` array as `{"path", "target"}`, sorted by path:
-`path` is the workspace-relative link and `target` is the link text as written,
-so a relative link stays relative. The array is empty when nothing was skipped,
-which is always the case under a declared scope. `cargo octet check` also
-prints a `note:` line on stderr for each skipped link. The list is reporting
-only: it does not enter the evidence-chain roots, and a skipped link's Rust
-source still gets no function addresses; declare function-address paths to
-refuse such a link instead. Fingerprint and object inputs keep following such
-links.
+outside the root is still refused because it is Rust source in the tree. The
+workspace-relative path of each skipped link is listed, sorted, in the
+function-address artifact's `skipped_directory_links` array, such as
+`["crates/shared", "result"]`. The array is empty when nothing was skipped,
+which is always the case under a declared scope. The link target is not
+recorded: it is machine-specific, such as a home directory or a Nix `result`
+store path that changes on every rebuild, and would make the artifact and its
+recorded identity non-reproducible. `cargo octet check` instead prints a
+`note:` line on stderr for each skipped link, naming the path and its target.
+The list is reporting only: it does not enter the evidence-chain roots, and a
+skipped link's Rust source still gets no function addresses; declare
+function-address paths to refuse such a link instead. Fingerprint and object
+inputs keep following such links.

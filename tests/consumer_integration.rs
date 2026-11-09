@@ -3912,10 +3912,7 @@ fn strict_profile_bundle_binds_profile_identity_and_passes_artifact_verification
     assert!(summary.contains("Profile: robust"));
     let function_addresses = read_json_artifact(&dir.join("function-addresses.json"));
     assert_eq!(function_addresses["mode"], "observe");
-    assert_eq!(
-        function_addresses["skipped_directory_links"],
-        serde_json::json!([{"path": "linked", "target": "../linked-crate"}])
-    );
+    assert_eq!(function_addresses["skipped_directory_links"], serde_json::json!(["linked"]));
     assert!(
         String::from_utf8_lossy(&output.stderr).contains("`linked` -> `../linked-crate`"),
         "skipped directory link should be announced: {}",
