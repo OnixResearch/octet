@@ -632,6 +632,7 @@ pub(crate) fn build_standalone_cargo_octet() -> StandaloneCargoOctet {
         "cargo-octet",
         "crates/octet-architecture-ir",
         "crates/octet-lint-metadata",
+        "crates/octet-merge-rail",
         "crates/octet-standards",
         "standards",
     ] {

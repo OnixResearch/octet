@@ -804,6 +804,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "octet-merge-rail"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "octet-standards"
 version = "0.1.0"
 dependencies = [
