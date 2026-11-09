@@ -60,5 +60,20 @@ LL -     let check = || assert!(a && b);
 LL +     let check = || { assert!(a); assert!(b) };
    |
 
-warning: 4 warnings emitted
+warning: compound assertion should be split into separate assertions
+  --> $DIR/compound_assertion_machine_applicable.rs:23:9
+   |
+LL |         assert!(item == &&expected && ready);
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Assertion Quality): split compound assertions so the failing clause is obvious Example: assert!(a > 0); assert!(b > 0);
+   = note: structured suggestion applicability: MachineApplicable
+   = note: see Tiger Style guide: Assertion Density
+help: split into separate assertions
+   |
+LL ~         assert!(item == &&expected);
+LL ~         assert!(ready);
+   |
+
+warning: 5 warnings emitted
 

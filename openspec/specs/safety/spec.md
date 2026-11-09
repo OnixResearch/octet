@@ -1188,3 +1188,22 @@ The lint MUST keep flagging the division when the earlier arm matches another va
 - GIVEN production code `match n { 1 => total, d => total / d }`
 - WHEN the lint runs
 - THEN `unchecked_division` warns that `d` is divided without a zero check
+
+### Requirement: Compound Assertion Reads The Parsed Condition
+
+The `compound_assertion` lint MUST decide whether an `assert!` condition is compound from the parsed condition's top-level `&&` or `||` operator, not from its source text. A `&&` token that is part of an operand, such as the double reference in `assert!(item == &&expected)`, MUST NOT be reported as a conjunction.
+
+The `MachineApplicable` split MUST cut the source text only at the spans of the top-level operators, so each emitted `assert!` holds one complete operand.
+
+#### Scenario: Double reference is not a conjunction
+
+- GIVEN production code `assert!(item == &&expected);`
+- WHEN the lint runs
+- THEN `compound_assertion` does NOT fire
+
+#### Scenario: Conjunction with a double-reference operand splits cleanly
+
+- GIVEN production code `assert!(item == &&expected && ready);`
+- WHEN tigerstyle emits the structured suggestion
+- THEN the suggestion rewrites it to `assert!(item == &&expected);` followed by `assert!(ready);`
+- AND the rewritten code compiles

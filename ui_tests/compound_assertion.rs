@@ -43,3 +43,15 @@ fn main() {
     check_message_literal(true);
     check_message_args(true, true, false);
 }
+
+fn check_double_reference(items: &[&u32], expected: u32) {
+    // Should NOT warn: `&&expected` is a double reference, not a logical AND
+    for item in items {
+        assert!(item == &&expected);
+    }
+}
+
+fn check_or_closure(ready: bool, fallback: fn(fn() -> bool) -> bool) {
+    // Should warn: top-level `||` even though the right side is a call
+    assert!(ready || fallback(|| true));
+}
