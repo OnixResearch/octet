@@ -22,16 +22,8 @@ Changes that can add findings or fail a build:
   spans are not governed. Every strict profile requires this lint, so
   unjustified suppressions of Octet lints now deny. `#[expect]` findings use a
   new message, and the lint summary changed.
-- Under a strict profile, `unjustified_allow` and `unjustified_no_todo_allow`
-  apply at `forbid`, together with rustc's `forbidden_lint_groups`. Any source
-  `allow`, `expect`, or `warn` that reaches them, directly or through a group
-  such as `tigerstyle::structure`, is a compile error even when justified, and
-  allowing any group that contains a forbidden lint (for example
-  `future_incompatible`) is an error too.
 - A selected strict profile fails the compilation, naming the flag, when
-  `--force-warn` or `--cap-lints` would weaken its floor: a cap below `deny`,
-  a cap of `deny` (which would lower the forbidden governance lints), or a
-  `--force-warn` that reaches a required lint or `forbidden_lint_groups`.
+  `--force-warn` or a `--cap-lints` below `deny` would weaken a required lint.
 - `unjustified_no_todo_allow` checks `no_todo` escape hatches wherever rustc
   honours them: `let` statements, closures, match arms, crate-level
   `#![allow(no_todo)]`, and `#[expect(no_todo)]`. A justified `expect` lets
