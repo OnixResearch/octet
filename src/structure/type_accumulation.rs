@@ -1,4 +1,6 @@
 use rustc_hir as hir;
+use rustc_hir::attrs::AttributeKind;
+use rustc_hir::find_attr;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
 use rustc_session::declare_tool_lint;
@@ -49,7 +51,9 @@ fn module_report_span(cx: &LateContext<'_>, module: &hir::Mod<'_>, hir_id: hir::
 }
 
 /// Counts the module's own public free items, for inline and file-backed modules alike.
-/// Items inside nested modules, impl members, and struct fields are not counted.
+/// Items inside nested modules, impl members, and struct fields are not counted, nor are
+/// the public `#[rustc_main]` entry point and `#[rustc_test_marker]` consts that the test
+/// harness adds under `--test`.
 fn public_item_count(cx: &LateContext<'_>, module: &hir::Mod<'_>) -> usize {
     module
         .item_ids
@@ -58,6 +62,10 @@ fn public_item_count(cx: &LateContext<'_>, module: &hir::Mod<'_>) -> usize {
             // `use a::{B, C}` lowers to `use a::B; use a::C;` plus a `use a::{}` stem carrying the same
             // visibility.
             !matches!(cx.tcx.hir_item(**item_id).kind, hir::ItemKind::Use(_, hir::UseKind::ListStem))
+                && !find_attr!(
+                    cx.tcx.hir_attrs(item_id.hir_id()),
+                    AttributeKind::RustcMain | AttributeKind::RustcTestMarker(..)
+                )
                 && cx.tcx.visibility(item_id.owner_id.def_id).is_public()
         })
         .count()

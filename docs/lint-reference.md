@@ -68,7 +68,7 @@ Rules to keep straight:
 | `max_parameters` | `5` | `too_many_parameters` | maximum counted parameters before warning |
 | `trait_method_max` | `7` | `fat_trait` | maximum trait methods before warning |
 | `impl_blocks_max` | `4` | `type_accumulation` | maximum inherent impl blocks per resolved self type before advisory |
-| `module_pub_items_max` | `12` | `type_accumulation` | maximum public items per module, including the crate root, before advisory |
+| `module_pub_items_max` | `12` | `type_accumulation` | maximum public items per module, including the crate root, before advisory; the public `main` and test registrations that the `--test` harness generates are not counted |
 | `core_source_scopes` | `[]` | `concrete_construction_in_core`, `global_state_in_core`, `impure_call_in_core`, `interior_mutability_in_core`, `logging_in_core`, `mutating_input_in_pure`, `resource_return_from_core`, `spawn_in_core` | source path scopes where core-boundary checks run |
 | `nominal_domain_mode` | omitted | `primitive_domain_alias`, `raw_domain_value`, `newtype_invariant_bypass` | `inventory` warns for exact and heuristic findings and caps `lint_levels` denies for these lints at `warn` (with a config warning), `warn` reports exact findings only, and `deny` denies exact findings only; heuristic candidates are skipped wherever the effective level is above `warn`, such as under a command-line `-D primitive_domain_alias` |
 | `sealed_enum_marker` | `"octet::sealed_enum"` | `fragile_exhaustive_enum_match` | attribute marker that suppresses fragile local exhaustive enum-match diagnostics |
