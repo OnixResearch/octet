@@ -6,14 +6,20 @@
 //! declared dependencies. Comments and string contents are skipped, while
 //! string interpolations are scanned as code. Quoted targets resolve against
 //! the importing file's directory; package imports keep their bare name.
+//! A dependency's text is scanned only when Nickel parses it as Nickel source:
+//! its `as 'Format` tag says so, or, untagged, its extension is not a data one.
 
 use std::collections::BTreeSet;
+use std::ffi::OsStr;
+use std::path::Path;
 
 use super::NamedText;
 
 const IMPORT_KEYWORD: &[u8] = b"import";
-/// Extensions Nickel imports as data rather than Nickel source.
-const DATA_EXTENSIONS: &[&str] = &[".json", ".yaml", ".yml", ".toml", ".txt"];
+/// Extensions Nickel infers as data formats for untagged imports.
+const DATA_EXTENSIONS: &[&str] = &["json", "yaml", "yml", "toml", "txt"];
+/// Format tag that makes Nickel parse an imported file as Nickel source.
+const NICKEL_FORMAT_TAG: &str = "Nickel";
 
 /// Lexical scanner state for one nesting level.
 enum Mode {
@@ -29,7 +35,8 @@ enum Mode {
 /// Return the sorted, deduplicated import closure observed from `source_path`.
 ///
 /// Imports are followed through dependency texts whose normalized path matches
-/// a resolved Nickel import. The source itself is never reported.
+/// a resolved import Nickel parses as Nickel source. The source itself is never
+/// reported.
 pub(super) fn observed_import_closure(
     source_path: &str,
     source_text: &str,
@@ -37,19 +44,24 @@ pub(super) fn observed_import_closure(
 ) -> Vec<String> {
     let source = normalize_path(source_path);
     let mut observed = BTreeSet::new();
+    let mut scanned = BTreeSet::from([source.clone()]);
     let mut pending = vec![(source.clone(), source_text)];
     while let Some((importer, text)) = pending.pop() {
         for target in import_targets(text) {
-            let resolved = match target {
-                ImportTarget::Path(path) => resolve_import(&importer, &path),
-                ImportTarget::Package(name) => name,
+            let (resolved, nickel_source) = match target {
+                ImportTarget::Path { path, nickel_source } => (resolve_import(&importer, &path), nickel_source),
+                ImportTarget::Package(name) => (name, true),
             };
-            if resolved == source || !observed.insert(resolved.clone()) {
+            if resolved == source {
                 continue;
             }
-            if let Some(dependency) = dependencies.iter().find(|dependency| normalize_path(dependency.path) == resolved)
-                && is_nickel_source(&resolved)
+            observed.insert(resolved.clone());
+            if nickel_source
+                && !scanned.contains(&resolved)
+                && let Some(dependency) =
+                    dependencies.iter().find(|dependency| normalize_path(dependency.path) == resolved)
             {
+                scanned.insert(resolved.clone());
                 pending.push((resolved, dependency.text));
             }
         }
@@ -60,8 +72,8 @@ pub(super) fn observed_import_closure(
 /// One `import` target as written in source.
 #[derive(Debug, Eq, PartialEq)]
 enum ImportTarget {
-    /// Quoted file path.
-    Path(String),
+    /// Quoted file path and whether Nickel parses the file as Nickel source.
+    Path { path: String, nickel_source: bool },
     /// Bare package identifier.
     Package(String),
 }
@@ -160,41 +172,78 @@ fn import_targets(text: &str) -> Vec<ImportTarget> {
 }
 
 /// Read the target after an `import` keyword ending at `pos`.
-fn import_target(bytes: &[u8], mut pos: usize) -> Option<(ImportTarget, usize)> {
-    loop {
-        match bytes.get(pos)? {
-            byte if byte.is_ascii_whitespace() => pos += 1,
-            b'#' => pos = skip_line(bytes, pos),
-            _ => break,
-        }
-    }
+fn import_target(bytes: &[u8], pos: usize) -> Option<(ImportTarget, usize)> {
+    let pos = skip_trivia(bytes, pos)?;
     if bytes[pos] == b'"' {
-        let mut value = Vec::new();
-        pos += 1;
-        loop {
-            match *bytes.get(pos)? {
-                b'"' => return Some((ImportTarget::Path(String::from_utf8_lossy(&value).into_owned()), pos + 1)),
-                b'\\' => {
-                    value.push(match *bytes.get(pos + 1)? {
-                        b'n' => b'\n',
-                        b't' => b'\t',
-                        b'r' => b'\r',
-                        escaped => escaped,
-                    });
-                    pos += 2;
-                }
-                byte => {
-                    value.push(byte);
-                    pos += 1;
-                }
-            }
-        }
+        let (path, end) = static_string(bytes, pos + 1)?;
+        let (nickel_source, next) = match import_format(bytes, end) {
+            Some((tag, next)) => (tag == NICKEL_FORMAT_TAG, next),
+            None => (inferred_nickel_source(&path), end),
+        };
+        return Some((ImportTarget::Path { path, nickel_source }, next));
     }
     if is_identifier_start(bytes[pos]) {
         let end = identifier_end(bytes, pos);
         return Some((ImportTarget::Package(String::from_utf8_lossy(&bytes[pos..end]).into_owned()), end));
     }
     None
+}
+
+/// Read the optional `as 'Format` or `as '"Format"` after an import path
+/// ending at `pos`, returning the tag name and the position after it.
+fn import_format(bytes: &[u8], pos: usize) -> Option<(String, usize)> {
+    let pos = skip_trivia(bytes, pos)?;
+    let end = identifier_end(bytes, pos);
+    if &bytes[pos..end] != b"as" {
+        return None;
+    }
+    let pos = skip_trivia(bytes, end)?;
+    if bytes[pos] != b'\'' {
+        return None;
+    }
+    match *bytes.get(pos + 1)? {
+        b'"' => static_string(bytes, pos + 2),
+        byte if is_identifier_start(byte) => {
+            let end = identifier_end(bytes, pos + 1);
+            Some((String::from_utf8_lossy(&bytes[pos + 1..end]).into_owned(), end))
+        }
+        _ => None,
+    }
+}
+
+/// Read a static string whose opening quote ends at `pos`, returning its
+/// unescaped value and the position after the closing quote.
+fn static_string(bytes: &[u8], mut pos: usize) -> Option<(String, usize)> {
+    let mut value = Vec::new();
+    loop {
+        match *bytes.get(pos)? {
+            b'"' => return Some((String::from_utf8_lossy(&value).into_owned(), pos + 1)),
+            b'\\' => {
+                value.push(match *bytes.get(pos + 1)? {
+                    b'n' => b'\n',
+                    b't' => b'\t',
+                    b'r' => b'\r',
+                    escaped => escaped,
+                });
+                pos += 2;
+            }
+            byte => {
+                value.push(byte);
+                pos += 1;
+            }
+        }
+    }
+}
+
+/// Skip whitespace and comments from `pos`, returning the next token start.
+fn skip_trivia(bytes: &[u8], mut pos: usize) -> Option<usize> {
+    loop {
+        match bytes.get(pos)? {
+            byte if byte.is_ascii_whitespace() => pos += 1,
+            b'#' => pos = skip_line(bytes, pos),
+            _ => return Some(pos),
+        }
+    }
 }
 
 /// Resolve a quoted import against the importing file's directory.
@@ -229,8 +278,15 @@ fn push_components<'a>(components: &mut Vec<&'a str>, path: &'a str) {
     }
 }
 
-fn is_nickel_source(path: &str) -> bool {
-    !DATA_EXTENSIONS.iter().any(|extension| path.ends_with(extension))
+/// Infer whether Nickel parses an untagged import as Nickel source.
+///
+/// Like Nickel, this reads the extension of the path as written; an unknown or
+/// missing extension falls back to Nickel source.
+fn inferred_nickel_source(path: &str) -> bool {
+    Path::new(path)
+        .extension()
+        .and_then(OsStr::to_str)
+        .is_none_or(|extension| !DATA_EXTENSIONS.contains(&extension))
 }
 
 fn skip_line(bytes: &[u8], pos: usize) -> usize {
@@ -309,6 +365,7 @@ mod tests {
             "let b = import # comment between keyword and target\n  \"dir/b.ncl\" in\n",
             "let reimport = 1 in\n",
             "let pkg = import some_package in\n",
+            "let text = import \"text.ncl\" as 'Text in\n",
             "{\n",
             "  s = \"import \\\"string.ncl\\\" %{ import \"interpolated.ncl\" }\",\n",
             "  m = m%%\"import \"multiline.ncl\" %{ ignored } %%{ import \"multi-interp.ncl\" }\"%%,\n",
@@ -320,13 +377,24 @@ mod tests {
         let targets = import_targets(text);
 
         assert_eq!(targets, vec![
-            ImportTarget::Path("a.ncl".to_owned()),
-            ImportTarget::Path("dir/b.ncl".to_owned()),
+            nickel_path("a.ncl"),
+            nickel_path("dir/b.ncl"),
             ImportTarget::Package("some_package".to_owned()),
-            ImportTarget::Path("interpolated.ncl".to_owned()),
-            ImportTarget::Path("multi-interp.ncl".to_owned()),
-            ImportTarget::Path("after.ncl".to_owned()),
+            ImportTarget::Path {
+                path: "text.ncl".to_owned(),
+                nickel_source: false,
+            },
+            nickel_path("interpolated.ncl"),
+            nickel_path("multi-interp.ncl"),
+            nickel_path("after.ncl"),
         ]);
+    }
+
+    fn nickel_path(path: &str) -> ImportTarget {
+        ImportTarget::Path {
+            path: path.to_owned(),
+            nickel_source: true,
+        }
     }
 
     #[test]
@@ -365,6 +433,69 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert!(mismatches.is_empty(), "{mismatches:?}");
+    }
+
+    #[test]
+    fn closure_scans_dependencies_by_effective_import_format() {
+        let dependencies = [
+            NamedText {
+                path: "data.json",
+                text: "import \"from-json-as-nickel.ncl\"",
+            },
+            NamedText {
+                path: "quoted.yaml",
+                text: "import \"from-yaml-as-quoted-nickel.ncl\"",
+            },
+            NamedText {
+                path: "text.ncl",
+                text: "import \"from-ncl-as-text.ncl\"",
+            },
+            NamedText {
+                path: "both.txt",
+                text: "import \"from-txt-as-text-then-nickel.ncl\"",
+            },
+            NamedText {
+                path: "plain.toml",
+                text: "import \"from-plain-toml.ncl\"",
+            },
+            NamedText {
+                path: "plain.ncl",
+                text: "import \"from-plain-ncl.ncl\"",
+            },
+            NamedText {
+                path: "config.nix",
+                text: "import \"from-unknown-extension.ncl\"",
+            },
+        ];
+        let source = concat!(
+            "[\n",
+            "  import \"data.json\" as 'Nickel,\n",
+            "  import \"quoted.yaml\" as # comment\n '\"Nickel\",\n",
+            "  import \"text.ncl\" as 'Text,\n",
+            "  import \"both.txt\" as 'Text,\n",
+            "  import \"both.txt\" as 'Nickel,\n",
+            "  import \"plain.toml\",\n",
+            "  import \"plain.ncl\",\n",
+            "  import \"config.nix\",\n",
+            "]\n",
+        );
+
+        let observed = observed_import_closure("main.ncl", source, &dependencies);
+
+        assert_eq!(observed, vec![
+            "both.txt".to_owned(),
+            "config.nix".to_owned(),
+            "data.json".to_owned(),
+            "from-json-as-nickel.ncl".to_owned(),
+            "from-plain-ncl.ncl".to_owned(),
+            "from-txt-as-text-then-nickel.ncl".to_owned(),
+            "from-unknown-extension.ncl".to_owned(),
+            "from-yaml-as-quoted-nickel.ncl".to_owned(),
+            "plain.ncl".to_owned(),
+            "plain.toml".to_owned(),
+            "quoted.yaml".to_owned(),
+            "text.ncl".to_owned(),
+        ]);
     }
 
     #[test]
