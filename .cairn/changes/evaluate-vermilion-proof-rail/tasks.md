@@ -5,8 +5,8 @@
 - [x] [serial] Add closed Nickel contracts for provider pins, compatibility canaries, the pilot semantic contract, and the negative matrix. r[octet.vermilion_proof_rail.provider_profile]
 - [x] [serial] Add the pinned Vermilion profile and compatibility matrix, then export deterministic JSON. r[octet.vermilion_proof_rail.provider_profile]
 - [x] [serial] Register the Nickel-authored provider and pilot-contract families in the policy registry. r[octet.vermilion_proof_rail.provider_profile]
-- [ ] [serial] Build the pinned Vermilion/Verus/Lean/cvc5 closure inside an isolated execution environment. Blocked: `vermilion`, `lean`, `lake`, `aeneas`, `charon`, and `cvc5` are absent on the evaluation host. r[octet.vermilion_proof_rail.provider_profile]
-- [ ] [parallel] Run the live compatibility canaries and save a fresh provider receipt. Blocked by the missing pinned closure. r[octet.vermilion_proof_rail.provider_profile]
+- [x] [serial] Build the pinned Vermilion/Verus/Lean/cvc5 closure inside an isolated execution environment. Lean 4.33.0, the mathlib cache, Vermilion Lean libraries, the Rust workspace, and the pinned Verus fork built; see `standards/proof-rails/vermilion-lean/evidence/2026-11-09-live-canary-simple.md`. r[octet.vermilion_proof_rail.provider_profile]
+- [x] [parallel] Run the live compatibility canaries and save a fresh provider receipt. The upstream `m1-pipeline/simple.rs` canary passed 3/3 Lean obligations with 0 sorry and a kernel-checked proof twin; the u64 pilot receipt remains open. See the live-canary evidence. r[octet.vermilion_proof_rail.provider_profile]
 
 ## Semantic contract and subject
 
