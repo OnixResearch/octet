@@ -49,5 +49,23 @@ LL |         let copy = items.to_vec();
    = help: Tiger Style (Hot Path Allocation): move allocation setup outside loops or reserve capacity before iterating Example: let mut buf = Vec::with_capacity(limit); for item in items { buf.clear(); }
    = note: see Tiger Style guide: Performance / Hot Paths
 
-warning: 5 warnings emitted
+warning: String allocation constructor runs inside a loop
+  --> $DIR/allocation_in_loop.rs:82:19
+   |
+LL |             break item.name.to_string();
+   |                   ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Hot Path Allocation): move allocation setup outside loops or reserve capacity before iterating Example: let mut buf = Vec::with_capacity(limit); for item in items { buf.clear(); }
+   = note: see Tiger Style guide: Performance / Hot Paths
+
+warning: String allocation constructor runs inside a loop
+  --> $DIR/allocation_in_loop.rs:92:20
+   |
+LL |             return item.name.to_string();
+   |                    ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Hot Path Allocation): move allocation setup outside loops or reserve capacity before iterating Example: let mut buf = Vec::with_capacity(limit); for item in items { buf.clear(); }
+   = note: see Tiger Style guide: Performance / Hot Paths
+
+warning: 7 warnings emitted
 

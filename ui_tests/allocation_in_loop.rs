@@ -49,9 +49,62 @@ fn allocate_outside_loop() {
     std::hint::black_box(values);
 }
 
+struct Item {
+    name: &'static str,
+}
+
+fn find_invalid(items: &[Item]) -> Result<(), String> {
+    for item in items {
+        if item.name.is_empty() {
+            // Should NOT warn: the allocation runs once, on the exit path.
+            return Err(item.name.to_string());
+        }
+    }
+    Ok(())
+}
+
+fn first_label(items: &[Item]) -> String {
+    let mut index = 0;
+    loop {
+        if index < items.len() {
+            // Should NOT warn: `break` leaves the loop with the allocation.
+            break items[index].name.to_string();
+        }
+        index += 1;
+    }
+}
+
+fn labels_per_outer_iteration(items: &[Item]) {
+    for item in items {
+        // Should warn: the inner `break` only leaves the inner loop, so the
+        // outer loop still allocates on every iteration.
+        let label = loop {
+            break item.name.to_string();
+        };
+        std::hint::black_box(label);
+    }
+}
+
+fn labels_in_closure(items: &[Item]) {
+    for item in items {
+        // Should warn: `return` only leaves the closure, which runs per iteration.
+        let render = || {
+            return item.name.to_string();
+        };
+        std::hint::black_box(render());
+    }
+}
+
 fn main() {
     allocate_in_loop(LOOP_LIMIT);
     copy_in_loop(SAMPLE_ITEMS);
     reuse_capacity(SAMPLE_ITEMS);
     allocate_outside_loop();
+    let items = [Item { name: "" }];
+    if let Err(error) = find_invalid(&items) {
+        std::hint::black_box(error);
+    }
+    let _ = first_label(&items);
+    labels_per_outer_iteration(&items);
+    labels_in_closure(&items);
 }

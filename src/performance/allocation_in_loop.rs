@@ -135,10 +135,40 @@ fn qpath_names_method_name(qpath: &hir::QPath<'_>) -> Option<String> {
     Some(segment_name.to_owned())
 }
 
+/// Scope an allocation's value leaves through. An allocation that feeds a
+/// `return` or `break` runs once on the way out, not on every iteration of the
+/// loops it exits.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ExitScope {
+    /// The value stays in the current iteration.
+    Stays,
+    /// `return` leaves the enclosing closure or function.
+    Returns,
+    /// `break` leaves the loop or labeled block with this id.
+    BreaksOut(hir::HirId),
+}
+
 fn hir_id_has_loop_parent(cx: &LateContext<'_>, hir_id: hir::HirId) -> bool {
-    for (_, node) in cx.tcx.hir_parent_iter(hir_id) {
+    let mut exit = ExitScope::Stays;
+    for (parent_id, node) in cx.tcx.hir_parent_iter(hir_id) {
+        if exit == ExitScope::BreaksOut(parent_id) {
+            exit = ExitScope::Stays;
+            continue;
+        }
         match node {
-            hir::Node::Expr(parent) if matches!(parent.kind, hir::ExprKind::Loop(..)) => return true,
+            hir::Node::Expr(parent) => match (exit, parent.kind) {
+                (ExitScope::Stays, hir::ExprKind::Loop(..)) => return true,
+                (ExitScope::Stays, hir::ExprKind::Ret(_)) => exit = ExitScope::Returns,
+                (ExitScope::Stays, hir::ExprKind::Break(destination, _)) => {
+                    // An unresolved target fails to compile; treat it as leaving everything.
+                    let Ok(target) = destination.target_id else {
+                        return false;
+                    };
+                    exit = ExitScope::BreaksOut(target);
+                }
+                (ExitScope::Returns, hir::ExprKind::Closure(..)) => exit = ExitScope::Stays,
+                _ => {}
+            },
             hir::Node::Item(_) | hir::Node::ImplItem(_) | hir::Node::TraitItem(_) => return false,
             _ => {}
         }
