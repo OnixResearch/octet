@@ -16,6 +16,10 @@ profile the lints stay inert. See `docs/durability-claims.md`. A bounded
 storage-fault assurance profile and `octet-standards storage-fault-assurance`
 validate saved producer and Cairn receipts without executing a producer.
 
+## 2026-11-09: Opt-in typed multi-hop evidence query experiment
+
+`cargo-octet` gains the opt-in `evidence_multihop` library module over the existing evidence codebase index. It keeps explicit parent links, provenance references, asserted dependency/support, shared labels, and content identity distinct; a shared requirement or policy label is relatedness only, content identity is not proof, and asserted support is reported unavailable because the index carries no such field. A typed-edge breadth-first reference and a bounded fixed-rule Datalog-equivalent evaluator return reached records with typed reasons and one deterministic selected witness, subject to depth, fact, tuple, work, memory, and output limits. The one-expansion `query_evidence_index`, `cargo octet check`, discovery, process execution, and publication are unchanged. The external Datalog dependency decision is stop: one rule program over one typed graph does not justify a new dependency. This is an experiment boundary, not whole-program correctness, semantic equivalence, complete dependency closure, release eligibility, or formal proof.
+
 ## 2026-11-09: Conservative const-helper classification
 
 `missing_const_fn` now requires a private free-function body in a conservative

@@ -1,0 +1,11 @@
+{
+  "groups": [
+    "feature:evidence-codebase-index"
+  ],
+  "status": "planned",
+  "workflow_profile": {
+    "id": "spec-driven",
+    "source": "change_create",
+    "version": 1
+  }
+}

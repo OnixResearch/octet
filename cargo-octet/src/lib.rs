@@ -28,6 +28,7 @@ mod evidence_chain;
 mod evidence_contracts;
 mod evidence_index;
 mod evidence_log;
+pub mod evidence_multihop;
 mod evidence_rails;
 mod external {
     pub(crate) mod sarif;
