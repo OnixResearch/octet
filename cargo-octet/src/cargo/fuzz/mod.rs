@@ -1,7 +1,7 @@
 // r[impl octet.dynamic_evidence.cargo_fuzz_profile]
 // r[impl octet.dynamic_evidence.cargo_fuzz_receipt]
 pub const PROFILE_ID: &str = "cargo-fuzz-libfuzzer";
-pub const EXPECTED_PROFILE_IDENTITY: &str = "b3:681403b55dd508d9638cde9e8678bd8c92a2a2c6892a72f630d1a6c03956eaf5";
+pub const EXPECTED_PROFILE_IDENTITY: &str = "b3:94d07e6644dea19538edd16be8f84d89267512c6fc6239e458b52c2eb95e1c4b";
 pub const RECEIPT_SCHEMA_VERSION: &str = "octet-cargo-fuzz-receipt/v1";
 pub const EVIDENCE_TIER: &str = "transcript_assertion";
 pub const ENGINE: &str = "libfuzzer";

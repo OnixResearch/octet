@@ -2111,7 +2111,7 @@
             ''
               cd ${./.}
               generated=$(mktemp)
-              expected_profile_identity=681403b55dd508d9638cde9e8678bd8c92a2a2c6892a72f630d1a6c03956eaf5
+              expected_profile_identity=94d07e6644dea19538edd16be8f84d89267512c6fc6239e458b52c2eb95e1c4b
               expected_profile_count=1
               expected_max_time_seconds=60
               expected_max_runs=100000

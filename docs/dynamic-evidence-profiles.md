@@ -35,7 +35,11 @@ Every saved dynamic evidence artifact must include:
 
 ## Miri and Loom profiles
 
-`cargo octet evidence collect --rail dynamic-evidence` accepts the built-in `miri-unsafe-boundary` (alias `miri`) and `loom-concurrency` (alias `loom`) profiles, in both `--run` and `--input` modes. The profile comes from `--profile` or, for imports, the input's `profile` field. The allowed command (`cargo miri test` or `cargo test --cfg loom`) and the expected acceptance signal (`passed`) come from the built-in profile. Octet ignores `known_profiles`, `allowed_commands`, and `expected_signal` fields in imported JSON. A missing or unknown profile, a different command, or any other observed signal fails the receipt.
+`cargo octet evidence collect --rail dynamic-evidence` accepts the built-in `miri-unsafe-boundary` (alias `miri`) and `loom-concurrency` (alias `loom`) profiles, in both `--run` and `--input` modes. The allowed command (`cargo miri test` or `cargo test`) and the expected acceptance signal (`passed`) come from the built-in profile. The Loom profile runs `cargo test` with `RUSTFLAGS=--cfg loom` in the child environment, because Cargo takes `--cfg loom` from `RUSTFLAGS`, not from its own argv. That value replaces any inherited `RUSTFLAGS`. Octet ignores `known_profiles`, `allowed_commands`, and `expected_signal` fields in imported JSON.
+
+With `--run`, `--profile` and `--command` select the profile and must name its allowed command. Octet does not parse the test output: exit status 0 is the `passed` acceptance signal, and any other status records one `dynamic-finding` error. The receipt's `bounded_log_identity` binds the combined stdout and stderr transcript.
+
+With `--input`, the imported JSON must carry its own `profile` and `command` strings and a non-negative integer `finding_count`. `--profile` and `--command` are optional; when given, they must match the input's profile (aliases count as the same profile) and command rather than replace them. A missing or unknown profile, a missing or different command, a missing or mistyped `finding_count`, or any observed signal other than `passed` fails the receipt.
 
 ## Cargo-fuzz libFuzzer profile
 

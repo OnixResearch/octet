@@ -50,15 +50,18 @@
     },
     {
       "allowed_commands": [
-        "cargo test --cfg loom"
+        "cargo test"
       ],
+      "command_env": {
+        "RUSTFLAGS": "--cfg loom"
+      },
       "expected_signal": "passed",
       "name": "loom-concurrency",
       "non_claim": "Loom evidence covers the selected model and bounds only and is not exhaustive runtime verification.",
       "not_default": true,
       "risk_class": "bounded concurrency schedule exploration",
       "timing": "suspected-bug",
-      "tool": "cargo test with loom cfg"
+      "tool": "cargo test with RUSTFLAGS=--cfg loom"
     },
     {
       "allowed_commands": [

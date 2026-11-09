@@ -39,7 +39,9 @@ const DYNAMIC_PROFILE_MIRI_SHORT: &str = "miri";
 const DYNAMIC_COMMAND_MIRI_TEST: &str = "cargo miri test";
 const DYNAMIC_PROFILE_LOOM_CONCURRENCY: &str = "loom-concurrency";
 const DYNAMIC_PROFILE_LOOM_SHORT: &str = "loom";
-const DYNAMIC_COMMAND_LOOM_TEST: &str = "cargo test --cfg loom";
+/// Loom models compile only under `--cfg loom`, which Cargo takes from `RUSTFLAGS`, not argv.
+const DYNAMIC_COMMAND_LOOM_TEST: &str = "cargo test";
+const DYNAMIC_LOOM_RUSTFLAGS: &str = "--cfg loom";
 /// Acceptance signal declared by the built-in Miri and Loom dynamic evidence profiles.
 const DYNAMIC_ACCEPTANCE_SIGNAL_PASSED: &str = "passed";
 const CARGO_VET_CONCLUSION_SUCCESS: &str = "success";
@@ -2302,52 +2304,12 @@ fn parse_dynamic_evidence(input: &EvaluationInput<'_>) -> RailParseOutput {
         return parse_fuzz(input);
     }
     let mut diagnostics = Vec::new();
-    let value = parse_json_value(input.import_text, &mut diagnostics);
     let mut findings = Vec::new();
-    let mut profile = input.profile.map(ToOwned::to_owned);
-    if let Some(value) = value {
-        let selected_profile = input.profile.or_else(|| string_field(&value, "profile"));
-        profile = selected_profile.map(ToOwned::to_owned);
-        let selected_profile = selected_profile.unwrap_or_default();
-        let allowed_command = allowed_dynamic_command(selected_profile);
-        if selected_profile.is_empty() {
-            diagnostics.push(
-                "dynamic evidence import requires a profile from `--profile NAME` or the input `profile` field"
-                    .to_owned(),
-            );
-        } else if allowed_command.is_none() {
-            diagnostics.push(unknown_dynamic_profile_diagnostic(selected_profile));
-        }
-        let command = input.requested_command.or_else(|| string_field(&value, "command")).unwrap_or_default();
-        if let Some(allowed_command) = allowed_command
-            && !command.is_empty()
-            && command != allowed_command
-        {
-            diagnostics.push(format!(
-                "dynamic evidence command `{command}` is not allowed by profile `{selected_profile}`; expected `{allowed_command}`"
-            ));
-        }
-        if value.get("tool_available").and_then(serde_json::Value::as_bool) == Some(false) {
-            diagnostics.push(format!("dynamic evidence tool for profile `{selected_profile}` is unavailable"));
-        }
-        let observed_signal = string_field(&value, "acceptance_signal").unwrap_or("missing");
-        if observed_signal != DYNAMIC_ACCEPTANCE_SIGNAL_PASSED {
-            diagnostics.push(format!(
-                "dynamic evidence acceptance signal mismatch for `{selected_profile}`; expected `{DYNAMIC_ACCEPTANCE_SIGNAL_PASSED}`, got `{observed_signal}`"
-            ));
-        }
-        if value.get("finding_count").and_then(serde_json::Value::as_u64).unwrap_or_default() > 0 {
-            findings.push(EvidenceRailFinding {
-                family: "dynamic-finding".to_owned(),
-                severity: "error".to_owned(),
-                message: format!("dynamic evidence profile `{selected_profile}` reported findings"),
-                source_severity: None,
-                file: None,
-                line: None,
-                column: None,
-            });
-        }
-    }
+    let profile = if input.mode == MODE_RUN {
+        parse_dynamic_run(input, &mut findings, &mut diagnostics)
+    } else {
+        parse_dynamic_import(input, &mut findings, &mut diagnostics)
+    };
     let finding_counts = counts_by_family(&findings);
     let status = status_from_error_findings(&findings);
     RailParseOutput {
@@ -2360,6 +2322,113 @@ fn parse_dynamic_evidence(input: &EvaluationInput<'_>) -> RailParseOutput {
         hegel_property: None,
         z4_solver: None,
         verifier_fixtures: None,
+    }
+}
+
+/// Run mode decides acceptance from the observed exit status alone: the transcript is human test
+/// output, so it is bound only through the receipt's bounded log identity and never parsed.
+fn parse_dynamic_run(
+    input: &EvaluationInput<'_>,
+    findings: &mut Vec<EvidenceRailFinding>,
+    diagnostics: &mut Vec<String>,
+) -> Option<String> {
+    let Some(profile) = input.profile.filter(|profile| !profile.is_empty()) else {
+        diagnostics.push("dynamic evidence run requires `--profile NAME`".to_owned());
+        return None;
+    };
+    check_dynamic_profile_command(profile, input.requested_command.unwrap_or_default(), diagnostics);
+    match input.tool_exit_code {
+        Some(EXIT_SUCCESS) => {}
+        Some(exit_code) => findings.push(dynamic_finding(format!(
+            "dynamic evidence profile `{profile}` command exited with status {exit_code}"
+        ))),
+        None => diagnostics.push("dynamic evidence run requires the observed command exit status".to_owned()),
+    }
+    Some(profile.to_owned())
+}
+
+/// Import mode trusts only the evidence's own `profile` and `command`; `--profile` and
+/// `--command`, when given, must name the same profile and command rather than replace them.
+fn parse_dynamic_import(
+    input: &EvaluationInput<'_>,
+    findings: &mut Vec<EvidenceRailFinding>,
+    diagnostics: &mut Vec<String>,
+) -> Option<String> {
+    let Some(value) = parse_json_value(input.import_text, diagnostics) else {
+        return input.profile.map(ToOwned::to_owned);
+    };
+    let profile = string_field(&value, "profile").unwrap_or_default();
+    if profile.is_empty() {
+        diagnostics.push("dynamic evidence import requires the input `profile` field".to_owned());
+    } else if let Some(requested) = input.profile
+        && canonical_dynamic_profile(requested) != canonical_dynamic_profile(profile)
+    {
+        diagnostics
+            .push(format!("dynamic evidence `--profile {requested}` does not match the input profile `{profile}`"));
+    }
+    let command = string_field(&value, "command").unwrap_or_default();
+    if command.is_empty() {
+        diagnostics.push("dynamic evidence import requires the input `command` field".to_owned());
+    } else if let Some(requested) = input.requested_command
+        && requested != command
+    {
+        diagnostics
+            .push(format!("dynamic evidence `--command {requested}` does not match the input command `{command}`"));
+    }
+    if !profile.is_empty() {
+        check_dynamic_profile_command(profile, command, diagnostics);
+    }
+    if value.get("tool_available").and_then(serde_json::Value::as_bool) == Some(false) {
+        diagnostics.push(format!("dynamic evidence tool for profile `{profile}` is unavailable"));
+    }
+    let observed_signal = string_field(&value, "acceptance_signal").unwrap_or("missing");
+    if observed_signal != DYNAMIC_ACCEPTANCE_SIGNAL_PASSED {
+        diagnostics.push(format!(
+            "dynamic evidence acceptance signal mismatch for `{profile}`; expected `{DYNAMIC_ACCEPTANCE_SIGNAL_PASSED}`, got `{observed_signal}`"
+        ));
+    }
+    match value.get("finding_count").map(serde_json::Value::as_u64) {
+        Some(Some(0)) => {}
+        Some(Some(_)) => {
+            findings.push(dynamic_finding(format!("dynamic evidence profile `{profile}` reported findings")));
+        }
+        _ => diagnostics.push("dynamic evidence field `finding_count` must be a non-negative integer".to_owned()),
+    }
+    if profile.is_empty() {
+        input.profile.map(ToOwned::to_owned)
+    } else {
+        Some(profile.to_owned())
+    }
+}
+
+/// Checks `command` against the built-in profile; an empty command is reported by the caller.
+fn check_dynamic_profile_command(profile: &str, command: &str, diagnostics: &mut Vec<String>) {
+    match allowed_dynamic_command(profile) {
+        None => diagnostics.push(unknown_dynamic_profile_diagnostic(profile)),
+        Some(allowed_command) if !command.is_empty() && command != allowed_command => diagnostics.push(format!(
+            "dynamic evidence command `{command}` is not allowed by profile `{profile}`; expected `{allowed_command}`"
+        )),
+        Some(_) => {}
+    }
+}
+
+fn canonical_dynamic_profile(profile: &str) -> &str {
+    match profile {
+        DYNAMIC_PROFILE_MIRI_SHORT => DYNAMIC_PROFILE_MIRI_UNSAFE_BOUNDARY,
+        DYNAMIC_PROFILE_LOOM_SHORT => DYNAMIC_PROFILE_LOOM_CONCURRENCY,
+        other => other,
+    }
+}
+
+fn dynamic_finding(message: String) -> EvidenceRailFinding {
+    EvidenceRailFinding {
+        family: "dynamic-finding".to_owned(),
+        severity: "error".to_owned(),
+        message,
+        source_severity: None,
+        file: None,
+        line: None,
+        column: None,
     }
 }
 
@@ -4195,6 +4264,9 @@ fn run_tool(
         command_parts.split_first().ok_or_else(|| "evidence rail command argv is empty".to_owned())?;
     let mut command = Command::new(program);
     command.args(rest).stdout(Stdio::piped()).stderr(Stdio::piped());
+    if args.rail == EvidenceRailKind::DynamicEvidence {
+        command.envs(dynamic_profile_env(args.profile.as_deref()).iter().copied());
+    }
     if let Some(workspace_root) = args.workspace_root.as_deref() {
         command.current_dir(workspace_root);
     }
@@ -4557,6 +4629,14 @@ fn allowed_dynamic_command(profile: &str) -> Option<&'static str> {
         DYNAMIC_PROFILE_MIRI_UNSAFE_BOUNDARY | DYNAMIC_PROFILE_MIRI_SHORT => Some(DYNAMIC_COMMAND_MIRI_TEST),
         DYNAMIC_PROFILE_LOOM_CONCURRENCY | DYNAMIC_PROFILE_LOOM_SHORT => Some(DYNAMIC_COMMAND_LOOM_TEST),
         _ => None,
+    }
+}
+
+/// Child environment that a built-in dynamic profile sets on top of the inherited environment.
+fn dynamic_profile_env(profile: Option<&str>) -> &'static [(&'static str, &'static str)] {
+    match profile {
+        Some(DYNAMIC_PROFILE_LOOM_CONCURRENCY | DYNAMIC_PROFILE_LOOM_SHORT) => &[("RUSTFLAGS", DYNAMIC_LOOM_RUSTFLAGS)],
+        _ => &[],
     }
 }
 
@@ -6171,14 +6251,14 @@ mod tests {
     fn dynamic_evidence_import_takes_command_and_signal_from_builtin_profile() {
         // r[verify octet.dynamic_evidence.runner.rejects_unconfigured]
         let builtin = evaluate(EvaluationInput {
-            import_text: r#"{"command":"cargo miri test","tool_available":true,"acceptance_signal":"passed","finding_count":0}"#,
+            import_text: r#"{"profile":"miri","command":"cargo miri test","tool_available":true,"acceptance_signal":"passed","finding_count":0}"#,
             ..dynamic_input()
         });
         assert_eq!(builtin.status, STATUS_PASSED);
         assert!(builtin.diagnostics.is_empty(), "{:?}", builtin.diagnostics);
 
         let unknown = evaluate(EvaluationInput {
-            import_text: r#"{"allowed_commands":["sh -c exploit"],"command":"sh -c exploit","expected_signal":"anything","acceptance_signal":"anything","finding_count":0}"#,
+            import_text: r#"{"profile":"custom-profile","allowed_commands":["sh -c exploit"],"command":"sh -c exploit","expected_signal":"anything","acceptance_signal":"anything","finding_count":0}"#,
             profile: Some("custom-profile"),
             requested_command: Some("sh -c exploit"),
             ..dynamic_input()
@@ -6200,10 +6280,10 @@ mod tests {
             ..dynamic_input()
         });
         assert_eq!(missing.status, STATUS_FAILED);
-        assert!(missing.diagnostics.iter().any(|diagnostic| diagnostic.contains("requires a profile")));
+        assert!(missing.diagnostics.iter().any(|diagnostic| diagnostic.contains("`profile`")));
 
         let self_allowed = evaluate(EvaluationInput {
-            import_text: r#"{"known_profiles":["miri"],"allowed_commands":["cargo test"],"command":"cargo test","acceptance_signal":"passed","finding_count":0}"#,
+            import_text: r#"{"profile":"miri","known_profiles":["miri"],"allowed_commands":["cargo test"],"command":"cargo test","acceptance_signal":"passed","finding_count":0}"#,
             requested_command: Some("cargo test"),
             ..dynamic_input()
         });
@@ -6221,6 +6301,110 @@ mod tests {
         });
         assert_eq!(self_signalled.status, STATUS_FAILED);
         assert!(self_signalled.diagnostics.iter().any(|diagnostic| diagnostic.contains("expected `passed`")));
+    }
+
+    #[test]
+    fn dynamic_evidence_import_binds_input_profile_command_and_finding_count() {
+        const VALID: &str = r#"{"profile":"miri-unsafe-boundary","command":"cargo miri test","acceptance_signal":"passed","finding_count":0}"#;
+        let import = |import_text: &'static str, profile: Option<&'static str>, command: Option<&'static str>| {
+            evaluate(EvaluationInput {
+                import_text,
+                profile,
+                requested_command: command,
+                ..dynamic_input()
+            })
+        };
+
+        let unflagged = import(VALID, None, None);
+        assert_eq!(unflagged.status, STATUS_PASSED, "{:?}", unflagged.diagnostics);
+        assert_eq!(unflagged.profile.as_deref(), Some(DYNAMIC_PROFILE_MIRI_UNSAFE_BOUNDARY));
+        let flagged = import(VALID, Some(DYNAMIC_PROFILE_MIRI_SHORT), Some(DYNAMIC_COMMAND_MIRI_TEST));
+        assert_eq!(flagged.status, STATUS_PASSED, "{:?}", flagged.diagnostics);
+
+        for (label, import_text, profile, command) in [
+            (
+                "flag overrides input profile",
+                r#"{"profile":"loom-concurrency","command":"cargo miri test","acceptance_signal":"passed","finding_count":0}"#,
+                Some(DYNAMIC_PROFILE_MIRI_SHORT),
+                None,
+            ),
+            (
+                "flag overrides input command",
+                r#"{"profile":"miri","command":"cargo test","acceptance_signal":"passed","finding_count":0}"#,
+                None,
+                Some(DYNAMIC_COMMAND_MIRI_TEST),
+            ),
+            (
+                "missing input profile",
+                r#"{"command":"cargo miri test","acceptance_signal":"passed","finding_count":0}"#,
+                Some(DYNAMIC_PROFILE_MIRI_SHORT),
+                None,
+            ),
+            (
+                "missing input command",
+                r#"{"profile":"miri","acceptance_signal":"passed","finding_count":0}"#,
+                None,
+                None,
+            ),
+            (
+                "missing finding_count",
+                r#"{"profile":"miri","command":"cargo miri test","acceptance_signal":"passed"}"#,
+                None,
+                None,
+            ),
+            (
+                "string finding_count",
+                r#"{"profile":"miri","command":"cargo miri test","acceptance_signal":"passed","finding_count":"2"}"#,
+                None,
+                None,
+            ),
+            (
+                "negative finding_count",
+                r#"{"profile":"miri","command":"cargo miri test","acceptance_signal":"passed","finding_count":-1}"#,
+                None,
+                None,
+            ),
+        ] {
+            let receipt = import(import_text, profile, command);
+            assert_eq!(receipt.status, STATUS_FAILED, "{label}");
+            assert!(!receipt.diagnostics.is_empty(), "{label}");
+        }
+    }
+
+    #[test]
+    fn dynamic_evidence_run_derives_summary_from_exit_status() {
+        const TEST_LOG: &str = "running 2 tests\ntest a ... ok\ntest b ... ok\n\ntest result: ok. 2 passed; 0 failed\n";
+        const TEST_FAILURE_EXIT: i32 = 101;
+        let run = |profile: &'static str, command: &'static str, exit_code: i32| {
+            evaluate(EvaluationInput {
+                mode: MODE_RUN,
+                import_text: TEST_LOG,
+                profile: Some(profile),
+                requested_command: Some(command),
+                tool_exit_code: Some(exit_code),
+                ..dynamic_input()
+            })
+        };
+
+        let passed = run(DYNAMIC_PROFILE_MIRI_SHORT, DYNAMIC_COMMAND_MIRI_TEST, EXIT_SUCCESS);
+        assert_eq!(passed.status, STATUS_PASSED, "{:?}", passed.diagnostics);
+        assert_eq!(passed.bounded_log_identity, prefixed_identity(TEST_LOG.as_bytes()));
+
+        let failed = run(DYNAMIC_PROFILE_MIRI_SHORT, DYNAMIC_COMMAND_MIRI_TEST, TEST_FAILURE_EXIT);
+        assert_eq!(failed.status, STATUS_FAILED);
+        assert!(failed.diagnostics.is_empty(), "{:?}", failed.diagnostics);
+        assert_eq!(failed.finding_counts.get("dynamic-finding"), Some(&1));
+
+        assert_eq!(
+            dynamic_run_command_argv(Some(DYNAMIC_PROFILE_LOOM_SHORT), Some("cargo test")),
+            Ok(string_vec(&["cargo", "test"]))
+        );
+        assert!(dynamic_run_command_argv(Some(DYNAMIC_PROFILE_LOOM_SHORT), Some("cargo test --cfg loom")).is_err());
+        let loom = run(DYNAMIC_PROFILE_LOOM_CONCURRENCY, "cargo test", EXIT_SUCCESS);
+        assert_eq!(loom.status, STATUS_PASSED, "{:?}", loom.diagnostics);
+        assert_eq!(dynamic_profile_env(Some(DYNAMIC_PROFILE_LOOM_SHORT)), &[("RUSTFLAGS", "--cfg loom")]);
+        assert_eq!(dynamic_profile_env(Some(DYNAMIC_PROFILE_LOOM_CONCURRENCY)), &[("RUSTFLAGS", "--cfg loom")]);
+        assert!(dynamic_profile_env(Some(DYNAMIC_PROFILE_MIRI_UNSAFE_BOUNDARY)).is_empty());
     }
 
     #[test]
