@@ -125,17 +125,19 @@ pub fn prefixed_identity(bytes: &[u8]) -> String {
 
 /// Decodes a SARIF artifact URI reference into the workspace-relative path it names, or `None`
 /// when the reference is unsafe or ambiguous. The path policy runs on the decoded path, so
-/// percent-encoded traversal, separators, and drive letters cannot slip past it.
+/// percent-encoded traversal, separators, drive letters, and schemes cannot slip past it.
 fn safe_path(uri: &str, max_bytes: usize) -> Option<String> {
     // A raw `?` or `#` starts a query or fragment, which a local file location cannot carry.
     if uri.len() > max_bytes || uri.contains(['?', '#']) {
         return None;
     }
     let path = percent_decode(uri)?;
+    // A colon in the first segment reads as a drive letter (`C:/x`, `c:x`) or a scheme
+    // (`file:/x`); in later segments it is an ordinary file name character, as in `src/a:b.rs`.
     let safe = !path.is_empty()
         && !path.starts_with('/')
         && !path.starts_with('\\')
-        && !path.contains(':')
+        && path.split(['/', '\\']).next().is_some_and(|first| !first.contains(':'))
         && !path.chars().any(char::is_control)
         && path.split(['/', '\\']).all(|part| !matches!(part, "" | "." | ".."));
     safe.then_some(path)

@@ -255,6 +255,7 @@ fn percent_encoded_locations_decode_to_workspace_paths() {
         ("src/my%20query.rs", "src/my query.rs"),
         ("src/100%25.rs", "src/100%.rs"),
         ("src/caf%C3%A9.rs", "src/caf\u{e9}.rs"),
+        ("src/a:b.rs", "src/a:b.rs"),
         ("src/a%23b.rs", "src/a#b.rs"),
     ] {
         let report = CODEQL_REPORT.replace("src/query.rs", uri);
@@ -272,6 +273,7 @@ fn octet_sarif_artifact_uris_round_trip_through_intake() {
         "src/100%.rs",
         "src/a#b?.rs",
         "src/caf\u{e9}.rs",
+        "src/a:b.rs",
     ] {
         let report = CODEQL_REPORT.replace("src/query.rs", &crate::output::sarif_artifact_uri(path));
         let evaluation = evaluate(&report, "codeql-local");
@@ -291,6 +293,10 @@ fn percent_encoded_traversal_and_ambiguous_locations_fail_closed() {
         "%5C%5Cserver/share.rs",
         "src/..%5Cescape.rs",
         "C%3A/escape.rs",
+        "C:/escape.rs",
+        "c:escape.rs",
+        "file:/escape.rs",
+        "file%3A/escape.rs",
         "src/%00.rs",
         "src/%zz.rs",
         "src/%4.rs",
