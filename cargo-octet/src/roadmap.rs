@@ -1057,32 +1057,37 @@ fn normalize_json(value: Value, normalize_paths: bool) -> Value {
     }
 }
 
+/// Words that, right before a trailing `token`, mark it as a credential rather than a vocabulary
+/// or pagination token (`access_token` versus `eos_token` or `next_page_token`).
+const SECRET_TOKEN_QUALIFIERS: [&str; 20] = [
+    "access", "refresh", "auth", "bearer", "api", "session", "id", "csrf", "oauth", "personal", "private", "secret",
+    "client", "github", "gh", "gitlab", "slack", "npm", "pypi", "registry",
+];
+/// Words that make a `secret`, `password`, or `credential` field describe the secret instead of
+/// holding it (`secret_count`, `password_min_length`, `credential_helper`).
+const SECRET_METADATA_WORDS: [&str; 15] = [
+    "count", "has", "is", "min", "max", "length", "len", "policy", "helper", "enabled", "required", "name", "expiry",
+    "expires", "rotation",
+];
+
 /// Whether a field name is secret-like or local-machine-only, compared case-insensitively over
 /// its `snake_case`, `kebab-case`, or `camelCase` words.
 fn is_redacted_key(key: &str) -> bool {
     let words = key_words(key);
-    let local_only = match words.as_slice() {
-        [only] => matches!(only.as_str(), "timestamp" | "username"),
-        [first, second] => matches!((first.as_str(), second.as_str()), ("absolute", "path") | ("env", "dump")),
+    let words: Vec<&str> = words.iter().map(String::as_str).collect();
+    let local_only = matches!(words.as_slice(), ["timestamp" | "username"] | ["absolute", "path"] | ["env", "dump"]);
+    let names_secret = words.iter().any(|word| {
+        matches!(*word, "secret" | "secrets" | "password" | "passwords" | "passwd" | "credential" | "credentials")
+    });
+    let describes_secret = words.iter().any(|word| SECRET_METADATA_WORDS.contains(word));
+    let credential_token = match words.as_slice() {
+        ["token"] => true,
+        [.., qualifier, "token"] => SECRET_TOKEN_QUALIFIERS.contains(qualifier),
         _ => false,
     };
-    local_only
-        || words.iter().any(|word| {
-            matches!(
-                word.as_str(),
-                "secret"
-                    | "secrets"
-                    | "password"
-                    | "passwords"
-                    | "passwd"
-                    | "credential"
-                    | "credentials"
-                    | "apikey"
-                    | "privatekey"
-            )
-        })
-        || words.last().is_some_and(|word| word == "token")
-        || words.windows(2).any(|pair| pair[1] == "key" && (pair[0] == "private" || pair[0].ends_with("api")))
+    let key_material = words.iter().any(|word| matches!(*word, "apikey" | "privatekey"))
+        || words.windows(2).any(|pair| pair[1] == "key" && (pair[0] == "private" || pair[0].ends_with("api")));
+    local_only || (names_secret && !describes_secret) || credential_token || key_material
 }
 
 /// Lowercase words of a field name, split at non-alphanumeric characters, at `camelCase` humps,
@@ -1236,6 +1241,52 @@ mod tests {
             "path",
             "file",
             "name",
+        ] {
+            assert!(!is_redacted_key(key), "{key} must stay in the identity");
+        }
+    }
+
+    #[test]
+    fn redacted_keys_need_a_secret_qualifier_for_tokens_and_skip_secret_metadata() {
+        for key in [
+            "token",
+            "refresh_token",
+            "id_token",
+            "bearerToken",
+            "csrf-token",
+            "oauth_token",
+            "session_token",
+            "personal_access_token",
+            "client_token",
+            "secret_token",
+            "GH_TOKEN",
+            "GITLAB_TOKEN",
+            "slack_token",
+            "NPM_TOKEN",
+            "pypi_token",
+            "registry_token",
+            "client_secret",
+            "db_password",
+            "secrets",
+            "aws_credentials",
+        ] {
+            assert!(is_redacted_key(key), "{key} must be redacted");
+        }
+        for key in [
+            "eos_token",
+            "pad_token",
+            "bos_token",
+            "next_page_token",
+            "secret_count",
+            "has_secrets",
+            "password_min_length",
+            "maxPasswordLen",
+            "credential_helper",
+            "secret_name",
+            "password_policy",
+            "is_password_required",
+            "secretRotationEnabled",
+            "credentials_expires",
         ] {
             assert!(!is_redacted_key(key), "{key} must stay in the identity");
         }

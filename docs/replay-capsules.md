@@ -26,12 +26,25 @@ The input manifest records `command_argv`, `run_kind`, `octet_binary_identity`,
 fields. Field names are split into lowercase words at punctuation, at `camelCase`
 boundaries, and before the last capital of an acronym run that starts a
 capitalized word (`AWSSecretAccessKey` is `aws secret access key`,
-`OpenAIAPIKey` is `open aiapi key`); a field is dropped when its words are
-`absolute path`, `timestamp`, `username`, or `env dump`, when any word is
-`secret(s)`, `password(s)`, `passwd`, `credential(s)`, `apikey`, or
-`privatekey`, when a word that is `private` or ends in `api` is followed by
-`key`, or when the last word is `token`. Any whole
-string value that is an absolute path (Unix `/…` without whitespace, Windows
+`OpenAIAPIKey` is `open aiapi key`). A field is dropped when any of these hold:
+
+- Its words are exactly `absolute path`, `timestamp`, `username`, or `env dump`.
+- Any word is `secret(s)`, `password(s)`, `passwd`, or `credential(s)`, and no
+  word is one of the metadata words `count`, `has`, `is`, `min`, `max`,
+  `length`, `len`, `policy`, `helper`, `enabled`, `required`, `name`,
+  `expiry`, `expires`, or `rotation`. So `client_secret` and `dbPassword` are
+  dropped, while `secret_count`, `has_secrets`, `password_min_length`, and
+  `credential_helper` stay.
+- The field is exactly `token`, or its last word is `token` and the word before
+  it is one of `access`, `refresh`, `auth`, `bearer`, `api`, `session`, `id`,
+  `csrf`, `oauth`, `personal`, `private`, `secret`, `client`, `github`, `gh`,
+  `gitlab`, `slack`, `npm`, `pypi`, or `registry`. So `access_token` and
+  `GITHUB_TOKEN` are dropped, while `eos_token`, `pad_token`, and
+  `next_page_token` stay.
+- Any word is `apikey` or `privatekey`, or a word that is `private` or ends in
+  `api` is followed by `key` (`api_key`, `x-api-key`, `private_key`).
+
+Any whole string value that is an absolute path (Unix `/…` without whitespace, Windows
 `C:\…` or `C:/…`, or UNC `\\host\…`), such as a `--manifest-path` entry in
 `command_argv`, becomes `<absolute-path>`, so the same run on different
 machines yields the same `capsule_hash`. Replay normalizes the observed run the
