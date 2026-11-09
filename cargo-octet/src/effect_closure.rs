@@ -469,7 +469,65 @@ struct RawCall {
     /// Paths, without generic arguments, through which the call resolves outside the caller: the
     /// call path, or for a qualified-self path the self type's path and the trait's path. Paths
     /// with a leading `::` name an extern crate and are left out.
-    referenced_paths: Vec<Vec<String>>,
+    referenced_paths: Vec<ReferencedPath>,
+    /// The `use` bindings of the blocks enclosing a method call, any of which may bring the
+    /// method's trait into scope.
+    body_method_sources: Vec<ImportPath>,
+    /// Whether the call is inside a module item declared in the function body, whose name
+    /// resolution the module index does not model.
+    in_body_module: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ReferencedPath {
+    segments: Vec<String>,
+    /// What the blocks lexically enclosing the call declare for the path's first segment.
+    body: BodyLookup,
+}
+
+/// The body declarations a path's first segment may resolve through, from the innermost block
+/// enclosing the call outward. Blocks of nested `fn` items enclose their calls too, since block
+/// items stay visible in nested items.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+struct BodyLookup {
+    /// The imports of the innermost block that imports the name.
+    imports: Vec<ImportPath>,
+    /// Whether the innermost declaring block declares the name as an item rather than an import.
+    item: bool,
+    /// Glob imports of the blocks inside the declaring block, or of every enclosing block.
+    globs: Vec<ImportPath>,
+}
+
+/// The `use` bindings and items one block declares.
+#[derive(Default)]
+struct BlockImports {
+    imports: BTreeMap<String, Vec<ImportPath>>,
+    glob_imports: Vec<ImportPath>,
+    items: BTreeSet<String>,
+}
+
+impl BlockImports {
+    fn of_block(block: &syn::Block) -> Self {
+        let mut declarations = Self::default();
+        for statement in &block.stmts {
+            match statement {
+                syn::Stmt::Item(syn::Item::Use(node)) => collect_imports(
+                    &node.tree,
+                    node.leading_colon.is_some(),
+                    &mut Vec::new(),
+                    &mut declarations.imports,
+                    &mut declarations.glob_imports,
+                ),
+                syn::Stmt::Item(item) => {
+                    if let Some(ident) = item_ident(item) {
+                        declarations.items.insert(ident.to_string());
+                    }
+                }
+                _ => {}
+            }
+        }
+        declarations
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -529,10 +587,6 @@ struct CallerBindings {
     names: BTreeSet<String>,
     /// Whether the body holds a glob `use`, which may bring any name into scope.
     glob_import: bool,
-    /// The paths body `use` bindings import, keyed by the name they bind.
-    imports: BTreeMap<String, Vec<ImportPath>>,
-    /// The module path of each body glob `use`.
-    glob_imports: Vec<ImportPath>,
 }
 
 /// One lexical scope of the body scanner: a function signature, block, match arm, `if let` or
@@ -562,6 +616,11 @@ struct BodyScanner<'a> {
     compile_time_depth: usize,
     direct_effects: BTreeSet<Effect>,
     calls: Vec<RawCall>,
+    /// Declarations of the blocks enclosing the scan position, innermost last. Unlike `scopes`, a
+    /// nested `fn` item keeps them, since block items stay visible inside nested items.
+    block_imports: Vec<BlockImports>,
+    /// Depth of module items declared inside the body.
+    body_module_depth: usize,
 }
 
 // The collector shares the function-address producer's item model: it records the outermost `fn`
@@ -981,65 +1040,70 @@ impl<'a> ScopeResolver<'a> {
     }
 
     /// Renders `module=self::a; path=declarations` for every path the call references.
-    fn call_scope(&self, caller: &AddressedFunction, bindings: &CallerBindings, raw_call: &RawCall) -> CallScope<'a> {
+    fn call_scope(&self, caller: &AddressedFunction, raw_call: &RawCall) -> CallScope<'a> {
         let draft = &caller.draft;
         let locator = (draft.path.clone(), draft.module.clone());
         let mut scope = CallScope {
             text: module_text(&draft.module),
             local: None,
-            hidden: false,
+            hidden: raw_call.in_body_module,
         };
+        if raw_call.in_body_module {
+            scope.text.push_str("; in a module declared in the body");
+        }
         for path in &raw_call.referenced_paths {
             let mut lookup = Lookup::default();
-            self.resolve_from_caller(&mut lookup, &locator, &draft.outer_scope, bindings, path);
+            self.resolve_from_caller(&mut lookup, &locator, &draft.outer_scope, path);
             scope.text.push_str("; ");
-            scope.text.push_str(&path.join("::"));
+            scope.text.push_str(&path.segments.join("::"));
             scope.text.push('=');
             scope.text.push_str(&lookup.text());
             scope.hidden |= lookup.hidden;
-            if raw_call.locally_resolvable && raw_call.referenced_paths.len() == 1 {
+            if raw_call.locally_resolvable && raw_call.referenced_paths.len() == 1 && !raw_call.in_body_module {
                 scope.local = lookup.local_target();
             }
         }
         scope
     }
 
-    /// Body `use` bindings come first, then the enclosing `impl` or trait header, then the
-    /// caller's module.
+    /// Imports and items of the blocks enclosing the call come first, then the enclosing `impl`
+    /// or trait header, then the caller's module; glob imports of enclosing blocks may also
+    /// supply the name.
     fn resolve_from_caller(
         &self,
         lookup: &mut Lookup<'a>,
         locator: &ModuleLocator,
         outer: &OuterScope,
-        bindings: &CallerBindings,
-        path: &[String],
+        path: &ReferencedPath,
     ) {
-        let Some((first, rest)) = path.split_first() else {
+        let Some((first, rest)) = path.segments.split_first() else {
             lookup.hide("", "", "empty path");
             return;
         };
         if is_path_keyword(first) {
-            self.resolve_qualified(lookup, locator, path, 0);
+            self.resolve_qualified(lookup, locator, &path.segments, 0);
             return;
         }
-        if let Some(imports) = bindings.imports.get(first) {
-            for import in imports {
+        if path.body.item {
+            lookup.reach_declaration("body", first, "item");
+        } else if !path.body.imports.is_empty() {
+            for import in &path.body.imports {
                 lookup.reach("body", first, &import_text(import));
                 self.follow_import(lookup, locator, import, rest, 0);
             }
-            return;
-        }
-        if let Some(header) = outer.header.as_deref().filter(|header| header.names.contains(first)) {
+        } else if let Some(header) = outer.header.as_deref().filter(|header| header.names.contains(first)) {
             lookup.reach_declaration("header", first, &header.text);
-            return;
+        } else {
+            self.resolve_name(lookup, locator, &path.segments, NameContext::Unqualified, 0);
         }
-        self.resolve_name(lookup, locator, path, NameContext::Unqualified, 0);
-        for glob in &bindings.glob_imports {
+        for glob in &path.body.globs {
             lookup.reach("body", "*", &format!("{}::*", import_text(glob)));
             if self.is_local_import(locator, glob) {
                 let mut segments = glob.segments.clone();
-                segments.extend(path.iter().cloned());
+                segments.extend(path.segments.iter().cloned());
                 self.resolve_import_path(lookup, locator, &segments, 1);
+            } else {
+                lookup.declarations += 1;
             }
         }
     }
@@ -1645,8 +1709,6 @@ impl<'ast> Visit<'ast> for CallerBindings {
 
     fn visit_item_use(&mut self, node: &'ast syn::ItemUse) {
         bind_use_tree(&node.tree, None, &mut self.names, &mut self.glob_import);
-        let leading_colon = node.leading_colon.is_some();
-        collect_imports(&node.tree, leading_colon, &mut Vec::new(), &mut self.imports, &mut self.glob_imports);
     }
 
     fn visit_item(&mut self, node: &'ast syn::Item) {
@@ -1787,6 +1849,8 @@ impl<'a> BodyScanner<'a> {
             compile_time_depth: 0,
             direct_effects: BTreeSet::new(),
             calls: Vec::new(),
+            block_imports: Vec::new(),
+            body_module_depth: 0,
         }
     }
 
@@ -1799,13 +1863,50 @@ impl<'a> BodyScanner<'a> {
         referenced_paths: Vec<Vec<String>>,
     ) {
         self.direct_effects.extend(effects.iter().copied());
+        let referenced_paths = referenced_paths
+            .into_iter()
+            .map(|segments| ReferencedPath {
+                body: segments.first().map(|head| self.body_lookup(head)).unwrap_or_default(),
+                segments,
+            })
+            .collect();
+        let body_method_sources = if kind == RawCallKind::Method {
+            self.block_imports
+                .iter()
+                .flat_map(|block| block.imports.values().flatten().chain(&block.glob_imports))
+                .cloned()
+                .collect()
+        } else {
+            Vec::new()
+        };
         self.calls.push(RawCall {
             shape,
             kind,
             effects,
             locally_resolvable,
             referenced_paths,
+            body_method_sources,
+            in_body_module: self.body_module_depth > 0,
         });
+    }
+
+    /// What the blocks enclosing the scan position declare for `head`, innermost first: an
+    /// explicit import or item in a block shadows the blocks around it and the module, while a
+    /// glob import only may.
+    fn body_lookup(&self, head: &str) -> BodyLookup {
+        let mut lookup = BodyLookup::default();
+        for block in self.block_imports.iter().rev() {
+            if let Some(imports) = block.imports.get(head) {
+                lookup.imports.clone_from(imports);
+                return lookup;
+            }
+            if block.items.contains(head) {
+                lookup.item = true;
+                return lookup;
+            }
+            lookup.globs.extend(block.glob_imports.iter().cloned());
+        }
+        lookup
     }
 
     fn record_path(&mut self, node: &syn::ExprPath, kind: RawCallKind) {
@@ -1912,7 +2013,9 @@ impl<'ast> Visit<'ast> for BodyScanner<'_> {
     }
 
     fn visit_block(&mut self, node: &'ast syn::Block) {
+        self.block_imports.push(BlockImports::of_block(node));
         self.in_scope(ValueScope::of_block(node), |scanner| syn::visit::visit_block(scanner, node));
+        self.block_imports.pop();
     }
 
     // Keeps syn's order (pattern with its type annotation, then initializer and `else`) so call
@@ -1992,6 +2095,16 @@ impl<'ast> Visit<'ast> for BodyScanner<'_> {
         let enclosing = std::mem::take(&mut self.scopes);
         syn::visit::visit_item(self, node);
         self.scopes = enclosing;
+    }
+
+    // A module item in the body starts a new scope that neither the enclosing blocks nor the
+    // caller's module provides; calls in it are marked so no summary stands in for them.
+    fn visit_item_mod(&mut self, node: &'ast syn::ItemMod) {
+        let enclosing = std::mem::take(&mut self.block_imports);
+        self.body_module_depth += 1;
+        syn::visit::visit_item_mod(self, node);
+        self.body_module_depth -= 1;
+        self.block_imports = enclosing;
     }
 
     fn visit_item_fn(&mut self, node: &'ast syn::ItemFn) {
@@ -3053,10 +3166,10 @@ fn build_nodes(
                 CallScope {
                     text: function.draft.outer_scope.method_resolution_text(&function.draft.module),
                     local: None,
-                    hidden: false,
+                    hidden: raw_call.in_body_module,
                 }
             } else {
-                resolver.call_scope(function, &bindings, &raw_call)
+                resolver.call_scope(function, &raw_call)
             };
             let scope = call_scope.text;
             let call_site_id = call_site_identity(
@@ -4830,5 +4943,35 @@ unsafe fn risky(values: &[u8]) -> u8 {
             assert!(call.scope.len() < 16 * 1024, "scope of {} bytes", call.scope.len());
         }
         assert!(!receipt.diagnostics.iter().any(|diagnostic| diagnostic.message.contains("cannot prove")));
+    }
+
+    // r[verify octet.effect_closure.dependency_summaries.invalid]
+    // r[verify octet.effect_closure.verification.adversarial]
+    #[test]
+    fn body_imports_bind_only_in_enclosing_blocks() {
+        assert_summaries_follow_resolution(
+            "use dep_a::tidy;\npub fn root() { { use dep_a::tidy; } tidy(); }\n",
+            &[],
+            &[("use dep_b::tidy;\npub fn root() { { use dep_a::tidy; } tidy(); }\n", "call:tidy")],
+        );
+        assert_summaries_follow_resolution(
+            "use dep_a::tidy;\npub fn root() { fn helper() { use dep_a::tidy; } tidy(); }\n",
+            &[],
+            &[("use dep_b::tidy;\npub fn root() { fn helper() { use dep_a::tidy; } tidy(); }\n", "call:tidy")],
+        );
+        // An import in an enclosing block shadows the module's binding.
+        assert_summaries_follow_resolution(
+            "use dep_b::tidy;\npub fn root() { use dep_a::tidy; tidy(); }\n",
+            &["use other::tidy;\npub fn root() { use dep_a::tidy; tidy(); }\n"],
+            &[],
+        );
+        // A module item in the body resolves its own names: no summary stands in for its calls.
+        let body_module =
+            "use dep_a::tidy;\npub fn root() {\n    mod inner {\n        pub fn run() { tidy(); }\n    }\n}\n";
+        let denied = compute_closure(input(body_module, vec![address("root", '5')], policy(Vec::new())));
+        let summaries = reviewed_summaries(&denied, &dependency_provider());
+        let receipt = compute_closure(reviewed_input(body_module, summaries));
+        assert_eq!(receipt.status, AdmissionStatus::Denied);
+        assert_eq!(call_edge(&receipt, "root", "call:tidy").resolution, CallResolution::Unknown);
     }
 }
