@@ -6,6 +6,103 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## Unreleased: artifact-dir safety, effect coverage, and lint precision
+
+Changes that can add findings, fail a build, or change identities:
+
+- Suppression governance decides whether you wrote an attribute from its name
+  token, so an `allow`, `expect`, or `warn` forwarded through a local macro's
+  `meta` or `ident` fragment, or written with comments inside it, is governed;
+  forwarded attributes are reported at their name without an autofix. Literal
+  lint-level attributes in a `macro_rules!` body are checked where the macro
+  is defined, so a `#[macro_export]` macro that emits
+  `#[allow(tigerstyle::structure)]` is rejected under a strict profile in the
+  crate that defines it, even if that crate never invokes it.
+- `ambient_clock` reports a clock `now` passed as a function value
+  (`or_insert_with(Instant::now)`) and `Instant::elapsed`/`SystemTime::elapsed`.
+  `raw_domain_value` reports registered domains exposed as `str`, `&str`, or
+  `&Path`; `magic_number` treats field and method operands
+  (`self.elapsed_ms > 30_000`) as names and no longer lets an enclosing
+  unit-named `let` document a nested threshold; `ignored_join_handle` reports
+  handles discarded inside `Result` or `Option` (`thread::Builder::spawn`).
+- `non_trait_imports`, `renamed_imports`, and `path_segment_repetition` no
+  longer skip files whose path contains `ui_tests/` or `tests/fixtures`, such as
+  `crates/gui_tests/src/lib.rs`.
+- Architecture collection and gate: adapters constructed inside a result
+  (`SqlRepo::connect(&url)?` returning `Result<Self, _>`, `Option<Box<_>>`,
+  `Arc<_>`) are reported outside the composition root, once per written call
+  including `.await?`. Selected value provenance stays `Unknown` when a
+  function can also be called through a function pointer or from another
+  crate, or when a value is overwritten through `&mut`, a field or pointer
+  write, or `std::mem::swap`. Overloaded operators and implicit `Deref` calls
+  record calls and effects, so reading a `static LazyLock` is a concurrency
+  effect; `Instant::elapsed`/`SystemTime::elapsed` are time effects and the
+  filesystem-querying `Path` methods (`exists`, `metadata`, `read_dir`, ...)
+  are filesystem effects. Fact sets and IR hashes change, so waivers on
+  affected findings go stale.
+- Policy validation (Rust and Nickel) requires a protected effect's executor
+  scope to be an outbound adapter, which the gate already demanded.
+- Effect-closure admission treats any attribute that is not an inert built-in
+  (doc, lint levels, `inline`, `must_use`, and similar) as `unknown`, so
+  procedural attribute macros, `#[test]`, and `#[derive]` no longer pass.
+  Call-site IDs (domain `octet-effect-closure-call-site/v2`) bind the caller's
+  source path and what the callee's leading name resolves to, so a reviewed
+  summary goes stale when that `use` or item changes; existing summaries must
+  be re-reviewed. Receipts move to `octet-effect-closure-receipt/v2` (call
+  edges carry `scope`), and `admit verify`/`artifact verify` reject v1
+  receipts as unsupported.
+- Wasm artifact verification recomputes the receipt status from its findings
+  and requires `config_identity` to equal `registry_identity`, so a relabelled
+  status or swapped registry fails even with regenerated summary and
+  provenance. A rejected external runtime report stays a finding at the
+  profile's `external_evidence` severity instead of being stored as evidence,
+  so `advisory` and `warning` now take effect.
+
+Fewer false positives:
+
+- `unchecked_division` accepts match-arm zero guards (`0 => ..`, `d if d != 0`).
+  `compound_assertion` reads `&&`/`||` from the parsed `assert!` condition, so
+  `assert!(item == &&expected)` is no longer flagged or split into code that
+  does not compile. `catch_all_on_enum` skips `Option` and `Result` and lists
+  only variants earlier arms don't handle.
+- `clone_then_borrow` no longer warns when the original is moved later
+  (`drop(guard)`) or the clone detaches from a temporary lock guard.
+  `allocation_in_loop` skips allocations on `return` and `break` exit paths.
+  Lints that check `let` bindings skip the `let`s rustc generates for
+  `async fn` parameters, which removes a machine-applicable `bool_naming`
+  rename of a parameter and false `ignored_result`/`ignored_join_handle`
+  findings on `_` parameters.
+- Calls on plain std value types under effect paths (`IpAddr`, `SocketAddr`,
+  `ExitStatus`, `fs::Metadata`, `ThreadId`, atomic `Ordering`, and similar) no
+  longer count as effects. A package-scoped `core_no_std` obligation covers
+  only library and library-test units, so a `build.rs` no longer blocks it.
+  `&Witness` parameters and a narrow `impl From<AuthorizedOutput> for
+  Witness` pass the protected-effect checks.
+- Under a strict profile, an attribute the governance guard rejects gets only
+  the guard's error, a local macro's attribute is reported once per definition
+  site, and a later `deny` or `forbid` on the same node counts as restoring the
+  floor.
+
+Runner and artifacts:
+
+- `cargo octet check`, `evidence collect`, and `prove` prune only their own
+  outputs when they reuse an `--artifact-dir`; other files stay (and `artifact
+  verify` reports them as unexpected). An `--artifact-dir` that is the
+  workspace root or one of its ancestors is refused with exit 2 before any tool
+  runs; previously a workspace root carrying bundle markers could be deleted.
+- A finding that the same lint reports at the same place from several
+  compilation units (`--all-targets` builds a library and its test harness) is
+  reported once in totals, summaries, `results.jsonl`, SARIF, and baselines.
+- The `--cache` file moves to schema 2, keyed on the cargo-octet version,
+  toolchain and rustc version, config hash, and crate graph, and keeps only the
+  latest run, so `cache_status: hit` means the previous run reported the same
+  finding with the same toolchain and dependencies. An older cache file reads
+  as empty.
+- Repository tests no longer leave build output behind: UI fixtures, autofix
+  crates, and fixture dependency builds use scratch directories removed after
+  each run; consumer-integration tests build their CLI under the checkout's
+  `target/tmp` and keep the embedded-source cache in their temp dir.
+
 ## Unreleased: suppression governance, scope matching, and rail fixes
 
 Changes that can add findings or fail a build:
