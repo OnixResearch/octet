@@ -25,11 +25,15 @@ declare_tool_lint! {
 
 pub struct ConcreteConstructionInCore {
     core_source_scopes: Vec<String>,
+    core_value_provider_types: Vec<String>,
 }
 
 impl ConcreteConstructionInCore {
-    pub fn new(core_source_scopes: Vec<String>) -> Self {
-        Self { core_source_scopes }
+    pub fn new(core_source_scopes: Vec<String>, core_value_provider_types: Vec<String>) -> Self {
+        Self {
+            core_source_scopes,
+            core_value_provider_types,
+        }
     }
 }
 
@@ -39,6 +43,7 @@ impl_lint_pass!(ConcreteConstructionInCore => [CONCRETE_CONSTRUCTION_IN_CORE]);
 enum ConstructedTypeOrigin {
     LocalDomain,
     StandardValue,
+    ReviewedValue,
     External,
     Unsupported,
 }
@@ -78,7 +83,11 @@ fn constructed_type<'tcx>(cx: &LateContext<'tcx>, expr: &hir::Expr<'_>, callee: 
     cx.typeck_results().expr_ty(expr)
 }
 
-fn constructed_type_origin(cx: &LateContext<'_>, constructed: ty::Ty<'_>) -> ConstructedTypeOrigin {
+fn constructed_type_origin(
+    cx: &LateContext<'_>,
+    constructed: ty::Ty<'_>,
+    value_provider_types: &[String],
+) -> ConstructedTypeOrigin {
     let ty::Adt(adt, _) = constructed.kind() else {
         return ConstructedTypeOrigin::Unsupported;
     };
@@ -91,6 +100,11 @@ fn constructed_type_origin(cx: &LateContext<'_>, constructed: ty::Ty<'_>) -> Con
     };
     if STANDARD_VALUE_CRATES.contains(&crate_name) {
         ConstructedTypeOrigin::StandardValue
+    } else if value_provider_types
+        .iter()
+        .any(|provider| provider.split("::").eq(path.iter().map(rustc_span::Symbol::as_str)))
+    {
+        ConstructedTypeOrigin::ReviewedValue
     } else {
         ConstructedTypeOrigin::External
     }
@@ -112,7 +126,8 @@ impl<'tcx> LateLintPass<'tcx> for ConcreteConstructionInCore {
         let Some(type_name) = direct_constructor_name(cx, callee) else {
             return;
         };
-        if constructed_type_origin(cx, constructed_type(cx, expr, callee)) != ConstructedTypeOrigin::External
+        if constructed_type_origin(cx, constructed_type(cx, expr, callee), &self.core_value_provider_types)
+            != ConstructedTypeOrigin::External
             || !path_is_in_core_scope(cx, expr.span, &self.core_source_scopes)
             || test_context::late_hir_id_is_in_test_context(cx, expr.hir_id, expr.span)
         {

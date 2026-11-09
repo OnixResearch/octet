@@ -39,6 +39,7 @@
 # impl_blocks_max = 4
 # module_pub_items_max = 12
 # core_source_scopes = ["crates/domain-core/src/"]
+# core_value_provider_types = ["reviewed_values::Value"]
 # sealed_enum_marker = "octet::sealed_enum"
 # state_machine_core_marker = "octet::state_machine_core"
 # state_machine_enum_marker = "octet::state_machine_enum" # required on closed state/event enums for FSM profile evidence

@@ -570,7 +570,7 @@
     "guide_section": "Functional Core / Imperative Shell",
     "domain_group": "tigerstyle::purity",
     "guidance": "consider `const fn` for conservative private helpers when doing so does not freeze public API flexibility",
-    "docs_summary": "identify private helpers that appear eligible for `const fn`",
+    "docs_summary": "identify private free helpers in a conservative primitive HIR subset that appear eligible for `const fn`; calls, methods, closures, and type-dependent operators remain excluded",
     "effect_family": "unknown",
     "example_mode": "required",
     "example_text": "const fn clamp_to_limit(value: u32, limit: u32) -> u32"

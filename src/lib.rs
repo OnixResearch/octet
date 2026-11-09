@@ -296,7 +296,8 @@ lint_inventory! {
     },
     "concrete_construction_in_core", structure::concrete_construction_in_core::CONCRETE_CONSTRUCTION_IN_CORE => |lint_store, cfg| {
         let core_source_scopes = cfg.core_source_scopes.clone();
-        lint_store.register_late_pass(move |_| Box::new(structure::concrete_construction_in_core::ConcreteConstructionInCore::new(core_source_scopes.clone())));
+        let core_value_provider_types = cfg.core_value_provider_types.clone();
+        lint_store.register_late_pass(move |_| Box::new(structure::concrete_construction_in_core::ConcreteConstructionInCore::new(core_source_scopes.clone(), core_value_provider_types.clone())));
     },
     "type_accumulation", structure::type_accumulation::TYPE_ACCUMULATION => |lint_store, cfg| {
         let impl_blocks_max = cfg.impl_blocks_max;

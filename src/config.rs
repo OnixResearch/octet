@@ -15,6 +15,7 @@
 //! impl_blocks_max = 4
 //! module_pub_items_max = 12
 //! core_source_scopes = ["crates/domain-core/src/"]
+//! core_value_provider_types = ["reviewed_values::Value"]
 //! sealed_enum_marker = "octet::sealed_enum"
 //! state_machine_core_marker = "octet::state_machine_core"
 //! state_machine_enum_marker = "octet::state_machine_enum"
@@ -171,6 +172,9 @@ pub struct Config {
     /// Source path scopes where concrete construction in core is checked.
     pub core_source_scopes: Vec<String>,
 
+    /// Exact compiler definition paths of project-reviewed pure value ADTs.
+    pub core_value_provider_types: Vec<String>,
+
     /// Attribute marker that suppresses fragile same-crate exhaustive enum match diagnostics.
     pub sealed_enum_marker: String,
 
@@ -239,6 +243,7 @@ impl Default for Config {
             impl_blocks_max: 4,
             module_pub_items_max: 12,
             core_source_scopes: Vec::new(),
+            core_value_provider_types: Vec::new(),
             sealed_enum_marker: "octet::sealed_enum".to_owned(),
             state_machine_core_marker: "octet::state_machine_core".to_owned(),
             state_machine_enum_marker: "octet::state_machine_enum".to_owned(),

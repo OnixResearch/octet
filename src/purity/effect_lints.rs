@@ -865,6 +865,59 @@ fn function_is_const_candidate(source: &str) -> bool {
     contains_any(source, CONST_ELIGIBLE_HINTS)
 }
 
+fn const_subset_type(ty: rustc_middle::ty::Ty<'_>) -> bool {
+    use rustc_middle::ty::TyKind;
+
+    matches!(
+        ty.kind(),
+        TyKind::Bool | TyKind::Char | TyKind::Int(_) | TyKind::Uint(_) | TyKind::Float(_) | TyKind::Never
+    ) || ty.is_unit()
+}
+
+struct ConstSubsetVisitor<'a, 'tcx> {
+    cx: &'a LateContext<'tcx>,
+    eligible: bool,
+}
+
+impl<'tcx> Visitor<'tcx> for ConstSubsetVisitor<'_, 'tcx> {
+    fn visit_expr(&mut self, expr: &'tcx hir::Expr<'tcx>) {
+        if !self.eligible {
+            return;
+        }
+        // Absence of known effects is not evidence that a call is const. Admit
+        // only primitive expressions with built-in (not trait-resolved) operators.
+        let supported = matches!(
+            expr.kind,
+            hir::ExprKind::Lit(_)
+                | hir::ExprKind::Path(_)
+                | hir::ExprKind::Binary(..)
+                | hir::ExprKind::Unary(..)
+                | hir::ExprKind::Cast(..)
+                | hir::ExprKind::If(..)
+                | hir::ExprKind::Match(..)
+                | hir::ExprKind::Block(..)
+                | hir::ExprKind::Ret(_)
+                | hir::ExprKind::Let(_)
+                | hir::ExprKind::DropTemps(_)
+        );
+        let static_path = if let hir::ExprKind::Path(path) = &expr.kind {
+            matches!(
+                self.cx.typeck_results().qpath_res(path, expr.hir_id),
+                hir::def::Res::Def(hir::def::DefKind::Static { .. }, _)
+            )
+        } else {
+            false
+        };
+        self.eligible = supported
+            && !static_path
+            && const_subset_type(self.cx.typeck_results().expr_ty(expr))
+            && self.cx.typeck_results().type_dependent_def_id(expr.hir_id).is_none();
+        if self.eligible {
+            hir::intravisit::walk_expr(self, expr);
+        }
+    }
+}
+
 fn pure_contract_violation(
     function_source: &str,
     global_state: bool,
@@ -1104,13 +1157,15 @@ impl<'tcx> LateLintPass<'tcx> for MissingConstFn {
     fn check_fn(
         &mut self,
         cx: &LateContext<'tcx>,
-        _kind: FnKind<'tcx>,
+        kind: FnKind<'tcx>,
         _decl: &'tcx hir::FnDecl<'tcx>,
         body: &'tcx hir::Body<'tcx>,
         span: Span,
         def_id: rustc_hir::def_id::LocalDefId,
     ) {
-        if test_context::late_hir_id_is_in_test_context(cx, body.value.hir_id, span) {
+        if !matches!(kind, FnKind::ItemFn(..))
+            || test_context::late_hir_id_is_in_test_context(cx, body.value.hir_id, span)
+        {
             return;
         }
         let Some(source) = fn_snippet(cx, body, span) else {
@@ -1118,6 +1173,15 @@ impl<'tcx> LateLintPass<'tcx> for MissingConstFn {
         };
         if !function_is_const_candidate(&source) || fn_is_trait_method(cx, def_id) || body_calls_non_const_fn(cx, body)
         {
+            return;
+        }
+        let signature = cx.tcx.fn_sig(def_id).instantiate_identity().skip_binder();
+        if !signature.inputs().iter().copied().all(const_subset_type) || !const_subset_type(signature.output()) {
+            return;
+        }
+        let mut subset = ConstSubsetVisitor { cx, eligible: true };
+        subset.visit_expr(body.value);
+        if !subset.eligible {
             return;
         }
         emit(

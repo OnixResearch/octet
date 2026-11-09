@@ -1,0 +1,17 @@
+{
+  "command": [
+    "cargo", "test", "-p", "octet", "--test", "ui", "ui", "--locked", "--", "--ignored", "--nocapture"
+  ],
+  "cwd": "/home/brittonr/git/OnixResearch/octet-reconcile-20261109",
+  "environment_overrides": {
+    "CARGO_TARGET_DIR": "/home/brittonr/.cache/octet-reconcile-20261109/target",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_INCREMENTAL": "0"
+  },
+  "exit": 0,
+  "stdout": "test ui ... ok; test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out",
+  "snapshot": "ui_tests/missing_const_fn.stderr now records exactly one advisory for the primitive arithmetic free helper; the const-call, method, trait-method, string parsing, closure, overloaded-addition, and static-read cases emit no const advisory.",
+  "asserts": "The complete maintained UI corpus matches the conservative const-subset behavior."
+}

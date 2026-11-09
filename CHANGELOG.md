@@ -6,6 +6,29 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## 2026-11-09: Conservative const-helper classification
+
+`missing_const_fn` now requires a private free-function body in a conservative
+primitive-valued HIR subset after its existing source guardrails. Non-const
+string parsing and iteration, calls, closures, overloaded operators, static
+reads, and methods no longer become candidates merely because they contain
+comparison or arithmetic tokens. Simple private primitive arithmetic helpers
+retain the advisory. This is an advisory subset check, not a full compiler
+const proof, and it changes no construction, naming, or assertion policy.
+
+## 2026-11-09: Reviewed core value providers
+
+`concrete_construction_in_core` now accepts the default-empty consumer setting
+`core_value_provider_types`. Only exact compiler definition-path matches are
+classified as reviewed values; import aliases retain that resolved identity,
+while crate-only names, prefixes, suffixes, and unselected siblings from the
+same dependency remain external construction. The setting changes only the
+construction heuristic: lint severity, effect, resource, and architecture
+checks are unchanged. Consumers own review of every matching type in their
+locked dependency cohort and must renew it when dependencies change. Definition
+paths do not distinguish multiple versions of the same crate, and the setting
+neither verifies provider identity nor proves implementation purity.
+
 ## 2026-10-22: Proof-to-implementation gap guide
 
 The new [proof-to-implementation gap](docs/proof-implementation-gap.md) guide

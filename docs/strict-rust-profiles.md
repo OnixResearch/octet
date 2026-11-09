@@ -41,6 +41,8 @@ Core scopes are workspace-relative path prefixes. Octet trims each entry, strips
 
 Within declared core scopes, `concrete_construction_in_core` classifies direct `Type::new()` and `Type::default()` calls by the constructed `Self` type of the called associated function, so fallible constructors returning `Result<T, _>` or `Option<T>` are classified by `T`. Local-domain and `core`/`alloc`/`std` constructed types are not external dependency construction, and one direct external call emits at most one finding even when nested in a larger expression. This remains a bounded HIR/source-shape heuristic: external factories with other names and semantic dependency behavior are outside its claim.
 
+The default-empty `core_value_provider_types` setting classifies an explicitly reviewed external value ADT by its exact compiler definition path, for example `"reviewed_values::Value"`. Import aliases retain that resolved identity; crate-only names, prefixes, suffixes, and unselected siblings from the same dependency do not match. This changes only the construction heuristic, not lint severity or other effect, resource, or architecture checks. The consumer owns review of every matching type in its locked dependency cohort and must renew that review when dependencies change. Definition paths do not distinguish multiple versions of the same crate: a declaration covers every resolved match. The setting neither verifies provider identity nor proves implementation purity.
+
 ## Bootstrap deterministic core
 
 Declare the core paths in canonical consumer configuration:

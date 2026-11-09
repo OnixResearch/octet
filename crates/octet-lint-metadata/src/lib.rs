@@ -632,7 +632,7 @@ pub const LINT_METADATA: &[LintMetadata] = &[
         guide_section: "Functional Core / Imperative Shell",
         domain_group: GROUP_PURITY,
         guidance: "consider `const fn` for conservative private helpers when doing so does not freeze public API flexibility",
-        docs_summary: "identify private helpers that appear eligible for `const fn`",
+        docs_summary: "identify private free helpers in a conservative primitive HIR subset that appear eligible for `const fn`; calls, methods, closures, and type-dependent operators remain excluded",
         effect_family: EFFECT_UNKNOWN,
         example_mode: ExampleMode::Required,
         example_text: Some("const fn clamp_to_limit(value: u32, limit: u32) -> u32"),
