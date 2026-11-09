@@ -503,7 +503,19 @@ fn sandboxed_provider_argv(
     argv
 }
 
-pub(crate) fn execute_reused_charon_stage(input: ReusedCharonStageInput) -> AeneasStageObservation {
+/// Outcome of [`execute_reused_charon_stage`].
+pub(crate) struct ReusedCharonStageRun {
+    pub(crate) observation: AeneasStageObservation,
+    /// Whether this run created the work root; only then may the caller remove it, because an
+    /// existing root belongs to another run.
+    pub(crate) work_root_claimed: bool,
+}
+
+pub(crate) fn execute_reused_charon_stage(input: ReusedCharonStageInput) -> ReusedCharonStageRun {
+    let unclaimed = |observation| ReusedCharonStageRun {
+        observation,
+        work_root_claimed: false,
+    };
     let mut diagnostics = Vec::new();
     validate_absolute_path(&mut diagnostics, "charon_executable", &input.charon_executable);
     validate_absolute_path(&mut diagnostics, "network_sandbox", &input.network_sandbox);
@@ -532,13 +544,17 @@ pub(crate) fn execute_reused_charon_stage(input: ReusedCharonStageInput) -> Aene
     diagnostics.sort();
     diagnostics.dedup();
     if !diagnostics.is_empty() {
-        return failed_reused_charon_observation(input.charon_argv, diagnostics);
+        return unclaimed(failed_reused_charon_observation(input.charon_argv, diagnostics));
     }
     if let Err(error) = claim_work_root(&input.work_root, "reused Charon") {
-        return failed_reused_charon_observation(input.charon_argv, vec![error]);
+        return unclaimed(failed_reused_charon_observation(input.charon_argv, vec![error]));
     }
+    let claimed = |observation| ReusedCharonStageRun {
+        observation,
+        work_root_claimed: true,
+    };
     if let Err(error) = copy_directory_contents(&input.source_root, &input.work_root, CopyFilter::RustPackageInputs) {
-        return failed_reused_charon_observation(input.charon_argv, vec![error]);
+        return claimed(failed_reused_charon_observation(input.charon_argv, vec![error]));
     }
     let stage = AeneasStagePlan {
         kind: AeneasStageKind::Charon,
@@ -572,7 +588,7 @@ pub(crate) fn execute_reused_charon_stage(input: ReusedCharonStageInput) -> Aene
             .diagnostics
             .push("reused Charon stage succeeded without producing the declared snapshot".to_owned());
     }
-    observation
+    claimed(observation)
 }
 
 fn failed_reused_charon_observation(argv: Vec<String>, diagnostics: Vec<String>) -> AeneasStageObservation {
