@@ -229,12 +229,20 @@ Because pruning removes every entry the run does not write, a `--baseline` or `-
 
 ### 3a. Optional formal proof rails
 
-Formal proof rails are separate from the starter lint path. Consumers can inspect
-available rails without a verifier installation:
+Formal proof rails are separate from the starter lint path. Consumers can list
+the selected rails without a verifier installation; `--source` is required in
+every mode:
 
 ```bash
-cargo octet prove --list --policy-artifacts-dir artifacts/policy
-cargo octet prove --explain --policy-artifacts-dir artifacts/policy
+cargo octet prove --list --policy-artifacts-dir artifacts/policy --source src/verified
+```
+
+`--explain` does not inspect: it runs the selected rails, so it needs the
+verifiers, and prefixes each failure diagnostic with remediation context:
+
+```bash
+cargo octet prove --explain --policy-artifacts-dir artifacts/policy --source src/verified \
+  --rail octet.verus_proof_rails.addition-bound-production#rail-0
 ```
 
 A proof run executes only configured rail `command_argv` entries, captures

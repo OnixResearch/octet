@@ -142,9 +142,9 @@ Reviewers use the existing commands at the matching stage:
 - `cargo octet prove --rail <policy-id[#rail-N]>` narrows a list, explain, or
   execution run to explicit rails after family/source matching; unmatched
   selectors fail closed with deterministic diagnostics.
-- `cargo octet prove --explain` explains selected rails and deterministic
-  remediation for stale bindings, verifier mismatches, unmatched rails, or
-  unbacked proof claims.
+- `cargo octet prove --explain` runs the selected rails and prefixes failure
+  diagnostics with deterministic remediation for stale bindings, verifier
+  mismatches, unmatched rails, or unbacked proof claims.
 - `cargo octet prove` runs the configured verifier command, writes bounded logs
   and structured receipts, and emits `formal_proof` provenance only for a
   validated scoped receipt whose proof goal has no blockers. A blocked goal's
