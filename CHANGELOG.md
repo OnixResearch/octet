@@ -6,6 +6,64 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## Unreleased: SARIF, architecture, standards, Wasm, and dependency fixes
+
+Behaviour and format changes:
+
+- SARIF import rejects runs whose `results` or rule tables are missing,
+  `null`, or not arrays, runs that report a failed tool execution,
+  percent-encoded traversal, out-of-range or disagreeing artifact and rule
+  indexes, and unsupported `uriBaseId` values. Genuine CodeQL CLI reports now
+  import under `codeql-local`: `%SRCROOT%` maps to the workspace root, rule
+  tables under `tool.extensions` are accepted, and percent-encoded paths are
+  stored decoded, which changes the identity of such imported findings.
+- SARIF output declares `columnKind: unicodeCodePoints`, percent-encodes
+  artifact URIs, and marks open Integration architecture findings as errors in
+  every mode.
+- A `--baseline` run in which `cargo check` did not succeed records
+  `scan_complete: false` and reports the stale baseline IDs as unknown
+  (`null`) instead of listing IDs from crates that were never checked.
+- Architecture scope-level findings (`no-std-obligation`, port and
+  protected-protocol resolution and provenance) bind the source of the units
+  that own their scope, so source edits make their waivers stale; existing
+  waivers on those kinds go stale once. Phase records report
+  `waived_finding_count`, and the summary shows `clean with N waived`.
+- The compiler architecture collector matches units by Rust target tuple,
+  records a dynamic-dispatch unknown for trait calls through `Box`, `Arc`, or
+  `Rc<dyn Trait>` and qualified paths, records calls and effects for function
+  items passed as values such as `unwrap_or_else(Instant::now)`, classifies
+  standard-stream output as observability and `std::sync` primitives and
+  atomics as concurrency, and marks a shard incomplete when a value-flow limit
+  is hit. Items in non-library targets get target-qualified identities;
+  library identities are unchanged. These can newly produce findings, and
+  waivers on findings from non-library targets go stale once.
+- `octet-standards` dependency-direction checks fail closed when the crate
+  graph is incomplete: no `--source` inside a Cargo workspace, `cargo
+  metadata` output without a `resolve` graph, or a declared crate that matches
+  no package. Valid `line` and `next-line` suppressions now remove the
+  diagnostic they cover, and the report lists it under
+  `suppressed_diagnostics`. Strict capability manifests need their own replay
+  command and artifact for every deterministic handler.
+- The policy-package customs gate catches PEM private-key headers and
+  credential assignments in common spellings. Promotable and existing packages
+  must name a registry family, and policy, profile, template, and contract
+  packages must declare a generated artifact or a deterministic export command.
+  Nickel export manifests and architecture-policy loading check dependencies
+  against the files the source actually imports.
+- Wasm profile registries must claim the `wasmparser` and `wasm-encoder`
+  versions cargo-octet is built with.
+
+Fixes:
+
+- The architecture gate matches policy target `features` regardless of order,
+  lets adapters construct their own types, and its text port checks ignore
+  comments, strings, and name prefixes.
+- `evidence collect` for the `wasm-artifact`, `charon-semantic`, and `ast-grep`
+  rails binds exactly the bytes it read: each input is read once, so piped
+  inputs bundle correctly. ast-grep rejects `--command` before it runs.
+- Dependencies: `tokio` 1.54.1 (RUSTSEC-2026-0386) and `chacha20` 0.10.2
+  (0.10.1 was yanked).
+
 ## Unreleased: admission, fingerprint, roadmap, proof-ref, and contract fixes
 
 Behaviour and format changes:
