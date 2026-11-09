@@ -51,7 +51,12 @@ with a local root, followed by a path separator or nothing, has that root
 replaced by a placeholder and keeps the relative remainder. The local roots are
 the current directory as `<workspace>` (run the command from the workspace
 root), `HOME` as `<home>`, and the temporary directory as `<temp>`; the longest
-matching root wins. So `--manifest-path /home/alice/repo/Cargo.toml` captured
+matching root wins. Each root is matched in every spelling a recorded path is
+likely to use: the current directory as the operating system resolves it and,
+when the shell's `PWD` is absolute and resolves to that same directory, as `PWD`
+spells it through symlinks; `HOME` and the temporary directory both as given and
+with symlinks resolved. So a checkout under a symlinked directory, such as
+macOS `/tmp` resolving to `/private/tmp`, normalizes in either spelling. So `--manifest-path /home/alice/repo/Cargo.toml` captured
 from `/home/alice/repo` becomes `--manifest-path <workspace>/Cargo.toml`, and
 the same project at another checkout path or under another home yields the
 same `capsule_hash`. Strings outside those roots, such as HTTP routes, JSON

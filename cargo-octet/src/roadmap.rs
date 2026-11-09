@@ -1054,17 +1054,19 @@ struct LocalRoots {
 }
 
 impl LocalRoots {
-    /// Keeps each root that is absolute, valid UTF-8, and not a filesystem root, without trailing
-    /// separators; on equal length the workspace wins over home, and home over temp.
-    fn new(workspace: Option<&Path>, home: Option<&Path>, temp: Option<&Path>) -> Self {
+    /// Keeps each spelling of each root that is absolute, valid UTF-8, and not a filesystem root,
+    /// without trailing separators; on equal length the workspace wins over home, and home over
+    /// temp.
+    fn new(workspace: &[PathBuf], home: &[PathBuf], temp: &[PathBuf]) -> Self {
         let mut roots: Vec<(String, &'static str)> = [
             (workspace, WORKSPACE_PLACEHOLDER),
             (home, HOME_PLACEHOLDER),
             (temp, TEMP_PLACEHOLDER),
         ]
         .into_iter()
+        .flat_map(|(spellings, placeholder)| spellings.iter().map(move |root| (root.as_path(), placeholder)))
+        .filter(|(root, _)| root.is_absolute() && root.parent().is_some())
         .filter_map(|(root, placeholder)| {
-            let root = root.filter(|root| root.is_absolute() && root.parent().is_some())?;
             Some((root.to_str()?.trim_end_matches(std::path::is_separator).to_owned(), placeholder))
         })
         .collect();
@@ -1239,9 +1241,37 @@ fn is_hash_file_name(name: &str) -> bool {
 /// The local roots of this process: the current directory as the workspace, `HOME`, and the
 /// temporary directory.
 fn local_roots_from_environment() -> LocalRoots {
-    let workspace = std::env::current_dir().ok();
-    let home = std::env::var_os("HOME").map(PathBuf::from);
-    LocalRoots::new(workspace.as_deref(), home.as_deref(), Some(&std::env::temp_dir()))
+    local_roots_from(
+        std::env::current_dir().ok(),
+        std::env::var_os("PWD").map(PathBuf::from),
+        std::env::var_os("HOME").map(PathBuf::from),
+        std::env::temp_dir(),
+    )
+}
+
+/// Local roots with every spelling a recorded path is likely to use. `current_dir` is already
+/// resolved, while argv usually spells the checkout as the shell's `$PWD`, through symlinks, so
+/// `pwd` is also a workspace root when it resolves to the same directory; a stale `pwd` naming
+/// another directory is ignored. `HOME` and the temporary directory are registered both as given
+/// and resolved.
+fn local_roots_from(
+    current_dir: Option<PathBuf>,
+    pwd: Option<PathBuf>,
+    home: Option<PathBuf>,
+    temp: PathBuf,
+) -> LocalRoots {
+    let resolved_current = current_dir.as_deref().and_then(|current| fs::canonicalize(current).ok());
+    let pwd = pwd.filter(|pwd| resolved_current.is_some() && fs::canonicalize(pwd).ok() == resolved_current);
+    let workspace: Vec<PathBuf> = current_dir.into_iter().chain(pwd).collect();
+    let home = with_resolved_spelling(home);
+    let temp = with_resolved_spelling(Some(temp));
+    LocalRoots::new(&workspace, &home, &temp)
+}
+
+/// `path` as given, followed by its symlink-resolved form when it exists.
+fn with_resolved_spelling(path: Option<PathBuf>) -> Vec<PathBuf> {
+    let resolved = path.as_deref().and_then(|path| fs::canonicalize(path).ok());
+    path.into_iter().chain(resolved).collect()
 }
 
 fn read_json(path: &Path) -> Result<Value, String> {
@@ -1435,11 +1465,7 @@ mod tests {
 
     #[test]
     fn normalize_value_replaces_local_root_prefixes_only() {
-        let roots = LocalRoots::new(
-            Some(Path::new("/home/alice/repo/")),
-            Some(Path::new("/home/alice")),
-            Some(Path::new("/tmp")),
-        );
+        let roots = LocalRoots::new(&["/home/alice/repo/".into()], &["/home/alice".into()], &["/tmp".into()]);
         let normalized = normalize_value(
             serde_json::json!({
                 "workspace": "/home/alice/repo",
@@ -1483,9 +1509,46 @@ mod tests {
 
     #[test]
     fn local_roots_skip_relative_and_filesystem_roots() {
-        let roots = LocalRoots::new(Some(Path::new("/")), Some(Path::new("relative/home")), None);
+        let roots = LocalRoots::new(&["/".into()], &["relative/home".into()], &[]);
         assert_eq!(roots.normalize("/home/alice/repo"), None);
         assert_eq!(roots.normalize("relative/home/x"), None);
+    }
+
+    #[test]
+    fn local_roots_register_symlinked_and_resolved_spellings() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let base = std::fs::canonicalize(temp.path()).expect("canonical tempdir");
+        let real = base.join("real");
+        for directory in ["checkout", "home", "tmp", "elsewhere"] {
+            std::fs::create_dir_all(real.join(directory)).expect("create local root");
+        }
+        let link = base.join("link");
+        std::os::unix::fs::symlink(&real, &link).expect("symlink checkout parent");
+
+        let roots = local_roots_from(
+            Some(real.join("checkout")),
+            Some(link.join("checkout")),
+            Some(link.join("home")),
+            link.join("tmp"),
+        );
+        for (spelling, parent) in [("symlinked", &link), ("resolved", &real)] {
+            for (root, rest, expected) in [
+                ("checkout", "Cargo.toml", "<workspace>/Cargo.toml"),
+                ("home", ".config/octet.toml", "<home>/.config/octet.toml"),
+                ("tmp", "run-1/out.json", "<temp>/run-1/out.json"),
+            ] {
+                let path = parent.join(root).join(rest);
+                let text = path.to_str().expect("utf-8 path");
+                assert_eq!(roots.normalize(text).as_deref(), Some(expected), "{spelling} {text}");
+            }
+        }
+
+        let stale = local_roots_from(Some(real.join("checkout")), Some(real.join("elsewhere")), None, link.join("tmp"));
+        let elsewhere = real.join("elsewhere/Cargo.toml");
+        assert_eq!(stale.normalize(elsewhere.to_str().expect("utf-8 path")), None, "stale PWD is not the workspace");
+        let relative =
+            local_roots_from(Some(real.join("checkout")), Some(PathBuf::from("checkout")), None, link.join("tmp"));
+        assert_eq!(relative.normalize("checkout/Cargo.toml"), None, "relative PWD is not a root");
     }
 
     fn args(values: &[&str]) -> Vec<String> {
