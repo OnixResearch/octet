@@ -1160,7 +1160,8 @@ fn blake3_hex(text: &str) -> String {
 /// Adds `cargo metadata` output for the dependency-direction check.
 ///
 /// Returns an error diagnostic when the active crate-boundary mechanism needs the crate graph but
-/// `cargo metadata` cannot run, exits non-zero, or prints non-UTF-8 output.
+/// no `--source` path lies inside a Cargo workspace, or `cargo metadata` cannot run, exits
+/// non-zero, or prints non-UTF-8 output.
 // r[impl octet.dependency_direction.shell.metadata_failure]
 fn append_cargo_metadata_source(
     registry: &PolicyRegistry,
@@ -1175,7 +1176,19 @@ fn append_cargo_metadata_source(
     if sources.iter().any(|source| source.path.ends_with(CARGO_METADATA_SOURCE_PATH)) {
         return None;
     }
-    let working_dir = cargo_metadata_working_dir(source_paths)?;
+    let Some(working_dir) = cargo_metadata_working_dir(source_paths) else {
+        return Some(Diagnostic::new(DiagnosticInput {
+            policy_id: policy.policy_id.clone(),
+            source_section: policy.source_anchor.clone(),
+            path: CARGO_METADATA_SOURCE_PATH.to_owned(),
+            line: None,
+            severity: Severity::Error,
+            message: format!(
+                "no `--source` path has a `{CARGO_MANIFEST_FILE}` ancestor, so `cargo metadata --format-version 1` has no workspace to read; the dependency-direction check has no crate graph"
+            ),
+            remediation: "pass a `--source` path inside the checked Cargo workspace, or pass its `cargo metadata --format-version 1` output as a `__octet/cargo-metadata.json` source".to_owned(),
+        }));
+    };
     match cargo_metadata_output(&working_dir) {
         Ok(metadata) => {
             sources.push(SourceFile::new(CARGO_METADATA_SOURCE_PATH, metadata));

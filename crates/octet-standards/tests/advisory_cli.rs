@@ -40,6 +40,8 @@ const PROOF_BUNDLE_SCHEMA_VERSION: &str = "octet-proof-bundle/v1";
 const ARTIFACT_MANIFEST_SCHEMA_VERSION: &str = "octet-artifact-manifest/v1";
 const ADVISORY_FIXTURE: &str = "standards/check-fixtures/architecture/advisory/public-api-budget";
 const HARD_FAILURE_FIXTURE: &str = "standards/check-fixtures/architecture/noncompliant/missing-no-std";
+const OCTET_LAYOUT_METADATA_FIXTURE: &str =
+    "standards/check-fixtures/architecture/dependency-direction/octet-layout.json";
 const EXPECTED_BINARY_DECLARATION_COUNT: usize = 1;
 const STANDARDS_ALIAS_BINARY_COUNT: usize = 3;
 const EXPECTED_STANDARDS_VERSION_PREFIX: &str = "octet-standards ";
@@ -102,7 +104,8 @@ fn advisory_only_cli_report_exits_successfully() {
     let temp = TempDir::new().expect("temp dir should be created");
     let registry = write_registry(&temp);
 
-    let output = run_architecture_check(&registry, &repo_path(ADVISORY_FIXTURE));
+    let metadata = write_octet_layout_metadata(&temp);
+    let output = run_architecture_check(&registry, &[&repo_path(ADVISORY_FIXTURE), &metadata]);
     assert_success(&output);
     let report = parse_report(&output);
 
@@ -120,7 +123,7 @@ fn hard_policy_cli_report_exits_with_failure() {
     let temp = TempDir::new().expect("temp dir should be created");
     let registry = write_registry(&temp);
 
-    let output = run_architecture_check(&registry, &repo_path(HARD_FAILURE_FIXTURE));
+    let output = run_architecture_check(&registry, &[&repo_path(HARD_FAILURE_FIXTURE)]);
     assert_failure(&output);
     let report = parse_report(&output);
 
@@ -1045,12 +1048,13 @@ fn check_skips_non_utf8_files_in_source_directories_but_rejects_named_ones() {
     let binary_asset = source_dir.join("assets/logo.bin");
     std::fs::write(&binary_asset, [0xff, 0xfe, 0x00, 0x01]).expect("binary asset should be written");
 
-    let walked = run_architecture_check(&registry, &source_dir);
+    let metadata = write_octet_layout_metadata(&temp);
+    let walked = run_architecture_check(&registry, &[&source_dir, &metadata]);
 
     assert_success(&walked);
     assert!(parse_report(&walked).diagnostics.is_empty());
 
-    let named = run_architecture_check(&registry, &binary_asset);
+    let named = run_architecture_check(&registry, &[&binary_asset, &metadata]);
 
     assert_failure(&named);
     let stderr = String::from_utf8_lossy(&named.stderr);
@@ -1206,6 +1210,30 @@ printf '%s' '{"packages":[{"id":"core","name":"tigerstyle-core","manifest_path":
                 && diagnostic
                     .message
                     .contains("core crate `tigerstyle-core` depends on external infrastructure crate `tokio`")
+        }),
+        "{:?}",
+        report.diagnostics
+    );
+}
+
+#[test]
+fn architecture_check_rejects_sources_outside_any_cargo_workspace() {
+    let temp = TempDir::new().expect("temp dir should be created");
+    let registry = write_registry(&temp);
+    let loose_sources = temp.path().join("loose-sources");
+    std::fs::create_dir_all(loose_sources.join("crates/tigerstyle-core/src")).expect("core dir should be created");
+    std::fs::write(loose_sources.join("crates/tigerstyle-core/src/lib.rs"), "#![no_std]\n")
+        .expect("core crate root should be written");
+
+    let output = run_architecture_check(&registry, &[&loose_sources]);
+
+    assert_failure(&output);
+    let report = parse_report(&output);
+    assert!(
+        report.diagnostics.iter().any(|diagnostic| {
+            diagnostic.policy_id == FCIS_POLICY_ID
+                && diagnostic.severity == Severity::Error
+                && diagnostic.message.contains("Cargo.toml")
         }),
         "{:?}",
         report.diagnostics
@@ -1380,19 +1408,28 @@ fn refresh_manifest_entry(artifact_dir: &Path, artifact_name: &str) {
     std::fs::write(&manifest_path, format!("{text}\n")).expect("manifest should be refreshed");
 }
 
-fn run_architecture_check(registry: &Path, source: &Path) -> Output {
-    Command::new(binary_path())
-        .arg("check")
-        .arg("--registry")
-        .arg(registry)
-        .arg("--source")
-        .arg(source)
+fn run_architecture_check(registry: &Path, sources: &[&Path]) -> Output {
+    let mut command = Command::new(binary_path());
+    command.arg("check").arg("--registry").arg(registry);
+    for source in sources {
+        command.arg("--source").arg(source);
+    }
+    command
         .arg("--family")
         .arg(ARCHITECTURE_FAMILY)
         .arg("--output")
         .arg("json")
         .output()
         .expect("standards checker should run")
+}
+
+/// Copies the reviewed Octet-layout crate graph to a `__octet/cargo-metadata.json` source path.
+fn write_octet_layout_metadata(temp: &TempDir) -> PathBuf {
+    let metadata_dir = temp.path().join("cargo-metadata/__octet");
+    std::fs::create_dir_all(&metadata_dir).expect("metadata dir should be created");
+    let metadata = metadata_dir.join("cargo-metadata.json");
+    std::fs::copy(repo_path(OCTET_LAYOUT_METADATA_FIXTURE), &metadata).expect("metadata fixture should be copied");
+    metadata
 }
 
 fn run_architecture_artifact_check(policy_artifacts_dir: &Path, source: &Path) -> Output {

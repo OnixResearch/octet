@@ -32,6 +32,14 @@ evidence.
 - Hard policies need positive and negative fixtures before becoming blocking.
 - Policies that target `structural` MUST export at least one mechanism contract
   such as crate-boundary, capability-api, bounded-primitive, or type-state.
+- Crate-boundary mechanisms that declare shell crates drive a
+  dependency-direction check over the `cargo metadata --format-version 1`
+  crate graph, taken from a `__octet/cargo-metadata.json` source or run from
+  the nearest `Cargo.toml` ancestor of a `--source` path. The check fails
+  closed with an error diagnostic when no source lies in a Cargo workspace,
+  cargo metadata fails, the metadata has no `resolve` graph (as with
+  `--no-deps`), or a declared `core_crates`, `shell_crates`, or
+  `adapter_crates` entry matches no package or no resolved workspace member.
 - Capability-api mechanisms export forbidden ambient authority APIs, declared
   scope classes, capability families, core scopes, shell constructor scopes,
   approved capability names, injected traits/tokens, shell interpreters, and

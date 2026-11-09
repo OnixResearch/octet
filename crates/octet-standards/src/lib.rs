@@ -972,6 +972,80 @@ fn concurrency() { let _ = std::thread::spawn(|| ()); }\n";
     }
 
     #[test]
+    fn architecture_dependency_direction_rejects_metadata_without_resolve_graph() {
+        let selection = FamilySelection::from_families(["architecture"]);
+        let registry = sample_dependency_direction_registry(vec!["normal", "build"]);
+        let no_deps = clean_metadata_with(|metadata| metadata["resolve"] = serde_json::Value::Null);
+
+        for metadata in [no_deps.as_str(), "{}"] {
+            let diagnostics = check_architecture(&registry, &[metadata_source(metadata)], &selection);
+
+            assert!(
+                diagnostics.iter().any(|diagnostic| {
+                    diagnostic.policy_id == FCIS_POLICY_ID
+                        && diagnostic.severity == Severity::Error
+                        && diagnostic.path == CARGO_METADATA_SOURCE_PATH
+                        && diagnostic.message.contains("`resolve`")
+                }),
+                "{metadata}: {diagnostics:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn architecture_dependency_direction_rejects_declared_crates_missing_from_metadata() {
+        let selection = FamilySelection::from_families(["architecture"]);
+        for (role, missing_path) in [
+            ("core", "crates/missing-core/src/lib.rs"),
+            ("shell", "crates/missing-shell/Cargo.toml"),
+            ("adapter", "crates/missing-adapter/Cargo.toml"),
+        ] {
+            let mut registry = sample_dependency_direction_registry(vec!["normal", "build"]);
+            let mechanism = &mut registry.policies[0].mechanisms[0];
+            let declared = match role {
+                "core" => &mut mechanism.core_crates,
+                "shell" => &mut mechanism.shell_crates,
+                _ => &mut mechanism.adapter_crates,
+            };
+            declared.push(missing_path.to_owned());
+
+            let diagnostics =
+                check_architecture(&registry, &[metadata_source(DEPENDENCY_DIRECTION_CLEAN_METADATA)], &selection);
+
+            assert_eq!(
+                diagnostics
+                    .iter()
+                    .filter(|diagnostic| diagnostic.message.contains(missing_path))
+                    .map(|diagnostic| (diagnostic.policy_id.as_str(), diagnostic.severity))
+                    .collect::<Vec<_>>(),
+                vec![(FCIS_POLICY_ID, Severity::Error)],
+                "{role}: {diagnostics:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn architecture_dependency_direction_rejects_declared_crate_outside_resolved_workspace() {
+        let metadata =
+            clean_metadata_with(|metadata| metadata["workspace_members"] = serde_json::json!(["core", "shell"]));
+
+        let diagnostics = check_architecture(
+            &sample_dependency_direction_registry(vec!["normal", "build"]),
+            &[metadata_source(&metadata)],
+            &FamilySelection::from_families(["architecture"]),
+        );
+
+        assert!(
+            diagnostics.iter().any(|diagnostic| {
+                diagnostic.policy_id == FCIS_POLICY_ID
+                    && diagnostic.severity == Severity::Error
+                    && diagnostic.message.contains("`http-adapter`")
+            }),
+            "{diagnostics:?}"
+        );
+    }
+
+    #[test]
     fn idioms_selection_skips_architecture_family_diagnostics() {
         let sources = vec![SourceFile::new(
             "crates/tigerstyle-core/src/lib.rs",
@@ -1325,19 +1399,28 @@ impl Session<Authenticated> { pub fn send(self) {} }
         SourceFile::new(CARGO_METADATA_SOURCE_PATH, text)
     }
 
+    fn clean_metadata_with(edit: impl FnOnce(&mut serde_json::Value)) -> String {
+        let mut metadata = serde_json::from_str::<serde_json::Value>(DEPENDENCY_DIRECTION_CLEAN_METADATA)
+            .expect("clean metadata fixture should parse");
+        edit(&mut metadata);
+        metadata.to_string()
+    }
+
     fn dev_dependency_metadata() -> &'static str {
         r#"{
   "packages": [
     { "id": "core", "name": "domain-core", "manifest_path": "/workspace/crates/domain-core/Cargo.toml" },
+    { "id": "shell", "name": "app-shell", "manifest_path": "/workspace/crates/app-shell/Cargo.toml" },
     { "id": "adapter", "name": "http-adapter", "manifest_path": "/workspace/crates/http-adapter/Cargo.toml" }
   ],
   "resolve": {
     "nodes": [
       { "id": "core", "deps": [{ "pkg": "adapter", "dep_kinds": [{ "kind": "dev" }] }] },
+      { "id": "shell", "deps": [{ "pkg": "core", "dep_kinds": [{ "kind": null }] }] },
       { "id": "adapter", "deps": [{ "pkg": "core", "dep_kinds": [{ "kind": null }] }] }
     ]
   },
-  "workspace_members": ["core", "adapter"]
+  "workspace_members": ["core", "shell", "adapter"]
 }"#
     }
 

@@ -87,6 +87,15 @@ r[octet.dependency_direction.shell.purity]
 r[octet.dependency_direction.shell.metadata_failure]
 
 - GIVEN the architecture family is selected, the crate-boundary mechanism is active, and no `__octet/cargo-metadata.json` source is supplied
-- WHEN the imperative shell cannot run `cargo metadata --format-version 1`, the command exits non-zero, or it prints non-UTF-8 output
-- THEN the checker MUST emit an error-severity crate-boundary diagnostic naming the cargo failure
+- WHEN no `--source` path has a `Cargo.toml` ancestor, or the imperative shell cannot run `cargo metadata --format-version 1`, the command exits non-zero, or it prints non-UTF-8 output
+- THEN the checker MUST emit an error-severity crate-boundary diagnostic naming the missing workspace or the cargo failure
 - AND the dependency-direction check MUST NOT pass without a crate graph.
+
+#### Scenario: Incomplete crate graph fails closed
+
+r[octet.dependency_direction.shell.graph_gaps]
+
+- GIVEN cargo metadata, supplied or produced by the shell, has no `resolve` graph, or a declared `core_crates`, `shell_crates`, or `adapter_crates` entry matches no package or no resolved workspace member
+- WHEN the dependency-direction check runs
+- THEN the checker MUST emit an error-severity crate-boundary diagnostic naming the missing `resolve` graph, the unmatched declared path, or the unresolved declared package
+- AND the check MUST NOT pass for a declared crate it cannot see in the graph.

@@ -3,10 +3,12 @@
 use std::collections::BTreeSet;
 
 use crate::dependency_direction::CargoMetadata;
+use crate::dependency_direction::CrateGraphGap;
 use crate::dependency_direction::DependencyDirectionViolation;
 use crate::dependency_direction::DependencyDirectionViolationKind;
 use crate::dependency_direction::DependencyEdgeClassification;
 use crate::dependency_direction::DependencyEdgeKind;
+use crate::dependency_direction::crate_graph_gaps;
 use crate::dependency_direction::default_dependency_edge_kinds;
 use crate::dependency_direction::dependency_direction;
 use crate::dependency_direction::dependency_input_from_metadata;
@@ -17,6 +19,7 @@ use crate::model::Mechanism;
 use crate::model::MechanismKind;
 use crate::model::PolicyEntry;
 use crate::model::PolicyRegistry;
+use crate::model::Severity;
 use crate::source::SourceFile;
 
 const ARCHITECTURE_FAMILY: &str = "architecture";
@@ -510,10 +513,47 @@ fn check_dependency_direction(
         dependency_edge_kind_set(&boundary.dependency_edge_kinds),
     );
     diagnostics.extend(
+        crate_graph_gaps(&metadata, &boundary.core_crates, &boundary.shell_crates, &boundary.adapter_crates, &input)
+            .iter()
+            .map(|gap| crate_graph_gap_diagnostic(policy, metadata_source, gap)),
+    );
+    diagnostics.extend(
         dependency_direction(&input)
             .into_iter()
             .map(|violation| dependency_direction_diagnostic(policy, metadata_source, &violation)),
     );
+}
+
+/// Fails closed when the crate graph cannot show part of the declared crate sets.
+// r[impl octet.dependency_direction.shell.graph_gaps]
+fn crate_graph_gap_diagnostic(policy: &PolicyEntry, source: &SourceFile, gap: &CrateGraphGap) -> Diagnostic {
+    let (message, remediation) = match gap {
+        CrateGraphGap::MissingResolve => (
+            "cargo metadata has no `resolve` dependency graph; the dependency-direction check has no crate graph"
+                .to_owned(),
+            "supply full `cargo metadata --format-version 1` output, without `--no-deps`".to_owned(),
+        ),
+        CrateGraphGap::UnmatchedDeclaredPath { role, declared_path } => (
+            format!(
+                "crate-boundary `{}` entry `{declared_path}` matches no package in cargo metadata; the dependency-direction check cannot inspect it",
+                role.config_field()
+            ),
+            format!(
+                "point `{}` at a workspace crate's `Cargo.toml` or `src/lib.rs`, or supply cargo metadata for the workspace that contains it",
+                role.config_field()
+            ),
+        ),
+        CrateGraphGap::UnresolvedDeclaredPackage { role, package } => (
+            format!(
+                "declared {} crate `{package}` has no resolve node among cargo metadata workspace members; the dependency-direction check cannot inspect its dependencies",
+                role.label()
+            ),
+            "make the crate a workspace member, or supply cargo metadata for the workspace that contains it".to_owned(),
+        ),
+    };
+    let mut diagnostic = policy_diagnostic(policy, source, None, &message, &remediation);
+    diagnostic.severity = Severity::Error;
+    diagnostic
 }
 
 /// Resolves the configured edge scope, defaulting to normal and build dependencies when the
