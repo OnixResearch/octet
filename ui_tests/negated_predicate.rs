@@ -63,7 +63,9 @@ macro_rules! bail_if {
 }
 
 // Should warn with a review-required rename: a `tt` argument keeps its source
-// span, but `!has_items` is two tokens and no longer matches the macro arm.
+// span, so `!has_items` (two tokens) no longer matches the arm, and
+// `(!has_items)` as the macro's `if` condition trips rustc's `unused_parens`,
+// whose own fix removes the parentheses again.
 fn macro_token_tree_use(len: usize) -> u8 {
     let no_items = len == 0;
     bail_if!(no_items);

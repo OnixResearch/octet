@@ -236,7 +236,7 @@ LL ~     let fit_text = format!("{is_wont_fit}");
    |
 
 warning: negated predicate name `no_items` — prefer a positive form like `has_items`
-  --> $DIR/negated_predicate.rs:68:9
+  --> $DIR/negated_predicate.rs:70:9
    |
 LL |     let no_items = len == 0;
    |         ^^^^^^^^
@@ -251,7 +251,7 @@ LL +     let has_items = len == 0;
    |
 
 warning: boolean binding `no_items` should have a predicate prefix
-  --> $DIR/negated_predicate.rs:68:9
+  --> $DIR/negated_predicate.rs:70:9
    |
 LL |     let no_items = len == 0;
    |         ^^^^^^^^

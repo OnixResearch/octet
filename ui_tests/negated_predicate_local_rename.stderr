@@ -44,8 +44,38 @@ LL ~     let is_empty = len == 0;
 LL ~     !is_empty
    |
 
+warning: negated predicate name `has_no_items` — prefer a positive form like `has_items`
+  --> $DIR/negated_predicate_local_rename.rs:30:9
+   |
+LL |     let has_no_items = len == 0;
+   |         ^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Positive Predicates): prefer positive predicate names over negated forms like `is_not_ready` or `no_capacity` Example: fn is_ready(state: &State) -> bool
+   = note: structured suggestion applicability: MachineApplicable
+   = note: see Tiger Style guide: Positive Predicates
+help: rename to `has_items` and negate its value
+   |
+LL ~     let has_items = !(len == 0);
+LL ~     ensure!((!has_items));
+   |
+
+warning: negated predicate name `has_no_values` — prefer a positive form like `has_values`
+  --> $DIR/negated_predicate_local_rename.rs:37:9
+   |
+LL |     let has_no_values = values.is_empty();
+   |         ^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Positive Predicates): prefer positive predicate names over negated forms like `is_not_ready` or `no_capacity` Example: fn is_ready(state: &State) -> bool
+   = note: structured suggestion applicability: MachineApplicable
+   = note: see Tiger Style guide: Positive Predicates
+help: rename to `has_values` and negate its value
+   |
+LL ~     let has_values = !values.is_empty();
+LL ~     assert!(has_values);
+   |
+
 warning: negated predicate name `is_not_empty` — prefer a positive form like `is_empty`
-  --> $DIR/negated_predicate_local_rename.rs:31:9
+  --> $DIR/negated_predicate_local_rename.rs:56:9
    |
 LL |     let is_not_empty = true;
    |         ^^^^^^^^^^^^
@@ -61,7 +91,7 @@ LL ~     values.iter().filter(|_| !is_empty).count()
    |
 
 warning: negated predicate name `is_not_done` — prefer a positive form like `is_done`
-  --> $DIR/negated_predicate_local_rename.rs:37:9
+  --> $DIR/negated_predicate_local_rename.rs:62:9
    |
 LL |     let is_not_done = true;
    |         ^^^^^^^^^^^
@@ -76,7 +106,7 @@ LL ~     let _future = async move { !is_done };
    |
 
 warning: negated predicate name `is_not_hidden` — prefer a positive form like `is_hidden`
-  --> $DIR/negated_predicate_local_rename.rs:46:9
+  --> $DIR/negated_predicate_local_rename.rs:71:9
    |
 LL |     let is_not_hidden = true;
    |         ^^^^^^^^^^^^^
@@ -91,7 +121,7 @@ LL ~     let flags = Flags { is_not_hidden: !is_hidden };
    |
 
 warning: negated predicate name `is_not_ready` — prefer a positive form like `is_ready`
-  --> $DIR/negated_predicate_local_rename.rs:52:9
+  --> $DIR/negated_predicate_local_rename.rs:77:9
    |
 LL |     let is_not_ready = false;
    |         ^^^^^^^^^^^^
@@ -105,5 +135,5 @@ LL ~     let is_ready = !false;
 LL ~     (!is_ready).then_some(1)
    |
 
-warning: 7 warnings emitted
+warning: 9 warnings emitted
 

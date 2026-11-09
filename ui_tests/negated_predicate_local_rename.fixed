@@ -16,6 +16,28 @@ const fn negated_initializer(len: usize) -> bool {
     !is_empty
 }
 
+macro_rules! ensure {
+    ($cond:tt) => {
+        if !$cond {
+            return 0;
+        }
+    };
+}
+
+// A `tt` argument keeps its source span; the negated read must stay one token
+// tree, so it becomes `(!has_items)`, and `!(!has_items)` keeps its parentheses.
+const fn macro_token_tree_use(len: usize) -> u8 {
+    let has_items = !(len == 0);
+    ensure!((!has_items));
+    1
+}
+
+// An `expr` argument: `!has_no_values` collapses to the positive name.
+const fn macro_expr_use(values: &[u8]) {
+    let has_values = !values.is_empty();
+    assert!(has_values);
+}
+
 const _: () = {
     let (a, b, c) = multiple_uses();
     assert!(!a);
@@ -25,6 +47,9 @@ const _: () = {
     assert!(!binary_initializer(3));
     assert!(negated_initializer(3));
     assert!(!negated_initializer(0));
+    assert!(macro_token_tree_use(0) == 1);
+    assert!(macro_token_tree_use(3) == 0);
+    macro_expr_use(&[1]);
 };
 
 fn closure_use() -> usize {
