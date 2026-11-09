@@ -1,6 +1,6 @@
 # Vermilion proof rail evaluation
 
-Status: **contract and fixtures implemented; live pilot blocked**.
+Status: **contract, fixtures, and live Vermilion u64 pilot implemented; executable and Aeneas refinement bridges open**.
 
 This document records a bounded evaluation of [Vermilion](https://github.com/ilyasergey/vermilion)
 alongside Octet's existing Verus and Aeneas/Lean proof rails. It reuses the
@@ -29,8 +29,9 @@ verified, or that any cross-provider comparison is a merged proof.
 The module is opt-in and pure. It adds no work to starter `cargo octet check`,
 does not execute a provider, and does not extend the default proof-rail path.
 Wiring a Vermilion rail into `cargo octet prove`, proof cards, artifact
-verification, or Valence export requires the live cohort below and a separate
-reviewed change.
+verification, or Valence export requires a separate reviewed change. The live
+Vermilion cohort itself is now built and exercised; see the evidence links
+below.
 
 ## Pilot contract
 
@@ -181,16 +182,17 @@ u64 checked contract until a refinement bridge exists.
 
 ## Open obligations
 
-1. **Live provider cohort is absent.** `vermilion`, `lean`, `lake`, `aeneas`,
-   `charon`, and `cvc5` are not installed on the evaluation host. The positive
-   receipt is a synthetic contract fixture, not a provider run.
-2. **No measured Vermilion obligations exist.** The generated Lean source,
-   obligation manifest, proof twins, axiom inventory, and checker output for
-   the pilot subject must be produced by the pinned closure before any live
-   claim.
+1. **Vermilion/Lean/Verus/cvc5 cohort is built; Aeneas and Charon are absent.**
+   The pinned Vermilion `7c83bbc`, Lean 4.33.0, Mathlib cache, Vermilion Lean
+   libraries, Rust workspace, and Verus fork `4860083` built on 2026-11-09.
+   Aeneas/Charon-dependent evidence remains blocked.
+2. **Measured Vermilion obligations exist for the u64 pilot.** The live
+   `2026-11-09-u64-pilot` run produced two Lean-verified obligations with zero
+   `sorry` and a kernel-checked proof twin. See
+   `standards/proof-rails/vermilion-lean/evidence/2026-11-09-u64-pilot/`.
 3. **Executable refinement is open** (`pilot.increment.refinement-to-spec`).
-   The generated obligation has not been bridged to the executable Rust
-   contract.
+   The Verus-syntax pilot source is a parallel specification, not the plain
+   Rust executable; that bridge has not been checked.
 4. **Verus route refinement is open** (`pilot.verus.nat-to-u64-checked`). The
    existing addition-bound proof is about `nat`, not the u64 checked result.
 5. **Aeneas route refinement is open** (`pilot.aeneas.u32-to-u64-checked`). The
@@ -210,24 +212,26 @@ for t in vermilion lean lake aeneas charon cvc5; do
 done
 ```
 
-Observed result: `vermilion`, `lean`, `lake`, `aeneas`, `charon`, and `cvc5`
-were all `MISSING`. `verus` was present only through the Nix store closure
-`octet-production-verus`; no Verus rail was executed for this pilot. Therefore
-the positive receipt fixture is synthetic and no compatibility canary is
-reported as passed.
+Observed result after the 2026-11-09 build: the pinned Vermilion, Lean, Lake,
+Mathlib, cvc5, and Verus fork closure is present; `aeneas` and `charon` remain
+`MISSING`. The live `m1-pipeline` canary passed 3/3 obligations, and the u64
+checked-increment pilot passed 2/2 obligations with zero `sorry` and a
+kernel-checked proof twin. The synthetic positive receipt fixture remains a
+contract fixture, not a substitute for the measured pilot receipt.
 
 ## Go/no-go recommendation
 
 - **Go** for the reviewed profile, typed receipt contract, comparison
-  vocabulary, and negative-control fixtures. They are deterministic, pure, and
-  fail closed.
-- **No-go** for a live Vermilion comparison or any property claim. The pinned
-  Vermilion/Verus/Lean closure is unavailable, no provider run or receipt has
-  been measured, and all three refinement bridges remain open.
+  vocabulary, negative-control fixtures, and the live Vermilion u64 checked
+  route. The pinned closure and the measured u64 pilot now exist.
+- **No-go** for cross-provider comparison, executable refinement, or any
+  whole-program/property claim. The plain-Rust executable bridge, the Verus
+  `nat`-to-`u64` bridge, and the Aeneas `u32`-to-`u64` bridge remain open, and
+  Aeneas/Charon are absent.
 
-The next discriminating step is to build the pinned closure in an isolated
-environment, run the pilot subject through the exact commands in the profile,
-and save complete receipts. Only then can a measured comparison begin.
+The next discriminating step is to bridge the live Vermilion obligations to the
+plain Rust executable and to build the Aeneas/Charon route, then rerun the
+comparison.
 
 ## Reproduce the pure checks
 

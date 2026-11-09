@@ -12,9 +12,12 @@ Vermilion reuses the Verus front/middle end and emits Lean theorem obligations.
 Its trusted surface therefore shares a front end with Verus and a kernel with
 Aeneas. A comparison must keep those shared edges visible.
 
-Vermilion, Lean, Lake, cvc5, Aeneas, and Charon are absent on the evaluation
-host. Verus is present through the Nix store, but running the existing Verus
-rail does not establish anything about the u64 checked pilot contract.
+On 2026-11-09 the pinned Vermilion/Verus/Lean/cvc5 closure was built and
+exercised: Lean 4.33.0, the Mathlib cache, the Vermilion Lean libraries, the
+Rust workspace, and the Verus fork at `4860083` built successfully. A live
+`m1-pipeline` canary and a live u64 checked-increment pilot both passed Lean
+kernel checking with zero `sorry`. Aeneas and Charon remain absent, so the
+Aeneas route and executable refinement bridges remain open.
 
 ## Decisions
 
@@ -28,8 +31,10 @@ resource bounds, allowed axioms, proof-hole markers, and non-claims.
 substituted dependency audit fails closed.
 
 Changing one pin requires a fresh compatibility run. The compatibility matrix
-names live and pure canaries; live canaries stay blocked until the closure is
-built inside the execution environment.
+names live and pure canaries. The pinned closure was built on 2026-11-09; the
+live `m1-pipeline` canary and the live u64 checked-increment pilot are recorded
+under `standards/proof-rails/vermilion-lean/evidence/`. Aeneas/Charon-dependent
+canaries remain blocked.
 
 ### Decision: One common semantic contract, explicit route bridges
 
