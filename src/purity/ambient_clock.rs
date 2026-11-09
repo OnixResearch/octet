@@ -30,7 +30,7 @@ declare_tool_lint! {
 
 declare_lint_pass!(AmbientClock => [AMBIENT_CLOCK]);
 
-/// Known clock-reading paths (final segment `now` on these types).
+/// Known clock types; a call to their associated `now` reads the clock.
 const CLOCK_TYPES: &[&str] = &[
     "Instant",
     "SystemTime",
@@ -38,44 +38,28 @@ const CLOCK_TYPES: &[&str] = &[
     "Local", // chrono::Local::now()
 ];
 
-/// Check if a resolved path ends with `SomeClockType::now`.
-fn is_clock_now_path(qpath: &hir::QPath<'_>) -> bool {
-    match qpath {
-        hir::QPath::Resolved(_, path) => {
-            let segments: Vec<&str> = path.segments.iter().map(|s| s.ident.name.as_str()).collect();
-            // Match patterns like `Instant::now`, `std::time::Instant::now`
-            if segments.last() == Some(&"now")
-                && let Some(type_seg) = segments.iter().rev().nth(1)
-            {
-                return CLOCK_TYPES.contains(type_seg);
-            }
-            false
-        }
-        hir::QPath::TypeRelative(ty, segment) => {
-            if segment.ident.name.as_str() != "now" {
-                return false;
-            }
-            // Check if the type is one of our clock types
-            if let hir::TyKind::Path(ref ty_qpath) = ty.kind {
-                let type_name = match ty_qpath {
-                    hir::QPath::Resolved(_, path) => path.segments.last().map(|segment| segment.ident.name.as_str()),
-                    hir::QPath::TypeRelative(..) => None,
-                };
-                if let Some(name) = type_name {
-                    return CLOCK_TYPES.contains(&name);
-                }
-            }
-            false
-        }
-    }
+/// Whether `callee` is a path resolving to `<ClockType>::now`. The match uses
+/// the definition path rather than the spelled path, so renamed imports
+/// (`use Instant as Clock`) and type aliases (`type Clock = Instant`) are
+/// recognized.
+fn is_clock_now_path(cx: &LateContext<'_>, callee: &hir::Expr<'_>) -> bool {
+    let ExprKind::Path(qpath) = &callee.kind else {
+        return false;
+    };
+    let hir::def::Res::Def(_, def_id) = cx.typeck_results().qpath_res(qpath, callee.hir_id) else {
+        return false;
+    };
+    matches!(
+        cx.get_def_path(def_id).as_slice(),
+        [.., owner, now] if now.as_str() == "now" && CLOCK_TYPES.contains(&owner.as_str())
+    )
 }
 
 impl<'tcx> LateLintPass<'tcx> for AmbientClock {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx hir::Expr<'tcx>) {
         // Match function-style calls: `Instant::now()`, `Utc::now()`
         if let ExprKind::Call(func, _) = &expr.kind
-            && let ExprKind::Path(ref qpath) = func.kind
-            && is_clock_now_path(qpath)
+            && is_clock_now_path(cx, func)
             && !test_context::late_hir_id_is_in_test_context(cx, expr.hir_id, expr.span)
         {
             emit(cx, expr);

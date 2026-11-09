@@ -14,5 +14,35 @@ LL -     Instant::now() + timeout
 LL +     /* inject time parameter */ + timeout
    |
 
-warning: 1 warning emitted
+warning: direct system clock read in production code
+  --> $DIR/ambient_clock.rs:12:9
+   |
+LL |         Clock::now()
+   |         ^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Functional Core): pass time into core logic or isolate clock reads in a shell-boundary helper with a narrow allow reason Example: #[allow(tigerstyle::ambient_clock, reason = "shell boundary clock read")] fn read_now() -> Instant { Instant::now() }
+   = note: structured suggestion applicability: HasPlaceholders
+   = note: see Tiger Style guide: Functional Core / Imperative Shell
+help: inject time as a parameter instead of reading the system clock
+   |
+LL -         Clock::now()
+LL +         /* inject time parameter */
+   |
+
+warning: direct system clock read in production code
+  --> $DIR/ambient_clock.rs:20:5
+   |
+LL |     WallClock::now()
+   |     ^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Functional Core): pass time into core logic or isolate clock reads in a shell-boundary helper with a narrow allow reason Example: #[allow(tigerstyle::ambient_clock, reason = "shell boundary clock read")] fn read_now() -> Instant { Instant::now() }
+   = note: structured suggestion applicability: HasPlaceholders
+   = note: see Tiger Style guide: Functional Core / Imperative Shell
+help: inject time as a parameter instead of reading the system clock
+   |
+LL -     WallClock::now()
+LL +     /* inject time parameter */
+   |
+
+warning: 3 warnings emitted
 
