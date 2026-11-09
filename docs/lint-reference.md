@@ -123,6 +123,7 @@ Scope notes for the safety lints:
 - `unbounded_channel` renames only the constructor segment when it is written under its original name. For an aliased import it spells the bounded constructor through the import's crate path, or offers no rewrite.
 - `drop_must_use` ignores a type's own `#[must_use]` when the type has a destructor, so `drop(guard)` on `MutexGuard` or `RwLock` guards stays clean. `Result`, must-use types without a destructor, and `#[must_use]` producers are still flagged.
 - `unchecked_narrowing` treats a `usize` or `isize` source as 64 bits wide on every target, so `v.len() as u32` and `index as i8` are flagged unless guarded. Findings do not depend on the build target. Casts to `usize` or `isize` belong to `platform_dependent_cast`.
+- `raw_arithmetic_overflow` checks `+=`, `-=`, and `*=` on an unsigned place as well as `+`, `-`, and `*`. The compound suggestion rewrites `place op= value` to `place = (place).saturating_op(value)`. A place that would be evaluated twice, such as `values[i]`, gets no suggestion. When the left operand is a constant such as an unsuffixed literal, the suggestion names the result type: `u64::saturating_mul(2, n)`.
 - `unbounded_collection_growth` counts a guard joined with `||` when either side bounds the collection, and a guard joined with `&&` only when both sides do. For example, `if items.len() >= limit || shutdown() { break; }` bounds a later push, but `if items.len() >= limit && keep_going() { break; }` does not.
 
 ## Naming lints (`tigerstyle::naming`)
