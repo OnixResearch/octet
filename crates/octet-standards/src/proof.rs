@@ -315,10 +315,14 @@ pub fn validate_proof_receipt_with_identity(
 }
 
 /// Returns true when the runner must confirm the resolved verifier's identity before executing
-/// the rail: production Verus rails pin verifier binary, solver, and toolchain digests.
+/// the rail: production rails pin verifier binary, solver, and toolchain digests.
+///
+/// This holds whatever the rail's `backend` label says, because `cargo octet prove` runs every
+/// rail other than an Aeneas one as a verifier command and issues a structured Verus receipt for
+/// it. Aeneas rails run the reviewed provider closure instead and never reach this probe.
 #[must_use]
 pub fn rail_requires_pinned_verifier_identity(rail: &ProofRail) -> bool {
-    rail.backend == VERUS_BACKEND && verifier_mode(rail) == VERIFIER_MODE_PRODUCTION
+    verifier_mode(rail) == VERIFIER_MODE_PRODUCTION && rail.backend != crate::aeneas_consumer::EXPECTED_BACKEND
 }
 
 /// Validates a verifier's `--identity` report against the rail's pinned digests.
@@ -1981,13 +1985,19 @@ mod tests {
     }
 
     #[test]
-    fn only_production_verus_rails_require_pinned_verifier_identity() {
-        let mut legacy = verus_rail(VERIFIER_MODE_PRODUCTION);
-        legacy.backend = "local-command-receipt".to_owned();
+    fn every_production_verifier_command_rail_requires_pinned_verifier_identity() {
+        let mut verus_receipt = verus_rail(VERIFIER_MODE_PRODUCTION);
+        verus_receipt.backend = "local-command-receipt".to_owned();
+        let mut legacy = verus_receipt.clone();
+        legacy.receipt_provenance.schema_version = "octet-local-command-receipt/v1".to_owned();
+        let mut aeneas = verus_rail(VERIFIER_MODE_PRODUCTION);
+        crate::aeneas_consumer::EXPECTED_BACKEND.clone_into(&mut aeneas.backend);
 
         assert!(rail_requires_pinned_verifier_identity(&verus_rail(VERIFIER_MODE_PRODUCTION)));
+        assert!(rail_requires_pinned_verifier_identity(&verus_receipt));
+        assert!(rail_requires_pinned_verifier_identity(&legacy));
         assert!(!rail_requires_pinned_verifier_identity(&verus_rail(VERIFIER_MODE_FIXTURE)));
-        assert!(!rail_requires_pinned_verifier_identity(&legacy));
+        assert!(!rail_requires_pinned_verifier_identity(&aeneas));
     }
 
     #[test]

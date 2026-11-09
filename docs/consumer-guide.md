@@ -258,7 +258,9 @@ command, source/proof, receipt, and trust-boundary identity in the receipt.
 Before running a production rail, `cargo octet prove` asks the resolved verifier
 for its `--identity` report and fails the rail with an `unpinned-verifier`
 diagnostic unless the reported verifier binary, solver, and toolchain BLAKE3
-digests equal the rail's pins.
+digests equal the rail's pins. The probe covers every production rail except an
+`aeneas-lean` rail, whatever its `backend` label, because `cargo octet prove`
+issues a structured Verus receipt for each of them.
 Octet's built-in production pilots are intentionally tiny and run
 `octet-production-verus` only when selected proof rails match the requested
 source scope. Each pilot has its own source path, proof path, receipt path,

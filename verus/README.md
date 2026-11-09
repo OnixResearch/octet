@@ -68,7 +68,10 @@ Before a production rail runs its proof, `cargo octet prove` resolves the
 verifier program once, runs it with `--identity` under the same environment
 allowlist and timeout, and requires the reported `proof-verifier-binary-blake3`,
 `proof-solver-blake3`, and `proof-toolchain-blake3` to equal the rail's pinned
-`verifier_binary_digest`, `solver_digest`, and `toolchain_digest`. A program on
+`verifier_binary_digest`, `solver_digest`, and `toolchain_digest`. This applies
+to every production rail except an `aeneas-lean` rail, whatever its `backend`
+label says, because `cargo octet prove` issues a structured Verus receipt for
+each of them. A program on
 `PATH` that does not report the pinned identity fails the rail with an
 `unpinned-verifier` diagnostic and is not asked to run the proof. The identity
 is reported by the verifier wrapper itself, so the check refuses wrong or

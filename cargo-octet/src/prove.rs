@@ -3249,6 +3249,40 @@ mod tests {
         }
     }
 
+    // r[verify octet.verus_proof_rails.safe_execution.failures]
+    #[cfg(unix)]
+    #[test]
+    fn prove_production_rail_probes_verifier_whatever_its_backend_label() {
+        for (backend, schema_version) in [
+            ("local-command-receipt", "octet-verus-proof-receipt/v1"),
+            ("local-command-receipt", "octet-local-command-receipt/v1"),
+        ] {
+            let case = format!("{backend} with {schema_version}");
+            let temp = tempfile::tempdir().expect("tempdir");
+            let source = write_fixture_source(temp.path());
+            write_fixture_proof(temp.path());
+            let proof_ran = temp.path().join("proof-ran");
+            let argv = write_fake_production_verifier(temp.path(), PASS_SIGNAL, &proof_ran.display().to_string(), true);
+            let mut registry = production_negative_registry(argv);
+            let rail = &mut registry.policies[0].proof_rails[0];
+            backend.clone_into(&mut rail.backend);
+            schema_version.clone_into(&mut rail.receipt_provenance.schema_version);
+            let registry_path = temp.path().join("registry-production-backend.json");
+            fs::write(&registry_path, serde_json::to_string_pretty(&registry).expect("registry json"))
+                .expect("write registry");
+            let artifact_dir = temp.path().join("artifacts-backend");
+
+            let code = run(&fixture_args(registry_path, vec![source], artifact_dir.clone())).expect("prove run");
+
+            assert_eq!(code, EXIT_PROOF_INVALID, "{case}");
+            assert!(!proof_ran.exists(), "{case}: unpinned verifier must not run the proof");
+            let summary = fs::read_to_string(artifact_dir.join(SUMMARY_ARTIFACT_NAME)).expect("read summary");
+            assert!(summary.contains(DIAGNOSTIC_UNPINNED_VERIFIER), "{case}: {summary}");
+            let provenance = fs::read_to_string(artifact_dir.join(PROVENANCE_ARTIFACT_NAME)).expect("read provenance");
+            assert!(!provenance.contains("formal_proof"), "{case}: {provenance}");
+        }
+    }
+
     #[cfg(unix)]
     #[test]
     fn prove_production_rail_accepts_verifier_with_pinned_identity() {
