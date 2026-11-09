@@ -675,8 +675,14 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
     if let Some(prepared) = &prepared_clippy_run {
         config_path = Some(prepared.config_path.clone());
     }
-    let (mode, import_text, tool_exit_code) = input_text(args, prepared_clippy_run.as_ref())?;
-    let identities = input_identities(args, prepared_clippy_run.as_ref(), workspace_root, &import_text)?;
+    let ((mode, import_text, tool_exit_code), analyzed_wasm) = if args.rail == EvidenceRailKind::WasmArtifact {
+        let (envelope, analyzed) = analyze_wasm_input(args)?;
+        ((MODE_IMPORT, envelope, None), Some(analyzed))
+    } else {
+        (input_text(args, prepared_clippy_run.as_ref())?, None)
+    };
+    let identities =
+        input_identities(args, prepared_clippy_run.as_ref(), analyzed_wasm.as_ref(), workspace_root, &import_text)?;
     let normalized_command = normalized_run_command(args, prepared_clippy_run.as_ref())?;
     let mut receipt = evaluate(EvaluationInput {
         rail: args.rail,
@@ -710,10 +716,8 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
     }
 
     let mut additional_artifacts = BTreeMap::new();
-    if args.rail == EvidenceRailKind::WasmArtifact {
-        let input = args.input.as_deref().ok_or_else(|| "wasm-artifact rail requires `--input PATH`".to_owned())?;
-        let bytes = fs::read(input).map_err(|error| format!("read Wasm artifact {}: {error}", input.display()))?;
-        additional_artifacts.insert(crate::wasm_artifact::INPUT_ARTIFACT_NAME.to_owned(), bytes);
+    if let Some(analyzed) = analyzed_wasm {
+        additional_artifacts.insert(crate::wasm_artifact::INPUT_ARTIFACT_NAME.to_owned(), analyzed.artifact_bytes);
     }
     if let Some(details) = receipt.charon_semantic.as_ref() {
         additional_artifacts.extend(crate::charon_semantic::artifact_payloads(details, &import_text)?);
@@ -749,6 +753,7 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
 fn input_identities(
     args: &EvidenceRailArgs,
     prepared_clippy_run: Option<&PreparedClippyRun>,
+    analyzed_wasm: Option<&AnalyzedWasmInput>,
     workspace_root: &Path,
     import_text: &str,
 ) -> Result<InputIdentities, String> {
@@ -773,10 +778,10 @@ fn input_identities(
         Some(crate::external::sarif::PROFILE_IDENTITY.to_owned())
     } else if let Some(prepared) = prepared_clippy_run {
         Some(prepared.config_identity.clone())
-    } else if matches!(
-        args.rail,
-        EvidenceRailKind::AstGrepStructural | EvidenceRailKind::WasmArtifact | EvidenceRailKind::CharonSemantic
-    ) {
+    } else if let Some(analyzed) = analyzed_wasm {
+        // `analyze_wasm_input` bound these registry bytes into the envelope; never re-read `--config`.
+        Some(analyzed.registry_identity.clone())
+    } else if matches!(args.rail, EvidenceRailKind::AstGrepStructural | EvidenceRailKind::CharonSemantic) {
         // These rails read and verify `--config` themselves relative to the process cwd; hash those bytes.
         args.config.as_ref().map(|path| path_identity(path)).transpose()?
     } else {
@@ -3648,7 +3653,7 @@ fn input_text(
     prepared_clippy_run: Option<&PreparedClippyRun>,
 ) -> Result<(&'static str, String, Option<i32>), String> {
     if args.rail == EvidenceRailKind::WasmArtifact {
-        return analyze_wasm_input(args).map(|envelope| (MODE_IMPORT, envelope, None));
+        return Err("wasm-artifact input is analyzed with its exact bytes by `analyze_wasm_input`".to_owned());
     }
     if args.rail == EvidenceRailKind::CharonSemantic {
         return analyze_charon_semantic_input(args);
@@ -3997,7 +4002,14 @@ fn analyze_charon_semantic_input(args: &EvidenceRailArgs) -> Result<(&'static st
     Ok((mode, envelope, exit_code))
 }
 
-fn analyze_wasm_input(args: &EvidenceRailArgs) -> Result<String, String> {
+/// The exact bytes the Wasm rail analyzed. The bundle reuses them; `--input` and `--config` are
+/// read once.
+struct AnalyzedWasmInput {
+    artifact_bytes: Vec<u8>,
+    registry_identity: String,
+}
+
+fn analyze_wasm_input(args: &EvidenceRailArgs) -> Result<(String, AnalyzedWasmInput), String> {
     if args.run {
         return Err("wasm-artifact rail analyzes `--input PATH` directly and rejects `--run`".to_owned());
     }
@@ -4042,7 +4054,7 @@ fn analyze_wasm_input(args: &EvidenceRailArgs) -> Result<String, String> {
             &artifact_bytes,
             &registry,
             profile_id,
-            registry_identity,
+            registry_identity.clone(),
             &args.parent_artifacts,
         )
     } else {
@@ -4050,13 +4062,17 @@ fn analyze_wasm_input(args: &EvidenceRailArgs) -> Result<String, String> {
             &artifact_bytes,
             &registry,
             profile_id,
-            registry_identity,
+            registry_identity.clone(),
             &args.parent_artifacts,
             &external_report_texts,
         )
     }
     .map_err(|diagnostics| format!("invalid Wasm artifact profile:\n- {}", diagnostics.join("\n- ")))?;
-    crate::wasm_artifact::render_envelope(&envelope)
+    let envelope = crate::wasm_artifact::render_envelope(&envelope)?;
+    Ok((envelope, AnalyzedWasmInput {
+        artifact_bytes,
+        registry_identity,
+    }))
 }
 
 struct ToolOutput {
@@ -5554,6 +5570,72 @@ mod tests {
     }
 
     #[test]
+    fn wasm_artifact_collect_bundles_the_bytes_it_analyzed() {
+        use std::io::Write as _;
+        use std::os::fd::AsRawFd as _;
+
+        // A pipe reopened through `/proc/self/fd` yields its bytes once, then end-of-file,
+        // like `--input /dev/stdin`: any second read of the path observes different bytes.
+        fn one_shot(bytes: &[u8]) -> (std::io::PipeReader, std::path::PathBuf) {
+            let (reader, mut writer) = std::io::pipe().expect("create one-shot pipe");
+            writer.write_all(bytes).expect("fill one-shot pipe");
+            let path = std::path::PathBuf::from(format!("/proc/self/fd/{}", reader.as_raw_fd()));
+            (reader, path)
+        }
+
+        let registry_bytes = include_bytes!("../../standards/wasm-artifact/generated/profiles.json");
+        let artifact = wat::parse_str(include_str!("../../standards/wasm-artifact/fixtures/positive/module.wat"))
+            .expect("module fixture");
+        let (_artifact_pipe, artifact_path) = one_shot(&artifact);
+        let (_registry_pipe, registry_path) = one_shot(registry_bytes);
+        let directory = tempfile::tempdir().expect("create Wasm collect directory");
+        let artifacts = directory.path().join("artifacts");
+        let args = crate::cli::EvidenceRailArgs {
+            rail: EvidenceRailKind::WasmArtifact,
+            input: Some(artifact_path),
+            artifact_dir: artifacts.clone(),
+            workspace_root: None,
+            config: Some(registry_path),
+            baseline: None,
+            profile: Some("portable-component-baseline".to_owned()),
+            command: None,
+            parent_artifacts: Vec::new(),
+            external_reports: Vec::new(),
+            output_format: OutputFormat::Human,
+            locked: false,
+            update_advisory_database: false,
+            run: false,
+            command_line: "cargo octet evidence collect --rail wasm-artifact --profile portable-component-baseline --input /dev/stdin --config profiles.json".to_owned(),
+        };
+
+        assert_eq!(run(&args).expect("collect Wasm artifact evidence"), EXIT_SUCCESS);
+        let bundled = fs::read(artifacts.join(crate::wasm_artifact::INPUT_ARTIFACT_NAME)).expect("read bundled bytes");
+        assert_eq!(bundled, artifact, "the bundle must carry the exact analyzed bytes");
+        let receipt: EvidenceRailReceipt =
+            serde_json::from_str(&fs::read_to_string(artifacts.join(RECEIPT_ARTIFACT_NAME)).expect("read receipt"))
+                .expect("parse receipt");
+        let details = receipt.wasm_artifact.as_ref().expect("Wasm details");
+        assert_eq!(receipt.config_identity.as_deref(), Some(details.registry_identity.as_str()));
+        assert_eq!(details.registry_identity, crate::wasm_artifact::registry_identity(registry_bytes));
+
+        let files = fs::read_dir(&artifacts)
+            .expect("list bundle")
+            .map(|entry| {
+                let entry = entry.expect("bundle entry");
+                crate::artifact::BundleFile {
+                    name: entry.file_name().to_string_lossy().into_owned(),
+                    contents: fs::read(entry.path()).expect("read bundle file"),
+                }
+            })
+            .collect();
+        let report = crate::artifact::verify_bundle(crate::artifact::ArtifactBundleInput {
+            artifact_dir: artifacts.display().to_string(),
+            files,
+        });
+        assert!(report.diagnostics.is_empty(), "{:?}", report.diagnostics);
+    }
+
+    #[test]
     fn charon_semantic_receipt_binds_recorded_artifacts_and_independent_comparison() {
         const EXPECTED_COMPARISON_AGREEMENTS: u64 = 3;
         let snapshot =
@@ -6157,7 +6239,8 @@ mod tests {
             ..sarif_import_args(directory.path().to_path_buf())
         };
 
-        let identities = input_identities(&args, None, directory.path(), "").expect("workspace-relative identities");
+        let identities =
+            input_identities(&args, None, None, directory.path(), "").expect("workspace-relative identities");
         assert_eq!(identities.config, Some(prefixed_identity(CONFIG_BYTES)));
         assert_eq!(identities.baseline, Some(prefixed_identity(BASELINE_BYTES)));
     }
