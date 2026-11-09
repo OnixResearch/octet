@@ -217,6 +217,10 @@ pub struct Config {
     /// Lints whose validated level is a selected strict-profile floor.
     #[serde(skip)]
     profile_floor_lints: BTreeSet<String>,
+
+    /// Identifier of the selected strict profile, if any.
+    #[serde(skip)]
+    strict_profile_id: Option<String>,
 }
 
 impl Default for Config {
@@ -246,6 +250,7 @@ impl Default for Config {
             unknown_keys: BTreeMap::new(),
             validated_lint_levels: HashMap::new(),
             profile_floor_lints: BTreeSet::new(),
+            strict_profile_id: None,
         }
     }
 }
@@ -271,7 +276,9 @@ impl Config {
     /// Consumer `lint_levels` and the nominal-domain mode go before the
     /// existing options, so explicit command-line `-A`/`-W`/`-D` flags win over
     /// `dylint.toml`. Selected strict-profile denies go after them, so the
-    /// profile floor stays authoritative.
+    /// profile floor stays authoritative over `-A`/`-W`. A `--force-warn` or
+    /// `--cap-lints` below `deny` would still beat a later deny in rustc, so
+    /// registration rejects those for floor lints instead.
     pub(crate) fn merge_into_lint_opts(&self, lint_opts: &mut Vec<(String, rustc_lint::Level)>) {
         let mut consumer_levels = Vec::new();
         for lint in crate::LINT_INVENTORY {
@@ -286,6 +293,16 @@ impl Config {
             }
         }
         lint_opts.splice(0..0, consumer_levels);
+    }
+
+    /// Identifier of the strict profile applied to this config, if any.
+    pub(crate) fn strict_profile_id(&self) -> Option<&str> {
+        self.strict_profile_id.as_deref()
+    }
+
+    /// Lints the selected strict profile requires at `deny`.
+    pub(crate) fn profile_floor_lints(&self) -> impl Iterator<Item = &str> {
+        self.profile_floor_lints.iter().map(String::as_str)
     }
 
     #[must_use]
@@ -327,7 +344,7 @@ impl Config {
         }
     }
 
-    fn apply_strict_profile(
+    pub(crate) fn apply_strict_profile(
         &mut self,
         profile: &octet_lint_metadata::strict_profile::StrictProfile,
     ) -> Result<(), String> {
@@ -347,6 +364,7 @@ impl Config {
             self.validated_lint_levels.insert(lint_name.clone(), LintLevel::Deny);
             self.profile_floor_lints.insert(lint_name.clone());
         }
+        self.strict_profile_id = Some(profile.profile_id.clone());
         Ok(())
     }
 

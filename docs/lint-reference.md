@@ -46,7 +46,7 @@ Rules to keep straight:
 - source attrs and domain groups currently use `tigerstyle::...` until the namespace migration lands
 - `disabled_lints` and `[octet.lint_levels]` use bare lint names
 - `disabled_lints` wins over `lint_levels`
-- explicit command-line levels such as `-D numeric_units` in `DYLINT_RUSTFLAGS` win over `lint_levels`; a selected strict profile's required denies win over both
+- explicit command-line levels such as `-D numeric_units` in `DYLINT_RUSTFLAGS` win over `lint_levels`; a selected strict profile's required denies win over both, and a profiled compilation fails with an error when `--force-warn` or `--cap-lints` below `deny` would weaken one of them
 - `[octet]` replaces the legacy `[slotcar]` and `[tigerstyle]` sections as a whole, even when it holds only `[octet.lint_levels]`; a shadowed legacy section is not parsed and the run warns that it is ignored
 - allow-by-default lints can be turned on with `#![warn(...)]` or a lint-level override
 - standalone raw-rustc crates and UI fixtures that use tool-scoped attrs need:

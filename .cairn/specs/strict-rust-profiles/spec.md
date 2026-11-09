@@ -72,6 +72,15 @@ r[octet.strict_rust_profiles.lint_floor.suppression]
 - THEN existing Octet suppression-justification lints MUST remain active according to the selected profile.
 - AND the profile MUST NOT introduce a silent assume-style bypass.
 
+#### Scenario: Command-line weakening fails closed
+
+r[octet.strict_rust_profiles.lint_floor.command_line]
+
+- GIVEN a strict profile is selected and the compiler session carries `--cap-lints` below `deny`, or a `--force-warn` that resolves directly, through an alias, or through a lint group to a required lint
+- WHEN the lint library registers its lints
+- THEN the compilation MUST fail with an error naming the profile and the weakening flag.
+- AND `-A` or `-W` options MUST NOT weaken the floor, because the profile denies apply after them.
+
 ### Requirement: Deterministic-core scope validation
 
 r[octet.strict_rust_profiles.core_scope] The `deterministic-core` profile MUST require one or more configured `core_source_scopes` and MUST use those workspace-relative scopes as the default function-address scope.

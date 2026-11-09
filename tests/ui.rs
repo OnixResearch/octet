@@ -300,6 +300,9 @@ fn extra_rustc_args(name: &str) -> &'static [&'static str] {
         | "type_accumulation_within_limit" => &["--test"],
         "numeric_units_cli_deny_custom/numeric_units_cli_deny_custom" => &["-D", "numeric_units"],
         "nominal_inventory_cli_deny_custom/nominal_inventory_cli_deny_custom" => &["-D", "primitive_domain_alias"],
+        "strict_profile_force_warn_custom/strict_profile_force_warn_custom" => {
+            &["--force-warn", "no_unwrap", "--cap-lints", "warn"]
+        }
         _ => &[],
     }
 }
@@ -307,6 +310,7 @@ fn extra_rustc_args(name: &str) -> &'static [&'static str] {
 /// Strict profile selected for a fixture, as `cargo octet check --profile` would set it.
 fn fixture_strict_profile(name: &str) -> Option<&'static str> {
     match name {
+        "strict_profile_force_warn_custom/strict_profile_force_warn_custom" => Some("robust"),
         "nominal_inventory_profile_custom/nominal_inventory_profile_custom" => Some("bounded-systems"),
         _ => None,
     }
