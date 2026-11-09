@@ -80,6 +80,7 @@ pub enum ConfigDiagnosticKind {
     InvalidLintLevel,
     NominalInventoryLevelCapped,
     EmptySourceScope,
+    UnmatchedSourceScope,
 }
 
 impl ConfigDiagnosticKind {
@@ -94,6 +95,7 @@ impl ConfigDiagnosticKind {
             Self::InvalidLintLevel => "invalid_lint_level",
             Self::NominalInventoryLevelCapped => "nominal_inventory_level_capped",
             Self::EmptySourceScope => "empty_source_scope",
+            Self::UnmatchedSourceScope => "unmatched_source_scope",
         }
     }
 }
@@ -385,6 +387,28 @@ impl Config {
         (diagnostics, applied)
     }
 
+    /// Reports normalized source scopes that name no existing file or
+    /// directory. Scopes match workspace-relative path prefixes, so an entry
+    /// that only ever matched as a substring now covers nothing.
+    fn unmatched_source_scopes(&self, scope_exists: impl Fn(&str) -> bool) -> Vec<ConfigDiagnostic> {
+        [
+            ("octet.core_source_scopes", &self.core_source_scopes),
+            ("octet.state_machine_core_scopes", &self.state_machine_core_scopes),
+            ("octet.state_machine_generated_adapter_scopes", &self.state_machine_generated_adapter_scopes),
+        ]
+        .into_iter()
+        .flat_map(|(field, scopes)| scopes.iter().map(move |scope| (field, scope)))
+        .filter(|(_field, scope)| !scope_exists(scope))
+        .map(|(field, scope)| {
+            let list = field.trim_start_matches("octet.");
+            let message = format!(
+                "octet `{list}` entry `{scope}` in `dylint.toml` names no file or directory under the workspace root; scopes are workspace-relative path prefixes, so a scope that used to match by substring must be rewritten as a path from the workspace root"
+            );
+            ConfigDiagnostic::new(ConfigDiagnosticKind::UnmatchedSourceScope, field, scope.as_str(), message)
+        })
+        .collect()
+    }
+
     pub(crate) fn indexable_lint_exceptions(&self) -> IndexableLintExceptions {
         let enabled = |class: &str| self.indexable_lint_exceptions.iter().any(|configured| configured == class);
         IndexableLintExceptions {
@@ -557,7 +581,11 @@ pub fn load(sess: &rustc_session::Session) -> Config {
         })
     });
     let profile = selected_strict_profile().unwrap_or_else(|error| panic!("{error}"));
-    let (diagnostics, applied) = cfg.resolve(profile.as_ref());
+    let (mut diagnostics, applied) = cfg.resolve(profile.as_ref());
+    // Scopes resolve against the same root as `source::span_in_scopes`.
+    if let Some(root) = sess.opts.working_dir.local_path() {
+        diagnostics.extend(cfg.unmatched_source_scopes(|scope| root.join(scope).exists()));
+    }
     for diagnostic in diagnostics {
         sess.dcx().warn(diagnostic.message);
     }
@@ -1233,6 +1261,32 @@ function_length = "warn"
         assert_eq!(cfg.core_source_scopes, ["crates/domain/src", "crates/model/src"]);
         assert_eq!(cfg.state_machine_core_scopes, ["crates/domain/src/fsm"]);
         assert_eq!(cfg.state_machine_generated_adapter_scopes, ["crates/domain/src/generated"]);
+    }
+
+    #[test]
+    fn source_scopes_naming_nothing_under_the_root_warn() {
+        let (cfg, warnings) = parse_and_validate(
+            "[octet]\ncore_source_scopes = [\"./src/\", \"src/lib.rs\", \"source.rs\"]\nstate_machine_core_scopes = [\"src/safety\", \"safety\"]\nstate_machine_generated_adapter_scopes = [\"tests/fixtures\", \"crates/missing/src\"]\n",
+        );
+        assert!(warnings.is_empty(), "unexpected warnings: {warnings:?}");
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+
+        let diagnostics = cfg.unmatched_source_scopes(|scope| root.join(scope).exists());
+
+        let unmatched = diagnostics
+            .iter()
+            .map(|diagnostic| (diagnostic.kind, diagnostic.field, diagnostic.item.as_str()))
+            .collect::<Vec<_>>();
+        assert_eq!(unmatched, [
+            (ConfigDiagnosticKind::UnmatchedSourceScope, "octet.core_source_scopes", "source.rs"),
+            (ConfigDiagnosticKind::UnmatchedSourceScope, "octet.state_machine_core_scopes", "safety"),
+            (
+                ConfigDiagnosticKind::UnmatchedSourceScope,
+                "octet.state_machine_generated_adapter_scopes",
+                "crates/missing/src"
+            ),
+        ]);
+        assert_eq!(diagnostics[0].kind.as_str(), "unmatched_source_scope");
     }
 
     #[test]
