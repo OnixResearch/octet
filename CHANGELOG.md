@@ -39,7 +39,10 @@ Changes that can add findings, fail a build, or change identities:
   adapter is not construction, while `into()`, `parse()`, and generic
   factories still are; allocator and hasher defaults are never constructions.
   Under a `consume` witness protocol, a protected executor that takes the
-  witness by reference (`&`/`&mut`) blocks with `consume-witness-borrowed`;
+  witness by reference (`&`/`&mut`) blocks with `consume-witness-borrowed`,
+  and a declared witness constructor that borrows the authorized output
+  (`fn mint(output: &AuthorizedOutput) -> Witness`) blocks with
+  `consume-authorization-borrowed`; `borrow` accepts both references.
   Signature facts gain `input_by_reference`, so IR and shards from earlier
   collectors must be regenerated. Selected value provenance stays `Unknown`
   when a function can also be called through a function pointer or from
