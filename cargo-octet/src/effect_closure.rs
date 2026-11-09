@@ -442,9 +442,9 @@ struct BodyScanner<'a> {
     bindings: &'a CallerBindings,
     /// Lexical value scopes, innermost last; a nested item starts a fresh stack.
     scopes: Vec<ValueScope>,
-    /// Depth of enclosing patterns, types, array repeat lengths, braced const generic arguments,
-    /// and enum discriminants, whose paths name constants, variants, or types evaluated at
-    /// compile time rather than runtime values.
+    /// Depth of enclosing compile-time positions: patterns, types, array repeat lengths, const
+    /// generic arguments and parameter defaults, enum discriminants, and `const` or `static`
+    /// initializers. Their paths name constants, variants, or types rather than runtime values.
     compile_time_depth: usize,
     direct_effects: BTreeSet<Effect>,
     calls: Vec<RawCall>,
@@ -945,16 +945,37 @@ impl<'ast> Visit<'ast> for BodyScanner<'_> {
     }
 
     fn visit_generic_argument(&mut self, node: &'ast syn::GenericArgument) {
-        if let syn::GenericArgument::Const(argument) = node {
-            self.at_compile_time(|scanner| scanner.visit_expr(argument));
+        if matches!(node, syn::GenericArgument::Const(_) | syn::GenericArgument::AssocConst(_)) {
+            self.at_compile_time(|scanner| syn::visit::visit_generic_argument(scanner, node));
         } else {
             syn::visit::visit_generic_argument(self, node);
         }
     }
 
+    fn visit_const_param(&mut self, node: &'ast syn::ConstParam) {
+        self.at_compile_time(|scanner| syn::visit::visit_const_param(scanner, node));
+    }
+
     // A variant's fields are types and its discriminant is a constant expression.
     fn visit_variant(&mut self, node: &'ast syn::Variant) {
         self.at_compile_time(|scanner| syn::visit::visit_variant(scanner, node));
+    }
+
+    // `const` and `static` initializers, including associated consts, are evaluated at compile time.
+    fn visit_item_const(&mut self, node: &'ast syn::ItemConst) {
+        self.at_compile_time(|scanner| syn::visit::visit_item_const(scanner, node));
+    }
+
+    fn visit_item_static(&mut self, node: &'ast syn::ItemStatic) {
+        self.at_compile_time(|scanner| syn::visit::visit_item_static(scanner, node));
+    }
+
+    fn visit_impl_item_const(&mut self, node: &'ast syn::ImplItemConst) {
+        self.at_compile_time(|scanner| syn::visit::visit_impl_item_const(scanner, node));
+    }
+
+    fn visit_trait_item_const(&mut self, node: &'ast syn::TraitItemConst) {
+        self.at_compile_time(|scanner| syn::visit::visit_trait_item_const(scanner, node));
     }
 
     fn visit_expr_method_call(&mut self, node: &'ast syn::ExprMethodCall) {
@@ -3015,6 +3036,16 @@ unsafe fn risky(values: &[u8]) -> u8 {
             ("fn root() { make::<{ LEN + width() }>(LEN); }", 1),
             ("fn root() { enum E { A = (LEN + width()) as isize } }", 0),
             ("fn root() { enum E { A = (LEN + width()) as isize } let _ = LEN; }", 1),
+            ("fn root() { const X: usize = LEN + width(); }", 0),
+            ("fn root() { const X: usize = LEN + width(); let _ = LEN; }", 1),
+            ("fn root() { static X: usize = LEN + width(); }", 0),
+            ("fn root() { static X: usize = LEN + width(); let _ = LEN; }", 1),
+            ("fn root() { struct B; impl B { const X: usize = LEN + width(); } let _ = LEN; }", 1),
+            ("fn root() { trait T { const X: usize = LEN + width(); } let _ = LEN; }", 1),
+            ("fn root() { struct B<const N: usize = { LEN + width() }>; }", 0),
+            ("fn root() { struct B<const N: usize = { LEN + width() }>; let _ = LEN; }", 1),
+            ("fn root() { make::<N = { LEN + width() }>(0); }", 0),
+            ("fn root() { make::<N = { LEN + width() }>(LEN); }", 1),
         ] {
             let source = format!("{items}{body}\n");
             let receipt = compute_closure(input(&source, vec![address("root", '1')], policy(Vec::new())));
