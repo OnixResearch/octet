@@ -30,6 +30,12 @@ Changes that can add findings or fail a build:
   the profile, even when justified. The governance lints stay at `deny` and
   nothing is forbidden crate-wide, so a crate's own group forbids next to
   derive output behave as before.
+- Under a strict profile, `unjustified_allow` also requires a local
+  justification for a source `warn` that lowers one of the profile's required
+  lints from `deny`, by bare name, `tigerstyle::` name, or a `tigerstyle::`
+  group with a required member (`#![warn(no_unwrap)]` used to pass a
+  `robust` run with only a warning). A `warn` that only raises other lints,
+  and any `warn` without a profile, is unaffected.
 - A selected strict profile fails the compilation, naming the flag, when
   `--force-warn` or a `--cap-lints` below `deny` would weaken a required lint.
 - `unjustified_no_todo_allow` checks `no_todo` escape hatches wherever rustc
