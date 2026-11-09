@@ -1,7 +1,9 @@
 use rustc_errors::Applicability;
 use rustc_hir as hir;
 use rustc_hir::ExprKind;
+use rustc_hir::def::DefKind;
 use rustc_hir::def::Res;
+use rustc_hir::def_id::DefId;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
 use rustc_lint::LintContext;
@@ -75,6 +77,40 @@ impl<'tcx> LateLintPass<'tcx> for UnboundedChannel {
     }
 }
 
+/// Unbounded constructor name and its bounded sibling in the same public module.
+fn bounded_counterpart(cx: &LateContext<'_>, did: rustc_hir::def_id::DefId) -> Option<(&'static str, &'static str)> {
+    if match_def_path(cx, did, &["std", "sync", "mpsc", "channel"]) {
+        Some(("channel", "sync_channel"))
+    } else if match_def_path(cx, did, &["crossbeam_channel", "channel", "unbounded"]) {
+        Some(("unbounded", "bounded"))
+    } else if match_def_path(cx, did, &["tokio", "sync", "mpsc", "unbounded", "unbounded_channel"])
+        || match_def_path(cx, did, &["tokio", "sync", "mpsc", "unbounded_channel"])
+    {
+        Some(("unbounded_channel", "channel"))
+    } else {
+        None
+    }
+}
+
+/// Module path of a `use <crate>::...::<ctor> as <alias>` import of `did`, when it
+/// starts at an extern crate root and so names the same module from any scope.
+fn aliased_import_module_path(cx: &LateContext<'_>, did: DefId, alias: Symbol) -> Option<String> {
+    cx.tcx.hir_free_items().find_map(|item_id| {
+        let hir::ItemKind::Use(path, hir::UseKind::Single(ident)) = cx.tcx.hir_item(item_id).kind else {
+            return None;
+        };
+        if ident.name != alias || path.res.value_ns != Some(Res::Def(DefKind::Fn, did)) {
+            return None;
+        }
+        let (_, modules) = path.segments.split_last()?;
+        let crate_root = modules.first()?;
+        if !matches!(crate_root.res, Res::Def(DefKind::Mod, root) if root.is_crate_root() && !root.is_local()) {
+            return None;
+        }
+        Some(modules.iter().map(|segment| segment.ident.as_str()).collect::<Vec<_>>().join("::"))
+    })
+}
+
 fn bounded_suggestion(
     cx: &LateContext<'_>,
     expr: &hir::Expr<'_>,
@@ -83,31 +119,34 @@ fn bounded_suggestion(
     let ExprKind::Call(callee, _) = &expr.kind else {
         return None;
     };
-    if !expr.span.contains(callee.span) {
-        return None;
-    }
-    let sm = cx.sess().source_map();
-    let callee_snippet = sm.span_to_snippet(callee.span).ok()?;
-
-    // Rename only the callee; unbounded constructors take no arguments, so the
-    // argument list becomes the capacity placeholder. Generic args like `::<()>` stay intact.
-    let bounded_callee = if match_def_path(cx, did, &["std", "sync", "mpsc", "channel"]) {
-        callee_snippet.replacen("channel", "sync_channel", 1)
-    } else if match_def_path(cx, did, &["crossbeam_channel", "channel", "unbounded"]) {
-        callee_snippet.replacen("unbounded", "bounded", 1)
-    } else if match_def_path(cx, did, &["tokio", "sync", "mpsc", "unbounded", "unbounded_channel"])
-        || match_def_path(cx, did, &["tokio", "sync", "mpsc", "unbounded_channel"])
-    {
-        callee_snippet.replacen("unbounded_channel", "channel", 1)
-    } else {
+    let ExprKind::Path(hir::QPath::Resolved(None, path)) = &callee.kind else {
         return None;
     };
-
-    // Only emit if we actually renamed the constructor
-    if bounded_callee == callee_snippet {
+    let name = path.segments.last()?.ident;
+    let name_span = name.span;
+    if !expr.span.contains(callee.span) || !callee.span.contains(name_span) {
         return None;
     }
-    let replacement = format!("{bounded_callee}(/* CAPACITY */)");
+    let (unbounded_name, bounded_name) = bounded_counterpart(cx, did)?;
+    let sm = cx.sess().source_map();
+    // Generic args like `::<()>` follow the renamed segment and stay intact.
+    let generic_args = sm.span_to_snippet(callee.span.with_lo(name_span.hi())).ok()?;
+
+    let bounded_path = if name.name.as_str() == unbounded_name {
+        // Rename only the constructor segment; any module prefix stays as written.
+        let prefix = sm.span_to_snippet(callee.span.with_hi(name_span.lo())).ok()?;
+        format!("{prefix}{bounded_name}")
+    } else {
+        // An aliased import (`use std::sync::mpsc::channel as make`) says nothing
+        // about the bounded sibling's name, so spell it through the module the
+        // import names; without such an import, offer no rewrite.
+        let module_path = aliased_import_module_path(cx, did, name.name)?;
+        format!("{module_path}::{bounded_name}")
+    };
+
+    // Unbounded constructors take no arguments, so the argument list becomes the
+    // capacity placeholder.
+    let replacement = format!("{bounded_path}{generic_args}(/* CAPACITY */)");
 
     Some(LintSuggestion::Single {
         span: expr.span,

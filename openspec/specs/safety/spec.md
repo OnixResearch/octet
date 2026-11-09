@@ -124,6 +124,11 @@ The lint MUST match by resolved function identity or definition path, not only
 by the public re-export spelling that appears in source.
 
 The lint MUST suggest using the bounded alternative with explicit capacity.
+A structured rewrite MUST name a bounded constructor that exists: when the
+callee's last path segment is the original constructor name, only that segment
+is renamed; when the callee is an alias, the rewrite spells the bounded
+constructor through the extern-crate module path of the aliasing `use`, and is
+omitted when no such path is available.
 
 #### Scenario: Tokio unbounded channel
 

@@ -31,3 +31,33 @@ fn main() {
     tokio_bounded_is_allowed();
     std_unbounded_unit_turbofish();
 }
+
+use crossbeam::channel::unbounded;
+use tokio::sync::mpsc as tokio_mpsc;
+
+fn crossbeam_unaliased_ctor() {
+    // The callee keeps its original name, so only that segment is renamed.
+    let _ = unbounded::<u8>();
+}
+
+fn tokio_module_alias_ctor() {
+    // A module alias keeps the original function segment, so only it is renamed.
+    let _ = tokio_mpsc::unbounded_channel::<u8>();
+}
+
+mod queues {
+    pub use std::sync::mpsc::channel;
+    pub use std::sync::mpsc::channel as make_queue;
+}
+
+use queues::channel as local_queue;
+
+fn module_reexported_alias_ctor() {
+    // The alias import starts at the `std` crate root, so its module path is reused.
+    let _ = queues::make_queue::<u8>();
+}
+
+fn local_module_alias_ctor() {
+    // The alias import starts at a local module, so no rewrite is offered.
+    let _ = local_queue::<u8>();
+}
