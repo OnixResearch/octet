@@ -317,6 +317,14 @@ To write a waiver, copy `finding_id`, `source_blake3`, and `affected_claim` from
 
 A change to any non-waiver policy field, the source, the finding, or the claim makes the waiver stale. A waived finding remains visible as `waived`; it is not `clean`.
 
+A finding's `source_blake3` names the source it depends on:
+
+- A finding about one compiler fact binds the source envelope of the unit that observed it.
+- A finding about what a declared scope lacks or resolves ambiguously, such as `no-std-obligation`, `port-trait-resolution`, `port-implementation-missing`, or a protected-protocol `*-resolution` or `*-provenance-missing` finding, binds the source envelopes of every production unit that owns the scope. A unit owns a scope that names its package, contains its target root, lies under its target root directory, or contains one of its observations. When no unit owns the scope, the finding binds only the waiver binding identity.
+- A finding about the policy alone, such as `missing-composition-root` or `missing-protected-effect-protocol`, binds only the waiver binding identity.
+
+A source edit therefore makes stale every waiver whose finding binds that unit's source envelope.
+
 Waivers apply only to policy findings. Input-integrity findings, such as incomplete compiler coverage, stay open; a waiver that targets one adds an `unwaivable-integration-finding` integration failure.
 
 Rust `#[allow]` attributes do not suppress project architecture findings.

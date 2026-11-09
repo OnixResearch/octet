@@ -45,6 +45,7 @@ pub const PROJECT_ARCHITECTURE_CARGO_GRAPH_SCHEMA_VERSION: &str = "octet-project
 const RECEIPT_ID_DOMAIN: &str = "octet.project-architecture-gate.receipt/v2";
 const FINDING_ID_DOMAIN: &str = "octet.project-architecture-gate.finding/v1";
 const CARGO_GRAPH_ID_DOMAIN: &str = "octet.project-architecture-gate.cargo-graph/v1";
+const SCOPE_SOURCE_ID_DOMAIN: &str = "octet.project-architecture-gate.scope-source/v1";
 const EVIDENCE_TIER: &str = "policy-check";
 const CLAIM_ROLE_GRAPH: &str = "role-aware-dependency-graph";
 const CLAIM_CORE_PURITY: &str = "domain-core-purity";
@@ -1331,15 +1332,13 @@ fn evaluate_protected_witness(
             ));
         }
     } else {
-        findings.push(new_finding(
+        findings.push(finding_for_scopes(
+            input,
+            indexes,
             "witness-shape-resolution",
-            ArchitectureFindingSeverity::Policy,
             CLAIM_AUTHORIZATION_WITNESS,
-            None,
-            None,
-            None,
+            std::slice::from_ref(&protocol.witness_owner_scope),
             Some(protocol.witness_owner_scope.clone()),
-            input.waiver_policy_blake3,
             &format!("witness type `{}` must resolve to exactly one compiler type-shape fact", protocol.witness_type),
         ));
     }
@@ -1482,15 +1481,13 @@ fn evaluate_protected_calls(
             })
             .collect::<Vec<_>>();
         if decision_items.len() != 1 {
-            findings.push(new_finding(
+            findings.push(finding_for_scopes(
+                input,
+                indexes,
                 "authority-decision-resolution",
-                ArchitectureFindingSeverity::Policy,
                 CLAIM_AUTHORIZATION_ORIGIN,
-                None,
-                None,
-                None,
+                std::slice::from_ref(&protocol.decision_scope),
                 Some(protocol.decision_scope.clone()),
-                input.waiver_policy_blake3,
                 &format!("authority decision `{decision}` must resolve to exactly one compiler item"),
             ));
             continue;
@@ -1561,15 +1558,13 @@ fn evaluate_protected_calls(
             })
             .collect::<Vec<_>>();
         if constructor_items.len() != 1 {
-            findings.push(new_finding(
+            findings.push(finding_for_scopes(
+                input,
+                indexes,
                 "witness-constructor-resolution",
-                ArchitectureFindingSeverity::Policy,
                 CLAIM_AUTHORIZATION_WITNESS,
-                None,
-                None,
-                None,
+                std::slice::from_ref(&protocol.witness_owner_scope),
                 Some(protocol.witness_owner_scope.clone()),
-                input.waiver_policy_blake3,
                 &format!("witness constructor `{constructor}` must resolve to exactly one compiler item"),
             ));
             continue;
@@ -1640,15 +1635,13 @@ fn evaluate_protected_calls(
             })
             .collect::<Vec<_>>();
         if executor_items.len() != 1 {
-            findings.push(new_finding(
+            findings.push(finding_for_scopes(
+                input,
+                indexes,
                 "protected-executor-resolution",
-                ArchitectureFindingSeverity::Policy,
                 CLAIM_PROTECTED_EXECUTOR,
-                None,
-                None,
-                None,
+                std::slice::from_ref(&classification.executor_scope),
                 Some(classification.executor_scope.clone()),
-                input.waiver_policy_blake3,
                 &format!("protected executor `{executor}` must resolve to exactly one compiler item"),
             ));
         }
@@ -1696,15 +1689,13 @@ fn evaluate_protected_calls(
             })
             .collect::<Vec<_>>();
         if calls.is_empty() {
-            findings.push(new_finding(
+            findings.push(finding_for_scopes(
+                input,
+                indexes,
                 "protected-executor-provenance-missing",
-                ArchitectureFindingSeverity::Policy,
                 CLAIM_PROTECTED_EXECUTOR,
-                None,
-                None,
-                None,
+                std::slice::from_ref(&classification.executor_scope),
                 Some(classification.executor_scope.clone()),
-                input.waiver_policy_blake3,
                 &format!("protected executor `{executor}` has no selected witness provenance fact"),
             ));
         }
@@ -1822,15 +1813,13 @@ fn evaluate_receipt_constructors(
             .filter(|(_, _, callee, _, _, _, _)| *callee == receipt_constructor)
             .collect::<Vec<_>>();
         if calls.is_empty() {
-            findings.push(new_finding(
+            findings.push(finding_for_scopes(
+                input,
+                indexes,
                 "receipt-observation-provenance-missing",
-                ArchitectureFindingSeverity::Policy,
                 CLAIM_EFFECT_RECEIPT,
-                None,
-                None,
-                None,
+                std::slice::from_ref(&protocol.receipt_scope),
                 Some(protocol.receipt_scope.clone()),
-                input.waiver_policy_blake3,
                 &format!("receipt constructor `{receipt_constructor}` has no selected observation provenance fact"),
             ));
         }
@@ -1919,15 +1908,13 @@ fn evaluate_ports(
             })
             .collect::<Vec<_>>();
         if traits.len() != 1 {
-            findings.push(new_finding(
+            findings.push(finding_for_scopes(
+                input,
+                indexes,
                 "port-trait-resolution",
-                ArchitectureFindingSeverity::Policy,
                 CLAIM_PORT_OWNERSHIP,
+                std::slice::from_ref(&port.application_owner_scope),
                 None,
-                None,
-                None,
-                None,
-                input.waiver_policy_blake3,
                 &format!("port trait `{}` must resolve to exactly one compiler trait fact", port.port_trait),
             ));
             continue;
@@ -1966,15 +1953,13 @@ fn evaluate_ports(
             })
             .collect::<Vec<_>>();
         if implementations.is_empty() && !port.reserved {
-            findings.push(new_finding(
+            findings.push(finding_for_scopes(
+                input,
+                indexes,
                 "port-implementation-missing",
-                ArchitectureFindingSeverity::Policy,
                 CLAIM_PORT_OWNERSHIP,
+                &port.permitted_adapter_scopes,
                 None,
-                None,
-                None,
-                None,
-                input.waiver_policy_blake3,
                 &format!("non-reserved port trait `{}` has no compiler-resolved implementation", port.port_trait),
             ));
         }
@@ -2168,15 +2153,13 @@ fn evaluate_no_std(
         };
         let has_no_std = units.iter().all(|unit| indexes.unit_has_configuration(unit, "crate:no-std"));
         if units.is_empty() || !has_no_std {
-            findings.push(new_finding(
+            findings.push(finding_for_scopes(
+                input,
+                indexes,
                 "no-std-obligation",
-                ArchitectureFindingSeverity::Policy,
                 CLAIM_NO_STD,
-                None,
-                None,
-                None,
+                std::slice::from_ref(&obligation.scope),
                 Some(obligation.scope.clone()),
-                input.waiver_policy_blake3,
                 &format!("domain-core scope `{}` lacks compiler-confirmed crate:no-std", obligation.scope),
             ));
         }
@@ -2412,6 +2395,52 @@ fn finding_for_unit(
         fact_id,
         source_path.map(str::to_owned),
         source_blake3,
+        message,
+    )
+}
+
+/// Bind a finding about what a declared scope lacks or holds ambiguously to the source identity
+/// of every production unit that owns the scope, so a source edit there makes its waiver stale.
+/// A unit owns a scope that names its package, contains its target root, lies under its target
+/// root directory, or contains one of its observations. With no owning unit, the finding binds
+/// only the waiver policy identity.
+fn finding_for_scopes(
+    input: &ProductionGateInput<'_>,
+    indexes: &GateIndexes<'_>,
+    code: &str,
+    affected_claim: &str,
+    scopes: &[String],
+    source_path: Option<String>,
+    message: &str,
+) -> ProjectArchitectureFinding {
+    let mut sources = BTreeSet::new();
+    for scope in scopes {
+        for unit in &input.architecture_ir.units {
+            let owns = unit.package_name == *scope
+                || path_in_scope(&unit.source_path, scope)
+                || unit.source_path.rsplit_once('/').is_some_and(|(root, _)| path_in_scope(scope, root));
+            if owns {
+                sources.insert(unit.source_blake3.as_str());
+            }
+        }
+        sources.extend(indexes.units_for_source_scope(scope).into_iter().map(|unit| unit.source_blake3.as_str()));
+    }
+    let sources = sources.into_iter().collect::<Vec<_>>();
+    let source_blake3 = match sources.as_slice() {
+        [] => input.waiver_policy_blake3.to_owned(),
+        [source] => (*source).to_owned(),
+        _ => octet_architecture_ir::canonical_identity(SCOPE_SOURCE_ID_DOMAIN, &sources)
+            .expect("project architecture scope source identity fields must serialize"),
+    };
+    new_finding(
+        code,
+        ArchitectureFindingSeverity::Policy,
+        affected_claim,
+        None,
+        None,
+        None,
+        source_path,
+        &source_blake3,
         message,
     )
 }
@@ -2827,6 +2856,91 @@ mod tests {
         assert!(stale.applied_waiver_ids.is_empty());
         assert!(stale.findings.iter().any(|finding| finding.code == "stale-waiver"));
         assert_ne!(stale.waiver_policy_blake3, binding);
+    }
+
+    // r[verify octet.project_architecture_gate.waivers]
+    #[test]
+    fn scope_findings_bind_their_unit_sources_so_source_edits_stale_waivers() {
+        let mut fixture = Fixture::new(ArchitectureMode::Gate);
+        fixture.policy.ports.push(ArchitecturePort {
+            port_trait: "application::MissingPort".to_owned(),
+            application_owner_scope: "crates/application/src".to_owned(),
+            permitted_adapter_scopes: vec!["crates/outbound/src".to_owned()],
+            forbidden_concrete_types: Vec::new(),
+            reserved: true,
+        });
+        fixture.policy.ports.push(ArchitecturePort {
+            port_trait: "application::ports::Audit".to_owned(),
+            application_owner_scope: "crates/application/src".to_owned(),
+            permitted_adapter_scopes: vec!["crates/outbound/src".to_owned()],
+            forbidden_concrete_types: Vec::new(),
+            reserved: false,
+        });
+        let trait_span = span("crates/application/src/ports.rs");
+        let mut trait_fact = CompilerArchitectureFact::Trait {
+            fact_id: String::new(),
+            trait_id: HASH_C.to_owned(),
+            qualified_path: "application::ports::Audit".to_owned(),
+            origin_crate: "application".to_owned(),
+            span_id: trait_span.span_id.clone(),
+        };
+        set_fact_id(&mut trait_fact);
+        fixture.add_unit_facts("application", vec![trait_span], vec![trait_fact], Vec::new());
+        fixture.policy.core_no_std.push(crate::project_architecture_policy::ArchitectureNoStdObligation {
+            scope: "domain".to_owned(),
+        });
+        let open = fixture.evaluate_exported();
+        let codes = open.findings.iter().map(|finding| finding.code.as_str()).collect::<BTreeSet<_>>();
+        assert_eq!(
+            codes,
+            BTreeSet::from([
+                "no-std-obligation",
+                "port-implementation-missing",
+                "port-trait-resolution"
+            ])
+        );
+        assert!(open.findings.iter().all(|finding| finding.source_blake3 != open.waiver_policy_blake3));
+        fixture.policy.waivers = open
+            .findings
+            .iter()
+            .map(|finding| ArchitectureWaiver {
+                finding_id: finding.finding_id.clone(),
+                policy_blake3: open.waiver_policy_blake3.clone(),
+                source_blake3: finding.source_blake3.clone(),
+                owner: "architecture-team".to_owned(),
+                reason: "bounded migration".to_owned(),
+                review_condition: "remove after port extraction".to_owned(),
+                affected_claim: finding.affected_claim.clone(),
+            })
+            .collect();
+        let waived = fixture.evaluate_exported();
+        assert_eq!(waived.applied_waiver_ids.len(), 3, "{:?}", waived.findings);
+
+        let edit_source = |fixture: &mut Fixture, package: &str| {
+            let unit = fixture.ir.units.iter_mut().find(|unit| unit.package_name == package).expect("unit");
+            unit.source_blake3 =
+                octet_architecture_ir::canonical_identity("fixture-edited-source", &package).expect("source id");
+        };
+        let mut unrelated = fixture.clone();
+        edit_source(&mut unrelated, "host");
+        assert_eq!(unrelated.evaluate_exported().applied_waiver_ids.len(), 3);
+        for (package, stale_code) in [
+            ("application", "port-trait-resolution"),
+            ("outbound", "port-implementation-missing"),
+            ("domain", "no-std-obligation"),
+        ] {
+            let mut edited = fixture.clone();
+            edit_source(&mut edited, package);
+            let stale = edited.evaluate_exported();
+            assert_eq!(stale.status, ArchitecturePhaseStatus::IntegrationFailure, "{package}");
+            assert_eq!(stale.applied_waiver_ids.len(), 2, "{package}: {:?}", stale.findings);
+            let stale_finding = stale
+                .findings
+                .iter()
+                .find(|finding| finding.code == stale_code)
+                .expect("edited finding remains visible");
+            assert_eq!(stale_finding.status, ArchitectureFindingStatus::Open);
+        }
     }
 
     fn waiver_free_policy_blake3(policy: &ProjectArchitecturePolicy) -> String {
@@ -3299,6 +3413,7 @@ mod tests {
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("whole-program-correctness")));
     }
 
+    #[derive(Clone)]
     struct Fixture {
         policy: ProjectArchitecturePolicy,
         graph: ArchitectureCargoGraph,
