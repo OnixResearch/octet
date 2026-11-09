@@ -48,6 +48,10 @@ fn join_builder_handle() {
     }
 }
 
+// Should NOT warn: a `_` async fn parameter is not a discarded handle, even
+// though rustc lowers it into `let _ = ...` inside the async body.
+async fn on_spawned(_: std::thread::JoinHandle<u8>) {}
+
 fn main() {
     discard_thread_spawn_statement();
     discard_thread_spawn_wildcard();

@@ -78,6 +78,11 @@ fn report_late_quantity(cx: &rustc_lint::LateContext<'_>, name: &str, span: rust
 
 impl<'tcx> LateLintPass<'tcx> for NumericUnits {
     fn check_local(&mut self, cx: &rustc_lint::LateContext<'tcx>, local: &'tcx hir::LetStmt<'tcx>) {
+        // Async fn and async closure parameters are lowered into `let`
+        // statements; `check_fn` owns parameters.
+        if !matches!(local.source, hir::LocalSource::Normal) {
+            return;
+        }
         let hir::PatKind::Binding(_, _, ident, _) = local.pat.kind else {
             return;
         };

@@ -41,7 +41,9 @@ The lint MUST suggest renaming with the appropriate prefix.
 
 The lint MUST NOT fire on destructuring bindings (`let Foo { active } = ...`).
 
-The lint MUST NOT fire on function parameters (only local bindings).
+The lint MUST NOT fire on function parameters (only local bindings), including
+`async fn` and async closure parameters, which rustc lowers into `let`
+statements inside the async body.
 
 The lint MAY fire on `mut` boolean bindings.
 
@@ -125,6 +127,10 @@ The lint MUST NOT fire on names that already end with a unit suffix,
 including spelled-out time units (`timeout_seconds`) and binary size units
 (`buffer_size_kib`).
 
+The `let` statements rustc generates for `async fn` and async closure
+parameters MUST NOT count as local bindings; an `async fn` parameter is
+checked once, as a parameter.
+
 #### Scenario: Bare timeout name
 
 - GIVEN `let timeout = Duration::from_secs(5);`
@@ -199,7 +205,8 @@ calls adds up.
 
 The lint MUST warn on:
 - boolean-returning functions
-- bool-typed local bindings
+- bool-typed local bindings (user-written `let` bindings, not the `let`
+  statements rustc generates for `async fn` and async closure parameters)
 
 when their names begin with one of these whole-token negative prefixes:
 - `is_not_`

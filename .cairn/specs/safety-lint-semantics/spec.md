@@ -26,6 +26,15 @@ r[octet.safety_lint_semantics.discards.shutdown]
 - WHEN `ignored_result` runs
 - THEN it MUST continue to emit zero diagnostics for that exception.
 
+#### Scenario: Async fn wildcard parameter is not a discard
+
+r[octet.safety_lint_semantics.discards.async_parameter]
+
+- GIVEN `async fn on_done(&self, _: io::Result<()>)`, which rustc lowers into a `let _ = ...` statement inside the async body
+- WHEN `ignored_result` or `ignored_join_handle` runs
+- THEN it MUST emit zero diagnostics for that parameter
+- AND `let _ = fallible()` and `_ = fallible()` written in the body MUST still be flagged.
+
 ### Requirement: Recursion semantics
 
 r[octet.safety_lint_semantics.recursion] `no_recursion` MUST detect direct self-recursion through functions and methods, and MAY add advisory mutual-recursion detection only with fixture-backed low-noise evidence.

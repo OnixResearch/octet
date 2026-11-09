@@ -26,9 +26,16 @@ fn shorthand_field_use() -> bool {
     flags.visible
 }
 
+// Should NOT warn: async fn parameters are not `let` bindings, even though
+// rustc lowers them into `let` statements inside the async body.
+async fn async_parameter(verbose: bool) -> bool {
+    verbose
+}
+
 fn main() {
     multiple_uses();
     let _ = closure_use();
     async_block_use();
     let _ = shorthand_field_use();
+    let _future = async_parameter(true);
 }

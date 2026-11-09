@@ -102,6 +102,12 @@ fn macro_path_use(values: &[u8]) {
     require_path!(no_entries);
 }
 
+// Should NOT warn: async fn parameters are not `let` bindings, even though
+// rustc lowers them into `let` statements inside the async body.
+async fn async_parameter(no_values: bool) -> bool {
+    no_values
+}
+
 fn main() {
     let state = State;
     let _ = is_not_ready(&state);

@@ -30,6 +30,12 @@ fn suggested_bool_name(name: &str) -> String {
 
 impl<'tcx> LateLintPass<'tcx> for BoolNaming {
     fn check_local(&mut self, cx: &LateContext<'tcx>, local: &'tcx hir::LetStmt<'tcx>) {
+        // Async fn and async closure parameters are lowered into `let`
+        // statements; only user-written `let` bindings are locals.
+        if !matches!(local.source, hir::LocalSource::Normal) {
+            return;
+        }
+
         // Only check simple ident bindings, not destructuring
         let PatKind::Binding(_, _, ident, _) = &local.pat.kind else {
             return;

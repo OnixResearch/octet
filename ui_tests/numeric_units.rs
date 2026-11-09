@@ -94,6 +94,21 @@ fn spelled_out_units() {
     );
 }
 
+// Should warn: an async fn parameter is still a raw numeric parameter, reported
+// once through the parameter check rather than again as a lowered `let`.
+async fn async_parameter(delay: u64) -> u64 {
+    delay
+}
+
+fn closure_parameters() {
+    // Should NOT warn: closure parameters are not checked, and an async
+    // closure's parameters are not `let` bindings even though rustc lowers them
+    // into `let` statements inside the async body.
+    let sync_delay = |delay: u64| delay;
+    let async_delay = async |delay: u64| delay;
+    let _ = (sync_delay, async_delay);
+}
+
 fn main() {
     bare_timeout();
     suffixed_timeout();

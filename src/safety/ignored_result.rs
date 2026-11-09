@@ -167,7 +167,12 @@ fn ignored_result_facts(cx: &LateContext<'_>, hir_id: hir::HirId, expr: &hir::Ex
 
 impl<'tcx> LateLintPass<'tcx> for IgnoredResult {
     fn check_local(&mut self, cx: &LateContext<'tcx>, local: &'tcx hir::LetStmt<'tcx>) {
-        if !matches!(local.pat.kind, PatKind::Wild) {
+        // `let _ = ...` and `_ = ...` (lowered as `AssignDesugar`) discard a
+        // value; the `let _ = __arg` that rustc emits for a `_` async fn
+        // parameter does not.
+        if !matches!(local.pat.kind, PatKind::Wild)
+            || !matches!(local.source, hir::LocalSource::Normal | hir::LocalSource::AssignDesugar)
+        {
             return;
         }
 
