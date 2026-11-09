@@ -4317,10 +4317,18 @@ fn run_tool(
         &[]
     };
     let output = run_bounded_rail_command(&command_parts, args.workspace_root.as_deref(), environment)?;
-    let mut stdout_stderr = String::from_utf8_lossy(&output.stdout).into_owned();
-    if args.rail != EvidenceRailKind::ClippyCoReporting {
-        stdout_stderr.push_str(&String::from_utf8_lossy(&output.stderr));
-    }
+    let stdout_stderr = if args.rail == EvidenceRailKind::DependencyAudit {
+        if !output.stdout.is_empty() {
+            return Err("cargo-deny wrote to stdout; `--format json` reports belong on stderr".to_owned());
+        }
+        cargo_deny_report_from_json_lines(&String::from_utf8_lossy(&output.stderr))?
+    } else {
+        let mut stdout_stderr = String::from_utf8_lossy(&output.stdout).into_owned();
+        if args.rail != EvidenceRailKind::ClippyCoReporting {
+            stdout_stderr.push_str(&String::from_utf8_lossy(&output.stderr));
+        }
+        stdout_stderr
+    };
     Ok(ToolOutput {
         stdout_stderr,
         exit_code: output.exit_code,
@@ -4689,9 +4697,10 @@ fn command_argv(
 ) -> Vec<String> {
     match rail {
         EvidenceRailKind::DependencyAudit => {
-            // cargo-deny takes `--config`, `--locked`, and `--offline` before the `check` subcommand.
-            // `--offline` is cargo-deny's switch that stops advisory database fetches.
-            let mut argv = string_vec(&["cargo", "deny"]);
+            // cargo-deny takes `--format`, `--config`, `--locked`, and `--offline` before the `check`
+            // subcommand. `--format json` writes JSON lines to stderr, and `--offline` stops advisory
+            // database fetches.
+            let mut argv = string_vec(&["cargo", "deny", "--format", "json"]);
             if let Some(config_path) = config_path {
                 argv.push("--config".to_owned());
                 argv.push(config_path.to_owned());
@@ -4892,6 +4901,173 @@ fn advisory_database_update(
     } else {
         Some(LOCKED_UNAVAILABLE.to_owned())
     }
+}
+
+/// Checks whose per-severity counts cargo-deny reports in its `summary` line.
+const CARGO_DENY_CHECKS: [&str; 4] = ["advisories", "bans", "licenses", "sources"];
+
+/// Maps a cargo-deny diagnostic code to its check and the Octet rule family. Codes come from the
+/// cargo-deny diagnostic reference; duplicate-version codes are bans diagnostics that Octet reports
+/// as the `duplicates` family. Unknown codes, such as configuration errors, stay `unclassified`.
+fn cargo_deny_check_and_category(code: &str) -> (Option<&'static str>, &'static str) {
+    match code {
+        "vulnerability"
+        | "notice"
+        | "unmaintained"
+        | "unsound"
+        | "yanked"
+        | "index-failure"
+        | "index-cache-load-failure"
+        | "advisory-not-detected"
+        | "advisory-ignored"
+        | "advisory-ignore-expired"
+        | "advisory-ignore-disallowed-dependent"
+        | "advisory-ignore-allowed-dependent-missing"
+        | "unknown-advisory"
+        | "yanked-ignored"
+        | "yanked-not-detected" => (Some("advisories"), "advisories"),
+        "duplicate" | "workspace-duplicate" => (Some("bans"), "duplicates"),
+        "banned"
+        | "allowed"
+        | "not-allowed"
+        | "skipped"
+        | "wildcard"
+        | "unresolved-workspace-dependency"
+        | "unused-workspace-dependency"
+        | "unmatched-skip"
+        | "unmatched-skip-root"
+        | "unnecessary-skip"
+        | "allowed-by-wrapper"
+        | "unmatched-wrapper"
+        | "unused-wrapper"
+        | "skipped-by-root"
+        | "unmatched-root"
+        | "build-script-not-allowed"
+        | "exact-features-mismatch"
+        | "feature-not-explicitly-allowed"
+        | "feature-banned"
+        | "unknown-feature"
+        | "default-feature-enabled"
+        | "path-bypassed"
+        | "path-bypassed-by-glob"
+        | "checksum-match"
+        | "checksum-mismatch"
+        | "denied-by-extension"
+        | "detected-executable"
+        | "detected-executable-script"
+        | "unable-to-check-path"
+        | "features-enabled"
+        | "unmatched-bypass"
+        | "unmatched-path-bypass"
+        | "unmatched-glob"
+        | "unmatched-allow-build-script"
+        | "allowed-crate-without-build-script"
+        | "non-root-path"
+        | "non-utf8-path" => (Some("bans"), "bans"),
+        "rejected"
+        | "accepted"
+        | "unlicensed"
+        | "skipped-private-workspace-crate"
+        | "license-not-encountered"
+        | "license-exception-not-encountered"
+        | "empty-license-field"
+        | "gather-failure"
+        | "no-license-field"
+        | "missing-clarification-file"
+        | "parse-error" => (Some("licenses"), "licenses"),
+        "git-source-underspecified"
+        | "allowed-source"
+        | "allowed-by-organization"
+        | "source-not-allowed"
+        | "unmatched-source"
+        | "unmatched-organization" => (Some("sources"), "sources"),
+        _ => (None, "unclassified"),
+    }
+}
+
+/// Converts the JSON lines that `cargo deny --format json check` writes to stderr into the pinned
+/// `cargo-deny-diagnostics/v1` document the dependency-audit importer validates. Every line must be
+/// a `diagnostic`, `log`, or `summary` record, and the error and warning counts in the single
+/// `summary` line must match the diagnostics, so missing or partial output fails closed.
+fn cargo_deny_report_from_json_lines(stderr: &str) -> Result<String, String> {
+    let mut diagnostics = Vec::new();
+    let mut observed = BTreeMap::<(&str, &str), u64>::new();
+    let mut logged_errors = Vec::new();
+    let mut summary = None;
+    for (index, line) in stderr.lines().enumerate().filter(|(_, line)| !line.trim().is_empty()) {
+        let line_number = index + 1;
+        let record: serde_json::Value = serde_json::from_str(line)
+            .map_err(|error| format!("cargo-deny output line {line_number} is not JSON: {error}"))?;
+        let fields = record.get("fields").unwrap_or(&serde_json::Value::Null);
+        match string_field(&record, "type") {
+            Some("diagnostic") => {
+                let code = string_field(fields, "code").unwrap_or_default();
+                let severity = string_field(fields, "severity")
+                    .filter(|severity| !severity.is_empty())
+                    .ok_or_else(|| format!("cargo-deny diagnostic on line {line_number} has no severity"))?;
+                let message = string_field(fields, "message")
+                    .filter(|message| !message.is_empty())
+                    .ok_or_else(|| format!("cargo-deny diagnostic on line {line_number} has no message"))?;
+                let (check, category) = cargo_deny_check_and_category(code);
+                let counted_severity = match severity {
+                    "error" => Some("error"),
+                    "warning" => Some("warning"),
+                    _ => None,
+                };
+                if let (Some(check), Some(counted_severity)) = (check, counted_severity) {
+                    *observed.entry((check, counted_severity)).or_default() += 1;
+                }
+                diagnostics.push(serde_json::json!({
+                    "category": category,
+                    "severity": severity,
+                    "message": message,
+                    "code": code,
+                }));
+            }
+            Some("log") => {
+                if string_field(fields, "level") == Some("ERROR") {
+                    logged_errors.push(string_field(fields, "message").unwrap_or("unnamed error").to_owned());
+                }
+            }
+            Some("summary") => {
+                if summary.replace(fields.clone()).is_some() {
+                    return Err("cargo-deny output has more than one summary line".to_owned());
+                }
+            }
+            other => {
+                return Err(format!(
+                    "cargo-deny output line {line_number} has unsupported type `{}`",
+                    other.unwrap_or("<missing>")
+                ));
+            }
+        }
+    }
+    let Some(summary) = summary else {
+        return Err(if logged_errors.is_empty() {
+            "cargo-deny output has no summary line".to_owned()
+        } else {
+            format!("cargo-deny output has no summary line; cargo-deny logged: {}", logged_errors.join("; "))
+        });
+    };
+    for check in CARGO_DENY_CHECKS {
+        for (severity, counter) in [("error", "errors"), ("warning", "warnings")] {
+            let expected = summary
+                .get(check)
+                .and_then(|counts| u64_field(counts, counter))
+                .ok_or_else(|| format!("cargo-deny summary lacks an integer `{check}.{counter}` count"))?;
+            let actual = observed.get(&(check, severity)).copied().unwrap_or_default();
+            if actual != expected {
+                return Err(format!(
+                    "cargo-deny summary reports {expected} {check} {counter} but the output carries {actual}"
+                ));
+            }
+        }
+    }
+    serde_json::to_string(&serde_json::json!({
+        "schema_version": DEPENDENCY_AUDIT_SCHEMA_VERSION,
+        "diagnostics": diagnostics,
+    }))
+    .map_err(|error| format!("serialize cargo-deny diagnostics report: {error}"))
 }
 
 fn validate_dependency_audit_report_shape(value: &serde_json::Value, diagnostics: &mut Vec<String>) {
@@ -5499,6 +5675,50 @@ mod tests {
         }
         let clean = dependency_audit_receipt(r#"{"diagnostics":[]}"#, Some(DENY_CONFIG));
         assert_eq!(clean.status, STATUS_PASSED, "{:?}", clean.diagnostics);
+    }
+
+    #[test]
+    fn cargo_deny_json_lines_convert_to_the_pinned_report() {
+        // Unmodified stderr of cargo-deny 0.20.2 `--format json --locked --offline check`: a banned
+        // crate error, an unmatched-skip warning, and the summary line.
+        const BANNED: &str = include_str!("../tests/fixtures/evidence-rails/cargo-deny-json-lines-banned.jsonl");
+        // Real summary line of a clean run; help-level diagnostics are counted but not emitted.
+        const CLEAN: &str = r#"{"fields":{"advisories":{"errors":0,"helps":0,"notes":0,"warnings":0},"bans":{"errors":0,"helps":0,"notes":0,"warnings":0},"licenses":{"errors":0,"helps":2,"notes":0,"warnings":0},"sources":{"errors":0,"helps":0,"notes":0,"warnings":0}},"type":"summary"}"#;
+        const BANS_FAILED_EXIT: i32 = 2;
+        let run = |report: &str, exit_code: i32| {
+            evaluate(EvaluationInput {
+                rail: EvidenceRailKind::DependencyAudit,
+                mode: MODE_RUN,
+                import_text: report,
+                config_path: Some(DENY_CONFIG),
+                locked: true,
+                profile: None,
+                requested_command: None,
+                tool_exit_code: Some(exit_code),
+                ..dynamic_input()
+            })
+        };
+
+        let banned = cargo_deny_report_from_json_lines(BANNED).expect("real cargo-deny output converts");
+        let receipt = run(&banned, BANS_FAILED_EXIT);
+        assert_eq!(receipt.status, STATUS_FAILED);
+        assert!(receipt.diagnostics.is_empty(), "{:?}", receipt.diagnostics);
+        assert_eq!(receipt.finding_counts.get("bans"), Some(&2));
+
+        let clean = cargo_deny_report_from_json_lines(CLEAN).expect("clean summary converts");
+        let receipt = run(&clean, EXIT_SUCCESS);
+        assert_eq!(receipt.status, STATUS_PASSED, "{:?}", receipt.diagnostics);
+
+        let lines = BANNED.lines().collect::<Vec<_>>();
+        for (label, output) in [
+            ("missing summary", lines[..2].join("\n")),
+            ("dropped diagnostic", [lines[1], lines[2]].join("\n")),
+            ("non-JSON line", format!("warning: noise\n{BANNED}")),
+            ("unknown record type", format!("{{\"type\":\"progress\",\"fields\":{{}}}}\n{BANNED}")),
+            ("duplicate summary", format!("{BANNED}{CLEAN}")),
+        ] {
+            assert!(cargo_deny_report_from_json_lines(&output).is_err(), "{label}");
+        }
     }
 
     #[test]
@@ -7577,6 +7797,8 @@ mod tests {
         assert_eq!(command_argv(EvidenceRailKind::DependencyAudit, Some(DENY_CONFIG), None, None, false), vec![
             "cargo",
             "deny",
+            "--format",
+            "json",
             "--config",
             DENY_CONFIG,
             "check"
@@ -7584,6 +7806,8 @@ mod tests {
         assert_eq!(command_argv(EvidenceRailKind::DependencyAudit, Some(DENY_CONFIG), None, None, true), vec![
             "cargo",
             "deny",
+            "--format",
+            "json",
             "--config",
             DENY_CONFIG,
             "--locked",
