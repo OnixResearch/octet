@@ -16,9 +16,11 @@ Behaviour and format changes:
   is a parameter, local binding, generic parameter, or a `use` or item declared
   inside the function. A function or other path used as a value, such as
   `run(std::process::abort)` or `None`, is a `value:` edge that needs a local
-  proof or an exact summary. Policies may need new summaries for constants and
-  variants used as values, and summaries for later calls in those functions may
-  go stale.
+  proof or an exact summary; a local variable exempts a value only where it is
+  in scope, so a same-named binding in another block, arm, loop, or closure no
+  longer hides an imported function. Policies may need new summaries for
+  constants and variants used as values, and summaries for later calls in
+  those functions may go stale.
 - `cargo octet fingerprint` reports markers that bind to no function (between
   attributes and `fn`, above a doc comment, or a `#[fingerprint(...)]` among
   other attributes): `--check` and `--diff` exit `1` and name each line, and
