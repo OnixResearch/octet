@@ -6,6 +6,107 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## Unreleased: suppression governance, scope matching, and rail fixes
+
+Changes that can add findings or fail a build:
+
+- `unjustified_allow` now governs `allow` and `expect` attributes that
+  suppress Clippy lints, Octet lints and groups (`tigerstyle::...`), or Octet
+  bare aliases such as `no_unwrap`, at the crate root and on statements,
+  fields, variants, and every other lint-level node. Scope comes from the lint
+  paths, not the file path. A justification is a non-doc `//` comment on the
+  attribute's lines (a trailing comment counts) or the line directly above, or
+  a non-empty `reason`; doc comments and the lint's own `TODO(octet)`
+  placeholder do not count. Every strict profile requires this lint, so
+  unjustified suppressions of Octet lints now deny. `#[expect]` findings use a
+  new message, and the lint summary changed.
+- A selected strict profile fails the compilation, naming the flag, when
+  `--force-warn` or a `--cap-lints` below `deny` would weaken a required lint.
+- `unjustified_no_todo_allow` checks `no_todo` escape hatches wherever rustc
+  honours them: `let` statements, closures, match arms, crate-level
+  `#![allow(no_todo)]`, and `#[expect(no_todo)]`. A justified `expect` lets
+  `no_todo` fire so rustc counts the expectation as met.
+- `unchecked_narrowing` checks `usize` and `isize` sources as 64 bits wide on
+  every target, so `v.len() as u32` is flagged unless guarded.
+  `raw_arithmetic_overflow` checks `+=`, `-=`, and `*=` on unsigned places.
+  `unbounded_collection_growth` combines guards correctly: `if len >= limit &&
+  go() { break; }` no longer bounds growth, and an `||` guard now does.
+- `path_segment_repetition` compares item names against the crate name.
+  `multi_lock_ordering` needs the whole word `lock` with `order`, `ordering`,
+  or `acquisition` in its comment, and the compatibility notes that exempt
+  `renamed_imports` and `path_segment_repetition` items match whole words.
+- `state_machine_exhaustiveness` and `fragile_exhaustive_enum_match` recognise
+  marker attributes by path: a doc comment that names a marker no longer opts
+  a function in, satisfies the fail-closed enum-marker check, or seals an enum.
+- `verified_purity` sees `std::time` module and glob imports when `verified/`
+  is a file-backed module of the crate, and function-local imports.
+
+Fewer false positives, and one compiler crash:
+
+- `multi_lock_ordering` no longer crashes rustc on a struct that holds two
+  locks and carries a built-in attribute such as `#[repr(C)]`.
+- `underscore_in_module_filename` skips crate root files such as
+  `src/bin/load_gen.rs`. `unbounded_loop` counts the `return` produced by `?`
+  and `ensure!`/`bail!`-style macros as an exit.
+- Under `--test`, `verified_purity` exempts `#[test]` and `#[tokio::test]`
+  functions and `type_accumulation` ignores the harness `main` and test
+  registrations. `nested_conditionals` ignores conditionals inside
+  `assert_eq!`-style expansions, which used to hide later deep nests.
+  `assertion_density` strips comments with the Rust lexer and skips only items
+  whose `cfg` requires `test`.
+- Suggestions: `negated_predicate` offers no machine-applicable negating
+  rename for a read passed into a macro (`$x:tt`); `platform_dependent_cast`
+  offers no rewrite for casts from macro expansions; `raw_arithmetic_overflow`
+  writes literal left operands as `u64::saturating_mul(2, n)`, which compiles;
+  `unbounded_channel` keeps a written module path only when that module
+  exports the bounded constructor, and otherwise spells the crate path or
+  offers no rewrite.
+
+Configuration:
+
+- `core_source_scopes`, `state_machine_core_scopes`, and
+  `state_machine_generated_adapter_scopes` are normalized as `cargo octet`
+  normalizes them (trim, drop a leading `./` and a trailing `/`) and match
+  whole workspace-relative path components. `./crates/domain/src/` matches
+  again and `crates/core` no longer covers `crates/core-shell`, but a scope
+  that matched only as a substring (`domain-core/src` for
+  `crates/domain-core/src`) must be rewritten from the workspace root. Scopes
+  that normalize to empty warn (`empty_source_scope`), and scopes that name
+  nothing under the workspace root warn (`unmatched_source_scope`).
+- Octet parses only the `dylint.toml` section it uses. A shadowed `[slotcar]`
+  or `[tigerstyle]` section produces a warning instead of being dropped
+  silently, or crashing the build when malformed. Under `bounded-systems` and
+  `deterministic-core`, the inventory-cap warning that contradicted the
+  profile's `deny` is gone.
+
+Evidence rails and artifacts:
+
+- Dependency-audit reconciles every cargo-deny 0.20.2 diagnostic code; codes
+  that no check owns, including codes from newer releases, become
+  `unclassified` findings instead of ending the run with exit 2 and no
+  receipt. A rail run killed by a signal fails without a receipt. The Loom
+  profiles also set `CARGO_ENCODED_RUSTFLAGS`, so an inherited value can no
+  longer drop `--cfg loom` and produce a false pass.
+- Dependency-trust receipts carry a `dependency_trust` object that binds the
+  cargo-vet store's `config.toml`, the declared imports, and the
+  `imports.lock` identity. Declaring imports without `imports.lock` fails,
+  receipts produced before this change no longer validate, and collection,
+  including `--input`, needs a readable cargo-vet store under the workspace
+  root.
+- Under the implicit whole-workspace function-address scope (`robust`,
+  `bounded-systems`), each out-of-root directory link that is skipped is
+  listed by workspace-relative path in `skipped_directory_links`, and a stderr
+  note names its target. Every new `function-addresses.json` carries the
+  field, so the `function_address_artifact_blake3` in effect-closure receipts
+  changes.
+- Roadmap capsule and artifact-store redaction drops plural, numbered, and
+  environment-suffixed tokens, `PGPASSWORD`, `MYSQL_PWD`, `DB_PASS`,
+  `Authorization`, bearer, cookie, session-ID, JWT, and auth fields, and
+  qualified keys such as `AWS_ACCESS_KEY_ID`, `STRIPE_KEY`, and `SIGNING_KEY`.
+  It keeps vocabulary, position, and pagination tokens such as `stop_token`,
+  `last_token`, `resume_token`, and `PaginationToken`. Capsule and artifact
+  hashes change for inputs that carry those fields.
+
 ## Unreleased: lint, evidence-rail, admission, and Verus fixes
 
 Behaviour and format changes:
