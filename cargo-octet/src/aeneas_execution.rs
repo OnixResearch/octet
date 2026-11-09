@@ -534,17 +534,8 @@ pub(crate) fn execute_reused_charon_stage(input: ReusedCharonStageInput) -> Aene
     if !diagnostics.is_empty() {
         return failed_reused_charon_observation(input.charon_argv, diagnostics);
     }
-    if input.work_root.exists() {
-        return failed_reused_charon_observation(input.charon_argv, vec![format!(
-            "reused Charon work root `{}` already exists; refusing prior-run reuse",
-            input.work_root.display()
-        )]);
-    }
-    if let Err(error) = fs::create_dir_all(&input.work_root) {
-        return failed_reused_charon_observation(input.charon_argv, vec![format!(
-            "create reused Charon work root `{}`: {error}",
-            input.work_root.display()
-        )]);
+    if let Err(error) = claim_work_root(&input.work_root, "reused Charon") {
+        return failed_reused_charon_observation(input.charon_argv, vec![error]);
     }
     if let Err(error) = copy_directory_contents(&input.source_root, &input.work_root, CopyFilter::RustPackageInputs) {
         return failed_reused_charon_observation(input.charon_argv, vec![error]);
@@ -726,6 +717,28 @@ fn should_skip_source_directory(name: &str) -> bool {
     matches!(name, GIT_DIRECTORY_NAME | TARGET_DIRECTORY_NAME | LAKE_DIRECTORY_NAME)
 }
 
+/// Create `work_root` for this run alone.
+///
+/// The parent is created as needed, but the root itself must be new: `create_dir` fails
+/// atomically when another run, or one killed before cleanup, already holds it, so two
+/// concurrent runs can never share or remove each other's root.
+fn claim_work_root(work_root: &Path, label: &str) -> Result<(), String> {
+    if let Some(parent) = work_root.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|error| format!("create {label} work root parent `{}`: {error}", parent.display()))?;
+    }
+    fs::create_dir(work_root).map_err(|error| {
+        if error.kind() == std::io::ErrorKind::AlreadyExists {
+            format!(
+                "{label} work root `{}` already exists; refusing to reuse a concurrent or interrupted run",
+                work_root.display()
+            )
+        } else {
+            format!("create isolated {label} work root `{}`: {error}", work_root.display())
+        }
+    })
+}
+
 /// Inspect one successful stage's outputs in the work root; returned diagnostics stop the run.
 pub(crate) type AeneasStageGate<'a> = dyn FnMut(AeneasStageKind, &Path) -> Vec<String> + 'a;
 
@@ -739,17 +752,8 @@ pub(crate) fn execute_aeneas_plan(plan: &AeneasExecutionPlan, gate: &mut AeneasS
         observations: Vec::new(),
         diagnostics: Vec::new(),
     };
-    if plan.work_root.exists() {
-        report.diagnostics.push(format!(
-            "Aeneas work root `{}` already exists; refusing to reuse a concurrent or interrupted run",
-            plan.work_root.display()
-        ));
-        return report;
-    }
-    if let Err(error) = fs::create_dir_all(&plan.work_root) {
-        report
-            .diagnostics
-            .push(format!("create isolated Aeneas work root `{}`: {error}", plan.work_root.display()));
+    if let Err(error) = claim_work_root(&plan.work_root, "Aeneas") {
+        report.diagnostics.push(error);
         return report;
     }
     execute_stages_in_work_root(plan, gate, &mut report);
@@ -2179,5 +2183,44 @@ mod tests {
             "{summary:?}"
         );
         assert!(!summary.stdout_text.contains("[charon]"), "a stage ran over a planted library: {summary:?}");
+    }
+
+    // r[verify octet.aeneas_lean_proof_rail.safe_execution]
+    #[cfg(unix)]
+    #[test]
+    fn shell_lets_exactly_one_concurrent_run_claim_a_work_root() {
+        const CONCURRENT_RUNS: usize = 8;
+        const ROUNDS: usize = 5;
+        let temporary = tempfile::tempdir().expect("concurrent work root test root");
+        let plan = fixture_plan(
+            temporary.path(),
+            "sleep 0.3",
+            "printf '%s\\n' 'aeneas'",
+            "printf '%s\\n' 'lake'",
+            TEST_LOG_BYTES,
+            TEST_LOG_BYTES,
+            TEST_TIMEOUT_MS,
+        );
+        for round in 0..ROUNDS {
+            let barrier = std::sync::Barrier::new(CONCURRENT_RUNS);
+            let reports = std::thread::scope(|scope| {
+                let runs = (0..CONCURRENT_RUNS)
+                    .map(|_| {
+                        scope.spawn(|| {
+                            barrier.wait();
+                            execute_aeneas_plan(&plan, &mut no_stage_gates)
+                        })
+                    })
+                    .collect::<Vec<_>>();
+                runs.into_iter().map(|run| run.join().expect("concurrent run")).collect::<Vec<_>>()
+            });
+            let claimed = reports
+                .iter()
+                .filter(|report| !report.diagnostics.iter().any(|diagnostic| diagnostic.contains("already exists")))
+                .count();
+
+            assert_eq!(claimed, 1, "round {round}: {claimed} runs claimed one work root: {reports:?}");
+            assert!(!plan.work_root.exists(), "round {round}: work root survived");
+        }
     }
 }

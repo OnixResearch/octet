@@ -46,10 +46,11 @@ the pinned library; a theorem that imports another local module fails to
 build. A source root that contains its own `aeneas-lean-library` entry is
 refused, because it would merge into the pinned library. The work root path is
 a deterministic BLAKE3 of the source root, backend, and rail argv; it is removed
-after the run on success and on failure, so rerunning a rail starts fresh. A
-root that already exists belongs to a concurrent run, or to a process that was
-killed before cleanup, and is refused rather than reused; remove it after
-confirming no run is active.
+after the run on success and on failure, so rerunning a rail starts fresh. The
+shell creates the root itself with an atomic create, so a root that already
+exists belongs to a concurrent run, or to a process that was killed before
+cleanup, and is refused rather than reused; remove it after confirming no run
+is active.
 Mathlib and every Lake dependency are fixed-output, path-only closure inputs;
 Lake receives frozen root and nested manifests and cannot fetch missing code.
 A failed or incomplete stage stops the pipeline.
