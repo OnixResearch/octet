@@ -96,6 +96,28 @@ fn apply_lint_level_overrides(sess: &rustc_session::Session, cfg: &Config) {
     }
 }
 
+/// Keeps the Boolean API suppression guard scheduled under an explicit deny.
+///
+/// rustc skips a late pass whose lints a crate allows, and a source
+/// `#![allow(warnings)]` or `#![allow(raw_bool_parameter_suppression)]` would
+/// otherwise hide the guard's unconditional errors. `force-warn` cannot be
+/// lowered by a source attribute. This runs after the profile-floor weakening
+/// check, so the internal option is not mistaken for a caller weakening.
+#[allow(invalid_reference_casting)]
+fn apply_boolean_guard_scheduling(sess: &rustc_session::Session, cfg: &Config) {
+    if cfg.lint_level("raw_bool_parameter_suppression") != Some(config::LintLevel::Deny) {
+        return;
+    }
+    let opts = std::ptr::addr_of!(sess.opts).cast_mut();
+
+    // SAFETY: rustc calls `register_lints` during lint-store initialization,
+    // before lint levels are computed. The same setup-point contract that
+    // `apply_lint_level_overrides` documents applies here.
+    unsafe {
+        (*opts).lint_opts.push(("raw_bool_parameter_suppression".to_owned(), rustc_lint::Level::ForceWarn));
+    }
+}
+
 fn lint_id_for_name(lint_name: &str) -> rustc_lint::LintId {
     let entry = LINT_INVENTORY
         .iter()
@@ -156,8 +178,12 @@ fn register_no_todo_bundle(lint_store: &mut rustc_lint::LintStore, cfg: &Config)
         return;
     }
 
-    lint_store
-        .register_late_pass(move |_| Box::new(safety::no_todo::NoTodo::new(emit_no_todo, emit_unjustified_allow)));
+    lint_store.register_late_pass(move |_| {
+        Box::new(safety::no_todo::NoTodo::new(safety::no_todo::NoTodoLintSelection {
+            todo: emit_no_todo,
+            unjustified_allow: emit_unjustified_allow,
+        }))
+    });
 }
 
 fn register_domain_groups(lint_store: &mut rustc_lint::LintStore, cfg: &Config) {
@@ -290,6 +316,19 @@ lint_inventory! {
     "too_many_parameters", structure::too_many_parameters::TOO_MANY_PARAMETERS => |lint_store, cfg| {
         let max_parameters = cfg.max_parameters;
         lint_store.register_late_pass(move |_| Box::new(structure::too_many_parameters::TooManyParameters::new(max_parameters)));
+    },
+    "raw_bool_parameter", structure::raw_bool_parameter::RAW_BOOL_PARAMETER => |lint_store, _cfg| {
+        lint_store.register_late_pass(|_| Box::new(structure::raw_bool_parameter::RawBoolParameter));
+    },
+    "raw_bool_parameter_suppression", structure::raw_bool_parameter_suppression::RAW_BOOL_PARAMETER_SUPPRESSION => |lint_store, cfg| {
+        let enforcement = if cfg.lint_level("raw_bool_parameter_suppression") == Some(config::LintLevel::Deny) {
+            structure::raw_bool_parameter_suppression::Enforcement::StrictAll
+        } else {
+            structure::raw_bool_parameter_suppression::Enforcement::Advisory
+        };
+        lint_store.register_late_pass(move |_| {
+            Box::new(structure::raw_bool_parameter_suppression::RawBoolParameterSuppression::new(enforcement))
+        });
     },
     "fat_trait", structure::fat_trait::FAT_TRAIT => |lint_store, cfg| {
         let max_methods = cfg.trait_method_max;
@@ -523,6 +562,7 @@ pub extern "Rust" fn register_lints(sess: &rustc_session::Session, lint_store: &
     for weakening in profile_floor_weakenings(&cfg, sess.opts.lint_cap, &sess.opts.lint_opts, lint_store) {
         sess.dcx().err(weakening);
     }
+    apply_boolean_guard_scheduling(sess, &cfg);
     if let Some(guard) = cfg.strict_profile_id().and_then(|profile_id| {
         structure::unjustified_allow::SuppressionGovernanceGuard::for_profile(profile_id, cfg.profile_floor_lints())
     }) {

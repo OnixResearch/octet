@@ -116,6 +116,14 @@
     "canonical_lint_name": "tigerstyle::too_many_parameters"
   },
   {
+    "alias_name": "raw_bool_parameter",
+    "canonical_lint_name": "tigerstyle::raw_bool_parameter"
+  },
+  {
+    "alias_name": "raw_bool_parameter_suppression",
+    "canonical_lint_name": "tigerstyle::raw_bool_parameter_suppression"
+  },
+  {
     "alias_name": "fat_trait",
     "canonical_lint_name": "tigerstyle::fat_trait"
   },

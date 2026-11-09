@@ -51,6 +51,8 @@ deny_lint_flags='
 -D clone_then_borrow
 -D allocation_in_loop
 -D too_many_parameters
+-D raw_bool_parameter
+-D raw_bool_parameter_suppression
 -D fat_trait
 -D concrete_construction_in_core
 -D type_accumulation

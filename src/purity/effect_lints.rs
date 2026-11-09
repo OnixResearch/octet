@@ -918,28 +918,30 @@ impl<'tcx> Visitor<'tcx> for ConstSubsetVisitor<'_, 'tcx> {
     }
 }
 
-fn pure_contract_violation(
-    function_source: &str,
+/// Observed signature and body signals for one `#[tigerstyle::pure]` callable.
+struct PureContractSignals {
     global_state: bool,
     mutating_input: bool,
     resource_return: bool,
-) -> Option<PureViolation> {
+}
+
+fn pure_contract_violation(function_source: &str, signals: PureContractSignals) -> Option<PureViolation> {
     if let Some(effect) = classify_effect(function_source) {
         return Some(PureViolation::DirectEffect(effect));
     }
-    if global_state {
+    if signals.global_state {
         return Some(PureViolation::GlobalState);
     }
     if contains_interior_mutability(function_source) {
         return Some(PureViolation::InteriorMutability);
     }
-    if mutating_input {
+    if signals.mutating_input {
         return Some(PureViolation::MutatingInput);
     }
     if source_has_panic(function_source) {
         return Some(PureViolation::Panic);
     }
-    if resource_return {
+    if signals.resource_return {
         return Some(PureViolation::ResourceReturn);
     }
     None
@@ -1279,7 +1281,11 @@ impl<'tcx> LateLintPass<'tcx> for PureAttrContract {
         let global_state = body_declares_global_state(cx, body);
         let mutating_input = decl_inputs_contain_mutating_type(cx, decl).is_some();
         let resource_return = returned_resource_handle(cx, decl, def_id).is_some();
-        let Some(violation) = pure_contract_violation(&source, global_state, mutating_input, resource_return) else {
+        let Some(violation) = pure_contract_violation(&source, PureContractSignals {
+            global_state,
+            mutating_input,
+            resource_return,
+        }) else {
             return;
         };
         emit(
@@ -1466,23 +1472,46 @@ mod tests {
     #[test]
     fn pure_contract_reports_direct_violation_and_accepts_clean_logic() {
         assert_eq!(
-            pure_contract_violation("#[tigerstyle::pure] fn read() { std::fs::read(\"x\"); }", false, false, false),
+            pure_contract_violation(
+                "#[tigerstyle::pure] fn read() { std::fs::read(\"x\"); }",
+                super::PureContractSignals {
+                    global_state: false,
+                    mutating_input: false,
+                    resource_return: false,
+                }
+            ),
             Some(PureViolation::DirectEffect(EffectClass::Filesystem))
         );
         assert_eq!(
-            pure_contract_violation("#[tigerstyle::pure] fn count() { static mut N: u8 = 0; }", true, false, false),
+            pure_contract_violation(
+                "#[tigerstyle::pure] fn count() { static mut N: u8 = 0; }",
+                super::PureContractSignals {
+                    global_state: true,
+                    mutating_input: false,
+                    resource_return: false,
+                }
+            ),
             Some(PureViolation::GlobalState)
         );
         assert_eq!(
-            pure_contract_violation("#[tigerstyle::pure] fn open() -> std::fs::File { loop {} }", false, false, true),
+            pure_contract_violation(
+                "#[tigerstyle::pure] fn open() -> std::fs::File { loop {} }",
+                super::PureContractSignals {
+                    global_state: false,
+                    mutating_input: false,
+                    resource_return: true,
+                }
+            ),
             Some(PureViolation::ResourceReturn)
         );
         assert_eq!(
             pure_contract_violation(
                 "#[tigerstyle::pure] fn label() -> &'static str { \"static mut\" }",
-                false,
-                false,
-                false
+                super::PureContractSignals {
+                    global_state: false,
+                    mutating_input: false,
+                    resource_return: false,
+                }
             ),
             None
         );

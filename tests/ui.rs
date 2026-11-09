@@ -425,6 +425,13 @@ fn run_fixture(
         .env("DYLINT_LIBS", dylint_libs)
         .env_remove(octet_lint_metadata::strict_profile::STRICT_PROFILE_ENV)
         .args(extra_rustc_args(name));
+
+    // Keep legacy fixtures focused on their own lint; boolean-API cases
+    // exercise both new rules without this fixture-local compiler override.
+    if !name.starts_with("raw_bool_parameter") {
+        command.args(["-A", "raw_bool_parameter", "-A", "raw_bool_parameter_suppression"]);
+    }
+
     if let Some(profile) = fixture_strict_profile(name) {
         command.env(octet_lint_metadata::strict_profile::STRICT_PROFILE_ENV, profile);
     }

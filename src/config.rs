@@ -45,6 +45,9 @@ const DEFAULT_INDEXABLE_EXCEPTIONS: &[&str] = &[
 ];
 const NOMINAL_DOMAIN_LINTS: &[&str] = &["primitive_domain_alias", "raw_domain_value", "newtype_invariant_bypass"];
 
+/// Boolean API lints whose workspace-wide suppression is forbidden.
+const BOOLEAN_API_LINTS: &[&str] = &["raw_bool_parameter", "raw_bool_parameter_suppression"];
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct IndexableLintExceptions {
     pub rustc_private_aliases: bool,
@@ -393,6 +396,17 @@ impl Config {
         }
 
         let required_lints = profile.required_lints.iter().map(String::as_str).collect::<BTreeSet<_>>();
+        for lint_name in BOOLEAN_API_LINTS {
+            if required_lints.contains(lint_name)
+                && (self.disabled_lints.iter().any(|disabled| disabled == lint_name)
+                    || self.lint_levels.get(*lint_name).is_some_and(|level| level != "deny"))
+            {
+                return Err(format!(
+                    "strict profile `{}` rejects workspace-wide suppression of `{lint_name}`; use a local owned compatibility expectation",
+                    profile.profile_id
+                ));
+            }
+        }
         self.disabled_lints.retain(|lint_name| !required_lints.contains(lint_name.as_str()));
         if profile_denies_nominal_domain(profile) {
             self.nominal_domain_mode = Some(octet_lint_metadata::nominal_domain::EnforcementMode::Deny);
@@ -403,6 +417,37 @@ impl Config {
         }
         self.strict_profile_id = Some(profile.profile_id.clone());
         Ok(())
+    }
+
+    /// Rejects workspace-wide suppression of the Boolean API lints.
+    ///
+    /// A consumer may scope one compatibility expectation to one callable, but
+    /// a crate-wide `disabled_lints` entry or an `allow` level would hide the
+    /// strict migration.
+    fn reject_broad_boolean_suppression(&self) -> Result<(), String> {
+        for lint_name in BOOLEAN_API_LINTS {
+            if self.lint_is_disabled(lint_name)
+                || self.lint_levels.get(*lint_name).is_some_and(|level| level == "allow")
+            {
+                return Err(format!(
+                    "workspace-wide suppression of `{lint_name}` is forbidden; use a local owned compatibility expectation"
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Promotes the Boolean API suppression guard when the compiler command
+    /// line denies it, including the full deny-all catalog.
+    fn enforce_compiler_boolean_guard(&mut self, lint_opts: &[(String, rustc_lint::Level)]) {
+        let guard_denied = lint_opts.iter().any(|(name, level)| {
+            let name = name.strip_prefix("tigerstyle::").unwrap_or(name);
+            matches!(name, "raw_bool_parameter_suppression" | "raw-bool-parameter-suppression")
+                && matches!(level, rustc_lint::Level::Deny | rustc_lint::Level::Forbid)
+        });
+        if guard_denied {
+            self.validated_lint_levels.insert("raw_bool_parameter_suppression".to_owned(), LintLevel::Deny);
+        }
     }
 
     /// Validates the parsed config and applies the selected strict profile.
@@ -637,10 +682,11 @@ fn resolve_scope_list(
 /// # Panics
 ///
 /// Panics when Dylint cannot read `dylint.toml`, when the selected config
-/// section is malformed TOML, or when the selected strict profile cannot
-/// apply. A shadowed legacy section is reported but never parsed; unknown
-/// config keys, invalid lint names, and invalid levels are reported as
-/// warnings instead of panics after parsing succeeds.
+/// section is malformed TOML, when the embedded Boolean API policy is invalid,
+/// when a workspace-wide Boolean API suppression is requested, or when the
+/// selected strict profile cannot apply. A shadowed legacy section is reported
+/// but never parsed; unknown config keys, invalid lint names, and invalid
+/// levels are reported as warnings instead of panics after parsing succeeds.
 pub fn load(
     sess: &rustc_session::Session,
     durability_catalog: &octet_lint_metadata::durability::DurabilityCatalog,
@@ -661,6 +707,8 @@ pub fn load(
     });
     cfg.durability_catalog = durability_catalog.clone();
     let profile = selected_strict_profile().unwrap_or_else(|error| panic!("{error}"));
+    octet_lint_metadata::strict_profile::boolean_api_policy().unwrap_or_else(|error| panic!("{error}"));
+    cfg.reject_broad_boolean_suppression().unwrap_or_else(|error| panic!("{error}"));
     let (mut diagnostics, applied) = cfg.resolve(profile.as_ref());
     // Scopes resolve against the same root as `source::span_in_scopes`, with
     // symlinks and `..` followed as `cargo octet` does when it validates them.
@@ -676,6 +724,7 @@ pub fn load(
     if let Some(error) = cfg.resolve_durability_profile(sess, durability_catalog) {
         sess.dcx().err(error);
     }
+    cfg.enforce_compiler_boolean_guard(&sess.opts.lint_opts);
     cfg
 }
 
@@ -1294,6 +1343,31 @@ function_length = "warn"
         assert_eq!(cfg.lint_level("no_unwrap"), Some(LintLevel::Deny));
         assert_eq!(cfg.lint_level("no_panic"), Some(LintLevel::Deny));
         assert_eq!(cfg.lint_level("function_length"), Some(LintLevel::Warn));
+    }
+
+    #[test]
+    fn boolean_api_rejects_workspace_allow_and_strict_warn_override() {
+        let mut disabled = parse_config("[octet]\ndisabled_lints = [\"raw_bool_parameter\"]\n");
+        disabled.validate_diagnostics();
+        assert!(disabled.reject_broad_boolean_suppression().is_err());
+
+        let mut allowed = parse_config("[octet.lint_levels]\nraw_bool_parameter_suppression = \"allow\"\n");
+        allowed.validate_diagnostics();
+        assert!(allowed.reject_broad_boolean_suppression().is_err());
+
+        let mut weaker = parse_config("[octet.lint_levels]\nraw_bool_parameter = \"warn\"\n");
+        weaker.validate_diagnostics();
+        assert!(weaker.reject_broad_boolean_suppression().is_ok());
+        let robust = octet_lint_metadata::strict_profile::strict_profile("robust").expect("strict profile");
+        assert!(weaker.apply_strict_profile(&robust).is_err());
+
+        let mut cli_denied = parse_config("[octet]\n");
+        cli_denied.validate_diagnostics();
+        cli_denied.enforce_compiler_boolean_guard(&[(
+            "tigerstyle::raw_bool_parameter_suppression".to_owned(),
+            rustc_lint::Level::Deny,
+        )]);
+        assert_eq!(cli_denied.lint_level("raw_bool_parameter_suppression"), Some(LintLevel::Deny));
     }
 
     #[test]

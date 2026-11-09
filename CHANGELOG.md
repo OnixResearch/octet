@@ -71,6 +71,26 @@ non-authoritative handoff. Default admission, receipts, and claim boundaries
 are unchanged when the option is absent. Octet does not canonicalize Kamacite
 data or grant consumer, publication, or runtime authority.
 
+## Unreleased: domain-modeled boolean APIs
+
+- `raw_bool_parameter` rejects direct booleans on covered public crate-owned
+  callable APIs and multiple direct boolean parameters on private callables.
+  Replace covered API arguments with reviewed enums, option records, typestate,
+  or nominal wrappers; migrate callers when changing a public signature.
+  Generated expansion output and externally owned trait implementation
+  signatures remain outside this rule. One private predicate flag, boolean
+  returns, fields, and local values are not banned.
+- `raw_bool_parameter_suppression` rejects broad or unjustified source
+  suppression while permitting only an exact, reasoned, owner-attributed
+  compatibility expectation.
+- The optional `boolean-api-modeling` Clippy profile co-reports
+  `clippy::fn_params_excessive_bools` independently at warning level; it does
+  not replace Octet's single-public-boolean rule or merge findings. See
+  [`docs/boolean-api-modeling.md`](docs/boolean-api-modeling.md) for migration
+  choices, bounded compatibility expectations, and claim limits; the bounded
+  Octet source inventory is in
+  [`docs/boolean-api-migration-inventory.md`](docs/boolean-api-migration-inventory.md).
+
 ## 2026-10-22: Proof-to-implementation gap guide
 
 The new [proof-to-implementation gap](docs/proof-implementation-gap.md) guide

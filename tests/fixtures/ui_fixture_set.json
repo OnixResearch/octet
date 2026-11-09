@@ -141,6 +141,12 @@
     "purity_effect_lints_guardrails",
     "raw_arithmetic_overflow",
     "raw_arithmetic_overflow_const_expr",
+    "raw_bool_parameter",
+    "raw_bool_parameter_crate_suppression",
+    "raw_bool_parameter_expectation",
+    "raw_bool_parameter_guard_strict/raw_bool_parameter_guard_strict",
+    "raw_bool_parameter_safe",
+    "raw_bool_parameter_suppression",
     "raw_domain_value",
     "raw_domain_value_compat",
     "raw_domain_value_ffi",
@@ -207,7 +213,8 @@
     "strict_profile_governance_custom/strict_profile_warn_floor",
     "tokio_async/verified_purity_harness",
     "verified/verified_purity",
-    "zero_alloc_attr_contract_silent_allow"
+    "zero_alloc_attr_contract_silent_allow",
+    "raw_bool_parameter_guard_strict/raw_bool_parameter_guard_strict"
   ],
   "canonical_tool_group_fixtures": [
     "group_allow_safety",
@@ -255,6 +262,7 @@
     "strict_profile_governance_custom/strict_profile_governance_single_report",
     "strict_profile_governance_custom/strict_profile_warn_floor",
     "strict_profile_governance_custom/strict_profile_warn_floor_unprofiled",
-    "core_scope_resolution_custom/core_scope_resolution_custom"
+    "core_scope_resolution_custom/core_scope_resolution_custom",
+    "raw_bool_parameter_guard_strict/raw_bool_parameter_guard_strict"
   ]
 }

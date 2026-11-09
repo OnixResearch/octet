@@ -205,7 +205,7 @@ fn real_cargo_all_targets_rejects_integration_only_no_std() {
 }
 
 fn run_configured_compiler_fixture(all_features: bool, import_test_source: TestImport, no_std: NoStdMode) {
-    run_body_owner_compiler_fixture(all_features, import_test_source, no_std, false);
+    run_body_fixture(all_features, import_test_source, no_std, BodyFixture::Ordinary);
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -213,20 +213,6 @@ enum BodyFixture {
     Ordinary,
     NonFunctionOwners,
     Randomness,
-}
-
-fn run_body_owner_compiler_fixture(
-    all_features: bool,
-    import_test_source: TestImport,
-    no_std: NoStdMode,
-    include_body_owners: bool,
-) {
-    let fixture = if include_body_owners {
-        BodyFixture::NonFunctionOwners
-    } else {
-        BodyFixture::Ordinary
-    };
-    run_body_fixture(all_features, import_test_source, no_std, fixture);
 }
 
 // One real-Cargo fixture run asserts every body-fixture variant against the same collected IR.
