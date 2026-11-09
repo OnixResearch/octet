@@ -1,0 +1,180 @@
+[
+  {
+    "case": "absent",
+    "facts": null,
+    "argv": [
+      "/tmp/octet-const-owning-driver-20261016/debug/octet-ui-driver",
+      "-L",
+      "dependency=/tmp/octet-const-owning-proof-20261016/debug/deps",
+      "--extern",
+      "serde_json=/tmp/octet-const-owning-proof-20261016/debug/deps/libserde_json-aaeb3adee4322c7f.rmeta",
+      "/tmp/octet-exact-value-boundaries-n3giplcl/absent/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs",
+      "-L",
+      "/tmp/octet-exact-value-boundaries-n3giplcl",
+      "--error-format",
+      "human",
+      "-C",
+      "prefer-dynamic",
+      "-o",
+      "/tmp/octet-exact-value-boundaries-n3giplcl/absent/concrete_construction_in_core_custom/metadata",
+      "-A",
+      "unused",
+      "--edition=2024",
+      "--emit=metadata",
+      "-Zui-testing"
+    ],
+    "exit": 0,
+    "construction_findings": 3,
+    "stderr": "warning: core scope constructs concrete type `serde_json::Map::<String, serde_json::Value>`; inject the dependency through a port or capability\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/absent/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:2:18\n   |\nLL |     let _value = serde_json::Map::<String, serde_json::Value>::new();\n   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Dependency Inversion): inject infrastructure dependencies through ports or capabilities instead of constructing concrete types in core Example: fn run(clock: impl Clock) -> Output\n   = note: see Tiger Style guide: Architecture / Ports and Capabilities\n   = note: `#[warn(tigerstyle::concrete_construction_in_core)]` on by default\n\nwarning: non-trait import `Map as ValueMap` hides the owner path; prefer the qualified path at the use site\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/absent/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:6:5\n   |\nLL |     use serde_json::Map as ValueMap;\n   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Searchable Owner Paths): keep concrete owner types at their qualified use sites; import traits only for method resolution Example: crate::addr::Addr\n   = note: see Tiger Style guide: Naming\n   = note: `#[warn(tigerstyle::non_trait_imports)]` on by default\n\nwarning: renamed import `Map as ValueMap` hides the original searchable name\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/absent/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:6:5\n   |\nLL |     use serde_json::Map as ValueMap;\n   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Searchable Import Names): avoid `use ... as ...` aliases that hide the original searchable item name Example: use crate::transport::Config;\n   = note: see Tiger Style guide: Naming\n   = note: `#[warn(tigerstyle::renamed_imports)]` on by default\n\nwarning: core scope constructs concrete type `ValueMap::<String, serde_json::Value>`; inject the dependency through a port or capability\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/absent/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:7:18\n   |\nLL |     let _value = ValueMap::<String, serde_json::Value>::new();\n   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Dependency Inversion): inject infrastructure dependencies through ports or capabilities instead of constructing concrete types in core Example: fn run(clock: impl Clock) -> Output\n   = note: see Tiger Style guide: Architecture / Ports and Capabilities\n\nwarning: implicit default on external type — construct with explicit values\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/absent/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:11:18\n   |\nLL |     let _value = serde_json::Value::default();\n   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Explicit Defaults): construct foreign-crate values explicitly instead of relying on `Default` Example: let client = reqwest::ClientBuilder::new();\n   = note: structured suggestion applicability: HasPlaceholders\n   = note: see Tiger Style guide: Explicit Defaults\n   = note: `#[warn(tigerstyle::explicit_defaults)]` on by default\nhelp: use explicit constructor instead of `Default::default()`\n   |\nLL -     let _value = serde_json::Value::default();\nLL +     let _value = serde_json::Value::new(/* fields */);\n   |\n\nwarning: core scope constructs concrete type `serde_json::Value`; inject the dependency through a port or capability\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/absent/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:11:18\n   |\nLL |     let _value = serde_json::Value::default();\n   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Dependency Inversion): inject infrastructure dependencies through ports or capabilities instead of constructing concrete types in core Example: fn run(clock: impl Clock) -> Output\n   = note: see Tiger Style guide: Architecture / Ports and Capabilities\n\nwarning: 6 warnings emitted\n\n"
+  },
+  {
+    "case": "crate-only",
+    "facts": [
+      "serde_json"
+    ],
+    "argv": [
+      "/tmp/octet-const-owning-driver-20261016/debug/octet-ui-driver",
+      "-L",
+      "dependency=/tmp/octet-const-owning-proof-20261016/debug/deps",
+      "--extern",
+      "serde_json=/tmp/octet-const-owning-proof-20261016/debug/deps/libserde_json-aaeb3adee4322c7f.rmeta",
+      "/tmp/octet-exact-value-boundaries-n3giplcl/crate-only/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs",
+      "-L",
+      "/tmp/octet-exact-value-boundaries-n3giplcl",
+      "--error-format",
+      "human",
+      "-C",
+      "prefer-dynamic",
+      "-o",
+      "/tmp/octet-exact-value-boundaries-n3giplcl/crate-only/concrete_construction_in_core_custom/metadata",
+      "-A",
+      "unused",
+      "--edition=2024",
+      "--emit=metadata",
+      "-Zui-testing"
+    ],
+    "exit": 0,
+    "construction_findings": 3,
+    "stderr": "warning: core scope constructs concrete type `serde_json::Map::<String, serde_json::Value>`; inject the dependency through a port or capability\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/crate-only/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:2:18\n   |\nLL |     let _value = serde_json::Map::<String, serde_json::Value>::new();\n   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Dependency Inversion): inject infrastructure dependencies through ports or capabilities instead of constructing concrete types in core Example: fn run(clock: impl Clock) -> Output\n   = note: see Tiger Style guide: Architecture / Ports and Capabilities\n   = note: `#[warn(tigerstyle::concrete_construction_in_core)]` on by default\n\nwarning: non-trait import `Map as ValueMap` hides the owner path; prefer the qualified path at the use site\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/crate-only/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:6:5\n   |\nLL |     use serde_json::Map as ValueMap;\n   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Searchable Owner Paths): keep concrete owner types at their qualified use sites; import traits only for method resolution Example: crate::addr::Addr\n   = note: see Tiger Style guide: Naming\n   = note: `#[warn(tigerstyle::non_trait_imports)]` on by default\n\nwarning: renamed import `Map as ValueMap` hides the original searchable name\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/crate-only/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:6:5\n   |\nLL |     use serde_json::Map as ValueMap;\n   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Searchable Import Names): avoid `use ... as ...` aliases that hide the original searchable item name Example: use crate::transport::Config;\n   = note: see Tiger Style guide: Naming\n   = note: `#[warn(tigerstyle::renamed_imports)]` on by default\n\nwarning: core scope constructs concrete type `ValueMap::<String, serde_json::Value>`; inject the dependency through a port or capability\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/crate-only/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:7:18\n   |\nLL |     let _value = ValueMap::<String, serde_json::Value>::new();\n   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Dependency Inversion): inject infrastructure dependencies through ports or capabilities instead of constructing concrete types in core Example: fn run(clock: impl Clock) -> Output\n   = note: see Tiger Style guide: Architecture / Ports and Capabilities\n\nwarning: implicit default on external type — construct with explicit values\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/crate-only/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:11:18\n   |\nLL |     let _value = serde_json::Value::default();\n   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Explicit Defaults): construct foreign-crate values explicitly instead of relying on `Default` Example: let client = reqwest::ClientBuilder::new();\n   = note: structured suggestion applicability: HasPlaceholders\n   = note: see Tiger Style guide: Explicit Defaults\n   = note: `#[warn(tigerstyle::explicit_defaults)]` on by default\nhelp: use explicit constructor instead of `Default::default()`\n   |\nLL -     let _value = serde_json::Value::default();\nLL +     let _value = serde_json::Value::new(/* fields */);\n   |\n\nwarning: core scope constructs concrete type `serde_json::Value`; inject the dependency through a port or capability\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/crate-only/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:11:18\n   |\nLL |     let _value = serde_json::Value::default();\n   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Dependency Inversion): inject infrastructure dependencies through ports or capabilities instead of constructing concrete types in core Example: fn run(clock: impl Clock) -> Output\n   = note: see Tiger Style guide: Architecture / Ports and Capabilities\n\nwarning: 6 warnings emitted\n\n"
+  },
+  {
+    "case": "prefix",
+    "facts": [
+      "serde_json::map"
+    ],
+    "argv": [
+      "/tmp/octet-const-owning-driver-20261016/debug/octet-ui-driver",
+      "-L",
+      "dependency=/tmp/octet-const-owning-proof-20261016/debug/deps",
+      "--extern",
+      "serde_json=/tmp/octet-const-owning-proof-20261016/debug/deps/libserde_json-aaeb3adee4322c7f.rmeta",
+      "/tmp/octet-exact-value-boundaries-n3giplcl/prefix/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs",
+      "-L",
+      "/tmp/octet-exact-value-boundaries-n3giplcl",
+      "--error-format",
+      "human",
+      "-C",
+      "prefer-dynamic",
+      "-o",
+      "/tmp/octet-exact-value-boundaries-n3giplcl/prefix/concrete_construction_in_core_custom/metadata",
+      "-A",
+      "unused",
+      "--edition=2024",
+      "--emit=metadata",
+      "-Zui-testing"
+    ],
+    "exit": 0,
+    "construction_findings": 3,
+    "stderr": "warning: core scope constructs concrete type `serde_json::Map::<String, serde_json::Value>`; inject the dependency through a port or capability\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/prefix/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:2:18\n   |\nLL |     let _value = serde_json::Map::<String, serde_json::Value>::new();\n   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Dependency Inversion): inject infrastructure dependencies through ports or capabilities instead of constructing concrete types in core Example: fn run(clock: impl Clock) -> Output\n   = note: see Tiger Style guide: Architecture / Ports and Capabilities\n   = note: `#[warn(tigerstyle::concrete_construction_in_core)]` on by default\n\nwarning: non-trait import `Map as ValueMap` hides the owner path; prefer the qualified path at the use site\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/prefix/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:6:5\n   |\nLL |     use serde_json::Map as ValueMap;\n   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Searchable Owner Paths): keep concrete owner types at their qualified use sites; import traits only for method resolution Example: crate::addr::Addr\n   = note: see Tiger Style guide: Naming\n   = note: `#[warn(tigerstyle::non_trait_imports)]` on by default\n\nwarning: renamed import `Map as ValueMap` hides the original searchable name\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/prefix/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:6:5\n   |\nLL |     use serde_json::Map as ValueMap;\n   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Searchable Import Names): avoid `use ... as ...` aliases that hide the original searchable item name Example: use crate::transport::Config;\n   = note: see Tiger Style guide: Naming\n   = note: `#[warn(tigerstyle::renamed_imports)]` on by default\n\nwarning: core scope constructs concrete type `ValueMap::<String, serde_json::Value>`; inject the dependency through a port or capability\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/prefix/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:7:18\n   |\nLL |     let _value = ValueMap::<String, serde_json::Value>::new();\n   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Dependency Inversion): inject infrastructure dependencies through ports or capabilities instead of constructing concrete types in core Example: fn run(clock: impl Clock) -> Output\n   = note: see Tiger Style guide: Architecture / Ports and Capabilities\n\nwarning: implicit default on external type — construct with explicit values\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/prefix/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:11:18\n   |\nLL |     let _value = serde_json::Value::default();\n   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Explicit Defaults): construct foreign-crate values explicitly instead of relying on `Default` Example: let client = reqwest::ClientBuilder::new();\n   = note: structured suggestion applicability: HasPlaceholders\n   = note: see Tiger Style guide: Explicit Defaults\n   = note: `#[warn(tigerstyle::explicit_defaults)]` on by default\nhelp: use explicit constructor instead of `Default::default()`\n   |\nLL -     let _value = serde_json::Value::default();\nLL +     let _value = serde_json::Value::new(/* fields */);\n   |\n\nwarning: core scope constructs concrete type `serde_json::Value`; inject the dependency through a port or capability\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/prefix/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:11:18\n   |\nLL |     let _value = serde_json::Value::default();\n   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Dependency Inversion): inject infrastructure dependencies through ports or capabilities instead of constructing concrete types in core Example: fn run(clock: impl Clock) -> Output\n   = note: see Tiger Style guide: Architecture / Ports and Capabilities\n\nwarning: 6 warnings emitted\n\n"
+  },
+  {
+    "case": "suffix",
+    "facts": [
+      "map::Map"
+    ],
+    "argv": [
+      "/tmp/octet-const-owning-driver-20261016/debug/octet-ui-driver",
+      "-L",
+      "dependency=/tmp/octet-const-owning-proof-20261016/debug/deps",
+      "--extern",
+      "serde_json=/tmp/octet-const-owning-proof-20261016/debug/deps/libserde_json-aaeb3adee4322c7f.rmeta",
+      "/tmp/octet-exact-value-boundaries-n3giplcl/suffix/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs",
+      "-L",
+      "/tmp/octet-exact-value-boundaries-n3giplcl",
+      "--error-format",
+      "human",
+      "-C",
+      "prefer-dynamic",
+      "-o",
+      "/tmp/octet-exact-value-boundaries-n3giplcl/suffix/concrete_construction_in_core_custom/metadata",
+      "-A",
+      "unused",
+      "--edition=2024",
+      "--emit=metadata",
+      "-Zui-testing"
+    ],
+    "exit": 0,
+    "construction_findings": 3,
+    "stderr": "warning: core scope constructs concrete type `serde_json::Map::<String, serde_json::Value>`; inject the dependency through a port or capability\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/suffix/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:2:18\n   |\nLL |     let _value = serde_json::Map::<String, serde_json::Value>::new();\n   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Dependency Inversion): inject infrastructure dependencies through ports or capabilities instead of constructing concrete types in core Example: fn run(clock: impl Clock) -> Output\n   = note: see Tiger Style guide: Architecture / Ports and Capabilities\n   = note: `#[warn(tigerstyle::concrete_construction_in_core)]` on by default\n\nwarning: non-trait import `Map as ValueMap` hides the owner path; prefer the qualified path at the use site\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/suffix/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:6:5\n   |\nLL |     use serde_json::Map as ValueMap;\n   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Searchable Owner Paths): keep concrete owner types at their qualified use sites; import traits only for method resolution Example: crate::addr::Addr\n   = note: see Tiger Style guide: Naming\n   = note: `#[warn(tigerstyle::non_trait_imports)]` on by default\n\nwarning: renamed import `Map as ValueMap` hides the original searchable name\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/suffix/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:6:5\n   |\nLL |     use serde_json::Map as ValueMap;\n   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Searchable Import Names): avoid `use ... as ...` aliases that hide the original searchable item name Example: use crate::transport::Config;\n   = note: see Tiger Style guide: Naming\n   = note: `#[warn(tigerstyle::renamed_imports)]` on by default\n\nwarning: core scope constructs concrete type `ValueMap::<String, serde_json::Value>`; inject the dependency through a port or capability\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/suffix/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:7:18\n   |\nLL |     let _value = ValueMap::<String, serde_json::Value>::new();\n   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Dependency Inversion): inject infrastructure dependencies through ports or capabilities instead of constructing concrete types in core Example: fn run(clock: impl Clock) -> Output\n   = note: see Tiger Style guide: Architecture / Ports and Capabilities\n\nwarning: implicit default on external type — construct with explicit values\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/suffix/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:11:18\n   |\nLL |     let _value = serde_json::Value::default();\n   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Explicit Defaults): construct foreign-crate values explicitly instead of relying on `Default` Example: let client = reqwest::ClientBuilder::new();\n   = note: structured suggestion applicability: HasPlaceholders\n   = note: see Tiger Style guide: Explicit Defaults\n   = note: `#[warn(tigerstyle::explicit_defaults)]` on by default\nhelp: use explicit constructor instead of `Default::default()`\n   |\nLL -     let _value = serde_json::Value::default();\nLL +     let _value = serde_json::Value::new(/* fields */);\n   |\n\nwarning: core scope constructs concrete type `serde_json::Value`; inject the dependency through a port or capability\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/suffix/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:11:18\n   |\nLL |     let _value = serde_json::Value::default();\n   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Dependency Inversion): inject infrastructure dependencies through ports or capabilities instead of constructing concrete types in core Example: fn run(clock: impl Clock) -> Output\n   = note: see Tiger Style guide: Architecture / Ports and Capabilities\n\nwarning: 6 warnings emitted\n\n"
+  },
+  {
+    "case": "extended",
+    "facts": [
+      "serde_json::map::Map::Nested"
+    ],
+    "argv": [
+      "/tmp/octet-const-owning-driver-20261016/debug/octet-ui-driver",
+      "-L",
+      "dependency=/tmp/octet-const-owning-proof-20261016/debug/deps",
+      "--extern",
+      "serde_json=/tmp/octet-const-owning-proof-20261016/debug/deps/libserde_json-aaeb3adee4322c7f.rmeta",
+      "/tmp/octet-exact-value-boundaries-n3giplcl/extended/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs",
+      "-L",
+      "/tmp/octet-exact-value-boundaries-n3giplcl",
+      "--error-format",
+      "human",
+      "-C",
+      "prefer-dynamic",
+      "-o",
+      "/tmp/octet-exact-value-boundaries-n3giplcl/extended/concrete_construction_in_core_custom/metadata",
+      "-A",
+      "unused",
+      "--edition=2024",
+      "--emit=metadata",
+      "-Zui-testing"
+    ],
+    "exit": 0,
+    "construction_findings": 3,
+    "stderr": "warning: core scope constructs concrete type `serde_json::Map::<String, serde_json::Value>`; inject the dependency through a port or capability\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/extended/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:2:18\n   |\nLL |     let _value = serde_json::Map::<String, serde_json::Value>::new();\n   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Dependency Inversion): inject infrastructure dependencies through ports or capabilities instead of constructing concrete types in core Example: fn run(clock: impl Clock) -> Output\n   = note: see Tiger Style guide: Architecture / Ports and Capabilities\n   = note: `#[warn(tigerstyle::concrete_construction_in_core)]` on by default\n\nwarning: non-trait import `Map as ValueMap` hides the owner path; prefer the qualified path at the use site\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/extended/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:6:5\n   |\nLL |     use serde_json::Map as ValueMap;\n   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Searchable Owner Paths): keep concrete owner types at their qualified use sites; import traits only for method resolution Example: crate::addr::Addr\n   = note: see Tiger Style guide: Naming\n   = note: `#[warn(tigerstyle::non_trait_imports)]` on by default\n\nwarning: renamed import `Map as ValueMap` hides the original searchable name\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/extended/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:6:5\n   |\nLL |     use serde_json::Map as ValueMap;\n   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Searchable Import Names): avoid `use ... as ...` aliases that hide the original searchable item name Example: use crate::transport::Config;\n   = note: see Tiger Style guide: Naming\n   = note: `#[warn(tigerstyle::renamed_imports)]` on by default\n\nwarning: core scope constructs concrete type `ValueMap::<String, serde_json::Value>`; inject the dependency through a port or capability\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/extended/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:7:18\n   |\nLL |     let _value = ValueMap::<String, serde_json::Value>::new();\n   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Dependency Inversion): inject infrastructure dependencies through ports or capabilities instead of constructing concrete types in core Example: fn run(clock: impl Clock) -> Output\n   = note: see Tiger Style guide: Architecture / Ports and Capabilities\n\nwarning: implicit default on external type — construct with explicit values\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/extended/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:11:18\n   |\nLL |     let _value = serde_json::Value::default();\n   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Explicit Defaults): construct foreign-crate values explicitly instead of relying on `Default` Example: let client = reqwest::ClientBuilder::new();\n   = note: structured suggestion applicability: HasPlaceholders\n   = note: see Tiger Style guide: Explicit Defaults\n   = note: `#[warn(tigerstyle::explicit_defaults)]` on by default\nhelp: use explicit constructor instead of `Default::default()`\n   |\nLL -     let _value = serde_json::Value::default();\nLL +     let _value = serde_json::Value::new(/* fields */);\n   |\n\nwarning: core scope constructs concrete type `serde_json::Value`; inject the dependency through a port or capability\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/extended/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:11:18\n   |\nLL |     let _value = serde_json::Value::default();\n   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Dependency Inversion): inject infrastructure dependencies through ports or capabilities instead of constructing concrete types in core Example: fn run(clock: impl Clock) -> Output\n   = note: see Tiger Style guide: Architecture / Ports and Capabilities\n\nwarning: 6 warnings emitted\n\n"
+  },
+  {
+    "case": "exact",
+    "facts": [
+      "serde_json::map::Map"
+    ],
+    "argv": [
+      "/tmp/octet-const-owning-driver-20261016/debug/octet-ui-driver",
+      "-L",
+      "dependency=/tmp/octet-const-owning-proof-20261016/debug/deps",
+      "--extern",
+      "serde_json=/tmp/octet-const-owning-proof-20261016/debug/deps/libserde_json-aaeb3adee4322c7f.rmeta",
+      "/tmp/octet-exact-value-boundaries-n3giplcl/exact/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs",
+      "-L",
+      "/tmp/octet-exact-value-boundaries-n3giplcl",
+      "--error-format",
+      "human",
+      "-C",
+      "prefer-dynamic",
+      "-o",
+      "/tmp/octet-exact-value-boundaries-n3giplcl/exact/concrete_construction_in_core_custom/metadata",
+      "-A",
+      "unused",
+      "--edition=2024",
+      "--emit=metadata",
+      "-Zui-testing"
+    ],
+    "exit": 0,
+    "construction_findings": 1,
+    "stderr": "warning: non-trait import `Map as ValueMap` hides the owner path; prefer the qualified path at the use site\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/exact/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:6:5\n   |\nLL |     use serde_json::Map as ValueMap;\n   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Searchable Owner Paths): keep concrete owner types at their qualified use sites; import traits only for method resolution Example: crate::addr::Addr\n   = note: see Tiger Style guide: Naming\n   = note: `#[warn(tigerstyle::non_trait_imports)]` on by default\n\nwarning: renamed import `Map as ValueMap` hides the original searchable name\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/exact/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:6:5\n   |\nLL |     use serde_json::Map as ValueMap;\n   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Searchable Import Names): avoid `use ... as ...` aliases that hide the original searchable item name Example: use crate::transport::Config;\n   = note: see Tiger Style guide: Naming\n   = note: `#[warn(tigerstyle::renamed_imports)]` on by default\n\nwarning: implicit default on external type — construct with explicit values\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/exact/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:11:18\n   |\nLL |     let _value = serde_json::Value::default();\n   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Explicit Defaults): construct foreign-crate values explicitly instead of relying on `Default` Example: let client = reqwest::ClientBuilder::new();\n   = note: structured suggestion applicability: HasPlaceholders\n   = note: see Tiger Style guide: Explicit Defaults\n   = note: `#[warn(tigerstyle::explicit_defaults)]` on by default\nhelp: use explicit constructor instead of `Default::default()`\n   |\nLL -     let _value = serde_json::Value::default();\nLL +     let _value = serde_json::Value::new(/* fields */);\n   |\n\nwarning: core scope constructs concrete type `serde_json::Value`; inject the dependency through a port or capability\n  --> /tmp/octet-exact-value-boundaries-n3giplcl/exact/concrete_construction_in_core_custom/concrete_construction_in_core_custom.rs:11:18\n   |\nLL |     let _value = serde_json::Value::default();\n   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = help: Tiger Style (Dependency Inversion): inject infrastructure dependencies through ports or capabilities instead of constructing concrete types in core Example: fn run(clock: impl Clock) -> Output\n   = note: see Tiger Style guide: Architecture / Ports and Capabilities\n   = note: `#[warn(tigerstyle::concrete_construction_in_core)]` on by default\n\nwarning: 4 warnings emitted\n\n"
+  }
+]

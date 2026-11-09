@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2024"
 license = "AGPL-3.0-or-later"
 description = "First-class downstream consumer integration for Octet"
+repository = "https://github.com/OnixResearch/octet"
+homepage = "https://octet.dev"
+readme = "../README.md"
 default-run = "cargo-octet"
 
 [[bin]]

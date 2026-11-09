@@ -1,0 +1,37 @@
+{
+  "scope": "Pinned compiler semantic checks only; not actual owning-lint/UI proof",
+  "command": "rustc --edition=2024 --crate-name const_candidate_semantics --emit=metadata -A unused -A unknown_lints -o /tmp/octet-const-semantics.rmeta -",
+  "transformation": "For each named existing fixture function, replace its fn token with const fn; compile the complete fixture from stdin",
+  "results": [
+    {
+      "name": "scale_value",
+      "expected_const_compile_success": true,
+      "exit": 0,
+      "diagnostics": ""
+    },
+    {
+      "name": "identifier",
+      "expected_const_compile_success": false,
+      "exit": 1,
+      "diagnostics": "error[E0015]: cannot call non-const method `core::str::<impl str>::bytes` in constant functions\n  --> <anon>:18:18\n   |\n18 |         && value.bytes().all(|byte| byte.is_ascii_lowercase() || byte == b'-')\n   |                  ^^^^^^^\n   |\n   = note: calls in constant functions are limited to constant functions, tuple structs and tuple variants\n\nerror[E0015]: cannot call non-const method `<std::str::Bytes<'_> as Iterator>::all::<{closure@<anon>:18:30: 18:36}>` in constant functions\n  --> <anon>:18:26\n   |\n18 |         && value.bytes().all(|byte| byte.is_ascii_lowercase() || byte == b'-')\n   |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = note: calls in constant functions are limited to constant functions, tuple structs and tuple variants\n\nerror: aborting due to 2 previous errors\n\nFor more information about this error, try `rustc --explain E0015`.\n"
+    },
+    {
+      "name": "versioned_interface",
+      "expected_const_compile_success": false,
+      "exit": 1,
+      "diagnostics": "error[E0015]: cannot call non-const method `core::str::<impl str>::split_once::<char>` in constant functions\n  --> <anon>:25:39\n   |\n25 |     let Some((path, version)) = value.split_once('@') else {\n   |                                       ^^^^^^^^^^^^^^^\n   |\n   = note: calls in constant functions are limited to constant functions, tuple structs and tuple variants\n\nerror[E0015]: cannot call non-const function `identifier` in constant functions\n  --> <anon>:28:5\n   |\n28 |     identifier(path) && version.parse::<u32>().is_ok()\n   |     ^^^^^^^^^^^^^^^^\n   |\nnote: function `identifier` is not const\n  --> <anon>:16:1\n   |\n16 | fn identifier(value: &str) -> bool {\n   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   = note: calls in constant functions are limited to constant functions, tuple structs and tuple variants\n\nerror[E0015]: cannot call non-const method `core::str::<impl str>::parse::<u32>` in constant functions\n  --> <anon>:28:33\n   |\n28 |     identifier(path) && version.parse::<u32>().is_ok()\n   |                                 ^^^^^^^^^^^^^^\n   |\n   = note: calls in constant functions are limited to constant functions, tuple structs and tuple variants\n\nerror: aborting due to 3 previous errors\n\nFor more information about this error, try `rustc --explain E0015`.\n"
+    },
+    {
+      "name": "comparison_with_call",
+      "expected_const_compile_success": false,
+      "exit": 1,
+      "diagnostics": "error[E0015]: cannot call non-const function `runtime_value` in constant functions\n  --> <anon>:36:13\n   |\n36 |     value > runtime_value()\n   |             ^^^^^^^^^^^^^^^\n   |\nnote: function `runtime_value` is not const\n  --> <anon>:31:1\n   |\n31 | fn runtime_value() -> u64 {\n   | ^^^^^^^^^^^^^^^^^^^^^^^^^\n   = note: calls in constant functions are limited to constant functions, tuple structs and tuple variants\n\nerror: aborting due to 1 previous error\n\nFor more information about this error, try `rustc --explain E0015`.\n"
+    },
+    {
+      "name": "overloaded_add",
+      "expected_const_compile_success": false,
+      "exit": 1,
+      "diagnostics": "error[E0277]: the trait bound `T: [const] Add` is not satisfied\n  --> <anon>:40:5\n   |\n40 |     left + right\n   |     ^^^^^^^^^^^^\n\nerror: aborting due to 1 previous error\n\nFor more information about this error, try `rustc --explain E0277`.\n"
+    }
+  ]
+}

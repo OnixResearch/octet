@@ -6,6 +6,8 @@ real contract.
 For the landing page and naming table, see `../README.md`.
 For consumer onboarding, see `consumer-guide.md`.
 For the shipped lint catalog, see `lint-reference.md`.
+For contribution licensing and public issue/PR guidance, see [CONTRIBUTING.md](../CONTRIBUTING.md).
+For vulnerability reports, see [SECURITY.md](../SECURITY.md).
 
 [Assertion review guide](assertion-review.md)
 [Assertion checklist template](../templates/assertion-checklist.md)
@@ -23,6 +25,7 @@ For the shipped lint catalog, see `lint-reference.md`.
 [Concurrency spec contract](../openspec/specs/concurrency/spec.md)
 [System comprehension guide](system-comprehension.md)
 [System walkthrough template](../templates/system-walkthrough.md)
+[Proof-to-implementation gap guide](proof-implementation-gap.md)
 [OpenSpec proposal template](../openspec/templates/proposal.md)
 [OpenSpec delta-spec template](../openspec/templates/spec.md)
 [OpenSpec design template](../openspec/templates/design.md)
@@ -55,6 +58,7 @@ For the shipped lint catalog, see `lint-reference.md`.
 | lint catalog and config reference | `docs/lint-reference.md` |
 | deep rollout playbook | `docs/downstream-rollout.md` |
 | OpenSpec documentation contract | `openspec/specs/documentation/spec.md` |
+| proof-to-implementation gap failure class | `docs/proof-implementation-gap.md` and `.cairn/specs/proof-implementation-gap/spec.md` |
 | OpenSpec consumer runner contract | `openspec/specs/consumer-integration/spec.md` |
 | UI fixtures and catalog coverage | `ui_tests/`, `tests/ui.rs`, `tests/fixtures/ui_fixture_set.json`, `tests/fixtures/lint_emitting_fixtures.json` |
 

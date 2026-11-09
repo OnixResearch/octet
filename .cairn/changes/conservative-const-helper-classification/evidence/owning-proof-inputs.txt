@@ -1,0 +1,14 @@
+Owning post-intake proof inputs (BLAKE3):
+a7d3e69f22154262134e6c50ae7aff1afa40523c56e328feb3763721542172a9  src/purity/effect_lints.rs
+bf296b12c214dcd32f831fc16f899b28dfe17efcaa67883aad133ba3582a37ac  ui_tests/missing_const_fn.rs
+f3e5e2fe8c1b2c687f7b140beb8f7ea3078858bd5519f8a8de754892164ce2e4  ui_tests/missing_const_fn.stderr
+6a3ba693246bc6a1035f3c8d0b9eca68deeb53e587e01257d08565433a5a021c  Cargo.lock
+50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8  rust-toolchain.toml
+
+Retained exact compiler identity:
+rustc 1.96.0-nightly (ac7f9ec7d 2026-03-20)
+commit-hash: ac7f9ec7da74d37fd28667c86bf117a39ba5b02a
+host: x86_64-unknown-linux-gnu
+LLVM version: 22.1.0
+
+These identities bind local source inputs only, not anonymous acquisition or publication eligibility.

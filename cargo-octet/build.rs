@@ -12,6 +12,7 @@ const EMBEDDED_DIRECTORIES: &[&str] = &[
     "crates/octet-architecture-ir",
     "crates/octet-lint-metadata",
     "crates/octet-standards",
+    "LICENSES",
     "standards/clippy-restrictions/generated",
     "standards/compiler-architecture-ir/contracts",
     "standards/effect-closure/generated",
@@ -28,6 +29,9 @@ fn main() {
     collect_file(&repo_root.join("Cargo.toml"), Path::new("Cargo.toml"), &mut files);
     collect_file(&repo_root.join("Cargo.lock"), Path::new("Cargo.lock"), &mut files);
     collect_file(&repo_root.join("rust-toolchain.toml"), Path::new("rust-toolchain.toml"), &mut files);
+    for relative in ["LICENSE", "NOTICE", "README.md", "THIRD_PARTY_NOTICES.md"] {
+        collect_file(&repo_root.join(relative), Path::new(relative), &mut files);
+    }
     for relative in EMBEDDED_DIRECTORIES {
         collect_dir(&repo_root.join(relative), Path::new(relative), &mut files);
     }
@@ -58,6 +62,9 @@ fn main() {
     println!("cargo:rerun-if-changed={}", repo_root.join("Cargo.toml").display());
     println!("cargo:rerun-if-changed={}", repo_root.join("Cargo.lock").display());
     println!("cargo:rerun-if-changed={}", repo_root.join("rust-toolchain.toml").display());
+    for relative in ["LICENSE", "NOTICE", "README.md", "THIRD_PARTY_NOTICES.md"] {
+        println!("cargo:rerun-if-changed={}", repo_root.join(relative).display());
+    }
     for relative in EMBEDDED_DIRECTORIES {
         println!("cargo:rerun-if-changed={}", repo_root.join(relative).display());
     }

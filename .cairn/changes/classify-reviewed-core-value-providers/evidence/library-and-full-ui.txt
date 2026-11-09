@@ -1,0 +1,557 @@
+   Compiling crossbeam-utils v0.8.22
+   Compiling crossbeam-epoch v0.9.20
+   Compiling crossbeam-deque v0.8.7
+   Compiling syn v2.0.118
+   Compiling pin-project-lite v0.2.17
+   Compiling crossbeam-queue v0.3.13
+   Compiling crossbeam-channel v0.5.16
+   Compiling crossbeam v0.8.4
+   Compiling serde_derive v1.0.228
+   Compiling thiserror-impl v2.0.18
+   Compiling tokio-macros v2.7.0
+   Compiling tokio v1.52.3
+   Compiling thiserror v2.0.18
+   Compiling serde v1.0.228
+   Compiling cargo_metadata v0.23.1
+   Compiling octet-lint-metadata v0.1.0 (/home/brittonr/git/OnixResearch/octet/crates/octet-lint-metadata)
+   Compiling octet-architecture-ir v0.1.0 (/home/brittonr/git/OnixResearch/octet/crates/octet-architecture-ir)
+   Compiling dylint_internal v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling dylint_linting v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee)
+   Compiling octet v0.1.0 (/home/brittonr/git/OnixResearch/octet)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 11.46s
+     Running unittests src/lib.rs (/tmp/octet-const-owning-proof-20261016/debug/deps/octet-6e75df5373d4167b)
+
+running 145 tests
+test architecture_collector::tests::absent_context_does_not_activate_collection ... ok
+test architecture_collector::tests::effect_classification_uses_resolved_definition_paths ... ok
+test concurrency::ignored_join_handle::tests::skips_test_contexts ... ok
+test concurrency::ignored_join_handle::tests::classifies_discarded_join_handle ... ok
+test concurrency::ignored_join_handle::tests::skips_non_join_handle_or_named_lifecycle ... ok
+test concurrency::multi_lock_ordering::tests::classifies_multiple_locks_without_order_comment ... ok
+test concurrency::multi_lock_ordering::tests::skips_single_lock_or_documented_order ... ok
+test concurrency::multi_lock_ordering::tests::comment_classifier_requires_lock_specific_ordering ... ok
+test architecture_collector::publication_tests::occupied_staging_file_is_not_overwritten ... ok
+test config::tests::indexable_exception_classes_default_to_scoped_allowlist ... ok
+test config::tests::indexable_exception_classes_can_be_narrowed_and_validate_unknowns ... ok
+test config::tests::legacy_slotcar_config_is_used_when_octet_section_is_absent ... ok
+test config::tests::deterministic_core_profile_rejects_missing_core_scopes ... ok
+test config::tests::invalid_lint_level_warns_and_keeps_default_behavior ... ok
+test config::tests::explicit_disabled_lints_and_lint_levels_deserialize_successfully ... ok
+test config::tests::malformed_nominal_domain_mode_fails_toml_deserialization ... ok
+test config::tests::config_law_valid_lint_levels_are_bounded_and_replayable ... ok
+test config::tests::config_law_invalid_generated_levels_fail_closed_with_stable_diagnostics ... ok
+test config::tests::mixed_disabled_lints_keeps_valid_entry_while_warning_on_unknown_name ... ok
+test architecture_collector::publication_tests::concurrent_identical_shards_have_independent_staging ... ok
+test config::tests::mixed_lint_levels_ignore_invalid_value_but_keep_valid_override ... ok
+test config::tests::config_law_disabled_lints_win_over_generated_level_overrides ... ok
+test config::tests::mixed_lint_levels_ignores_unknown_name_but_keeps_valid_override ... ok
+test config::tests::multiple_independent_config_errors_accumulate_with_typed_context ... ok
+test config::tests::nominal_domain_deny_cannot_be_relaxed_by_a_per_lint_allow ... ok
+test config::tests::octet_config_wins_over_legacy_slotcar_and_tigerstyle_config ... ok
+test config::tests::omitted_disabled_lints_and_lint_levels_default_to_empty ... ok
+test config::tests::nominal_domain_modes_apply_a_deterministic_severity_floor ... ok
+test config::tests::overlapping_disabled_lints_and_lint_levels_warn_and_keep_lint_disabled ... ok
+test config::tests::parsed_slotcar_section_wins_over_tigerstyle_fallback ... ok
+test config::tests::parsed_octet_section_wins_over_legacy_sections ... ok
+test config::tests::raw_lint_levels_preserve_original_strings ... ok
+test config::tests::unknown_disabled_lints_warn_without_failing_validation ... ok
+test naming::acronym_style::tests::test_acronym_fix ... ok
+test naming::indexable_exceptions::tests::accepts_canonical_rustc_private_aliases ... ok
+test config::tests::indexable_policy_lints_are_accepted_by_config_validation ... ok
+test naming::indexable_exceptions::tests::accepts_lint_identity_file_stems ... ok
+test naming::indexable_exceptions::tests::respects_disabled_rustc_private_alias_exception ... ok
+test config::tests::unknown_lint_levels_warn_without_failing_validation ... ok
+test naming::numeric_units::tests::raw_quantities_need_units ... ok
+test naming::numeric_units::tests::typed_quantities_and_non_quantities_are_accepted ... ok
+test naming::underscore_in_module_filename::tests::skips_vendored_dependency_underscore_filename ... ok
+test naming::underscore_in_module_filename::tests::skips_lint_identity_module_filename ... ok
+test naming::underscore_in_module_filename::tests::skips_remapped_dependency_paths_absent_from_workspace ... ok
+test naming::indexable_exceptions::tests::accepts_lint_identity_names_only_when_path_preserves_same_identity ... ok
+test naming::underscore_in_module_filename::tests::warns_for_workspace_underscore_module_filename ... ok
+test performance::allocation_in_loop::tests::classifies_allocation_inside_loop ... ok
+test config::tests::strict_profile_strengthens_required_lints_without_changing_unrelated_levels ... ok
+test performance::allocation_in_loop::tests::skips_non_allocation_or_outside_loop ... ok
+test config::tests::reviewed_profiles_select_exact_only_nominal_domain_denial ... ok
+test performance::allocation_in_loop::tests::skips_test_contexts_and_expansions ... ok
+test purity::effect_lints::tests::env_classifier_accepts_direct_calls_and_rejects_explicit_config ... ok
+test purity::effect_lints::tests::resource_return_classifier_allows_descriptions ... ok
+test purity::effect_lints::tests::nondeterministic_output_requires_hash_iteration_without_sort ... ok
+test purity::effect_lints::tests::effect_classifier_keeps_shell_port_calls_out_of_scope ... ok
+test safety::compound_assertion::tests::detects_top_level_compound_assertion ... ok
+test purity::effect_lints::tests::pure_contract_reports_direct_violation_and_accepts_clean_logic ... ok
+test purity::effect_lints::tests::const_candidate_classifier_is_conservative ... ok
+test safety::compound_assertion::tests::parses_machine_applicable_top_level_conjunction ... ok
+test safety::compound_assertion::tests::parses_top_level_disjunction_without_machine_applicable_fix ... ok
+test safety::compound_assertion::tests::rejects_message_bearing_assertions_for_machine_applicable_fix ... ok
+test safety::drop_must_use::tests::classifies_explicit_drop_of_must_use_type_or_producer ... ok
+test safety::drop_must_use::tests::skips_plain_drop_and_test_contexts ... ok
+test safety::ignored_result::tests::classifies_result_discard ... ok
+test safety::ignored_result::tests::preserves_drop_and_shutdown_exceptions ... ok
+test safety::ignored_result::tests::skips_non_result_values ... ok
+test safety::no_panic::tests::finds_panic_macro_name ... ok
+test safety::no_recursion::tests::classifies_same_resolved_call_as_recursive ... ok
+test safety::no_recursion::tests::skips_different_or_unresolved_calls ... ok
+test safety::no_todo::tests::finds_panic_family_macro_name ... ok
+test safety::no_todo::tests::matches_supported_no_todo_spellings ... ok
+test safety::public_unsafe_api::tests::classifies_public_unsafe_rust_api ... ok
+test safety::public_unsafe_api::tests::skips_extern_unsafe_api ... ok
+test safety::public_unsafe_api::tests::skips_private_or_safe_api ... ok
+test safety::public_unsafe_api::tests::skips_trait_impl_method ... ok
+test safety::state_machine_exhaustiveness::tests::mutation_coupled_transition_fails_closed ... ok
+test safety::state_machine_exhaustiveness::tests::explicit_state_event_matrix_passes ... ok
+test safety::state_machine_exhaustiveness::tests::missing_fsm_enum_markers_fail_closed ... ok
+test safety::state_machine_exhaustiveness::tests::missing_variant_inventory_is_unsupported ... ok
+test safety::unbounded_loop::tests::bounded_receiver_is_clean_and_unbounded_receiver_warns ... ok
+test safety::state_machine_exhaustiveness::tests::wildcard_fallback_and_hidden_pair_fail_closed ... ok
+test safety::unbounded_loop::tests::classifies_explicit_loop_without_exit ... ok
+test safety::unbounded_loop::tests::for_loops_and_expansion_loops_are_clean ... ok
+test safety::unbounded_loop::tests::marker_name_without_structural_bound_still_warns ... ok
+test safety::unbounded_loop::tests::skips_explicit_exit_or_cancellation_path ... ok
+test structure::ambiguous_params::tests::distinct_nominal_types_are_not_raw_candidates ... ok
+test structure::ambiguous_params::tests::repeated_non_consecutive_raw_types_are_ambiguous ... ok
+test structure::concrete_construction_in_core::tests::direct_external_constructor_is_reportable ... ok
+test structure::concrete_construction_in_core::tests::indirect_parent_and_out_of_scope_shapes_are_not_reportable ... ok
+test structure::concrete_construction_in_core::tests::local_and_standard_value_constructors_are_not_reportable ... ok
+test structure::magic_number::tests::classifies_inline_policy_threshold ... ok
+test structure::excessive_file_length::tests::accepts_workspace_source_files ... ok
+test structure::excessive_file_length::tests::skips_vendored_dependency_source_files ... ok
+test structure::magic_number::tests::recognizes_policy_names_and_unit_suffixes ... ok
+test structure::magic_number::tests::skips_documented_or_conventional_literals ... ok
+test structure::magic_number::tests::skips_non_threshold_literals_and_test_contexts ... ok
+test structure::module_file_count::tests::counts_workspace_rust_sources ... ok
+test structure::module_file_count::tests::counts_existing_workspace_source_paths ... ok
+test structure::module_file_count::tests::skips_remapped_dependency_paths_absent_from_workspace ... ok
+test structure::module_file_count::tests::skips_vendored_dependency_sources ... ok
+test structure::primitive_domain_alias::tests::compatibility_and_outside_scopes_are_silent ... ok
+test structure::primitive_domain_alias::tests::inventory_reports_exact_and_heuristic_candidates ... ok
+test structure::primitive_domain_alias::tests::promoted_modes_never_report_heuristic_candidates ... ok
+test structure::raw_value_tests::symbol_candidates_prefer_qualified_domain_names ... ok
+test structure::raw_value_tests::container_paths_have_explicit_classification ... ok
+test test_context::tests::cfg_attr_detection_matches_test_only_forms ... ok
+test test_context::tests::cfg_not_test_can_still_be_true_without_test ... ok
+test tests::autofix_machine_proof_rejects_missing_fixed_artifact ... ok
+test structure::newtype_invariant_bypass::tests::isolated_facts_report_only_the_selected_bypass ... ok
+test structure::newtype_invariant_bypass::tests::refined_policy_selection_respects_scope_and_constructor_contract ... ok
+test structure::raw_domain_value::tests::exact_domain_rejects_compatibility_and_outside_scopes ... ok
+test tests::config_validation_derives_names_from_lint_inventory ... ok
+test tests::diagnostic_metadata_names_match_lint_inventory ... ok
+test tests::autofix_machine_proof_covers_current_machine_lints ... ok
+test tests::diagnostic_group_snapshot_matches ... ok
+test tests::all_lints_register_canonical_and_bare_names ... ok
+test tests::diagnostic_metadata_required_examples_are_concrete ... ok
+test tests::guidance_freshness_rejects_stale_future_lint_candidate ... ok
+test tests::disabled_lints_are_omitted_from_groups_and_aliases ... ok
+test tests::guidance_freshness_accepts_current_borrowed_argument_row ... ok
+test tests::compatibility_alias_snapshot_matches ... ok
+test tests::lint_inventory_default_levels_snapshot_matches ... ok
+test tests::lint_guardrail_fixture_manifest_rejects_unknown_category ... ok
+test tests::lint_guardrail_fixture_manifest_rejects_unknown_lint ... ok
+test tests::domain_groups_register_expected_members ... ok
+test tests::lint_inventory_names_are_unique ... ok
+test tests::lint_inventory_snapshot_matches ... ok
+test tests::indexable_policy_lints_have_registration_metadata_aliases_groups_and_sources ... ok
+test tests::lint_metadata_default_levels_match_registered_lints ... ok
+test tests::lint_metadata_catalog_covers_registered_inventory ... ok
+test tests::lint_metadata_rejects_missing_catalog_entries ... ok
+test tests::lint_guardrail_fixture_manifest_rejects_missing_guardrail ... ok
+test tests::lint_metadata_rejects_unknown_catalog_entries ... ok
+test tests::lint_guardrail_fixture_manifest_covers_inventory_and_names_valid_fixtures ... ok
+test tests::catalog_freshness_rejects_mismatched_default_level ... ok
+test tests::catalog_docs_match_inventory_counts_defaults_and_rows ... ok
+test tests::diagnostic_metadata_snapshot_matches ... ok
+test tests::catalog_freshness_rejects_mismatched_summary ... ok
+test tests::catalog_freshness_rejects_missing_lint_row ... ok
+test tests::autofix_rollout_scope_matches_change_contract ... ok
+test tests::catalog_freshness_rejects_stale_total ... ok
+test tests::catalog_freshness_rejects_stale_namespace_prose ... ok
+test tests::lint_emitting_fixture_manifest_matches_inventory_and_emits ... ok
+test tests::ui_fixture_set_artifact_covers_the_full_corpus ... ok
+test tests::lint_modules_route_help_and_note_through_diagnostics_module ... ok
+
+test result: ok. 145 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+   Compiling octet v0.1.0 (/home/brittonr/git/OnixResearch/octet)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.62s
+     Running tests/ui.rs (/tmp/octet-const-owning-proof-20261016/debug/deps/ui-331e966cc6918d79)
+
+running 1 test
+[ui fixture] acronym_allowlist_custom/acronym_allowlist_custom
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/acronym_allowlist_custom.stderr
+[ui fixture] acronym_style
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/acronym_style.stderr
+[ui fixture] allocation_in_loop
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/allocation_in_loop.stderr
+[ui fixture] ambient_clock
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/ambient_clock.stderr
+[ui fixture] ambient_env
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/ambient_env.stderr
+[ui fixture] ambient_random
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/ambient_random.stderr
+[ui fixture] ambiguous_params
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/ambiguous_params.stderr
+[ui fixture] assertion_density
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/assertion_density.stderr
+[ui fixture] assertion_density_custom/assertion_density_custom
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/assertion_density_custom.stderr
+[ui fixture] bool_naming
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/bool_naming.stderr
+[ui fixture] bool_naming_local_rename
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/bool_naming_local_rename.stderr
+[ui fixture] bool_naming_macro_fallback
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/bool_naming_macro_fallback.stderr
+[ui fixture] borrowed_argument_types
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/borrowed_argument_types.stderr
+[ui fixture] catch_all_on_enum
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/catch_all_on_enum.stderr
+[ui fixture] clone_then_borrow
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/clone_then_borrow.stderr
+[ui fixture] compound_assertion
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/compound_assertion.stderr
+[ui fixture] compound_assertion_indented
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/compound_assertion_indented.stderr
+[ui fixture] compound_assertion_machine_applicable
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/compound_assertion_machine_applicable.stderr
+[ui fixture] compound_assertion_message_guardrail
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/compound_assertion_message_guardrail.stderr
+[ui fixture] compound_assertion_or_guardrail
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/compound_assertion_or_guardrail.stderr
+[ui fixture] compound_condition
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/compound_condition.stderr
+[ui fixture] contradictory_time
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/contradictory_time.stderr
+[ui fixture] concrete_construction_in_core/concrete_construction_in_core
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/concrete_construction_in_core.stderr
+warning: struct `DomainValue` is never constructed
+ --> concrete_construction_in_core.rs:1:8
+  |
+1 | struct DomainValue;
+  |        ^^^^^^^^^^^
+  |
+  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: associated function `new` is never used
+ --> concrete_construction_in_core.rs:4:8
+  |
+3 | impl DomainValue {
+  | ---------------- associated function in this implementation
+4 |     fn new() -> Self {
+  |        ^^^
+
+warning: function `construct_local_domain_value` is never used
+ --> concrete_construction_in_core.rs:9:4
+  |
+9 | fn construct_local_domain_value() {
+  |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `construct_standard_value` is never used
+  --> concrete_construction_in_core.rs:13:4
+   |
+13 | fn construct_standard_value() {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `construct_nested_external_value` is never used
+  --> concrete_construction_in_core.rs:17:4
+   |
+17 | fn construct_nested_external_value() {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `main` is never used
+  --> concrete_construction_in_core.rs:21:4
+   |
+21 | fn main() {
+   |    ^^^^
+
+[ui fixture] concrete_construction_in_core_custom/concrete_construction_in_core_custom
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/concrete_construction_in_core_custom.stderr
+warning: function `construct_reviewed_value` is never used
+ --> concrete_construction_in_core_custom.rs:1:4
+  |
+1 | fn construct_reviewed_value() {
+  |    ^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `construct_aliased_reviewed_value` is never used
+ --> concrete_construction_in_core_custom.rs:5:4
+  |
+5 | fn construct_aliased_reviewed_value() {
+  |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `construct_unreviewed_sibling` is never used
+  --> concrete_construction_in_core_custom.rs:10:4
+   |
+10 | fn construct_unreviewed_sibling() {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `main` is never used
+  --> concrete_construction_in_core_custom.rs:14:4
+   |
+14 | fn main() {
+   |    ^^^^
+
+[ui fixture] concrete_construction_in_core_no_scope
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/concrete_construction_in_core_no_scope.stderr
+[ui fixture] defaulting_trait_method
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/defaulting_trait_method.stderr
+[ui fixture] defaulting_trait_method_required
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/defaulting_trait_method_required.stderr
+[ui fixture] deref_polymorphism
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/deref_polymorphism.stderr
+[ui fixture] drop_must_use
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/drop_must_use.stderr
+[ui fixture] excessive_file_length
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/excessive_file_length.stderr
+[ui fixture] excessive_file_length_within_limit
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/excessive_file_length_within_limit.stderr
+[ui fixture] explicit_defaults/explicit_defaults
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/explicit_defaults.stderr
+[ui fixture] fallible_int_fallback
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/fallible_int_fallback.stderr
+[ui fixture] fat_trait
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/fat_trait.stderr
+[ui fixture] fat_trait_within_limit
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/fat_trait_within_limit.stderr
+[ui fixture] float_for_currency
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/float_for_currency.stderr
+[ui fixture] foreign_enum_catch_all
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/foreign_enum_catch_all.stderr
+[ui fixture] foreign_enum_catch_all_macro
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/foreign_enum_catch_all_macro.stderr
+[ui fixture] foreign_enum_catch_all_own_enum
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/foreign_enum_catch_all_own_enum.stderr
+[ui fixture] fragile_exhaustive_enum_match
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/fragile_exhaustive_enum_match.stderr
+[ui fixture] fragile_exhaustive_enum_match_foreign
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/fragile_exhaustive_enum_match_foreign.stderr
+[ui fixture] fragile_exhaustive_enum_match_sealed
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/fragile_exhaustive_enum_match_sealed.stderr
+[ui fixture] fragile_exhaustive_enum_match_state_machine
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/fragile_exhaustive_enum_match_state_machine.stderr
+[ui fixture] state_machine_exhaustiveness
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/state_machine_exhaustiveness.stderr
+[ui fixture] state_machine_exhaustiveness_negative
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/state_machine_exhaustiveness_negative.stderr
+[ui fixture] function_length
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/function_length.stderr
+[ui fixture] function_length_custom/function_length_custom
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/function_length_custom.stderr
+[ui fixture] group_allow_safety
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/group_allow_safety.stderr
+[ui fixture] group_deny_naming
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/group_deny_naming.stderr
+[ui fixture] global_state_in_core/global_state_in_core
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/global_state_in_core.stderr
+[ui fixture] ignored_join_handle
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/ignored_join_handle.stderr
+[ui fixture] ignored_result
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/ignored_result.stderr
+[ui fixture] ignored_result_drop
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/ignored_result_drop.stderr
+[ui fixture] impure_call_in_core/impure_call_in_core
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/impure_call_in_core.stderr
+[ui fixture] interior_mutability_in_core/interior_mutability_in_core
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/interior_mutability_in_core.stderr
+[ui fixture] ignored_result_shutdown_send
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/ignored_result_shutdown_send.stderr
+[ui fixture] lint_guardrail_common
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/lint_guardrail_common.stderr
+[ui fixture] logging_in_core/logging_in_core
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/logging_in_core.stderr
+[ui fixture] magic_number
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/magic_number.stderr
+[ui fixture] max_parameters_custom/max_parameters_custom
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/max_parameters_custom.stderr
+[ui fixture] missing_const_fn
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/missing_const_fn.stderr
+[ui fixture] module_file_count
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/module_file_count.stderr
+[ui fixture] module_file_count_at_limit
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/module_file_count_at_limit.stderr
+[ui fixture] multi_lock_ordering
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/multi_lock_ordering.stderr
+[ui fixture] mutating_input_in_pure
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/mutating_input_in_pure.stderr
+[ui fixture] negated_predicate
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/negated_predicate.stderr
+[ui fixture] negated_predicate_local_rename
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/negated_predicate_local_rename.stderr
+[ui fixture] nested_conditionals
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/nested_conditionals.stderr
+[ui fixture] nesting_custom/nesting_custom
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/nesting_custom.stderr
+[ui fixture] namespace_bare_lint_deny
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/namespace_bare_lint_deny.stderr
+[ui fixture] namespace_canonical_group_allow
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/namespace_canonical_group_allow.stderr
+[ui fixture] namespace_canonical_lint_allow
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/namespace_canonical_lint_allow.stderr
+[ui fixture] namespace_unsupported_octet_attr
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/namespace_unsupported_octet_attr.stderr
+[ui fixture] no_panic
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/no_panic.stderr
+[ui fixture] no_panic_cfg_not
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/no_panic_cfg_not.stderr
+[ui fixture] no_panic_exhaustive
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/no_panic_exhaustive.stderr
+[ui fixture] no_panic_exhaustive_external
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/no_panic_exhaustive_external.stderr
+[ui fixture] no_panic_exhaustive_indirect
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/no_panic_exhaustive_indirect.stderr
+[ui fixture] no_panic_exhaustive_non_exhaustive
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/no_panic_exhaustive_non_exhaustive.stderr
+[ui fixture] no_recursion
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/no_recursion.stderr
+[ui fixture] no_todo
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/no_todo.stderr
+[ui fixture] no_todo_allow
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/no_todo_allow.stderr
+[ui fixture] no_todo_legacy_no_panic_allow
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/no_todo_legacy_no_panic_allow.stderr
+[ui fixture] no_todo_orphan_allow
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/no_todo_orphan_allow.stderr
+[ui fixture] no_unwrap
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/no_unwrap.stderr
+[ui fixture] no_unwrap_allow_custom/no_unwrap_allow_custom
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/no_unwrap_allow_custom.stderr
+[ui fixture] no_unwrap_cfg_not
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/no_unwrap_cfg_not.stderr
+[ui fixture] no_unwrap_compile_time_known
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/no_unwrap_compile_time_known.stderr
+[ui fixture] no_unwrap_default_custom/no_unwrap_default_custom
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/no_unwrap_default_custom.stderr
+[ui fixture] no_unwrap_deny_custom/no_unwrap_deny_custom
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/no_unwrap_deny_custom.stderr
+[ui fixture] no_unwrap_disabled_custom/no_unwrap_disabled_custom
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/no_unwrap_disabled_custom.stderr
+[ui fixture] no_unwrap_disabled_deny_custom/no_unwrap_disabled_deny_custom
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/no_unwrap_disabled_deny_custom.stderr
+[ui fixture] no_unwrap_disabled_source_attr_custom/no_unwrap_disabled_source_attr_custom
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/no_unwrap_disabled_source_attr_custom.stderr
+[ui fixture] no_unwrap_guarded
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/no_unwrap_guarded.stderr
+[ui fixture] no_unwrap_tool_attr
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/no_unwrap_tool_attr.stderr
+[ui fixture] no_unwrap_warn_custom/no_unwrap_warn_custom
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/no_unwrap_warn_custom.stderr
+[ui fixture] nominal_domain_compile_fail
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/nominal_domain_compile_fail.stderr
+[ui fixture] nominal_domain_compile_pass
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/nominal_domain_compile_pass.stderr
+[ui fixture] nondeterministic_output
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/nondeterministic_output.stderr
+[ui fixture] numeric_units
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/numeric_units.stderr
+[ui fixture] newtype_invariant_bypass
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/newtype_invariant_bypass.stderr
+[ui fixture] newtype_invariant_safe
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/newtype_invariant_safe.stderr
+[ui fixture] platform_dependent_cast
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/platform_dependent_cast.stderr
+[ui fixture] primitive_domain_alias
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/primitive_domain_alias.stderr
+[ui fixture] primitive_domain_alias_compat
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/primitive_domain_alias_compat.stderr
+[ui fixture] primitive_domain_alias_exact
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/primitive_domain_alias_exact.stderr
+[ui fixture] public_unsafe_api
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/public_unsafe_api.stderr
+[ui fixture] raw_arithmetic_overflow
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/raw_arithmetic_overflow.stderr
+[ui fixture] raw_domain_value
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/raw_domain_value.stderr
+[ui fixture] raw_domain_value_compat
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/raw_domain_value_compat.stderr
+[ui fixture] raw_domain_value_ffi
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/raw_domain_value_ffi.stderr
+[ui fixture] raw_domain_value_generated
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/raw_domain_value_generated.stderr
+[ui fixture] sentinel_fallback
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/sentinel_fallback.stderr
+[ui fixture] tokio_async/ignored_result_shutdown_send_tokio
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/ignored_result_shutdown_send_tokio.stderr
+[ui fixture] tokio_async/ignored_result_try_send_tokio
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/ignored_result_try_send_tokio.stderr
+[ui fixture] tokio_async/unbounded_loop_bare_async
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/unbounded_loop_bare_async.stderr
+[ui fixture] tokio_async/unbounded_loop_bounded_receiver
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/unbounded_loop_bounded_receiver.stderr
+[ui fixture] tokio_async/unbounded_loop_imported_select
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/unbounded_loop_imported_select.stderr
+[ui fixture] tokio_async/unbounded_loop_non_tokio_select
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/unbounded_loop_non_tokio_select.stderr
+[ui fixture] tokio_async/unbounded_loop_plain_await
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/unbounded_loop_plain_await.stderr
+[ui fixture] tokio_async/unbounded_loop_tokio_select
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/unbounded_loop_tokio_select.stderr
+[ui fixture] tokio_async/unbounded_loop_unbounded_receiver
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/unbounded_loop_unbounded_receiver.stderr
+[ui fixture] too_many_parameters
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/too_many_parameters.stderr
+[ui fixture] type_accumulation
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/type_accumulation.stderr
+[ui fixture] type_accumulation_within_limit
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/type_accumulation_within_limit.stderr
+[ui fixture] unbounded_channel/unbounded_channel
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/unbounded_channel.stderr
+[ui fixture] unbounded_collection_growth
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/unbounded_collection_growth.stderr
+[ui fixture] unbounded_loop
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/unbounded_loop.stderr
+[ui fixture] unbounded_loop_iter_next
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/unbounded_loop_iter_next.stderr
+[ui fixture] unchecked_division
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/unchecked_division.stderr
+[ui fixture] unchecked_narrowing
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/unchecked_narrowing.stderr
+[ui fixture] unchecked_narrowing_min
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/unchecked_narrowing_min.stderr
+[ui fixture] unchecked_narrowing_same_block_assert
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/unchecked_narrowing_same_block_assert.stderr
+[ui fixture] unchecked_narrowing_try_from
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/unchecked_narrowing_try_from.stderr
+[ui fixture] underscore_in_module_filename
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/underscore_in_module_filename.stderr
+[ui fixture] underscore_in_module_filename_directory
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/underscore_in_module_filename_directory.stderr
+[ui fixture] non_trait_imports
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/non_trait_imports.stderr
+[ui fixture] non_trait_imports_trait
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/non_trait_imports_trait.stderr
+[ui fixture] non_trait_imports_public_reexport
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/non_trait_imports_public_reexport.stderr
+[ui fixture] renamed_imports_compat
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/renamed_imports_compat.stderr
+[ui fixture] renamed_imports_trait
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/renamed_imports_trait.stderr
+[ui fixture] renamed_imports
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/renamed_imports.stderr
+[ui fixture] path_segment_repetition_compat
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/path_segment_repetition_compat.stderr
+[ui fixture] path_segment_repetition_non_repeating
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/path_segment_repetition_non_repeating.stderr
+[ui fixture] path_segment_repetition
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/path_segment_repetition.stderr
+[ui fixture] pure_attr_contract/pure_attr_contract
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/pure_attr_contract.stderr
+[ui fixture] purity_effect_lints_guardrails
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/purity_effect_lints_guardrails.stderr
+[ui fixture] resource_return_from_core/resource_return_from_core
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/resource_return_from_core.stderr
+[ui fixture] spawn_in_core/spawn_in_core
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/spawn_in_core.stderr
+[ui fixture] zero_alloc_attr_contract/zero_alloc_attr_contract
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/zero_alloc_attr_contract.stderr
+[ui fixture] zero_alloc_attr_contract_allow
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/zero_alloc_attr_contract_allow.stderr
+[ui fixture] zero_alloc_attr_contract_silent_allow
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/zero_alloc_attr_contract_silent_allow.stderr
+[ui fixture] unjustified_allow
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/unjustified_allow.stderr
+[ui fixture] usize_in_public_api
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/usize_in_public_api.stderr
+[ui fixture] verified/verified_purity
+[ui snapshot] /home/brittonr/git/OnixResearch/octet/ui_tests/verified_purity.stderr
+test ui ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 9.03s
+

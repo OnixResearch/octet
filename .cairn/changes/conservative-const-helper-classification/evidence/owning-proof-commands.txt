@@ -1,0 +1,31 @@
+Executed post-intake actual owning proof, from /home/brittonr/git/OnixResearch/octet in retained owning Nix environment:
+
+IN_NIX_SHELL=impure
+RUSTUP_TOOLCHAIN=nightly-2026-03-21-x86_64-unknown-linux-gnu
+LD_LIBRARY_PATH=/nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21/lib
+OCTET_COVERAGE_CARGO_CONFIG=/nix/store/lk2hn79aibxb8a38q5il11mr33vd3r1r-vendor-cargo-deps/config.toml
+
+Parent explicitly authorized this transient additional Cargo source-replacement table, preserving the exact bounded-exec revision and original verified directory source/checksums. It does not patch a package, version, revision or implementation. The current manifest/lock use HTTPS; the retained normal owning config declares the same revision under SSH. Before replay, write the following exact contents to /tmp/octet-const-owning-source-20261016.toml:
+
+[source."https://github.com/OnixResearch/bounded-exec.git?rev=44eb74eb639194665ee820562d5b2ce2c3ff6a94"]
+git = "https://github.com/OnixResearch/bounded-exec.git"
+rev = "44eb74eb639194665ee820562d5b2ce2c3ff6a94"
+replace-with = "nix-sources-88cd7bc573db2cca682d20d2993de91917124e0d58003f86b4c3b871b4c8cbc0"
+
+Library command (exit 0; complete actual owning source, explicit fresh target):
+
+env GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=credential.helper GIT_CONFIG_VALUE_0= GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=false SSH_ASKPASS=false GIT_SSH_COMMAND=false SSH_AUTH_SOCK= RUSTC_WRAPPER= CARGO_BUILD_RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/octet-const-owning-proof-20261016 cargo --config "$OCTET_COVERAGE_CARGO_CONFIG" --config /tmp/octet-const-owning-source-20261016.toml build -p octet --lib --locked --offline
+
+Actual owning driver command (exit 0; separate fresh target, existing standalone owning driver workspace/lock):
+
+env GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=credential.helper GIT_CONFIG_VALUE_0= GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=false SSH_ASKPASS=false GIT_SSH_COMMAND=false SSH_AUTH_SOCK= RUSTC_WRAPPER= CARGO_BUILD_RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/octet-const-owning-driver-20261016 cargo build --manifest-path tests/support/ui-driver/Cargo.toml --locked --offline
+
+Existing complete fixture and exact unchanged snapshot command (exit 0):
+
+env GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=credential.helper GIT_CONFIG_VALUE_0= GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=false SSH_ASKPASS=false GIT_SSH_COMMAND=false SSH_AUTH_SOCK= python3 .cairn/changes/conservative-const-helper-classification/evidence/verify-owning-const-fixture.py /tmp/octet-const-owning-driver-20261016/debug/octet-ui-driver
+
+Receipts: owning-library-build.txt, owning-driver-build.txt, owning-ui-fixture.txt. The helper uses the newly built actual /tmp/octet-const-owning-proof-20261016/debug/liboctet.so, not a source-isolated replacement or previously packaged lint library. Temporary per-fixture directories are removed automatically; the transient transport mapping is removed after proof.
+
+Fresh Nix entry did not settle and was canceled before choosing this authorized retained-environment route. An earlier driver-binding eval timed out at 180s with SQLite eval-cache busy. Subsequent noGC/eval-cache=false environment requests were canceled; no duplicate library compiler was started. The new library target was empty before selecting the retained route. No pending Nix proof jobs remain.
+
+This is scoped actual-source/registration/UI evidence in the retained owning Nix environment. It is not fresh-environment, anonymous-source, public-reproducibility, full-suite, HWR downstream, publication or release proof.

@@ -6,6 +6,33 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## 2026-10-22: Proof-to-implementation gap guide
+
+The new [proof-to-implementation gap](docs/proof-implementation-gap.md) guide
+names one specification-assumption failure class at the boundary between a
+verified model and its implementation. It describes the synchronous process,
+request/response correlation, atomic persistence, and extension-coverage
+assumptions, the three defect layers, and the system-level testing that closes
+each layer. The guide is review vocabulary, not an Octet check or a verdict on
+any particular proof.
+
+## 2026-10-15: Open-source distribution preparation
+
+Octet retains its existing `AGPL-3.0-or-later` grant. Project and third-party
+notices, contribution terms, private vulnerability-reporting guidance, and
+publication prerequisites are now documented explicitly.
+
+Nix packages install legal files under `share/licenses/octet/`; the runner's
+embedded lint-source bundle also carries the project and bundled third-party
+licenses. Bounded Exec and the root Cairn artifact flake input use HTTPS
+without changing their pinned source revisions; transitive source transport
+still needs review.
+
+Public distribution remains blocked on imported standards-prose permission
+and anonymous access to exact dependency sources. Maintainers must also finish
+the final history/privacy and binary-closure reviews in the
+[release checklist](docs/release-candidate.md#open-source-publication-prerequisites).
+
 ## Unreleased: artifact-dir safety, effect coverage, and lint precision
 
 Changes that can add findings, fail a build, or change identities:

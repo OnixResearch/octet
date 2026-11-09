@@ -44,7 +44,11 @@ Octet is under active development. Nix pins Rust, Dylint, Verus, solvers, and su
 
 Direct Cargo use is an advanced path. It must reproduce the same pins.
 
-Octet pins one exact public Valence revision in Cargo and Nix. Source availability does not prove correctness, security, or release readiness.
+Octet pins exact Valence and Bounded Exec revisions in Cargo and Nix. Public source availability and redistribution permissions must be checked independently; the [release checklist](docs/release-candidate.md#open-source-publication-prerequisites) records unresolved publication prerequisites. Cached local builds do not prove anonymous checkout reproducibility.
+
+The [Mantle producer handoff](docs/aeneas-consumer-contract.md#mantle-producer-handoff)
+exports an immutable ordinary Nix job with an explicit legacy or Nix v4 wire
+contract. Acquisition is not proof execution or external acceptance.
 
 ## Quick start
 
@@ -374,6 +378,7 @@ Start with these guides:
 - [`docs/consumer-guide.md`](docs/consumer-guide.md): setup and rollout
 - [`docs/lint-reference.md`](docs/lint-reference.md): lint catalog and config
 - [`docs/trust-boundary-evidence.md`](docs/trust-boundary-evidence.md): evidence and claims
+- [`docs/proof-implementation-gap.md`](docs/proof-implementation-gap.md): the named specification-assumption failure class at the proof-to-implementation boundary
 - [`docs/strict-rust-profiles.md`](docs/strict-rust-profiles.md): named profiles
 - [`docs/project-architecture-policy.md`](docs/project-architecture-policy.md): opt-in FCIS and Hexagonal project policy
 - [`docs/assurance-profiles.md`](docs/assurance-profiles.md): cross-plane assurance profiles
@@ -386,9 +391,13 @@ The `docs/` and `templates/` directories contain focused guides and copyable che
 
 ## License
 
-Octet uses `AGPL-3.0-or-later`. See [LICENSE](LICENSE).
+Octet's original material uses `AGPL-3.0-or-later` (GNU Affero General Public License, version 3 or any later version). See [LICENSE](LICENSE) and [NOTICE](NOTICE). This preserves the existing grant.
 
-Dependencies and imported proof references retain their own terms. License metadata does not certify a proof or whole-system behavior.
+Dependencies and imported material retain their own terms. [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) records bundled licenses and unresolved provenance; project metadata does not grant rights over somebody else's work.
+
+Running Octet does not by itself relicense the code being checked. Redistributing covered binaries requires the corresponding-source arrangements in AGPL section 6. Modified versions supporting remote network interaction must offer their corresponding source to those users under section 13. The license text controls; check output and license metadata do not certify correctness or release readiness.
+
+For contributions, see [CONTRIBUTING.md](CONTRIBUTING.md). For private vulnerability reporting, see [SECURITY.md](SECURITY.md).
 
 ## References
 

@@ -1,0 +1,36 @@
+$ env GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=credential.helper GIT_CONFIG_VALUE_0= GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=false SSH_ASKPASS=false GIT_SSH_COMMAND=false SSH_AUTH_SOCK= python3 .cairn/changes/conservative-const-helper-classification/evidence/verify-owning-const-fixture.py /tmp/octet-const-owning-driver-20261016/debug/octet-ui-driver
+exit: 0
+[ui fixture] missing_const_fn
+actual owning library: /tmp/octet-const-owning-proof-20261016/debug/liboctet.so
+owning driver: /tmp/octet-const-owning-driver-20261016/debug/octet-ui-driver
+command: ["/tmp/octet-const-owning-driver-20261016/debug/octet-ui-driver", "/home/brittonr/git/OnixResearch/octet/ui_tests/missing_const_fn.rs", "-L", "/tmp/octet-owning-const-fixture-a095n_e0", "--target=x86_64-unknown-linux-gnu", "--error-format", "human", "-C", "prefer-dynamic", "-o", "/tmp/octet-owning-const-fixture-a095n_e0/missing_const_fn", "-A", "unused", "--edition=2024", "--emit=metadata", "-Zui-testing", "-L", "/tmp/octet-owning-const-fixture-a095n_e0/aux"]
+exit: 0
+[actual normalized snapshot]
+warning: private helper appears const-compatible; consider declaring it `const fn` if that does not freeze public API
+  --> $DIR/missing_const_fn.rs:7:1
+   |
+LL | / fn scale_value(value: u64) -> u64 {
+LL | |     value * SCALE_FACTOR
+LL | | }
+   | |_^
+   |
+   = help: Tiger Style (Functional Core): consider `const fn` for conservative private helpers when doing so does not freeze public API flexibility Example: const fn clamp_to_limit(value: u32, limit: u32) -> u32
+   = note: see Tiger Style guide: Functional Core / Imperative Shell
+note: the lint level is defined here
+  --> $DIR/missing_const_fn.rs:3:9
+   |
+LL | #![warn(tigerstyle::missing_const_fn)]
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: 1 warning emitted
+
+
+PASS: complete existing fixture matches unchanged checked-in snapshot
+
+Artifact BLAKE3 identities:
+83de842945567210af77d30e221a23aa4c037517d38b274c61e7bf0f82772111  /tmp/octet-const-owning-proof-20261016/debug/liboctet.so
+74c7805aaaa6ae00ee7162242ba155beb0e0bfb5be2d10af9bf399643f4a9756  /tmp/octet-const-owning-driver-20261016/debug/octet-ui-driver
+93c0920a3cb24d1d9f8fe0f9db87965aa4f9cb315c50daf593b280a0cca67f2e  /tmp/octet-const-owning-source-20261016.toml
+88ae7376827143d9b1622c5c136b218b9f0183b53b6386a5df8184b711b102a9  /nix/store/lk2hn79aibxb8a38q5il11mr33vd3r1r-vendor-cargo-deps/config.toml
+
+Scope: actual full owning-source library, owning source-built driver, actual existing UI fixture and unchanged snapshot. Retained owning Nix environment; not fresh-Nix, anonymous acquisition, public reproducibility, full-suite, downstream HWR, publication or release proof.
