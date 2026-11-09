@@ -32,6 +32,12 @@ use crate::evidence::EvidenceTier;
 use crate::evidence::ProvenanceRecord;
 use crate::function_address::FunctionAddressCheck;
 use crate::function_address::FunctionAddressMode;
+use crate::kamacite_effect_closure;
+use crate::kamacite_effect_closure::KamaciteEffectComparison;
+use crate::kamacite_effect_closure::KamaciteEffectHandoff;
+use crate::kamacite_effect_closure::KamaciteEffectProfile;
+use crate::kamacite_effect_closure::KamaciteEffectSummaryProjection;
+use crate::kamacite_effect_closure::KamaciteIdentity;
 
 const EXIT_ADMITTED: i32 = 0;
 const EXIT_DENIED: i32 = 1;
@@ -44,6 +50,7 @@ const STATUS_VALID: &str = "valid";
 const STATUS_INVALID: &str = "invalid";
 const PHASE_DIRECT_CHECK: &str = "direct-check";
 const PHASE_CLOSURE: &str = "effect-closure";
+const PHASE_KAMACITE: &str = "kamacite-effect-comparison";
 const CHECK_DIR: &str = "check";
 const COMMAND_FILE: &str = "command.txt";
 const STATUS_FILE: &str = "status.json";
@@ -51,6 +58,10 @@ const SUMMARY_FILE: &str = "summary.txt";
 const PROVENANCE_FILE: &str = "provenance.jsonl";
 const WORKSPACE_POLICY_ARTIFACT: &str = "workspace-policy.json";
 const DEPENDENCY_GRAPH_ARTIFACT: &str = "dependency-graph.json";
+const KAMACITE_PROFILE_ARTIFACT: &str = "kamacite-effect-profile.json";
+const KAMACITE_SUMMARY_ARTIFACT: &str = "kamacite-effect-summary.json";
+const KAMACITE_COMPARISON_ARTIFACT: &str = "kamacite-effect-comparison.json";
+const KAMACITE_HANDOFF_ARTIFACT: &str = "kamacite-effect-handoff.json";
 const CHECK_STATUS_ARTIFACT: &str = "check/status.json";
 const CHECK_PROVENANCE_ARTIFACT: &str = "check/provenance.jsonl";
 const CHECK_FUNCTION_ADDRESS_ARTIFACT: &str = "check/function-addresses.json";
@@ -75,6 +86,10 @@ const TOP_LEVEL_ARTIFACTS: &[&str] = &[
     effect_closure::RECEIPT_FILE,
     WORKSPACE_POLICY_ARTIFACT,
     DEPENDENCY_GRAPH_ARTIFACT,
+    KAMACITE_PROFILE_ARTIFACT,
+    KAMACITE_SUMMARY_ARTIFACT,
+    KAMACITE_COMPARISON_ARTIFACT,
+    KAMACITE_HANDOFF_ARTIFACT,
 ];
 const REQUIRED_PROVENANCE_ARTIFACTS: &[&str] = &[
     COMMAND_FILE,
@@ -181,8 +196,37 @@ struct AdmissionStatusArtifact {
     profile_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     receipt_identity: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    kamacite: Option<KamaciteStatusArtifact>,
     diagnostics: Vec<String>,
     non_claims: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+struct KamaciteStatusArtifact {
+    schema_version: String,
+    status: String,
+    comparison_identity: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    handoff_identity: Option<String>,
+    effect_summary_identity: KamaciteIdentity,
+}
+
+#[derive(Clone)]
+struct KamaciteBundle {
+    profile_bytes: Vec<u8>,
+    projection_bytes: Vec<u8>,
+    comparison: KamaciteEffectComparison,
+    comparison_bytes: Vec<u8>,
+    handoff: Option<KamaciteEffectHandoff>,
+    handoff_bytes: Option<Vec<u8>>,
+}
+
+struct PreparedKamacite {
+    profile: KamaciteEffectProfile,
+    profile_bytes: Vec<u8>,
+    projection: KamaciteEffectSummaryProjection,
+    projection_bytes: Vec<u8>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -219,9 +263,18 @@ pub fn run(args: &AdmissionArgs) -> Result<i32, String> {
             profile,
             closure,
             policy,
+            kamacite_effect_profile,
             scope_args,
             cargo_check_args,
-        } => run_admission(args, profile, *closure, policy, scope_args, cargo_check_args.as_deref()),
+        } => run_admission(
+            args,
+            profile,
+            *closure,
+            policy,
+            kamacite_effect_profile.as_deref(),
+            scope_args,
+            cargo_check_args.as_deref(),
+        ),
         AdmissionMode::Verify => run_verification(args),
     }
 }
@@ -233,6 +286,7 @@ fn run_admission(
     profile: &str,
     closure: bool,
     policy_path: &Path,
+    kamacite_effect_profile: Option<&Path>,
     scope_args: &[String],
     cargo_check_args: Option<&[String]>,
 ) -> Result<i32, String> {
@@ -311,6 +365,13 @@ fn run_admission(
         policy: prepared.policy,
     });
 
+    let kamacite = match kamacite_effect_profile {
+        Some(path) if receipt.status == AdmissionStatus::Admitted => {
+            Some(prepare_kamacite_bundle(&workspace_root, path, &receipt)?)
+        }
+        _ => None,
+    };
+
     write_closure_bundle(
         &root,
         &artifact_dir,
@@ -320,12 +381,12 @@ fn run_admission(
         &check_status_bytes,
         &function_address_bytes,
         &receipt,
+        kamacite.as_ref(),
     )?;
-    render_admission_output(args.output_format, &artifact_dir, &receipt)?;
-    Ok(match receipt.status {
-        AdmissionStatus::Admitted => EXIT_ADMITTED,
-        AdmissionStatus::Denied => EXIT_DENIED,
-    })
+    render_admission_output(args.output_format, &artifact_dir, &receipt, kamacite.as_ref())?;
+    let admitted = receipt.status == AdmissionStatus::Admitted
+        && kamacite.as_ref().is_none_or(|bundle| bundle.comparison.status == AdmissionStatus::Admitted);
+    Ok(if admitted { EXIT_ADMITTED } else { EXIT_DENIED })
 }
 
 fn run_verification(args: &AdmissionArgs) -> Result<i32, String> {
@@ -397,6 +458,92 @@ fn prepare_inputs(workspace_root: &Path, policy_path: &Path) -> Result<PreparedI
     })
 }
 
+// r[impl octet.effect_closure.kamacite_cli]
+fn prepare_kamacite_bundle(
+    workspace_root: &Path,
+    profile_path: &Path,
+    receipt: &EffectClosureReceipt,
+) -> Result<KamaciteBundle, String> {
+    let prepared = prepare_kamacite_inputs(workspace_root, profile_path)?;
+    let comparison = kamacite_effect_closure::compare(receipt, &prepared.profile, &prepared.projection);
+    let comparison_bytes = kamacite_effect_closure::canonical_json(&comparison)?.into_bytes();
+    let (handoff, handoff_bytes) = if comparison.status == AdmissionStatus::Admitted {
+        let handoff = kamacite_effect_closure::build_handoff(&comparison)?;
+        let diagnostics = kamacite_effect_closure::validate_handoff(&handoff);
+        if !diagnostics.is_empty() {
+            return Err(format!(
+                "new Kamacite effect handoff failed self-verification:\n- {}",
+                render_kamacite_issues(&diagnostics)
+            ));
+        }
+        let bytes = kamacite_effect_closure::canonical_json(&handoff)?.into_bytes();
+        (Some(handoff), Some(bytes))
+    } else {
+        (None, None)
+    };
+    Ok(KamaciteBundle {
+        profile_bytes: prepared.profile_bytes,
+        projection_bytes: prepared.projection_bytes,
+        comparison,
+        comparison_bytes,
+        handoff,
+        handoff_bytes,
+    })
+}
+
+fn prepare_kamacite_inputs(workspace_root: &Path, profile_path: &Path) -> Result<PreparedKamacite, String> {
+    let profile_path = checked_workspace_path(workspace_root, profile_path, "Kamacite effect profile")?;
+    let profile_bytes = read_required(&profile_path)?;
+    let profile = serde_json::from_slice::<KamaciteEffectProfile>(&profile_bytes)
+        .map_err(|error| format!("parse {}: {error}", profile_path.display()))?;
+    let diagnostics = kamacite_effect_closure::validate_profile(&profile);
+    if !diagnostics.is_empty() {
+        return Err(format!(
+            "invalid Kamacite effect profile {}:\n- {}",
+            profile_path.display(),
+            render_kamacite_issues(&diagnostics)
+        ));
+    }
+    let projection_path = checked_workspace_path(
+        workspace_root,
+        Path::new(&profile.kamacite.projection),
+        "Kamacite effect summary projection",
+    )?;
+    let projection_bytes = read_required(&projection_path)?;
+    let observed = format!("b3:{}", crate::evidence::artifact_blake3_hex(&projection_bytes));
+    if observed != profile.kamacite.projection_blake3 {
+        return Err(format!(
+            "stale Kamacite effect summary projection identity for {}: profile binds `{}`, file is `{observed}`",
+            projection_path.display(),
+            profile.kamacite.projection_blake3
+        ));
+    }
+    let projection = serde_json::from_slice::<KamaciteEffectSummaryProjection>(&projection_bytes)
+        .map_err(|error| format!("parse {}: {error}", projection_path.display()))?;
+    let diagnostics = kamacite_effect_closure::validate_projection(&projection);
+    if !diagnostics.is_empty() {
+        return Err(format!(
+            "invalid Kamacite effect summary projection {}:\n- {}",
+            projection_path.display(),
+            render_kamacite_issues(&diagnostics)
+        ));
+    }
+    Ok(PreparedKamacite {
+        profile,
+        profile_bytes,
+        projection,
+        projection_bytes,
+    })
+}
+
+fn render_kamacite_issues(issues: &[kamacite_effect_closure::ValidationIssue]) -> String {
+    issues
+        .iter()
+        .map(|issue| format!("{}: {}", issue.code, issue.message))
+        .collect::<Vec<_>>()
+        .join("\n- ")
+}
+
 /// Opens the admission artifact directory and removes the previous bundle's top-level artifacts. A
 /// non-empty directory that is not an existing admission bundle is refused before anything is
 /// deleted, so `--artifact-dir` cannot remove unrelated files.
@@ -447,6 +594,7 @@ fn write_blocked_status(
         phase: PHASE_DIRECT_CHECK.to_owned(),
         profile_id: profile.to_owned(),
         receipt_identity: None,
+        kamacite: None,
         diagnostics: vec![diagnostic.clone()],
         non_claims: vec![NON_CLAIM_INTEGRITY.to_owned()],
     };
@@ -801,6 +949,7 @@ fn selected_target(cargo_check_args: &[String]) -> Result<String, String> {
 }
 
 // r[impl octet.effect_closure.evidence.visible]
+// r[impl octet.effect_closure.kamacite_handoff]
 fn write_closure_bundle(
     root: &ArtifactRoot,
     artifact_dir: &Path,
@@ -810,11 +959,16 @@ fn write_closure_bundle(
     check_status_bytes: &[u8],
     function_address_bytes: &[u8],
     receipt: &EffectClosureReceipt,
+    kamacite: Option<&KamaciteBundle>,
 ) -> Result<(), String> {
     let receipt_bytes = pretty_json_bytes(receipt)?;
-    let status = status_from_receipt(receipt);
+    let status = status_from_receipt(
+        receipt,
+        kamacite.map(|bundle| &bundle.comparison),
+        kamacite.and_then(|bundle| bundle.handoff.as_ref()),
+    );
     let status_bytes = pretty_json_bytes(&status)?;
-    let summary_bytes = render_summary(receipt).into_bytes();
+    let summary_bytes = render_summary(receipt, kamacite).into_bytes();
     root.write(&relative(COMMAND_FILE)?, command_bytes)?;
     root.write(&relative(effect_closure::RECEIPT_FILE)?, &receipt_bytes)?;
     root.write(&relative(STATUS_FILE)?, &status_bytes)?;
@@ -832,6 +986,19 @@ fn write_closure_bundle(
         (CHECK_STATUS_ARTIFACT.to_owned(), check_status_bytes.to_vec()),
         (CHECK_FUNCTION_ADDRESS_ARTIFACT.to_owned(), function_address_bytes.to_vec()),
     ]);
+    if let Some(kamacite) = kamacite {
+        root.write(&relative(KAMACITE_PROFILE_ARTIFACT)?, &kamacite.profile_bytes)?;
+        root.write(&relative(KAMACITE_SUMMARY_ARTIFACT)?, &kamacite.projection_bytes)?;
+        root.write(&relative(KAMACITE_COMPARISON_ARTIFACT)?, &kamacite.comparison_bytes)?;
+        artifacts.insert(KAMACITE_PROFILE_ARTIFACT.to_owned(), kamacite.profile_bytes.clone());
+        artifacts.insert(KAMACITE_SUMMARY_ARTIFACT.to_owned(), kamacite.projection_bytes.clone());
+        artifacts.insert(KAMACITE_COMPARISON_ARTIFACT.to_owned(), kamacite.comparison_bytes.clone());
+        if let (Some(handoff), Some(handoff_bytes)) = (&kamacite.handoff, &kamacite.handoff_bytes) {
+            root.write(&relative(KAMACITE_HANDOFF_ARTIFACT)?, handoff_bytes)?;
+            artifacts.insert(KAMACITE_HANDOFF_ARTIFACT.to_owned(), handoff_bytes.clone());
+            let _ = handoff;
+        }
+    }
     let provenance = render_provenance(&artifacts, &receipt.inputs.profile_id)?;
     root.write(&relative(PROVENANCE_FILE)?, provenance.as_bytes())?;
     artifacts.insert(PROVENANCE_FILE.to_owned(), provenance.into_bytes());
@@ -847,38 +1014,75 @@ fn write_closure_bundle(
     }
 }
 
-fn status_from_receipt(receipt: &EffectClosureReceipt) -> AdmissionStatusArtifact {
-    AdmissionStatusArtifact {
-        schema_version: ADMISSION_STATUS_SCHEMA.to_owned(),
-        status: match receipt.status {
+fn status_from_receipt(
+    receipt: &EffectClosureReceipt,
+    comparison: Option<&KamaciteEffectComparison>,
+    handoff: Option<&KamaciteEffectHandoff>,
+) -> AdmissionStatusArtifact {
+    let kamacite_denied = comparison.is_some_and(|comparison| comparison.status != AdmissionStatus::Admitted);
+    let status = if receipt.status == AdmissionStatus::Admitted && !kamacite_denied {
+        AdmissionStatus::Admitted
+    } else {
+        AdmissionStatus::Denied
+    };
+    let kamacite = comparison.map(|comparison| KamaciteStatusArtifact {
+        schema_version: kamacite_effect_closure::COMPARISON_SCHEMA_VERSION.to_owned(),
+        status: match comparison.status {
             AdmissionStatus::Admitted => STATUS_ADMITTED,
             AdmissionStatus::Denied => STATUS_DENIED,
         }
         .to_owned(),
-        exit_code: match receipt.status {
+        comparison_identity: comparison.comparison_identity.clone(),
+        handoff_identity: handoff.map(|handoff| handoff.handoff_identity.clone()),
+        effect_summary_identity: comparison.effect_summary_identity.clone(),
+    });
+    let diagnostics = receipt
+        .diagnostics
+        .iter()
+        .map(|diagnostic| format!("{}: {}", diagnostic.code, diagnostic.message))
+        .chain(kamacite_diagnostics(kamacite.as_ref()))
+        .collect();
+    AdmissionStatusArtifact {
+        schema_version: ADMISSION_STATUS_SCHEMA.to_owned(),
+        status: match status {
+            AdmissionStatus::Admitted => STATUS_ADMITTED,
+            AdmissionStatus::Denied => STATUS_DENIED,
+        }
+        .to_owned(),
+        exit_code: match status {
             AdmissionStatus::Admitted => EXIT_ADMITTED,
             AdmissionStatus::Denied => EXIT_DENIED,
         },
-        phase: PHASE_CLOSURE.to_owned(),
+        phase: if kamacite.is_some() {
+            PHASE_KAMACITE
+        } else {
+            PHASE_CLOSURE
+        }
+        .to_owned(),
         profile_id: receipt.inputs.profile_id.clone(),
         receipt_identity: Some(receipt.receipt_identity.clone()),
-        diagnostics: receipt
-            .diagnostics
-            .iter()
-            .map(|diagnostic| format!("{}: {}", diagnostic.code, diagnostic.message))
-            .collect(),
+        kamacite,
+        diagnostics,
         non_claims: receipt.non_claims.clone(),
     }
 }
 
-fn render_summary(receipt: &EffectClosureReceipt) -> String {
+fn kamacite_diagnostics(status: Option<&KamaciteStatusArtifact>) -> impl Iterator<Item = String> + '_ {
+    status
+        .filter(|status| status.status == STATUS_DENIED)
+        .into_iter()
+        .map(|status| format!("kamacite_effect_comparison: comparison `{}` is denied", status.comparison_identity))
+}
+
+fn render_summary(receipt: &EffectClosureReceipt, kamacite: Option<&KamaciteBundle>) -> String {
     let mut summary = String::new();
-    let status = match receipt.status {
-        AdmissionStatus::Admitted => STATUS_ADMITTED,
-        AdmissionStatus::Denied => STATUS_DENIED,
-    };
+    let status = status_from_receipt(
+        receipt,
+        kamacite.map(|bundle| &bundle.comparison),
+        kamacite.and_then(|bundle| bundle.handoff.as_ref()),
+    );
     let _ = writeln!(&mut summary, "Octet effect closure admission");
-    let _ = writeln!(&mut summary, "Status: {status}");
+    let _ = writeln!(&mut summary, "Status: {}", status.status);
     let _ = writeln!(&mut summary, "Claim scope: {}", receipt.claim_scope);
     let _ = writeln!(&mut summary, "Profile: {}", receipt.inputs.profile_id);
     let _ = writeln!(&mut summary, "Profile hash: {}", receipt.inputs.profile_hash);
@@ -892,6 +1096,26 @@ fn render_summary(receipt: &EffectClosureReceipt) -> String {
         let call_site = diagnostic.call_site_id.as_deref().unwrap_or("-");
         let _ = writeln!(&mut summary, "- {} [{}] {}", diagnostic.code, call_site, diagnostic.message);
     }
+    if let Some(kamacite) = kamacite {
+        let comparison = &kamacite.comparison;
+        let _ = writeln!(&mut summary, "Kamacite comparison: {}", status_string(comparison.status));
+        let _ = writeln!(&mut summary, "Kamacite comparison identity: {}", comparison.comparison_identity);
+        let _ = writeln!(&mut summary, "Kamacite mapping profile identity: {}", comparison.mapping_profile_identity);
+        let _ = writeln!(
+            &mut summary,
+            "Kamacite effect summary: {}:{}",
+            comparison.effect_summary_identity.domain, comparison.effect_summary_identity.hex
+        );
+        if let Some(handoff) = &kamacite.handoff {
+            let _ = writeln!(&mut summary, "Kamacite handoff identity: {}", handoff.handoff_identity);
+        }
+        let _ = writeln!(&mut summary, "Kamacite comparison rows: {}", comparison.rows.len());
+        let _ = writeln!(&mut summary, "Kamacite diagnostics: {}", comparison.diagnostics.len());
+        for diagnostic in &comparison.diagnostics {
+            let _ =
+                writeln!(&mut summary, "- {} [{}] {}", diagnostic.code, diagnostic.class.as_str(), diagnostic.message);
+        }
+    }
     let _ = writeln!(&mut summary, "Non-claims:");
     for non_claim in &receipt.non_claims {
         let _ = writeln!(&mut summary, "- {non_claim}");
@@ -899,17 +1123,29 @@ fn render_summary(receipt: &EffectClosureReceipt) -> String {
     summary
 }
 
+fn status_string(status: AdmissionStatus) -> &'static str {
+    match status {
+        AdmissionStatus::Admitted => STATUS_ADMITTED,
+        AdmissionStatus::Denied => STATUS_DENIED,
+    }
+}
+
 fn render_admission_output(
     output_format: OutputFormat,
     artifact_dir: &Path,
     receipt: &EffectClosureReceipt,
+    kamacite: Option<&KamaciteBundle>,
 ) -> Result<(), String> {
     match output_format {
-        OutputFormat::Human => eprint!("{}", render_summary(receipt)),
+        OutputFormat::Human => eprint!("{}", render_summary(receipt, kamacite)),
         OutputFormat::Json => println!(
             "{}",
-            serde_json::to_string_pretty(&status_from_receipt(receipt))
-                .map_err(|error| format!("serialize admission status output: {error}"))?
+            serde_json::to_string_pretty(&status_from_receipt(
+                receipt,
+                kamacite.map(|bundle| &bundle.comparison),
+                kamacite.and_then(|bundle| bundle.handoff.as_ref()),
+            ))
+            .map_err(|error| format!("serialize admission status output: {error}"))?
         ),
         OutputFormat::Sarif => unreachable!("SARIF is rejected by admission argument parsing"),
     }
@@ -919,7 +1155,18 @@ fn render_admission_output(
 
 fn render_provenance(artifacts: &BTreeMap<String, Vec<u8>>, profile_id: &str) -> Result<String, String> {
     let checked_scope = format!("{CHECKED_SCOPE_PREFIX}{profile_id}");
-    let records = REQUIRED_PROVENANCE_ARTIFACTS
+    let mut names = REQUIRED_PROVENANCE_ARTIFACTS.to_vec();
+    for artifact in [
+        KAMACITE_PROFILE_ARTIFACT,
+        KAMACITE_SUMMARY_ARTIFACT,
+        KAMACITE_COMPARISON_ARTIFACT,
+        KAMACITE_HANDOFF_ARTIFACT,
+    ] {
+        if artifacts.contains_key(artifact) {
+            names.push(artifact);
+        }
+    }
+    let records = names
         .iter()
         .map(|artifact| {
             let bytes = artifacts
@@ -934,6 +1181,17 @@ fn render_provenance(artifacts: &BTreeMap<String, Vec<u8>>, profile_id: &str) ->
                     CHECK_FUNCTION_ADDRESS_ARTIFACT.to_owned(),
                 ],
                 STATUS_FILE | SUMMARY_FILE => vec![effect_closure::RECEIPT_FILE.to_owned()],
+                KAMACITE_COMPARISON_ARTIFACT => vec![
+                    effect_closure::RECEIPT_FILE.to_owned(),
+                    KAMACITE_PROFILE_ARTIFACT.to_owned(),
+                    KAMACITE_SUMMARY_ARTIFACT.to_owned(),
+                ],
+                KAMACITE_HANDOFF_ARTIFACT => vec![
+                    KAMACITE_COMPARISON_ARTIFACT.to_owned(),
+                    effect_closure::RECEIPT_FILE.to_owned(),
+                    KAMACITE_PROFILE_ARTIFACT.to_owned(),
+                    KAMACITE_SUMMARY_ARTIFACT.to_owned(),
+                ],
                 _ => Vec::new(),
             };
             Ok(ProvenanceRecord {
@@ -1002,6 +1260,7 @@ fn verify_bundle_inner(
     let check_status = parse_required::<CheckStatus>(&files, CHECK_STATUS_ARTIFACT, &mut diagnostics);
     let function_report =
         parse_required::<FunctionAddressReport>(&files, CHECK_FUNCTION_ADDRESS_ARTIFACT, &mut diagnostics);
+    let kamacite = verify_kamacite_bundle(&files, receipt.as_ref(), status.as_ref(), &mut diagnostics);
 
     if let Some(receipt) = &receipt {
         diagnostics.extend(effect_closure::verify_receipt_identity(receipt));
@@ -1056,13 +1315,18 @@ fn verify_bundle_inner(
         }
         diagnostics.extend(verify_bound_closure_inputs(receipt, function_report.as_ref(), policy.as_ref()));
         if let Some(status) = &status {
-            let status_matches = status == &status_from_receipt(receipt);
+            let expected = status_from_receipt(
+                receipt,
+                kamacite.as_ref().map(|bundle| &bundle.comparison),
+                kamacite.as_ref().and_then(|bundle| bundle.handoff.as_ref()),
+            );
+            let status_matches = status == &expected;
             if !status_matches {
                 diagnostics.push("status.json is stale or does not match effect-closure.json".to_owned());
             }
         }
         if let Some(summary_bytes) = files.get(SUMMARY_FILE) {
-            if summary_bytes.as_slice() != render_summary(receipt).as_bytes() {
+            if summary_bytes.as_slice() != render_summary(receipt, kamacite.as_ref()).as_bytes() {
                 diagnostics.push("summary.txt is stale or does not match effect-closure.json".to_owned());
             }
         } else {
@@ -1082,7 +1346,17 @@ fn verify_bundle_inner(
 
     diagnostics.sort();
     diagnostics.dedup();
-    let checked_artifacts = REQUIRED_PROVENANCE_ARTIFACTS.iter().map(|name| (*name).to_owned()).collect();
+    let mut checked_artifacts = REQUIRED_PROVENANCE_ARTIFACTS.iter().map(|name| (*name).to_owned()).collect::<Vec<_>>();
+    for artifact in [
+        KAMACITE_PROFILE_ARTIFACT,
+        KAMACITE_SUMMARY_ARTIFACT,
+        KAMACITE_COMPARISON_ARTIFACT,
+        KAMACITE_HANDOFF_ARTIFACT,
+    ] {
+        if files.contains_key(artifact) {
+            checked_artifacts.push(artifact.to_owned());
+        }
+    }
     Ok(AdmissionVerificationReport {
         schema_version: ADMISSION_VERIFICATION_SCHEMA.to_owned(),
         artifact_dir: artifact_dir.display().to_string(),
@@ -1096,6 +1370,144 @@ fn verify_bundle_inner(
         checked_artifacts,
         diagnostics,
         non_claims: vec![NON_CLAIM_INTEGRITY.to_owned()],
+    })
+}
+
+fn verify_kamacite_bundle(
+    files: &BTreeMap<String, Vec<u8>>,
+    receipt: Option<&EffectClosureReceipt>,
+    status: Option<&AdmissionStatusArtifact>,
+    diagnostics: &mut Vec<String>,
+) -> Option<KamaciteBundle> {
+    let required = [
+        KAMACITE_PROFILE_ARTIFACT,
+        KAMACITE_SUMMARY_ARTIFACT,
+        KAMACITE_COMPARISON_ARTIFACT,
+    ];
+    let present = required
+        .iter()
+        .chain(std::iter::once(&KAMACITE_HANDOFF_ARTIFACT))
+        .filter(|name| files.contains_key(**name))
+        .count();
+    let declared = status.is_some_and(|status| status.kamacite.is_some());
+    if present == 0 {
+        if declared {
+            diagnostics
+                .push("status.json declares a Kamacite comparison but the Kamacite artifacts are missing".to_owned());
+        }
+        return None;
+    }
+    if !declared {
+        diagnostics.push("Kamacite artifacts are present but status.json does not declare a comparison".to_owned());
+    }
+    let mut complete = true;
+    for artifact in required {
+        if !files.contains_key(artifact) {
+            diagnostics.push(format!("missing admission artifact `{artifact}`"));
+            complete = false;
+        }
+    }
+    if !complete {
+        return None;
+    }
+    let profile_bytes = files.get(KAMACITE_PROFILE_ARTIFACT)?.clone();
+    let projection_bytes = files.get(KAMACITE_SUMMARY_ARTIFACT)?.clone();
+    let comparison_bytes = files.get(KAMACITE_COMPARISON_ARTIFACT)?.clone();
+    let profile = match serde_json::from_slice::<KamaciteEffectProfile>(&profile_bytes) {
+        Ok(profile) => profile,
+        Err(error) => {
+            diagnostics.push(format!("malformed admission artifact `{KAMACITE_PROFILE_ARTIFACT}`: {error}"));
+            return None;
+        }
+    };
+    let projection = match serde_json::from_slice::<KamaciteEffectSummaryProjection>(&projection_bytes) {
+        Ok(projection) => projection,
+        Err(error) => {
+            diagnostics.push(format!("malformed admission artifact `{KAMACITE_SUMMARY_ARTIFACT}`: {error}"));
+            return None;
+        }
+    };
+    let stored_comparison = match serde_json::from_slice::<KamaciteEffectComparison>(&comparison_bytes) {
+        Ok(comparison) => comparison,
+        Err(error) => {
+            diagnostics.push(format!("malformed admission artifact `{KAMACITE_COMPARISON_ARTIFACT}`: {error}"));
+            return None;
+        }
+    };
+    for issue in kamacite_effect_closure::validate_profile(&profile) {
+        diagnostics.push(format!("{}: {}", issue.code, issue.message));
+    }
+    for issue in kamacite_effect_closure::validate_projection(&projection) {
+        diagnostics.push(format!("{}: {}", issue.code, issue.message));
+    }
+    let observed = format!("b3:{}", crate::evidence::artifact_blake3_hex(&projection_bytes));
+    if observed != profile.kamacite.projection_blake3 {
+        diagnostics
+            .push("stored Kamacite effect summary does not match the mapping profile projection identity".to_owned());
+    }
+    let receipt = receipt?;
+    let expected_comparison = kamacite_effect_closure::compare(receipt, &profile, &projection);
+    match (
+        kamacite_effect_closure::canonical_json(&stored_comparison),
+        kamacite_effect_closure::canonical_json(&expected_comparison),
+    ) {
+        (Ok(stored), Ok(expected)) if stored == expected => {}
+        (Ok(_), Ok(_)) => diagnostics.push(
+            "Kamacite comparison artifact is stale or does not match its closure, profile, and projection parents"
+                .to_owned(),
+        ),
+        (Err(error), _) | (_, Err(error)) => diagnostics.push(error),
+    }
+    let handoff_bytes = files.get(KAMACITE_HANDOFF_ARTIFACT).cloned();
+    let expected_handoff = if expected_comparison.status == AdmissionStatus::Admitted {
+        match kamacite_effect_closure::build_handoff(&expected_comparison) {
+            Ok(handoff) => Some(handoff),
+            Err(error) => {
+                diagnostics.push(error);
+                None
+            }
+        }
+    } else {
+        None
+    };
+    match (&handoff_bytes, &expected_handoff) {
+        (Some(bytes), Some(expected)) => match serde_json::from_slice::<KamaciteEffectHandoff>(bytes) {
+            Ok(stored) => {
+                diagnostics.extend(
+                    kamacite_effect_closure::verify_handoff_against(&stored, &expected_comparison)
+                        .into_iter()
+                        .map(|issue| format!("{}: {}", issue.code, issue.message)),
+                );
+                match (
+                    kamacite_effect_closure::canonical_json(&stored),
+                    kamacite_effect_closure::canonical_json(expected),
+                ) {
+                    (Ok(stored), Ok(expected)) if stored == expected => {}
+                    (Ok(_), Ok(_)) => {
+                        diagnostics.push("Kamacite handoff artifact is stale or does not match its parents".to_owned())
+                    }
+                    (Err(error), _) | (_, Err(error)) => diagnostics.push(error),
+                }
+            }
+            Err(error) => {
+                diagnostics.push(format!("malformed admission artifact `{KAMACITE_HANDOFF_ARTIFACT}`: {error}"))
+            }
+        },
+        (Some(_), None) => {
+            diagnostics.push("denied Kamacite comparison must not emit a handoff".to_owned());
+        }
+        (None, Some(_)) => {
+            diagnostics.push("admitted Kamacite comparison is missing its handoff artifact".to_owned());
+        }
+        (None, None) => {}
+    }
+    Some(KamaciteBundle {
+        profile_bytes,
+        projection_bytes,
+        comparison: expected_comparison,
+        comparison_bytes,
+        handoff: expected_handoff,
+        handoff_bytes,
     })
 }
 
@@ -1418,17 +1830,38 @@ mod tests {
         }
     }
 
-    fn write_bundle(dir: &Path, fixture: &BundleFixture, receipt: &EffectClosureReceipt) {
+    fn write_bundle(
+        dir: &Path,
+        fixture: &BundleFixture,
+        receipt: &EffectClosureReceipt,
+        kamacite: Option<&KamaciteBundle>,
+    ) {
         let mut artifacts = BTreeMap::from([
             (COMMAND_FILE.to_owned(), fixture.command_bytes.clone()),
-            (STATUS_FILE.to_owned(), pretty_json_bytes(&status_from_receipt(receipt)).expect("status JSON")),
-            (SUMMARY_FILE.to_owned(), render_summary(receipt).into_bytes()),
+            (
+                STATUS_FILE.to_owned(),
+                pretty_json_bytes(&status_from_receipt(
+                    receipt,
+                    kamacite.map(|bundle| &bundle.comparison),
+                    kamacite.and_then(|bundle| bundle.handoff.as_ref()),
+                ))
+                .expect("status JSON"),
+            ),
+            (SUMMARY_FILE.to_owned(), render_summary(receipt, kamacite).into_bytes()),
             (effect_closure::RECEIPT_FILE.to_owned(), pretty_json_bytes(receipt).expect("receipt JSON")),
             (WORKSPACE_POLICY_ARTIFACT.to_owned(), fixture.policy_bytes.clone()),
             (DEPENDENCY_GRAPH_ARTIFACT.to_owned(), fixture.graph_bytes.clone()),
             (CHECK_STATUS_ARTIFACT.to_owned(), fixture.check_status_bytes.clone()),
             (CHECK_FUNCTION_ADDRESS_ARTIFACT.to_owned(), fixture.function_address_bytes.clone()),
         ]);
+        if let Some(kamacite) = kamacite {
+            artifacts.insert(KAMACITE_PROFILE_ARTIFACT.to_owned(), kamacite.profile_bytes.clone());
+            artifacts.insert(KAMACITE_SUMMARY_ARTIFACT.to_owned(), kamacite.projection_bytes.clone());
+            artifacts.insert(KAMACITE_COMPARISON_ARTIFACT.to_owned(), kamacite.comparison_bytes.clone());
+            if let Some(handoff_bytes) = &kamacite.handoff_bytes {
+                artifacts.insert(KAMACITE_HANDOFF_ARTIFACT.to_owned(), handoff_bytes.clone());
+            }
+        }
         let provenance = render_provenance(&artifacts, TEST_PROFILE).expect("provenance");
         artifacts.insert(PROVENANCE_FILE.to_owned(), provenance.into_bytes());
         for (locator, bytes) in &artifacts {
@@ -1438,6 +1871,209 @@ mod tests {
             }
             fs::write(path, bytes).expect("write artifact");
         }
+    }
+
+    fn shipped_kamacite_bundle(receipt: &EffectClosureReceipt) -> KamaciteBundle {
+        let profile: KamaciteEffectProfile =
+            serde_json::from_str(include_str!("../../standards/effect-closure/generated/kamacite-effect-profile.json"))
+                .expect("shipped profile");
+        let projection: KamaciteEffectSummaryProjection =
+            serde_json::from_str(include_str!("../../standards/effect-closure/fixtures/kamacite/effect-summary.json"))
+                .expect("frozen projection");
+        let comparison = kamacite_effect_closure::compare(receipt, &profile, &projection);
+        let comparison_bytes =
+            kamacite_effect_closure::canonical_json(&comparison).expect("comparison JSON").into_bytes();
+        let (handoff, handoff_bytes) = if comparison.status == AdmissionStatus::Admitted {
+            let handoff = kamacite_effect_closure::build_handoff(&comparison).expect("handoff");
+            let bytes = kamacite_effect_closure::canonical_json(&handoff).expect("handoff JSON").into_bytes();
+            (Some(handoff), Some(bytes))
+        } else {
+            (None, None)
+        };
+        KamaciteBundle {
+            profile_bytes: include_bytes!("../../standards/effect-closure/generated/kamacite-effect-profile.json")
+                .to_vec(),
+            projection_bytes: include_bytes!("../../standards/effect-closure/fixtures/kamacite/effect-summary.json")
+                .to_vec(),
+            comparison,
+            comparison_bytes,
+            handoff,
+            handoff_bytes,
+        }
+    }
+
+    fn tamper_json(bytes: &[u8], field: &str, value: &str) -> Vec<u8> {
+        let mut json: serde_json::Value = serde_json::from_slice(bytes).expect("artifact JSON");
+        json[field] = serde_json::Value::String(value.to_owned());
+        serde_json::to_vec_pretty(&json).expect("tampered JSON")
+    }
+
+    #[test]
+    fn kamacite_inputs_fail_closed_on_stale_projection_and_invalid_profile() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let root = temp.path();
+        let projection_path = root.join("standards/effect-closure/fixtures/kamacite/effect-summary.json");
+        fs::create_dir_all(projection_path.parent().expect("projection parent")).expect("create projection dir");
+        fs::write(
+            &projection_path,
+            include_bytes!("../../standards/effect-closure/fixtures/kamacite/effect-summary.json"),
+        )
+        .expect("write projection");
+        fs::write(
+            root.join("kamacite.json"),
+            include_bytes!("../../standards/effect-closure/generated/kamacite-effect-profile.json"),
+        )
+        .expect("write profile");
+
+        let prepared = prepare_kamacite_inputs(root, Path::new("kamacite.json")).expect("valid Kamacite inputs");
+        assert_eq!(prepared.profile.mapping_id, "octet-kamacite-effect-mapping-v1");
+
+        fs::write(&projection_path, b"{}\n").expect("tamper projection");
+        let error =
+            prepare_kamacite_inputs(root, Path::new("kamacite.json")).err().expect("stale projection must fail");
+        assert!(error.contains("stale Kamacite effect summary projection identity"), "{error}");
+
+        fs::write(
+            &projection_path,
+            include_bytes!("../../standards/effect-closure/fixtures/kamacite/effect-summary.json"),
+        )
+        .expect("restore projection");
+        fs::write(
+            root.join("kamacite.json"),
+            tamper_json(
+                include_bytes!("../../standards/effect-closure/generated/kamacite-effect-profile.json"),
+                "profile_id",
+                "other-profile",
+            ),
+        )
+        .expect("write invalid profile");
+        let error = prepare_kamacite_inputs(root, Path::new("kamacite.json")).err().expect("invalid profile must fail");
+        assert!(error.contains("invalid Kamacite effect profile"), "{error}");
+
+        let error = prepare_kamacite_inputs(root, Path::new("missing.json")).err().expect("missing profile must fail");
+        assert!(error.contains("read"), "{error}");
+    }
+
+    // r[verify octet.effect_closure.kamacite_fixtures]
+    #[test]
+    fn kamacite_handoff_bundle_verifies_and_tampering_fails_closed() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let fixture = bundle_fixture("fn root() {}\n", &[("root", 'a')], Vec::new(), Vec::new());
+        let receipt = effect_closure::compute_closure(fixture.input.clone());
+        assert_eq!(receipt.status, AdmissionStatus::Admitted);
+        let bundle = shipped_kamacite_bundle(&receipt);
+        assert_eq!(bundle.comparison.status, AdmissionStatus::Admitted, "{:?}", bundle.comparison.diagnostics);
+        write_bundle(temp.path(), &fixture, &receipt, Some(&bundle));
+        let valid = verify_bundle_inner(temp.path(), false).expect("valid verification report");
+        assert_eq!(valid.status, STATUS_VALID, "{:?}", valid.diagnostics);
+
+        let mut tampered_handoff = bundle.clone();
+        tampered_handoff.handoff_bytes =
+            Some(tamper_json(bundle.handoff_bytes.as_ref().expect("handoff bytes"), "mapping_id", "forged"));
+        write_bundle(temp.path(), &fixture, &receipt, Some(&tampered_handoff));
+        let invalid = verify_bundle_inner(temp.path(), false).expect("invalid verification report");
+        assert_eq!(invalid.status, STATUS_INVALID);
+        assert!(
+            invalid
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("kamacite_handoff_identity_mismatch")),
+            "{:?}",
+            invalid.diagnostics
+        );
+
+        let mut tampered_comparison = bundle.clone();
+        tampered_comparison.comparison_bytes = tamper_json(&bundle.comparison_bytes, "mapping_id", "forged-comparison");
+        write_bundle(temp.path(), &fixture, &receipt, Some(&tampered_comparison));
+        let invalid = verify_bundle_inner(temp.path(), false).expect("invalid verification report");
+        assert_eq!(invalid.status, STATUS_INVALID);
+        assert!(
+            invalid
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("Kamacite comparison artifact is stale")),
+            "{:?}",
+            invalid.diagnostics
+        );
+
+        let mut tampered_profile = bundle.clone();
+        tampered_profile.profile_bytes = tamper_json(&bundle.profile_bytes, "mapping_id", "forged-profile");
+        write_bundle(temp.path(), &fixture, &receipt, Some(&tampered_profile));
+        let invalid = verify_bundle_inner(temp.path(), false).expect("invalid verification report");
+        assert_eq!(invalid.status, STATUS_INVALID);
+        assert!(
+            invalid
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("Kamacite comparison artifact is stale")),
+            "{:?}",
+            invalid.diagnostics
+        );
+
+        let mut missing_handoff = bundle.clone();
+        missing_handoff.handoff = None;
+        missing_handoff.handoff_bytes = None;
+        write_bundle(temp.path(), &fixture, &receipt, Some(&missing_handoff));
+        fs::remove_file(temp.path().join(KAMACITE_HANDOFF_ARTIFACT)).expect("remove handoff artifact");
+        let invalid = verify_bundle_inner(temp.path(), false).expect("invalid verification report");
+        assert_eq!(invalid.status, STATUS_INVALID);
+        assert!(
+            invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("missing its handoff artifact")),
+            "{:?}",
+            invalid.diagnostics
+        );
+
+        let mut denied_profile =
+            serde_json::from_slice::<KamaciteEffectProfile>(&bundle.profile_bytes).expect("profile JSON");
+        denied_profile.semantic_emissions.push(kamacite_effect_closure::SemanticEmissionRule {
+            function_address: "b3:9999999999999999999999999999999999999999999999999999999999999999".to_owned(),
+            call_site_id: None,
+            provider: ProviderIdentity {
+                kind: ProviderKind::Workspace,
+                name: "octet".to_owned(),
+                version: "0.1.0".to_owned(),
+                source: "workspace".to_owned(),
+                target: TEST_TARGET.to_owned(),
+                features: Vec::new(),
+            },
+            operation_identity: KamaciteIdentity {
+                domain: "effect-operation".to_owned(),
+                algorithm: "blake3".to_owned(),
+                hex: "7fa2709c205ccfa8c4b8773ab97396193a5130a2e42b2f94916802b04e07f5f8".to_owned(),
+            },
+            evidence: effect_closure::EvidenceReference {
+                kind: "reviewed-semantic-emission-v1".to_owned(),
+                locator: "src/lib.rs".to_owned(),
+                blake3: TEST_HASH.to_owned(),
+            },
+            non_claims: vec!["This emission does not prove runtime reachability.".to_owned()],
+        });
+        let denied_profile_bytes = serde_json::to_vec_pretty(&denied_profile).expect("denied profile JSON");
+        let denied_projection = serde_json::from_slice::<KamaciteEffectSummaryProjection>(&bundle.projection_bytes)
+            .expect("projection JSON");
+        let denied_comparison = kamacite_effect_closure::compare(&receipt, &denied_profile, &denied_projection);
+        assert_eq!(denied_comparison.status, AdmissionStatus::Denied);
+        let denied_bundle = KamaciteBundle {
+            profile_bytes: denied_profile_bytes,
+            projection_bytes: bundle.projection_bytes.clone(),
+            comparison_bytes: kamacite_effect_closure::canonical_json(&denied_comparison)
+                .expect("denied comparison JSON")
+                .into_bytes(),
+            comparison: denied_comparison,
+            handoff: bundle.handoff.clone(),
+            handoff_bytes: bundle.handoff_bytes.clone(),
+        };
+        write_bundle(temp.path(), &fixture, &receipt, Some(&denied_bundle));
+        let invalid = verify_bundle_inner(temp.path(), false).expect("invalid verification report");
+        assert_eq!(invalid.status, STATUS_INVALID);
+        assert!(
+            invalid
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("denied Kamacite comparison must not emit a handoff")),
+            "{:?}",
+            invalid.diagnostics
+        );
     }
 
     fn toolchain_summary(
@@ -1495,7 +2131,7 @@ mod tests {
         let fixture = bundle_fixture("fn root() { mystery(); }\n", &[("root", 'a')], Vec::new(), Vec::new());
         let receipt = effect_closure::compute_closure(fixture.input.clone());
         assert!(!receipt.nodes[0].calls.is_empty());
-        write_bundle(temp.path(), &fixture, &receipt);
+        write_bundle(temp.path(), &fixture, &receipt, None);
         fs::write(temp.path().join(effect_closure::RECEIPT_FILE), downgrade_receipt_to_v1(&receipt))
             .expect("write v1 receipt");
 
@@ -1527,7 +2163,7 @@ mod tests {
         let fixture = bundle_fixture("fn root() {}\n", &[("root", 'a')], Vec::new(), Vec::new());
         let receipt = effect_closure::compute_closure(fixture.input.clone());
         assert_eq!(receipt.status, AdmissionStatus::Admitted);
-        write_bundle(temp.path(), &fixture, &receipt);
+        write_bundle(temp.path(), &fixture, &receipt, None);
 
         let valid = verify_bundle_inner(temp.path(), false).expect("valid verification report");
         assert_eq!(valid.status, STATUS_VALID, "{:?}", valid.diagnostics);
@@ -1555,7 +2191,7 @@ mod tests {
 
     fn assert_forgery_rejected(fixture: &BundleFixture, forged: &EffectClosureReceipt, expected: &str) {
         let temp = tempfile::tempdir().expect("tempdir");
-        write_bundle(temp.path(), fixture, forged);
+        write_bundle(temp.path(), fixture, forged, None);
         let report = verify_bundle_inner(temp.path(), false).expect("verification report");
         assert_eq!(report.status, STATUS_INVALID, "forged admitted receipt verified");
         assert!(
@@ -1606,7 +2242,7 @@ mod tests {
         let admitted = effect_closure::compute_closure(fixture.input.clone());
         assert_eq!(admitted.status, AdmissionStatus::Admitted, "{:?}", admitted.diagnostics);
         let temp = tempfile::tempdir().expect("tempdir");
-        write_bundle(temp.path(), &fixture, &admitted);
+        write_bundle(temp.path(), &fixture, &admitted, None);
         let valid = verify_bundle_inner(temp.path(), false).expect("valid verification report");
         assert_eq!(valid.status, STATUS_VALID, "{:?}", valid.diagnostics);
 
@@ -1674,7 +2310,7 @@ mod tests {
         let provider_bound = effect_closure::compute_closure(fixture.input.clone());
         assert_eq!(provider_bound.status, AdmissionStatus::Admitted, "{:?}", provider_bound.diagnostics);
         let temp = tempfile::tempdir().expect("tempdir");
-        write_bundle(temp.path(), &fixture, &provider_bound);
+        write_bundle(temp.path(), &fixture, &provider_bound, None);
         let valid = verify_bundle_inner(temp.path(), false).expect("valid verification report");
         assert_eq!(valid.status, STATUS_VALID, "{:?}", valid.diagnostics);
 
@@ -1712,7 +2348,7 @@ mod tests {
         let lock_bound = effect_closure::compute_closure(fixture.input.clone());
         assert_eq!(lock_bound.status, AdmissionStatus::Admitted, "{:?}", lock_bound.diagnostics);
         let temp = tempfile::tempdir().expect("tempdir");
-        write_bundle(temp.path(), &fixture, &lock_bound);
+        write_bundle(temp.path(), &fixture, &lock_bound, None);
         let valid = verify_bundle_inner(temp.path(), false).expect("valid verification report");
         assert_eq!(valid.status, STATUS_VALID, "{:?}", valid.diagnostics);
 

@@ -2610,6 +2610,34 @@
               touch "$out"
             '';
 
+        effectClosureKamaciteProfileCheck =
+          pkgs.runCommand "octet-effect-closure-kamacite-profile-check"
+            {
+              nativeBuildInputs = with pkgs; [ nickel ];
+            }
+            ''
+              cd ${./.}
+              generated=$(mktemp)
+              nickel typecheck standards/effect-closure/kamacite-profile.ncl
+              nickel export --format json standards/effect-closure/kamacite-profile.ncl > "$generated"
+              cmp "$generated" standards/effect-closure/generated/kamacite-effect-profile.json
+
+              nickel typecheck standards/effect-closure/fixtures/kamacite/effect-summary.ncl
+              nickel export --format json standards/effect-closure/fixtures/kamacite/effect-summary.ncl > "$generated"
+              cmp "$generated" standards/effect-closure/fixtures/kamacite/effect-summary.json
+
+              for file in standards/effect-closure/fixtures/kamacite/valid/*.ncl standards/effect-closure/fixtures/kamacite/rejected/*.ncl; do
+                nickel export --format json "$file" >/dev/null
+              done
+              for file in standards/effect-closure/fixtures/kamacite/invalid/*.ncl; do
+                if nickel export --format json "$file" >/dev/null 2>&1; then
+                  echo "invalid Kamacite profile fixture passed: $file" >&2
+                  exit 1
+                fi
+              done
+              touch "$out"
+            '';
+
         downstreamProcMacroCheck =
           pkgs.runCommand "octet-downstream-proc-macro-check"
             {
@@ -4910,6 +4938,7 @@
             storage-fault-assurance = storageFaultAssuranceCheck;
             clippy-restriction-profiles = clippyRestrictionProfilesCheck;
             effect-closure-catalog = effectClosureCatalogCheck;
+            effect-closure-kamacite-profile = effectClosureKamaciteProfileCheck;
             downstream-proc-macro = downstreamProcMacroCheck;
             proof-rail-manifest = proofRailManifestCheck;
             aeneas-lean-provider-closure = aeneasLeanProviderClosureCheck;
@@ -4981,6 +5010,7 @@
                   "hegel-profiles"
                   "mutation-profiles"
                   "effect-closure-catalog"
+                  "effect-closure-kamacite-profile"
                   "clippy-restriction-profiles"
                   "strict-profile-catalog"
                   "policy-artifact-consumer-fixture"

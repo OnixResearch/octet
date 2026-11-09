@@ -59,6 +59,18 @@ locked dependency cohort and must renew it when dependencies change. Definition
 paths do not distinguish multiple versions of the same crate, and the setting
 neither verifies provider identity nor proves implementation purity.
 
+## 2026-11-09: Opt-in Kamacite effect-closure handoff
+
+`cargo octet admit --profile deterministic-core --closure` now accepts an
+optional `--kamacite-effect-profile PATH`. After direct checks and effect
+closure pass, it compares admitted selected-source-token evidence with one
+frozen Kamacite effect-summary compatibility projection, classifies exact
+emissions, profile-local allocation, declared-but-unemitted operations, stale
+identities, ambiguities, and unknown effects, and writes a BLAKE3-bound
+non-authoritative handoff. Default admission, receipts, and claim boundaries
+are unchanged when the option is absent. Octet does not canonicalize Kamacite
+data or grant consumer, publication, or runtime authority.
+
 ## 2026-10-22: Proof-to-implementation gap guide
 
 The new [proof-to-implementation gap](docs/proof-implementation-gap.md) guide

@@ -153,6 +153,50 @@ Verification reruns the ordinary artifact verifier over the complete strict-prof
 
 Both verifiers read the receipt's `schema_version` before decoding anything else. A receipt under any other schema, including `octet-effect-closure-receipt/v1` from before call edges carried their resolution scope, is reported as an unsupported effect-closure receipt schema; rerun admission to produce a v2 receipt.
 
+## Kamacite effect handoff
+
+<!-- r[impl octet.effect_closure.kamacite_mapping] -->
+<!-- r[impl octet.effect_closure.kamacite_dispositions] -->
+<!-- r[impl octet.effect_closure.kamacite_comparison] -->
+<!-- r[impl octet.effect_closure.kamacite_cli] -->
+<!-- r[impl octet.effect_closure.kamacite_handoff] -->
+<!-- r[impl octet.effect_closure.kamacite_boundary] -->
+<!-- r[verify octet.effect_closure.kamacite_fixtures] -->
+
+`cargo octet admit --profile deterministic-core --closure --kamacite-effect-profile PATH` is an optional extension that runs only after the direct check and effect closure are admitted. Without the option, arguments, artifacts, receipts, exit status, and claim boundaries are unchanged.
+
+The Nickel source of truth is `standards/effect-closure/kamacite-profile.ncl`, with contracts in `standards/effect-closure/kamacite-contracts.ncl` and generated runtime input at `standards/effect-closure/generated/kamacite-effect-profile.json`:
+
+```bash
+nickel typecheck standards/effect-closure/kamacite-profile.ncl
+nickel export --format json standards/effect-closure/kamacite-profile.ncl \
+  > standards/effect-closure/generated/kamacite-effect-profile.json
+```
+
+The profile binds one frozen Kamacite effect-summary compatibility projection by exact identity and file BLAKE3. `standards/effect-closure/fixtures/kamacite/effect-summary.json` is a frozen local fixture, not a live Kamacite cohort. Octet never invokes Kamacite and never reimplements its Preserves canonicalization.
+
+Ambient effect dispositions stay separate from semantic emissions. V1 permits only `alloc` as `profile-local`; every other ambient effect, including `clock`, `fs`, `net`, and `unknown`, remains `denied` and cannot be renamed or discharged by an emission rule. A profile that marks any other effect profile-local fails validation.
+
+Each semantic-emission rule binds one exact function address, an optional exact reviewed call-site identity, one exact provider identity, one exact Kamacite `effect-operation` identity, an evidence reference, and explicit non-claims. Rules that repeat a site, name a stale identity, use a broad unresolved scope, or point at a non-reviewed call fail closed.
+
+The comparison emits one of these classes:
+
+| Class | Admitted | Meaning |
+| --- | --- | --- |
+| `emitted-and-declared` | yes | the exact emission operation appears in the closed Kamacite summary |
+| `profile-local` | yes | an ambient `alloc` effect remains visible without becoming an operation |
+| `declared-not-emitted` | yes | the closed summary declares an operation that selected Octet evidence does not emit; this is not a dead-code or coverage claim |
+| `emitted-not-declared` | no | an exact emission names an operation absent from the closed summary |
+| `stale-identity` | no | a profile, provider, function, call-site, or summary identity does not match its parent |
+| `ambiguous-emission` | no | one site matches multiple rules, a scope is unresolved, or a summary repeats an operation |
+| `unknown` | no | closure is not admitted, an ambient effect is denied or unmapped, or a supplied artifact is invalid |
+
+On success, admission writes `kamacite-effect-profile.json`, `kamacite-effect-summary.json`, `kamacite-effect-comparison.json`, and `kamacite-effect-handoff.json`. The handoff binds the closure receipt identity, canonical mapping-profile identity, projection identity, Kamacite effect-summary and operation identities, comparison rows, producer role, diagnostics, and non-claims. `cargo octet admit verify` re-derives every Kamacite artifact from its stored parents and rejects tampering, including a re-identified handoff whose parent identity changed.
+
+A frozen cohort update is an explicit reviewed change: regenerate the projection, update the profile's exact identities and `projection_blake3`, and rerun the positive and negative fixtures. Stale identities fail closed until that update lands.
+
+A passing comparison records bounded agreement between selected Octet source-token evidence and the supplied frozen Kamacite projection. It does not prove complete Rust effects, semantic determinism, runtime reachability, handler correctness, replay truth, property satisfaction, or release eligibility. Octet does not own canonical Kamacite semantics, and the handoff grants no consumer, publication, or runtime authority.
+
 ## Valence dogfood
 
 <!-- r[verify octet.effect_closure.dogfood] -->

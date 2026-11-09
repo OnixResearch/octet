@@ -69,6 +69,7 @@ pub enum AdmissionMode {
         profile: String,
         closure: bool,
         policy: PathBuf,
+        kamacite_effect_profile: Option<PathBuf>,
         scope_args: Vec<String>,
         cargo_check_args: Option<Vec<String>>,
     },
@@ -455,7 +456,7 @@ pub fn help_text(topic: HelpTopic) -> &'static str {
 const ROOT_HELP: &str = "Octet operator commands
 
 Usage:
-  cargo octet admit --profile deterministic-core --closure [--policy PATH] [--artifact-dir PATH] [SCOPE] -- --target TARGET [CARGO_CHECK_ARGS]
+  cargo octet admit --profile deterministic-core --closure [--policy PATH] [--kamacite-effect-profile PATH] [--artifact-dir PATH] [SCOPE] -- --target TARGET [CARGO_CHECK_ARGS]
   cargo octet admit verify --artifact-dir PATH [--output-format human|json]
   cargo octet artifact verify --artifact-dir PATH [--output-format human|json] [--emit-valence-provenance PATH]
   cargo octet check [SCOPE] [--profile robust|bounded-systems|deterministic-core] [--function-addresses off|observe|warn|deny] [--function-address-path PATH] [-- CARGO_CHECK_ARGS]
@@ -502,12 +503,14 @@ Nix: nix run path:/path/to/octet#cargo-octet -- check
 const ADMIT_HELP: &str = "cargo octet admit
 
 Commands:
-  cargo octet admit --profile deterministic-core --closure [--policy octet-effect-closure.json] [--artifact-dir target/octet-admission] [SCOPE] -- --target TARGET [CARGO_CHECK_ARGS]
+  cargo octet admit --profile deterministic-core --closure [--policy octet-effect-closure.json] [--kamacite-effect-profile PATH] [--artifact-dir target/octet-admission] [SCOPE] -- --target TARGET [CARGO_CHECK_ARGS]
   cargo octet admit verify --artifact-dir PATH [--output-format human|json]
 
 Runs the existing deterministic-core check first, then computes conservative selected source-token effect closure under exact reviewed call summaries. An explicit Cargo target is required to exclude ambient target ambiguity. Unknown effects, opaque constructs, stale function identities, forbidden role edges, and unadmitted or identity-mismatched calls fail closed. Verification checks stored BLAKE3 artifact integrity without rerunning Cargo.
 
-V1 does not claim complete Rust name resolution, macro or trait-dispatch completeness, MIR call-graph completeness, dependency implementation verification, runtime reachability or ordering, panic freedom, semantic determinism, whole-program correctness, compiler correctness, or release eligibility.
+The optional --kamacite-effect-profile PATH input runs after direct checks and effect closure pass. It compares admitted closure evidence with one frozen Kamacite effect-summary compatibility projection and writes a non-authoritative handoff. It does not invoke Kamacite, change default admission, or grant consumer, publication, or runtime authority.
+
+V1 does not claim complete Rust name resolution, macro or trait-dispatch completeness, MIR call-graph completeness, dependency implementation verification, runtime reachability or ordering, panic freedom, semantic determinism, whole-program correctness, compiler correctness, or release eligibility. A passing Kamacite comparison records bounded agreement only; it does not prove semantic determinism, runtime reachability, handler correctness, replay truth, property satisfaction, or release eligibility.
 ";
 
 const ARTIFACT_HELP: &str = "cargo octet artifact verify
@@ -656,6 +659,7 @@ fn parse_admission(args: &[String], command_line: String) -> Result<AdmissionArg
     let mut profile = None;
     let mut closure = false;
     let mut policy = PathBuf::from(DEFAULT_POLICY_PATH);
+    let mut kamacite_effect_profile = None;
     let mut artifact_dir = PathBuf::from(DEFAULT_ARTIFACT_DIR);
     let mut output_format = OutputFormat::Human;
     let mut scope_args = Vec::new();
@@ -685,6 +689,13 @@ fn parse_admission(args: &[String], command_line: String) -> Result<AdmissionArg
             }
             "--policy" => {
                 policy = PathBuf::from(required_arg_at(args, index, arg)?);
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            "--kamacite-effect-profile" => {
+                if kamacite_effect_profile.is_some() {
+                    return Err("`--kamacite-effect-profile` may be provided only once".to_owned());
+                }
+                kamacite_effect_profile = Some(PathBuf::from(required_arg_at(args, index, arg)?));
                 index += FLAG_AND_VALUE_ARGS;
             }
             "--artifact-dir" => {
@@ -719,6 +730,17 @@ fn parse_admission(args: &[String], command_line: String) -> Result<AdmissionArg
                 policy = PathBuf::from(arg.trim_start_matches("--policy="));
                 index += 1;
             }
+            _ if arg.starts_with("--kamacite-effect-profile=") => {
+                if kamacite_effect_profile.is_some() {
+                    return Err("`--kamacite-effect-profile` may be provided only once".to_owned());
+                }
+                let value = arg.trim_start_matches("--kamacite-effect-profile=");
+                if value.is_empty() {
+                    return Err("missing value after `--kamacite-effect-profile`".to_owned());
+                }
+                kamacite_effect_profile = Some(PathBuf::from(value));
+                index += 1;
+            }
             _ if arg.starts_with("--artifact-dir=") => {
                 artifact_dir = PathBuf::from(arg.trim_start_matches("--artifact-dir="));
                 index += 1;
@@ -749,6 +771,7 @@ fn parse_admission(args: &[String], command_line: String) -> Result<AdmissionArg
             profile,
             closure,
             policy,
+            kamacite_effect_profile,
             scope_args,
             cargo_check_args,
         },
@@ -2854,6 +2877,7 @@ mod tests {
     use super::OutputFormat;
     use super::ProofRefMode;
     use super::format_command_line;
+    use super::help_text;
     use super::parse;
 
     const EXPECTED_BINARY_DECLARATION_COUNT: usize = 1;
@@ -2984,12 +3008,14 @@ mod tests {
                         profile,
                         closure,
                         policy,
+                        kamacite_effect_profile,
                         scope_args,
                         cargo_check_args,
                     } => {
                         assert_eq!(profile, "deterministic-core");
                         assert!(closure);
                         assert_eq!(policy, std::path::PathBuf::from("policy.json"));
+                        assert_eq!(kamacite_effect_profile, None);
                         assert_eq!(scope_args, ["-p", "domain"]);
                         assert_eq!(cargo_check_args.as_deref(), Some(["--lib".to_owned()].as_slice()));
                     }
@@ -3005,6 +3031,69 @@ mod tests {
             .expect_err("missing closure fails");
         assert!(missing_profile.contains("requires `--profile deterministic-core`"));
         assert!(missing_closure.contains("requires explicit `--closure`"));
+    }
+
+    // r[verify octet.effect_closure.kamacite_cli]
+    #[test]
+    fn admission_parse_accepts_optional_kamacite_profile_once() {
+        for flag in ["--kamacite-effect-profile", "--kamacite-effect-profile=kamacite.json"] {
+            let mut args = vec![
+                "cargo".to_owned(),
+                "octet".to_owned(),
+                "admit".to_owned(),
+                "--profile".to_owned(),
+                "deterministic-core".to_owned(),
+                "--closure".to_owned(),
+            ];
+            if flag.starts_with("--kamacite-effect-profile=") {
+                args.push(flag.to_owned());
+            } else {
+                args.push(flag.to_owned());
+                args.push("kamacite.json".to_owned());
+            }
+            args.push("--".to_owned());
+            args.push("--target".to_owned());
+            args.push("x86_64-unknown-linux-gnu".to_owned());
+            let parsed = parse(args.into_iter().map(OsString::from)).expect("parse Kamacite profile");
+            match parsed {
+                CommandArgs::Admit(args) => match args.mode {
+                    AdmissionMode::Run {
+                        kamacite_effect_profile,
+                        ..
+                    } => {
+                        assert_eq!(kamacite_effect_profile, Some(std::path::PathBuf::from("kamacite.json")));
+                    }
+                    AdmissionMode::Verify => panic!("expected admission run mode"),
+                },
+                other => panic!("expected admission args, got {other:?}"),
+            }
+        }
+        let duplicate = parse(
+            [
+                "cargo",
+                "octet",
+                "admit",
+                "--profile",
+                "deterministic-core",
+                "--closure",
+                "--kamacite-effect-profile",
+                "a.json",
+                "--kamacite-effect-profile=b.json",
+            ]
+            .map(OsString::from),
+        )
+        .expect_err("duplicate Kamacite profile fails");
+        assert!(duplicate.contains("may be provided only once"), "{duplicate}");
+    }
+
+    #[test]
+    fn admission_help_does_not_overclaim_comparison_authority() {
+        let help = help_text(HelpTopic::Admit);
+        assert!(
+            crate::kamacite_effect_closure::validate_claim_boundary(help).is_empty(),
+            "{:?}",
+            crate::kamacite_effect_closure::validate_claim_boundary(help)
+        );
     }
 
     // r[verify octet.effect_closure.evidence.tamper]
