@@ -816,18 +816,17 @@ impl<'ast> Visit<'ast> for BodyScanner<'_> {
         self.in_scope(ValueScope::of_block(node), |scanner| syn::visit::visit_block(scanner, node));
     }
 
-    // A `let` binding is visible from the next statement on, not in its own initializer or `else`.
+    // Keeps syn's order (pattern with its type annotation, then initializer and `else`) so call
+    // occurrences stay stable. Pattern visits record no value paths, so binding after the
+    // initializer and `else` still keeps a `let` binding out of them until the next statement.
     fn visit_local(&mut self, node: &'ast syn::Local) {
         for attribute in &node.attrs {
             self.visit_attribute(attribute);
         }
-        if let Some(init) = &node.init {
-            self.visit_expr(&init.expr);
-            if let Some((_else, diverge)) = &init.diverge {
-                self.visit_expr(diverge);
-            }
-        }
         self.visit_pat(&node.pat);
+        if let Some(init) = &node.init {
+            self.visit_local_init(init);
+        }
         self.bind_pattern(&node.pat);
     }
 
@@ -865,8 +864,8 @@ impl<'ast> Visit<'ast> for BodyScanner<'_> {
         for attribute in &node.attrs {
             self.visit_attribute(attribute);
         }
-        self.visit_expr(&node.expr);
         self.visit_pat(&node.pat);
+        self.visit_expr(&node.expr);
         self.bind_pattern(&node.pat);
     }
 
@@ -874,13 +873,11 @@ impl<'ast> Visit<'ast> for BodyScanner<'_> {
         for attribute in &node.attrs {
             self.visit_attribute(attribute);
         }
+        self.visit_pat(&node.pat);
         self.visit_expr(&node.expr);
         let mut scope = ValueScope::default();
         scope.bind_pattern(&node.pat);
-        self.in_scope(scope, |scanner| {
-            scanner.visit_pat(&node.pat);
-            scanner.visit_block(&node.body);
-        });
+        self.in_scope(scope, |scanner| scanner.visit_block(&node.body));
     }
 
     fn visit_expr_closure(&mut self, node: &'ast syn::ExprClosure) {
@@ -2968,6 +2965,10 @@ unsafe fn risky(values: &[u8]) -> u8 {
             "fn root(x: Option<u8>) { if let Some(cleanup) = x { let _ = cleanup; } else { let _ = x.map(cleanup); } }",
             "fn root(x: Option<&str>) { while let Some(cleanup) = None::<u8> { let _ = cleanup; } let _ = x.map(cleanup); }",
             "fn root(x: Option<&str>) { for cleanup in [1] { let _ = cleanup; } let _ = x.map(cleanup); }",
+            "fn root(x: Option<&str>) { let cleanup = x.map(cleanup); let _ = cleanup; }",
+            "fn root(x: Option<&str>) { if let Some(cleanup) = x.map(cleanup) { let _ = cleanup; } }",
+            "fn root(x: Option<&str>) { while let Some(cleanup) = x.map(cleanup) { let _ = cleanup; } }",
+            "fn root(x: Option<&str>) { for cleanup in x.map(cleanup) { let _ = cleanup; } }",
             "fn root(x: Option<&str>) { let apply = |cleanup: u8| cleanup; let _ = apply; let _ = x.map(cleanup); }",
             "fn root(cleanup: u8) { fn inner(x: Option<&str>) { let _ = x.map(cleanup); } let _ = cleanup; }",
             "fn root(x: Option<&str>) { let cleanup = 1; { use std::fs::remove_dir_all as cleanup; let _ = x.map(cleanup); } let _ = cleanup; }",
@@ -3004,6 +3005,24 @@ unsafe fn risky(values: &[u8]) -> u8 {
 
             assert_eq!(edges, value_edges, "{body}: {:?}", root.calls);
             assert!(root.calls.iter().any(|call| call.shape == "call:width"), "{body}: {:?}", root.calls);
+        }
+    }
+
+    // r[verify octet.effect_closure.dependency_summaries]
+    #[test]
+    fn binding_patterns_are_numbered_before_their_initializers() {
+        for body in [
+            "fn root(v: u64) { let b: [u8; core::mem::size_of::<u64>()] = v.to_le_bytes(); let _ = b; }",
+            "fn root(v: u64) { if let [const { core::mem::size_of::<u64>() as u8 }, ..] = v.to_le_bytes() {} }",
+            "fn root(v: u64) { while let [const { core::mem::size_of::<u64>() as u8 }, ..] = v.to_le_bytes() {} }",
+            "fn root(v: u64) { for [const { core::mem::size_of::<u64>() as u8 }, ..] in [v.to_le_bytes()] {} }",
+        ] {
+            let receipt = compute_closure(input(&format!("{body}\n"), vec![address("root", '1')], policy(Vec::new())));
+            let root = receipt.nodes.iter().find(|node| node.name == "root").expect("root node");
+            let mut calls = root.calls.iter().map(|call| (call.occurrence, call.shape.as_str())).collect::<Vec<_>>();
+            calls.sort_unstable();
+
+            assert_eq!(calls, [(0, "call:core::mem::size_of"), (1, "method:value:to_le_bytes")], "{body}");
         }
     }
 

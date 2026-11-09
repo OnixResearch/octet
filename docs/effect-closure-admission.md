@@ -68,6 +68,8 @@ A successful direct check followed by denied closure writes `effect-closure.json
 - within-function occurrence;
 - stable BLAKE3 call-site ID.
 
+Occurrences count a function's calls in syntax order. The pattern of a `let`, `if let`, `while let`, or `for`, including a `let` type annotation, comes before its initializer.
+
 Review the actual source and resolved `dependency-graph.json`, then add one exact entry per accepted call. Each entry binds:
 
 ```nickel
