@@ -267,7 +267,7 @@ LL ~         #[allow(tigerstyle::no_unwrap)]
    |
 
 warning: `#[allow(...)]` without justification comment
-  --> $DIR/unjustified_allow.rs:209:7
+  --> $DIR/unjustified_allow.rs:210:7
    |
 LL |     #[allow(clippy::needless_return)]
    |       ^^^^^
@@ -277,7 +277,7 @@ LL |     #[allow(clippy::needless_return)]
    = note: see Tiger Style guide: Documented Suppression
 
 warning: `#[allow(...)]` without justification comment
-  --> $DIR/unjustified_allow.rs:237:5
+  --> $DIR/unjustified_allow.rs:238:5
    |
 LL |     allow
    |     ^^^^^
@@ -287,7 +287,7 @@ LL |     allow
    = note: see Tiger Style guide: Documented Suppression
 
 warning: `#[allow(...)]` without justification comment
-  --> $DIR/unjustified_allow.rs:245:1
+  --> $DIR/unjustified_allow.rs:246:1
    |
 LL | #[/**/allow(clippy::needless_return)]
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -302,7 +302,7 @@ LL + // TODO(octet): explain why this allow is safe here
    |
 
 warning: `#[allow(...)]` without justification comment
-  --> $DIR/unjustified_allow.rs:264:9
+  --> $DIR/unjustified_allow.rs:265:9
    |
 LL |         #[allow(tigerstyle::no_unwrap)]
    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
