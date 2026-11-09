@@ -664,6 +664,13 @@ impl ValueScope {
         scope
     }
 
+    /// Const generic parameters of an `impl` or trait, visible in all of its items.
+    fn of_generics(generics: &syn::Generics) -> Self {
+        let mut scope = Self::default();
+        scope.locals.extend(generics.const_params().map(|param| param.ident.to_string()));
+        scope
+    }
+
     /// Items and `use` names declared directly in `block`, visible throughout it.
     fn of_block(block: &syn::Block) -> Self {
         let mut scope = Self::default();
@@ -898,6 +905,17 @@ impl<'ast> Visit<'ast> for BodyScanner<'_> {
     fn visit_item_fn(&mut self, node: &'ast syn::ItemFn) {
         let scope = ValueScope::of_signature(&syn::Generics::default(), &node.sig);
         self.in_scope(scope, |scanner| syn::visit::visit_item_fn(scanner, node));
+    }
+
+    // A nested `impl` or trait's const generic parameters are in scope in all of its items.
+    fn visit_item_impl(&mut self, node: &'ast syn::ItemImpl) {
+        let scope = ValueScope::of_generics(&node.generics);
+        self.in_scope(scope, |scanner| syn::visit::visit_item_impl(scanner, node));
+    }
+
+    fn visit_item_trait(&mut self, node: &'ast syn::ItemTrait) {
+        let scope = ValueScope::of_generics(&node.generics);
+        self.in_scope(scope, |scanner| syn::visit::visit_item_trait(scanner, node));
     }
 
     fn visit_impl_item_fn(&mut self, node: &'ast syn::ImplItemFn) {
@@ -3023,6 +3041,26 @@ unsafe fn risky(values: &[u8]) -> u8 {
             calls.sort_unstable();
 
             assert_eq!(calls, [(0, "call:core::mem::size_of"), (1, "method:value:to_le_bytes")], "{body}");
+        }
+    }
+
+    // r[verify octet.effect_closure.verification.adversarial]
+    #[test]
+    fn nested_impl_and_trait_const_generics_are_not_value_edges() {
+        for (body, value_edges) in [
+            ("fn root() { struct B<const N: usize>; impl<const N: usize> B<N> { fn len() -> usize { N } } }", 0),
+            ("fn root() { trait T<const N: usize> { fn len() -> usize { N } } }", 0),
+            ("fn root() { struct B<const N: usize>; impl<const N: usize> B<N> { const LEN: usize = N; } }", 0),
+            ("fn root() { struct B<const N: usize>; impl<const N: usize> B<N> {} let _ = N; }", 1),
+            ("fn root() { struct B<const M: usize>; impl<const M: usize> B<M> { fn len() -> usize { N } } }", 1),
+            ("fn root() { trait T<const M: usize> { fn len() -> usize { N } } }", 1),
+        ] {
+            let source = format!("const N: usize = 4;\n{body}\n");
+            let receipt = compute_closure(input(&source, vec![address("root", '1')], policy(Vec::new())));
+            let root = receipt.nodes.iter().find(|node| node.name == "root").expect("root node");
+            let edges = root.calls.iter().filter(|call| call.shape == "value:N").count();
+
+            assert_eq!(edges, value_edges, "{body}: {:?}", root.calls);
         }
     }
 
