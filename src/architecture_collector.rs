@@ -1,7 +1,9 @@
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::collections::VecDeque;
+use std::collections::btree_map::Entry;
 use std::fs;
 use std::hash::Hash;
 use std::path::Path;
@@ -57,6 +59,7 @@ const REMAPPED_WORKSPACE_PREFIX: &str = "<WORKSPACE>/";
 const MAX_EXPANSION_CALLSITE_DEPTH: usize = 64;
 const PARAMETER_ORIGIN_PREFIX: &str = "octet-parameter:";
 const UNKNOWN_ORIGIN_PREFIX: &str = "octet-unknown:";
+const MUTABLE_ALIAS_REASON: &str = "mutable-alias";
 const VALUE_FLOW_LIMIT_TARGET: &str = "compiler-selected-value-flow";
 
 type ValueOrigins = BTreeSet<String>;
@@ -262,6 +265,9 @@ pub(crate) struct ArchitectureCollector {
     selected_type_items: BTreeMap<String, (LocalDefId, String, String)>,
     // `None` for the package's library target; see `cargo_target_qualifier`.
     target_qualifier: Option<String>,
+    // Local functions named outside a direct call, or called from a body value
+    // flow does not analyze; their callers are not all visible to value flow.
+    indirect_functions: HashSet<LocalDefId>,
     incomplete: bool,
 }
 
@@ -280,6 +286,7 @@ impl ArchitectureCollector {
                 &selected.unit.target_name,
                 selected.test_configuration,
             ),
+            indirect_functions: HashSet::new(),
             incomplete: false,
             context,
             selected,
@@ -665,6 +672,22 @@ impl ArchitectureCollector {
         }
     }
 
+    // Value flow takes a parameter's origins from the direct calls to its
+    // function, so it must know every other use: a reference that may be called
+    // through a pointer, or a call from a body it does not analyze.
+    fn record_function_use(&mut self, cx: &LateContext<'_>, hir_id: hir::HirId, def_id: DefId, direct_call: bool) {
+        let Some(def_id) = def_id.as_local() else {
+            return;
+        };
+        let analyzed_caller = matches!(
+            cx.tcx.def_kind(cx.tcx.hir_enclosing_body_owner(hir_id)),
+            DefKind::Fn | DefKind::AssocFn | DefKind::Closure
+        );
+        if !direct_call || !analyzed_caller {
+            self.indirect_functions.insert(def_id);
+        }
+    }
+
     fn collect_constructor(
         &mut self,
         cx: &LateContext<'_>,
@@ -936,6 +959,11 @@ impl ArchitectureCollector {
             selected_names(&self.context.value_flow_selections, |selection| &selection.root_origin_definitions);
         let propagation_definitions =
             selected_names(&self.context.value_flow_selections, |selection| &selection.propagation_definitions);
+        let caller_seeded_bodies = body_def_ids
+            .iter()
+            .copied()
+            .filter(|def_id| callers_supply_arguments(cx, *def_id, &self.indirect_functions))
+            .collect::<HashSet<_>>();
         let mut argument_origins = HashMap::<(LocalDefId, usize), ValueOrigins>::new();
         let mut return_origins = HashMap::<LocalDefId, ValueOrigins>::new();
         let mut final_observations =
@@ -957,7 +985,7 @@ impl ArchitectureCollector {
                     &tracked_types,
                     &root_definitions,
                     &propagation_definitions,
-                    &argument_origins,
+                    caller_seeded_bodies.contains(def_id).then_some(&argument_origins),
                     &return_origins,
                     self.context.limits.max_value_flow_steps,
                     &mut steps,
@@ -1302,6 +1330,9 @@ impl<'tcx> LateLintPass<'tcx> for ArchitectureCollector {
                 let dispatch = def_id.map_or(DispatchKind::Unknown, |current| {
                     dispatch_kind(cx, current, cx.typeck_results().node_args_opt(callee.hir_id))
                 });
+                if let Some(def_id) = def_id {
+                    self.record_function_use(cx, expr.hir_id, def_id, true);
+                }
                 self.collect_call(cx, expr, def_id, dispatch);
             }
             hir::ExprKind::MethodCall(..) => {
@@ -1309,6 +1340,9 @@ impl<'tcx> LateLintPass<'tcx> for ArchitectureCollector {
                 let dispatch = def_id.map_or(DispatchKind::Unknown, |current| {
                     dispatch_kind(cx, current, cx.typeck_results().node_args_opt(expr.hir_id))
                 });
+                if let Some(def_id) = def_id {
+                    self.record_function_use(cx, expr.hir_id, def_id, true);
+                }
                 self.collect_call(cx, expr, def_id, dispatch);
             }
             hir::ExprKind::Struct(qpath, ..) => {
@@ -1320,6 +1354,7 @@ impl<'tcx> LateLintPass<'tcx> for ArchitectureCollector {
                 if let Some(def_id) = unit_constructor_definition(cx, expr, qpath) {
                     self.collect_construction(cx, expr, def_id);
                 } else if let Some(def_id) = function_reference_definition(cx, expr, qpath) {
+                    self.record_function_use(cx, expr.hir_id, def_id, false);
                     let dispatch = dispatch_kind(cx, def_id, cx.typeck_results().node_args_opt(expr.hir_id));
                     self.collect_call(cx, expr, Some(def_id), dispatch);
                 }
@@ -1408,7 +1443,7 @@ fn analyze_selected_mir_body<'tcx>(
     tracked_types: &BTreeSet<String>,
     root_definitions: &BTreeSet<String>,
     propagation_definitions: &BTreeSet<String>,
-    argument_origins: &HashMap<(LocalDefId, usize), ValueOrigins>,
+    argument_origins: Option<&HashMap<(LocalDefId, usize), ValueOrigins>>,
     return_origins: &HashMap<LocalDefId, ValueOrigins>,
     max_steps: usize,
     steps: &mut usize,
@@ -1417,12 +1452,14 @@ fn analyze_selected_mir_body<'tcx>(
     let mut entry_states = BTreeMap::<mir::BasicBlock, LocalValueOrigins>::new();
     let mut start_state = LocalValueOrigins::new();
     let definition = qualified_definition(cx, def_id.to_def_id());
+    // Unless its in-crate direct calls are all its callers, a parameter's origin
+    // is the argument each caller passes, which this body cannot see.
     for (position, local) in body.args_iter().enumerate() {
         if tracked_type_definition(cx, body.local_decls[local].ty, tracked_types).is_none() {
             continue;
         }
         let origins = argument_origins
-            .get(&(def_id, position))
+            .and_then(|argument_origins| argument_origins.get(&(def_id, position)))
             .cloned()
             .unwrap_or_else(|| BTreeSet::from([parameter_origin(&definition, position)]));
         start_state.insert(local, origins);
@@ -1438,12 +1475,13 @@ fn analyze_selected_mir_body<'tcx>(
                 continue;
             };
             let (destination, rvalue) = &**assignment;
+            mark_mutable_alias(&mut state, rvalue);
             let destination_ty = destination.ty(&body.local_decls, cx.tcx).ty;
             if tracked_type_definition(cx, destination_ty, tracked_types).is_none() {
                 continue;
             }
             let origins = rvalue_origins(cx, body, rvalue, &state, tracked_types);
-            state.insert(destination.local, origins);
+            assign_place_origins(&mut state, *destination, origins);
         }
         increment_value_flow_step(steps, max_steps)?;
         match &block_data.terminator().kind {
@@ -1494,10 +1532,19 @@ fn analyze_selected_mir_body<'tcx>(
             }
             _ => {}
         }
+        // Visit every reachable block at least once, even before any tracked
+        // value exists; afterwards revisit a block only when its entry grows.
         for successor in block_data.terminator().successors() {
-            let successor_state = entry_states.entry(successor).or_default();
-            if union_local_origins(successor_state, &state) {
-                queue.push_back(successor);
+            match entry_states.entry(successor) {
+                Entry::Vacant(vacant) => {
+                    vacant.insert(state.clone());
+                    queue.push_back(successor);
+                }
+                Entry::Occupied(mut existing) => {
+                    if union_local_origins(existing.get_mut(), &state) {
+                        queue.push_back(successor);
+                    }
+                }
             }
         }
     }
@@ -1535,6 +1582,11 @@ fn analyze_call_terminator<'tcx>(
                 BTreeSet::from([unknown_origin("unresolved-call-target")]),
                 span,
             ));
+        }
+        if let Some(destination) = destination
+            && tracked_type_definition(cx, destination.ty(&body.local_decls, cx.tcx).ty, tracked_types).is_some()
+        {
+            assign_place_origins(state, destination, BTreeSet::from([unknown_origin("unresolved-call-target")]));
         }
         return;
     };
@@ -1580,7 +1632,7 @@ fn analyze_call_terminator<'tcx>(
     } else {
         BTreeSet::from([callee_definition])
     };
-    state.insert(destination.local, origins);
+    assign_place_origins(state, destination, origins);
 }
 
 fn provenance_observation(
@@ -1653,6 +1705,62 @@ fn operand_origins(operand: &mir::Operand<'_>, state: &LocalValueOrigins) -> Val
 
 fn place_origins(place: &mir::Place<'_>, state: &LocalValueOrigins) -> ValueOrigins {
     state.get(&place.local).cloned().unwrap_or_default()
+}
+
+// A parameter takes its origins from the function's in-crate direct calls only
+// when those are all of its calls: the function is a free function or inherent
+// method no other crate can reach, by path or symbol, and no other use exists.
+fn callers_supply_arguments(
+    cx: &LateContext<'_>,
+    def_id: LocalDefId,
+    indirect_functions: &HashSet<LocalDefId>,
+) -> bool {
+    let free_or_inherent = match cx.tcx.def_kind(def_id) {
+        DefKind::Fn => true,
+        DefKind::AssocFn => cx.tcx.inherent_impl_of_assoc(def_id.to_def_id()).is_some(),
+        _ => false,
+    };
+    free_or_inherent
+        && !indirect_functions.contains(&def_id)
+        && !cx.effective_visibilities.is_reachable(def_id)
+        && !cx.tcx.codegen_fn_attrs(def_id).contains_extern_indicator()
+}
+
+// A mutable borrow or raw pointer can overwrite the borrowed local later,
+// through any copy, so the local stays unknown from the borrow on.
+fn mark_mutable_alias(state: &mut LocalValueOrigins, rvalue: &mir::Rvalue<'_>) {
+    let (mir::Rvalue::Ref(_, mir::BorrowKind::Mut { .. }, place)
+    | mir::Rvalue::RawPtr(mir::RawPtrKind::Mut | mir::RawPtrKind::Const, place)) = rvalue
+    else {
+        return;
+    };
+    state.entry(place.local).or_default().insert(unknown_origin(MUTABLE_ALIAS_REASON));
+}
+
+// A whole-local write replaces its origins, except the mark of a live mutable
+// alias. A write to a field, or through a pointer, leaves the rest of the value
+// in place, so it adds origins; when the local has none yet, its other parts
+// came from writes this analysis did not track.
+fn assign_place_origins(state: &mut LocalValueOrigins, place: mir::Place<'_>, mut origins: ValueOrigins) {
+    match state.entry(place.local) {
+        Entry::Occupied(mut existing) if place.projection.is_empty() => {
+            if existing
+                .get()
+                .iter()
+                .any(|origin| origin.strip_prefix(UNKNOWN_ORIGIN_PREFIX) == Some(MUTABLE_ALIAS_REASON))
+            {
+                origins.insert(unknown_origin(MUTABLE_ALIAS_REASON));
+            }
+            existing.insert(origins);
+        }
+        Entry::Occupied(mut existing) => existing.get_mut().extend(origins),
+        Entry::Vacant(vacant) => {
+            if !place.projection.is_empty() {
+                origins.insert(unknown_origin("partial-write"));
+            }
+            vacant.insert(origins);
+        }
+    }
 }
 
 fn tracked_type_definition<'tcx>(

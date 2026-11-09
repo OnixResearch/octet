@@ -1210,6 +1210,72 @@ fn compiler_architecture_closure_value_provenance() {
 
 #[test]
 #[ignore = "run via cargo test --test ui compiler_architecture -- --ignored --nocapture"]
+fn compiler_architecture_escaped_value_provenance_stays_unknown() {
+    use octet_architecture_ir::ValueProvenanceStatus;
+
+    const PREFIX: &str = "escaped_value_provenance::";
+    let toolchain = rustup_toolchain();
+    let library = build_library(&toolchain);
+    let host = host_triple();
+    let driver = build_driver(&toolchain);
+    let selection = CompilerValueFlowSelection {
+        tracked_callee_definitions: vec![format!("{PREFIX}SuccessReceipt::new")],
+        tracked_type_definitions: vec![format!("{PREFIX}Observation"), format!("{PREFIX}SuccessReceipt")],
+        root_origin_definitions: vec![format!("{PREFIX}success"), format!("{PREFIX}failure")],
+        propagation_definitions: Vec::new(),
+    };
+    let shard = run_compiler_architecture_fixture_with_selection(
+        &driver,
+        &library,
+        &host,
+        "negative/escaped_value_provenance.rs",
+        None,
+        vec![selection],
+    );
+    assert_valid_compiler_shard(&shard);
+    let items = compiler_item_paths(&shard);
+    let statuses = shard
+        .facts
+        .iter()
+        .filter_map(|fact| match fact {
+            CompilerArchitectureFact::CallArgumentProvenance {
+                caller_item_id,
+                callee_definition,
+                origin_definitions,
+                status,
+                ..
+            } if *callee_definition == format!("{PREFIX}SuccessReceipt::new") => Some((
+                items.get(caller_item_id.as_str()).copied().expect("provenance caller item"),
+                (*status, origin_definitions.clone()),
+            )),
+            _ => None,
+        })
+        .collect::<HashMap<_, _>>();
+    let exact = |origin: &str| Some((ValueProvenanceStatus::Exact, vec![format!("{PREFIX}{origin}")]));
+    // Only a private function used solely as a direct callee takes its origin from its callers.
+    assert_eq!(statuses.get("escaped_value_provenance::finish_direct").cloned(), exact("success"));
+    // A call after an untracked prefix still records its provenance.
+    assert_eq!(statuses.get("escaped_value_provenance::after_untracked_call").cloned(), exact("failure"));
+    for caller in [
+        // Also called through a function pointer with a forged observation.
+        "finish_escaped",
+        // Callable from other crates.
+        "finish_public",
+        // Overwritten through a mutable borrow.
+        "swapped",
+        "written_through_reference",
+        // Read from a field of a value that was only partly written.
+        "field_write",
+        // Replaced by the result of a call through a function pointer.
+        "replaced_through_pointer",
+    ] {
+        let status = statuses.get(format!("{PREFIX}{caller}").as_str()).map(|(status, _)| *status);
+        assert_eq!(status, Some(ValueProvenanceStatus::Unknown), "{caller}: {statuses:#?}");
+    }
+}
+
+#[test]
+#[ignore = "run via cargo test --test ui compiler_architecture -- --ignored --nocapture"]
 fn compiler_architecture_external_reference_provenance() {
     let toolchain = rustup_toolchain();
     let library = build_library(&toolchain);
