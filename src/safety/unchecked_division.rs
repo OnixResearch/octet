@@ -18,9 +18,10 @@ declare_tool_lint! {
     /// integer (or a reference to one) that is a function parameter or local
     /// variable (not a constant) and no guard proves `b != 0` at the
     /// division: an enclosing `if b != 0` / `b > 0` / `b >= 1` then-branch,
-    /// an enclosing `if b == 0` else-branch, or an earlier statement in an
-    /// enclosing block that diverges when `b` is zero (for example
-    /// `assert!(b > 0)` or `if b == 0 { return ...; }`).
+    /// an enclosing `if b == 0` else-branch, a `match` arm whose guard implies
+    /// `b != 0` or that follows an unguarded `0` arm over `b`, or an earlier
+    /// statement in an enclosing block that diverges when `b` is zero (for
+    /// example `assert!(b > 0)` or `if b == 0 { return ...; }`).
     pub tigerstyle::UNCHECKED_DIVISION,
     Warn,
     "division by variable without zero check"
@@ -197,9 +198,60 @@ fn has_prior_zero_exit(
     false
 }
 
+/// Whether `pat` matches the integer literal `0`, alone or as one alternative of
+/// an or-pattern.
+fn pattern_matches_zero(pat: &hir::Pat<'_>) -> bool {
+    match &pat.kind {
+        hir::PatKind::Expr(hir::PatExpr {
+            kind: hir::PatExprKind::Lit { lit, negated: false },
+            ..
+        }) => matches!(lit.node, rustc_ast::LitKind::Int(v, _) if v.get() == 0),
+        hir::PatKind::Or(alternatives) => alternatives.iter().any(pattern_matches_zero),
+        _ => false,
+    }
+}
+
+/// Whether the divisor names the whole scrutinee value inside `arm`: the
+/// scrutinee itself, or a plain binding (`d =>`) of the scrutinee.
+fn divisor_is_whole_scrutinee(arm: &hir::Arm<'_>, scrutinee: &hir::Expr<'_>, divisor: &hir::Expr<'_>) -> bool {
+    let divisor = peel_deref_and_borrow(divisor);
+    if crate::safety::unchecked_narrowing::same_checked_expr(divisor, peel_deref_and_borrow(scrutinee)) {
+        return true;
+    }
+    let hir::PatKind::Binding(_, binding_id, _, None) = arm.pat.kind else {
+        return false;
+    };
+    matches!(
+        &divisor.kind,
+        ExprKind::Path(hir::QPath::Resolved(_, path)) if path.res == hir::def::Res::Local(binding_id)
+    )
+}
+
+/// Check whether the match arm whose body holds the division proves the divisor
+/// nonzero: its guard implies `divisor != 0`, or an earlier unguarded arm took
+/// the scrutinee value `0` and the divisor names the whole scrutinee.
+fn arm_proves_nonzero(cx: &LateContext<'_>, arm: &hir::Arm<'_>, divisor: &hir::Expr<'_>) -> bool {
+    if arm.guard.is_some_and(|guard| condition_true_implies_nonzero(guard, divisor)) {
+        return true;
+    }
+    let hir::Node::Expr(hir::Expr {
+        kind: ExprKind::Match(scrutinee, arms, _),
+        ..
+    }) = cx.tcx.parent_hir_node(arm.hir_id)
+    else {
+        return false;
+    };
+    let earlier_arms = arms.iter().take_while(|earlier| earlier.hir_id != arm.hir_id);
+    let zero_excluded = earlier_arms
+        .filter(|earlier| earlier.guard.is_none())
+        .any(|earlier| pattern_matches_zero(earlier.pat));
+    zero_excluded && divisor_is_whole_scrutinee(arm, scrutinee, divisor)
+}
+
 /// Check whether a guard proves the divisor nonzero at `division`: an enclosing
-/// if-branch whose condition implies `divisor != 0`, or an earlier statement in
-/// an enclosing block that exits when the divisor is zero.
+/// if-branch whose condition implies `divisor != 0`, a match arm that cannot see
+/// a zero divisor, or an earlier statement in an enclosing block that exits when
+/// the divisor is zero.
 fn has_zero_guard(cx: &LateContext<'_>, division: &hir::Expr<'_>, divisor: &hir::Expr<'_>) -> bool {
     let mut child_id = division.hir_id;
     for (parent_id, node) in cx.tcx.hir_parent_iter(division.hir_id) {
@@ -215,6 +267,9 @@ fn has_zero_guard(cx: &LateContext<'_>, division: &hir::Expr<'_>, divisor: &hir:
                         return true;
                     }
                 }
+            }
+            hir::Node::Arm(arm) if arm.body.hir_id == child_id && arm_proves_nonzero(cx, arm, divisor) => {
+                return true;
             }
             hir::Node::Block(block) if has_prior_zero_exit(cx, block, division, divisor) => return true,
             hir::Node::Item(_) | hir::Node::ImplItem(_) | hir::Node::TraitItem(_) => break,

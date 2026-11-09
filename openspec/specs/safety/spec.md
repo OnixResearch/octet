@@ -1161,3 +1161,30 @@ The lint MUST NOT warn when the fallback is propagated, handled through `match`,
 - WHEN the lint runs
 - THEN `fallible_int_fallback` does NOT fire
 
+
+### Requirement: Match Arm Zero Guards For Unchecked Division
+
+The `unchecked_division` lint MUST accept a `match` arm as a zero guard for a division in that arm's body when either:
+
+- the arm's guard implies the divisor is nonzero, by the same rules as an enclosing `if` condition
+- an earlier arm without a guard matches the integer literal `0` (alone or in an or-pattern), and the divisor is the scrutinee itself or the arm's plain binding of the scrutinee
+
+The lint MUST keep flagging the division when the earlier arm matches another value, when the earlier `0` arm has a guard, when the arm guard checks a different value, or when the division sits in the arm guard rather than the arm body.
+
+#### Scenario: Earlier zero arm guards a binding arm
+
+- GIVEN production code `match n { 0 => None, d => Some(total / d) }`
+- WHEN the lint runs
+- THEN `unchecked_division` does NOT fire
+
+#### Scenario: Arm guard proves the divisor nonzero
+
+- GIVEN production code `match n { d if d != 0 => total / d, _ => 0 }`
+- WHEN the lint runs
+- THEN `unchecked_division` does NOT fire
+
+#### Scenario: Earlier arm excludes a nonzero value
+
+- GIVEN production code `match n { 1 => total, d => total / d }`
+- WHEN the lint runs
+- THEN `unchecked_division` warns that `d` is divided without a zero check

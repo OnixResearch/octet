@@ -134,5 +134,80 @@ LL -     total / count
 LL +     { let __tigerstyle_divisor = count; assert!(*__tigerstyle_divisor != 0); total / __tigerstyle_divisor }
    |
 
-warning: 9 warnings emitted
+warning: division by `d` without zero check
+  --> $DIR/unchecked_division.rs:201:14
+   |
+LL |         d => total / d,
+   |              ^^^^^^^^^
+   |
+   = help: Tiger Style (Explicit Division): guard divisors before division so zero is impossible Example: assert!(divisor != 0); let q = value / divisor;
+   = note: structured suggestion applicability: MaybeIncorrect
+   = note: see Tiger Style guide: Explicit Division
+help: guard `d` before division
+   |
+LL -         d => total / d,
+LL +         d => { let __tigerstyle_divisor = d; assert!(__tigerstyle_divisor != 0); total / __tigerstyle_divisor },
+   |
+
+warning: division by `d` without zero check
+  --> $DIR/unchecked_division.rs:209:14
+   |
+LL |         d => total / d,
+   |              ^^^^^^^^^
+   |
+   = help: Tiger Style (Explicit Division): guard divisors before division so zero is impossible Example: assert!(divisor != 0); let q = value / divisor;
+   = note: structured suggestion applicability: MaybeIncorrect
+   = note: see Tiger Style guide: Explicit Division
+help: guard `d` before division
+   |
+LL -         d => total / d,
+LL +         d => { let __tigerstyle_divisor = d; assert!(__tigerstyle_divisor != 0); total / __tigerstyle_divisor },
+   |
+
+warning: division by `d` without zero check
+  --> $DIR/unchecked_division.rs:216:24
+   |
+LL |         d if m != 0 => total / d,
+   |                        ^^^^^^^^^
+   |
+   = help: Tiger Style (Explicit Division): guard divisors before division so zero is impossible Example: assert!(divisor != 0); let q = value / divisor;
+   = note: structured suggestion applicability: MaybeIncorrect
+   = note: see Tiger Style guide: Explicit Division
+help: guard `d` before division
+   |
+LL -         d if m != 0 => total / d,
+LL +         d if m != 0 => { let __tigerstyle_divisor = d; assert!(__tigerstyle_divisor != 0); total / __tigerstyle_divisor },
+   |
+
+warning: division by `d` without zero check
+  --> $DIR/unchecked_division.rs:224:14
+   |
+LL |         d if total / d > 1 => 1,
+   |              ^^^^^^^^^
+   |
+   = help: Tiger Style (Explicit Division): guard divisors before division so zero is impossible Example: assert!(divisor != 0); let q = value / divisor;
+   = note: structured suggestion applicability: MaybeIncorrect
+   = note: see Tiger Style guide: Explicit Division
+help: guard `d` before division
+   |
+LL -         d if total / d > 1 => 1,
+LL +         d if { let __tigerstyle_divisor = d; assert!(__tigerstyle_divisor != 0); total / __tigerstyle_divisor } > 1 => 1,
+   |
+
+warning: division by `m` without zero check
+  --> $DIR/unchecked_division.rs:233:14
+   |
+LL |         _ => total / m,
+   |              ^^^^^^^^^
+   |
+   = help: Tiger Style (Explicit Division): guard divisors before division so zero is impossible Example: assert!(divisor != 0); let q = value / divisor;
+   = note: structured suggestion applicability: MaybeIncorrect
+   = note: see Tiger Style guide: Explicit Division
+help: guard `m` before division
+   |
+LL -         _ => total / m,
+LL +         _ => { let __tigerstyle_divisor = m; assert!(__tigerstyle_divisor != 0); total / __tigerstyle_divisor },
+   |
+
+warning: 14 warnings emitted
 

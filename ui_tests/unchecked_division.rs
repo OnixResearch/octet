@@ -169,3 +169,67 @@ fn float_div_assign(total: f64, count: f64) -> f64 {
     quotient /= count;
     quotient
 }
+
+fn match_zero_arm_binding(total: u64, n: u64) -> Option<u64> {
+    // Should NOT warn: the earlier `0` arm leaves only nonzero values for `d`
+    match n {
+        0 => None,
+        d => Some(total / d),
+    }
+}
+
+fn match_zero_arm_scrutinee(total: u64, n: u64) -> u64 {
+    // Should NOT warn: the earlier `0` arm proves the scrutinee nonzero
+    match n {
+        0 | 1 => 0,
+        _ => total % n,
+    }
+}
+
+fn match_guard_arm(total: u64, n: u64) -> u64 {
+    // Should NOT warn: the arm guard proves `d != 0`
+    match n {
+        d if d != 0 => total / d,
+        _ => 0,
+    }
+}
+
+fn match_nonzero_literal_arm(total: u64, n: u64) -> u64 {
+    // Should warn: the earlier arm excludes `1`, not `0`
+    match n {
+        1 => total,
+        d => total / d,
+    }
+}
+
+fn match_guarded_zero_arm(total: u64, n: u64, strict: bool) -> u64 {
+    // Should warn: the `0` arm only runs when `strict` holds
+    match n {
+        0 if strict => 0,
+        d => total / d,
+    }
+}
+
+fn match_guard_on_other_value(total: u64, n: u64, m: u64) -> u64 {
+    // Should warn: the guard checks `m`, not the divisor
+    match n {
+        d if m != 0 => total / d,
+        _ => 0,
+    }
+}
+
+fn match_division_in_guard(total: u64, n: u64) -> u64 {
+    // Should warn: the division runs in the guard, before any check
+    match n {
+        d if total / d > 1 => 1,
+        _ => 0,
+    }
+}
+
+fn match_zero_arm_other_divisor(total: u64, n: u64, m: u64) -> u64 {
+    // Should warn: the `0` arm checks the scrutinee `n`, not the divisor `m`
+    match n {
+        0 => 0,
+        _ => total / m,
+    }
+}
