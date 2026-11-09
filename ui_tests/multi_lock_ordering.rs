@@ -73,6 +73,20 @@ struct SharedTracker {
     state: std::sync::Arc<std::sync::RwLock<u32>>,
 }
 
+// Should warn: a clock ordering comment does not document the mutexes.
+struct ClockTracker {
+    // Clock ordering follows the wall-clock source.
+    count: Mutex<u64>,
+    state: Mutex<u32>,
+}
+
+// Should warn: `block`, `unlock`, `recorder`, and `border` only contain the words.
+/// Unlock the block recorder at the border.
+struct RecorderTracker {
+    count: Mutex<u64>,
+    state: Mutex<u32>,
+}
+
 fn main() {
     let _ = Tracker {
         count: Mutex::new(0),
