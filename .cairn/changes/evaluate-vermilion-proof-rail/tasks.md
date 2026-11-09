@@ -13,7 +13,7 @@
 - [x] [serial] Add the `increment_checked` pilot subject with explicit checked overflow and the canonical `value < u64::MAX` statement bytes. r[octet.vermilion_proof_rail.semantic_contract]
 - [x] [serial] Declare Verus, Vermilion, and Aeneas route obligations and open refinement bridges. r[octet.vermilion_proof_rail.semantic_contract]
 - [x] [serial] Add a comparison test proving the existing Verus `nat` lemma is incomparable with the u64 contract. r[octet.vermilion_proof_rail.semantic_contract]
-- [ ] [serial] Check a Verus refinement theorem for the u64 checked subject. Blocked: not attempted; the existing rail proves only a `nat` lemma. r[octet.vermilion_proof_rail.semantic_contract]
+- [ ] [serial] Check a Verus refinement theorem for the u64 checked subject. A production Verus rail now verifies the u64 checked contract model (`verus/proofs/checked_increment_bound.rs`, 1 verified, 0 errors); the refinement theorem from the plain Rust function remains open. r[octet.vermilion_proof_rail.semantic_contract]
 - [ ] [serial] Check Aeneas and Vermilion refinement bridges to the executable function. The Vermilion u64 obligations are now live and Lean-checked, but the plain-Rust executable refinement bridge and the Aeneas u32-to-u64 bridge remain open. r[octet.vermilion_proof_rail.semantic_contract]
 
 ## Receipt and obligations

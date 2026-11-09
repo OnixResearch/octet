@@ -26,6 +26,10 @@ The production pilot rails run tiny proof targets with real Verus:
 - addition receipt path: `proofs/octet.verus_proof_rails.addition-bound-production-rail-0.receipt`
 - reflexive-order proof command argv: `octet-production-verus verus/proofs/ordering_reflexive.rs`
 - reflexive-order receipt path: `proofs/octet.verus_proof_rails.ordering-reflexive-production-rail-0.receipt`
+- checked-increment source scope: `src/verified/checked_increment.rs`
+- checked-increment proof target: `verus/proofs/checked_increment_bound.rs`
+- checked-increment proof command argv: `octet-production-verus verus/proofs/checked_increment_bound.rs`
+- checked-increment receipt path: `proofs/octet.verus_proof_rails.checked-increment-production-rail-0.receipt`
 - pass signal for each production pilot: `verification results:: 1 verified, 0 errors`
 - verifier mode for each production pilot: `production`
 - pinned release: Verus `0.2026.05.17.e479cce` at revision `e479cce36490b8fa4b0fd7755aa742aec354372c`, Rust `1.95.0-x86_64-unknown-linux-gnu`, bundled Z3, and an Octet-generated Nix closure graph digest
@@ -112,6 +116,7 @@ run through `cargo octet prove --policy-artifacts-dir artifacts/policy --source 
 | `octet.verus_proof_rails.addition-bound#rail-0` | `fixture` | `src/verified/addition.rs` | `verus/proofs/addition_bound.rs` | `proofs/octet.verus_proof_rails.addition-bound-rail-0.receipt` |
 | `octet.verus_proof_rails.addition-bound-production#rail-0` | `production` | `src/verified/addition.rs` | `verus/proofs/addition_bound.rs` | `proofs/octet.verus_proof_rails.addition-bound-production-rail-0.receipt` |
 | `octet.verus_proof_rails.ordering-reflexive-production#rail-0` | `production` | `src/verified/ordering.rs` | `verus/proofs/ordering_reflexive.rs` | `proofs/octet.verus_proof_rails.ordering-reflexive-production-rail-0.receipt` |
+| `octet.verus_proof_rails.checked-increment-production#rail-0` | `production` | `src/verified/checked_increment.rs` | `verus/proofs/checked_increment_bound.rs` | `proofs/octet.verus_proof_rails.checked-increment-production-rail-0.receipt` |
 
 A generated card reports `evidence_tier = formal_proof` only if it matches a validated receipt and provenance record.
 
