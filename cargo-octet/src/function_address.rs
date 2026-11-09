@@ -258,6 +258,7 @@ pub struct FunctionAddressReport {
     pub producer: FunctionAddressProducer,
     pub tool: &'static str,
     pub source_envelopes: Vec<SourceEnvelopeRecord>,
+    pub skipped_directory_links: Vec<SkippedDirectoryLinkRecord>,
     pub records: Vec<FunctionAddressRecord>,
     pub diagnostic_count: usize,
     pub kamacite_projection: KamaciteProjection,
@@ -266,10 +267,19 @@ pub struct FunctionAddressReport {
     pub non_claims: Vec<&'static str>,
 }
 
+/// A symlinked directory the implicit whole-workspace scope skipped because it resolves outside the
+/// workspace root: `path` is the workspace-relative link and `target` the link text as written.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
+pub struct SkippedDirectoryLinkRecord {
+    pub path: String,
+    pub target: String,
+}
+
 #[derive(Debug, Clone)]
 pub struct FunctionAddressRun {
     pub findings: Vec<output::Finding>,
     pub artifact_json: String,
+    pub skipped_directory_links: Vec<SkippedDirectoryLinkRecord>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -328,7 +338,7 @@ struct HandoffIssue {
 // nested `.rs` symlink, or nested directory symlink inside a declared scope that resolves outside
 // the workspace root, and any record path that is not canonical and workspace-relative. The
 // implicit whole-workspace scope skips escaping directory symlinks, such as a Nix `result` link,
-// without following them.
+// without following them, and records each one in `skipped_directory_links`.
 #[allow(clippy::too_many_lines)]
 pub fn collect_run(
     check: &FunctionAddressCheck,
@@ -342,6 +352,7 @@ pub fn collect_run(
         .map_err(|error| format!("canonicalize workspace root {}: {error}", workspace_root.display()))?;
 
     let mut files = Vec::new();
+    let mut skipped_links = Vec::new();
     let mut scope_prefixes = Vec::new();
     let escaping_directories = if check.paths.is_empty() {
         fingerprint::EscapingDirectoryLinks::Skip
@@ -354,11 +365,28 @@ pub fn collect_run(
         } else {
             workspace_root.join(path)
         };
-        fingerprint::collect_contained_rust_files(&absolute, &canonical_root, escaping_directories, &mut files)?;
+        fingerprint::collect_contained_rust_files(
+            &absolute,
+            &canonical_root,
+            escaping_directories,
+            &mut files,
+            &mut skipped_links,
+        )?;
         scope_prefixes.extend(checked_scope_prefix(workspace_root, &absolute));
     }
     files.sort();
     files.dedup();
+    let mut skipped_directory_links = skipped_links
+        .iter()
+        .map(|skipped| {
+            Ok(SkippedDirectoryLinkRecord {
+                path: function_record_path(workspace_root, &skipped.link)?,
+                target: determinism::normalize_path(&skipped.target),
+            })
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    skipped_directory_links.sort();
+    skipped_directory_links.dedup();
 
     let baseline = load_baseline(check.baseline.as_deref(), workspace_root)?;
     let mut records = Vec::new();
@@ -474,6 +502,7 @@ pub fn collect_run(
         },
         tool: env!("CARGO_PKG_VERSION"),
         source_envelopes,
+        skipped_directory_links,
         records,
         diagnostic_count: findings.len(),
         kamacite_projection: KamaciteProjection {
@@ -504,6 +533,7 @@ pub fn collect_run(
     Ok(Some(FunctionAddressRun {
         findings,
         artifact_json,
+        skipped_directory_links: report.skipped_directory_links,
     }))
 }
 
@@ -1262,6 +1292,7 @@ mod tests {
                 language: FUNCTION_ADDRESS_SOURCE_LANGUAGE,
                 source_identity: source_identity.clone(),
             }],
+            skipped_directory_links: Vec::new(),
             records: vec![FunctionAddressRecord {
                 path: VALID_PATH.to_owned(),
                 name: VALID_FUNCTION.to_owned(),
@@ -1509,17 +1540,21 @@ mod tests {
     }
 
     #[test]
-    fn implicit_workspace_scope_skips_outside_root_directory_links() {
+    fn implicit_workspace_scope_skips_and_records_outside_root_directory_links() {
         let temp = TempDir::new().expect("temp dir");
         let workspace = temp.path().join("workspace");
         let store = temp.path().join("store");
+        let monorepo = temp.path().join("monorepo");
         std::fs::create_dir_all(workspace.join("src")).expect("create workspace source");
+        std::fs::create_dir_all(workspace.join("crates")).expect("create workspace crates");
         std::fs::create_dir_all(workspace.join(".direnv/flake-inputs")).expect("create direnv inputs");
         std::fs::create_dir_all(store.join("docs/share")).expect("create store output without Rust");
         std::fs::create_dir_all(store.join("source/src")).expect("create store output with Rust");
+        std::fs::create_dir_all(monorepo.join("shared/src")).expect("create linked-in crate");
         std::fs::write(workspace.join("src/lib.rs"), "fn inside() -> u32 { 1 }\n").expect("write inside source");
         std::fs::write(store.join("docs/share/readme.txt"), "not rust\n").expect("write store note");
         std::fs::write(store.join("source/src/lib.rs"), "fn outside() -> u32 { 1 }\n").expect("write store source");
+        std::fs::write(monorepo.join("shared/src/lib.rs"), "fn shared() -> u32 { 1 }\n").expect("write crate source");
         let implicit = FunctionAddressCheck {
             mode: FunctionAddressMode::Observe,
             paths: Vec::new(),
@@ -1530,8 +1565,9 @@ mod tests {
             ("result", store.join("docs")),
             ("result", store.join("source")),
             (".direnv/flake-inputs/abc-source", store.join("source")),
+            ("crates/shared", PathBuf::from("../../monorepo/shared")),
         ] {
-            std::os::unix::fs::symlink(&target, workspace.join(link)).expect("tooling link");
+            std::os::unix::fs::symlink(&target, workspace.join(link)).expect("escaping directory link");
             let run = collect_run(&implicit, &workspace, "config")
                 .unwrap_or_else(|error| panic!("{link} -> {}: {error}", target.display()))
                 .expect("enabled run");
@@ -1544,8 +1580,32 @@ mod tests {
                 .collect::<Vec<_>>();
             assert_eq!(paths, ["src/lib.rs"], "{link} -> {}", target.display());
             assert_eq!(artifact["records"][0]["path"], "src/lib.rs", "{link}");
-            std::fs::remove_file(workspace.join(link)).expect("remove tooling link");
+            assert_eq!(
+                artifact["skipped_directory_links"],
+                serde_json::json!([{"path": link, "target": target.display().to_string()}]),
+                "{link} -> {}",
+                target.display()
+            );
+            assert_eq!(run.skipped_directory_links.len(), 1, "{link}");
+            std::fs::remove_file(workspace.join(link)).expect("remove escaping link");
         }
+
+        std::fs::create_dir_all(workspace.join("vendored")).expect("create in-root link target");
+        std::fs::write(workspace.join("vendored/mod.rs"), "fn vendored() -> u32 { 1 }\n").expect("write vendored");
+        std::os::unix::fs::symlink(workspace.join("vendored"), workspace.join("crates/inner")).expect("in-root link");
+        let run = collect_test_run(&implicit, &workspace, "config");
+        let artifact = artifact_value(&run);
+        assert_eq!(artifact["skipped_directory_links"], serde_json::json!([]), "in-root links are followed");
+        assert!(run.skipped_directory_links.is_empty());
+        let declared = collect_test_run(
+            &FunctionAddressCheck {
+                paths: vec![PathBuf::from("src")],
+                ..implicit
+            },
+            &workspace,
+            "config",
+        );
+        assert_eq!(artifact_value(&declared)["skipped_directory_links"], serde_json::json!([]));
     }
 
     #[test]

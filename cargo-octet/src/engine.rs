@@ -258,6 +258,14 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
                 &run_metadata.config_hash,
             )? {
                 Some(run) => {
+                    for skipped in &run.skipped_directory_links {
+                        let _ = writeln!(
+                            stderr_lock,
+                            "note: function-address evidence skipped directory link `{}` -> `{}`: it resolves \
+                             outside the workspace root; declare function-address paths to refuse it instead",
+                            skipped.path, skipped.target
+                        );
+                    }
                     findings.extend(run.findings);
                     Some(StructuredArtifact {
                         file_name: crate::function_address::FUNCTION_ADDRESS_ARTIFACT_NAME,

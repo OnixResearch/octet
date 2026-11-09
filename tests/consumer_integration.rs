@@ -3877,6 +3877,11 @@ fn artifact_directory_captures_human_run() {
 #[test]
 fn strict_profile_bundle_binds_profile_identity_and_passes_artifact_verification() {
     let fixture = ConsumerFixture::new("strict-profile-artifact", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    // The robust profile scans the implicit whole-workspace scope, which skips a directory link
+    // that resolves outside the root and must record the skip.
+    let linked_crate = fixture.repo.parent().expect("fixture parent").join("linked-crate");
+    write_file(&linked_crate.join("src/lib.rs"), "pub fn linked() -> u32 { 1 }\n");
+    std::os::unix::fs::symlink("../linked-crate", fixture.repo.join("linked")).expect("link crate into fixture");
     let dir = artifact_dir(&fixture, "strict-profile-run");
     let output = run_with_check_args(
         &fixture,
@@ -3907,6 +3912,15 @@ fn strict_profile_bundle_binds_profile_identity_and_passes_artifact_verification
     assert!(summary.contains("Profile: robust"));
     let function_addresses = read_json_artifact(&dir.join("function-addresses.json"));
     assert_eq!(function_addresses["mode"], "observe");
+    assert_eq!(
+        function_addresses["skipped_directory_links"],
+        serde_json::json!([{"path": "linked", "target": "../linked-crate"}])
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("`linked` -> `../linked-crate`"),
+        "skipped directory link should be announced: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     let provenance = read_artifact(&dir.join(PROVENANCE_JSONL_FILE));
     for line in provenance.lines() {
         let record: serde_json::Value = serde_json::from_str(line).expect("profile provenance record");

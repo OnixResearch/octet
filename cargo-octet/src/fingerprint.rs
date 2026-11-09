@@ -441,7 +441,7 @@ fn lexically_normalized(path: &Path) -> PathBuf {
 /// empty scope; entries found while recursing are filtered silently.
 pub(crate) fn collect_rust_files(path: &Path, files: &mut Vec<PathBuf>) -> Result<(), String> {
     ensure_rust_scope(path)?;
-    collect_rust_entries(path, None, files)
+    collect_rust_entries(path, None, files, &mut Vec::new())
 }
 
 /// How [`collect_contained_rust_files`] treats a symlinked directory, found while recursing,
@@ -452,25 +452,36 @@ pub(crate) enum EscapingDirectoryLinks {
     Refuse,
     /// Skip the link without following it: the scope is the implicit workspace root, where
     /// tooling links such as a Nix `result` or a nix-direnv `.direnv` input point outside it.
-    /// An escaping `.rs` file link is Rust source in the tree and is still refused.
+    /// Each skipped link is reported so the caller can record what the scope left out. An
+    /// escaping `.rs` file link is Rust source in the tree and is still refused.
     Skip,
+}
+
+/// A symlinked directory the walk skipped under [`EscapingDirectoryLinks::Skip`]: the link as
+/// found while recursing, and its target as written in the link.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SkippedDirectoryLink {
+    pub(crate) link: PathBuf,
+    pub(crate) target: PathBuf,
 }
 
 /// [`collect_rust_files`] confined to `canonical_root`: the named path, and
 /// every symlinked `.rs` entry found while recursing, must resolve inside it,
 /// and a symlinked directory found while recursing that resolves outside it is
-/// handled by `escaping_directories`. A refused entry is an error rather than a
-/// skip, so a scope never silently hashes or drops source from outside the
-/// workspace. Dangling symlinks select nothing, as in the unconfined walk.
+/// handled by `escaping_directories`, with each skipped link pushed to `skipped`.
+/// A refused entry is an error rather than a skip, so a scope never silently
+/// hashes or drops source from outside the workspace. Dangling symlinks select
+/// nothing, as in the unconfined walk.
 pub(crate) fn collect_contained_rust_files(
     path: &Path,
     canonical_root: &Path,
     escaping_directories: EscapingDirectoryLinks,
     files: &mut Vec<PathBuf>,
+    skipped: &mut Vec<SkippedDirectoryLink>,
 ) -> Result<(), String> {
     ensure_rust_scope(path)?;
     ensure_contained(path, canonical_root)?;
-    collect_rust_entries(path, Some((canonical_root, escaping_directories)), files)
+    collect_rust_entries(path, Some((canonical_root, escaping_directories)), files, skipped)
 }
 
 fn ensure_rust_scope(path: &Path) -> Result<(), String> {
@@ -507,6 +518,7 @@ fn collect_rust_entries(
     path: &Path,
     containment: Option<(&Path, EscapingDirectoryLinks)>,
     files: &mut Vec<PathBuf>,
+    skipped: &mut Vec<SkippedDirectoryLink>,
 ) -> Result<(), String> {
     if path.is_file() {
         if is_rust_file(path) {
@@ -527,6 +539,9 @@ fn collect_rust_entries(
                 if child.is_dir() {
                     if escaping_directories == EscapingDirectoryLinks::Skip && resolves_outside(&child, canonical_root)
                     {
+                        let target =
+                            fs::read_link(&child).map_err(|error| format!("read link {}: {error}", child.display()))?;
+                        skipped.push(SkippedDirectoryLink { link: child, target });
                         continue;
                     }
                     ensure_contained(&child, canonical_root)?;
@@ -534,7 +549,7 @@ fn collect_rust_entries(
                     ensure_contained(&child, canonical_root)?;
                 }
             }
-            collect_rust_entries(&child, containment, files)?;
+            collect_rust_entries(&child, containment, files, skipped)?;
         }
     }
     Ok(())
