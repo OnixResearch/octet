@@ -84,6 +84,13 @@ const Z4_STATUS_SAT: &str = "sat";
 const Z4_STATUS_UNSAT: &str = "unsat";
 const Z4_STATUS_UNKNOWN: &str = "unknown";
 const Z4_STATUS_TIMEOUT: &str = "timeout";
+/// Recorded non-proof roles a Z4 receipt may declare: raw solver output, a SAT model diagnostic,
+/// and an unknown or timeout diagnostic.
+const Z4_RECORDED_ROLES: &[&str] = &[
+    "recorded_solver_output",
+    "diagnostic_model_output",
+    "non_proof_diagnostic",
+];
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum EvidenceRailKind {
@@ -1505,6 +1512,12 @@ fn z4_diagnostics(rail: EvidenceRailKind, receipt: &EvidenceRailReceipt) -> Vec<
             }
             if !receipt.non_claims.iter().any(|claim| claim == Z4_SOLVER_NON_CLAIM) {
                 diagnostics.push("z4-solver receipt missing solver non-claim".to_owned());
+            }
+            if !is_z4_recorded_role(&details.verification_role) {
+                diagnostics.push(format!(
+                    "z4-solver receipt verification role `{}` is not a recorded non-proof role",
+                    details.verification_role
+                ));
             }
         }
         (EvidenceRailKind::Z4Solver, None) => {
@@ -3309,12 +3322,15 @@ fn validate_z4_boundary(value: &serde_json::Value, diagnostics: &mut Vec<String>
     if !non_claims.iter().any(|claim| claim == Z4_SOLVER_NON_CLAIM) {
         diagnostics.push("Z4 receipt missing solver non-claim".to_owned());
     }
-    if string_field(value, "evidence_tier") == Some(FORMAL_PROOF_TIER) {
+    if is_formal_proof_tier(string_field(value, "evidence_tier").unwrap_or_default()) {
         diagnostics.push("Z4 solver receipts cannot be promoted to formal_proof".to_owned());
     }
     let role = string_field(value, "verification_role").unwrap_or_default();
-    if contains_z4_overclaim(role) {
-        diagnostics.push("Z4 receipt contains unsupported proof or correctness overclaim".to_owned());
+    if !role.trim().is_empty() && !is_z4_recorded_role(role) {
+        diagnostics.push(format!(
+            "Z4 verification role `{role}` is an unsupported proof, correctness, or replacement overclaim; expected one of {}",
+            Z4_RECORDED_ROLES.join(", ")
+        ));
     }
     if let Some(claims) = value.get("claims") {
         for field in [
@@ -3342,16 +3358,21 @@ fn z4_diagnostic_severity(severity: &str) -> &str {
     }
 }
 
-fn contains_z4_overclaim(role: &str) -> bool {
-    contains_role_marker(role, &[
-        "formal proof",
-        "proves correctness",
-        "proves proof validity",
-        "proves solver soundness",
-        "proves requirement satisfaction",
-        "release eligibility",
-        "whole program correctness",
-    ])
+/// Z4 evidence records solver output only, so its role must be one of the recorded non-proof
+/// roles. An allowlist fails closed on any new claim spelling a denylist would miss.
+fn is_z4_recorded_role(role: &str) -> bool {
+    Z4_RECORDED_ROLES.contains(&role)
+}
+
+/// Matches `formal_proof` regardless of case or `_`, `-`, and whitespace separators.
+fn is_formal_proof_tier(tier: &str) -> bool {
+    let normalized = tier
+        .to_lowercase()
+        .split(|character: char| character == '_' || character == '-' || character.is_whitespace())
+        .filter(|word| !word.is_empty())
+        .collect::<Vec<_>>()
+        .join("_");
+    normalized == FORMAL_PROOF_TIER
 }
 
 fn z4_finding(family: &str, severity: &str, message: &str) -> EvidenceRailFinding {
@@ -3556,7 +3577,7 @@ fn validate_hegel_boundary(value: &serde_json::Value, diagnostics: &mut Vec<Stri
             break;
         }
     }
-    if string_field(value, "evidence_tier") == Some(FORMAL_PROOF_TIER) {
+    if is_formal_proof_tier(string_field(value, "evidence_tier").unwrap_or_default()) {
         diagnostics.push("Hegel property receipts cannot be promoted to formal_proof".to_owned());
     }
 }
@@ -7215,6 +7236,35 @@ mod tests {
         let mut drifted = unsat.clone();
         drifted.rail_id = EvidenceRailKind::DependencyAudit.as_str().to_owned();
         assert!(validate_receipt(&drifted).iter().any(|diagnostic| diagnostic.contains("only valid")));
+    }
+
+    #[test]
+    fn z4_solver_allowlists_recorded_roles_and_rejects_formal_tier_spellings() {
+        let fixture: serde_json::Value =
+            serde_json::from_str(include_str!("../tests/fixtures/evidence-rails/z4-solver-unsat-proof.json"))
+                .expect("parse Z4 fixture");
+        for role in [
+            "source_correctness",
+            "whole_program_safety",
+            "solver_soundness",
+            "verus_replacement",
+            "z3_compatibility",
+            "Kani-Replacement",
+        ] {
+            let mut value = fixture.clone();
+            value["verification_role"] = serde_json::Value::from(role);
+            let receipt = z4_receipt(&value.to_string());
+            assert_eq!(receipt.status, STATUS_FAILED, "{role}");
+            assert!(!receipt.diagnostics.is_empty(), "{role}");
+        }
+        for tier in ["Formal_Proof", "formal-proof", "FORMAL PROOF"] {
+            let mut value = fixture.clone();
+            value["evidence_tier"] = serde_json::Value::from(tier);
+            let receipt = z4_receipt(&value.to_string());
+            assert_eq!(receipt.status, STATUS_FAILED, "{tier}");
+            assert!(!receipt.diagnostics.is_empty(), "{tier}");
+        }
+        assert_eq!(z4_receipt(&fixture.to_string()).status, STATUS_PASSED);
     }
 
     #[test]
