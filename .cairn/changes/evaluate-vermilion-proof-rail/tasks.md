@@ -14,7 +14,7 @@
 - [x] [serial] Declare Verus, Vermilion, and Aeneas route obligations and open refinement bridges. r[octet.vermilion_proof_rail.semantic_contract]
 - [x] [serial] Add a comparison test proving the existing Verus `nat` lemma is incomparable with the u64 contract. r[octet.vermilion_proof_rail.semantic_contract]
 - [ ] [serial] Check a Verus refinement theorem for the u64 checked subject. A production Verus rail now verifies the u64 checked contract model (`verus/proofs/checked_increment_bound.rs`, 1 verified, 0 errors); the refinement theorem from the plain Rust function remains open. r[octet.vermilion_proof_rail.semantic_contract]
-- [ ] [serial] Check Aeneas and Vermilion refinement bridges to the executable function. The Vermilion u64 obligations are live and Lean-checked, and the pinned Aeneas/Charon closure now builds and passes four live compatibility tests; the plain-Rust executable refinement bridge and the Aeneas u32-to-u64 bridge remain open. See `standards/proof-rails/vermilion-lean/evidence/2026-11-09-aeneas-charon-closure.md`. r[octet.vermilion_proof_rail.semantic_contract]
+- [ ] [serial] Check Aeneas and Vermilion refinement bridges to the executable function. The Aeneas route is now checked: Charon extracted the plain-Rust `increment_checked`, Aeneas generated the Lean model, and `Theorem.lean` proves both the `value < u64::MAX` and `u64::MAX` cases with the pinned Lean library. The Vermilion plain-Rust executable bridge and the Verus `nat`-to-`u64` theorem remain open. See `standards/proof-rails/vermilion-lean/evidence/2026-11-09-aeneas-u64-extraction/`. r[octet.vermilion_proof_rail.semantic_contract]
 
 ## Receipt and obligations
 

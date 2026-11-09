@@ -1,20 +1,19 @@
-# Aeneas extraction of the u64 checked-increment pilot
+# Aeneas extraction and theorem for the u64 checked-increment pilot
 
 Date: 2026-11-09
 
-This is the Aeneas/Charon extraction step for the plain-Rust pilot
+This is the Aeneas/Charon route for the plain-Rust pilot
 `increment_checked(value: u64) -> Option<u64>`. It uses the pinned provider
-closure (`Aeneas bc2eb6f9`, `Charon cb50ff16`).
+closure (`Aeneas bc2eb6f9`, `Charon cb50ff16`, Lean 4.31.0, Mathlib cache).
 
 ## Commands
 
 ```console
 charon cargo --preset aeneas --dest-file llbc.llbc
 aeneas -backend lean -emit-json -dest . -no-progress-bar llbc.llbc
+LEAN_PATH=. lake env lean -o Llbc.olean Llbc.lean
+LEAN_PATH=. lake env lean Theorem.lean
 ```
-
-Observed result: Charon extracted the crate and Aeneas generated `Llbc.lean`
-and `translation.json`.
 
 ## Generated model
 
@@ -26,11 +25,22 @@ def increment_checked (value : Std.U64) : Result (Option Std.U64) := do
   else ok none
 ```
 
-## Open obligation
+## Checked theorem
 
-The generated model is extracted, but the universal Lean theorem that relates
-this model to the checked contract (`value < u64::MAX` implies
-`Some(value + 1)`, and `None` at the maximum) has not been checked yet. The
-Aeneas Lean library build and theorem remain the next step. No refinement,
-provider-soundness, whole-program, or release claim follows from extraction
-alone.
+`Theorem.lean` proves both contract cases over the generated model:
+
+- `increment_checked_contract`: for `value < core.num.U64.MAX`, the model
+  returns the checked `some (value + 1)` result.
+- `increment_checked_at_max`: at `core.num.U64.MAX`, the model returns
+  `ok none`.
+
+Both check with the pinned Aeneas Lean library (exit 0, no diagnostics).
+
+## Trust boundary and non-claims
+
+The theorem is over the Aeneas-generated model, so it trusts the reviewed
+Charon/Aeneas extraction and translation. It does not prove Charon/Aeneas
+soundness, Lean kernel soundness, the Vermilion Verus-syntax source's
+correspondence to this executable, whole-program correctness, semantic
+equivalence, or release eligibility. The Vermilion executable bridge remains a
+separate open obligation.
