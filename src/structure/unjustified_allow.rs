@@ -18,8 +18,9 @@ declare_tool_lint! {
     /// `clippy::*`, `tigerstyle::*` (including Octet groups such as
     /// `tigerstyle::safety`), and Octet's bare compatibility aliases such as
     /// `no_unwrap`. rustc's own lints stay out of scope, and `no_todo` allows
-    /// belong to `unjustified_no_todo_allow`. Only attributes written in source
-    /// (directly or through `cfg_attr`) are governed, not macro output.
+    /// belong to `unjustified_no_todo_allow`. Only attributes written in the
+    /// crate's source (directly, through `cfg_attr`, or in a local
+    /// `macro_rules!`) are governed, not output of other crates' macros.
     ///
     /// A non-doc `//` comment on the attribute's lines or on the line directly
     /// above it, or a non-empty `reason = "..."` argument inside the attribute,
@@ -148,15 +149,13 @@ fn snippet_spells_attribute(snippet: &str, name: &str) -> bool {
     body.strip_prefix(name).is_some_and(|rest| rest.trim_start().starts_with('('))
 }
 
-/// Whether the user wrote this attribute in source, rather than a macro
-/// generating it.
+/// Whether the user wrote this attribute in source, rather than a macro from
+/// another crate generating it. An attribute in a local `macro_rules!` body is
+/// the user's own suppression and stays governed.
 fn is_user_written(cx: &EarlyContext<'_>, attr: &Attribute, name: &str) -> bool {
-    !attr.span.from_expansion()
-        && cx
-            .sess()
-            .source_map()
-            .span_to_snippet(attr.span)
-            .is_ok_and(|snippet| snippet_spells_attribute(&snippet, name))
+    let source_map = cx.sess().source_map();
+    !attr.span.in_external_macro(source_map)
+        && source_map.span_to_snippet(attr.span).is_ok_and(|snippet| snippet_spells_attribute(&snippet, name))
 }
 
 fn justification_stub(cx: &EarlyContext<'_>, attr: &Attribute) -> String {

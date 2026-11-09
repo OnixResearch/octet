@@ -164,3 +164,32 @@ fn cfg_attr_allow() -> u32 {
 fn justified_cfg_attr_allow() -> u32 {
     return 14;
 }
+
+// Should warn: a local `macro_rules!` expands this allow, but the user wrote it.
+macro_rules! quiet {
+    ($item:item) => {
+        #[allow(tigerstyle::no_unwrap)]
+        $item
+    };
+}
+
+quiet! {
+    fn macro_allow(value: Option<u8>) -> u8 {
+        value.unwrap()
+    }
+}
+
+// Should NOT warn: a justified allow inside a local `macro_rules!`.
+macro_rules! justified_quiet {
+    ($item:item) => {
+        // Fixture input: callers always pass `Some`.
+        #[allow(tigerstyle::no_unwrap)]
+        $item
+    };
+}
+
+justified_quiet! {
+    fn justified_macro_allow(value: Option<u8>) -> u8 {
+        value.unwrap()
+    }
+}

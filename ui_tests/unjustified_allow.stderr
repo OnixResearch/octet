@@ -250,5 +250,29 @@ LL ~ #[cfg_attr(all(), // TODO(octet): explain why this allow is safe here
 LL ~                   allow(clippy::needless_return))]
    |
 
-warning: 16 warnings emitted
+warning: `#[allow(...)]` without justification comment
+  --> $DIR/unjustified_allow.rs:171:9
+   |
+LL |           #[allow(tigerstyle::no_unwrap)]
+   |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+LL | / quiet! {
+LL | |     fn macro_allow(value: Option<u8>) -> u8 {
+LL | |         value.unwrap()
+LL | |     }
+LL | | }
+   | |_- in this macro invocation
+   |
+   = help: Tiger Style (Documented Suppression): every lint suppression needs a local reason tied to the code shape Example: // Verified casts: Verus checks every narrowing in this module.
+           #[allow(clippy::cast_possible_truncation)]
+   = note: structured suggestion applicability: HasPlaceholders
+   = note: see Tiger Style guide: Documented Suppression
+   = note: this warning originates in the macro `quiet` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: add a local justification comment
+   |
+LL ~         // TODO(octet): explain why this allow is safe here
+LL ~         #[allow(tigerstyle::no_unwrap)]
+   |
+
+warning: 17 warnings emitted
 

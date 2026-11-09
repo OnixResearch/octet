@@ -156,8 +156,9 @@ justification. An empty or whitespace-only reason MUST NOT count.
 The lint MUST NOT fire on `#[allow(dead_code)]` in `#[cfg(test)]` blocks.
 
 The lint MUST govern only attributes the user wrote in source, including an
-allow expanded from `cfg_attr(..., allow(...))`. It MUST NOT fire on
-attributes a macro generates, including proc-macro output such as the
+allow expanded from `cfg_attr(..., allow(...))` and an allow inside a local
+`macro_rules!` body. It MUST NOT fire on attributes that a macro from another
+crate generates, including proc-macro output such as the
 `#[allow(clippy::...)]` block `#[tokio::main]` emits with spans borrowed from
 user tokens.
 
