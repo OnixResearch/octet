@@ -29,7 +29,7 @@ LL |     Some(index as u8)
 help: replace with `u8::try_from(...)`
    |
 LL -     Some(index as u8)
-LL +     Some(u8::try_from(index)?)
+LL +     Some(u8::try_from(index).ok()?)
    |
 
 warning: `usize` in public API — use `u32` or `u64` for cross-platform consistency

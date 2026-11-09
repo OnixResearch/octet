@@ -1,4 +1,3 @@
-use rustc_errors::Applicability;
 use rustc_hir as hir;
 use rustc_hir::ExprKind;
 use rustc_lint::LateContext;
@@ -10,7 +9,6 @@ use rustc_session::declare_lint_pass;
 use rustc_session::declare_tool_lint;
 use rustc_span::Span;
 
-use crate::diagnostics::LintSuggestion;
 use crate::diagnostics::emit_tiger_style_lint;
 use crate::diagnostics::emit_tiger_style_lint_with_suggestion;
 
@@ -57,15 +55,6 @@ fn ty_name(ty: Ty<'_>) -> &'static str {
         ty::Uint(u) => u.name_str(),
         _ => "?",
     }
-}
-
-fn expr_snippet(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> Option<String> {
-    cx.sess().source_map().span_to_snippet(expr.span).ok()
-}
-
-fn narrowing_replacement<'tcx>(cx: &LateContext<'tcx>, inner: &hir::Expr<'tcx>, target_ty: Ty<'tcx>) -> Option<String> {
-    let inner = expr_snippet(cx, inner)?;
-    Some(format!("{}::try_from({inner})?", ty_name(target_ty)))
 }
 
 /// Check whether `expr` spells `<target>::<const_name>`, e.g. `u32::MAX`.
@@ -505,19 +494,16 @@ impl<'tcx> LateLintPass<'tcx> for UncheckedNarrowing {
         let target_name = ty_name(target_ty);
 
         let message = format!("narrowing cast from `{source_name}` to `{target_name}` without bounds check");
-        if let Some(replacement) = narrowing_replacement(cx, inner, target_ty) {
+        if let Some(suggestion) =
+            crate::cast_suggestion::cast_conversion_suggestion(cx, expr, inner, source_ty, target_ty, false)
+        {
             emit_tiger_style_lint_with_suggestion(
                 cx,
                 UNCHECKED_NARROWING,
                 expr.span,
                 message,
                 "unchecked_narrowing",
-                LintSuggestion::Single {
-                    span: expr.span,
-                    message: format!("replace with `{target_name}::try_from(...)`"),
-                    replacement,
-                    applicability: Applicability::MaybeIncorrect,
-                },
+                suggestion,
             );
         } else {
             emit_tiger_style_lint(cx, UNCHECKED_NARROWING, expr.span, message, "unchecked_narrowing");

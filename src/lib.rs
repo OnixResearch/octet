@@ -13,6 +13,7 @@ extern crate rustc_span;
 extern crate rustc_trait_selection;
 
 mod architecture_collector;
+mod cast_suggestion;
 mod concurrency;
 pub mod config;
 mod diagnostics;

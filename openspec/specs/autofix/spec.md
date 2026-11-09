@@ -127,6 +127,14 @@ reported pattern:
   suggest `.ok()?` for `Option` bodies, MUST use `HasPlaceholders` when the
   failure handling has to be written by the maintainer, and MUST report casts
   whose cast or operand comes from a macro expansion without a suggestion
+- `unchecked_narrowing` MUST choose the failure handling of its
+  `<target>::try_from(...)` suggestion by the same rules as
+  `platform_dependent_cast`, from the return type of the innermost enclosing
+  function, closure, or async body: `?` only for a `Result` whose error type
+  converts from the cast's `TryFrom` error, `.ok()?` for `Option`, and a
+  `HasPlaceholders` rewrite when the maintainer has to write the failure
+  handling; it MUST offer no suggestion in const contexts or for casts whose
+  cast or operand comes from a macro expansion
 
 #### Scenario: Top-level conjunction gets machine-applicable split
 

@@ -187,3 +187,38 @@ fn main() {
     Narrower.narrow_default(SAMPLE_U64);
     deny_is_not_allow(SAMPLE_U64);
 }
+
+fn suggestion_for_plain_return(values: &[u8]) -> u32 {
+    // Should warn: `?` is unavailable, so the rewrite needs a placeholder
+    values.len() as u32
+}
+
+fn suggestion_for_option_return(x: u64) -> Option<u32> {
+    // Should warn: an `Option` body propagates the failure with `.ok()?`
+    Some(x as u32)
+}
+
+fn suggestion_for_compatible_result(x: u64) -> Result<u32, std::num::TryFromIntError> {
+    // Should warn: the error type converts from `TryFromIntError`, so `?` compiles
+    Ok(x as u32)
+}
+
+fn suggestion_for_incompatible_result(x: u64) -> Result<u32, String> {
+    // Should warn: the error type needs a `map_err` placeholder
+    Ok(x as u32)
+}
+
+fn suggestion_for_closure(values: &[u64]) -> Vec<Option<u32>> {
+    // Should warn: `?` returns from the closure, which returns `Option`
+    values.iter().map(|x| Some(*x as u32)).collect()
+}
+
+async fn suggestion_for_async_fn(x: u64) -> Option<u32> {
+    // Should warn: `?` returns from the async body, which returns `Option`
+    Some(x as u32)
+}
+
+const fn suggestion_for_const_fn(x: u64) -> u32 {
+    // Should warn without a suggestion: `try_from` is not callable in const contexts
+    x as u32
+}
