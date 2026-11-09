@@ -7,6 +7,10 @@ use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 
+use octet_standards::aeneas_observation::MeasuredLeanFile;
+use octet_standards::aeneas_observation::observe_aeneas_trust_closure;
+use octet_standards::aeneas_observation::observe_charon_extraction_policy;
+use octet_standards::aeneas_observation::validate_observed_aeneas_translation;
 use octet_standards::artifacts::POLICIES_JSON_FILE;
 use octet_standards::formal_proof::AENEAS_LEAN_PROVIDER_ID;
 use octet_standards::formal_proof::AENEAS_NAMED_THEOREM_CLAIM_CLASS;
@@ -15,7 +19,6 @@ use octet_standards::formal_proof::AENEAS_NON_CLAIM_VERIFIER_SOUNDNESS;
 use octet_standards::formal_proof::AENEAS_NON_CLAIM_WHOLE_PROGRAM;
 use octet_standards::formal_proof::AENEAS_STAGE_CHAIN_SCHEMA_VERSION;
 use octet_standards::formal_proof::AeneasAssumptionPolicy;
-use octet_standards::formal_proof::AeneasExecutionLimits;
 use octet_standards::formal_proof::AeneasLeanCheckResult;
 use octet_standards::formal_proof::AeneasLeanCheckStatus;
 use octet_standards::formal_proof::AeneasLeanProofPayload;
@@ -28,7 +31,6 @@ use octet_standards::formal_proof::AeneasStageChain;
 use octet_standards::formal_proof::AeneasStageKind;
 use octet_standards::formal_proof::AeneasTheoremAdmission;
 use octet_standards::formal_proof::AeneasTheoremSourceDisposition;
-use octet_standards::formal_proof::AeneasTrustClosure;
 use octet_standards::formal_proof::FormalProofArtifactIdentity;
 use octet_standards::formal_proof::FormalProofClaim;
 use octet_standards::formal_proof::FormalProofEnvelope;
@@ -744,10 +746,23 @@ fn build_aeneas_receipt(
 ) -> Result<(String, Vec<GeneratedProofArtifact>), String> {
     let profile = serde_json::from_slice::<AeneasReceiptProfile>(&summary.provider_profile)
         .map_err(|error| format!("parse embedded Aeneas receipt profile: {error}"))?;
-    let extraction_policy = summary
-        .extraction_policy
+    let effective_policy = summary
+        .effective_policy
         .clone()
-        .ok_or_else(|| "Aeneas execution did not return an extraction policy".to_owned())?;
+        .ok_or_else(|| "Aeneas execution did not return its enforced execution policy".to_owned())?;
+    let llbc_text = observed_aeneas_text(summary, AENEAS_LLBC_ARTIFACT)?;
+    let translation_text = observed_aeneas_text(summary, AENEAS_TRANSLATION_ARTIFACT)?;
+    let generated_lean_text = observed_aeneas_text(summary, AENEAS_GENERATED_LEAN_ARTIFACT)?;
+    let extraction_policy = observe_charon_extraction_policy(&llbc_text)
+        .map_err(|diagnostics| format!("observe Charon extraction policy: {}", diagnostics.join("; ")))?;
+    let translation_diagnostics =
+        validate_observed_aeneas_translation(&llbc_text, &translation_text, &[MeasuredLeanFile {
+            locator: AENEAS_GENERATED_LEAN_ARTIFACT,
+            contents: generated_lean_text.as_bytes(),
+        }]);
+    if !translation_diagnostics.is_empty() {
+        return Err(format!("Aeneas translation manifest validation failed: {}", translation_diagnostics.join("; ")));
+    }
     let source_path = selected
         .rail
         .source_paths
@@ -843,14 +858,8 @@ fn build_aeneas_receipt(
         &locator("theorem-adequacy.json"),
         json_bytes(&theorem_adequacy)?,
     );
-    let trust_closure = AeneasTrustClosure {
-        complete: true,
-        declared_external_models: profile.assumption_policy.external_models.clone(),
-        declared_axioms: profile.assumption_policy.axioms.clone(),
-        declared_opaque_definitions: Vec::new(),
-        declared_admitted_declarations: Vec::new(),
-        undeclared_inputs: Vec::new(),
-    };
+    let trust_closure =
+        observe_aeneas_trust_closure(&theorem_source.text, &generated_lean_text, &profile.assumption_policy);
     let trust_closure_identity = collector.add_with_role(
         AeneasStageArtifactRole::TrustClosure,
         &locator("trust-closure.json"),
@@ -961,12 +970,8 @@ fn build_aeneas_receipt(
             disposition: AeneasPreflightDisposition::Ready,
         },
         command_argv: summary.stage_argvs.iter().flatten().cloned().collect(),
-        limits: AeneasExecutionLimits {
-            timeout_ms: configured_timeout_ms(selected.rail),
-            stdout_max_bytes: configured_log_limit(selected.rail.stdout_max_bytes),
-            stderr_max_bytes: configured_log_limit(selected.rail.stderr_max_bytes),
-        },
-        environment_allowlist: selected.rail.environment_allowlist.clone(),
+        limits: effective_policy.limits,
+        environment_allowlist: effective_policy.environment_allowlist,
         extraction_policy,
         assumption_policy: profile.assumption_policy,
         theorem_admission: Some(admission),
@@ -1122,6 +1127,11 @@ fn observed_aeneas_artifact(summary: &AeneasCommandSummary, locator: &str) -> Re
         .find(|artifact| artifact.locator == locator)
         .map(|artifact| artifact.contents.clone())
         .ok_or_else(|| format!("Aeneas execution did not produce `{locator}`"))
+}
+
+fn observed_aeneas_text(summary: &AeneasCommandSummary, locator: &str) -> Result<String, String> {
+    String::from_utf8(observed_aeneas_artifact(summary, locator)?)
+        .map_err(|error| format!("Aeneas artifact `{locator}` is not UTF-8: {error}"))
 }
 
 fn json_bytes<T: Serialize>(value: &T) -> Result<Vec<u8>, String> {
@@ -3733,9 +3743,7 @@ mod tests {
             })
             .collect(),
             provider_profile: read("provider-profile.json"),
-            extraction_policy: Some(
-                serde_json::from_slice(&read("charon-options.json")).expect("frozen Charon extraction policy"),
-            ),
+            effective_policy: Some(frozen_aeneas_effective_policy()),
         };
         let source = SourceFile::new(
             "src/lib.rs",
@@ -3799,6 +3807,111 @@ mod tests {
                 "rail {rail_index} artifacts escape `{rail_directory}`: {rail_locators:?}"
             );
         }
+    }
+
+    fn frozen_aeneas_effective_policy() -> crate::aeneas_execution::AeneasEffectivePolicy {
+        crate::aeneas_execution::AeneasEffectivePolicy {
+            limits: octet_standards::formal_proof::AeneasExecutionLimits {
+                timeout_ms: AENEAS_FIXTURE_TIMEOUT_MS,
+                stdout_max_bytes: AENEAS_FIXTURE_LOG_LIMIT_BYTES,
+                stderr_max_bytes: AENEAS_FIXTURE_LOG_LIMIT_BYTES,
+            },
+            environment_allowlist: [
+                "PATH",
+                "CHARON_TOOLCHAIN_IS_IN_PATH",
+                "LD_LIBRARY_PATH",
+                "HOME",
+                "MATHLIB_NO_CACHE_ON_UPDATE",
+            ]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
+        }
+    }
+
+    #[cfg(unix)]
+    fn fake_aeneas_receipt(
+        root: &Path,
+        rail: ProofRail,
+        theorem: &str,
+        charon_body: &str,
+    ) -> Result<octet_standards::formal_proof::AeneasLeanProofPayload, String> {
+        use crate::aeneas_execution::fake_provider;
+
+        let source_root = fake_provider::source_root(root, &rail.proof_paths[0], theorem);
+        let provider = fake_provider::provider(
+            &root.join("provider"),
+            charon_body,
+            &fake_provider::replay_translation(),
+            "exit 0",
+        );
+        let summary = crate::aeneas_execution::execute_aeneas_with_provider(&rail, &source_root, &provider);
+        if !summary.command_succeeded {
+            return Err(format!("fake Aeneas rail failed: {:?}", summary.diagnostics));
+        }
+        let source =
+            SourceFile::new("src/lib.rs", fs::read_to_string(source_root.join("src/lib.rs")).expect("fixture source"));
+        let theorem_source = SourceFile::new(rail.proof_paths[0].clone(), theorem.to_owned());
+        let mut policy = fixture_policy_stub();
+        policy.proof_rails = vec![rail];
+        let selected = SelectedRail {
+            policy: &policy,
+            rail_index: 0,
+            rail: &policy.proof_rails[0],
+        };
+        let (receipt, _) = build_aeneas_receipt(
+            &selected,
+            std::slice::from_ref(&source),
+            std::slice::from_ref(&theorem_source),
+            &checked_scope(&policy, 0, selected.rail),
+            &summary,
+        )?;
+        let envelope = serde_json::from_str::<FormalProofEnvelope>(&receipt).expect("Aeneas receipt envelope");
+        let FormalProofProvider::AeneasLean(payload) = envelope.provider else {
+            panic!("Aeneas receipt must carry the Aeneas provider payload");
+        };
+        Ok(payload)
+    }
+
+    // r[verify octet.aeneas_lean_proof_rail.charon_contract]
+    #[cfg(unix)]
+    #[test]
+    fn aeneas_receipt_records_charon_options_observed_from_the_produced_llbc() {
+        use crate::aeneas_execution::fake_provider;
+
+        let temp = tempfile::tempdir().expect("tempdir");
+        let theorem = fake_provider::real_theorem();
+        let rail = fake_provider::rail("Theorem.lean", &theorem);
+        let payload = fake_aeneas_receipt(temp.path(), rail, &theorem, &fake_provider::replay_llbc())
+            .expect("fake Aeneas receipt");
+        let llbc =
+            fs::read_to_string(Path::new(fake_provider::FROZEN_ARTIFACTS).join("llbc.llbc")).expect("frozen LLBC");
+
+        assert_eq!(
+            payload.extraction_policy,
+            octet_standards::aeneas_observation::observe_charon_extraction_policy(&llbc).expect("observed policy")
+        );
+        assert!(payload.extraction_policy.include_rules.is_empty(), "receipt claims include rules Charon never ran");
+    }
+
+    // r[verify octet.aeneas_lean_proof_rail.safe_execution]
+    #[cfg(unix)]
+    #[test]
+    fn aeneas_receipt_records_the_effectively_enforced_limits() {
+        use crate::aeneas_execution::fake_provider;
+
+        let temp = tempfile::tempdir().expect("tempdir");
+        let theorem = fake_provider::real_theorem();
+        let mut rail = fake_provider::rail("Theorem.lean", &theorem);
+        rail.timeout_ms = 0;
+        rail.stdout_max_bytes = AENEAS_FIXTURE_LOG_LIMIT_BYTES;
+        let chatty_charon =
+            format!("head -c {} /dev/zero\n{}", DEFAULT_LOG_MAX_BYTES * 2, fake_provider::replay_llbc());
+        let payload = fake_aeneas_receipt(temp.path(), rail, &theorem, &chatty_charon)
+            .expect("output within the rail's declared stdout limit must pass");
+
+        assert_eq!(payload.limits.stdout_max_bytes, AENEAS_FIXTURE_LOG_LIMIT_BYTES);
+        assert_eq!(payload.limits.timeout_ms, DEFAULT_PROOF_TIMEOUT_MS);
     }
 
     fn fixture_args(registry: PathBuf, source: Vec<PathBuf>, artifact_dir: PathBuf) -> ProveArgs {

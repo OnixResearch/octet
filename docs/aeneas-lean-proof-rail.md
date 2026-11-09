@@ -24,16 +24,64 @@ the shell-owned configuration:
 - `OCTET_AENEAS_LEAN_LIBRARY`; and
 - `OCTET_AENEAS_NETWORK_SANDBOX`.
 
-The child environment is cleared and rebuilt only from the profile allowlist.
+The child environment is cleared and rebuilt only from the profile allowlist; a
+rail that declares a different `environment_allowlist` is rejected before any
+stage runs, and the receipt records the profile allowlist that was applied.
+Each rail limit (`timeout_ms`, `stdout_max_bytes`, `stderr_max_bytes`) falls
+back to the profile default only when the rail leaves it at zero, and the
+receipt records exactly the limits that were enforced.
 The provider package must also supply the exact Rust driver/runtime closure
 required by the pinned Charon build; the host rustc is not an implicit fallback.
 Each stage runs with argv, a fresh isolated work root, bounded output capture,
-a named timeout, and a denied network namespace. The source package and pinned
-Aeneas Lean library are copied into that work root before execution; the Nix
-store is mounted read-only so absolute provider binaries remain available.
+a named timeout, a denied network namespace, and a private PID namespace. Each
+stage runs in its own process group; on timeout, and after the stage exits,
+the whole group is killed and output-reader teardown is bounded, so Cargo,
+rustc, or Lean worker grandchildren cannot outlive the stage or stall the shell.
+The source package and pinned Aeneas Lean library are copied into that work
+root before execution; the Nix store is mounted read-only so absolute provider
+binaries remain available. The work root path is a deterministic BLAKE3 of the
+source root, backend, and rail argv; it is removed after the run on success and
+on failure, so rerunning a rail starts fresh. A root that already exists belongs
+to a concurrent run, or to a process that was killed before cleanup, and is
+refused rather than reused; remove it after confirming no run is active.
 Mathlib and every Lake dependency are fixed-output, path-only closure inputs;
 Lake receives frozen root and nested manifests and cannot fetch missing code.
 A failed or incomplete stage stops the pipeline.
+
+Lean builds the fixed `Llbc` and `Theorem` modules. When it prepares the work
+root, the shell writes the exact preflighted, approved bytes of the rail's first
+`proof_paths` entry to the work root's `Theorem.lean`, so the checked theorem is
+always the approved one even when `proof_paths` names another file.
+
+## Stage gates
+
+Each stage's outputs are measured before the next stage may run:
+
+- After Charon, the effective extraction policy is observed from the produced
+  LLBC (`has_errors`, the serialized `options`, and `target_information`) and
+  compared with the reviewed profile's `extraction_policy`. Charon's options are
+  mapped into the profile vocabulary: `mir = null` is `borrowck`; no precise or
+  desugared drops is `include-drops`; no `start_from*` selection is `crate`;
+  spans on every declaration is `preserve-spans`; and JSON-encoded structured
+  LLBC is `llbc-json-v1`. Any other value fails the comparison. The receipt's
+  `extraction_policy` and `charon-options.json` record this observed policy, not
+  a copy of the profile.
+- The reviewed profile's `include_rules` are recorded in the provider profile
+  but not applied by the executed Charon argv. The receipt records the observed
+  include rules, and Octet does not compare them with the profile until the
+  profile owner resolves that mismatch.
+- After Aeneas, `translation.json` is parsed and linked to the produced LLBC and
+  the measured `Llbc.lean`: every local function must name the same LLBC
+  declaration, Rust name, and source lines, and every named Lean file must be
+  measured.
+- Also after Aeneas, the maintained theorem source and the generated
+  `Llbc.lean` are scanned as Lean tokens, skipping comments, strings, and
+  character literals. The scan derives the trust closure that the receipt
+  records: `axiom` declarations outside the profile's declared axioms and
+  external models, `opaque` definitions outside its external models,
+  `native_decide`, `ofReduceBool`, `implemented_by`, and `extern` are
+  undeclared inputs, and `sorry`, `admit`, and `sorryAx` are admitted
+  declarations. Either kind fails the rail before Lean runs.
 
 ## Supported subset
 
