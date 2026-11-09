@@ -60,18 +60,21 @@ Changes that can add findings, fail a build, or change identities:
   procedural attribute macros, `#[test]`, `#[derive]`, and tool attributes
   such as `#[rustfmt::skip]` (whose tool name a dependency rename could
   shadow) no longer pass. Call-site IDs (domain
-  `octet-effect-closure-call-site/v2`) bind the caller's source path and what
-  the callee's full path resolves to: `crate::`, `super::`, and `self::` paths
-  are followed through selected modules, `use` bindings, re-exports, and
-  globs; method calls bind the module's imports, trait items, and enclosing
-  impl header; items carrying a derive or attribute macro count as wildcards.
-  A reviewed summary therefore goes stale when any of these changes, and a
-  path through a module the selected sources cannot prove (an unselected
-  module, a `#[path]`/`cfg`/macro-declared module, or a file whose crate root
-  is not selected) is `unknown` and cannot be summarized; existing summaries
-  must be re-reviewed. Receipts move to `octet-effect-closure-receipt/v2`
-  (call edges carry `scope`), and `admit verify`/`artifact verify` reject v1
-  receipts as unsupported.
+  `octet-effect-closure-call-site/v2`) bind the caller's source path and the
+  sorted set of declarations the callee's full path reaches: `crate::`,
+  `super::`, and `self::` paths are followed through selected modules, `use`
+  bindings (body imports by lexical scope), re-exports, and globs, within 1024
+  steps and 32 hops; method calls bind the trait imports they reach and the
+  enclosing impl header; `Owner::method` binds the owner's declaration with
+  its attributes; same-module `macro_rules!` bodies and items carrying a
+  derive or attribute macro are bound too. A reviewed summary therefore goes
+  stale when any of these changes. A path the selected sources cannot prove
+  (an unselected module, a `#[path]`/`cfg`/macro-declared module, a module
+  declared inside a function body, a file whose crate root is not selected, or
+  a resolution over the bound) is `unknown` and cannot be summarized; existing
+  summaries must be re-reviewed. Receipts move to
+  `octet-effect-closure-receipt/v2` (call edges carry `scope`), and `admit
+  verify`/`artifact verify` reject v1 receipts as unsupported.
 - Wasm artifact verification recomputes the receipt status from its findings
   and requires `config_identity` to equal `registry_identity`, so a relabelled
   status or swapped registry fails even with regenerated summary and
