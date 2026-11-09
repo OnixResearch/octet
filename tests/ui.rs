@@ -1269,11 +1269,13 @@ fn compiler_architecture_observability_and_synchronization_effects() {
             .or_default()
             .insert(family);
     }
-    // Shared ownership (`Arc`) and in-memory formatting are not effects.
+    // Shared ownership (`Arc`), in-memory formatting, construction, exclusive
+    // access, and const-evaluated initializers are not effects.
     let expected = [
         ("atomic", CapabilityFamily::Concurrency),
         ("channel", CapabilityFamily::Concurrency),
         ("locked", CapabilityFamily::Concurrency),
+        ("locked_static", CapabilityFamily::Concurrency),
         ("print_error", CapabilityFamily::Observability),
         ("print_value", CapabilityFamily::Observability),
         ("write_stdout", CapabilityFamily::Observability),

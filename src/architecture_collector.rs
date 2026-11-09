@@ -87,32 +87,41 @@ struct MirValueFlowResult<'tcx> {
 }
 // Compiler-resolved definition prefixes. `print!`, `println!`, `eprint!`,
 // `eprintln!`, and `dbg!` resolve to `std::io::_print` or `std::io::_eprint`.
-// Synchronization covers locks, once cells, channels, and atomics; shared
-// ownership through `Arc` is not itself a synchronization effect.
 const EFFECT_PATHS: &[(&str, CapabilityFamily)] = &[
     ("std::env::", CapabilityFamily::Environment),
     ("std::fs::", CapabilityFamily::Filesystem),
     ("std::net::", CapabilityFamily::Network),
     ("std::process::", CapabilityFamily::Process),
     ("std::thread::", CapabilityFamily::Concurrency),
-    ("std::sync::Barrier", CapabilityFamily::Concurrency),
-    ("std::sync::Condvar", CapabilityFamily::Concurrency),
-    ("std::sync::LazyLock", CapabilityFamily::Concurrency),
-    ("std::sync::Mutex", CapabilityFamily::Concurrency),
-    ("std::sync::Once", CapabilityFamily::Concurrency),
-    ("std::sync::RwLock", CapabilityFamily::Concurrency),
-    ("std::sync::atomic::", CapabilityFamily::Concurrency),
-    ("std::sync::mpmc::", CapabilityFamily::Concurrency),
-    ("std::sync::mpsc::", CapabilityFamily::Concurrency),
     ("std::io::_eprint", CapabilityFamily::Observability),
     ("std::io::_print", CapabilityFamily::Observability),
     ("std::io::stderr", CapabilityFamily::Observability),
     ("std::io::stdin", CapabilityFamily::Observability),
     ("std::io::stdout", CapabilityFamily::Observability),
-    ("core::sync::atomic::", CapabilityFamily::Concurrency),
     ("std::time::Instant::now", CapabilityFamily::Time),
     ("std::time::SystemTime::now", CapabilityFamily::Time),
 ];
+
+// Synchronization covers locks, once cells, channels, and atomics; shared
+// ownership through `Arc` is not itself a synchronization effect.
+const SYNCHRONIZATION_PATHS: &[&str] = &[
+    "std::sync::Barrier",
+    "std::sync::Condvar",
+    "std::sync::LazyLock",
+    "std::sync::Mutex",
+    "std::sync::Once",
+    "std::sync::RwLock",
+    "std::sync::atomic::",
+    "std::sync::mpmc::",
+    "std::sync::mpsc::",
+    "core::sync::atomic::",
+];
+
+// No other thread can observe a constructor, which creates a value nobody else
+// sees yet, or an exclusive-access operation, which takes ownership or `&mut`.
+// Every other operation on these types, including ones this list does not
+// name, counts.
+const NON_SYNCHRONIZING_OPERATIONS: &[&str] = &["new", "get_mut", "into_inner"];
 
 fn load_collector_context() -> Result<Option<(PathBuf, CompilerArchitectureCollectorContext)>, String> {
     load_collector_context_at(std::env::var_os(octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_ENV))
@@ -600,7 +609,8 @@ impl ArchitectureCollector {
         assign_fact_identity(&mut fact);
         self.push_fact(fact);
 
-        if let Some(definition) = resolved_definition.as_deref()
+        if !const_evaluated_call(cx, expr)
+            && let Some(definition) = resolved_definition.as_deref()
             && let Some(family) = def_id
                 .and_then(|current| resolved_randomness_family(cx, current))
                 .or_else(|| effect_family(definition))
@@ -1977,7 +1987,24 @@ fn randomness_family(crate_name: &str, item_name: &str, is_root_function: bool) 
         .then_some(CapabilityFamily::Randomness)
 }
 
+// A call in a `const` or `static` initializer, including inline and anonymous
+// consts, runs during compilation and performs no runtime effect. A `const fn`
+// body can also run at runtime, so its calls still count. Closure bodies run at
+// runtime, and a function reference stored in a `static` is called through
+// the pointer at runtime, so neither qualifies.
+fn const_evaluated_call(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {
+    matches!(expr.kind, hir::ExprKind::Call(..) | hir::ExprKind::MethodCall(..))
+        && matches!(
+            cx.tcx.hir_body_const_context(cx.tcx.hir_enclosing_body_owner(expr.hir_id)),
+            Some(hir::ConstContext::Const { .. } | hir::ConstContext::Static(_))
+        )
+}
+
 fn effect_family(definition: &str) -> Option<CapabilityFamily> {
+    if SYNCHRONIZATION_PATHS.iter().any(|prefix| definition.starts_with(prefix)) {
+        let operation = definition.rsplit_once("::").map_or(definition, |(_, operation)| operation);
+        return (!NON_SYNCHRONIZING_OPERATIONS.contains(&operation)).then_some(CapabilityFamily::Concurrency);
+    }
     EFFECT_PATHS.iter().find_map(|(prefix, family)| definition.starts_with(prefix).then_some(*family))
 }
 
@@ -2293,11 +2320,20 @@ mod tests {
             ("std::sync::mpsc::channel", CapabilityFamily::Concurrency),
             ("std::sync::atomic::AtomicU32::fetch_add", CapabilityFamily::Concurrency),
             ("core::sync::atomic::AtomicU32::fetch_add", CapabilityFamily::Concurrency),
+            ("std::sync::atomic::Atomic::<u32>::load", CapabilityFamily::Concurrency),
+            ("std::sync::Mutex::<T>::try_lock", CapabilityFamily::Concurrency),
+            ("std::thread::Builder::new", CapabilityFamily::Concurrency),
         ] {
             assert_eq!(effect_family(definition), Some(family), "{definition}");
         }
         for definition in [
             "std::sync::Arc::<T>::new",
+            "std::sync::Mutex::<T>::new",
+            "std::sync::Mutex::<T>::get_mut",
+            "std::sync::Mutex::<T>::into_inner",
+            "std::sync::OnceLock::<T>::new",
+            "std::sync::atomic::Atomic::<u32>::new",
+            "std::sync::atomic::Atomic::<u32>::get_mut",
             "std::io::Write::write_all",
             "alloc::fmt::format",
         ] {
