@@ -70,3 +70,6 @@ defaulting_trait_method
 no_todo
 unjustified_no_todo_allow
 no_recursion
+discarded_sync_result
+flush_only_durability
+retry_sync_after_error

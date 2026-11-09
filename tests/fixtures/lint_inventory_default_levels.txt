@@ -70,3 +70,6 @@ defaulting_trait_method=allow
 no_todo=warn
 unjustified_no_todo_allow=warn
 no_recursion=warn
+discarded_sync_result=warn
+flush_only_durability=warn
+retry_sync_after_error=warn

@@ -146,20 +146,21 @@ impl<'tcx> Visitor<'tcx> for StatementScan<'_, 'tcx> {
             self.recovered = true;
             return;
         }
-        if let Some(kind) = scan::surface_kind(self.cx, self.catalog, self.boundary, expr) {
-            if kind.is_observation() && !expr.span.from_expansion() {
-                let handling = scan::handling(self.cx, self.catalog, self.boundary, expr);
-                let receiver = match expr.kind {
-                    hir::ExprKind::MethodCall(_, receiver, _, _) => scan::receiver_key(self.cx, receiver),
-                    _ => None,
-                };
-                self.calls.push(SurfaceCall {
-                    kind,
-                    handling,
-                    span: expr.span,
-                    receiver,
-                });
-            }
+        if let Some(kind) = scan::surface_kind(self.cx, self.catalog, self.boundary, expr)
+            && kind.is_observation()
+            && !expr.span.from_expansion()
+        {
+            let handling = scan::handling(self.cx, self.catalog, self.boundary, expr);
+            let receiver = match expr.kind {
+                hir::ExprKind::MethodCall(_, receiver, _, _) => scan::receiver_key(self.cx, receiver),
+                _ => None,
+            };
+            self.calls.push(SurfaceCall {
+                kind,
+                handling,
+                span: expr.span,
+                receiver,
+            });
         }
         intravisit::walk_expr(self, expr);
     }

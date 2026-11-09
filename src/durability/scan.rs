@@ -416,17 +416,15 @@ impl<'tcx> Visitor<'tcx> for UncertaintyFinder<'_, 'tcx> {
                     return;
                 }
             }
-            hir::ExprKind::MethodCall(segment, _, _, _) => {
-                if self.catalog.is_recovery_operation(segment.ident.name.as_str()) {
-                    self.found = true;
-                    return;
-                }
+            hir::ExprKind::MethodCall(segment, _, _, _)
+                if self.catalog.is_recovery_operation(segment.ident.name.as_str()) =>
+            {
+                self.found = true;
+                return;
             }
-            hir::ExprKind::Call(callee, _) => {
-                if call_names_recovery(self.cx, self.catalog, callee) {
-                    self.found = true;
-                    return;
-                }
+            hir::ExprKind::Call(callee, _) if call_names_recovery(self.cx, self.catalog, callee) => {
+                self.found = true;
+                return;
             }
             _ => {}
         }

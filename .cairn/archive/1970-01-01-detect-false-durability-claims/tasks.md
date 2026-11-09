@@ -2,7 +2,7 @@
 
 ## Policy and analysis
 
-- [ ] [serial] Record current safety lint, standards, assurance profile, UI fixture, and evidence baselines. r[octet.durability_claims.boundary_profile]
+- [x] [serial] Record current safety lint, standards, assurance profile, UI fixture, and evidence baselines. See `evidence/baseline.md`. r[octet.durability_claims.boundary_profile]
 - [x] [serial] Add Nickel contracts for declared durability boundaries, required observations, uncertain outcomes, and analyzed scopes. r[octet.durability_claims.boundary_profile]
 - [x] [serial] Add source analysis for discarded synchronization and configured commit results. r[octet.durability_claims.sync_result]
 - [x] [serial] Add declared-boundary analysis that rejects `Write::flush()` as the only durability observation. r[octet.durability_claims.flush_only]
@@ -19,8 +19,8 @@
 
 - [x] [parallel] Add positive handled-sync, uncertainty, quarantine, reopen, rewrite, and adapter-observation fixtures. r[octet.durability_claims.validation]
 - [x] [parallel] Add negative discard, `let _`, empty-error, flush-only, same-handle-retry, and missing-uncertainty fixtures. r[octet.durability_claims.validation]
-- [ ] [serial] Update lint catalog, guidance, standards registry, artifact manifest, and claim boundaries. r[octet.durability_claims.guidance]
-- [ ] [serial] Run policy freshness, library and UI tests, ignored UI evidence, formatting, Clippy, Cairn gates, and Nix checks. r[octet.durability_claims.validation]
+- [x] [serial] Update lint catalog, guidance, standards registry, artifact manifest, and claim boundaries. r[octet.durability_claims.guidance]
+- [x] [serial] Run policy freshness, library and UI tests, ignored UI evidence, formatting, Clippy, Cairn gates, and Nix checks. See `evidence/verification.md`. r[octet.durability_claims.validation]
 
 ## Verification Coverage
 
@@ -30,8 +30,6 @@
 - `Scenario: Failed sync is retried after rewrite` -> positive retry fixture
 - `Scenario: Saved campaign receipt is stale` -> assurance rejection fixture
 
-## Open blockers
+## Verification boundary
 
-- Baseline capture task remains open; no archived baseline transcript was produced in this pass.
-- Catalog/registry/docs are updated, but `CHANGELOG.md` release notes and the full Nix/flake verification were not completed in this pass.
-- The focused library, UI, formatting, Clippy, Cairn gate, and Nix check runs remain to be executed and recorded; do not claim them.
+The parent-owned verification in `evidence/verification.md` covers the focused library, metadata, storage-fault, full UI, Clippy, formatting, Nickel freshness, Nix checks, and Cairn gates. The lints remain inert without a consumer profile; no filesystem, device, or runtime durability behavior is proven.
