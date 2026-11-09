@@ -1070,12 +1070,12 @@ impl<'a> ScopeResolver<'a> {
         }
         for glob in &path.body.globs {
             lookup.reach("body", "*", &format!("{}::*", import_text(glob)));
-            if self.is_local_import(locator, glob) {
+            if glob.leading_colon {
+                lookup.declarations += 1;
+            } else {
                 let mut segments = glob.segments.clone();
                 segments.extend(path.segments.iter().cloned());
                 self.resolve_import_path(lookup, locator, &segments, 1);
-            } else {
-                lookup.declarations += 1;
             }
         }
     }
@@ -1158,6 +1158,23 @@ impl<'a> ScopeResolver<'a> {
             lookup.declarations += 1;
             return;
         }
+        self.resolve_undeclared(lookup, locator, scope, path, context, depth);
+    }
+
+    /// A name the module at `locator` does not declare: the prelude (or an extern crate, or
+    /// nothing after a module path), any of the module's wildcards, or what its local glob
+    /// imports bring in.
+    fn resolve_undeclared(
+        &self,
+        lookup: &mut Lookup<'a>,
+        locator: &ModuleLocator,
+        scope: &ModuleScope,
+        path: &[String],
+        context: NameContext,
+        depth: usize,
+    ) {
+        let label = module_label(locator);
+        let name = path.first().map_or("", String::as_str);
         lookup.reach_declaration(&label, name, match context {
             NameContext::Unqualified => "prelude",
             NameContext::Qualified => "undeclared",
@@ -1166,7 +1183,9 @@ impl<'a> ScopeResolver<'a> {
         for wildcard in &scope.wildcards {
             lookup.reach(&label, "*", wildcard);
         }
-        for glob in scope.glob_imports.iter().filter(|glob| self.is_local_import(locator, glob)) {
+        // Every glob is followed: its path may start from the module, an extern crate, or a
+        // name another glob brings in, and `resolve_import_path` tells them apart.
+        for glob in scope.glob_imports.iter().filter(|glob| !glob.leading_colon) {
             let mut segments = glob.segments.clone();
             segments.extend(path.iter().cloned());
             self.resolve_import_path(lookup, locator, &segments, depth + 1);
@@ -1193,23 +1212,27 @@ impl<'a> ScopeResolver<'a> {
     }
 
     /// Resolves a `use` path: from a keyword, from a name the module declares, or else from an
-    /// extern crate.
+    /// extern crate or a name the module's local glob imports bring in.
     fn resolve_import_path(&self, lookup: &mut Lookup<'a>, locator: &ModuleLocator, segments: &[String], depth: usize) {
         let Some(first) = segments.first() else {
             lookup.hide(&module_label(locator), "", "empty import");
             return;
         };
+        let Some(scope) = self.modules.scopes.get(locator) else {
+            lookup.hide(&module_label(locator), first, "module not selected");
+            return;
+        };
         if is_path_keyword(first) {
             self.resolve_qualified(lookup, locator, segments, depth);
-        } else if self.modules.scopes.get(locator).is_some_and(|scope| scope.declares_path_head(first)) {
+        } else if scope.declares_path_head(first) {
             self.resolve_name(lookup, locator, segments, NameContext::Import, depth);
-        } else {
-            lookup.reach_declaration(&module_label(locator), first, "extern");
+        } else if lookup.step(depth) && lookup.visited.insert((locator.clone(), segments.to_vec())) {
+            self.resolve_undeclared(lookup, locator, scope, segments, NameContext::Import, depth);
         }
     }
 
-    /// Whether an import's path starts from the module rather than an extern crate; extern globs
-    /// stay in the module's wildcard text.
+    /// Whether an import's path starts from a declaration of the module rather than an extern
+    /// crate or a glob import.
     fn is_local_import(&self, locator: &ModuleLocator, import: &ImportPath) -> bool {
         !import.leading_colon
             && import.segments.first().is_some_and(|head| {
@@ -1229,13 +1252,13 @@ impl<'a> ScopeResolver<'a> {
         let mut lookup = Lookup::default();
         for import in &raw_call.body_method_sources.imports {
             lookup.reach("body", "trait", &import_text(import));
-            if self.is_local_import(&locator, import) {
+            if !import.leading_colon {
                 self.resolve_import_path(&mut lookup, &locator, &import.segments, 1);
             }
         }
         for glob in &raw_call.body_method_sources.globs {
             lookup.reach("body", "*", &format!("{}::*", import_text(glob)));
-            if self.is_local_import(&locator, glob) {
+            if !glob.leading_colon {
                 self.glob_method_sources(&mut lookup, &locator, glob, 1);
             }
         }
@@ -1274,15 +1297,11 @@ impl<'a> ScopeResolver<'a> {
         for source in scope.method_sources.iter().chain(&scope.wildcards) {
             lookup.reach(&label, "trait", source);
         }
-        for import in scope.imports.values().flatten() {
-            if self.is_local_import(locator, import) {
-                self.resolve_import_path(lookup, locator, &import.segments, depth + 1);
-            }
+        for import in scope.imports.values().flatten().filter(|import| !import.leading_colon) {
+            self.resolve_import_path(lookup, locator, &import.segments, depth + 1);
         }
-        for glob in &scope.glob_imports {
-            if self.is_local_import(locator, glob) {
-                self.glob_method_sources(lookup, locator, glob, depth + 1);
-            }
+        for glob in scope.glob_imports.iter().filter(|glob| !glob.leading_colon) {
+            self.glob_method_sources(lookup, locator, glob, depth + 1);
         }
     }
 
@@ -1293,9 +1312,9 @@ impl<'a> ScopeResolver<'a> {
         }
     }
 
-    /// The selected module a local path names, through keywords, module declarations, and local
-    /// imports. A path ending at a local type (an enum's variants) brings no trait; any other
-    /// target the selected sources cannot show is hidden.
+    /// The selected module a path names, through keywords, module declarations, and imports. A
+    /// path ending at a local type (an enum's variants) or at an extern crate names no selected
+    /// module; a name the module's local glob imports may supply is hidden.
     fn resolve_module(
         &self,
         lookup: &mut Lookup<'a>,
@@ -1322,18 +1341,22 @@ impl<'a> ScopeResolver<'a> {
                 if scope.modules.contains_key(name) {
                     self.modules.child(locator, name)
                 } else if let Some([import]) = scope.imports.get(name).map(Vec::as_slice) {
-                    if !self.is_local_import(locator, import) {
+                    if import.leading_colon || import.segments.first().is_some_and(|head| head == name) {
                         lookup.reach_declaration(&label, name, &import_text(import));
                         return None;
                     }
+                    lookup.reach(&label, name, &import_text(import));
                     let mut target = import.segments.clone();
                     target.extend(rest.iter().cloned());
                     return self.resolve_module(lookup, locator, &target, depth + 1);
-                } else if scope.types.contains(name) {
-                    lookup.reach_declaration(&label, name, "type");
+                } else if scope.types.contains(name) || scope.names.contains_key(name) {
+                    lookup.reach_declaration(&label, name, "not a module");
                     return None;
-                } else {
+                } else if scope.glob_imports.iter().any(|glob| self.is_local_import(locator, glob)) {
                     None
+                } else {
+                    lookup.reach_declaration(&label, name, "extern");
+                    return None;
                 }
             }
         };
@@ -5135,5 +5158,26 @@ unsafe fn risky(values: &[u8]) -> u8 {
                 "method:value:persist",
             );
         }
+    }
+
+    // r[verify octet.effect_closure.dependency_summaries.invalid]
+    // r[verify octet.effect_closure.verification.adversarial]
+    #[test]
+    fn import_heads_from_local_globs_are_followed() {
+        let lib = "mod core;\nmod util;\n";
+        let caller = "use crate::*;\nuse util::tidy;\npub fn root() { tidy(); }\n";
+        assert_workspace_summary_goes_stale(
+            &[
+                (TEST_PATH, caller),
+                (LIB_PATH, lib),
+                (UTIL_PATH, "pub use dep_a::tidy;\n"),
+            ],
+            &[
+                (TEST_PATH, caller),
+                (LIB_PATH, lib),
+                (UTIL_PATH, "pub use dep_b::tidy;\n"),
+            ],
+            "call:tidy",
+        );
     }
 }
