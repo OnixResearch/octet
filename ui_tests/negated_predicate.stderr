@@ -235,5 +235,35 @@ LL ~     let is_wont_fit = values.len() > 8;
 LL ~     let fit_text = format!("{is_wont_fit}");
    |
 
-warning: 15 warnings emitted
+warning: negated predicate name `no_items` — prefer a positive form like `has_items`
+  --> $DIR/negated_predicate.rs:68:9
+   |
+LL |     let no_items = len == 0;
+   |         ^^^^^^^^
+   |
+   = help: Tiger Style (Positive Predicates): prefer positive predicate names over negated forms like `is_not_ready` or `no_capacity` Example: fn is_ready(state: &State) -> bool
+   = note: structured suggestion applicability: MaybeIncorrect
+   = note: see Tiger Style guide: Positive Predicates
+help: rename to `has_items`
+   |
+LL -     let no_items = len == 0;
+LL +     let has_items = len == 0;
+   |
+
+warning: boolean binding `no_items` should have a predicate prefix
+  --> $DIR/negated_predicate.rs:68:9
+   |
+LL |     let no_items = len == 0;
+   |         ^^^^^^^^
+   |
+   = help: Tiger Style (Positive Predicates): name booleans as predicates so call sites read like questions Example: let is_ready = status == Ready;
+   = note: structured suggestion applicability: MachineApplicable
+   = note: see Tiger Style guide: Positive Predicates
+help: rename binding to `is_no_items`
+   |
+LL ~     let is_no_items = len == 0;
+LL ~     bail_if!(is_no_items);
+   |
+
+warning: 17 warnings emitted
 

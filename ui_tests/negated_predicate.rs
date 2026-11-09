@@ -54,6 +54,22 @@ fn review_required_locals(values: &[u8]) -> bool {
     no_values && no_items && *header_ref && is_copy && fit_text.is_empty()
 }
 
+macro_rules! bail_if {
+    ($cond:tt) => {
+        if $cond {
+            return 0;
+        }
+    };
+}
+
+// Should warn with a review-required rename: a `tt` argument keeps its source
+// span, but `!has_items` is two tokens and no longer matches the macro arm.
+fn macro_token_tree_use(len: usize) -> u8 {
+    let no_items = len == 0;
+    bail_if!(no_items);
+    1
+}
+
 fn main() {
     let state = State;
     let _ = is_not_ready(&state);

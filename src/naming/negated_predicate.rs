@@ -130,7 +130,8 @@ fn inverted_initializer(cx: &LateContext<'_>, init: &hir::Expr<'_>) -> Option<St
 /// positive name holds the negated initializer and every read is negated.
 /// Returns `None` whenever that rewrite is not provably meaning-preserving:
 /// mutable or by-reference bindings, a missing or macro-expanded initializer,
-/// borrowed or macro-expanded uses, or a positive name that is already taken.
+/// borrowed or macro-expanded uses, reads passed into a macro invocation, or a
+/// positive name that is already taken.
 fn negating_local_rename<'tcx>(
     cx: &LateContext<'tcx>,
     local: &'tcx hir::LetStmt<'tcx>,

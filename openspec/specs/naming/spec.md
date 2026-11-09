@@ -203,6 +203,11 @@ The lint MUST NOT fire on non-boolean bindings or functions.
 
 The lint MUST NOT fire on a private helper function named exactly `not`.
 
+A machine-applicable rename of a bool local that negates its value MUST fall
+back to a review-required rename when any read of the binding sits inside a
+macro invocation, including a `$x:tt` argument whose tokens keep their source
+spans, because `!name` is two tokens and can stop matching the macro arm.
+
 #### Scenario: Negated function name
 
 - GIVEN `fn is_not_ready(state: &State) -> bool`
@@ -226,6 +231,12 @@ The lint MUST NOT fire on a private helper function named exactly `not`.
 - GIVEN `let no_progress: usize = retries_left;`
 - WHEN the lint runs
 - THEN it does NOT fire
+
+#### Scenario: Read passed to a token-tree macro argument
+
+- GIVEN `let no_items = len == 0;` read as `bail_if!(no_items)` where `bail_if!` takes `$cond:tt`
+- WHEN the lint runs
+- THEN it warns with a review-required rename instead of a machine-applicable `bail_if!(!has_items)` rewrite
 
 ### Requirement: Underscore Module Filename Detection [r[underscore-module-filename-detection]]
 

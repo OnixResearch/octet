@@ -19,6 +19,8 @@ struct UseSiteCollector<'cx, 'tcx> {
     typeck: &'tcx rustc_middle::ty::TypeckResults<'tcx>,
     tcx: rustc_middle::ty::TyCtxt<'tcx>,
     target: hir::HirId,
+    /// The body's root expression, where the ancestor walk stops.
+    body_value: hir::HirId,
     replacement: &'cx str,
     rewrite: ReadRewrite,
     use_sites: Vec<(Span, String)>,
@@ -36,11 +38,33 @@ impl UseSiteCollector<'_, '_> {
         )
     }
 
-    fn record(&mut self, span: Span, replacement: String) {
-        if span.from_expansion() {
+    fn record(&mut self, hir_id: hir::HirId, span: Span, replacement: String) {
+        if span.from_expansion() || (self.rewrite == ReadRewrite::Negate && self.is_inside_macro_expansion(hir_id)) {
             self.is_unsupported = true;
         }
         self.use_sites.push((span, replacement));
+    }
+
+    /// Whether a HIR ancestor of `hir_id`, up to the body, comes from a macro
+    /// expansion. A `$x:tt` argument keeps its source span, so the read itself
+    /// looks hand-written, but `!name` is two tokens and no longer matches the
+    /// macro arm. Compiler desugarings such as `for` and `async` stay
+    /// rewritable.
+    fn is_inside_macro_expansion(&self, hir_id: hir::HirId) -> bool {
+        for (ancestor_id, _) in self.tcx.hir_parent_iter(hir_id) {
+            if self
+                .tcx
+                .hir_span(ancestor_id)
+                .macro_backtrace()
+                .any(|expansion| matches!(expansion.kind, rustc_span::ExpnKind::Macro(..)))
+            {
+                return true;
+            }
+            if ancestor_id == self.body_value {
+                return false;
+            }
+        }
+        false
     }
 
     /// Records a plain read of the target. `needs_parens` marks a postfix
@@ -66,7 +90,7 @@ impl UseSiteCollector<'_, '_> {
                 }
             }
         };
-        self.record(expr.span, replacement);
+        self.record(expr.hir_id, expr.span, replacement);
     }
 }
 
@@ -83,7 +107,7 @@ impl<'tcx> Visitor<'tcx> for UseSiteCollector<'_, 'tcx> {
         if self.rewrite == ReadRewrite::Negate {
             match expr.kind {
                 hir::ExprKind::Unary(hir::UnOp::Not, operand) if self.is_target_path(operand) => {
-                    self.record(expr.span, self.replacement.to_owned());
+                    self.record(expr.hir_id, expr.span, self.replacement.to_owned());
                     return;
                 }
                 hir::ExprKind::MethodCall(_, receiver, _, _) if self.is_target_path(receiver) => {
@@ -110,7 +134,7 @@ impl<'tcx> Visitor<'tcx> for UseSiteCollector<'_, 'tcx> {
                 ReadRewrite::Rename => self.replacement.to_owned(),
                 ReadRewrite::Negate => format!("!{}", self.replacement),
             };
-            self.record(field.expr.span, format!("{}: {value}", field.ident));
+            self.record(field.expr.hir_id, field.expr.span, format!("{}: {value}", field.ident));
             return;
         }
         intravisit::walk_expr_field(self, field);
@@ -125,7 +149,8 @@ pub(crate) fn enclosing_body<'tcx>(cx: &LateContext<'tcx>, hir_id: hir::HirId) -
 /// Collects every use of the local `binding_hir_id` inside `body` (including
 /// closures and async blocks) paired with the source text that rewrites it for
 /// `replacement` under `rewrite`. Returns `None` when a use comes from a macro
-/// expansion or cannot be rewritten without changing meaning.
+/// expansion, a negated read sits inside a macro invocation, or a use cannot be
+/// rewritten without changing meaning.
 pub(crate) fn collect_local_use_sites<'tcx>(
     cx: &LateContext<'tcx>,
     body: &'tcx hir::Body<'tcx>,
@@ -137,6 +162,7 @@ pub(crate) fn collect_local_use_sites<'tcx>(
         typeck: cx.tcx.typeck_body(body.id()),
         tcx: cx.tcx,
         target: binding_hir_id,
+        body_value: body.value.hir_id,
         replacement,
         rewrite,
         use_sites: Vec::new(),
