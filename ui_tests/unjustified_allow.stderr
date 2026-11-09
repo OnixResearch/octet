@@ -318,7 +318,7 @@ LL ~         #[allow(tigerstyle::no_unwrap)]
    |
 
 warning: `#[allow(...)]` without justification comment
-  --> $DIR/unjustified_allow.rs:284:27
+  --> $DIR/unjustified_allow.rs:285:27
    |
 LL |         #[cfg_attr(all(), allow(tigerstyle::no_unwrap))]
    |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

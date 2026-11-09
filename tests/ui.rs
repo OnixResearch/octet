@@ -1673,7 +1673,7 @@ fn compiler_architecture_value_flow_skips_bodies_without_tracked_values() {
 
     const PREFIX: &str = "untracked_value_flow_bodies::";
     let toolchain = rustup_toolchain();
-    let library = build_library(&toolchain);
+    let library = build_library();
     let host = host_triple();
     let driver = build_driver(&toolchain);
     let selection = CompilerValueFlowSelection {
