@@ -42,6 +42,11 @@ const DYNAMIC_PROFILE_LOOM_SHORT: &str = "loom";
 const DYNAMIC_COMMAND_LOOM_TEST: &str = "cargo test --cfg loom";
 /// Acceptance signal declared by the built-in Miri and Loom dynamic evidence profiles.
 const DYNAMIC_ACCEPTANCE_SIGNAL_PASSED: &str = "passed";
+const CARGO_VET_CONCLUSION_SUCCESS: &str = "success";
+const CARGO_VET_CONCLUSION_VETTING_FAILED: &str = "fail (vetting)";
+const CARGO_VET_CONCLUSION_VIOLATION: &str = "fail (violation)";
+const CARGO_VET_GAP_FAMILY: &str = "unaudited-gap";
+const CARGO_VET_EXEMPTION_FAMILY: &str = "exemption";
 const SUPPORTED_EVIDENCE_RAILS: &str = "dependency-audit, clippy-co-reporting, ast-grep, wasm-artifact, charon-semantic, dependency-trust, api-stability, dynamic-evidence, sarif-import, release-supply-chain, mutation-testing, coverage-baseline, benchmark-evidence, kani-model-check, hegel-property, z4-solver, or verifier-fixture";
 const COVERAGE_PERCENT_MIN: f64 = 0.0;
 const COVERAGE_PERCENT_MAX: f64 = 100.0;
@@ -2114,48 +2119,32 @@ fn parse_charon_semantic(input: &EvaluationInput<'_>) -> RailParseOutput {
     }
 }
 
+/// Parses `cargo vet --output-format=json` output. cargo-vet emits a `conclusion` of `success`
+/// (with `vetted_fully`, `vetted_partially`, and `vetted_with_exemptions` package lists),
+/// `fail (vetting)` (with `failures`), or `fail (violation)` (with a `violations` map). A document
+/// without a `conclusion`, such as cargo-vet's `{"error": ...}` report, is not vet evidence.
 fn parse_dependency_trust(input: &EvaluationInput<'_>) -> RailParseOutput {
     let mut diagnostics = Vec::new();
     let mut findings = Vec::new();
     let value = parse_json_value(input.import_text, &mut diagnostics);
     if let Some(value) = value {
-        for import in array_field(&value, "imports") {
-            if string_field(import, "name").is_none_or(str::is_empty)
-                || string_field(import, "source").is_none_or(str::is_empty)
-            {
-                diagnostics.push("dependency-trust import entries must expose name and source identity".to_owned());
+        match string_field(&value, "conclusion") {
+            Some(conclusion @ (CARGO_VET_CONCLUSION_SUCCESS | CARGO_VET_CONCLUSION_VETTING_FAILED | CARGO_VET_CONCLUSION_VIOLATION)) => {
+                push_cargo_vet_findings(&value, conclusion, &mut findings, &mut diagnostics);
             }
-        }
-        for exemption in array_field(&value, "exemptions") {
-            let crate_name = string_field(exemption, "crate").unwrap_or("unknown crate");
-            let reason = string_field(exemption, "reason").unwrap_or("missing reason");
-            findings.push(EvidenceRailFinding {
-                family: "exemption".to_owned(),
-                severity: "manual_review".to_owned(),
-                message: format!("cargo-vet exemption visible for {crate_name}: {reason}"),
-                source_severity: None,
-                file: None,
-                line: None,
-                column: None,
-            });
-        }
-        for gap in array_field(&value, "unaudited") {
-            let crate_name = string_field(gap, "crate").unwrap_or("unknown crate");
-            findings.push(EvidenceRailFinding {
-                family: "unaudited-gap".to_owned(),
-                severity: "error".to_owned(),
-                message: format!("cargo-vet unaudited dependency gap for {crate_name}"),
-                source_severity: None,
-                file: None,
-                line: None,
-                column: None,
-            });
+            Some(other) => diagnostics.push(format!(
+                "cargo-vet conclusion `{other}` is unsupported; expected `{CARGO_VET_CONCLUSION_SUCCESS}`, `{CARGO_VET_CONCLUSION_VETTING_FAILED}`, or `{CARGO_VET_CONCLUSION_VIOLATION}`"
+            )),
+            None => diagnostics.push(value.get("error").and_then(|error| string_field(error, "message")).map_or_else(
+                || "dependency-trust input is not a `cargo vet --output-format=json` report; missing string `conclusion`".to_owned(),
+                |message| format!("cargo-vet reported an error instead of a vet conclusion: {message}"),
+            )),
         }
     }
     let finding_counts = counts_by_family(&findings);
-    let status = if findings.iter().any(|finding| finding.family == "unaudited-gap") {
+    let status = if findings.iter().any(|finding| finding.family == CARGO_VET_GAP_FAMILY) {
         STATUS_FAILED.to_owned()
-    } else if findings.iter().any(|finding| finding.family == "exemption") {
+    } else if findings.iter().any(|finding| finding.family == CARGO_VET_EXEMPTION_FAMILY) {
         STATUS_MANUAL_REVIEW_REQUIRED.to_owned()
     } else {
         STATUS_PASSED.to_owned()
@@ -2170,6 +2159,98 @@ fn parse_dependency_trust(input: &EvaluationInput<'_>) -> RailParseOutput {
         hegel_property: None,
         z4_solver: None,
         verifier_fixtures: None,
+    }
+}
+
+fn push_cargo_vet_findings(
+    value: &serde_json::Value,
+    conclusion: &str,
+    findings: &mut Vec<EvidenceRailFinding>,
+    diagnostics: &mut Vec<String>,
+) {
+    for failure in cargo_vet_array(value, "failures", diagnostics) {
+        let missing_criteria = string_array_field(failure, "missing_criteria");
+        let missing_criteria = if missing_criteria.is_empty() {
+            "unspecified".to_owned()
+        } else {
+            missing_criteria.join(", ")
+        };
+        findings.push(cargo_vet_finding(
+            CARGO_VET_GAP_FAMILY,
+            "error",
+            format!(
+                "cargo-vet unaudited dependency gap for {}; missing criteria: {missing_criteria}",
+                cargo_vet_package(failure)
+            ),
+        ));
+    }
+    if let Some(violations) = value.get("violations") {
+        match violations.as_object() {
+            Some(violations) => {
+                for package in violations.keys() {
+                    findings.push(cargo_vet_finding(
+                        CARGO_VET_GAP_FAMILY,
+                        "error",
+                        format!("cargo-vet audit violation for {package}"),
+                    ));
+                }
+            }
+            None => diagnostics.push("cargo-vet field `violations` must be an object".to_owned()),
+        }
+    }
+    for field in ["vetted_partially", "vetted_with_exemptions"] {
+        for package in cargo_vet_array(value, field, diagnostics) {
+            findings.push(cargo_vet_finding(
+                CARGO_VET_EXEMPTION_FAMILY,
+                "manual_review",
+                format!(
+                    "cargo-vet exemption visible for {} ({field}); review its exemption in supply-chain/config.toml",
+                    cargo_vet_package(package)
+                ),
+            ));
+        }
+    }
+    cargo_vet_array(value, "vetted_fully", diagnostics);
+    if conclusion != CARGO_VET_CONCLUSION_SUCCESS
+        && !findings.iter().any(|finding| finding.family == CARGO_VET_GAP_FAMILY)
+    {
+        findings.push(cargo_vet_finding(
+            CARGO_VET_GAP_FAMILY,
+            "error",
+            format!("cargo-vet conclusion `{conclusion}` names no failing package"),
+        ));
+    }
+}
+
+fn cargo_vet_array<'a>(
+    value: &'a serde_json::Value,
+    field: &str,
+    diagnostics: &mut Vec<String>,
+) -> Vec<&'a serde_json::Value> {
+    match value.get(field) {
+        None | Some(serde_json::Value::Null) => Vec::new(),
+        Some(serde_json::Value::Array(items)) => items.iter().collect(),
+        Some(_) => {
+            diagnostics.push(format!("cargo-vet field `{field}` must be an array"));
+            Vec::new()
+        }
+    }
+}
+
+fn cargo_vet_package(entry: &serde_json::Value) -> String {
+    let name = string_field(entry, "name").unwrap_or("unknown crate");
+    string_field(entry, "version").map_or_else(|| name.to_owned(), |version| format!("{name} {version}"))
+}
+
+fn cargo_vet_finding(family: &str, severity: &str, message: String) -> EvidenceRailFinding {
+    EvidenceRailFinding {
+        family: family.to_owned(),
+        severity: severity.to_owned(),
+        message,
+        source_severity: None,
+        file: None,
+        line: None,
+        column: None,
     }
 }
 
@@ -4974,6 +5055,9 @@ mod tests {
 
     const WORKSPACE_SCOPE: &str = "fixture-workspace";
     const DENY_CONFIG: &str = "deny.toml";
+    const CARGO_VET_CLEAN: &str =
+        r#"{"conclusion":"success","vetted_fully":[],"vetted_partially":[],"vetted_with_exemptions":[]}"#;
+    const CARGO_VET_GAP: &str = r#"{"conclusion":"fail (vetting)","failures":[{"name":"bytes","version":"1.0.0","missing_criteria":["safe-to-deploy"]}],"suggest":null}"#;
     const BASELINE_IDENTITY: &str = "b3:baseline";
     const COVERAGE_SOURCE_MANIFEST: &str = "coverage source manifest fixture\n";
     const COVERAGE_CURRENT_COVERED: u64 = 92;
@@ -5312,7 +5396,7 @@ mod tests {
                 |import_text| dependency_audit_receipt(import_text, Some(DENY_CONFIG)),
                 r#"{"diagnostics":[]}"#,
             ),
-            ("dependency-trust", dependency_trust_receipt, r#"{"imports":[],"exemptions":[],"unaudited":[]}"#),
+            ("dependency-trust", dependency_trust_receipt, CARGO_VET_CLEAN),
             ("api-stability", api_removed_receipt, r#"{"breakages":[]}"#),
             ("mutation-testing", mutation_receipt, "{}"),
         ];
@@ -5366,7 +5450,7 @@ mod tests {
 
         for (label, input, exit_code) in [
             ("dependency-audit", audit(r#"{"diagnostics":[]}"#), EXIT_RAIL_FAILURE),
-            ("dependency-trust", trust(r#"{"imports":[],"exemptions":[],"unaudited":[]}"#), EXIT_RAIL_FAILURE),
+            ("dependency-trust", trust(CARGO_VET_CLEAN), EXIT_RAIL_FAILURE),
             ("api-stability", api(r#"{"breakages":[]}"#), EXIT_RAIL_FAILURE),
             ("mutation-testing", mutation("{}"), CARGO_MUTANTS_BASELINE_FAILED_EXIT),
         ] {
@@ -5381,12 +5465,7 @@ mod tests {
 
         for (label, input, exit_code, status) in [
             ("dependency-audit", audit(r#"{"diagnostics":[]}"#), EXIT_SUCCESS, STATUS_PASSED),
-            (
-                "dependency-trust",
-                trust(r#"{"imports":[],"exemptions":[],"unaudited":[{"crate":"bytes"}]}"#),
-                EXIT_RAIL_FAILURE,
-                STATUS_FAILED,
-            ),
+            ("dependency-trust", trust(CARGO_VET_GAP), EXIT_RAIL_FAILURE, STATUS_FAILED),
             (
                 "api-stability",
                 api(r#"{"breakages":[{"kind":"removed-public-item","item":"pub fn old"}]}"#),
@@ -5845,24 +5924,41 @@ mod tests {
     }
 
     #[test]
-    fn dependency_trust_records_coverage_exemptions_gaps_and_import_identity() {
-        let covered = dependency_trust_receipt(
-            r#"{"imports":[{"name":"google","source":"https://example.invalid/audits.toml"}],"exemptions":[],"unaudited":[]}"#,
-        );
-        assert_eq!(covered.status, STATUS_PASSED);
+    fn dependency_trust_reads_real_cargo_vet_json_conclusions() {
+        // Unmodified `cargo vet --locked --frozen --output-format=json` output from cargo-vet 0.10.2.
+        let full =
+            dependency_trust_receipt(include_str!("../tests/fixtures/evidence-rails/cargo-vet-success-full.json"));
+        assert_eq!(full.status, STATUS_PASSED, "{:?}", full.diagnostics);
+        assert!(full.findings.is_empty());
 
-        let exempted = dependency_trust_receipt(
-            r#"{"imports":[{"name":"local","source":"audits.toml"}],"exemptions":[{"crate":"serde","reason":"bootstrap"}],"unaudited":[]}"#,
-        );
-        assert_eq!(exempted.status, STATUS_MANUAL_REVIEW_REQUIRED);
+        let exempted = dependency_trust_receipt(include_str!(
+            "../tests/fixtures/evidence-rails/cargo-vet-success-exemptions.json"
+        ));
+        assert_eq!(exempted.status, STATUS_MANUAL_REVIEW_REQUIRED, "{:?}", exempted.diagnostics);
         assert_eq!(exempted.finding_counts.get("exemption"), Some(&1));
+        assert!(exempted.findings[0].message.contains("itoa") && exempted.findings[0].message.contains("1.0.18"));
 
-        let gap = dependency_trust_receipt(
-            r#"{"imports":[{"name":"missing-source"}],"exemptions":[],"unaudited":[{"crate":"bytes"}]}"#,
-        );
-        assert_eq!(gap.status, STATUS_FAILED);
-        assert!(gap.diagnostics.iter().any(|diagnostic| diagnostic.contains("name and source identity")));
-        assert_eq!(gap.finding_counts.get("unaudited-gap"), Some(&1));
+        for fixture in [
+            include_str!("../tests/fixtures/evidence-rails/cargo-vet-fail-vetting.json"),
+            include_str!("../tests/fixtures/evidence-rails/cargo-vet-fail-violation.json"),
+            r#"{"conclusion":"fail (vetting)","failures":[],"suggest":null}"#,
+        ] {
+            let gap = dependency_trust_receipt(fixture);
+            assert_eq!(gap.status, STATUS_FAILED, "{fixture}");
+            assert!(gap.diagnostics.is_empty(), "{fixture}: {:?}", gap.diagnostics);
+            assert_eq!(gap.finding_counts.get("unaudited-gap"), Some(&1), "{fixture}");
+        }
+
+        for unrecognised in [
+            "{}",
+            r#"{"imports":[],"exemptions":[],"unaudited":[]}"#,
+            r#"{"error":{"message":"cargo vet panicked","severity":"error"}}"#,
+            r#"{"conclusion":"maybe"}"#,
+        ] {
+            let receipt = dependency_trust_receipt(unrecognised);
+            assert_eq!(receipt.status, STATUS_FAILED, "{unrecognised}");
+            assert!(!receipt.diagnostics.is_empty(), "{unrecognised}");
+        }
     }
 
     #[test]
@@ -5882,7 +5978,7 @@ mod tests {
             parent_artifacts: Vec::new(),
             tool_exit_code: None,
         });
-        let trust = dependency_trust_receipt(r#"{"imports":[],"exemptions":[],"unaudited":[]}"#);
+        let trust = dependency_trust_receipt(CARGO_VET_CLEAN);
 
         assert_ne!(audit.rail_id, trust.rail_id);
         assert_ne!(audit.checker_id, trust.checker_id);
@@ -6941,7 +7037,7 @@ mod tests {
         let clean_deny = include_str!("../tests/fixtures/evidence-rails/dependency-audit-clean.json");
         let denied = include_str!("../tests/fixtures/evidence-rails/dependency-audit-denied.json");
         let clippy = include_str!("../tests/fixtures/evidence-rails/clippy-warning.jsonl");
-        let trust = include_str!("../tests/fixtures/evidence-rails/dependency-trust-covered.json");
+        let trust = include_str!("../tests/fixtures/evidence-rails/cargo-vet-success-full.json");
         let semver_removed = include_str!("../tests/fixtures/evidence-rails/api-stability-removed.json");
         let dynamic_mismatch = include_str!("../tests/fixtures/evidence-rails/dynamic-profile-mismatch.json");
         let cargo_fuzz_clean = include_str!("../tests/fixtures/evidence-rails/cargo-fuzz-clean.json");
@@ -7204,7 +7300,7 @@ mod tests {
 
     #[test]
     fn receipt_validation_rejects_schema_checker_and_non_claim_drift() {
-        let mut receipt = dependency_trust_receipt(r#"{"imports":[],"exemptions":[],"unaudited":[]}"#);
+        let mut receipt = dependency_trust_receipt(CARGO_VET_CLEAN);
         receipt.schema_version = "old".to_owned();
         receipt.checker_id = "wrong".to_owned();
         receipt.non_claims.clear();
