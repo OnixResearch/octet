@@ -36,7 +36,7 @@ use crossbeam::channel::unbounded;
 use tokio::sync::mpsc as tokio_mpsc;
 
 fn crossbeam_unaliased_ctor() {
-    // The callee keeps its original name, so only that segment is renamed.
+    // A bare imported name does not reach `bounded`, so the import's crate path is spelled.
     let _ = unbounded::<u8>();
 }
 
@@ -58,6 +58,25 @@ fn module_reexported_alias_ctor() {
 }
 
 fn local_module_alias_ctor() {
-    // The alias import starts at a local module, so no rewrite is offered.
+    // The alias names a local module, so the crate path of `queues`' own import is spelled.
     let _ = local_queue::<u8>();
+}
+
+fn local_reexport_module_ctor() {
+    // `queues` re-exports only `channel`, so `queues::sync_channel` would not resolve.
+    let _ = queues::channel::<u8>();
+}
+
+fn crate_relative_module_ctor() {
+    // `crate::queues` is the same local re-export module, so its prefix is not kept either.
+    let _ = crate::queues::channel::<u8>();
+}
+
+mod bounded_queues {
+    pub use std::sync::mpsc::{channel, sync_channel};
+}
+
+fn local_module_exporting_bounded_ctor() {
+    // `bounded_queues` re-exports `sync_channel` too, so the written prefix is kept.
+    let _ = bounded_queues::channel::<u8>();
 }
