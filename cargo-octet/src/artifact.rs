@@ -2340,6 +2340,28 @@ mod tests {
     }
 
     #[test]
+    fn wasm_artifact_bundle_rejects_status_and_config_identity_drift() {
+        let added_error = verify_bundle(wasm_evidence_rail_input(|receipt| {
+            let details = receipt.wasm_artifact.as_mut().expect("Wasm details");
+            details.findings.push(crate::wasm_artifact::WasmArtifactFinding {
+                issue_code: "disallowed-import".to_owned(),
+                severity: "error".to_owned(),
+                message: "added after collection".to_owned(),
+                byte_offset: None,
+            });
+        }));
+        let relabelled = verify_bundle(wasm_evidence_rail_input(|receipt| {
+            "failed".clone_into(&mut receipt.status);
+        }));
+        let rebound = verify_bundle(wasm_evidence_rail_input(|receipt| {
+            receipt.config_identity = Some(format!("b3:{}", "0".repeat(64)));
+        }));
+        for report in [added_error, relabelled, rebound] {
+            assert_ne!(report.status, STATUS_VALID, "{:?}", report.diagnostics);
+        }
+    }
+
+    #[test]
     fn valence_export_preserves_failed_receipt_reason_without_passing_claim() {
         let export = build_valence_provenance_export(failed_evidence_rail_input()).expect("failed receipt export");
         let receipt_record = export
@@ -3194,6 +3216,8 @@ mod tests {
             parent_artifacts: Vec::new(),
             tool_exit_code: None,
         });
+        // `evidence collect` binds the analyzed registry bytes as the config identity.
+        receipt.config_identity = Some(crate::wasm_artifact::registry_identity(registry_bytes));
         mutate(&mut receipt);
         let receipt_json = crate::evidence_rails::render_receipt_json(&receipt).expect("render Wasm rail receipt");
         let summary = crate::evidence_rails::render_summary(&receipt);

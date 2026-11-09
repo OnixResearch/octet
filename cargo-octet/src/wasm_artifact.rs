@@ -565,15 +565,7 @@ pub(crate) fn evaluate_envelope(text: &str) -> WasmEnvelopeEvaluation {
         ));
     }
     validate_receipt_details(&envelope.details, &envelope.non_claims, &mut diagnostics);
-    let status = if !diagnostics.is_empty()
-        || envelope.details.findings.iter().any(|finding| finding.severity == ERROR_SEVERITY)
-    {
-        WasmEvaluationStatus::Failed
-    } else if envelope.details.findings.is_empty() {
-        WasmEvaluationStatus::Passed
-    } else {
-        WasmEvaluationStatus::ManualReview
-    };
+    let status = evaluation_status(!diagnostics.is_empty(), &envelope.details.findings);
     diagnostics.sort();
     diagnostics.dedup();
     WasmEnvelopeEvaluation {
@@ -581,6 +573,19 @@ pub(crate) fn evaluate_envelope(text: &str) -> WasmEnvelopeEvaluation {
         non_claims: envelope.non_claims,
         diagnostics,
         status,
+    }
+}
+
+/// The status an analysis earns: diagnostics or any error finding fail it,
+/// other findings need review, and no findings pass. Receipt verification
+/// recomputes it from the recorded findings.
+pub(crate) fn evaluation_status(has_diagnostics: bool, findings: &[WasmArtifactFinding]) -> WasmEvaluationStatus {
+    if has_diagnostics || findings.iter().any(|finding| finding.severity == ERROR_SEVERITY) {
+        WasmEvaluationStatus::Failed
+    } else if findings.is_empty() {
+        WasmEvaluationStatus::Passed
+    } else {
+        WasmEvaluationStatus::ManualReview
     }
 }
 

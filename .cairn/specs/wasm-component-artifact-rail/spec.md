@@ -71,6 +71,11 @@ r[octet.wasm_component.findings] Octet MUST emit ordered structured findings and
 - WHEN bundle verification runs
 - THEN verification MUST fail closed.
 
+#### Scenario: Status or registry binding disagrees with the receipt
+- GIVEN a receipt whose status differs from the status its recorded findings imply, or whose config identity differs from its recorded registry identity
+- WHEN bundle verification runs
+- THEN verification MUST fail closed even when the summary and provenance digests were regenerated.
+
 ### Requirement: Mantle can orchestrate the rail without owning its semantics
 
 r[octet.wasm_component.mantle_handoff] Octet MUST provide a stable exact-byte CLI/report contract that lets Mantle invoke a declared artifact profile after build-local validation and bind the resulting artifact BLAKE3, Octet profile, cohort, findings, and report identity into a materialization bundle; Octet MUST remain independently runnable and MUST NOT trust store paths or Mantle success as artifact facts.

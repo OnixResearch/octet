@@ -1830,6 +1830,22 @@ fn validate_wasm_artifact_receipt(
     match (rail, receipt.wasm_artifact.as_ref()) {
         (EvidenceRailKind::WasmArtifact, Some(details)) => {
             crate::wasm_artifact::validate_receipt_details(details, &receipt.non_claims, diagnostics);
+            if receipt.config_identity.as_deref() != Some(details.registry_identity.as_str()) {
+                diagnostics
+                    .push("Wasm artifact receipt config_identity does not match its registry_identity".to_owned());
+            }
+            // Collect derives the status from the findings with this rule; a
+            // relabelled status or a changed finding must not verify.
+            let expected_status = wasm_status(crate::wasm_artifact::evaluation_status(
+                !receipt.diagnostics.is_empty(),
+                &details.findings,
+            ));
+            if receipt.status != expected_status {
+                diagnostics.push(format!(
+                    "Wasm artifact receipt status `{}` does not match its recorded findings; expected `{expected_status}`",
+                    receipt.status
+                ));
+            }
         }
         (EvidenceRailKind::WasmArtifact, None) => {
             diagnostics.push("wasm-artifact receipt missing wasm_artifact details".to_owned());
@@ -2126,12 +2142,7 @@ fn parse_wasm_artifact(input: &EvaluationInput<'_>) -> RailParseOutput {
         })
         .unwrap_or_default();
     let finding_counts = counts_by_family(&findings);
-    let status = match evaluation.status {
-        crate::wasm_artifact::WasmEvaluationStatus::Passed => STATUS_PASSED,
-        crate::wasm_artifact::WasmEvaluationStatus::ManualReview => STATUS_MANUAL_REVIEW_REQUIRED,
-        crate::wasm_artifact::WasmEvaluationStatus::Failed => STATUS_FAILED,
-    }
-    .to_owned();
+    let status = wasm_status(evaluation.status).to_owned();
     RailParseOutput {
         findings,
         finding_counts,
@@ -2142,6 +2153,14 @@ fn parse_wasm_artifact(input: &EvaluationInput<'_>) -> RailParseOutput {
         hegel_property: None,
         z4_solver: None,
         verifier_fixtures: None,
+    }
+}
+
+fn wasm_status(status: crate::wasm_artifact::WasmEvaluationStatus) -> &'static str {
+    match status {
+        crate::wasm_artifact::WasmEvaluationStatus::Passed => STATUS_PASSED,
+        crate::wasm_artifact::WasmEvaluationStatus::ManualReview => STATUS_MANUAL_REVIEW_REQUIRED,
+        crate::wasm_artifact::WasmEvaluationStatus::Failed => STATUS_FAILED,
     }
 }
 
@@ -6528,14 +6547,13 @@ mod tests {
         assert!(rule_error.contains("stale ast-grep rule bundle identity"), "{rule_error}");
     }
 
-    #[test]
-    fn wasm_artifact_receipt_binds_exact_bytes_interface_and_input_provenance() {
+    /// A Wasm artifact receipt as `run` collects it, with the analyzed registry as config identity.
+    fn wasm_artifact_receipt(source: &str) -> EvidenceRailReceipt {
         let registry_bytes = include_bytes!("../../standards/wasm-artifact/generated/profiles.json");
         let registry =
             crate::wasm_artifact::parse_registry(std::str::from_utf8(registry_bytes).expect("profile registry UTF-8"))
                 .expect("profile registry");
-        let artifact = wat::parse_str(include_str!("../../standards/wasm-artifact/fixtures/positive/module.wat"))
-            .expect("module fixture");
+        let artifact = wat::parse_str(source).expect("Wasm fixture");
         let envelope = crate::wasm_artifact::analyze_bytes(
             &artifact,
             &registry,
@@ -6560,6 +6578,14 @@ mod tests {
             parent_artifacts: Vec::new(),
             tool_exit_code: None,
         });
+        receipt.config_identity = Some(crate::wasm_artifact::registry_identity(registry_bytes));
+        receipt
+    }
+
+    #[test]
+    fn wasm_artifact_receipt_binds_exact_bytes_interface_and_input_provenance() {
+        let mut receipt =
+            wasm_artifact_receipt(include_str!("../../standards/wasm-artifact/fixtures/positive/module.wat"));
         let receipt_json = render_receipt_json(&receipt).expect("receipt renders");
         let summary = render_summary(&receipt);
         let provenance = render_provenance_jsonl(&receipt, &receipt_json, &summary).expect("provenance renders");
@@ -6574,6 +6600,63 @@ mod tests {
 
         receipt.wasm_artifact.as_mut().expect("Wasm details").verification_role = "formal_proof".to_owned();
         assert!(validate_receipt(&receipt).iter().any(|diagnostic| diagnostic.contains("recorded_only or boundary")));
+    }
+
+    #[test]
+    fn wasm_artifact_receipt_status_must_follow_its_recorded_findings() {
+        let passed = wasm_artifact_receipt(include_str!("../../standards/wasm-artifact/fixtures/positive/module.wat"));
+        let failed =
+            wasm_artifact_receipt(include_str!("../../standards/wasm-artifact/fixtures/negative/undeclared-wasi.wat"));
+        assert_eq!(passed.status, STATUS_PASSED);
+        assert_eq!(failed.status, STATUS_FAILED);
+        assert!(failed.wasm_artifact.as_ref().is_some_and(|details| !details.findings.is_empty()));
+        for receipt in [&passed, &failed] {
+            assert!(validate_receipt(receipt).is_empty(), "{:?}", validate_receipt(receipt));
+        }
+
+        let mut relabelled = failed.clone();
+        STATUS_PASSED.clone_into(&mut relabelled.status);
+        let mut demoted = passed.clone();
+        STATUS_FAILED.clone_into(&mut demoted.status);
+        let mut softened = failed;
+        for finding in &mut softened.wasm_artifact.as_mut().expect("Wasm details").findings {
+            "warning".clone_into(&mut finding.severity);
+        }
+        let mut added = passed;
+        added
+            .wasm_artifact
+            .as_mut()
+            .expect("Wasm details")
+            .findings
+            .push(crate::wasm_artifact::WasmArtifactFinding {
+                issue_code: "disallowed-import".to_owned(),
+                severity: "error".to_owned(),
+                message: "added after collection".to_owned(),
+                byte_offset: None,
+            });
+        for tampered in [&relabelled, &demoted, &softened, &added] {
+            assert!(
+                validate_receipt(tampered).iter().any(|diagnostic| diagnostic.contains("status")),
+                "{}: {:?}",
+                tampered.status,
+                validate_receipt(tampered)
+            );
+        }
+    }
+
+    #[test]
+    fn wasm_artifact_receipt_config_identity_must_be_its_registry_identity() {
+        let receipt = wasm_artifact_receipt(include_str!("../../standards/wasm-artifact/fixtures/positive/module.wat"));
+        let other_registry = format!("b3:{}", "0".repeat(64));
+        for config_identity in [None, Some(other_registry)] {
+            let mut rebound = receipt.clone();
+            rebound.config_identity = config_identity;
+            assert!(
+                validate_receipt(&rebound).iter().any(|diagnostic| diagnostic.contains("config_identity")),
+                "{:?}",
+                validate_receipt(&rebound)
+            );
+        }
     }
 
     /// A pipe reopened through `/dev/fd`, which Linux and macOS both provide, yields its bytes
