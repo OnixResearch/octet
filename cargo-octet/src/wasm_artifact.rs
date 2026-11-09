@@ -24,6 +24,11 @@ const BLAKE3_PREFIX: &str = "b3:";
 const BLAKE3_HEX_LENGTH: usize = 64;
 const GIT_REVISION_HEX_LENGTH: usize = 40;
 const COHORT_IDENTITY_DOMAIN: &[u8] = b"octet-wasm-tools-cohort/v1\0";
+/// wasm-tools cohort members this build links, pinned with `=` in `cargo-octet/Cargo.toml`:
+/// `wasmparser` validates and extracts artifact facts; `wasm-encoder` builds the conformance
+/// fixtures. A registry cohort must claim exactly these versions.
+/// `linked_cohort_versions_match_cargo_lock` keeps them in sync.
+const LINKED_COHORT_MEMBERS: [(&str, &str); 2] = [("wasmparser", "0.253.0"), ("wasm-encoder", "0.253.0")];
 const INTERFACE_IDENTITY_DOMAIN: &[u8] = b"octet-wasm-interface/v2\0";
 const RUNTIME_COHORT_IDENTITY_DOMAIN: &[u8] = b"octet-wasm-runtime-cohort/v1\0";
 const MALFORMED_ISSUE: &str = "malformed-artifact";
@@ -384,6 +389,7 @@ pub(crate) fn validate_registry(registry: &WasmProfileRegistry) -> Vec<String> {
         diagnostics.push("wasm-tools cohort_id must not be empty".to_owned());
     }
     validate_cohort_members(&registry.cohort.members, &mut diagnostics);
+    validate_linked_cohort_members(&registry.cohort.members, &mut diagnostics);
     validate_profiles(&registry.profiles, &mut diagnostics);
     diagnostics.sort();
     diagnostics.dedup();
@@ -1660,6 +1666,20 @@ fn validate_cohort_members(members: &[WasmToolsCohortMember], diagnostics: &mut 
         }
         if !names.insert(member.crate_name.as_str()) {
             diagnostics.push(format!("duplicate wasm-tools cohort member `{}`", member.crate_name));
+        }
+    }
+}
+
+fn validate_linked_cohort_members(members: &[WasmToolsCohortMember], diagnostics: &mut Vec<String>) {
+    for (crate_name, linked_version) in LINKED_COHORT_MEMBERS {
+        match members.iter().find(|member| member.crate_name == crate_name) {
+            Some(member) if member.version == linked_version => {}
+            Some(member) => diagnostics.push(format!(
+                "wasm-tools cohort member `{crate_name}` claims version `{}`; this build links `{linked_version}`",
+                member.version
+            )),
+            None => diagnostics
+                .push(format!("wasm-tools cohort must pin linked member `{crate_name}` at `{linked_version}`")),
         }
     }
 }
@@ -3116,6 +3136,68 @@ mod tests {
         let diagnostics =
             analyze_bytes(&module, &registry, PROFILE_ID, identity(PROFILE_JSON.as_bytes()), &[]).expect_err("drift");
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("stale wasm-tools cohort identity")));
+    }
+
+    #[test]
+    fn registry_cohort_must_claim_the_linked_wasm_tools_versions() {
+        let module = wat::parse_str("(module)").expect("module fixture");
+        let registry = valid_registry();
+        assert!(validate_registry(&registry).is_empty());
+        analyze_bytes(&module, &registry, PROFILE_ID, identity(PROFILE_JSON.as_bytes()), &[]).expect("linked cohort");
+
+        for (crate_name, _) in LINKED_COHORT_MEMBERS {
+            // A self-consistent registry whose identity matches its own claimed members.
+            let mut claimed = valid_registry();
+            claimed
+                .cohort
+                .members
+                .iter_mut()
+                .find(|member| member.crate_name == crate_name)
+                .expect("linked cohort member")
+                .version = "0.300.0".to_owned();
+            claimed.cohort.identity = cohort_identity(&claimed.cohort.members);
+            let diagnostics = analyze_bytes(&module, &claimed, PROFILE_ID, identity(PROFILE_JSON.as_bytes()), &[])
+                .expect_err("claimed cohort differs from the linked build");
+            assert!(
+                diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.contains(crate_name) && diagnostic.contains("0.300.0")),
+                "{crate_name}: {diagnostics:?}"
+            );
+
+            let mut missing = valid_registry();
+            missing.cohort.members.retain(|member| member.crate_name != crate_name);
+            missing.cohort.identity = cohort_identity(&missing.cohort.members);
+            let diagnostics = validate_registry(&missing);
+            assert!(
+                diagnostics.iter().any(|diagnostic| diagnostic.contains(crate_name)),
+                "{crate_name}: {diagnostics:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn linked_cohort_versions_match_cargo_lock() {
+        let lock: toml::Table = toml::from_str(include_str!("../../Cargo.lock")).expect("parse Cargo.lock");
+        let locked_versions = |crate_name: &str| {
+            lock["package"]
+                .as_array()
+                .expect("Cargo.lock packages")
+                .iter()
+                .filter(|package| package["name"].as_str() == Some(crate_name))
+                .map(|package| package["version"].as_str().expect("locked version").to_owned())
+                .collect::<Vec<_>>()
+        };
+        for (crate_name, version) in LINKED_COHORT_MEMBERS {
+            assert_eq!(locked_versions(crate_name), [version], "{crate_name}");
+        }
+        // `wat` builds the text fixtures; its `1.N.P` release ships with wasm-tools `0.N.P`.
+        let (_, wasmparser_version) = LINKED_COHORT_MEMBERS
+            .into_iter()
+            .find(|(crate_name, _)| *crate_name == "wasmparser")
+            .expect("wasmparser is linked");
+        let release = wasmparser_version.strip_prefix("0.").expect("wasm-tools 0.N.P version");
+        assert_eq!(locked_versions("wat"), [format!("1.{release}")]);
     }
 
     #[test]
