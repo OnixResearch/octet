@@ -1,4 +1,4 @@
-warning: octet `core_source_scopes` entry `..` in `dylint.toml` resolves outside the workspace root, so it matches nothing; scopes are workspace-relative path prefixes
+warning: octet `core_source_scopes` entry `..` in `dylint.toml` resolves to a target outside the workspace root, so it matches only files rustc compiles through this in-root path, never the target's own location
 
 warning: octet `core_source_scopes` entry `ui_tests/..` in `dylint.toml` resolves to the workspace root itself, so it matches nothing; name a source directory or file below the root
 

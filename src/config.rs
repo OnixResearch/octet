@@ -388,10 +388,11 @@ impl Config {
     }
 
     /// Resolves every source scope on disk and keeps what rustc's file names
-    /// can match: the normalized scope text and, when it differs, the
-    /// canonical workspace-relative path it resolves to, so a symlinked or
-    /// `..` scope covers its target. Scopes that resolve to nothing, to the
-    /// workspace root itself, or outside it match nothing and are reported.
+    /// can match: the normalized scope text, which rustc uses for files it
+    /// reaches through that path, and, when it differs, the canonical
+    /// workspace-relative path an in-root scope resolves to, so a symlinked
+    /// or `..` scope covers its target. Scopes that resolve to nothing, to the
+    /// workspace root itself, or outside it are reported.
     fn resolve_source_scopes(
         &mut self,
         resolve: impl Fn(&str) -> crate::source::ScopeResolution,
@@ -571,8 +572,7 @@ fn resolve_scope_list(
             crate::source::ScopeResolution::Inside(canonical) if canonical != scope => {
                 vec![scope.clone(), canonical.clone()]
             }
-            crate::source::ScopeResolution::Inside(_canonical) => vec![scope.clone()],
-            _ => Vec::new(),
+            _ => vec![scope.clone()],
         })
         .collect();
     let list = field.trim_start_matches("octet.");
@@ -588,7 +588,7 @@ fn resolve_scope_list(
                     "resolves to the workspace root itself, so it matches nothing; name a source directory or file below the root"
                 }
                 crate::source::ScopeResolution::Outside => {
-                    "resolves outside the workspace root, so it matches nothing; scopes are workspace-relative path prefixes"
+                    "resolves to a target outside the workspace root, so it matches only files rustc compiles through this in-root path, never the target's own location"
                 }
             };
             let message = format!("octet `{list}` entry `{scope}` in `dylint.toml` {reason}");
@@ -1324,9 +1324,16 @@ function_length = "warn"
 
         let diagnostics = cfg.resolve_source_scopes(resolve);
 
-        assert_eq!(cfg.core_source_scopes, ["src", "linked", "src", "crates/x/../../src/lib.rs", "src/lib.rs"]);
-        assert_eq!(cfg.state_machine_core_scopes, ["src/fsm"]);
-        assert!(cfg.state_machine_generated_adapter_scopes.is_empty());
+        assert_eq!(cfg.core_source_scopes, [
+            "src",
+            "linked",
+            "src",
+            "crates/x/../../src/lib.rs",
+            "src/lib.rs",
+            "source.rs"
+        ]);
+        assert_eq!(cfg.state_machine_core_scopes, ["src/fsm", ".."]);
+        assert_eq!(cfg.state_machine_generated_adapter_scopes, ["crates/.."]);
         let unmatched = diagnostics
             .iter()
             .map(|diagnostic| (diagnostic.kind, diagnostic.field, diagnostic.item.as_str()))
@@ -1342,6 +1349,36 @@ function_length = "warn"
         ]);
         assert_eq!(diagnostics[0].kind.as_str(), "unmatched_source_scope");
         assert!(crate::source::path_in_scopes(std::path::Path::new("src/main.rs"), &cfg.core_source_scopes));
+    }
+
+    // rustc names a module reached through an in-root symlink by its in-root
+    // path, even when the symlink leads outside the workspace, so such a scope
+    // keeps matching through its own text.
+    #[cfg(unix)]
+    #[test]
+    fn scope_through_an_outside_symlink_matches_its_in_root_path() {
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system time after the epoch")
+            .as_nanos();
+        let scratch = std::env::temp_dir().join(format!("octet-outside-scope-{}-{unique}", std::process::id()));
+        let root = scratch.join("workspace");
+        std::fs::create_dir_all(root.join("src")).expect("source directory");
+        std::fs::create_dir_all(scratch.join("shared/core")).expect("shared directory");
+        std::os::unix::fs::symlink(scratch.join("shared/core"), root.join("src/core")).expect("outside symlink");
+        let canonical_root = root.canonicalize().expect("canonical root");
+        let (mut cfg, warnings) = parse_and_validate("[octet]\ncore_source_scopes = [\"src/core\"]\n");
+        assert!(warnings.is_empty(), "unexpected warnings: {warnings:?}");
+
+        let diagnostics = cfg.resolve_source_scopes(|scope| crate::source::resolve_scope(&canonical_root, scope));
+        std::fs::remove_dir_all(&scratch).expect("remove scratch directory");
+
+        assert_eq!(cfg.core_source_scopes, ["src/core"]);
+        assert!(crate::source::path_in_scopes(std::path::Path::new("src/core/mod.rs"), &cfg.core_source_scopes));
+        assert!(!crate::source::path_in_scopes(std::path::Path::new("src/lib.rs"), &cfg.core_source_scopes));
+        assert_eq!(diagnostics.len(), 1, "the outside target is reported: {diagnostics:?}");
+        assert_eq!(diagnostics[0].kind, ConfigDiagnosticKind::UnmatchedSourceScope);
+        assert_eq!(diagnostics[0].item, "src/core");
     }
 
     #[test]
