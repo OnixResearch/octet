@@ -1080,6 +1080,79 @@ fn compiler_constructions_on_line(shard: &CompilerArchitectureShard, definition:
         .count()
 }
 
+// r[verify octet.project_architecture_gate.role_graph]
+#[test]
+#[ignore = "run via cargo test --test ui compiler_architecture -- --ignored --nocapture"]
+fn compiler_architecture_adapter_use_is_not_construction() {
+    let toolchain = rustup_toolchain();
+    let library = build_library(&toolchain);
+    let host = host_triple();
+    let driver = build_driver(&toolchain);
+    let shard =
+        run_compiler_architecture_fixture(&driver, &library, &host, "positive/adapter_use_without_construction.rs");
+    assert_eq!(shard.collection_status, CollectionStatus::Complete);
+    assert_valid_compiler_shard(&shard);
+    let callers = shard
+        .facts
+        .iter()
+        .filter_map(|fact| match fact {
+            CompilerArchitectureFact::Item {
+                item_id,
+                qualified_path,
+                ..
+            } => Some((item_id.as_str(), qualified_path.as_str())),
+            _ => None,
+        })
+        .collect::<HashMap<_, _>>();
+    let constructions = shard
+        .facts
+        .iter()
+        .filter_map(|fact| match fact {
+            CompilerArchitectureFact::Constructor {
+                caller_item_id,
+                constructed_type_id,
+                ..
+            } => Some((
+                callers.get(caller_item_id.as_str()).copied().unwrap_or("unknown-caller"),
+                compiler_type_definition(&shard, constructed_type_id).unwrap_or("unknown-type"),
+            )),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    let adapter = "adapter_use_without_construction::adapters::SqlRepo";
+    let built_by = |function: &str| {
+        let caller = format!("adapter_use_without_construction::{function}");
+        constructions
+            .iter()
+            .filter(|(path, definition)| path.starts_with(&caller) && *definition == adapter)
+            .count()
+    };
+    // Borrowing, locking, pinning, cloning a shared handle, moving, popping, or iterating an
+    // injected adapter returns an existing value; none of these selects a new adapter.
+    for function in [
+        "use_shared",
+        "use_cloned",
+        "use_cell",
+        "use_pinned",
+        "use_slice",
+        "use_owned",
+    ] {
+        assert_eq!(built_by(function), 0, "{function} constructions: {constructions:?}");
+    }
+    // `SqlRepo::connect(url)` and `SqlRepo::default()` each construct the adapter once; the
+    // `Box::new` around one of them only moves it.
+    assert_eq!(built_by("construct_direct"), 2, "construct_direct constructions: {constructions:?}");
+    // A type the callee did not receive is one it produced: `into()`, `parse()`, and a generic
+    // `make::<SqlRepo>()` each construct the adapter.
+    assert_eq!(built_by("construct_generic"), 3, "construct_generic constructions: {constructions:?}");
+    // Defaulted allocator and hasher parameters are not constructed by the call.
+    let defaults = constructions
+        .iter()
+        .filter(|(_, definition)| definition.ends_with("::Global") || definition.ends_with("::RandomState"))
+        .collect::<Vec<_>>();
+    assert!(defaults.is_empty(), "default type parameters recorded as constructions: {defaults:?}");
+}
+
 #[test]
 #[ignore = "run via cargo test --test ui compiler_architecture -- --ignored --nocapture"]
 fn compiler_architecture_borrowed_witness_signatures_and_narrow_conversions() {

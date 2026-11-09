@@ -69,6 +69,12 @@ The gate MUST evaluate direct and configured transitive dependency edges against
 - WHEN construction evaluation runs
 - THEN the gate MUST emit the construction diagnostic for the adapter type held by value in the result
 
+#### Scenario: Adapter use is not adapter construction
+
+- GIVEN an adapter or shell borrows, locks, pins, iterates, moves, or clones a shared handle to an injected adapter, or calls a generic function that returns an adapter value it received
+- WHEN construction evaluation runs
+- THEN the gate MUST NOT emit a construction diagnostic for that adapter type
+
 #### Scenario: Composition root selects adapters
 
 - GIVEN a declared composition root constructs permitted inbound and outbound adapters and supplies them to the application shell

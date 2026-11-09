@@ -785,14 +785,19 @@ impl ArchitectureCollector {
         def_id: Option<DefId>,
         span_id: &str,
     ) {
-        // `expr?` lowers to `Try::branch(expr)`, whose `ControlFlow` repeats what the written
-        // call already constructed. `.await` keeps its lowered `poll` call: the written call
-        // returns an opaque future, so `Poll<Result<Adapter, _>>` is its one construction.
-        if expr.span.is_desugaring(DesugaringKind::QuestionMark) {
+        // `expr?`, `.await`, and `for` lower to calls such as `Try::branch`, `Future::poll`, and
+        // `Iterator::next` that only forward what the written expression already produced.
+        if [
+            DesugaringKind::QuestionMark,
+            DesugaringKind::Await,
+            DesugaringKind::ForLoop,
+        ]
+        .into_iter()
+        .any(|kind| expr.span.is_desugaring(kind))
+        {
             return;
         }
-        let mut constructed = Vec::new();
-        owned_adts(cx.typeck_results().expr_ty(expr), &mut constructed);
+        let constructed = constructed_types(cx, expr, def_id);
         let constructor_definition = def_id.map(|current| qualified_definition(cx, current));
         for current in constructed {
             let constructed_type_id = self.collect_type(cx, current);
@@ -1530,6 +1535,172 @@ fn function_reference_definition(cx: &LateContext<'_>, expr: &hir::Expr<'_>, qpa
     (!is_callee).then_some(def_id)
 }
 
+// The ADTs a written call or literal constructs. A call constructs what its definition declares
+// it returns: `Adapter::connect(url)?` constructs `Adapter` inside `Result<Self, _>`. A type
+// parameter the callee received, through an input or a caller-supplied closure's return, is
+// passed through, so `Arc::clone`, `Vec::pop`, `Some(x)`, and `Option::map` construct nothing
+// they carry. A literal's type arguments come from its field expressions. Only `Result`,
+// `Option`, `Box`, `Arc`, `Rc`, tuples, and arrays own their payload; a guard, iterator, `Pin`,
+// or collection does not make its element constructed, and allocator or hasher parameters are
+// never payload.
+fn constructed_types<'tcx>(cx: &LateContext<'tcx>, expr: &hir::Expr<'_>, def_id: Option<DefId>) -> Vec<Ty<'tcx>> {
+    let actual = cx.typeck_results().expr_ty(expr);
+    let mut found = Vec::new();
+    match expr.kind {
+        hir::ExprKind::Call(..) | hir::ExprKind::MethodCall(..) => {
+            let callee = def_id.filter(|current| {
+                matches!(cx.tcx.def_kind(*current), DefKind::Fn | DefKind::AssocFn | DefKind::Ctor(_, CtorKind::Fn))
+            });
+            match callee {
+                Some(callee) => {
+                    let declared = cx.tcx.fn_sig(callee).instantiate_identity().skip_binder();
+                    let received = received_parameters(cx, callee, declared.inputs());
+                    declared_constructions(cx, declared.output(), actual, &received, &mut found);
+                }
+                // A closure or function-pointer value has no generic signature to consult.
+                None => owned_constructions(cx, actual, &mut found),
+            }
+        }
+        _ => {
+            if let ty::Adt(adt, _) = actual.kind() {
+                let declared = cx.tcx.type_of(adt.did()).instantiate_identity();
+                let received = declared.walk().filter_map(parameter_index).collect();
+                declared_constructions(cx, declared, actual, &received, &mut found);
+            }
+        }
+    }
+    found
+}
+
+fn received_parameters<'tcx>(cx: &LateContext<'tcx>, callee: DefId, inputs: &[Ty<'tcx>]) -> BTreeSet<u32> {
+    let mut received =
+        inputs.iter().flat_map(|input| input.walk()).filter_map(parameter_index).collect::<BTreeSet<_>>();
+    if let Some(closure_output) = cx.tcx.lang_items().fn_once_output() {
+        for clause in cx.tcx.predicates_of(callee).instantiate_identity(cx.tcx).predicates {
+            if let Some(projection) = clause.as_projection_clause().map(ty::Binder::skip_binder)
+                && projection.projection_term.def_id == closure_output
+                && let Some(output) = projection.term.as_type()
+            {
+                received.extend(output.walk().filter_map(parameter_index));
+            }
+        }
+    }
+    received
+}
+
+fn parameter_index(argument: ty::GenericArg<'_>) -> Option<u32> {
+    match argument.as_type()?.kind() {
+        ty::Param(parameter) => Some(parameter.index),
+        _ => None,
+    }
+}
+
+fn declared_constructions<'tcx>(
+    cx: &LateContext<'tcx>,
+    declared: Ty<'tcx>,
+    actual: Ty<'tcx>,
+    received: &BTreeSet<u32>,
+    found: &mut Vec<Ty<'tcx>>,
+) {
+    match (declared.kind(), actual.kind()) {
+        // A received type parameter falls through to the final arm: it is passed through.
+        (ty::Param(parameter), _) if !received.contains(&parameter.index) => owned_constructions(cx, actual, found),
+        (ty::Alias(ty::Opaque, declared_alias), ty::Alias(ty::Opaque, actual_alias))
+            if declared_alias.def_id == actual_alias.def_id =>
+        {
+            if let (Some(declared), Some(actual)) =
+                (future_output(cx, *declared_alias), future_output(cx, *actual_alias))
+            {
+                declared_constructions(cx, declared, actual, received, found);
+            }
+        }
+        // An associated type of a received value, such as `Self::Item`, is passed through.
+        (ty::Alias(_, alias), _) => {
+            let from_input = alias
+                .args
+                .types()
+                .flat_map(Ty::walk)
+                .filter_map(parameter_index)
+                .any(|index| received.contains(&index));
+            if !from_input {
+                owned_constructions(cx, actual, found);
+            }
+        }
+        (ty::Adt(declared_adt, declared_args), ty::Adt(actual_adt, actual_args))
+            if declared_adt.did() == actual_adt.did() =>
+        {
+            record_construction(actual, found);
+            let payload = owned_payload_arguments(cx, *actual_adt);
+            for (declared, actual) in declared_args.types().zip(actual_args.types()).take(payload) {
+                declared_constructions(cx, declared, actual, received, found);
+            }
+        }
+        (ty::Tuple(declared_items), ty::Tuple(actual_items)) => {
+            for (declared, actual) in declared_items.iter().zip(actual_items.iter()) {
+                declared_constructions(cx, declared, actual, received, found);
+            }
+        }
+        (ty::Array(declared, _), ty::Array(actual, _)) | (ty::Slice(declared), ty::Slice(actual)) => {
+            declared_constructions(cx, *declared, *actual, received, found);
+        }
+        _ => {}
+    }
+}
+
+// Everything the callee produced: an unreceived type parameter or a call without a signature.
+fn owned_constructions<'tcx>(cx: &LateContext<'tcx>, actual: Ty<'tcx>, found: &mut Vec<Ty<'tcx>>) {
+    match actual.kind() {
+        ty::Adt(adt, args) => {
+            record_construction(actual, found);
+            for current in args.types().take(owned_payload_arguments(cx, *adt)) {
+                owned_constructions(cx, current, found);
+            }
+        }
+        ty::Tuple(items) => {
+            for current in *items {
+                owned_constructions(cx, current, found);
+            }
+        }
+        ty::Array(item, _) | ty::Slice(item) => owned_constructions(cx, *item, found),
+        _ => {}
+    }
+}
+
+fn record_construction<'tcx>(actual: Ty<'tcx>, found: &mut Vec<Ty<'tcx>>) {
+    if !found.contains(&actual) {
+        found.push(actual);
+    }
+}
+
+// Leading type arguments a wrapper owns by value; `Box`, `Arc`, and `Rc` exclude the allocator.
+fn owned_payload_arguments(cx: &LateContext<'_>, adt: ty::AdtDef<'_>) -> usize {
+    let single = adt.is_box()
+        || [sym::Option, sym::Arc, sym::Rc]
+            .into_iter()
+            .any(|wrapper| cx.tcx.is_diagnostic_item(wrapper, adt.did()));
+    if cx.tcx.is_diagnostic_item(sym::Result, adt.did()) {
+        2
+    } else {
+        usize::from(single)
+    }
+}
+
+// The `Future::Output` an async call's opaque future resolves to, instantiated for this call.
+fn future_output<'tcx>(cx: &LateContext<'tcx>, alias: ty::AliasTy<'tcx>) -> Option<Ty<'tcx>> {
+    let output = cx.tcx.lang_items().future_output()?;
+    cx.tcx
+        .explicit_item_bounds(alias.def_id)
+        .iter_instantiated_copied(cx.tcx, alias.args)
+        .find_map(|(clause, _)| {
+            let projection = clause.as_projection_clause()?.skip_binder();
+            if projection.projection_term.def_id == output {
+                projection.term.as_type()
+            } else {
+                None
+            }
+        })
+}
+
 // rustc prints the local crate root as an empty path; name it by its crate.
 fn qualified_definition(cx: &LateContext<'_>, def_id: DefId) -> String {
     let path = cx.tcx.def_path_str(def_id);
@@ -1890,29 +2061,6 @@ fn tracked_type_definition<'tcx>(
 ) -> Option<String> {
     let definition = type_definition_path(cx, ty)?;
     tracked_types.contains(&definition).then_some(definition)
-}
-
-// A value owns the ADTs it carries by value, including those wrapped in `Result`, `Option`,
-// `Box`, `Arc`, tuples, or arrays, so `Adapter::connect(url)?` constructs `Adapter`.
-// References and trait objects construct nothing.
-fn owned_adts<'tcx>(resolved: Ty<'tcx>, found: &mut Vec<Ty<'tcx>>) {
-    match resolved.kind() {
-        ty::Adt(_, args) => {
-            if !found.contains(&resolved) {
-                found.push(resolved);
-            }
-            for current in args.types() {
-                owned_adts(current, found);
-            }
-        }
-        ty::Tuple(items) => {
-            for current in *items {
-                owned_adts(current, found);
-            }
-        }
-        ty::Array(item, _) | ty::Slice(item) => owned_adts(*item, found),
-        _ => {}
-    }
 }
 
 // `From<domain::Decision>` and `From<T>` differ only in their type arguments, so implemented
