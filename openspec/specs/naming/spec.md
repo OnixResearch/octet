@@ -66,11 +66,13 @@ The lint MAY fire on `mut` boolean bindings.
 ### Requirement: Acronym Capitalization Style
 
 The lint MUST detect type names, enum variant names, and trait names
-containing runs of 2 or more uppercase ASCII letters followed by a
-lowercase letter (e.g., `RPCHandler`, `SQLQuery`, `TLSConfig`).
+containing an acronym: a run of 2 or more uppercase ASCII letters that is
+followed by a capitalized word (e.g., `RPCHandler`, `SQLQuery`,
+`TLSConfig`), followed by a digit (`HTTP2Server`), or ends a mixed-case name
+(`ParseJSON`, `UserID`). Every such run in a name MUST be checked.
 
 The lint MUST suggest the single-word capitalization (`RpcHandler`,
-`SqlQuery`, `TlsConfig`).
+`SqlQuery`, `TlsConfig`, `Http2Server`, `ParseJson`, `UserId`).
 
 The lint MUST NOT fire on all-uppercase names (`RPC`, `SQL`, `ID`).
 
@@ -85,6 +87,12 @@ exceptions.
 - GIVEN `struct RPCHandler { ... }`
 - WHEN the lint runs
 - THEN it suggests renaming to `RpcHandler`
+
+#### Scenario: Trailing and digit-adjacent acronyms
+
+- GIVEN `struct ParseJSON;` and `struct HTTP2Server;`
+- WHEN the lint runs
+- THEN it suggests renaming to `ParseJson` and `Http2Server`
 
 #### Scenario: Trailing uppercase (plural)
 
@@ -102,12 +110,20 @@ exceptions.
 
 The lint MUST be able to detect numeric variable bindings whose name contains
 a time or size word (`timeout`, `delay`, `duration`, `interval`, `latency`,
-`size`, `length`, `capacity`, `limit`, `offset`, `port`) without a unit
-suffix (`_ms`, `_secs`, `_us`, `_ns`, `_bytes`, `_kb`, `_mb`, `_gb`).
+`size`, `length`, `capacity`, `limit`, `offset`) without a unit suffix.
+Quantity words MUST match as whole identifier words, split at `_` and
+camelCase humps, so `resized_total` does not count as `size`.
 
-The lint MUST NOT fire on loop counters (`i`, `j`, `n`, `count`, `index`).
+Unit suffixes are `_ns`, `_nanos`, `_us`, `_micros`, `_ms`, `_millis`,
+`_sec`, `_secs`, `_seconds`, `_mins`, `_minutes`, `_hours`, `_days`, `_bits`,
+`_bytes`, `_kb`, `_mb`, `_gb`, `_kib`, `_mib`, and `_gib`.
 
-The lint MUST NOT fire on names that already end with a unit suffix.
+The lint MUST NOT fire on loop counters and lengths (`i`, `j`, `k`, `n`,
+`count`, `index`, `idx`, `len`).
+
+The lint MUST NOT fire on names that already end with a unit suffix,
+including spelled-out time units (`timeout_seconds`) and binary size units
+(`buffer_size_kib`).
 
 #### Scenario: Bare timeout name
 
@@ -121,11 +137,20 @@ The lint MUST NOT fire on names that already end with a unit suffix.
 - WHEN the lint runs
 - THEN it does NOT fire
 
+#### Scenario: Spelled-out or binary unit suffix
+
+- GIVEN `let timeout_seconds: u64 = 5;` or `let buffer_size_kib: usize = 4;`
+- WHEN the lint runs
+- THEN it does NOT fire
+
 ### Requirement: Floating Point for Currency
 
 The lint MUST be able to warn on struct fields or function return types using
-`f32` or `f64` whose name contains `cost`, `price`, `budget`,
-`balance`, `amount`, `fee`, or `total_cost`. For return types, the name is
+`f32` or `f64` whose name contains one of the whole words `cost`, `price`,
+`budget`, `balance`, `amount`, or `fee`. Words are split at `_` and camelCase
+humps and may carry a plural `s` or `es`, so `total_cost` and `monthly_fees`
+warn, while a currency word inside another word does not: `load_balancer_weight`,
+`feedback_score`, and `priceless_rank` stay quiet. For return types, the name is
 the function or method name; free functions, inherent methods, and trait
 method declarations are checked, while trait implementations inherit the
 trait's signature and are not reported again.
