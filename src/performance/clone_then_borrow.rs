@@ -3,10 +3,15 @@ use rustc_hir as hir;
 use rustc_hir::def::Res;
 use rustc_hir::intravisit::Visitor;
 use rustc_hir::intravisit::walk_expr;
+use rustc_hir_typeck::expr_use_visitor::Delegate;
+use rustc_hir_typeck::expr_use_visitor::ExprUseVisitor;
+use rustc_hir_typeck::expr_use_visitor::PlaceBase;
+use rustc_hir_typeck::expr_use_visitor::PlaceWithHirId;
 use rustc_lint::LateContext;
 use rustc_lint::LateLintPass;
 use rustc_lint::LintContext;
 use rustc_middle::hir::nested_filter::OnlyBodies;
+use rustc_middle::mir::FakeReadCause;
 use rustc_middle::ty;
 use rustc_middle::ty::adjustment::Adjust;
 use rustc_middle::ty::adjustment::AutoBorrow;
@@ -193,10 +198,86 @@ impl<'tcx> Visitor<'tcx> for LocalMutationFinder<'_, 'tcx> {
     }
 }
 
-/// The spec exempts clones stored for later and independently mutated: when
-/// `let before = &x.clone();` is followed in the same block by a mutation of
-/// `x`, borrowing `x` instead would conflict with that mutation (E0502).
-fn stored_clone_outlives_mutation(cx: &LateContext<'_>, borrow: &hir::Expr<'_>, receiver: &hir::Expr<'_>) -> bool {
+/// Index of the statement in `block` that contains `hir_id`; the tail
+/// expression counts as the statement after the last one.
+fn block_position(cx: &LateContext<'_>, block: &hir::Block<'_>, hir_id: hir::HirId) -> Option<usize> {
+    let mut child = hir_id;
+    for (parent_id, _) in cx.tcx.hir_parent_iter(hir_id) {
+        if parent_id == block.hir_id {
+            if block.expr.is_some_and(|tail| tail.hir_id == child) {
+                return Some(block.stmts.len());
+            }
+            return block.stmts.iter().position(|stmt| stmt.hir_id == child);
+        }
+        child = parent_id;
+    }
+    None
+}
+
+/// Finds a by-value use (move) of `local`, or of a place inside it, located in
+/// `block` after the statement at `stored_at`.
+struct LaterLocalMoveFinder<'a, 'tcx> {
+    cx: &'a LateContext<'tcx>,
+    local: hir::HirId,
+    block: &'a hir::Block<'tcx>,
+    stored_at: usize,
+    found: bool,
+}
+
+impl<'tcx> Delegate<'tcx> for LaterLocalMoveFinder<'_, 'tcx> {
+    fn consume(&mut self, place_with_id: &PlaceWithHirId<'tcx>, diag_expr_id: hir::HirId) {
+        let moved_local = match place_with_id.place.base {
+            PlaceBase::Local(local) => local,
+            PlaceBase::Upvar(upvar) => upvar.var_path.hir_id,
+            PlaceBase::Rvalue | PlaceBase::StaticItem => return,
+        };
+        if moved_local == self.local
+            && block_position(self.cx, self.block, diag_expr_id).is_some_and(|position| position > self.stored_at)
+        {
+            self.found = true;
+        }
+    }
+
+    fn use_cloned(&mut self, _place_with_id: &PlaceWithHirId<'tcx>, _diag_expr_id: hir::HirId) {}
+
+    fn borrow(&mut self, _place_with_id: &PlaceWithHirId<'tcx>, _diag_expr_id: hir::HirId, _kind: ty::BorrowKind) {}
+
+    fn mutate(&mut self, _assignee_place: &PlaceWithHirId<'tcx>, _diag_expr_id: hir::HirId) {}
+
+    fn fake_read(&mut self, _place_with_id: &PlaceWithHirId<'tcx>, _cause: FakeReadCause, _diag_expr_id: hir::HirId) {}
+}
+
+fn local_moved_after<'tcx>(
+    cx: &LateContext<'tcx>,
+    local: hir::HirId,
+    block: &hir::Block<'tcx>,
+    stored_at: usize,
+) -> bool {
+    let Some(body_id) = cx.enclosing_body else {
+        return false;
+    };
+    let mut finder = LaterLocalMoveFinder {
+        cx,
+        local,
+        block,
+        stored_at,
+        found: false,
+    };
+    let Ok(()) = ExprUseVisitor::for_clippy(cx, cx.tcx.hir_body_owner_def_id(body_id), &mut finder)
+        .consume_body(cx.tcx.hir_body(body_id));
+    finder.found
+}
+
+/// The spec exempts clones stored for later and independently mutated or
+/// detached from their source: when `let before = &x.clone();` is followed in
+/// the same block by a mutation of `x` or a move of `x` (`drop(guard)`,
+/// `consume(x)`), borrowing `x` instead would conflict with that use (E0502,
+/// E0505).
+fn stored_clone_outlives_mutation_or_move(
+    cx: &LateContext<'_>,
+    borrow: &hir::Expr<'_>,
+    receiver: &hir::Expr<'_>,
+) -> bool {
     let Some(local) = receiver_root_local(receiver) else {
         return false;
     };
@@ -206,19 +287,64 @@ fn stored_clone_outlives_mutation(cx: &LateContext<'_>, borrow: &hir::Expr<'_>, 
     let hir::Node::Block(block) = cx.tcx.parent_hir_node(let_stmt.hir_id) else {
         return false;
     };
+    let Some(stored_at) = block.stmts.iter().position(|stmt| stmt.hir_id == let_stmt.hir_id) else {
+        return false;
+    };
     let mut finder = LocalMutationFinder {
         cx,
         local,
         found: false,
     };
-    let later_stmts = block.stmts.iter().skip_while(|stmt| stmt.hir_id != let_stmt.hir_id).skip(1);
-    for stmt in later_stmts {
+    for stmt in &block.stmts[stored_at + 1..] {
         finder.visit_stmt(stmt);
     }
     if let Some(tail) = block.expr {
         finder.visit_expr(tail);
     }
-    finder.found
+    finder.found || local_moved_after(cx, local, block, stored_at)
+}
+
+/// Whether `expr` is a call result with drop glue that is dereferenced through
+/// `Deref`, either by an adjustment or by the explicit `*` in `parent`.
+fn derefs_droppable_call_result(cx: &LateContext<'_>, expr: &hir::Expr<'_>, parent: Option<&hir::Expr<'_>>) -> bool {
+    if !matches!(expr.kind, hir::ExprKind::Call(..) | hir::ExprKind::MethodCall(..)) {
+        return false;
+    }
+    let typeck_results = cx.typeck_results();
+    if !typeck_results.expr_ty(expr).needs_drop(cx.tcx, cx.typing_env()) {
+        return false;
+    }
+    let adjusted_deref = typeck_results
+        .expr_adjustments(expr)
+        .iter()
+        .any(|adjustment| matches!(adjustment.kind, Adjust::Deref(DerefAdjustKind::Overloaded(_))));
+    let explicit_deref = parent.is_some_and(|parent| {
+        matches!(parent.kind, hir::ExprKind::Unary(hir::UnOp::Deref, _)) && typeck_results.is_method_call(parent)
+    });
+    adjusted_deref || explicit_deref
+}
+
+/// The spec exempts clones that detach from a lock guard: in
+/// `m.lock().unwrap().clone()` the receiver chain dereferences a temporary
+/// guard, and borrowing it instead would hold the lock while the borrow lives.
+fn receiver_derefs_temporary_guard(cx: &LateContext<'_>, receiver: &hir::Expr<'_>) -> bool {
+    let mut parent = None;
+    let mut current = receiver;
+    loop {
+        if derefs_droppable_call_result(cx, current, parent) {
+            return true;
+        }
+        match &current.kind {
+            hir::ExprKind::Field(base, _)
+            | hir::ExprKind::Index(base, _, _)
+            | hir::ExprKind::Unary(hir::UnOp::Deref, base)
+            | hir::ExprKind::MethodCall(_, base, _, _) => {
+                parent = Some(current);
+                current = base;
+            }
+            _ => return false,
+        }
+    }
 }
 
 impl<'tcx> LateLintPass<'tcx> for CloneThenBorrow {
@@ -226,7 +352,7 @@ impl<'tcx> LateLintPass<'tcx> for CloneThenBorrow {
         let Some(receiver) = borrowed_clone_receiver(cx, expr) else {
             return;
         };
-        if stored_clone_outlives_mutation(cx, expr, receiver) {
+        if receiver_derefs_temporary_guard(cx, receiver) || stored_clone_outlives_mutation_or_move(cx, expr, receiver) {
             return;
         }
         let Ok(receiver_snippet) = cx.sess().source_map().span_to_snippet(receiver.span) else {

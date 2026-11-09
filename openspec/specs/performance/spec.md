@@ -210,6 +210,7 @@ The lint MUST NOT warn on clones that are moved into ownership-consuming APIs, s
 - GIVEN a clone is stored in a struct, returned, moved into a task, or used to detach from a lock guard or short-lived borrow
 - WHEN the lint runs
 - THEN it does NOT warn in the first implementation scope because the clone may be the intended ownership boundary
+- AND a clone whose receiver chain dereferences a temporary call result with drop glue, such as `emit(&lock.lock().unwrap().clone())`, counts as detaching from a guard, because borrowing it instead would hold the guard while the borrow lives
 
 #### Scenario: Borrowed clone kept across a mutation of the original is accepted [r[clone-then-borrow-lint.scenario.mutated-original-accepted]]
 
@@ -217,6 +218,13 @@ The lint MUST NOT warn on clones that are moved into ownership-consuming APIs, s
 - WHEN the lint runs
 - THEN it does NOT warn because the borrowed clone is stored in a `let` binding (directly or inside a tuple, array, or struct literal) and a later statement in the same block assigns or mutably borrows the original, so borrowing the original would fail with E0502
 - AND a stored borrowed clone with no later mutation of the original still warns
+
+#### Scenario: Borrowed clone kept across a move of the original is accepted [r[clone-then-borrow-lint.scenario.moved-original-accepted]]
+
+- GIVEN `let snapshot = &guard.clone(); drop(guard);` or `let before = &values.clone(); consume(values);`
+- WHEN the lint runs
+- THEN it does NOT warn because the borrowed clone is stored in a `let` binding and a later statement in the same block moves the original (or a place inside it) by value, so borrowing the original would fail with E0505
+- AND a stored borrowed clone whose original is only borrowed afterwards still warns
 
 #### Scenario: Expansion boundary is skipped [r[clone-then-borrow-lint.scenario.expansion-skip]]
 
