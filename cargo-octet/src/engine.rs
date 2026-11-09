@@ -49,6 +49,30 @@ const SUMMARY_ARTIFACT_NAME: &str = "summary.txt";
 const JSON_RESULTS_ARTIFACT_NAME: &str = "results.jsonl";
 const SARIF_RESULTS_ARTIFACT_NAME: &str = "results.sarif";
 const PROVENANCE_ARTIFACT_NAME: &str = "provenance.jsonl";
+/// Every entry name a `cargo octet check` bundle can hold, across all output formats and optional
+/// phases. Pruning removes only these names, so entries the runner never writes (an operator's
+/// notes, another command's outputs, a whole workspace) survive a run that reuses the directory.
+const CHECK_BUNDLE_ARTIFACT_NAMES: &[&str] = &[
+    COMMAND_ARTIFACT_NAME,
+    STATUS_ARTIFACT_NAME,
+    SUMMARY_ARTIFACT_NAME,
+    JSON_RESULTS_ARTIFACT_NAME,
+    SARIF_RESULTS_ARTIFACT_NAME,
+    PROVENANCE_ARTIFACT_NAME,
+    crate::function_address::FUNCTION_ADDRESS_ARTIFACT_NAME,
+    crate::architecture_ir::ARCHITECTURE_IR_ARTIFACT_NAME,
+    crate::architecture_ir::ARCHITECTURE_COVERAGE_ARTIFACT_NAME,
+    crate::architecture_ir::ARCHITECTURE_ISSUES_ARTIFACT_NAME,
+    crate::architecture_ir::ARCHITECTURE_RECEIPT_ARTIFACT_NAME,
+    crate::project_architecture::PROJECT_ARCHITECTURE_POLICY_SOURCE_ARTIFACT_NAME,
+    crate::project_architecture::PROJECT_ARCHITECTURE_POLICY_ARTIFACT_NAME,
+    crate::project_architecture::PROJECT_ARCHITECTURE_CARGO_GRAPH_ARTIFACT_NAME,
+    crate::project_architecture::PROJECT_ARCHITECTURE_RECEIPT_ARTIFACT_NAME,
+    crate::admit::INTEGRATED_CLOSURE_RECEIPT_ARTIFACT_NAME,
+    crate::admit::INTEGRATED_CLOSURE_POLICY_ARTIFACT_NAME,
+    crate::admit::INTEGRATED_CLOSURE_GRAPH_ARTIFACT_NAME,
+    crate::admit::INTEGRATED_CLOSURE_PARENT_STATUS_ARTIFACT_NAME,
+];
 const RUNNER_PROVENANCE_SOURCE_ID: &str = "octet.runner.artifact-bundle";
 const RUNNER_STATIC_FINDINGS_SOURCE_ID: &str = "octet.runner.static-findings";
 const FUNCTION_ADDRESS_PROVENANCE_SOURCE_ID: &str = "octet.function_address.receipt";
@@ -840,6 +864,10 @@ fn write_run_artifacts(
     run_artifacts: &RunArtifacts,
 ) -> Result<(), String> {
     let expected_files = expected_artifact_files(run_artifacts);
+    debug_assert!(
+        expected_files.iter().all(|name| CHECK_BUNDLE_ARTIFACT_NAMES.contains(name)),
+        "every check output must be listed in CHECK_BUNDLE_ARTIFACT_NAMES so a later run can prune it"
+    );
     remove_extra_artifact_paths(artifact_root, &expected_files)?;
     write_status_sidecars(artifact_root, command_line, run_artifacts)?;
 
@@ -901,15 +929,23 @@ fn bound_function_address_baseline(
     Ok(bound.to_path_buf())
 }
 
-/// Bundle pruning removes every `--artifact-dir` entry the run does not write, and any other entry
-/// makes a new directory look like a foreign one. A baseline file or the `--cache` directory inside
-/// the artifact directory would be deleted or would poison the bundle, so those combinations fail
-/// before Cargo runs.
+/// The artifact directory holds the check bundle alone. A directory that is the workspace root or
+/// one of its ancestors would mix the bundle with sources, and a baseline file or the `--cache`
+/// directory inside it would sit among bundle outputs (a baseline named like one would be
+/// overwritten or pruned), so those combinations fail before Cargo runs.
 fn reject_paths_inside_artifact_dir(cwd: &Path, check: &CheckArgs, workspace_root: &Path) -> Result<(), String> {
     let Some(artifact_dir) = check.artifact_dir.as_deref() else {
         return Ok(());
     };
     let resolved_artifact_dir = resolve_through_existing_ancestor(&cwd.join(artifact_dir));
+    if resolve_through_existing_ancestor(workspace_root).starts_with(&resolved_artifact_dir) {
+        return Err(format!(
+            "`--artifact-dir` {} is the workspace root {} or one of its ancestors; choose a directory that holds \
+             only the check bundle, such as `artifacts/octet`",
+            artifact_dir.display(),
+            workspace_root.display()
+        ));
+    }
     let cache_dir = check.cache.then(|| workspace_root.join(LINT_CACHE_DIR));
     for (flag, path) in [
         ("--baseline", check.baseline.as_deref()),
@@ -921,8 +957,8 @@ fn reject_paths_inside_artifact_dir(cwd: &Path, check: &CheckArgs, workspace_roo
         };
         if resolve_through_existing_ancestor(&cwd.join(path)).starts_with(&resolved_artifact_dir) {
             return Err(format!(
-                "`{flag}` path {} is inside `--artifact-dir` {}, whose unexpected entries are pruned when the \
-                 bundle is written; choose paths that do not overlap",
+                "`{flag}` path {} is inside `--artifact-dir` {}, which holds only the check bundle; choose paths \
+                 that do not overlap",
                 path.display(),
                 artifact_dir.display()
             ));
@@ -1033,9 +1069,13 @@ fn expected_artifact_files(run_artifacts: &RunArtifacts) -> Vec<&'static str> {
     files
 }
 
+/// Removes outputs an earlier check left behind that this run does not rewrite, such as a stale
+/// `results.sarif` after switching to JSON. Only names in `CHECK_BUNDLE_ARTIFACT_NAMES` are
+/// removed; any other entry is not the runner's to delete.
 fn remove_extra_artifact_paths(artifact_root: &ArtifactRoot, expected_files: &[&'static str]) -> Result<(), String> {
     for file_name in artifact_root.read_entry_names()? {
-        if expected_files.iter().any(|expected| *expected == file_name) {
+        let owned_by_check = CHECK_BUNDLE_ARTIFACT_NAMES.contains(&file_name.as_str());
+        if !owned_by_check || expected_files.contains(&file_name.as_str()) {
             continue;
         }
 
@@ -2190,16 +2230,46 @@ mod tests {
         assert!(foreign.join(STATUS_ARTIFACT_NAME).is_file());
 
         let previous = temporary.path().join("previous");
-        std::fs::create_dir_all(previous.join("stale-dir")).expect("previous bundle dir");
-        for name in [STATUS_ARTIFACT_NAME, PROVENANCE_ARTIFACT_NAME, "results.sarif"] {
+        std::fs::create_dir_all(&previous).expect("previous bundle dir");
+        for name in [STATUS_ARTIFACT_NAME, PROVENANCE_ARTIFACT_NAME] {
             std::fs::write(previous.join(name), "stale\n").expect("previous bundle sidecar");
         }
-        let root = prepare_artifact_dir(&previous).expect("previous Octet bundle is accepted");
-        remove_extra_artifact_paths(&root, &[STATUS_ARTIFACT_NAME, PROVENANCE_ARTIFACT_NAME])
+        prepare_artifact_dir(&previous).expect("previous Octet bundle is accepted");
+    }
+
+    #[test]
+    fn bundle_pruning_removes_stale_octet_outputs_and_keeps_unknown_entries() {
+        let temporary = tempfile::tempdir().expect("artifact fixture");
+        let bundle = temporary.path().join("bundle");
+        std::fs::create_dir_all(bundle.join("proofs")).expect("foreign proofs dir");
+        std::fs::write(bundle.join("proofs/rail.receipt"), "receipt\n").expect("foreign receipt");
+        std::fs::write(bundle.join("proof-cards.json"), "{}\n").expect("foreign proof cards");
+        std::fs::write(bundle.join("notes.txt"), "keep\n").expect("foreign note");
+        let stale_outputs = [
+            "results.sarif",
+            "results.jsonl",
+            "function-addresses.json",
+            "compiler-architecture-ir.json",
+            "project-architecture-receipt.json",
+            "effect-closure.json",
+        ];
+        for name in [STATUS_ARTIFACT_NAME, PROVENANCE_ARTIFACT_NAME].into_iter().chain(stale_outputs) {
+            std::fs::write(bundle.join(name), "stale\n").expect("previous bundle output");
+        }
+
+        let root = prepare_artifact_dir(&bundle).expect("previous Octet bundle is accepted");
+        remove_extra_artifact_paths(&root, &[STATUS_ARTIFACT_NAME, PROVENANCE_ARTIFACT_NAME, "results.jsonl"])
             .expect("prune previous bundle");
-        assert!(!previous.join("results.sarif").exists());
-        assert!(!previous.join("stale-dir").exists());
-        assert!(previous.join(STATUS_ARTIFACT_NAME).is_file());
+
+        for name in stale_outputs.into_iter().filter(|name| *name != "results.jsonl") {
+            assert!(!bundle.join(name).exists(), "stale Octet output `{name}` must be pruned");
+        }
+        for name in [STATUS_ARTIFACT_NAME, PROVENANCE_ARTIFACT_NAME, "results.jsonl"] {
+            assert!(bundle.join(name).is_file(), "`{name}` is rewritten by this run and stays");
+        }
+        assert_eq!(std::fs::read_to_string(bundle.join("notes.txt")).expect("unknown file survives"), "keep\n");
+        assert!(bundle.join("proof-cards.json").is_file(), "a prove output is not a check output");
+        assert!(bundle.join("proofs/rail.receipt").is_file(), "an unknown directory survives");
     }
 
     #[test]

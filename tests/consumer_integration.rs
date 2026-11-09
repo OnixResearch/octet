@@ -3609,9 +3609,11 @@ fn artifact_directory_captures_json_run() {
         EXIT_CODE_SUCCESS,
     );
     assert_eq!(previous_run.status.code(), Some(EXIT_CODE_SUCCESS), "previous SARIF bundle should be written");
-    let stale_extra_file = dir.join("extra.txt");
+    let foreign_note = dir.join("notes.txt");
+    let foreign_proofs = dir.join("proofs/rail.receipt");
     let stale_sarif_file = dir.join(RESULTS_SARIF_FILE);
-    write_file(&stale_extra_file, "stale extra sidecar\n");
+    write_file(&foreign_note, "operator note\n");
+    write_file(&foreign_proofs, "receipt\n");
     assert!(stale_sarif_file.is_file(), "previous SARIF bundle should leave results.sarif behind");
     let output = run_with_check_args(
         &fixture,
@@ -3632,20 +3634,23 @@ fn artifact_directory_captures_json_run() {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+    let mut expected_entries = expected_artifact_files(JSON_OUTPUT_FORMAT);
+    expected_entries.extend(["notes.txt".to_owned(), "proofs".to_owned()]);
+    expected_entries.sort();
     assert_eq!(
         artifact_file_names(&dir),
-        expected_artifact_files(JSON_OUTPUT_FORMAT),
-        "json artifact directory should contain exactly the expected files"
+        expected_entries,
+        "json artifact directory should hold this run's outputs beside the untouched foreign entries"
     );
-    assert_provenance_matches_artifacts(&dir, JSON_OUTPUT_FORMAT);
-    assert!(
-        !stale_extra_file.exists(),
-        "runner should remove stale extra sidecars before writing the final bundle"
-    );
+    assert_eq!(read_artifact(&foreign_note), "operator note\n", "pruning must keep entries Octet did not write");
+    assert_eq!(read_artifact(&foreign_proofs), "receipt\n", "pruning must keep directories Octet did not write");
     assert!(
         !stale_sarif_file.exists(),
         "runner should remove stale non-selected structured sidecars before writing the final bundle"
     );
+    fs::remove_file(&foreign_note).expect("remove foreign note");
+    fs::remove_dir_all(dir.join("proofs")).expect("remove foreign proofs");
+    assert_provenance_matches_artifacts(&dir, JSON_OUTPUT_FORMAT);
 
     let status = read_json_artifact(&dir.join(STATUS_JSON_FILE));
     assert_eq!(status["status"], STATUS_WARNING_ONLY);
@@ -3748,6 +3753,36 @@ fn baseline_and_cache_paths_inside_artifact_dir_are_rejected_before_cargo() {
         assert!(inside_baseline.is_file(), "{args:?} must not prune the accepted baseline");
     }
     assert!(!fixture.repo.join(".octet").exists(), "a rejected cache run must not create the cache directory");
+}
+
+#[test]
+fn workspace_root_or_ancestor_artifact_dir_is_rejected_before_cargo() {
+    let fixture =
+        ConsumerFixture::new("artifact-dir-workspace-root", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    // Bundle markers at the root make it look like an earlier check bundle, which pruning accepts.
+    write_file(&fixture.repo.join(STATUS_JSON_FILE), r#"{"status":"clean","exit_code":0}"#);
+    write_file(&fixture.repo.join(PROVENANCE_JSONL_FILE), "{}\n");
+    let parent = fixture.repo.parent().expect("fixture root").to_str().expect("fixture root utf8").to_owned();
+
+    for artifact_dir in [".", "./src/..", parent.as_str()] {
+        let output = run_with_check_args(
+            &fixture,
+            &["--output-format", JSON_OUTPUT_FORMAT, "--artifact-dir", artifact_dir],
+            &three_finding_json_lines(),
+            EXIT_CODE_SUCCESS,
+        );
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        for kept in ["Cargo.toml", "Cargo.lock", "dylint.toml", "src/lib.rs"] {
+            assert!(fixture.repo.join(kept).is_file(), "`--artifact-dir {artifact_dir}` must keep {kept}: {stderr}");
+        }
+        assert_eq!(
+            output.status.code(),
+            Some(EXIT_CODE_INTEGRATION_FAILURE),
+            "`--artifact-dir {artifact_dir}` must be rejected: {stderr}"
+        );
+        assert!(stderr.contains("`--artifact-dir`") && stderr.contains("workspace root"), "{stderr}");
+        assert!(!fixture.log().contains("ARGS:check"), "`--artifact-dir {artifact_dir}` must fail before Cargo runs");
+    }
 }
 
 #[test]
