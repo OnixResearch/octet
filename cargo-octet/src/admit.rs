@@ -1477,26 +1477,59 @@ mod tests {
         assert!(invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("provenance.jsonl is stale")));
     }
 
+    fn forge_admitted(mut receipt: EffectClosureReceipt) -> EffectClosureReceipt {
+        receipt.diagnostics.clear();
+        receipt.status = AdmissionStatus::Admitted;
+        effect_closure::finalize_receipt(receipt)
+    }
+
+    fn assert_forgery_rejected(fixture: &BundleFixture, forged: &EffectClosureReceipt, expected: &str) {
+        let temp = tempfile::tempdir().expect("tempdir");
+        write_bundle(temp.path(), fixture, forged);
+        let report = verify_bundle_inner(temp.path(), false).expect("verification report");
+        assert_eq!(report.status, STATUS_INVALID, "forged admitted receipt verified");
+        assert!(
+            report.diagnostics.iter().any(|diagnostic| diagnostic.contains(expected)),
+            "expected `{expected}` in {:?}",
+            report.diagnostics
+        );
+    }
+
+    /// Rebinds the fixture to a workspace policy whose module roles differ from the default
+    /// single `core` assignment, keeping every bound identity consistent with the new policy bytes.
+    fn with_module_roles(
+        mut fixture: BundleFixture,
+        module_roles: Vec<effect_closure::ModuleRoleAssignment>,
+    ) -> BundleFixture {
+        fixture.input.policy.module_roles = module_roles;
+        fixture.policy_bytes = pretty_json_bytes(&fixture.input.policy).expect("policy JSON");
+        fixture.input.workspace_policy_blake3 = crate::evidence::artifact_blake3_hex(&fixture.policy_bytes);
+        fixture
+    }
+
+    /// Rewrites the first call of a denied single-node receipt into the reviewed-summary edge the
+    /// policy summary would produce, the way an attacker would hand-edit a denied bundle.
+    fn forge_reviewed_edge(
+        mut receipt: EffectClosureReceipt,
+        summary: &effect_closure::CallSummary,
+    ) -> EffectClosureReceipt {
+        let node = &mut receipt.nodes[0];
+        let call = &mut node.calls[0];
+        assert_eq!(call.call_site_id, summary.call_site_id);
+        call.resolution = effect_closure::CallResolution::ReviewedSummary;
+        call.provider = Some(summary.provider.clone());
+        call.effects.clone_from(&summary.effects);
+        call.review_label = Some(summary.review_label.clone());
+        call.evidence = Some(summary.evidence.clone());
+        node.direct_effects.clone_from(&summary.effects);
+        node.closure_effects.clone_from(&summary.effects);
+        receipt.providers = vec![summary.provider.clone()];
+        forge_admitted(receipt)
+    }
+
     // r[verify octet.effect_closure.evidence.tamper]
     #[test]
     fn admitted_receipt_must_match_bound_function_addresses_and_policy_summaries() {
-        fn forge_admitted(mut receipt: EffectClosureReceipt) -> EffectClosureReceipt {
-            receipt.diagnostics.clear();
-            receipt.status = AdmissionStatus::Admitted;
-            effect_closure::finalize_receipt(receipt)
-        }
-        fn assert_forgery_rejected(fixture: &BundleFixture, forged: &EffectClosureReceipt, expected: &str) {
-            let temp = tempfile::tempdir().expect("tempdir");
-            write_bundle(temp.path(), fixture, forged);
-            let report = verify_bundle_inner(temp.path(), false).expect("verification report");
-            assert_eq!(report.status, STATUS_INVALID, "forged admitted receipt verified");
-            assert!(
-                report.diagnostics.iter().any(|diagnostic| diagnostic.contains(expected)),
-                "expected `{expected}` in {:?}",
-                report.diagnostics
-            );
-        }
-
         let source = "fn root() { let _values: Vec<u8> = Vec::new(); }\n";
         let (summary, provider) = toolchain_summary('b', "call:Vec::new", vec![effect_closure::Effect::Alloc]);
         let fixture = bundle_fixture(source, &[("root", 'b')], vec![summary], vec![provider]);
@@ -1530,6 +1563,98 @@ mod tests {
         let stale = effect_closure::compute_closure(fixture.input.clone());
         assert_eq!(stale.status, AdmissionStatus::Denied);
         assert_forgery_rejected(&fixture, &forge_admitted(stale), "is not used by the admitted receipt");
+    }
+
+    // r[verify octet.effect_closure.roles.invalid]
+    // r[verify octet.effect_closure.evidence.tamper]
+    #[test]
+    fn admitted_receipt_must_bind_exactly_one_core_role_per_source() {
+        let fixture = bundle_fixture("fn root() {}\n", &[("root", 'f')], Vec::new(), Vec::new());
+        let fixture = with_module_roles(fixture, vec![effect_closure::ModuleRoleAssignment {
+            path: TEST_SOURCE_PATH.to_owned(),
+            role: effect_closure::ModuleRole::Shell,
+        }]);
+        let shell = effect_closure::compute_closure(fixture.input.clone());
+        assert_eq!(shell.status, AdmissionStatus::Denied);
+        assert_forgery_rejected(&fixture, &forge_admitted(shell.clone()), "exactly one workspace-policy role `core`");
+        let mut relabelled_core = shell;
+        relabelled_core.nodes[0].role = effect_closure::ModuleRole::Core;
+        assert_forgery_rejected(&fixture, &forge_admitted(relabelled_core), "exactly one workspace-policy role `core`");
+
+        let fixture = bundle_fixture("fn root() {}\n", &[("root", 'f')], Vec::new(), Vec::new());
+        let fixture = with_module_roles(fixture, vec![effect_closure::ModuleRoleAssignment {
+            path: "src/other.rs".to_owned(),
+            role: effect_closure::ModuleRole::Core,
+        }]);
+        let unroled = effect_closure::compute_closure(fixture.input.clone());
+        assert_eq!(unroled.status, AdmissionStatus::Denied);
+        assert_eq!(unroled.nodes[0].role, effect_closure::ModuleRole::Core, "unroled paths default to core");
+        assert_forgery_rejected(&fixture, &forge_admitted(unroled), "exactly one workspace-policy role `core`");
+    }
+
+    const ALLOCATING_SOURCE: &str = "fn root() { let _values: Vec<u8> = Vec::new(); }\n";
+
+    // r[verify octet.effect_closure.dependency_summaries.invalid]
+    // r[verify octet.effect_closure.evidence.tamper]
+    #[test]
+    fn admitted_toolchain_summary_evidence_must_bind_its_provider_identity() {
+        let source = ALLOCATING_SOURCE;
+        let (mut summary, provider) = toolchain_summary('9', "call:Vec::new", vec![effect_closure::Effect::Alloc]);
+        let fixture = bundle_fixture(source, &[("root", '9')], vec![summary.clone()], vec![provider.clone()]);
+        let provider_bound = effect_closure::compute_closure(fixture.input.clone());
+        assert_eq!(provider_bound.status, AdmissionStatus::Admitted, "{:?}", provider_bound.diagnostics);
+        let temp = tempfile::tempdir().expect("tempdir");
+        write_bundle(temp.path(), &fixture, &provider_bound);
+        let valid = verify_bundle_inner(temp.path(), false).expect("valid verification report");
+        assert_eq!(valid.status, STATUS_VALID, "{:?}", valid.diagnostics);
+
+        summary.evidence.blake3 = crate::determinism::full_hash("a different toolchain provider");
+        let fixture = bundle_fixture(source, &[("root", '9')], vec![summary.clone()], vec![provider]);
+        let stale_toolchain = effect_closure::compute_closure(fixture.input.clone());
+        assert_eq!(stale_toolchain.status, AdmissionStatus::Denied);
+        assert_forgery_rejected(
+            &fixture,
+            &forge_reviewed_edge(stale_toolchain, &summary),
+            "is not bound to the recorded Cargo.lock or provider identity",
+        );
+    }
+
+    // r[verify octet.effect_closure.dependency_summaries.invalid]
+    // r[verify octet.effect_closure.evidence.tamper]
+    #[test]
+    fn admitted_cargo_summary_evidence_must_bind_the_recorded_cargo_lock() {
+        let source = ALLOCATING_SOURCE;
+        let (mut summary, _) = toolchain_summary('8', "call:Vec::new", vec![effect_closure::Effect::Alloc]);
+        summary.provider = ProviderIdentity {
+            kind: ProviderKind::CargoPackage,
+            name: "vecs".to_owned(),
+            version: "1.0.0".to_owned(),
+            source: "registry+https://github.com/rust-lang/crates.io-index".to_owned(),
+            target: TEST_TARGET.to_owned(),
+            features: Vec::new(),
+        };
+        summary.evidence = effect_closure::EvidenceReference {
+            kind: "cargo-lock-review-v1".to_owned(),
+            locator: "Cargo.lock#vecs".to_owned(),
+            blake3: TEST_HASH.to_owned(),
+        };
+        let fixture = bundle_fixture(source, &[("root", '8')], vec![summary.clone()], vec![summary.provider.clone()]);
+        let lock_bound = effect_closure::compute_closure(fixture.input.clone());
+        assert_eq!(lock_bound.status, AdmissionStatus::Admitted, "{:?}", lock_bound.diagnostics);
+        let temp = tempfile::tempdir().expect("tempdir");
+        write_bundle(temp.path(), &fixture, &lock_bound);
+        let valid = verify_bundle_inner(temp.path(), false).expect("valid verification report");
+        assert_eq!(valid.status, STATUS_VALID, "{:?}", valid.diagnostics);
+
+        summary.evidence.blake3 = crate::determinism::full_hash("an older Cargo.lock");
+        let fixture = bundle_fixture(source, &[("root", '8')], vec![summary.clone()], vec![summary.provider.clone()]);
+        let stale_lock = effect_closure::compute_closure(fixture.input.clone());
+        assert_eq!(stale_lock.status, AdmissionStatus::Denied);
+        assert_forgery_rejected(
+            &fixture,
+            &forge_reviewed_edge(stale_lock, &summary),
+            "is not bound to the recorded Cargo.lock or provider identity",
+        );
     }
 
     #[test]

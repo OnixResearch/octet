@@ -1542,8 +1542,10 @@ fn validate_admitted_closure(receipt: &EffectClosureReceipt) -> Vec<String> {
 }
 
 /// Checks that an `admitted` receipt matches the bound function-address records and workspace
-/// policy, so a denied receipt cannot be relabelled admitted by dropping the address or summary
-/// diagnostics that denied it. Denied receipts make no admission claim and are not checked here.
+/// policy, so a denied receipt cannot be relabelled admitted by dropping the address, role, or
+/// summary diagnostics that denied it. Reviewed summaries count only with evidence bound to the
+/// receipt's recorded Cargo.lock or provider identity, as at admission. Denied receipts make no
+/// admission claim and are not checked here.
 pub fn validate_admitted_bindings(
     receipt: &EffectClosureReceipt,
     records: &[FunctionAddressRecord],
@@ -1578,6 +1580,7 @@ pub fn validate_admitted_bindings(
             ));
         }
     }
+    validate_admitted_roles(receipt, policy, &mut diagnostics);
 
     let summaries = policy
         .call_summaries
@@ -1592,7 +1595,8 @@ pub fn validate_admitted_bindings(
         .filter(|call| call.resolution == CallResolution::ReviewedSummary);
     for call in reviewed_calls {
         used_summaries.insert(call.call_site_id.as_str());
-        let matches_summary = summaries.get(call.call_site_id.as_str()).is_some_and(|summary| {
+        let summary = summaries.get(call.call_site_id.as_str());
+        let matches_summary = summary.is_some_and(|summary| {
             call.provider.as_ref() == Some(&summary.provider)
                 && call.effects == summary.effects
                 && call.review_label.as_deref() == Some(summary.review_label.as_str())
@@ -1601,6 +1605,11 @@ pub fn validate_admitted_bindings(
         if !matches_summary {
             diagnostics.push(format!(
                 "admitted reviewed call `{}` does not match its workspace-policy summary",
+                call.call_site_id
+            ));
+        } else if summary.is_some_and(|summary| !summary_evidence_matches(summary, &receipt.inputs.cargo_lock_blake3)) {
+            diagnostics.push(format!(
+                "admitted reviewed call `{}` summary evidence is not bound to the recorded Cargo.lock or provider identity",
                 call.call_site_id
             ));
         }
@@ -1614,6 +1623,67 @@ pub fn validate_admitted_bindings(
         }
     }
     diagnostics
+}
+
+/// Re-derives the role facts an `admitted` receipt asserts: closure v1 admits only selected paths
+/// with exactly one explicit `core` assignment, so every node must be `core`, and every local call
+/// must follow the embedded catalog's role-edge matrix.
+fn validate_admitted_roles(receipt: &EffectClosureReceipt, policy: &WorkspacePolicy, diagnostics: &mut Vec<String>) {
+    let source_paths = receipt.sources.iter().map(|source| source.path.as_str()).collect::<BTreeSet<_>>();
+    let mut assigned = BTreeMap::<&str, Vec<ModuleRole>>::new();
+    for assignment in &policy.module_roles {
+        if !source_paths.contains(assignment.path.as_str()) {
+            diagnostics.push(format!(
+                "workspace-policy module role path `{}` is outside the admitted receipt sources",
+                assignment.path
+            ));
+        }
+        assigned.entry(assignment.path.as_str()).or_default().push(assignment.role);
+    }
+    for path in source_paths {
+        if assigned.get(path).map(Vec::as_slice) != Some(&[ModuleRole::Core]) {
+            diagnostics.push(format!(
+                "admitted receipt source `{path}` does not have exactly one workspace-policy role `core`"
+            ));
+        }
+    }
+    for node in receipt.nodes.iter().filter(|node| node.role != ModuleRole::Core) {
+        diagnostics.push(format!(
+            "admitted function `{}::{}` has role `{}`, not `core`",
+            node.path,
+            node.name,
+            node.role.as_str()
+        ));
+    }
+    let allowed_edges = match embedded_catalog() {
+        Ok(catalog) => catalog.role_edges.into_iter().collect::<BTreeSet<_>>(),
+        Err(error) => {
+            diagnostics.push(error);
+            return;
+        }
+    };
+    let roles = receipt
+        .nodes
+        .iter()
+        .map(|node| (node.function_address.as_str(), node.role))
+        .collect::<BTreeMap<_, _>>();
+    for node in &receipt.nodes {
+        for call in node.calls.iter().filter(|call| call.resolution == CallResolution::Local) {
+            let callee = call.callee_function_address.as_deref().and_then(|address| roles.get(address)).copied();
+            let allowed = callee.is_some_and(|callee| {
+                allowed_edges.contains(&RoleEdge {
+                    caller: node.role,
+                    callee,
+                })
+            });
+            if !allowed {
+                diagnostics.push(format!(
+                    "admitted local call `{}` follows a role edge the effect-closure catalog denies",
+                    call.call_site_id
+                ));
+            }
+        }
+    }
 }
 
 pub fn call_site_identity(function_address: &str, shape: &str, occurrence: usize) -> String {
@@ -1874,7 +1944,8 @@ fn build_nodes(
             } else if raw_call.kind != RawCallKind::Macro {
                 match summaries.get(&call_site_id).copied() {
                     Some(summary)
-                        if providers.contains(&summary.provider) && summary_evidence_matches(summary, input) =>
+                        if providers.contains(&summary.provider)
+                            && summary_evidence_matches(summary, &input.cargo_lock_blake3) =>
                     {
                         used_summaries.insert(call_site_id.clone());
                         scanner.direct_effects.extend(summary.effects.iter().copied());
@@ -2261,10 +2332,10 @@ fn unknown_edge(call_site_id: String, occurrence: usize, shape: String) -> Closu
     }
 }
 
-fn summary_evidence_matches(summary: &CallSummary, input: &ClosureInput) -> bool {
+fn summary_evidence_matches(summary: &CallSummary, cargo_lock_blake3: &str) -> bool {
     match summary.provider.kind {
         ProviderKind::CargoPackage | ProviderKind::Workspace => {
-            summary.evidence.blake3 == canonical_blake3_identity(&input.cargo_lock_blake3)
+            summary.evidence.blake3 == canonical_blake3_identity(cargo_lock_blake3)
                 && summary.evidence.locator.starts_with("Cargo.lock")
         }
         ProviderKind::Toolchain => summary.evidence.blake3 == provider_identity_blake3(&summary.provider),
@@ -2652,6 +2723,35 @@ mod tests {
 
         let address_denied = compute_closure(input("fn root() {}\n", Vec::new(), policy(Vec::new())));
         assert!(address_denied.diagnostics.iter().any(|diagnostic| diagnostic.code == DIAGNOSTIC_ADDRESS_MISSING));
+    }
+
+    // r[verify octet.effect_closure.roles.invalid]
+    #[test]
+    fn admitted_bindings_rederive_node_roles_and_local_role_edges() {
+        let closure_input = input(
+            "fn root() { helper(); }\nfn helper() {}\n",
+            vec![address("helper", 'a'), address("root", 'b')],
+            policy(Vec::new()),
+        );
+        let admitted = compute_closure(closure_input.clone());
+        assert_eq!(admitted.status, AdmissionStatus::Admitted, "{:?}", admitted.diagnostics);
+        let root = admitted.nodes.iter().find(|node| node.name == "root").expect("root node");
+        assert_eq!(root.calls[0].resolution, CallResolution::Local);
+        let bindings = |receipt: &EffectClosureReceipt| {
+            validate_admitted_bindings(receipt, &closure_input.function_addresses, &closure_input.policy)
+        };
+        assert_eq!(bindings(&admitted), Vec::<String>::new());
+
+        let mut forged = admitted;
+        let helper = forged.nodes.iter_mut().find(|node| node.name == "helper").expect("helper node");
+        helper.role = ModuleRole::Shell;
+        let diagnostics = bindings(&finalize_receipt(forged));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("has role `shell`, not `core`")));
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("role edge the effect-closure catalog denies"))
+        );
     }
 
     // r[verify octet.effect_closure.verification.adversarial]
