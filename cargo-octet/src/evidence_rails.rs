@@ -5064,8 +5064,8 @@ const CARGO_DENY_CHECKS: [&str; 4] = ["advisories", "bans", "licenses", "sources
 /// Maps a cargo-deny diagnostic code to its check and the Octet rule family. Codes come from the
 /// cargo-deny 0.20.2 `advisories`, `bans`, `licenses`, and `sources` code lists; duplicate-version
 /// codes are bans diagnostics that Octet reports as the `duplicates` family. Codes without an
-/// owning check, such as the general `deprecated` code or codes added by a newer cargo-deny, stay
-/// `unclassified`.
+/// owning check, such as the general `deprecated` code, code-less diagnostics, or codes added by a
+/// newer cargo-deny, stay `unclassified`.
 fn cargo_deny_check_and_category(code: &str) -> (Option<&'static str>, &'static str) {
     match code {
         "vulnerability"
@@ -5119,6 +5119,7 @@ fn cargo_deny_check_and_category(code: &str) -> (Option<&'static str>, &'static 
         | "unmatched-glob"
         | "unmatched-allow-build-script"
         | "allowed-crate-without-build-script"
+        | "non-root-path"
         | "non-utf8-path"
         | "replaced-in-std"
         | "unmatched-replacement-ignore" => (Some("bans"), "bans"),
@@ -5143,12 +5144,20 @@ fn cargo_deny_check_and_category(code: &str) -> (Option<&'static str>, &'static 
     }
 }
 
+/// cargo-deny 0.20.2 prints configuration-validation diagnostics, such as the general `deprecated`
+/// warning for a moved key and the code-less warning for an unknown target triple, without adding
+/// them to its summary counts; only diagnostics from the four checks are counted.
+fn cargo_deny_diagnostic_is_uncounted(code: &str) -> bool {
+    code.is_empty() || code == "deprecated"
+}
+
 /// Converts the JSON lines that `cargo deny --format json check` writes to stderr into the pinned
 /// `cargo-deny-diagnostics/v1` document the dependency-audit importer validates. Every line must be
 /// a `diagnostic`, `log`, or `summary` record, and the error and warning counts in the single
 /// `summary` line must match the diagnostics, so missing or partial output fails closed. A
 /// diagnostic with a known code counts against its check; an `unclassified` one counts against the
-/// part of each severity's summary total that the known codes leave unattributed.
+/// part of each severity's summary total that the known codes leave unattributed. Diagnostics that
+/// cargo-deny never counts in its summary stay `unclassified` findings but are not reconciled.
 fn cargo_deny_report_from_json_lines(stderr: &str) -> Result<String, String> {
     let mut diagnostics = Vec::new();
     let mut observed = BTreeMap::<(&str, &str), u64>::new();
@@ -5179,6 +5188,7 @@ fn cargo_deny_report_from_json_lines(stderr: &str) -> Result<String, String> {
                     (Some(check), Some(counted_severity)) => {
                         *observed.entry((check, counted_severity)).or_default() += 1;
                     }
+                    (None, Some(_)) if cargo_deny_diagnostic_is_uncounted(code) => {}
                     (None, Some(counted_severity)) => *unclassified.entry(counted_severity).or_default() += 1,
                     (_, None) => {}
                 }
@@ -5921,6 +5931,11 @@ mod tests {
         // `[bans.std-replacements]` at `warn` and an ignore entry that matches nothing.
         const STD_REPLACEMENT: &str =
             include_str!("../tests/fixtures/evidence-rails/cargo-deny-json-lines-std-replacement.jsonl");
+        // Unmodified stderr of cargo-deny 0.20.2 for a clean graph whose deny.toml keeps the
+        // deprecated top-level `targets` key and names an unknown triple. Config validation
+        // emits a `deprecated` warning and a code-less warning that the summary never counts.
+        const CONFIG_WARNINGS: &str =
+            include_str!("../tests/fixtures/evidence-rails/cargo-deny-json-lines-config-warnings.jsonl");
         const BANS_FAILED_EXIT: i32 = 2;
         let run = |report: &str, exit_code: i32| {
             evaluate(EvaluationInput {
@@ -5987,6 +6002,72 @@ mod tests {
             ),
         ] {
             assert!(cargo_deny_report_from_json_lines(&output).is_err(), "{label}");
+        }
+
+        let report = cargo_deny_report_from_json_lines(CONFIG_WARNINGS).expect("uncounted config warnings convert");
+        let receipt = run(&report, EXIT_SUCCESS);
+        assert_eq!(receipt.status, STATUS_PASSED, "{:?}", receipt.diagnostics);
+        assert_eq!(receipt.finding_counts.get("unclassified"), Some(&2));
+        // Uncounted diagnostics cannot stand in for a diagnostic the summary does count.
+        let missing_counted = CONFIG_WARNINGS.replace(
+            "\"bans\":{\"errors\":0,\"helps\":0,\"notes\":0,\"warnings\":0}",
+            "\"bans\":{\"errors\":0,\"helps\":0,\"notes\":0,\"warnings\":1}",
+        );
+        assert!(cargo_deny_report_from_json_lines(&missing_counted).is_err());
+    }
+
+    #[test]
+    fn every_cargo_deny_bans_code_maps_to_its_check() {
+        // The bans `Code` enum of cargo-deny 0.20.2 (`src/bans/diags.rs`), in declaration order.
+        const BANS_CODES: [&str; 38] = [
+            "banned",
+            "allowed",
+            "not-allowed",
+            "duplicate",
+            "skipped",
+            "wildcard",
+            "unmatched-skip",
+            "unnecessary-skip",
+            "allowed-by-wrapper",
+            "unmatched-wrapper",
+            "skipped-by-root",
+            "unmatched-skip-root",
+            "build-script-not-allowed",
+            "exact-features-mismatch",
+            "feature-not-explicitly-allowed",
+            "feature-banned",
+            "unknown-feature",
+            "default-feature-enabled",
+            "path-bypassed",
+            "path-bypassed-by-glob",
+            "checksum-match",
+            "checksum-mismatch",
+            "denied-by-extension",
+            "detected-executable",
+            "detected-executable-script",
+            "unable-to-check-path",
+            "features-enabled",
+            "unmatched-bypass",
+            "unmatched-path-bypass",
+            "unmatched-glob",
+            "unused-wrapper",
+            "workspace-duplicate",
+            "unresolved-workspace-dependency",
+            "unused-workspace-dependency",
+            "non-utf8-path",
+            "non-root-path",
+            "replaced-in-std",
+            "unmatched-replacement-ignore",
+        ];
+        for code in BANS_CODES {
+            let (check, category) = cargo_deny_check_and_category(code);
+            assert_eq!(check, Some("bans"), "{code}");
+            let expected = if matches!(code, "duplicate" | "workspace-duplicate") {
+                "duplicates"
+            } else {
+                "bans"
+            };
+            assert_eq!(category, expected, "{code}");
         }
     }
 
