@@ -60,6 +60,12 @@ the final history/privacy and binary-closure reviews in the
 
 Changes that can add findings, fail a build, or change identities:
 
+- `octet_standards::spec_trace_parity` adds the spec-trace parity rail. It
+  admits pinned model, checker, seed, trace-set, and adapter identities, replays
+  bounded traces through an injected adapter, and builds deterministic receipts
+  with `parity`, `divergence`, and `unsupported-verifier` verdicts plus
+  fail-closed denial receipts. The pure core has no CLI entry point yet; see
+  [spec-trace parity](docs/spec-trace-parity.md).
 - Suppression governance decides whether you wrote an attribute from its name
   token, so an `allow`, `expect`, or `warn` forwarded through a local macro's
   `meta` or `ident` fragment, or written with comments inside it, is governed;

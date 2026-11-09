@@ -41,6 +41,23 @@ The stack pattern is to keep hard verification machinery external and keep ident
 - **Pure core**: pin validation, freshness checks, trace-step sequencing against the declared adapter contract, verdict classification, and receipt construction and validation.
 - **Imperative shell**: locate the crate, load adapter and traces, execute replay steps against the crate process, enforce time and step bounds, and persist receipts.
 
+### Implementation boundary
+
+The rail lands as a pure core in `crates/octet-standards/src/spec_trace_parity`.
+No `cargo octet` subcommand is added: an adapter is per-crate code, Octet has no
+adapter-loading ABI, and the evidence-rail shell expects serializable rail
+inputs rather than injected Rust ports. The shell contract is documented in
+`docs/spec-trace-parity.md`: load the model bytes, traces, pins, and adapter;
+measure cumulative replay time; call `spec_trace_parity::run`; persist the
+receipt and replay record. Wiring the rail into `cargo-octet` stays deferred
+until an adapter loading surface exists.
+
+A denial is not a fourth verdict class. A receipt outcome is either one of the
+closed verdict classes or a denial carrying ordered denial layers. Freshness,
+trace-format, adapter-declaration, and bound failures use the denial arm, so the
+verdict vocabulary stays exactly `parity`, `divergence`, and
+`unsupported-verifier`.
+
 ## Risks / Trade-offs
 
 - Trace counts grow with model coverage. Enforce a bounded trace-set size and a step budget per run.

@@ -26,6 +26,7 @@ pub mod report;
 pub mod resource;
 pub mod runner;
 pub mod source;
+pub mod spec_trace_parity;
 pub mod suppression;
 
 #[cfg(test)]
