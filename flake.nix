@@ -3365,7 +3365,7 @@
                       jq --raw-output '
                         .baseline
                         | "accepted=\(.accepted_total) current=\(.current_total) accepted_current=\(.accepted_current) new=\(.new_total) stale=\(.stale_total)",
-                          (.stale_finding_ids[] | "stale_id=\(.)")
+                          ((.stale_finding_ids // [])[] | "stale_id=\(.)")
                       ' "$positive_artifacts/status.json" >&2
                       jq --raw-output \
                         --slurpfile status "$positive_artifacts/status.json" '

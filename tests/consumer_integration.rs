@@ -3184,6 +3184,91 @@ fn baseline_write_skips_incomplete_cargo_runs() {
 }
 
 #[test]
+fn baseline_evaluation_withholds_stale_ids_when_cargo_stops_early() {
+    let fixture = ConsumerFixture::new("baseline-stale-incomplete", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
+    let baseline_path = fixture.repo.join("octet-baseline.json");
+    let baseline_path_str = baseline_path.to_str().expect("baseline path utf8");
+    let finding = |lint, level, message, line| {
+        cargo_compiler_message_with_level("consumer", lint, level, message, "src/lib.rs", line, 5, None)
+    };
+    let written = run_with_check_args(
+        &fixture,
+        &[
+            "--output-format",
+            JSON_OUTPUT_FORMAT,
+            "--write-baseline",
+            baseline_path_str,
+        ],
+        &[
+            finding("no_unwrap", WARNING_LEVEL, "use of `.unwrap()`", 10),
+            finding("no_panic", WARNING_LEVEL, "use of `panic!`", 20),
+            cargo_build_finished(true),
+        ],
+        EXIT_CODE_SUCCESS,
+    );
+    assert_eq!(written.status.code(), Some(EXIT_CODE_SUCCESS), "{}", String::from_utf8_lossy(&written.stderr));
+
+    // A complete scan that no longer reports `no_panic` marks that accepted ID stale.
+    let complete_dir = artifact_dir(&fixture, "baseline-stale-complete");
+    let complete = run_with_check_args(
+        &fixture,
+        &[
+            "--output-format",
+            SARIF_OUTPUT_FORMAT,
+            "--baseline",
+            baseline_path_str,
+            "--artifact-dir",
+            complete_dir.to_str().expect("artifact dir utf8"),
+        ],
+        &[
+            finding("no_unwrap", WARNING_LEVEL, "use of `.unwrap()`", 10),
+            cargo_build_finished(true),
+        ],
+        EXIT_CODE_SUCCESS,
+    );
+    assert_eq!(complete.status.code(), Some(EXIT_CODE_SUCCESS), "{}", String::from_utf8_lossy(&complete.stderr));
+
+    // A denied lint stops Cargo before every crate is checked, so absent accepted IDs are unknown,
+    // not stale.
+    let incomplete_dir = artifact_dir(&fixture, "baseline-stale-incomplete");
+    let incomplete = run_with_check_args(
+        &fixture,
+        &[
+            "--output-format",
+            SARIF_OUTPUT_FORMAT,
+            "--baseline",
+            baseline_path_str,
+            "--artifact-dir",
+            incomplete_dir.to_str().expect("artifact dir utf8"),
+        ],
+        &[
+            finding("no_unwrap", ERROR_LEVEL, "use of `.unwrap()`", 10),
+            cargo_build_finished(false),
+        ],
+        CARGO_COMPILE_FAILURE_EXIT,
+    );
+    assert_eq!(
+        incomplete.status.code(),
+        Some(EXIT_CODE_LINT_FAILURE),
+        "{}",
+        String::from_utf8_lossy(&incomplete.stderr)
+    );
+    let status = read_json_artifact(&incomplete_dir.join(STATUS_JSON_FILE));
+    let sarif = read_json_artifact(&incomplete_dir.join(RESULTS_SARIF_FILE));
+    for baseline in [&status["baseline"], &sarif["runs"][0]["properties"]["baseline"]] {
+        assert!(baseline["stale_total"].is_null(), "incomplete scan must not report stale IDs: {baseline}");
+        assert!(baseline["stale_finding_ids"].is_null(), "incomplete scan must not report stale IDs: {baseline}");
+        assert_eq!(baseline["scan_complete"], false, "{baseline}");
+        assert_eq!(baseline["accepted_current"], 1, "{baseline}");
+        assert_eq!(baseline["new_total"], 0, "{baseline}");
+    }
+    let complete_status = read_json_artifact(&complete_dir.join(STATUS_JSON_FILE));
+    assert_eq!(complete_status["baseline"]["scan_complete"], true, "{complete_status}");
+    assert_eq!(complete_status["baseline"]["stale_total"], 1);
+    assert_eq!(complete_status["baseline"]["stale_finding_ids"].as_array().map(Vec::len), Some(1));
+}
+
+#[test]
 fn json_output_coexists_with_summary_on_stderr() {
     let fixture = ConsumerFixture::new("json-stderr", &metadata(r#"["-p", "consumer"]"#, r#"["--lib"]"#));
     let output = run_with_output_format(&fixture, JSON_OUTPUT_FORMAT, &three_finding_json_lines(), EXIT_CODE_SUCCESS);

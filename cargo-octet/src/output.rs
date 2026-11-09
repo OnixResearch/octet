@@ -639,10 +639,13 @@ pub fn render_summary(
     if let Some(baseline) = baseline {
         writeln!(&mut summary, "Baseline hash: {}", baseline.baseline_hash)
             .map_err(|error| format!("write summary: {error}"))?;
+        let stale = baseline
+            .stale_total
+            .map_or_else(|| "stale unknown (incomplete scan)".to_owned(), |stale_total| format!("{stale_total} stale"));
         writeln!(
             &mut summary,
-            "Baseline: {} accepted, {} current accepted, {} new, {} stale",
-            baseline.accepted_total, baseline.accepted_current, baseline.new_total, baseline.stale_total
+            "Baseline: {} accepted, {} current accepted, {} new, {stale}",
+            baseline.accepted_total, baseline.accepted_current, baseline.new_total
         )
         .map_err(|error| format!("write summary: {error}"))?;
     }

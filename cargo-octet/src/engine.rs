@@ -263,7 +263,9 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
         }
         let base_outcome = output::RunOutcome::classify(&findings, cargo_process_exit);
         let baseline_evaluation = match check.baseline.as_deref() {
-            Some(path) => Some(baseline::evaluate_baseline(path, &findings)?),
+            Some(path) => {
+                Some(baseline::evaluate_baseline(path, &findings, base_outcome.cargo_process_exit.is_success())?)
+            }
             None => None,
         };
         // A baseline must record a complete scan. Denied lints make Cargo fail and stop scheduling

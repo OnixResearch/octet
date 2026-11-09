@@ -186,6 +186,12 @@ finding set to that accepted ID set. Fully accepted warning-only findings keep
 exit `0`; any new unaccepted stable ID fails the run with exit `1` and records
 `baseline` counts in `status.json` / SARIF properties. Stale accepted IDs are
 reported so teams can prune resolved debt without blocking the gate.
+Stale IDs need a complete scan, the same one `--write-baseline` requires. When
+`cargo check` did not succeed, it may have stopped before checking a crate whose
+accepted IDs are therefore missing but not resolved, so the evaluation records
+`scan_complete: false`, sets `stale_total` and `stale_finding_ids` to `null`,
+and the summary reports the stale count as unknown. New IDs are still counted
+and still gate the run.
 
 Exit codes are stable for automation:
 
