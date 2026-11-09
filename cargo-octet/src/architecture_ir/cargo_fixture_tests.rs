@@ -13,6 +13,7 @@ use octet_standards::project_architecture_policy::parse_project_architecture_pol
 use super::SelectedProjectArchitecturePolicy;
 
 mod body_owners;
+mod core_scope_symlink;
 mod forged_question;
 mod freshness;
 mod lint_freshness;

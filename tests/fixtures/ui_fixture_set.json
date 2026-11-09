@@ -26,6 +26,7 @@
     "contradictory_time",
     "concrete_construction_in_core/concrete_construction_in_core",
     "concrete_construction_in_core_no_scope",
+    "core_scope_resolution_custom/core_scope_resolution_custom",
     "defaulting_trait_method",
     "defaulting_trait_method_required",
     "deref_polymorphism",
@@ -228,6 +229,7 @@
     "nominal_inventory_cli_deny_custom/nominal_inventory_cli_deny_custom",
     "nominal_inventory_profile_custom/nominal_inventory_profile_custom",
     "legacy_config_sections_custom/legacy_config_sections_custom",
-    "strict_profile_force_warn_custom/strict_profile_force_warn_custom"
+    "strict_profile_force_warn_custom/strict_profile_force_warn_custom",
+    "core_scope_resolution_custom/core_scope_resolution_custom"
   ]
 }

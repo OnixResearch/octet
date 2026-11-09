@@ -109,7 +109,8 @@ r[octet.strict_rust_profiles.core_scope.matching]
 - GIVEN consumer `dylint.toml` declares a core scope with surrounding whitespace, a leading `./`, or a trailing `/`
 - WHEN core-scope lints decide whether a source file is in scope
 - THEN the scope MUST be normalized the same way as profile preparation normalizes it.
-- AND a file MUST be in scope only when its workspace-relative path equals the scope or lies below it by whole path components.
+- AND a file MUST be in scope only when its workspace-relative path equals the scope, or the canonical workspace-relative path the scope resolves to through symlinks and `..`, or lies below one of them by whole path components.
+- AND a scope that resolves to no existing path, to the workspace root itself, or outside the root MUST be reported with a configuration warning naming the scope.
 
 ### Requirement: Function-address enforcement floor
 

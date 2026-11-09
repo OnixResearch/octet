@@ -54,6 +54,32 @@ pub(crate) fn path_in_scopes(path: &std::path::Path, scopes: &[String]) -> bool 
     scopes.iter().any(|scope| !scope.is_empty() && path.starts_with(scope))
 }
 
+/// Where a normalized source scope points once resolved on disk.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum ScopeResolution {
+    /// The scope's canonical path, relative to the canonical workspace root.
+    Inside(String),
+    /// The workspace root itself.
+    Root,
+    /// A path outside the workspace root.
+    Outside,
+    /// No existing file or directory.
+    Missing,
+}
+
+/// Resolves a normalized scope against the canonical workspace root,
+/// following symlinks and `..` the way `cargo octet` validates scopes.
+pub(crate) fn resolve_scope(canonical_root: &std::path::Path, scope: &str) -> ScopeResolution {
+    let Ok(resolved) = canonical_root.join(scope).canonicalize() else {
+        return ScopeResolution::Missing;
+    };
+    match resolved.strip_prefix(canonical_root) {
+        Ok(relative) if relative.as_os_str().is_empty() => ScopeResolution::Root,
+        Ok(relative) => ScopeResolution::Inside(relative.to_string_lossy().into_owned()),
+        Err(_) => ScopeResolution::Outside,
+    }
+}
+
 /// Whether `span` comes from a file inside one of the normalized `scopes`.
 /// Cargo runs rustc from the workspace root, so an absolute file name is made
 /// relative to rustc's working directory before matching.
@@ -205,6 +231,43 @@ mod tests {
             assert!(!super::path_in_scopes(std::path::Path::new(path), &scopes), "{path} is out of scope");
         }
         assert!(!super::path_in_scopes(std::path::Path::new("src/lib.rs"), &[String::new()]));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn scopes_resolve_through_symlinks_and_parent_components() {
+        use super::ScopeResolution;
+
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system time after the epoch")
+            .as_nanos();
+        let scratch = std::env::temp_dir().join(format!("octet-scope-resolution-{}-{unique}", std::process::id()));
+        let root = scratch.join("workspace");
+        std::fs::create_dir_all(root.join("src")).expect("source directory");
+        std::fs::create_dir_all(root.join("crates/shell")).expect("crate directory");
+        std::fs::create_dir_all(scratch.join("outside")).expect("outside directory");
+        std::fs::write(root.join("src/lib.rs"), "").expect("source file");
+        std::os::unix::fs::symlink(root.join("src"), root.join("linked")).expect("in-root symlink");
+        std::os::unix::fs::symlink(scratch.join("outside"), root.join("escape")).expect("escaping symlink");
+        let root = root.canonicalize().expect("canonical root");
+
+        let cases = [
+            ("src", ScopeResolution::Inside("src".to_owned())),
+            ("src/lib.rs", ScopeResolution::Inside("src/lib.rs".to_owned())),
+            ("linked", ScopeResolution::Inside("src".to_owned())),
+            ("crates/shell/../../src", ScopeResolution::Inside("src".to_owned())),
+            ("../outside", ScopeResolution::Outside),
+            ("escape", ScopeResolution::Outside),
+            ("crates/..", ScopeResolution::Root),
+            ("missing/src", ScopeResolution::Missing),
+        ];
+        let resolved = cases.iter().map(|(scope, _expected)| super::resolve_scope(&root, scope)).collect::<Vec<_>>();
+        std::fs::remove_dir_all(&scratch).expect("remove scratch directory");
+
+        for ((scope, expected), actual) in cases.iter().zip(resolved) {
+            assert_eq!(&actual, expected, "{scope}");
+        }
     }
 
     #[test]
