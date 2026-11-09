@@ -22,10 +22,22 @@ changes refined them. These fixes have no earlier entry:
   or `for` pattern, including a `let` type annotation, before its initializer,
   so summaries reviewed before the scope change stay valid.
 
-## Unreleased: SARIF, architecture, standards, Wasm, and dependency fixes
+## Unreleased: Aeneas, SARIF, architecture, standards, Wasm, and dependency fixes
 
 Behaviour and format changes:
 
+- The `aeneas-lean` proof rail checks each stage's output before the next
+  stage runs. Charon's options are read from the produced LLBC and compared
+  with the reviewed extraction contract, `translation.json` is checked against
+  that LLBC and the generated Lean, and the trust closure comes from scanning
+  the approved theorem and generated Lean for undeclared `axiom`, `opaque`,
+  `native_decide`, `implemented_by`, `extern`, and `sorry`; generated Lean
+  with an undeclared `axiom` now fails. Receipts record the observed
+  extraction policy and trust closure and the limits and environment allowlist
+  actually enforced, and a rail whose allowlist differs from the provider
+  profile is rejected. Lean always checks the approved `proof_paths` theorem.
+  The profile's `include_rules` are recorded but not applied by the executed
+  Charon command, and are not compared.
 - SARIF import rejects runs whose `results` or rule tables are missing,
   `null`, or not arrays, runs that report a failed tool execution,
   percent-encoded traversal, out-of-range or disagreeing artifact and rule
@@ -74,6 +86,9 @@ Behaviour and format changes:
 
 Fixes:
 
+- Aeneas stages run in their own process group inside a private PID
+  namespace, so a timeout tears down Cargo, rustc, and Lean subprocesses, and
+  each run's work root is removed so the same rail can be rerun.
 - The architecture gate matches policy target `features` regardless of order,
   lets adapters construct their own types, and its text port checks ignore
   comments, strings, and name prefixes.
