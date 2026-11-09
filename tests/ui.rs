@@ -55,7 +55,53 @@ fn create_library_alias(plain: &Path, dylint: &Path) {
 
 fn temp_path(prefix: &str) -> PathBuf {
     let unique = SystemTime::now().duration_since(UNIX_EPOCH).expect("system time before unix epoch").as_nanos();
+    // Fixture names such as `custom/custom` would otherwise nest the scratch dir one level down
+    // and leave its parent behind.
+    let prefix = prefix.replace(['/', '\\'], "-");
     env::temp_dir().join(format!("{prefix}-{}-{unique}", std::process::id()))
+}
+
+/// A scratch directory owned by one fixture run or test, removed when dropped, also while a
+/// failed assertion unwinds, so repeated UI runs do not pile up build output in `TMPDIR`.
+struct ScratchDir(PathBuf);
+
+impl ScratchDir {
+    fn new(prefix: &str) -> Self {
+        Self(temp_path(prefix))
+    }
+
+    fn at(path: PathBuf) -> Self {
+        Self(path)
+    }
+}
+
+impl std::ops::Deref for ScratchDir {
+    type Target = Path;
+
+    fn deref(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl Drop for ScratchDir {
+    fn drop(&mut self) {
+        // Removal is best effort: a leftover directory must not mask the run's own result.
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
+
+/// The UI driver binary. A driver this test builds lives in a scratch target removed with it.
+struct UiDriver {
+    path: PathBuf,
+    _target: Option<ScratchDir>,
+}
+
+impl std::ops::Deref for UiDriver {
+    type Target = Path;
+
+    fn deref(&self) -> &Path {
+        &self.path
+    }
 }
 
 fn command_stdout(command: &mut Command, context: &str) -> String {
@@ -93,10 +139,10 @@ fn prebuilt_path(name: &str) -> Option<PathBuf> {
     env::var_os(name).map(PathBuf::from)
 }
 
-#[derive(Clone)]
 struct FixtureSupport {
     dependency_search_path: PathBuf,
     externs: Vec<(String, PathBuf)>,
+    _target: ScratchDir,
 }
 
 fn fixture_support_manifest(fixture_path: &Path) -> Option<PathBuf> {
@@ -165,10 +211,10 @@ fn extern_artifact_path(deps_dir: &Path, crate_name: &str) -> PathBuf {
 }
 
 fn build_fixture_support(toolchain: &str, manifest_path: &Path, dependency_names: &[String]) -> FixtureSupport {
-    let target_dir = temp_path("octet-ui-fixture-deps");
+    let target_dir = ScratchDir::new("octet-ui-fixture-deps");
     let status = cargo_command()
         .current_dir(manifest_path.parent().expect("fixture manifest parent"))
-        .env("CARGO_TARGET_DIR", &target_dir)
+        .env("CARGO_TARGET_DIR", &*target_dir)
         .env("RUSTUP_TOOLCHAIN", toolchain)
         .args(["check", "--quiet", "--manifest-path"])
         .arg(manifest_path)
@@ -185,6 +231,7 @@ fn build_fixture_support(toolchain: &str, manifest_path: &Path, dependency_names
     FixtureSupport {
         dependency_search_path,
         externs,
+        _target: target_dir,
     }
 }
 
@@ -240,17 +287,17 @@ fn build_library(toolchain: &str) -> PathBuf {
     dylint
 }
 
-fn build_driver(toolchain: &str) -> PathBuf {
+fn build_driver(toolchain: &str) -> UiDriver {
     if let Some(path) = prebuilt_path("OCTET_UI_DRIVER").or_else(|| prebuilt_path("TIGERSTYLE_UI_DRIVER")) {
         assert!(path.exists(), "missing prebuilt UI driver: {}", path.display());
-        return path;
+        return UiDriver { path, _target: None };
     }
 
     let manifest_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/support/ui-driver/Cargo.toml");
-    let driver_target_dir = temp_path("octet-ui-driver-target");
+    let driver_target_dir = ScratchDir::new("octet-ui-driver-target");
     let status = cargo_command()
         .current_dir(env!("CARGO_MANIFEST_DIR"))
-        .env("CARGO_TARGET_DIR", &driver_target_dir)
+        .env("CARGO_TARGET_DIR", &*driver_target_dir)
         .env("RUSTUP_TOOLCHAIN", toolchain)
         .args(["build", "--quiet", "--locked", "--manifest-path"])
         .arg(&manifest_path)
@@ -263,10 +310,14 @@ fn build_driver(toolchain: &str) -> PathBuf {
         debug_dir.join(format!("octet-ui-driver{}", std::env::consts::EXE_SUFFIX)),
         debug_dir.join(format!("octet_ui_driver{}", std::env::consts::EXE_SUFFIX)),
     ];
-    candidates
+    let path = candidates
         .into_iter()
         .find(|path| path.exists())
-        .unwrap_or_else(|| panic!("UI driver binary missing under {}", debug_dir.display()))
+        .unwrap_or_else(|| panic!("UI driver binary missing under {}", debug_dir.display()));
+    UiDriver {
+        path,
+        _target: Some(driver_target_dir),
+    }
 }
 
 fn normalize_stderr(stderr: &str, fixture_path: &Path) -> String {
@@ -337,7 +388,8 @@ fn run_fixture(
     let fixture_path = ui_dir.join(format!("{name}.rs"));
     let expected_name = fixture_path.file_stem().expect("fixture file stem").to_string_lossy();
     let expected_path = ui_dir.join(format!("{expected_name}.stderr"));
-    let work_dir = temp_path(&format!("octet-ui-case-{name}"));
+    let scratch = ScratchDir::new(&format!("octet-ui-case-{name}"));
+    let work_dir: &Path = &scratch;
     let aux_dir = work_dir.join("aux");
     fs::create_dir_all(&aux_dir).expect("create UI aux dir");
 
@@ -373,7 +425,7 @@ fn run_fixture(
     let output = command
         .arg(&fixture_path)
         .arg("-L")
-        .arg(&work_dir)
+        .arg(work_dir)
         .arg(format!("--target={host}"))
         .args(["--error-format", "human"])
         .args(["-C", "prefer-dynamic"])
@@ -468,7 +520,8 @@ fn run_autofix_fixture(driver: &Path, library: &Path, toolchain: &str, name: &st
     };
     let dylint_libs = serde_json::to_string(&vec![library]).expect("encode DYLINT_LIBS for autofix fixture");
 
-    let crate_dir = temp_path(&format!("octet-autofix-{name}"));
+    let scratch = ScratchDir::new(&format!("octet-autofix-{name}"));
+    let crate_dir: &Path = &scratch;
     let src_dir = crate_dir.join("src");
     fs::create_dir_all(&src_dir).expect("create autofix src dir");
     fs::write(
@@ -479,7 +532,7 @@ fn run_autofix_fixture(driver: &Path, library: &Path, toolchain: &str, name: &st
     let main_rs = src_dir.join("main.rs");
     fs::write(&main_rs, source).expect("write autofix main.rs");
 
-    let mut fix = cargo_fix_autofix_fixture_command(&crate_dir, driver, &dylint_libs, toolchain);
+    let mut fix = cargo_fix_autofix_fixture_command(crate_dir, driver, &dylint_libs, toolchain);
 
     eprintln!("[autofix fixture] {name}");
     eprintln!(
@@ -507,7 +560,7 @@ fn run_autofix_fixture(driver: &Path, library: &Path, toolchain: &str, name: &st
         "[autofix idempotence command] (cd {} && cargo fix --allow-dirty --allow-staged --allow-no-vcs --bin autofix_fixture)",
         crate_dir.display()
     );
-    let mut second_fix = cargo_fix_autofix_fixture_command(&crate_dir, driver, &dylint_libs, toolchain);
+    let mut second_fix = cargo_fix_autofix_fixture_command(crate_dir, driver, &dylint_libs, toolchain);
     let second_fix_output = second_fix.output().expect("rerun cargo fix for autofix fixture");
     let second_fix_stdout = String::from_utf8(second_fix_output.stdout).expect("utf8 second cargo fix stdout");
     let second_fix_stderr = String::from_utf8(second_fix_output.stderr).expect("utf8 second cargo fix stderr");
@@ -530,7 +583,7 @@ fn run_autofix_fixture(driver: &Path, library: &Path, toolchain: &str, name: &st
     );
     let mut check = cargo_command();
     check
-        .current_dir(&crate_dir)
+        .current_dir(crate_dir)
         .env("CLIPPY_DISABLE_DOCS_LINKS", "true")
         .env("DYLINT_LIBS", &dylint_libs)
         .env("DYLINT_NO_DEPS", "1")
@@ -699,7 +752,7 @@ fn run_compiler_architecture_target_with_limits(
     let source_scope = "fixtures/compiler-architecture-ir";
     let fixture_path = root.join(source_scope).join(fixture_name);
     let work_name = temp_path("octet-compiler-architecture-fixture").file_name().expect("fixture work name").to_owned();
-    let work_dir = root.join(".octet/compiler-architecture-fixtures").join(work_name);
+    let work_dir = ScratchDir::at(root.join(".octet/compiler-architecture-fixtures").join(work_name));
     let shard_dir = work_dir.join("shards");
     fs::create_dir_all(&shard_dir).expect("create compiler architecture fixture shard dir");
     let crate_name = fixture_path.file_stem().expect("fixture stem").to_string_lossy().replace('-', "_");
@@ -763,12 +816,10 @@ fn run_compiler_architecture_target_with_limits(
         .collect::<Vec<_>>();
     shard_paths.sort();
     assert_eq!(shard_paths.len(), COMPILER_FIXTURE_MAX_UNITS);
-    let shard = serde_json::from_slice::<CompilerArchitectureShard>(
+    serde_json::from_slice::<CompilerArchitectureShard>(
         &fs::read(&shard_paths[0]).expect("read compiler fixture shard"),
     )
-    .expect("parse compiler fixture shard");
-    fs::remove_dir_all(&work_dir).expect("remove compiler fixture work dir");
-    shard
+    .expect("parse compiler fixture shard")
 }
 
 #[test]
