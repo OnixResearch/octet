@@ -6,6 +6,61 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## Unreleased: lint, evidence-rail, admission, and Verus fixes
+
+Behaviour and format changes:
+
+- Safety lints the strict profiles require: `no_unwrap` flags
+  `Result::unwrap` passed as a function and UFCS calls such as
+  `Option::expect(x, "m")`; `no_recursion` follows self-calls into closures and
+  `async fn` bodies; `unchecked_division` covers `/=`, `%=`, and reference
+  divisors; `sentinel_fallback` flags `MAX`/`MIN` through type aliases and
+  `Self::MAX`. `drop_must_use` no longer flags `drop(guard)` on RAII guards
+  (must-use types with a destructor), and `unbounded_channel` suggestions name
+  real functions for aliased imports.
+- `function_length` no longer flags `#[test]` functions in `--test` builds and
+  no longer counts the body's own braces, so reported counts drop by 2 and
+  every `function_length` finding ID changes; refresh baselines.
+  `type_accumulation` counts impls by resolved type (warnings name the type
+  by crate path) and checks the crate root. `excessive_file_length` and
+  `module_file_count` check workspace modules named `registry`.
+  `raw_domain_value` covers `HashMap`/`IndexMap` keys and borrowed values, and
+  `borrowed_argument_types` decides its extern exemption from the actual ABI.
+- `bool_naming` and `negated_predicate` renames fall back to a review-required
+  suggestion when the new name is already in use, and the `negated_predicate`
+  local rename now negates the value with the name. `contradictory_time` sees
+  clock reads in closures and `async fn` bodies; `verified_purity` covers async
+  methods, `async` blocks, and `std::time` module and glob imports, and exempts
+  `#[cfg(test)]` code. `numeric_units` accepts spelled-out and binary unit
+  suffixes, `float_for_currency` matches whole words, `ambient_clock` sees
+  through import renames and type aliases, and `acronym_style` catches
+  trailing and digit-adjacent acronyms.
+- Evidence rails: dependency-trust reads real `cargo vet --output-format=json`
+  conclusions (failures and violations fail, exemptions need manual review,
+  documents without a conclusion are rejected; the old
+  `imports`/`exemptions`/`unaudited` shape is no longer accepted).
+  Dependency-audit reports must contain `diagnostics`; locked runs execute
+  `cargo deny --config PATH --locked --offline check`, and `--run` converts
+  cargo-deny's JSON lines into the pinned report. Dynamic-evidence imports
+  must carry their own profile, command, and integer `finding_count`; Miri and
+  Loom runs pass on exit status, and Loom runs `cargo test` with
+  `RUSTFLAGS=--cfg loom`, which changes the cargo-fuzz profile identity. Z4
+  receipts accept only recorded non-proof roles, and Kani summaries without
+  complete assumption review are review-incomplete or fail. Rail runs go
+  through Bounded Exec: each output stream is capped at 16 MiB and each run at
+  four hours, and an overrun fails without a receipt.
+- `cargo octet admit verify` and `cargo octet artifact verify` re-derive an
+  admitted closure's module roles and reviewed-summary evidence from the
+  recorded inputs, and `artifact verify` also validates the stored closure
+  policy, record root, and source envelopes, so a denied closure cannot be
+  relabelled admitted. Under an architecture admission binding, a requested
+  function-address baseline that differs from the binding's fails with exit
+  `2`.
+- `cargo octet prove` asks a production Verus verifier for its `--identity`
+  report and fails the rail as `unpinned-verifier` unless its binary, solver,
+  and toolchain digests equal the pins. Structured Verus receipts record
+  closure digests recomputed from the configured paths.
+
 ## Unreleased: review fixes to this cycle's changes
 
 The entries below were corrected in place where a review of this cycle's
@@ -144,9 +199,12 @@ Behaviour and format changes:
   hashes, re-hash every record, and check the whole dependency chain, and
   `session migrate` reads `schema_version` and requires an `identity`. Artifact
   and capsule identities drop secret-like fields (acronym-aware: `DBPassword`,
-  `AWSSecretAccessKey`; non-secret fields such as `eos_token` and
-  `secret_count` stay) and replace a leading workspace, `HOME`, or temp-dir
-  root with `<workspace>`, `<home>`, or `<temp>`; other absolute strings and
+  `AWSSecretAccessKey`; a trailing `token` such as `VAULT_TOKEN` or
+  `CARGO_REGISTRIES_<NAME>_TOKEN` counts as a credential unless the word before
+  it is a listed non-credential word such as `eos` or `page`, and metadata
+  fields such as `secret_count` stay) and replace a leading workspace (including
+  a symlinked `$PWD`), `HOME`, or temp-dir root, in given and resolved forms,
+  with `<workspace>`, `<home>`, or `<temp>`; other absolute strings and
   `*_identity` fields stay verbatim, so in-workspace argv and binary-identity
   changes replay as `drifted`. Artifacts that contain local-root paths get new
   hashes. A `pure-cache` miss reports `miss_reason` and
@@ -200,8 +258,10 @@ Behaviour and format changes:
   from `--function-address-path` or a profile's `core_source_scopes` leaves the
   workspace root (a `..` component, an absolute path elsewhere, or a symlink out
   of the root; the error names the flag or `dylint.toml` entry), refuses
-  symlinked directories or `.rs` files inside a scope that resolve outside the
-  root, or when `--function-address-path` or
+  symlinked directories or `.rs` files inside a declared scope that resolve
+  outside the root (the implicit whole-workspace scope skips such directory
+  links, like a Nix `result` link, and refuses only escaping `.rs` links), or
+  when `--function-address-path` or
   `--function-address-baseline` is given while function-address checks are off:
   no `--function-addresses observe|warn|deny` and no strict profile from
   `--profile` or the workspace's architecture admission binding.
