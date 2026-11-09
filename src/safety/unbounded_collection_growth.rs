@@ -239,15 +239,19 @@ fn condition_allows_growth(cx: &LateContext<'_>, cond: &hir::Expr<'_>, local_id:
     }
 }
 
+/// True when the collection is bounded whenever `cond` is false, i.e.
+/// `condition_allows_growth(!cond)`. Growth after `if cond { break; }` or in
+/// the `else` branch of `if cond` only runs when `cond` is false, so `a && b`
+/// blocks only when both sides block, while `a || b` blocks when either does.
 fn condition_blocks_growth(cx: &LateContext<'_>, cond: &hir::Expr<'_>, local_id: hir::HirId) -> bool {
     let cond = peel_transparent_expr(cond);
     match &cond.kind {
         ExprKind::Binary(op, lhs, rhs) => match op.node {
             hir::BinOpKind::And => {
-                condition_blocks_growth(cx, lhs, local_id) || condition_blocks_growth(cx, rhs, local_id)
+                condition_blocks_growth(cx, lhs, local_id) && condition_blocks_growth(cx, rhs, local_id)
             }
             hir::BinOpKind::Or => {
-                condition_blocks_growth(cx, lhs, local_id) && condition_blocks_growth(cx, rhs, local_id)
+                condition_blocks_growth(cx, lhs, local_id) || condition_blocks_growth(cx, rhs, local_id)
             }
             _ => comparison_blocks_growth(cx, op.node, lhs, rhs, local_id),
         },

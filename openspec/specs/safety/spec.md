@@ -172,6 +172,11 @@ reviewable.
 A finite loop bound that is not expressed through the same binding's local
 reservation or `len`/`capacity` check does NOT suppress the lint.
 
+A guard only counts when it bounds every path that reaches the growth site.
+Growth after `if cond { break; }`, or in the `else` branch of `if cond`, runs
+when `cond` is false, so `a || b` bounds it when either side does and `a && b`
+bounds it only when both sides do.
+
 #### Scenario: Push in loop without capacity
 
 - GIVEN:
@@ -211,6 +216,33 @@ reservation or `len`/`capacity` check does NOT suppress the lint.
   inside a loop
 - WHEN the lint runs
 - THEN it does NOT fire
+
+#### Scenario: Break guard joined with `||` bounds later growth
+
+- GIVEN:
+  ```rust
+  let mut items = Vec::new();
+  loop {
+      if items.len() >= limit || shutdown() { break; }
+      items.push(read_item());
+  }
+  ```
+- WHEN the lint runs
+- THEN it does NOT fire
+
+#### Scenario: Break guard joined with `&&` does not bound later growth
+
+- GIVEN:
+  ```rust
+  let mut items = Vec::new();
+  loop {
+      if items.len() >= limit && keep_going() { break; }
+      items.push(read_item());
+  }
+  ```
+- WHEN the lint runs
+- THEN it warns, because the push still runs past `limit` when `keep_going()`
+  is false
 
 ### Requirement: Sentinel Fallback Detection
 

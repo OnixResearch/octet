@@ -122,6 +122,7 @@ Scope notes for the safety lints:
 - `sentinel_fallback` matches by the resolved constant, so `Ticks::MAX` through `type Ticks = u64` and `Self::MAX` in an integer impl are flagged.
 - `unbounded_channel` renames only the constructor segment when it is written under its original name. For an aliased import it spells the bounded constructor through the import's crate path, or offers no rewrite.
 - `drop_must_use` ignores a type's own `#[must_use]` when the type has a destructor, so `drop(guard)` on `MutexGuard` or `RwLock` guards stays clean. `Result`, must-use types without a destructor, and `#[must_use]` producers are still flagged.
+- `unbounded_collection_growth` counts a guard joined with `||` when either side bounds the collection, and a guard joined with `&&` only when both sides do. For example, `if items.len() >= limit || shutdown() { break; }` bounds a later push, but `if items.len() >= limit && keep_going() { break; }` does not.
 
 ## Naming lints (`tigerstyle::naming`)
 

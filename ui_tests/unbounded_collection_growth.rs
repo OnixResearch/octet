@@ -126,4 +126,51 @@ fn btree_map_without_bound() {
     }
 }
 
+fn shutdown() -> bool {
+    false
+}
+
+fn and_break_guard_without_bound(limit: usize) {
+    // `keep_going() == false` skips the break, so the push can pass `limit`.
+    let mut items = Vec::new();
+    loop {
+        if items.len() >= limit && keep_going() {
+            break;
+        }
+        items.push(next_byte());
+    }
+}
+
+fn or_break_guard_is_allowed(limit: usize) {
+    let mut items = Vec::new();
+    loop {
+        if items.len() >= limit || shutdown() {
+            break;
+        }
+        items.push(next_byte());
+    }
+}
+
+fn and_else_guard_without_bound(limit: usize) {
+    let mut items = Vec::new();
+    loop {
+        if items.len() >= limit && keep_going() {
+            continue;
+        } else {
+            items.push(next_byte());
+        }
+    }
+}
+
+fn or_else_guard_is_allowed(limit: usize) {
+    let mut items = Vec::new();
+    loop {
+        if items.len() >= limit || shutdown() {
+            continue;
+        } else {
+            items.push(next_byte());
+        }
+    }
+}
+
 fn main() {}

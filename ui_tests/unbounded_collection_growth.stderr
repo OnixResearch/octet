@@ -77,5 +77,35 @@ LL |         items.insert(next_byte(), next_byte());
    = help: Tiger Style (Bounded Resource Growth): reserve collection capacity or add an explicit local length bound before growing it in a loop Example: let mut items = Vec::with_capacity(limit);
    = note: see Tiger Style guide: Bounded Resource Growth
 
-warning: 6 warnings emitted
+warning: collection grows in loop without a prior reservation or explicit local bound
+  --> $DIR/unbounded_collection_growth.rs:140:9
+   |
+LL |         items.push(next_byte());
+   |         ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Bounded Resource Growth): reserve collection capacity or add an explicit local length bound before growing it in a loop Example: let mut items = Vec::with_capacity(limit);
+   = note: structured suggestion applicability: HasPlaceholders
+   = note: see Tiger Style guide: Bounded Resource Growth
+help: pre-allocate with an explicit capacity before the loop
+   |
+LL -     let mut items = Vec::new();
+LL +     let mut items = Vec::with_capacity(/* LIMIT */);
+   |
+
+warning: collection grows in loop without a prior reservation or explicit local bound
+  --> $DIR/unbounded_collection_growth.rs:160:13
+   |
+LL |             items.push(next_byte());
+   |             ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Bounded Resource Growth): reserve collection capacity or add an explicit local length bound before growing it in a loop Example: let mut items = Vec::with_capacity(limit);
+   = note: structured suggestion applicability: HasPlaceholders
+   = note: see Tiger Style guide: Bounded Resource Growth
+help: pre-allocate with an explicit capacity before the loop
+   |
+LL -     let mut items = Vec::new();
+LL +     let mut items = Vec::with_capacity(/* LIMIT */);
+   |
+
+warning: 8 warnings emitted
 
