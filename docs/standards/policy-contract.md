@@ -79,7 +79,9 @@ evidence.
   verifier, solver, and toolchain identity. If verifier build-closure, Nix
   closure, or Nix closure graph paths are configured, the corresponding digest is
   derived from checked manifest or graph file contents instead of trusting
-  ambient build state. `cargo octet prove` executes only configured rail argv,
+  ambient build state; structured Verus receipts record the derived digest, so a
+  manifest or graph that no longer hashes to the pinned digest fails receipt
+  validation. `cargo octet prove` executes only configured rail argv,
   captures bounded stdout/stderr artifacts, writes structured JSON receipts at
   configured receipt paths, and then emits `formal_proof` provenance only after
   the same pass-signal, binding, provenance, verifier/toolchain, binary, and

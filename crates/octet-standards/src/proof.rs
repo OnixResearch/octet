@@ -522,10 +522,18 @@ pub fn build_verus_proof_receipt(input: &VerusProofReceiptInput<'_>) -> Result<V
         return Err(diagnostics);
     }
 
-    let verifier = &input.rail.receipt_verifier;
     let Some(package_lock) = package_lock else {
         return Err(vec!["package lock missing after diagnostic check".to_owned()]);
     };
+    let package_lock_blake3 = proof_package_lock_blake3(&package_lock);
+    // The receipt records the lock's resolved identity, including closure digests recomputed from
+    // configured manifest and graph paths, so validation against the pinned rail catches drift.
+    let VerusProofPackageLock {
+        verifier_identity,
+        toolchain_identity,
+        solver_identity,
+        ..
+    } = package_lock;
     Ok(VerusProofReceipt {
         schema_version: VERUS_PROOF_RECEIPT_SCHEMA_VERSION.to_owned(),
         policy_id: input.policy_id.to_owned(),
@@ -534,24 +542,10 @@ pub fn build_verus_proof_receipt(input: &VerusProofReceiptInput<'_>) -> Result<V
         verifier_mode: verifier_mode(input.rail).to_owned(),
         producer_id: expected_producer_id(input.rail).to_owned(),
         checker_id: expected_checker_id(input.rail).to_owned(),
-        package_lock_blake3: proof_package_lock_blake3(&package_lock),
-        verifier_identity: VerusVerifierIdentity {
-            verifier_id: verifier.verifier_id.clone(),
-            verifier_digest: verifier.verifier_digest.clone(),
-            verifier_binary_path: verifier.verifier_binary_path.clone(),
-            verifier_binary_digest: verifier.verifier_binary_digest.clone(),
-            verifier_nix_closure: verifier.verifier_nix_closure.clone(),
-            verifier_nix_closure_digest: verifier.verifier_nix_closure_digest.clone(),
-            verifier_nix_closure_graph_digest: verifier.verifier_nix_closure_graph_digest.clone(),
-        },
-        toolchain_identity: VerusToolchainIdentity {
-            toolchain_id: verifier.toolchain_id.clone(),
-            toolchain_digest: verifier.toolchain_digest.clone(),
-        },
-        solver_identity: VerusSolverIdentity {
-            solver_id: verifier.solver_id.clone(),
-            solver_digest: verifier.solver_digest.clone(),
-        },
+        package_lock_blake3,
+        verifier_identity,
+        toolchain_identity,
+        solver_identity,
         command_blake3: input.command_blake3.to_owned(),
         source_bindings,
         proof_bindings,
@@ -1796,6 +1790,85 @@ mod tests {
         assert!(errors.iter().any(|error| error.contains("matches no checked closure graph artifact")));
     }
 
+    // r[verify octet.verus_proof_rails.proof_package_lock.receipt_match]
+    #[test]
+    fn structured_receipt_records_recomputed_closure_graph_digest_and_rejects_drift() {
+        let graph = SourceFile::new("artifacts/proof/closure.graph", "/nix/store/verus\n0\n");
+        let graph_digest = crate::proof_artifact::blake3_hex_text(&graph.text);
+        let sources = source_files();
+        let mut proof_sources = proof_files();
+        proof_sources.push(graph.clone());
+        let mut validation_sources = all_validation_sources();
+        validation_sources.push(graph);
+        let receipt_diagnostics = |pinned_digest: &str| {
+            let mut rail = verus_rail(VERIFIER_MODE_PRODUCTION);
+            rail.receipt_verifier.verifier_nix_closure_graph_digest = pinned_digest.to_owned();
+            rail.receipt_verifier.verifier_nix_closure_graph_paths = vec!["artifacts/proof/closure.graph".to_owned()];
+            let receipt = production_receipt(&rail, &sources, &proof_sources);
+            let proof_source = SourceFile::new(PROOF_ARTIFACT, serde_json::to_string(&receipt).expect("receipt json"));
+            let diagnostics = validate_proof_receipt_with_identity(
+                &rail,
+                Some(POLICY_ID),
+                Some(0),
+                &validation_sources,
+                &proof_source,
+            );
+            (receipt.verifier_identity.verifier_nix_closure_graph_digest, diagnostics)
+        };
+
+        let (pinned_recorded, pinned) = receipt_diagnostics(&graph_digest);
+        let (drifted_recorded, drifted) = receipt_diagnostics("pinned-graph-digest");
+
+        assert!(pinned.is_empty(), "matching closure graph must pass: {pinned:?}");
+        assert!(
+            drifted
+                .iter()
+                .any(|diagnostic| diagnostic.contains("verifier_identity.verifier_nix_closure_graph_digest")),
+            "closure graph that drifts from the pinned digest must fail: {drifted:?}"
+        );
+        assert_eq!(pinned_recorded, graph_digest);
+        assert_eq!(drifted_recorded, graph_digest);
+    }
+
+    #[test]
+    fn structured_receipt_records_recomputed_nix_closure_digest_and_rejects_drift() {
+        let manifest = SourceFile::new("artifacts/proof/nix-closure.txt", "/nix/store/verus\n");
+        let manifest_digest = closure_manifest_digest(&manifest);
+        let sources = source_files();
+        let mut proof_sources = proof_files();
+        proof_sources.push(manifest.clone());
+        let mut validation_sources = all_validation_sources();
+        validation_sources.push(manifest);
+        let receipt_diagnostics = |pinned_digest: &str| {
+            let mut rail = verus_rail(VERIFIER_MODE_PRODUCTION);
+            rail.receipt_verifier.verifier_nix_closure_digest = pinned_digest.to_owned();
+            rail.receipt_verifier.verifier_nix_closure_paths = vec!["artifacts/proof/nix-closure.txt".to_owned()];
+            let receipt = production_receipt(&rail, &sources, &proof_sources);
+            let proof_source = SourceFile::new(PROOF_ARTIFACT, serde_json::to_string(&receipt).expect("receipt json"));
+            let diagnostics = validate_proof_receipt_with_identity(
+                &rail,
+                Some(POLICY_ID),
+                Some(0),
+                &validation_sources,
+                &proof_source,
+            );
+            (receipt.verifier_identity.verifier_nix_closure_digest, diagnostics)
+        };
+
+        let (pinned_recorded, pinned) = receipt_diagnostics(&manifest_digest);
+        let (drifted_recorded, drifted) = receipt_diagnostics("pinned-closure-digest");
+
+        assert!(pinned.is_empty(), "matching closure manifest must pass: {pinned:?}");
+        assert!(
+            drifted
+                .iter()
+                .any(|diagnostic| diagnostic.contains("verifier_identity.verifier_nix_closure_digest")),
+            "closure manifest that drifts from the pinned digest must fail: {drifted:?}"
+        );
+        assert_eq!(pinned_recorded, manifest_digest);
+        assert_eq!(drifted_recorded, manifest_digest);
+    }
+
     #[test]
     fn legacy_receipt_rejects_missing_closure_graph_instead_of_configured_digest() {
         let rail = legacy_closure_graph_rail();
@@ -2248,6 +2321,19 @@ mod tests {
         proof_artifact: &'a str,
         stdout_locator: &'a str,
         stderr_locator: &'a str,
+    }
+
+    fn production_receipt(rail: &ProofRail, sources: &[SourceFile], proof_sources: &[SourceFile]) -> VerusProofReceipt {
+        valid_receipt_for(&ReceiptFixture {
+            policy_id: POLICY_ID,
+            rail,
+            sources,
+            proof_sources,
+            checked_scope: "formal-proof:production:octet.verus_proof_rails.addition-bound#rail-0",
+            proof_artifact: PROOF_ARTIFACT,
+            stdout_locator: STDOUT_LOCATOR,
+            stderr_locator: STDERR_LOCATOR,
+        })
     }
 
     fn valid_lock(rail: &ProofRail, sources: &[SourceFile], proof_sources: &[SourceFile]) -> VerusProofPackageLock {
