@@ -93,3 +93,32 @@ fn main() {
     7u64.walk(5);
     Wrapper(Counter).walk(5);
 }
+
+struct Tree {
+    kids: Vec<Tree>,
+}
+
+fn depth(tree: &Tree) -> usize {
+    // Should warn: self-call inside a closure body.
+    1 + tree.kids.iter().map(|kid| depth(kid)).max().unwrap_or(0)
+}
+
+async fn walk_async(n: u64) -> u64 {
+    // Should warn: self-call inside an `async fn` body.
+    if n == 0 { 0 } else { Box::pin(walk_async(n - 1)).await }
+}
+
+fn closure_calls_other(values: &[u64]) -> u64 {
+    // Should NOT warn: the closure calls a different function.
+    values.iter().map(|value| iterative_factorial(*value)).sum()
+}
+
+fn outer_with_nested_item(n: u64) -> u64 {
+    // Should NOT warn: the nested item's body is not this function's body,
+    // and an anonymous-const body is walked without confusing typeck tables.
+    fn nested(n: u64) -> u64 {
+        n + 1
+    }
+    let buffer = [0u8; { core::mem::size_of::<u64>() }];
+    nested(n) + buffer.len() as u64
+}
