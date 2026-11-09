@@ -265,6 +265,22 @@ fn percent_encoded_locations_decode_to_workspace_paths() {
 }
 
 #[test]
+fn octet_sarif_artifact_uris_round_trip_through_intake() {
+    for path in [
+        "src/lib.rs",
+        "src/my module.rs",
+        "src/100%.rs",
+        "src/a#b?.rs",
+        "src/caf\u{e9}.rs",
+    ] {
+        let report = CODEQL_REPORT.replace("src/query.rs", &crate::output::sarif_artifact_uri(path));
+        let evaluation = evaluate(&report, "codeql-local");
+        assert!(evaluation.diagnostics.is_empty(), "{path}: {:?}", evaluation.diagnostics);
+        assert_eq!(evaluation.details.expect("round-trip details").findings[0].file, path);
+    }
+}
+
+#[test]
 fn percent_encoded_traversal_and_ambiguous_locations_fail_closed() {
     for uri in [
         "src/%2e%2e/%2E%2E/etc/passwd",

@@ -394,7 +394,7 @@ pub fn render_sarif(
                 "message": { "text": finding.message },
                 "locations": [{
                     "physicalLocation": {
-                        "artifactLocation": { "uri": finding.file },
+                        "artifactLocation": { "uri": sarif_artifact_uri(&finding.file) },
                         "region": {
                             "startLine": finding.line,
                             "startColumn": finding.column
@@ -439,6 +439,8 @@ pub fn render_sarif(
                     "rules": rules
                 }
             },
+            // Rustc `column_start` counts Unicode scalar values, not UTF-16 code units.
+            "columnKind": "unicodeCodePoints",
             "invocations": [{
                 "commandLine": command_line,
                 "executionSuccessful": outcome.status != RunStatus::IntegrationFailure,
@@ -452,6 +454,24 @@ pub fn render_sarif(
     let mut rendered = serde_json::to_string_pretty(&sarif).map_err(|error| format!("write SARIF: {error}"))?;
     rendered.push('\n');
     Ok(rendered)
+}
+
+/// Encodes a workspace-relative `/`-separated path as a SARIF `artifactLocation.uri` relative
+/// reference. Each byte outside RFC 3986 `pchar` is percent-encoded, as are `%` and `:`, so a
+/// path with spaces, `#`, `?`, or a colon in its first segment stays an unambiguous URI.
+pub fn sarif_artifact_uri(path: &str) -> String {
+    const HEX: &[u8; 16] = b"0123456789ABCDEF";
+    let mut uri = String::with_capacity(path.len());
+    for &byte in path.as_bytes() {
+        if byte.is_ascii_alphanumeric() || b"/-._~!$&'()*+,;=@".contains(&byte) {
+            uri.push(char::from(byte));
+        } else {
+            uri.push('%');
+            uri.push(char::from(HEX[usize::from(byte >> 4)]));
+            uri.push(char::from(HEX[usize::from(byte & 0x0F)]));
+        }
+    }
+    uri
 }
 
 pub fn render_integrated_json(
@@ -499,38 +519,50 @@ pub fn render_integrated_sarif(
     let results = sarif["runs"][0]["results"]
         .as_array_mut()
         .ok_or_else(|| "rendered SARIF results are not an array".to_owned())?;
-    results.extend(receipt.findings.iter().map(|finding| {
-        let level = if finding.status == octet_standards::project_architecture_gate::ArchitectureFindingStatus::Waived {
-            "note"
-        } else if matches!(
-            receipt.mode,
-            octet_standards::project_architecture_policy::ArchitectureMode::Inventory
-                | octet_standards::project_architecture_policy::ArchitectureMode::Advisory
-        ) {
-            "warning"
-        } else {
-            "error"
-        };
-        let locations = finding.source_path.as_ref().map_or_else(Vec::new, |source_path| {
-            vec![serde_json::json!({
-                "physicalLocation": { "artifactLocation": { "uri": source_path } }
-            })]
-        });
-        serde_json::json!({
-            "ruleId": format!("project-architecture/{}", finding.code),
-            "level": level,
-            "message": { "text": finding.message },
-            "locations": locations,
-            "properties": {
-                "findingId": finding.finding_id,
-                "affectedClaim": finding.affected_claim,
-                "findingStatus": finding.status,
-                "evidenceTier": receipt.evidence_tier,
-                "phase": "architecture"
-            }
-        })
-    }));
+    results.extend(
+        receipt
+            .findings
+            .iter()
+            .map(|finding| architecture_sarif_result(finding, receipt.mode, &receipt.evidence_tier)),
+    );
     pretty_json(&sarif, "write integrated SARIF")
+}
+
+/// Renders one architecture finding as a SARIF result.
+fn architecture_sarif_result(
+    finding: &octet_standards::project_architecture_gate::ProjectArchitectureFinding,
+    mode: octet_standards::project_architecture_policy::ArchitectureMode,
+    evidence_tier: &str,
+) -> serde_json::Value {
+    let level = if finding.status == octet_standards::project_architecture_gate::ArchitectureFindingStatus::Waived {
+        "note"
+    } else if matches!(
+        mode,
+        octet_standards::project_architecture_policy::ArchitectureMode::Inventory
+            | octet_standards::project_architecture_policy::ArchitectureMode::Advisory
+    ) {
+        "warning"
+    } else {
+        "error"
+    };
+    let locations = finding.source_path.as_ref().map_or_else(Vec::new, |source_path| {
+        vec![serde_json::json!({
+            "physicalLocation": { "artifactLocation": { "uri": sarif_artifact_uri(source_path) } }
+        })]
+    });
+    serde_json::json!({
+        "ruleId": format!("project-architecture/{}", finding.code),
+        "level": level,
+        "message": { "text": finding.message },
+        "locations": locations,
+        "properties": {
+            "findingId": finding.finding_id,
+            "affectedClaim": finding.affected_claim,
+            "findingStatus": finding.status,
+            "evidenceTier": evidence_tier,
+            "phase": "architecture"
+        }
+    })
 }
 
 pub fn render_status_json(
@@ -880,6 +912,58 @@ mod tests {
                 meta.group
             );
         }
+    }
+
+    #[test]
+    fn sarif_declares_code_point_columns_and_percent_encodes_artifact_uris() {
+        let paths = [
+            ("src/lib.rs", "src/lib.rs"),
+            ("src/my module.rs", "src/my%20module.rs"),
+            ("src/100%.rs", "src/100%25.rs"),
+            ("src/a#b?.rs", "src/a%23b%3F.rs"),
+            ("src/a:b.rs", "src/a%3Ab.rs"),
+            ("src/caf\u{e9}.rs", "src/caf%C3%A9.rs"),
+        ];
+        let findings = paths
+            .iter()
+            .map(|(path, _)| {
+                let mut finding = test_finding();
+                (*path).clone_into(&mut finding.file);
+                finding
+            })
+            .collect::<Vec<_>>();
+        let outcome = RunOutcome::classify(&findings, CargoProcessExit::success());
+        let metadata = RunMetadata {
+            tool_name: "cargo-octet",
+            tool_version: "0.1.0",
+            rustc_version: "rustc-test".to_owned(),
+            toolchain: "nightly".to_owned(),
+            profile_name: "default".to_owned(),
+            profile_hash: "profile-hash".to_owned(),
+            config_hash: TEST_CONFIG_HASH.to_owned(),
+        };
+        let rendered = render_sarif(
+            &findings,
+            &lint_meta_map(),
+            &outcome,
+            "cargo octet check --output-format sarif",
+            &metadata,
+            None,
+        )
+        .expect("SARIF should render");
+        let sarif = serde_json::from_str::<serde_json::Value>(&rendered).expect("parse rendered SARIF");
+
+        assert_eq!(sarif["runs"][0]["columnKind"], "unicodeCodePoints");
+        let uris = sarif["runs"][0]["results"]
+            .as_array()
+            .expect("SARIF results")
+            .iter()
+            .map(|result| result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"].as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(uris, paths.iter().map(|(_, uri)| Some(*uri)).collect::<Vec<_>>());
+
+        let json_lines = render_json_lines(&findings).expect("JSON Lines should render");
+        assert!(json_lines.contains("\"file\":\"src/my module.rs\""), "JSON Lines keep raw paths: {json_lines}");
     }
 
     #[test]
