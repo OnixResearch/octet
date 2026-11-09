@@ -16,6 +16,7 @@ use rustc_session::impl_lint_pass;
 use rustc_span::Span;
 
 use crate::diagnostics::emit_tiger_style_lint;
+use crate::markers::attrs_carry_marker;
 use crate::performance::allocation_in_loop;
 use crate::test_context;
 
@@ -714,88 +715,14 @@ fn source_has_panic(source: &str) -> bool {
         .any(|pattern| compact_source.contains(pattern))
 }
 
-fn source_has_pure_marker(source: &str) -> bool {
-    let compact_source = compact(source);
-    compact_source.contains("#[tigerstyle::pure]")
-        || compact_source.contains("#[octet::pure]")
-        || compact_source.contains("#[pure]")
-}
+const PURE_MARKER: &str = "octet::pure";
+const ZERO_ALLOC_MARKER: &str = "octet::zero_alloc";
 
-fn source_has_zero_alloc_marker(source: &str) -> bool {
-    let compact_source = compact(source);
-    compact_source.contains("#[tigerstyle::zero_alloc]")
-        || compact_source.contains("#[octet::zero_alloc]")
-        || compact_source.contains("#[zero_alloc]")
-}
-
-fn preceding_attrs_have_pure_marker(cx: &LateContext<'_>, span: Span) -> bool {
-    let source_map = cx.sess().source_map();
-    let Ok(lines) = source_map.span_to_lines(span) else {
-        return false;
-    };
-    let Some(first_line_idx) = lines.lines.first().map(|line| line.line_index) else {
-        return false;
-    };
-
-    for idx in (0..first_line_idx).rev() {
-        let Some(line) = lines.file.get_line(idx) else {
-            continue;
-        };
-        let trimmed = line.trim();
-        if trimmed.is_empty() || trimmed.starts_with("//") {
-            continue;
-        }
-        if trimmed.starts_with("#[") || trimmed.starts_with("#![") {
-            if source_has_pure_marker(trimmed) {
-                return true;
-            }
-            continue;
-        }
-        break;
-    }
-    false
-}
-
-fn preceding_attrs_have_zero_alloc_marker(cx: &LateContext<'_>, span: Span) -> bool {
-    let source_map = cx.sess().source_map();
-    let Ok(lines) = source_map.span_to_lines(span) else {
-        return false;
-    };
-    let Some(first_line_idx) = lines.lines.first().map(|line| line.line_index) else {
-        return false;
-    };
-
-    for idx in (0..first_line_idx).rev() {
-        let Some(line) = lines.file.get_line(idx) else {
-            continue;
-        };
-        let trimmed = line.trim();
-        if trimmed.is_empty() || trimmed.starts_with("//") {
-            continue;
-        }
-        if trimmed.starts_with("#[") || trimmed.starts_with("#![") {
-            if source_has_zero_alloc_marker(trimmed) {
-                return true;
-            }
-            continue;
-        }
-        break;
-    }
-    false
-}
-
-fn fn_source_is_declared_pure(cx: &LateContext<'_>, _def_id: rustc_hir::def_id::LocalDefId, span: Span) -> bool {
-    preceding_attrs_have_pure_marker(cx, span)
-        || cx.sess().source_map().span_to_snippet(span).is_ok_and(|source| source_has_pure_marker(&source))
-}
-
-fn fn_source_is_declared_zero_alloc(cx: &LateContext<'_>, _def_id: rustc_hir::def_id::LocalDefId, span: Span) -> bool {
-    preceding_attrs_have_zero_alloc_marker(cx, span)
-        || cx
-            .sess()
-            .source_map()
-            .span_to_snippet(span)
-            .is_ok_and(|source| source_has_zero_alloc_marker(&source))
+/// Whether the function or closure `def_id` itself carries `marker`, under any
+/// tool prefix (`octet::`, `tigerstyle::`). Markers on nested items or closures,
+/// and marker text in strings, comments, or doc attributes, do not count.
+fn fn_is_declared(cx: &LateContext<'_>, def_id: LocalDefId, marker: &str) -> bool {
+    attrs_carry_marker(cx.tcx.hir_attrs(cx.tcx.local_def_id_to_hir_id(def_id)), marker)
 }
 
 fn source_is_in_core_scope(cx: &LateContext<'_>, span: Span, scopes: &[String]) -> bool {
@@ -1216,7 +1143,7 @@ impl<'tcx> LateLintPass<'tcx> for MutatingInputInPure {
         if test_context::late_hir_id_is_in_test_context(cx, body.value.hir_id, span) {
             return;
         }
-        let declared_pure = fn_source_is_declared_pure(cx, def_id, span);
+        let declared_pure = fn_is_declared(cx, def_id, PURE_MARKER);
         let in_core_scope = source_is_in_core_scope(cx, span, &self.core_source_scopes);
         if !declared_pure && !in_core_scope {
             return;
@@ -1278,7 +1205,7 @@ impl<'tcx> LateLintPass<'tcx> for PureAttrContract {
         def_id: rustc_hir::def_id::LocalDefId,
     ) {
         if test_context::late_hir_id_is_in_test_context(cx, body.value.hir_id, span)
-            || !fn_source_is_declared_pure(cx, def_id, span)
+            || !fn_is_declared(cx, def_id, PURE_MARKER)
         {
             return;
         }
@@ -1315,7 +1242,7 @@ impl<'tcx> LateLintPass<'tcx> for ZeroAllocAttrContract {
         def_id: rustc_hir::def_id::LocalDefId,
     ) {
         if test_context::late_hir_id_is_in_test_context(cx, body.value.hir_id, span)
-            || !fn_source_is_declared_zero_alloc(cx, def_id, span)
+            || !fn_is_declared(cx, def_id, ZERO_ALLOC_MARKER)
         {
             return;
         }

@@ -195,6 +195,8 @@ Scope notes for the safety lints:
 | `verified_purity` | `deny` | ban async, IO, and wall-clock usage in `verified/` modules |
 | `contradictory_time` | `warn` | avoid taking time as input and then reading the clock again |
 
+A function or closure is marked pure or zero-alloc only by its own attribute whose path ends in `pure` or `zero_alloc` (`#[octet::pure]`, `#[tigerstyle::zero_alloc]`). A marker on a nested function or closure marks only that item, and marker text in a string, comment, or `#[doc = ...]` attribute marks nothing. `pure_attr_contract`, `mutating_input_in_pure`, and `zero_alloc_attr_contract` all use this rule.
+
 ## Concurrency lints (`tigerstyle::concurrency`)
 
 | Lint | Default | Summary |

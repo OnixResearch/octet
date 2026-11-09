@@ -271,6 +271,8 @@ r[octet.purity_effect_lints.nondeterministic_output.catalog]
 
 r[octet.purity_effect_lints.pure_attr_contract] Octet MUST provide a `pure_attr_contract` lint that enforces direct-effect purity checks for functions marked with Octet's recognized pure-function marker.
 
+A function or closure carries a recognized marker only when its own HIR attributes include an attribute whose path ends in the marker name (`pure` or `zero_alloc`) under any tool prefix. Markers on nested items or closures inside the body, and marker text in string literals, comments, or doc attributes, MUST NOT mark the enclosing function.
+
 #### Scenario: Marked impure function is flagged
 
 r[octet.purity_effect_lints.pure_attr_contract.flags_marked_impurity]

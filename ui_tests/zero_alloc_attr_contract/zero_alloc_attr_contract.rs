@@ -64,3 +64,34 @@ fn makes_vec_after_nested_calls() -> u8 {
 }
 
 fn main() {}
+
+fn unmarked_outer_with_marked_helper() -> u8 {
+    // Should NOT warn: only the nested helper carries the marker.
+    #[tigerstyle::zero_alloc]
+    fn helper() -> u8 {
+        seven()
+    }
+    let _v: Vec<u8> = Vec::new();
+    helper()
+}
+
+fn unmarked_outer_with_marked_allocating_helper() {
+    // The nested helper is marked and allocates, so it alone is reported.
+    #[tigerstyle::zero_alloc]
+    fn allocating_helper() {
+        let _b: Box<u64> = Box::new(7u64);
+    }
+    allocating_helper();
+}
+
+fn unmarked_outer_with_marker_text() {
+    // Should NOT warn: #[tigerstyle::zero_alloc] in a comment or string is not an attribute.
+    let _text = "#[tigerstyle::zero_alloc]";
+    let _v: Vec<u8> = Vec::new();
+}
+
+#[doc = "Mark helpers #[tigerstyle::zero_alloc] once they stop allocating."]
+fn doc_attr_mentions_marker() {
+    // Should NOT warn: a doc attribute naming the marker is not the marker.
+    let _v: Vec<u8> = Vec::new();
+}

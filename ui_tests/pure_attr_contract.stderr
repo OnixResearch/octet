@@ -132,5 +132,16 @@ LL | | }
    = help: Tiger Style (Functional Core): keep functions marked pure free of direct platform effects, mutating inputs, panics, globals, and resource handles Example: #[tigerstyle::pure] fn compute(input: Input) -> Output
    = note: see Tiger Style guide: Functional Core / Imperative Shell
 
-warning: 12 warnings emitted
+warning: marked pure function contains direct environment impurity; this lint checks direct effects only, not transitive proof
+  --> $DIR/pure_attr_contract/pure_attr_contract.rs:86:5
+   |
+LL | /     fn impure_helper() {
+LL | |         let _home = std::env::var("HOME");
+LL | |     }
+   | |_____^
+   |
+   = help: Tiger Style (Functional Core): keep functions marked pure free of direct platform effects, mutating inputs, panics, globals, and resource handles Example: #[tigerstyle::pure] fn compute(input: Input) -> Output
+   = note: see Tiger Style guide: Functional Core / Imperative Shell
+
+warning: 13 warnings emitted
 

@@ -1,4 +1,4 @@
-#![feature(register_tool)]
+#![feature(register_tool, stmt_expr_attributes)]
 #![register_tool(tigerstyle)]
 
 mod rand {
@@ -69,3 +69,42 @@ fn pure_returns_file() -> std::fs::File {
 }
 
 fn main() {}
+
+fn unmarked_outer_with_marked_helper() -> u64 {
+    // Should NOT warn: only the nested helper carries the marker.
+    #[tigerstyle::pure]
+    fn helper(value: u64) -> u64 {
+        value
+    }
+    let _bytes = std::fs::read("state.bin");
+    helper(1)
+}
+
+fn unmarked_outer_with_marked_impure_helper() {
+    // The nested helper is marked and impure, so it alone is reported.
+    #[tigerstyle::pure]
+    fn impure_helper() {
+        let _home = std::env::var("HOME");
+    }
+    impure_helper();
+}
+
+fn unmarked_outer_with_marked_closure() -> u64 {
+    // Should NOT warn: only the closure carries the marker.
+    let double = #[tigerstyle::pure]
+    |value: u64| value * 2;
+    let _bytes = std::fs::read("state.bin");
+    double(1)
+}
+
+fn unmarked_outer_with_marker_text() {
+    // Should NOT warn: #[tigerstyle::pure] in a comment or string is not an attribute.
+    let _text = "#[tigerstyle::pure]";
+    let _bytes = std::fs::read("state.bin");
+}
+
+#[doc = "Mark helpers #[tigerstyle::pure] once they stop reading files."]
+fn doc_attr_mentions_marker() {
+    // Should NOT warn: a doc attribute naming the marker is not the marker.
+    let _bytes = std::fs::read("state.bin");
+}
