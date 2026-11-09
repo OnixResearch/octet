@@ -20,7 +20,9 @@ declare_tool_lint! {
     /// `no_unwrap`. rustc's own lints stay out of scope, and `no_todo` allows
     /// belong to `unjustified_no_todo_allow`. Only attributes written in the
     /// crate's source (directly, through `cfg_attr`, or in a local
-    /// `macro_rules!`) are governed, not output of other crates' macros.
+    /// `macro_rules!`) are governed, not output of other crates' macros. Under
+    /// a selected strict profile, a `#[warn(...)]` that reaches one of the
+    /// profile's required lints lowers it from `deny` and is governed too.
     ///
     /// A non-doc `//` comment on the attribute's lines or on the line directly
     /// above it, or a non-empty `reason = "..."` argument inside the attribute,
@@ -33,8 +35,14 @@ declare_tool_lint! {
 }
 
 /// Early pass state for [`UNJUSTIFIED_ALLOW`].
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct UnjustifiedAllow {
+    /// Paths that reach a selected strict profile's floor lints, other than
+    /// the governance lints [`SuppressionGovernanceGuard`] protects. A source
+    /// `warn` through one of them lowers a floor lint from `deny`, so it is
+    /// governed like an `allow`. Empty without a profile, where `warn` is the
+    /// normal way to enable a lint.
+    floor_paths: LintPathSet,
     /// rustc reports a statement's attributes once for the statement and again
     /// for the `let`, item, or expression it wraps; this remembers the first
     /// attribute of the last checked list so each list is checked once.
@@ -42,6 +50,19 @@ pub struct UnjustifiedAllow {
 }
 
 impl_lint_pass!(UnjustifiedAllow => [UNJUSTIFIED_ALLOW]);
+
+impl UnjustifiedAllow {
+    /// Pass for a selected strict profile's floor lints; an empty floor gives
+    /// the unprofiled pass.
+    pub(crate) fn for_profile_floor<'a>(floor_lints: impl IntoIterator<Item = &'a str>) -> Self {
+        Self {
+            floor_paths: LintPathSet::for_lints(
+                floor_lints.into_iter().filter(|lint_name| !SUPPRESSION_GOVERNANCE_LINTS.contains(lint_name)),
+            ),
+            last_checked: None,
+        }
+    }
+}
 
 /// Placeholder this lint's own suggestion inserts; it never justifies.
 const PLACEHOLDER_PREFIX: &str = "TODO(octet)";
@@ -188,21 +209,43 @@ fn has_comment_nearby(cx: &EarlyContext<'_>, attr: &Attribute) -> bool {
     has_attribute_line_comment || has_previous_line_comment
 }
 
-fn check_attrs(cx: &EarlyContext<'_>, attrs: &[Attribute]) {
+/// Lint paths of the attribute's lint list, as segment iterators.
+fn lint_paths(items: &[MetaItemInner]) -> impl Iterator<Item = impl Iterator<Item = &str> + Clone> {
+    items
+        .iter()
+        .filter_map(MetaItemInner::meta_item)
+        .map(|meta| meta.path.segments.iter().map(|segment| segment.ident.as_str()))
+}
+
+/// Name of a lint-level attribute this lint governs: `allow` or `expect`
+/// naming a governed lint, or, under a strict profile, `warn` reaching a
+/// floor lint.
+fn governed_level_name(attr: &Attribute, items: &[MetaItemInner], floor_paths: &LintPathSet) -> Option<&'static str> {
+    match suppression_name(attr) {
+        Some(name) => suppresses_governed_lint(items).then_some(name),
+        None => {
+            (attr.has_name(sym::warn) && !floor_paths.reached_lints(lint_paths(items)).is_empty()).then_some("warn")
+        }
+    }
+}
+
+fn check_attrs(cx: &EarlyContext<'_>, attrs: &[Attribute], floor_paths: &LintPathSet) {
     // Skip items in #[cfg(test)] blocks
     if attrs.iter().any(|a| a.has_name(sym::test)) {
         return;
     }
 
     for attr in attrs {
-        let Some(name) = suppression_name(attr) else {
+        if lowering_level_name(attr).is_none() {
             continue;
-        };
+        }
         let Some(items) = attr.meta_item_list() else {
             continue;
         };
-        let is_user_governed = suppresses_governed_lint(&items) && is_user_written(cx, attr, name);
-        if is_user_governed && !has_reason_argument(&items) && !has_comment_nearby(cx, attr) {
+        let Some(name) = governed_level_name(attr, &items, floor_paths) else {
+            continue;
+        };
+        if is_user_written(cx, attr, name) && !has_reason_argument(&items) && !has_comment_nearby(cx, attr) {
             emit_tiger_style_lint_with_suggestion(
                 cx,
                 UNJUSTIFIED_ALLOW,
@@ -240,7 +283,7 @@ impl EarlyLintPass for UnjustifiedAllow {
     // variants, expressions, arms, parameters, and generic parameters.
     fn check_attributes(&mut self, cx: &EarlyContext<'_>, attrs: &[Attribute]) {
         if is_new_attribute_list(&mut self.last_checked, attrs) {
-            check_attrs(cx, attrs);
+            check_attrs(cx, attrs, &self.floor_paths);
         }
     }
 }
@@ -248,13 +291,63 @@ impl EarlyLintPass for UnjustifiedAllow {
 /// Profile-floor lints that audit source suppressions.
 const SUPPRESSION_GOVERNANCE_LINTS: &[&str] = &["unjustified_allow", "unjustified_no_todo_allow"];
 
-/// A lint-attribute path that reaches a protected governance lint.
+/// A lint-attribute path that reaches one chosen Octet lint.
 #[derive(Clone)]
-struct ProtectedPath {
+struct LintPath {
     /// Bare alias, canonical lint name, or Octet group, as written in source.
     path: String,
-    /// Governance lint the path reaches.
+    /// Lint the path reaches.
     lint_name: &'static str,
+}
+
+/// Lint-attribute paths that reach a chosen set of Octet lints: each lint's
+/// bare alias, canonical name, and Octet group. A group therefore counts only
+/// through a chosen member.
+#[derive(Clone, Default)]
+struct LintPathSet {
+    paths: Vec<LintPath>,
+}
+
+impl LintPathSet {
+    /// Paths for the inventory lints among `lint_names`; other names are
+    /// ignored.
+    fn for_lints<'a>(lint_names: impl IntoIterator<Item = &'a str>) -> Self {
+        let paths = lint_names
+            .into_iter()
+            .filter_map(|lint_name| {
+                crate::LINT_INVENTORY.iter().map(|entry| entry.name).find(|name| *name == lint_name)
+            })
+            .flat_map(|lint_name| {
+                let group = crate::diagnostics::diagnostic_meta(lint_name).domain_group;
+                [
+                    lint_name.to_owned(),
+                    crate::diagnostics::canonical_lint_name(lint_name),
+                    group.to_owned(),
+                ]
+                .into_iter()
+                .map(move |path| LintPath { path, lint_name })
+            })
+            .collect();
+        Self { paths }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.paths.is_empty()
+    }
+
+    /// Chosen lints that the lint paths reach, in first-seen order.
+    fn reached_lints<'a, P>(&self, paths: impl Iterator<Item = P>) -> Vec<&'static str>
+    where P: Iterator<Item = &'a str> + Clone {
+        let mut reached = Vec::new();
+        for segments in paths {
+            for path in &self.paths {
+                if segments.clone().eq(path.path.split("::")) && !reached.contains(&path.lint_name) {
+                    reached.push(path.lint_name);
+                }
+            }
+        }
+        reached
+    }
 }
 
 /// Early pass a selected strict profile adds. rustc applies a node's lint
@@ -266,7 +359,7 @@ struct ProtectedPath {
 #[derive(Clone)]
 pub struct SuppressionGovernanceGuard {
     profile_id: String,
-    protected: Vec<ProtectedPath>,
+    protected: LintPathSet,
     last_checked: Option<AttrId>,
 }
 
@@ -276,45 +369,19 @@ impl SuppressionGovernanceGuard {
     /// Guard for the governance lints among a selected profile's floor, or
     /// `None` when the floor holds none of them.
     pub(crate) fn for_profile<'a>(profile_id: &str, floor_lints: impl IntoIterator<Item = &'a str>) -> Option<Self> {
-        let protected = floor_lints
-            .into_iter()
-            .filter_map(|lint_name| {
-                SUPPRESSION_GOVERNANCE_LINTS.iter().copied().find(|governed| *governed == lint_name)
-            })
-            .flat_map(|lint_name| {
-                let group = crate::diagnostics::diagnostic_meta(lint_name).domain_group;
-                [
-                    lint_name.to_owned(),
-                    crate::diagnostics::canonical_lint_name(lint_name),
-                    group.to_owned(),
-                ]
-                .into_iter()
-                .map(move |path| ProtectedPath { path, lint_name })
-            })
-            .collect::<Vec<_>>();
+        let protected = LintPathSet::for_lints(
+            floor_lints.into_iter().filter(|lint_name| SUPPRESSION_GOVERNANCE_LINTS.contains(lint_name)),
+        );
         (!protected.is_empty()).then(|| Self {
             profile_id: profile_id.to_owned(),
             protected,
             last_checked: None,
         })
     }
-
-    /// Governance lints that the lint paths reach, in first-seen order.
-    fn reached_lints<'a, P>(&self, paths: impl Iterator<Item = P>) -> Vec<&'static str>
-    where P: Iterator<Item = &'a str> + Clone {
-        let mut reached = Vec::new();
-        for segments in paths {
-            for protected in &self.protected {
-                if segments.clone().eq(protected.path.split("::")) && !reached.contains(&protected.lint_name) {
-                    reached.push(protected.lint_name);
-                }
-            }
-        }
-        reached
-    }
 }
 
 /// Name of a source attribute that can set a lint below the profile's `deny`.
+/// rustc source attributes have no `force_warn`; only the command line does.
 fn lowering_level_name(attr: &Attribute) -> Option<&'static str> {
     suppression_name(attr).or_else(|| attr.has_name(sym::warn).then_some("warn"))
 }
@@ -331,12 +398,7 @@ impl EarlyLintPass for SuppressionGovernanceGuard {
             let Some(items) = attr.meta_item_list() else {
                 continue;
             };
-            let reached = self.reached_lints(
-                items
-                    .iter()
-                    .filter_map(MetaItemInner::meta_item)
-                    .map(|meta| meta.path.segments.iter().map(|segment| segment.ident.as_str())),
-            );
+            let reached = self.protected.reached_lints(lint_paths(&items));
             if reached.is_empty() || !is_user_written(cx, attr, name) {
                 continue;
             }
@@ -354,7 +416,9 @@ impl EarlyLintPass for SuppressionGovernanceGuard {
 
 #[cfg(test)]
 mod tests {
+    use super::LintPathSet;
     use super::SuppressionGovernanceGuard;
+    use super::UnjustifiedAllow;
     use super::is_governed_lint_path;
     use super::is_justifying_line_comment;
     use super::line_has_justifying_comment;
@@ -419,8 +483,12 @@ mod tests {
         assert!(!snippet_spells_attribute("allowed(value)", "allow"));
     }
 
+    fn reached_paths(paths_set: &LintPathSet, paths: &[&str]) -> Vec<&'static str> {
+        paths_set.reached_lints(paths.iter().map(|path| path.split("::")))
+    }
+
     fn reached(guard: &SuppressionGovernanceGuard, paths: &[&str]) -> Vec<&'static str> {
-        guard.reached_lints(paths.iter().map(|path| path.split("::")))
+        reached_paths(&guard.protected, paths)
     }
 
     #[test]
@@ -459,5 +527,31 @@ mod tests {
     fn profile_guard_exists_only_for_floors_with_governance_lints() {
         assert!(SuppressionGovernanceGuard::for_profile("custom", ["no_unwrap", "no_panic"]).is_none());
         assert!(SuppressionGovernanceGuard::for_profile("custom", std::iter::empty()).is_none());
+    }
+
+    #[test]
+    fn profile_floor_governs_warn_paths_that_reach_non_governance_floor_lints() {
+        let floor = UnjustifiedAllow::for_profile_floor(["no_unwrap", "platform_dependent_cast", "unjustified_allow"]);
+        let reached = |paths: &[&str]| reached_paths(&floor.floor_paths, paths);
+
+        assert_eq!(reached(&["no_unwrap"]), ["no_unwrap"]);
+        assert_eq!(reached(&["tigerstyle::no_unwrap"]), ["no_unwrap"]);
+        assert_eq!(reached(&["tigerstyle::safety"]), ["no_unwrap"]);
+        assert_eq!(reached(&["tigerstyle::structure"]), ["platform_dependent_cast"]);
+        // Non-floor lints and groups without a floor member are not lowered;
+        // the governance lints belong to the profile guard.
+        for path in [
+            "function_length",
+            "tigerstyle::function_length",
+            "tigerstyle::naming",
+            "unjustified_allow",
+            "clippy::unwrap_used",
+        ] {
+            assert!(reached(&[path]).is_empty(), "`{path}` reaches no governed floor lint");
+        }
+
+        // Without a profile no `warn` is governed.
+        assert!(UnjustifiedAllow::default().floor_paths.is_empty());
+        assert!(UnjustifiedAllow::for_profile_floor(std::iter::empty()).floor_paths.is_empty());
     }
 }

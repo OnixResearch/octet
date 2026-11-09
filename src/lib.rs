@@ -237,8 +237,9 @@ lint_inventory! {
     "verified_purity", purity::verified_purity::VERIFIED_PURITY => |lint_store, _cfg| {
         lint_store.register_early_pass(|| Box::new(purity::verified_purity::VerifiedPurity::default()));
     },
-    "unjustified_allow", structure::unjustified_allow::UNJUSTIFIED_ALLOW => |lint_store, _cfg| {
-        lint_store.register_early_pass(|| Box::new(structure::unjustified_allow::UnjustifiedAllow::default()));
+    "unjustified_allow", structure::unjustified_allow::UNJUSTIFIED_ALLOW => |lint_store, cfg| {
+        let pass = structure::unjustified_allow::UnjustifiedAllow::for_profile_floor(cfg.profile_floor_lints());
+        lint_store.register_early_pass(move || Box::new(pass.clone()));
     },
     "nested_conditionals", structure::nested_conditionals::NESTED_CONDITIONALS => |lint_store, cfg| {
         let nc_max = cfg.nesting_max_depth;

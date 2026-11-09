@@ -70,6 +70,7 @@ r[octet.strict_rust_profiles.lint_floor.suppression]
 - GIVEN source code uses an explicit lint suppression under a strict profile
 - WHEN Octet checks the source
 - THEN existing Octet suppression-justification lints MUST remain active according to the selected profile.
+- AND a source `warn` attribute that reaches a required lint of the selected profile, directly, through its bare alias, or through an Octet group with a required member, MUST need the same local justification as an `allow`, while a `warn` that reaches no required lint MUST stay unaffected.
 - AND the profile MUST NOT introduce a silent assume-style bypass.
 
 #### Scenario: Governance lints cannot be suppressed

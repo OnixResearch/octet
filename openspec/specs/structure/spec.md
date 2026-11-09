@@ -143,6 +143,14 @@ crate root, items, associated items, statements, fields, and every other
 lint-level node, and MUST decide scope from the attribute's lint paths only,
 never from the source file path.
 
+Under a selected strict profile the lint MUST also govern a source `warn`
+attribute that reaches one of the profile's required lints, by bare alias,
+canonical name, or an Octet group with a required member, because it lowers
+that lint from the profile's `deny`. A `warn` that reaches no required lint,
+and every `warn` without a profile, MUST NOT be governed. The
+suppression-governance lints themselves are covered by the profile's
+governance guard instead.
+
 The lint MUST accept a non-doc `//` comment on the attribute's source lines,
 including a trailing comment after the attribute, or on the line immediately
 preceding the attribute. Doc comments (`///`, `//!`) MUST NOT count, and

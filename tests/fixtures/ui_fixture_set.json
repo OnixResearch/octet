@@ -173,6 +173,8 @@
     "strict_profile_force_warn_custom/strict_profile_force_warn_custom",
     "strict_profile_governance_custom/strict_profile_governance_accept",
     "strict_profile_governance_custom/strict_profile_governance_reject",
+    "strict_profile_governance_custom/strict_profile_warn_floor",
+    "strict_profile_governance_custom/strict_profile_warn_floor_unprofiled",
     "zero_alloc_attr_contract/zero_alloc_attr_contract",
     "zero_alloc_attr_contract_allow",
     "zero_alloc_attr_contract_silent_allow",
@@ -191,6 +193,7 @@
     "numeric_units_cli_deny_custom/numeric_units_cli_deny_custom",
     "strict_profile_force_warn_custom/strict_profile_force_warn_custom",
     "strict_profile_governance_custom/strict_profile_governance_reject",
+    "strict_profile_governance_custom/strict_profile_warn_floor",
     "tokio_async/verified_purity_harness",
     "verified/verified_purity",
     "zero_alloc_attr_contract_silent_allow"
@@ -237,6 +240,8 @@
     "strict_profile_force_warn_custom/strict_profile_force_warn_custom",
     "strict_profile_governance_custom/strict_profile_governance_accept",
     "strict_profile_governance_custom/strict_profile_governance_reject",
+    "strict_profile_governance_custom/strict_profile_warn_floor",
+    "strict_profile_governance_custom/strict_profile_warn_floor_unprofiled",
     "core_scope_resolution_custom/core_scope_resolution_custom"
   ]
 }

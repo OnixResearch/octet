@@ -313,7 +313,8 @@ fn fixture_strict_profile(name: &str) -> Option<&'static str> {
     match name {
         "strict_profile_force_warn_custom/strict_profile_force_warn_custom"
         | "strict_profile_governance_custom/strict_profile_governance_accept"
-        | "strict_profile_governance_custom/strict_profile_governance_reject" => Some("robust"),
+        | "strict_profile_governance_custom/strict_profile_governance_reject"
+        | "strict_profile_governance_custom/strict_profile_warn_floor" => Some("robust"),
         "nominal_inventory_profile_custom/nominal_inventory_profile_custom" => Some("bounded-systems"),
         _ => None,
     }
