@@ -442,8 +442,12 @@
         leanExecutable = pkgs.lean4.overrideAttrs (old: {
           version = "4.31.0";
           src = lean4-src;
-          nativeBuildInputs = old.nativeBuildInputs ++ [ leantar ];
+          nativeBuildInputs = old.nativeBuildInputs ++ [ leantar pkgs.clang ];
+          CC = "${pkgs.clang}/bin/clang";
+          CXX = "${pkgs.clang}/bin/clang++";
           cmakeFlags = [
+            "-DCMAKE_C_COMPILER=${pkgs.clang}/bin/clang"
+            "-DCMAKE_CXX_COMPILER=${pkgs.clang}/bin/clang++"
             "-DUSE_GITHASH=OFF"
             "-DINSTALL_LICENSE=OFF"
             "-DUSE_MIMALLOC=OFF"
