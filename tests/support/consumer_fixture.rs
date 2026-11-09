@@ -82,7 +82,7 @@ fn copy_path(from: &Path, to: &Path) {
 }
 
 pub(crate) struct ConsumerFixture {
-    _tmp: TempDir,
+    tmp: TempDir,
     pub(crate) repo: PathBuf,
     pub(crate) fakebin: PathBuf,
     pub(crate) log_path: PathBuf,
@@ -130,7 +130,7 @@ edition = "2024"
         let original_lockfile = fs::read_to_string(repo.join("Cargo.lock")).expect("read original lockfile");
 
         Self {
-            _tmp: tmp,
+            tmp,
             repo,
             fakebin,
             log_path,
@@ -195,7 +195,9 @@ edition = "2024"
             .env("TS_MUTATE_LOCKFILE_ON_BUILD", "0")
             .env("TS_CONSUMER_LOCKFILE", self.repo.join("Cargo.lock"))
             .env("TS_REAL_CARGO", env::var_os("CARGO").expect("Cargo runner path"))
-            .env("CARGO_TARGET_DIR", &self.target_dir);
+            .env("CARGO_TARGET_DIR", &self.target_dir)
+            // The embedded-source cache would otherwise land in the developer's `~/.cache`.
+            .env("XDG_CACHE_HOME", self.tmp.path().join("xdg-cache"));
 
         fs::write(&self.log_path, format!("LAUNCHER:{}\nPATH:{}\n", command.get_program().to_string_lossy(), path))
             .expect("seed cargo log");
@@ -391,7 +393,10 @@ edition = "2024"
             .env("TS_MUTATE_LOCKFILE_ON_BUILD", if mutate_lockfile_on_build { "1" } else { "0" })
             .env("TS_CONSUMER_LOCKFILE", self.repo.join("Cargo.lock"))
             .env("TS_REAL_CARGO", env::var_os("CARGO").expect("Cargo runner path"))
-            .env("CARGO_TARGET_DIR", &self.target_dir);
+            .env("CARGO_TARGET_DIR", &self.target_dir)
+            // The embedded-source cache would otherwise land in the developer's `~/.cache`;
+            // tests of the cache itself override this through `extra_env`.
+            .env("XDG_CACHE_HOME", self.tmp.path().join("xdg-cache"));
 
         fs::write(&self.log_path, format!("LAUNCHER:{}\nPATH:{}\n", command.get_program().to_string_lossy(), path))
             .expect("seed cargo log");
@@ -549,7 +554,9 @@ pub(crate) fn built_cargo_octet_bin() -> Result<PathBuf, String> {
         .get_or_init(|| {
             let cargo = env::var("CARGO").map_err(|_| "missing `CARGO` env var".to_owned())?;
             let manifest_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("cargo-octet/Cargo.toml");
-            let target_dir = env::temp_dir().join("octet-consumer-integration-cli-target");
+            // A per-checkout directory: a shared temp path let concurrent checkouts overwrite one
+            // another's binary while their tests were still executing it.
+            let target_dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("octet-consumer-integration-cli-target");
 
             let status = Command::new(cargo)
                 .arg("build")
