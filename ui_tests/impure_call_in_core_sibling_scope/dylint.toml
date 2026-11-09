@@ -1,0 +1,4 @@
+[octet]
+# A sibling directory whose name merely starts with this scope is outside it.
+core_source_scopes = ["ui_tests/impure_call_in_core"]
+disabled_lints = ["concrete_construction_in_core"]

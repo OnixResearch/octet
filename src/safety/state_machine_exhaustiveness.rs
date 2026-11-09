@@ -348,12 +348,8 @@ fn has_marker(cx: &LateContext<'_>, def_id: hir::def_id::LocalDefId, marker: &st
     attrs_carry_marker(cx.tcx.hir_attrs(cx.tcx.local_def_id_to_hir_id(def_id)), marker)
 }
 
-fn span_path(cx: &LateContext<'_>, span: Span) -> String {
-    format!("{:?}", cx.sess().source_map().lookup_char_pos(span.lo()).file.name)
-}
-
-fn span_matches_any_scope(path: &str, scopes: &[String]) -> bool {
-    scopes.iter().any(|scope| !scope.is_empty() && path.contains(scope))
+fn span_matches_any_scope(cx: &LateContext<'_>, span: Span, scopes: &[String]) -> bool {
+    crate::source::span_in_scopes(cx.sess(), span, scopes)
 }
 
 fn function_name(kind: FnKind<'_>, def_id: hir::def_id::LocalDefId, cx: &LateContext<'_>) -> String {
@@ -398,13 +394,12 @@ impl<'tcx> LateLintPass<'tcx> for StateMachineExhaustiveness {
         span: Span,
         def_id: hir::def_id::LocalDefId,
     ) {
-        let function_path = span_path(cx, span);
-        if span_matches_any_scope(&function_path, &self.generated_adapter_scopes) {
+        if span_matches_any_scope(cx, span, &self.generated_adapter_scopes) {
             return;
         }
 
         let marker_selected = has_marker(cx, def_id, &self.core_marker);
-        let scope_selected = span_matches_any_scope(&function_path, &self.core_scopes);
+        let scope_selected = span_matches_any_scope(cx, span, &self.core_scopes);
         if !marker_selected && !scope_selected {
             return;
         }

@@ -799,12 +799,7 @@ fn fn_source_is_declared_zero_alloc(cx: &LateContext<'_>, _def_id: rustc_hir::de
 }
 
 fn source_is_in_core_scope(cx: &LateContext<'_>, span: Span, scopes: &[String]) -> bool {
-    if scopes.is_empty() {
-        return false;
-    }
-    let filename = cx.sess().source_map().span_to_filename(span);
-    let path = filename.prefer_local_unconditionally().to_string();
-    scopes.iter().any(|scope| path.contains(scope))
+    crate::source::span_in_scopes(cx.sess(), span, scopes)
 }
 
 fn late_expr_should_skip(cx: &LateContext<'_>, expr: &hir::Expr<'_>) -> bool {

@@ -57,6 +57,7 @@
     "ignored_result",
     "ignored_result_drop",
     "impure_call_in_core/impure_call_in_core",
+    "impure_call_in_core_sibling_scope/impure_call_in_core_sibling_scope",
     "interior_mutability_in_core/interior_mutability_in_core",
     "ignored_result_shutdown_send",
     "lint_guardrail_common",

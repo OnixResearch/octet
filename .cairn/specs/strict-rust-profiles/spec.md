@@ -93,6 +93,15 @@ r[octet.strict_rust_profiles.core_scope.missing]
 - WHEN profile preparation runs
 - THEN the command MUST fail before Cargo execution with a diagnostic naming `core_source_scopes` and `deterministic-core`.
 
+#### Scenario: Core scopes match whole workspace-relative path components
+
+r[octet.strict_rust_profiles.core_scope.matching]
+
+- GIVEN consumer `dylint.toml` declares a core scope with surrounding whitespace, a leading `./`, or a trailing `/`
+- WHEN core-scope lints decide whether a source file is in scope
+- THEN the scope MUST be normalized the same way as profile preparation normalizes it.
+- AND a file MUST be in scope only when its workspace-relative path equals the scope or lies below it by whole path components.
+
 ### Requirement: Function-address enforcement floor
 
 r[octet.strict_rust_profiles.function_address_floor] Each strict profile MUST declare a minimum function-address mode, and profile preparation MUST preserve an operator-selected stronger mode while raising weaker modes to the profile floor.

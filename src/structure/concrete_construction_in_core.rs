@@ -44,9 +44,7 @@ enum ConstructedTypeOrigin {
 }
 
 fn path_is_in_core_scope(cx: &LateContext<'_>, span: rustc_span::Span, scopes: &[String]) -> bool {
-    let filename = cx.sess().source_map().span_to_filename(span);
-    let path = filename.prefer_local_unconditionally().to_string();
-    scopes.iter().any(|scope| path.contains(scope))
+    crate::source::span_in_scopes(cx.sess(), span, scopes)
 }
 
 fn direct_constructor_name(cx: &LateContext<'_>, callee: &hir::Expr<'_>) -> Option<String> {

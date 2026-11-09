@@ -79,6 +79,7 @@ pub enum ConfigDiagnosticKind {
     ConflictingDisabledLintLevel,
     InvalidLintLevel,
     NominalInventoryLevelCapped,
+    EmptySourceScope,
 }
 
 impl ConfigDiagnosticKind {
@@ -92,6 +93,7 @@ impl ConfigDiagnosticKind {
             Self::ConflictingDisabledLintLevel => "conflicting_disabled_lint_level",
             Self::InvalidLintLevel => "invalid_lint_level",
             Self::NominalInventoryLevelCapped => "nominal_inventory_level_capped",
+            Self::EmptySourceScope => "empty_source_scope",
         }
     }
 }
@@ -376,6 +378,13 @@ impl Config {
                 )
             })
             .collect::<Vec<_>>();
+        for (field, scopes) in [
+            ("octet.core_source_scopes", &mut self.core_source_scopes),
+            ("octet.state_machine_core_scopes", &mut self.state_machine_core_scopes),
+            ("octet.state_machine_generated_adapter_scopes", &mut self.state_machine_generated_adapter_scopes),
+        ] {
+            normalize_source_scopes(field, scopes, &mut diagnostics);
+        }
         let mut unknown_disabled_lints = BTreeSet::new();
 
         for lint_name in &self.disabled_lints {
@@ -448,6 +457,20 @@ impl Config {
 
         diagnostics
     }
+}
+
+/// Normalizes configured source scopes the way `cargo octet` does and drops
+/// entries that normalize to an empty path.
+fn normalize_source_scopes(field: &'static str, scopes: &mut Vec<String>, diagnostics: &mut Vec<ConfigDiagnostic>) {
+    let (kept, empty): (Vec<_>, Vec<_>) = scopes
+        .drain(..)
+        .map(|raw| (crate::source::normalize_scope(&raw), raw))
+        .partition(|(scope, _raw)| !scope.is_empty());
+    diagnostics.extend(empty.into_iter().map(|(_scope, raw)| {
+        let message = format!("empty octet source scope in `dylint.toml` {field}: `{raw}`; ignoring it");
+        ConfigDiagnostic::new(ConfigDiagnosticKind::EmptySourceScope, field, raw, message)
+    }));
+    *scopes = kept.into_iter().map(|(scope, _raw)| scope).collect();
 }
 
 fn prefer_octet_or_legacy_config(octet: Option<Config>, slotcar: Option<Config>, tigerstyle: Option<Config>) -> Config {
@@ -1108,6 +1131,33 @@ function_length = "warn"
 
         assert!(error.contains("deterministic-core"));
         assert!(error.contains("core_source_scopes"));
+    }
+
+    #[test]
+    fn deterministic_core_profile_rejects_scopes_that_normalize_to_empty() {
+        let mut cfg = parse_config("[octet]\ncore_source_scopes = [\" ./ \"]\n");
+        let profile =
+            octet_lint_metadata::strict_profile::strict_profile("deterministic-core").expect("deterministic profile");
+
+        let diagnostics = cfg.validate_diagnostics();
+
+        assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+        assert_eq!(diagnostics[0].kind, ConfigDiagnosticKind::EmptySourceScope);
+        assert_eq!(diagnostics[0].field, "octet.core_source_scopes");
+        let error = cfg.apply_strict_profile(&profile).expect_err("no usable core scope remains");
+        assert!(error.contains("core_source_scopes"));
+    }
+
+    #[test]
+    fn source_scopes_normalize_like_the_runner() {
+        let (cfg, warnings) = parse_and_validate(
+            "[octet]\ncore_source_scopes = [\" ./crates/domain/src/ \", \"crates/model/src\"]\nstate_machine_core_scopes = [\"./crates/domain/src/fsm/\"]\nstate_machine_generated_adapter_scopes = [\"crates/domain/src/generated/\"]\n",
+        );
+
+        assert!(warnings.is_empty(), "unexpected warnings: {warnings:?}");
+        assert_eq!(cfg.core_source_scopes, ["crates/domain/src", "crates/model/src"]);
+        assert_eq!(cfg.state_machine_core_scopes, ["crates/domain/src/fsm"]);
+        assert_eq!(cfg.state_machine_generated_adapter_scopes, ["crates/domain/src/generated"]);
     }
 
     #[test]
