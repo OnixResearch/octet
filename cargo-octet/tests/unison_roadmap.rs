@@ -1290,6 +1290,58 @@ fn pure_cache_miss_names_changed_components_and_hit_checks_output_hash() {
     assert_eq!(report["observed_output_hash"], "b3:different");
 }
 
+#[test]
+fn pure_cache_miss_skips_foreign_store_files_but_fails_closed_on_malformed_entries() {
+    let key = serde_json::json!({
+        "command_identity": "cargo-check",
+        "input_hashes": ["b3:src"],
+        "config_hash": "b3:cfg",
+        "tool_revision": "rev1",
+        "environment_allowlist": {}
+    });
+    let shared = tempfile::tempdir().unwrap();
+    let cache = shared.path().join("cache");
+    stored_hash(serde_json::json!({"name": "shared-store-artifact"}), "artifact.json", &cache, shared.path());
+    write_json(&cache.join("notes.json"), serde_json::json!(["not", "a", "cache", "entry"]));
+    let key_in_store = cache.join("key.json");
+    write_json(&key_in_store, key.clone());
+    let check_key_in_store = || {
+        run(
+            &[
+                "roadmap",
+                "pure-cache",
+                "check",
+                "--key",
+                key_in_store.to_str().unwrap(),
+                "--store-dir",
+                cache.to_str().unwrap(),
+                "--output-hash",
+                "b3:out",
+            ],
+            shared.path(),
+        )
+    };
+    let miss = stdout_json(&check_key_in_store());
+    assert_eq!(miss["status"], "miss");
+    assert_eq!(miss["miss_reason"], "new-key");
+    let mut revised = key.clone();
+    revised["tool_revision"] = serde_json::json!("rev2");
+    write_json(&key_in_store, revised);
+    let changed = stdout_json(&check_key_in_store());
+    assert_eq!(changed["changed_key_components"], serde_json::json!(["tool_revision"]));
+
+    for (index, malformed) in ["{", "[]", r#"{"cache_key": "b3:planted", "output_hash": "b3:out"}"#].iter().enumerate()
+    {
+        let temp = tempfile::tempdir().unwrap();
+        let planted = temp.path().join("cache").join(format!("b3_{}.json", "0".repeat(64)));
+        fs::create_dir_all(planted.parent().unwrap()).unwrap();
+        fs::write(&planted, malformed).unwrap();
+        let output = cache_check(key.clone(), "b3:out", temp.path());
+        assert_eq!(output.status.code(), Some(2), "malformed entry {index} must fail closed");
+        assert!(stderr_text(&output).contains(&format!("b3_{}.json", "0".repeat(64))), "{}", stderr_text(&output));
+    }
+}
+
 fn migrate_session(session: serde_json::Value, cwd: &Path) -> (std::process::Output, std::path::PathBuf) {
     let input = cwd.join("migrate-input.json");
     let output = cwd.join("migrate-output.json");

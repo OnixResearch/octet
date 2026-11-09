@@ -979,27 +979,41 @@ fn pure_cache_check(key_path: &Path, store_dir: &Path, output_hash: &str) -> Res
     Ok(0)
 }
 
-/// Key components of every entry in the cache store, in file-name order.
+/// Key components of every entry in the cache store, in file-name order. Only files named like
+/// entries are read; other files, such as the key itself, are skipped.
 fn stored_cache_keys(store_dir: &Path) -> Result<Vec<Value>, String> {
     let mut paths = Vec::new();
     for entry in fs::read_dir(store_dir).map_err(|error| format!("read {}: {error}", store_dir.display()))? {
         let path = entry.map_err(|error| format!("read {}: {error}", store_dir.display()))?.path();
-        if path.extension().is_some_and(|extension| extension == "json") {
+        if path.file_name().and_then(std::ffi::OsStr::to_str).is_some_and(is_hash_file_name) {
             paths.push(path);
         }
     }
     paths.sort();
-    paths
-        .iter()
-        .map(|path| {
-            let mut entry = read_json(path)?;
-            entry
-                .get_mut("key_components")
-                .filter(|components| components.is_object())
-                .map(Value::take)
-                .ok_or_else(|| format!("cache entry {} missing key_components object", path.display()))
-        })
-        .collect()
+    let mut keys = Vec::new();
+    for path in &paths {
+        if let Some(components) = cache_entry_key_components(read_json(path)?, path)? {
+            keys.push(components);
+        }
+    }
+    Ok(keys)
+}
+
+/// The key components of a store file named like an entry: `None` for an object without a
+/// `cache_key`, such as an artifact record sharing the store, and an error for a non-object or an
+/// entry without a `key_components` object.
+fn cache_entry_key_components(mut entry: Value, path: &Path) -> Result<Option<Value>, String> {
+    let object = entry
+        .as_object_mut()
+        .ok_or_else(|| format!("cache store file {} must be a JSON object", path.display()))?;
+    if !object.contains_key("cache_key") {
+        return Ok(None);
+    }
+    object
+        .remove("key_components")
+        .filter(Value::is_object)
+        .map(Some)
+        .ok_or_else(|| format!("cache entry {} missing key_components object", path.display()))
 }
 
 /// Names the key fields that differ from the closest stored key with the same command identity,
@@ -1143,18 +1157,25 @@ fn canonical_json(value: &Value) -> Result<String, String> {
 /// Rejects anything but `b3:` plus 64 lowercase hex digits, so a hash can be joined to a store
 /// directory without escaping it.
 fn validate_artifact_hash(hash: &str) -> Result<(), String> {
-    let well_formed = hash.strip_prefix(BLAKE3_IDENTITY_PREFIX).is_some_and(|hex| {
-        hex.len() == BLAKE3_HEX_LENGTH && hex.bytes().all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
-    });
-    if well_formed {
+    if hash.strip_prefix(BLAKE3_IDENTITY_PREFIX).is_some_and(is_blake3_hex) {
         Ok(())
     } else {
         Err(format!("artifact hash `{hash}` must be `b3:` followed by {BLAKE3_HEX_LENGTH} lowercase hex digits"))
     }
 }
 
+fn is_blake3_hex(hex: &str) -> bool {
+    hex.len() == BLAKE3_HEX_LENGTH && hex.bytes().all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+}
+
 fn hash_file_name(hash: &str) -> String {
     format!("{}.json", hash.replace(':', "_"))
+}
+
+/// Whether `name` is what [`hash_file_name`] produces for a well-formed hash: `b3_`, 64
+/// lowercase hex digits, and `.json`.
+fn is_hash_file_name(name: &str) -> bool {
+    name.strip_suffix(".json").and_then(|stem| stem.strip_prefix("b3_")).is_some_and(is_blake3_hex)
 }
 
 fn read_json(path: &Path) -> Result<Value, String> {
