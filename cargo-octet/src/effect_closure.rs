@@ -358,8 +358,12 @@ struct OuterScope {
 struct ModuleScope {
     /// Each `use` binding and item, keyed by the name it binds.
     names: BTreeMap<String, BTreeSet<String>>,
-    /// Declarations that may bind any name: glob `use`s and item-position macro invocations.
+    /// Declarations that may bind any name: glob `use`s, item-position macro invocations, and items
+    /// carrying an attribute macro or `derive`.
     wildcards: BTreeSet<String>,
+    /// Declarations that may bring a trait, and so its methods, into scope: every `use` binding
+    /// (including `as _`) and every trait item.
+    method_sources: BTreeSet<String>,
 }
 
 /// The header of an enclosing `impl` or trait, whose generic parameters and `Self` shadow module
@@ -633,11 +637,7 @@ impl OuterScope {
     /// of other names leave it alone. A name the module does not declare resolves to the prelude
     /// (or an extern crate), or to whatever a glob `use` or item macro in the module brings in.
     fn resolution_text(&self, module: &[String], leading_names: &BTreeSet<String>) -> String {
-        let mut text = String::from("module=self");
-        for segment in module {
-            text.push_str("::");
-            text.push_str(segment);
-        }
+        let mut text = module_text(module);
         for name in leading_names {
             text.push_str("; ");
             text.push_str(name);
@@ -658,6 +658,33 @@ impl OuterScope {
         }
         text
     }
+
+    /// Renders the caller's module and every declaration that may bring a trait, and so the
+    /// called method, into scope: the prelude, each `use` binding and trait item of the module,
+    /// its wildcards, and the enclosing `impl` or trait header, whose bounds also supply methods.
+    /// Any of them changing re-keys every method call site in the module.
+    fn method_resolution_text(&self, module: &[String]) -> String {
+        let mut text = module_text(module);
+        text.push_str("; methods=prelude");
+        for source in self.module.method_sources.iter().chain(&self.module.wildcards) {
+            text.push_str(", ");
+            text.push_str(source);
+        }
+        if let Some(header) = &self.header {
+            text.push_str("; header=");
+            text.push_str(&header.text);
+        }
+        text
+    }
+}
+
+fn module_text(module: &[String]) -> String {
+    let mut text = String::from("module=self");
+    for segment in module {
+        text.push_str("::");
+        text.push_str(segment);
+    }
+    text
 }
 
 fn push_joined(text: &mut String, items: &BTreeSet<String>) {
@@ -728,7 +755,11 @@ impl ModuleScope {
             syn::Item::Struct(node) => self.declare(&node.ident, &node.attrs, format!("struct {}", node.ident)),
             syn::Item::Enum(node) => self.declare(&node.ident, &node.attrs, format!("enum {}", node.ident)),
             syn::Item::Union(node) => self.declare(&node.ident, &node.attrs, format!("union {}", node.ident)),
-            syn::Item::Trait(node) => self.declare(&node.ident, &node.attrs, format!("trait {}", node.ident)),
+            syn::Item::Trait(node) => {
+                let declaration = format!("trait {}", node.ident);
+                self.method_sources.insert(with_attributes(&node.attrs, declaration.clone()));
+                self.declare(&node.ident, &node.attrs, declaration);
+            }
             syn::Item::TraitAlias(node) => {
                 let syn::ItemTraitAlias {
                     trait_token,
@@ -819,6 +850,13 @@ impl ModuleScope {
         }
     }
 
+    /// Declares a `use` binding, which may also bring a trait's methods into scope.
+    fn declare_import(&mut self, name: &syn::Ident, attrs: &[syn::Attribute], declaration: String) {
+        let binding = with_attributes(attrs, declaration);
+        self.method_sources.insert(binding.clone());
+        self.names.entry(name.to_string()).or_default().insert(binding);
+    }
+
     /// Records the names a `use` tree binds, each as the full path it imports, so a grouped
     /// import binds each name exactly as a separate `use` would.
     fn declare_use_tree<'a>(
@@ -837,20 +875,20 @@ impl ModuleScope {
             // `use a::b::{self}` binds `b` to `use a::b`.
             syn::UseTree::Name(node) if node.ident == "self" => {
                 if let Some(&name) = segments.last() {
-                    self.declare(name, attrs, use_text(leading_colon, segments, None));
+                    self.declare_import(name, attrs, use_text(leading_colon, segments, None));
                 }
             }
             syn::UseTree::Name(node) => {
                 segments.push(&node.ident);
-                self.declare(&node.ident, attrs, use_text(leading_colon, segments, None));
+                self.declare_import(&node.ident, attrs, use_text(leading_colon, segments, None));
                 segments.pop();
             }
             syn::UseTree::Rename(node) if node.ident == "self" => {
-                self.declare(&node.rename, attrs, use_text(leading_colon, segments, Some(&node.rename)));
+                self.declare_import(&node.rename, attrs, use_text(leading_colon, segments, Some(&node.rename)));
             }
             syn::UseTree::Rename(node) => {
                 segments.push(&node.ident);
-                self.declare(&node.rename, attrs, use_text(leading_colon, segments, Some(&node.rename)));
+                self.declare_import(&node.rename, attrs, use_text(leading_colon, segments, Some(&node.rename)));
                 segments.pop();
             }
             syn::UseTree::Glob(_) => {
@@ -2403,7 +2441,12 @@ fn build_nodes(
 
         let mut calls = Vec::new();
         for (occurrence, raw_call) in scanner.calls.into_iter().enumerate() {
-            let scope = function.draft.outer_scope.resolution_text(&function.draft.module, &raw_call.leading_names);
+            let outer_scope = &function.draft.outer_scope;
+            let scope = if raw_call.kind == RawCallKind::Method {
+                outer_scope.method_resolution_text(&function.draft.module)
+            } else {
+                outer_scope.resolution_text(&function.draft.module, &raw_call.leading_names)
+            };
             let call_site_id = call_site_identity(
                 &function.function_address,
                 &function.draft.path,
@@ -3992,6 +4035,24 @@ unsafe fn risky(values: &[u8]) -> u8 {
                 ("#[derive(Persist)]\nstruct Plain;\nfn root() { tidy(); }\n", "call:tidy"),
                 ("struct Plain;\n#[dep::generate]\nimpl Plain {}\nfn root() { tidy(); }\n", "call:tidy"),
                 ("#[dep::generate]\nconst LIMIT: u8 = 1;\nstruct Plain;\nfn root() { tidy(); }\n", "call:tidy"),
+            ],
+        );
+    }
+
+    // r[verify octet.effect_closure.dependency_summaries.invalid]
+    // r[verify octet.effect_closure.verification.adversarial]
+    #[test]
+    fn method_call_summaries_are_bound_to_the_traits_in_scope() {
+        assert_summaries_follow_resolution(
+            "use fs_ext::PersistExt;\nfn root(value: u8) { value.persist(); }\n",
+            &["use fs_ext::PersistExt;\nconst LIMIT: u8 = 1;\nfn root(value: u8) { value.persist(); }\n"],
+            &[
+                ("use other::PersistExt;\nfn root(value: u8) { value.persist(); }\n", "method:value:persist"),
+                ("use fs_ext::*;\nfn root(value: u8) { value.persist(); }\n", "method:value:persist"),
+                (
+                    "use fs_ext::PersistExt;\ntrait Local {}\nfn root(value: u8) { value.persist(); }\n",
+                    "method:value:persist",
+                ),
             ],
         );
     }
