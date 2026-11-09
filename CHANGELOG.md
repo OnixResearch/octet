@@ -34,15 +34,22 @@ Changes that can add findings, fail a build, or change identities:
 - Architecture collection and gate: adapters constructed inside a result
   (`SqlRepo::connect(&url)?` returning `Result<Self, _>`, `Option<Box<_>>`,
   `Arc<_>`) are reported outside the composition root, once per written call
-  including `.await?`. Selected value provenance stays `Unknown` when a
-  function can also be called through a function pointer or from another
-  crate, or when a value is overwritten through `&mut`, a field or pointer
-  write, or `std::mem::swap`. Overloaded operators and implicit `Deref` calls
-  record calls and effects, so reading a `static LazyLock` is a concurrency
-  effect; `Instant::elapsed`/`SystemTime::elapsed` are time effects and the
-  filesystem-querying `Path` methods (`exists`, `metadata`, `read_dir`, ...)
-  are filesystem effects. Fact sets and IR hashes change, so waivers on
-  affected findings go stale.
+  including `.await?`. A call constructs only what its definition declares it
+  returns, so using, locking, cloning, moving, or iterating an injected
+  adapter is not construction, while `into()`, `parse()`, and generic
+  factories still are; allocator and hasher defaults are never constructions.
+  Under a `consume` witness protocol, a protected executor that takes the
+  witness by reference (`&`/`&mut`) blocks with `consume-witness-borrowed`;
+  Signature facts gain `input_by_reference`, so IR and shards from earlier
+  collectors must be regenerated. Selected value provenance stays `Unknown`
+  when a function can also be called through a function pointer or from
+  another crate, or when a value is overwritten through `&mut`, a field or
+  pointer write, or `std::mem::swap`. Overloaded operators and implicit
+  `Deref` calls record calls and effects, so reading a `static LazyLock` is a
+  concurrency effect; `Instant::elapsed`/`SystemTime::elapsed` are time
+  effects and the filesystem-querying `Path` methods (`exists`, `metadata`,
+  `read_dir`, ...) are filesystem effects. Fact sets and IR hashes change, so
+  waivers on affected findings go stale.
 - Policy validation (Rust and Nickel) requires a protected effect's executor
   scope to be an outbound adapter, which the gate already demanded.
 - Effect-closure admission treats any attribute that is not an inert built-in
@@ -84,8 +91,10 @@ Fewer false positives:
   `ExitStatus`, `fs::Metadata`, `ThreadId`, atomic `Ordering`, and similar) no
   longer count as effects. A package-scoped `core_no_std` obligation covers
   only library and library-test units, so a `build.rs` no longer blocks it.
-  `&Witness` parameters and a narrow `impl From<AuthorizedOutput> for
-  Witness` pass the protected-effect checks.
+  Under a `borrow` witness protocol, `&Witness` executor parameters pass, and
+  a narrow `impl From<AuthorizedOutput> for Witness` passes the
+  protected-effect checks. The collector counts facts per kind as it records
+  them instead of rescanning all facts on every push.
 - Under a strict profile, an attribute the governance guard rejects gets only
   the guard's error, a local macro's attribute is reported once per definition
   site, and a later `deny` or `forbid` on the same node counts as restoring the
