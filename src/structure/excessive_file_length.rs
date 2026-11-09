@@ -10,15 +10,10 @@ use rustc_span::SyntaxContext;
 
 use crate::diagnostics::emit_tiger_style_lint;
 
-const IGNORED_SOURCE_COMPONENTS: &[&str] = &[
-    "target",
-    "ui_tests",
-    "generated",
-    "OUT_DIR",
-    "rustlib",
-    "registry",
-    ".cargo",
-];
+/// Whole path components, below the workspace root, that mark generated, fixture, or vendored
+/// source. `registry` is deliberately absent: Cargo registry sources live under `.cargo` or
+/// outside the workspace, while a workspace `registry` component is an ordinary module name.
+const IGNORED_SOURCE_COMPONENTS: &[&str] = &["target", "ui_tests", "generated", "OUT_DIR", "rustlib", ".cargo"];
 const VENDOR_CARGO_DEPS_MARKER: &str = "vendor-cargo-deps";
 
 declare_tool_lint! {
@@ -59,16 +54,18 @@ fn is_ignored_source_component(component: &str) -> bool {
     IGNORED_SOURCE_COMPONENTS.contains(&component) || component.contains(VENDOR_CARGO_DEPS_MARKER)
 }
 
-fn is_generated_or_fixture_path(path: &str) -> bool {
-    let components = normalized_components(path);
+fn is_generated_or_fixture_path(relative_path: &str) -> bool {
+    let components = normalized_components(relative_path);
     components.iter().any(|component| is_ignored_source_component(component))
         || components.windows(2).any(|window| window[0] == "tests" && window[1] == "fixtures")
-        || path.ends_with(".rs.in")
+        || relative_path.ends_with(".rs.in")
 }
 
+/// Only components below the workspace root count, so a workspace checked out under a
+/// directory such as `target` is still checked.
 fn is_checked_source_path(path: &std::path::Path, workspace_root: &std::path::Path) -> bool {
     crate::source::is_workspace_source_path(path, workspace_root)
-        && !is_generated_or_fixture_path(&path.to_string_lossy())
+        && !is_generated_or_fixture_path(&path.strip_prefix(workspace_root).unwrap_or(path).to_string_lossy())
 }
 
 fn line_count(source_file: &SourceFile) -> Option<usize> {
@@ -143,5 +140,33 @@ mod tests {
         assert!(is_generated_or_fixture_path(
             "/nix/store/hash-vendor-cargo-deps/serde_core-1.0.228/src/crate_root.rs"
         ));
+    }
+
+    #[test]
+    fn checks_ordinary_registry_modules() {
+        assert!(is_checked_source_path(&workspace_root().join("src/registry/mod.rs"), workspace_root()));
+        assert!(is_checked_source_path(
+            &workspace_root().join("policy_inputs/registry/oversized_registry_module.rs"),
+            workspace_root()
+        ));
+    }
+
+    #[test]
+    fn skips_cargo_registry_sources() {
+        let registry_source = "registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/de/mod.rs";
+        // The default `CARGO_HOME` lies outside the workspace.
+        assert!(!is_checked_source_path(&Path::new("/home/user/.cargo").join(registry_source), workspace_root()));
+        // A `CARGO_HOME` inside the workspace sits below its `.cargo` component.
+        assert!(!is_checked_source_path(
+            &Path::new("/workspace/.cargo").join(registry_source),
+            Path::new("/workspace")
+        ));
+    }
+
+    #[test]
+    fn ignores_components_above_the_workspace_root() {
+        let root = Path::new("/home/user/target/registry/workspace");
+        assert!(is_checked_source_path(&root.join("src/lib.rs"), root));
+        assert!(!is_checked_source_path(&root.join("target/debug/build/out/bindings.rs"), root));
     }
 }
