@@ -1122,11 +1122,29 @@ fn is_identity_key(key: &str) -> bool {
     key_words(key).last().is_some_and(|word| word == "identity")
 }
 
-/// Words that, right before a trailing `token`, mark it as a credential rather than a vocabulary
-/// or pagination token (`access_token` versus `eos_token` or `next_page_token`).
-const SECRET_TOKEN_QUALIFIERS: [&str; 20] = [
-    "access", "refresh", "auth", "bearer", "api", "session", "id", "csrf", "oauth", "personal", "private", "secret",
-    "client", "github", "gh", "gitlab", "slack", "npm", "pypi", "registry",
+/// Words that, right before a trailing `token`, mark it as a vocabulary, pagination, or
+/// coordination token rather than a credential (`eos_token`, `next_page_token`,
+/// `cancellation_token`). Any other trailing `token` is treated as a credential, so unlisted
+/// names such as `VAULT_TOKEN` or `CARGO_REGISTRIES_<NAME>_TOKEN` fail closed.
+const NON_CREDENTIAL_TOKEN_QUALIFIERS: [&str; 18] = [
+    "eos",
+    "bos",
+    "pad",
+    "unk",
+    "sep",
+    "cls",
+    "mask",
+    "start",
+    "end",
+    "special",
+    "page",
+    "next",
+    "continuation",
+    "cancellation",
+    "sync",
+    "max",
+    "num",
+    "count",
 ];
 /// Words that make a `secret`, `password`, or `credential` field describe the secret instead of
 /// holding it (`secret_count`, `password_min_length`, `credential_helper`).
@@ -1146,8 +1164,8 @@ fn is_redacted_key(key: &str) -> bool {
     });
     let describes_secret = words.iter().any(|word| SECRET_METADATA_WORDS.contains(word));
     let credential_token = match words.as_slice() {
-        ["token"] => true,
-        [.., qualifier, "token"] => SECRET_TOKEN_QUALIFIERS.contains(qualifier),
+        [.., qualifier, "token"] => !NON_CREDENTIAL_TOKEN_QUALIFIERS.contains(qualifier),
+        [.., "token"] => true,
         _ => false,
     };
     let key_material = words.iter().any(|word| matches!(*word, "apikey" | "privatekey"))
@@ -1316,7 +1334,7 @@ mod tests {
     }
 
     #[test]
-    fn redacted_keys_need_a_secret_qualifier_for_tokens_and_skip_secret_metadata() {
+    fn redacted_keys_treat_trailing_tokens_as_credentials_unless_known_and_skip_secret_metadata() {
         for key in [
             "token",
             "refresh_token",
@@ -1334,6 +1352,12 @@ mod tests {
             "NPM_TOKEN",
             "pypi_token",
             "registry_token",
+            "VAULT_TOKEN",
+            "HF_TOKEN",
+            "CI_JOB_TOKEN",
+            "CARGO_REGISTRIES_MY_REGISTRY_TOKEN",
+            "CARGO_REGISTRY_TOKEN",
+            "deploy_token",
             "client_secret",
             "db_password",
             "secrets",
@@ -1345,7 +1369,25 @@ mod tests {
             "eos_token",
             "pad_token",
             "bos_token",
+            "unk_token",
+            "sep_token",
+            "cls_token",
+            "mask_token",
+            "decoder_start_token",
+            "end_token",
+            "special_token",
             "next_page_token",
+            "pageToken",
+            "next_token",
+            "continuation_token",
+            "cancellation_token",
+            "sync_token",
+            "max_token",
+            "num_token",
+            "count_token",
+            "max_tokens",
+            "token_count",
+            "token_limit",
             "secret_count",
             "has_secrets",
             "password_min_length",

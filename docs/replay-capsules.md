@@ -35,12 +35,14 @@ capitalized word (`AWSSecretAccessKey` is `aws secret access key`,
   `expiry`, `expires`, or `rotation`. So `client_secret` and `dbPassword` are
   dropped, while `secret_count`, `has_secrets`, `password_min_length`, and
   `credential_helper` stay.
-- The field is exactly `token`, or its last word is `token` and the word before
-  it is one of `access`, `refresh`, `auth`, `bearer`, `api`, `session`, `id`,
-  `csrf`, `oauth`, `personal`, `private`, `secret`, `client`, `github`, `gh`,
-  `gitlab`, `slack`, `npm`, `pypi`, or `registry`. So `access_token` and
-  `GITHUB_TOKEN` are dropped, while `eos_token`, `pad_token`, and
-  `next_page_token` stay.
+- Its last word is `token`, unless the word before it is one of the
+  non-credential words `eos`, `bos`, `pad`, `unk`, `sep`, `cls`, `mask`,
+  `start`, `end`, `special`, `page`, `next`, `continuation`, `cancellation`,
+  `sync`, `max`, `num`, or `count`. So `token`, `access_token`, `GITHUB_TOKEN`,
+  `VAULT_TOKEN`, `HF_TOKEN`, `CI_JOB_TOKEN`, and
+  `CARGO_REGISTRIES_<NAME>_TOKEN` are dropped, while `eos_token`, `pad_token`,
+  `next_page_token`, and `cancellation_token` stay. Fields where `token` is not
+  the last word, such as `max_tokens` or `token_count`, also stay.
 - Any word is `apikey` or `privatekey`, or a word that is `private` or ends in
   `api` is followed by `key` (`api_key`, `x-api-key`, `private_key`).
 
