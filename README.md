@@ -32,7 +32,7 @@ Read [`docs/examples/first-checked-rust-patch/README.md`](docs/examples/first-ch
 
 Octet treats code as closed by default across APIs, effects, capabilities, proofs, and review surfaces. Interaction requires a complete interface.
 
-Octet ships 75 Dylint lints across six domains. A separate standards registry handles policy traceability and other source-shape rules.
+Octet ships 77 Dylint lints across six domains. A separate standards registry handles policy traceability and other source-shape rules.
 
 A Nickel catalog defines nominal domains for primitive aliases, raw core values, and wrapper bypasses. Read [`docs/type-driven-domain-modeling.md`](docs/type-driven-domain-modeling.md).
 

@@ -9,7 +9,7 @@ For the landing-page naming map, see `../README.md`.
 
 ## Catalog summary
 
-`octet` ships 75 lints across 6 domains.
+`octet` ships 77 lints across 6 domains.
 
 | Domain | Group | Count |
 | --- | --- | ---: |

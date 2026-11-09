@@ -1,6 +1,6 @@
 ## Phase 1: Baseline and policy
 
-- [ ] [serial] Record current `bool_naming`, parameter-count, Clippy co-reporting, and public API behavior before changes. r[octet.structure.raw_bool_parameter.compatibility]
+- [x] [serial] Record current `bool_naming`, parameter-count, Clippy co-reporting, and public API behavior before changes. See `docs/boolean-api-migration-inventory.md`. r[octet.structure.raw_bool_parameter.compatibility]
 - [x] [serial] Add the Radiance style reference, exact revision, MIT role, selected guidance, and rejected guidance to documentation. r[octet.structure.raw_bool_parameter.reference_boundary]
 - [x] [serial] Define the public API, private-count, generated-code, trait-ownership, exception, and non-claim policy. r[octet.structure.raw_bool_parameter.policy]
 - [x] [serial] Add a named constant for the minimum ambiguous private boolean-parameter count. r[octet.structure.raw_bool_parameter.policy]
@@ -24,7 +24,7 @@
 
 ## Phase 4: Migration and deny-all activation
 
-- [ ] [serial] Produce a deterministic Octet self-inventory and selected-consumer inventory before activation. r[octet.structure.raw_bool_parameter.migration]
+- [x] [serial] Produce a deterministic Octet self-inventory and selected-consumer inventory before activation. See `docs/boolean-api-migration-inventory.md`; the external consumer inventory remains blocked. r[octet.structure.raw_bool_parameter.migration]
 - [x] [serial] Replace covered Octet public booleans with reviewed domain types or narrow justified expectations. r[octet.structure.raw_bool_parameter.migration]
 - [ ] [serial] Migrate selected consumers and record compatibility changes, rejections, and remaining external-signature exceptions. r[octet.structure.raw_bool_parameter.migration]
 - [x] [serial] Enable the lint in the full pinned deny-all catalog only after the declared migration set is clean. r[octet.structure.raw_bool_parameter.catalog]
@@ -36,6 +36,17 @@
 - [x] [serial] Run focused unit, UI, snapshot, metadata, profile, Clippy co-reporting, and migration checks. r[octet.structure.raw_bool_parameter.verification]
 - [ ] [serial] Run formatting, workspace tests, Clippy, Octet deny-all, Cairn validation, traceability, and `nix flake check -L`. r[octet.structure.raw_bool_parameter.catalog]
 - [x] [serial] Run all Cairn gates. Sync and archive only after deny-all activation has no warning budget or baseline. r[octet.structure.raw_bool_parameter.migration]
+
+## Parent verification on the integrated base
+
+- `cargo check --workspace --all-targets --locked`: passed.
+- `cargo test -p octet --lib --locked`: 228 passed.
+- Full maintained UI rail, including the six boolean fixtures: passed.
+- `cargo clippy -p octet -p cargo-octet --all-targets -- -D warnings`: passed.
+- `cargo fmt --check`: passed.
+- Cairn validation and proposal/design/tasks gates: passed.
+- `nix flake check -L` was not run; it remains the open verification task.
+- Selected external consumer migration remains blocked: no owner-authorized consumer worktree is available.
 
 ## Evidence
 
