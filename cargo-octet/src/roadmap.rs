@@ -1202,10 +1202,11 @@ const CREDENTIAL_SUFFIX_WORDS: [&str; 20] = [
 ];
 /// Words that hold or carry a credential wherever they appear, unless a secret metadata word
 /// marks the field as describing it. Any word containing `password` (`PGPASSWORD`) counts too.
-const CREDENTIAL_WORDS: [&str; 12] = [
+const CREDENTIAL_WORDS: [&str; 13] = [
     "secret",
     "secrets",
     "passwd",
+    "passphrase",
     "credential",
     "credentials",
     "authorization",
@@ -1216,15 +1217,39 @@ const CREDENTIAL_WORDS: [&str; 12] = [
     "jwt",
     "sessionid",
 ];
-/// Abbreviated password words that are credentials only as the last word, after the numbering
-/// and environment suffixes the token rule skips (`DB_PASS`, `DB_PASS_PROD`, `MYSQL_PWD`), so a
-/// leading `pass` such as `pass_signal` or `pass_rate` names no secret.
-const TRAILING_CREDENTIAL_WORDS: [&str; 2] = ["pass", "pwd"];
+/// Abbreviated password words that are credentials unless the next word describes them
+/// (`DB_PASS`, `DB_PASS_B64`, `MYSQL_PWD` are credentials; `pass_signal`, `pass_rate` are not).
+const ABBREVIATED_PASSWORD_WORDS: [&str; 2] = ["pass", "pwd"];
+/// Words that, right after a qualified `key` or after `pass` or `pwd`, make the field describe
+/// or locate the secret instead of holding it (`changed_key_components`, `signing_key_path`,
+/// `pass_signal`, `pass_rate`). Any other following word, such as an encoding, version, region,
+/// or environment (`SIGNING_KEY_PEM`, `STRIPE_KEY_V2`, `DB_PASS_PROD`), keeps the secret.
+const DESCRIPTIVE_FOLLOW_WORDS: [&str; 20] = [
+    "component",
+    "components",
+    "count",
+    "name",
+    "names",
+    "path",
+    "paths",
+    "dir",
+    "type",
+    "kind",
+    "len",
+    "length",
+    "size",
+    "format",
+    "algorithm",
+    "hint",
+    "rate",
+    "signal",
+    "through",
+    "fail",
+];
 /// Words that, right before `key`, name a lookup, schema, or public key rather than key material
-/// (`primary_key`, `cache_key`, `public_key`). Any other qualifier makes `key` key material when
-/// it is the last word after numbering and environment suffixes or is followed by `id`, so
-/// `STRIPE_KEY`, `SIGNING_KEY_PROD`, and `AWS_ACCESS_KEY_ID` fail closed while a bare `key` or a
-/// report field such as `changed_key_components` names nothing secret.
+/// (`primary_key`, `cache_key`, `public_key`). Any other qualified `key` is key material unless
+/// a [`DESCRIPTIVE_FOLLOW_WORDS`] word follows it, so `STRIPE_KEY`, `SIGNING_KEY_PEM`, and
+/// `AWS_ACCESS_KEY_ID` fail closed while a bare `key` names nothing secret.
 const NON_SECRET_KEY_QUALIFIERS: [&str; 17] = [
     "primary",
     "foreign",
@@ -1257,25 +1282,27 @@ fn is_redacted_key(key: &str) -> bool {
     let words = key_words(key);
     let words: Vec<&str> = words.iter().map(String::as_str).collect();
     let local_only = matches!(words.as_slice(), ["timestamp" | "username"] | ["absolute", "path"] | ["env", "dump"]);
-    let core = without_credential_suffixes(&words);
     let names_secret = words.iter().any(|word| CREDENTIAL_WORDS.contains(word) || word.contains("password"))
         || words.windows(2).any(|pair| pair == ["session", "id"])
-        || core.last().is_some_and(|word| TRAILING_CREDENTIAL_WORDS.contains(word));
+        || words
+            .iter()
+            .enumerate()
+            .any(|(index, word)| ABBREVIATED_PASSWORD_WORDS.contains(word) && !is_described(&words, index));
     let describes_secret = words.iter().any(|word| SECRET_METADATA_WORDS.contains(word));
     let key_material = words.iter().any(|word| matches!(*word, "apikey" | "privatekey"))
         || words.windows(2).any(|pair| pair[1] == "key" && (pair[0] == "private" || pair[0].ends_with("api")))
-        || is_qualified_key_material(core);
-    local_only || (names_secret && !describes_secret) || is_credential_token(core) || key_material
+        || words.windows(2).enumerate().any(|(index, pair)| {
+            pair[1] == "key" && !NON_SECRET_KEY_QUALIFIERS.contains(&pair[0]) && !is_described(&words, index + 1)
+        });
+    local_only
+        || (names_secret && !describes_secret)
+        || is_credential_token(without_credential_suffixes(&words))
+        || key_material
 }
 
-/// Whether a `key` with a qualifier outside [`NON_SECRET_KEY_QUALIFIERS`] is the last core word
-/// or is followed by `id` (`STRIPE_KEY`, `AWS_ACCESS_KEY_ID`).
-fn is_qualified_key_material(core: &[&str]) -> bool {
-    core.windows(2).enumerate().any(|(index, pair)| {
-        pair[1] == "key"
-            && !NON_SECRET_KEY_QUALIFIERS.contains(&pair[0])
-            && core.get(index + 2).is_none_or(|next| *next == "id")
-    })
+/// Whether the word after `words[index]` is a [`DESCRIPTIVE_FOLLOW_WORDS`] word.
+fn is_described(words: &[&str], index: usize) -> bool {
+    words.get(index + 1).is_some_and(|next| DESCRIPTIVE_FOLLOW_WORDS.contains(next))
 }
 
 /// The words before any trailing numbering or environment suffix words (`GITHUB_TOKEN_2`,
@@ -1607,6 +1634,17 @@ mod tests {
             "SIGNING_KEY",
             "encryption_key",
             "OpenAIAPIKey",
+            "SIGNING_KEY_PEM",
+            "ENCRYPTION_KEY_B64",
+            "master_key_hex",
+            "STRIPE_KEY_V2",
+            "SIGNING_KEY_EU",
+            "SSH_KEY_PASSPHRASE",
+            "passphrase",
+            "DB_PASS_B64",
+            "SMTP_PASS_ENC",
+            "lint_pass",
+            "pwd_value",
         ] {
             assert!(is_redacted_key(key), "{key} must be redacted");
         }
@@ -1678,6 +1716,16 @@ mod tests {
             "normative_tokens",
             "placeholder_tokens",
             "changed_key_components",
+            "changed_key_component",
+            "signing_key_path",
+            "ssh_key_paths",
+            "signing_key_type",
+            "encryption_key_len",
+            "pass_through",
+            "pass_fail",
+            "pass_signal_count",
+            "pwd_hint",
+            "passphrase_required",
         ] {
             assert!(!is_redacted_key(key), "{key} must stay in the identity");
         }

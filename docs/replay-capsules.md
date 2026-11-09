@@ -30,25 +30,32 @@ capitalized word (`AWSSecretAccessKey` is `aws secret access key`,
 
 - Its words are exactly `absolute path`, `timestamp`, `username`, or `env dump`.
 
-The token, `pass`/`pwd`, and qualified-key rules below first skip trailing
-numbering and environment words: any all-digit word and `prod`, `production`,
-`dev`, `development`, `staging`, `stage`, `test`, `testing`, `qa`, `uat`, `ci`,
-`local`, `live`, `sandbox`, `preview`, `old`, `new`, `primary`, `secondary`,
-and `backup`. The words left are the core words, so `GITHUB_TOKEN_2`,
-`NPM_TOKEN_PROD`, and `DB_PASS_PROD` end in `token`, `token`, and `pass`.
+The token rule below first skips trailing numbering and environment words: any
+all-digit word and `prod`, `production`, `dev`, `development`, `staging`,
+`stage`, `test`, `testing`, `qa`, `uat`, `ci`, `local`, `live`, `sandbox`,
+`preview`, `old`, `new`, `primary`, `secondary`, and `backup`. The words left
+are the core words, so `GITHUB_TOKEN_2` and `NPM_TOKEN_PROD` end in `token`.
 
-- Any word is `secret(s)`, `passwd`, `credential(s)`, `authorization`, `auth`,
-  `bearer`, `cookie(s)`, `jwt`, or `sessionid`, any word contains `password`
-  (`PGPASSWORD`), the words include `session id`, or the last core word is
-  `pass` or `pwd`; and no word is one of the metadata words `count`, `has`,
-  `is`, `min`, `max`, `length`, `len`, `policy`, `helper`, `enabled`,
-  `required`, `name`, `expiry`, `expires`, or `rotation`. So `client_secret`,
-  `dbPassword`, `PGPASSWORD`, `MYSQL_PWD`, `DB_PASS`, `SMTP_PASS`,
-  `DB_PASS_PROD`, `Authorization`, `cookie`, `session_id`, and `jwt` are
+The `pass`/`pwd` and qualified-key rules fail closed: they keep a field only
+when the word right after `pass`, `pwd`, or `key` is one of the descriptive
+words `component(s)`, `count`, `name(s)`, `path(s)`, `dir`, `type`, `kind`,
+`len`, `length`, `size`, `format`, `algorithm`, `hint`, `rate`, `signal`,
+`through`, or `fail`, which describe or locate the secret rather than hold it.
+Any other following word, such as an encoding, version, region, or environment
+(`_PEM`, `_B64`, `_HEX`, `_V2`, `_EU`, `_PROD`), keeps the secret.
+
+- Any word is `secret(s)`, `passwd`, `passphrase`, `credential(s)`,
+  `authorization`, `auth`, `bearer`, `cookie(s)`, `jwt`, or `sessionid`, any
+  word contains `password` (`PGPASSWORD`), the words include `session id`, or
+  a word is `pass` or `pwd` not followed by a descriptive word; and no word is
+  one of the metadata words `count`, `has`, `is`, `min`, `max`, `length`, `len`,
+  `policy`, `helper`, `enabled`, `required`, `name`, `expiry`, `expires`, or
+  `rotation`. So `client_secret`, `dbPassword`, `PGPASSWORD`, `MYSQL_PWD`,
+  `DB_PASS`, `SMTP_PASS`, `DB_PASS_PROD`, `DB_PASS_B64`, `SMTP_PASS_ENC`,
+  `SSH_KEY_PASSPHRASE`, `Authorization`, `cookie`, `session_id`, and `jwt` are
   dropped, while `secret_count`, `has_secrets`, `password_min_length`,
-  `credential_helper`, `auth_required`, `cookie_name`, and `pass` or `pwd`
-  followed by another word, such as the proof-rail field `pass_signal` or
-  `pass_rate`, stay.
+  `credential_helper`, `auth_required`, `cookie_name`, `passphrase_required`,
+  and the proof-rail fields `pass_signal` and `pass_rate` stay.
 - The last core word is `token` or `tokens`, possibly followed by digits
   (`GITHUB_TOKEN2`), and the field is not exempt. Either form is exempt when
   any word is one of the count words `max`, `min`, `num`, or `total`, or when
@@ -71,13 +78,17 @@ and `backup`. The words left are the core words, so `GITHUB_TOKEN_2`,
   also stay.
 - Any word is `apikey` or `privatekey`; or `key` anywhere follows `private`
   or a word ending in `api` (`api_key`, `x-api-key`, `private_key`,
-  `private_key_path`); or `key` is the last core word or is followed by `id`
-  and follows a word other than the lookup, schema, and public-key words
-  `primary`, `foreign`, `composite`, `unique`, `sort`, `partition`, `shard`,
-  `index`, `row`, `group`, `dedup`, `cache`, `map`, `dict`, `hash`, `lookup`,
-  or `public`. So `STRIPE_KEY`, `SIGNING_KEY`, `STRIPE_KEY_PROD`, and
+  `private_key_path`); or `key` follows a word other than the lookup, schema,
+  and public-key words `primary`, `foreign`, `composite`, `unique`, `sort`,
+  `partition`, `shard`, `index`, `row`, `group`, `dedup`, `cache`, `map`,
+  `dict`, `hash`, `lookup`, or `public` and is not followed by a descriptive
+  word. So `STRIPE_KEY`, `SIGNING_KEY`, `STRIPE_KEY_PROD`, `STRIPE_KEY_V2`,
+  `SIGNING_KEY_PEM`, `ENCRYPTION_KEY_B64`, `master_key_hex`, and
   `AWS_ACCESS_KEY_ID` are dropped, while `key`, `key_id`, `primary_key`,
-  `cache_key`, `public_key`, and `changed_key_components` stay.
+  `cache_key`, `public_key`, `changed_key_components`, `signing_key_path`, and
+  `signing_key_type` stay. A key path names where the key lives, not the key,
+  and a local path in its value is normalized as described below; only a
+  `private` or `api…` key is dropped whatever follows it.
 
 Capture then normalizes local path presentation. A string value that starts
 with a local root, followed by a path separator or nothing, has that root
