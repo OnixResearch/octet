@@ -72,18 +72,18 @@ fn synthetic_unit(policy_id: &str, test: bool) -> ir::CompilationUnit {
     unit
 }
 
-fn insert_json(files: &mut BTreeMap<String, Vec<u8>>, name: &str, value: &impl serde::Serialize) {
+pub(super) fn insert_json(files: &mut BTreeMap<String, Vec<u8>>, name: &str, value: &impl serde::Serialize) {
     files.insert(name.to_owned(), serde_json::to_vec(value).expect("fixture JSON"));
 }
 
-fn store_receipt(files: &mut BTreeMap<String, Vec<u8>>, receipt: &gate::ProjectArchitectureReceipt) {
+pub(super) fn store_receipt(files: &mut BTreeMap<String, Vec<u8>>, receipt: &gate::ProjectArchitectureReceipt) {
     insert_json(files, PROJECT_ARCHITECTURE_RECEIPT_ARTIFACT_NAME, receipt);
     let mut status: serde_json::Value = serde_json::from_slice(&files[STATUS_ARTIFACT_NAME]).expect("status");
     status["phases"] = serde_json::json!({"lint": {"status": receipt.lint_phase_status}, "architecture": {"status": receipt.status, "receipt_id": receipt.receipt_id}});
     insert_json(files, STATUS_ARTIFACT_NAME, &status);
 }
 
-fn reseal_receipt(receipt: &mut gate::ProjectArchitectureReceipt) {
+pub(super) fn reseal_receipt(receipt: &mut gate::ProjectArchitectureReceipt) {
     receipt.receipt_id.clear();
     receipt.receipt_id =
         ir::canonical_identity("octet.project-architecture-gate.receipt/v2", receipt).expect("receipt identity");
@@ -92,7 +92,7 @@ fn reseal_receipt(receipt: &mut gate::ProjectArchitectureReceipt) {
 // The synthetic bundle lists every owned artifact inline so ownership tests read the whole fixture
 // in one place.
 #[allow(clippy::too_many_lines)]
-fn synthetic_files() -> BTreeMap<String, Vec<u8>> {
+pub(super) fn synthetic_files() -> BTreeMap<String, Vec<u8>> {
     let mut files = valid_input(OutputFormat::Human)
         .files
         .into_iter()
@@ -201,14 +201,17 @@ fn synthetic_files() -> BTreeMap<String, Vec<u8>> {
     files
 }
 
-fn reseal_bundle(mut files: BTreeMap<String, Vec<u8>>) -> ArtifactBundleInput {
+pub(super) fn reseal_bundle(mut files: BTreeMap<String, Vec<u8>>) -> ArtifactBundleInput {
+    const FUNCTION_ADDRESS_ARTIFACT_NAMES: &[&str] = &[FUNCTION_ADDRESS_ARTIFACT_NAME];
     let mut records = valid_records(OutputFormat::Human);
     for record in &mut records {
         record.blake3 = crate::evidence::artifact_blake3_hex(&files[&record.artifact_locator]);
     }
     for (names, source, tier) in [
+        (FUNCTION_ADDRESS_ARTIFACT_NAMES, FUNCTION_ADDRESS_SOURCE_ID, EvidenceTier::StaticLint),
         (ARCHITECTURE_ARTIFACT_NAMES, ARCHITECTURE_IR_SOURCE_ID, EvidenceTier::StaticLint),
         (PROJECT_ARCHITECTURE_ARTIFACT_NAMES, PROJECT_ARCHITECTURE_SOURCE_ID, EvidenceTier::PolicyCheck),
+        (EFFECT_CLOSURE_ARTIFACT_NAMES, EFFECT_CLOSURE_SOURCE_ID, EvidenceTier::PolicyCheck),
     ] {
         for name in names.iter().filter(|name| files.contains_key(**name)) {
             let mut record = record(name, &files[*name], tier);
@@ -279,7 +282,7 @@ fn full_bundle_replay_rejects_resealed_orphan_test_unknown() {
     assert!(invalid.diagnostics.iter().any(|error| error.contains("pure reevaluation")));
 }
 
-fn set_status_phase(files: &mut BTreeMap<String, Vec<u8>>, phase: &str, value: serde_json::Value) {
+pub(super) fn set_status_phase(files: &mut BTreeMap<String, Vec<u8>>, phase: &str, value: serde_json::Value) {
     let mut status: serde_json::Value = serde_json::from_slice(&files[STATUS_ARTIFACT_NAME]).expect("status");
     status["phases"][phase] = value;
     insert_json(files, STATUS_ARTIFACT_NAME, &status);

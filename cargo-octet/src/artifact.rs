@@ -1307,6 +1307,15 @@ fn validate_integrated_effect_closure_bundle(file_map: &BTreeMap<String, Vec<u8>
     if receipt.providers.iter().any(|provider| !graph_providers.contains(provider)) {
         diagnostics.push("effect-closure receipt uses a provider absent from the stored dependency graph".to_owned());
     }
+    // The receipt identity is unkeyed, so re-derive what it asserts from its bound function-address
+    // report and policy, exactly as `admit verify` does; otherwise a denied closure relabelled
+    // admitted and re-identified would verify.
+    let function_report = parse_project_architecture_artifact::<crate::admit::FunctionAddressReport>(
+        file_map,
+        FUNCTION_ADDRESS_ARTIFACT_NAME,
+        diagnostics,
+    );
+    diagnostics.extend(crate::admit::verify_bound_closure_inputs(&receipt, function_report.as_ref(), Some(&policy)));
     let linked = parent.effect_closure.as_ref().is_some_and(|closure| {
         closure.receipt_id == receipt.receipt_identity
             && closure.admitted == (receipt.status == crate::effect_closure::AdmissionStatus::Admitted)
@@ -2030,6 +2039,7 @@ fn verified_artifact_rows(records: &[ProvenanceRecord], expected_non_provenance:
 
 #[cfg(test)]
 mod tests {
+    mod integrated_closure;
     mod ownership;
     use super::*;
 

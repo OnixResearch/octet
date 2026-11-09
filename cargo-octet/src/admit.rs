@@ -111,7 +111,7 @@ struct CheckMetadata {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-struct FunctionAddressReport {
+pub(crate) struct FunctionAddressReport {
     mode: String,
     source_envelopes: Vec<FunctionAddressSourceEnvelope>,
     records: Vec<FunctionAddressRecord>,
@@ -1034,9 +1034,6 @@ fn verify_bundle_inner(
                 diagnostics.push("receipt uses a provider absent from dependency-graph.json".to_owned());
             }
         }
-        if let Some(policy) = &policy {
-            diagnostics.extend(effect_closure::validate_workspace_policy(policy));
-        }
         if let Some(check_status) = &check_status {
             let parent_matches = check_status.exit_code == EXIT_ADMITTED
                 && check_status.error_findings == 0
@@ -1048,31 +1045,7 @@ fn verify_bundle_inner(
                 diagnostics.push("direct check status identity does not match the effect-closure receipt".to_owned());
             }
         }
-        if let Some(function_report) = &function_report {
-            if function_report.mode != FUNCTION_ADDRESS_MODE_DENY {
-                diagnostics.push("function-address parent is not deny mode".to_owned());
-            }
-            match function_address_record_root(function_report) {
-                Ok(root) if root == receipt.inputs.function_address_record_root => {}
-                Ok(_) => diagnostics.push("function-address record root does not match the receipt".to_owned()),
-                Err(error) => diagnostics.push(error),
-            }
-            let receipt_sources = receipt
-                .sources
-                .iter()
-                .map(|source| FunctionAddressSourceEnvelope {
-                    path: source.path.clone(),
-                    source_identity: source.source_identity.clone(),
-                })
-                .collect::<BTreeSet<_>>();
-            let report_sources = function_report.source_envelopes.iter().cloned().collect::<BTreeSet<_>>();
-            if receipt_sources != report_sources {
-                diagnostics.push("receipt sources do not match function-address source envelopes".to_owned());
-            }
-        }
-        if let (Some(function_report), Some(policy)) = (&function_report, &policy) {
-            diagnostics.extend(effect_closure::validate_admitted_bindings(receipt, &function_report.records, policy));
-        }
+        diagnostics.extend(verify_bound_closure_inputs(receipt, function_report.as_ref(), policy.as_ref()));
         if let Some(status) = &status {
             let status_matches = status == &status_from_receipt(receipt);
             if !status_matches {
@@ -1115,6 +1088,44 @@ fn verify_bundle_inner(
         diagnostics,
         non_claims: vec![NON_CLAIM_INTEGRITY.to_owned()],
     })
+}
+
+/// Re-derives what a closure receipt asserts about its bound function-address report and workspace
+/// policy: a valid policy, a deny-mode report with the receipt's record root and source envelopes,
+/// and, for an `admitted` receipt, nodes, roles, and reviewed summaries that match both. `admit
+/// verify` and `artifact verify` share this so an edited, re-identified bundle fails either way.
+pub(crate) fn verify_bound_closure_inputs(
+    receipt: &EffectClosureReceipt,
+    function_report: Option<&FunctionAddressReport>,
+    policy: Option<&WorkspacePolicy>,
+) -> Vec<String> {
+    let mut diagnostics = policy.map(effect_closure::validate_workspace_policy).unwrap_or_default();
+    if let Some(function_report) = function_report {
+        if function_report.mode != FUNCTION_ADDRESS_MODE_DENY {
+            diagnostics.push("function-address parent is not deny mode".to_owned());
+        }
+        match function_address_record_root(function_report) {
+            Ok(root) if root == receipt.inputs.function_address_record_root => {}
+            Ok(_) => diagnostics.push("function-address record root does not match the receipt".to_owned()),
+            Err(error) => diagnostics.push(error),
+        }
+        let receipt_sources = receipt
+            .sources
+            .iter()
+            .map(|source| FunctionAddressSourceEnvelope {
+                path: source.path.clone(),
+                source_identity: source.source_identity.clone(),
+            })
+            .collect::<BTreeSet<_>>();
+        let report_sources = function_report.source_envelopes.iter().cloned().collect::<BTreeSet<_>>();
+        if receipt_sources != report_sources {
+            diagnostics.push("receipt sources do not match function-address source envelopes".to_owned());
+        }
+    }
+    if let (Some(function_report), Some(policy)) = (function_report, policy) {
+        diagnostics.extend(effect_closure::validate_admitted_bindings(receipt, &function_report.records, policy));
+    }
+    diagnostics
 }
 
 fn verify_bound_artifact_hash(

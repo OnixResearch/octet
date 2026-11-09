@@ -231,6 +231,8 @@ The parent status contains the successful lint and architecture prerequisites. T
 
 Admission fails if closure is denied or if any stored source, graph, provider, receipt, or parent link is missing or mismatched.
 
+`cargo octet artifact verify` checks an admitted closure the same way `cargo octet admit verify` does. It validates the stored closure policy, requires the receipt's record root and sources to match `function-addresses.json`, and re-checks nodes, roles, and reviewed summaries against those artifacts. A denied closure that is relabelled admitted and given a recomputed identity therefore fails verification.
+
 ## Roles
 
 Assign each production package and source scope exactly one production role:
