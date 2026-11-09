@@ -500,6 +500,11 @@ pub extern "Rust" fn register_lints(sess: &rustc_session::Session, lint_store: &
     for weakening in profile_floor_weakenings(&cfg, sess.opts.lint_cap, &sess.opts.lint_opts, lint_store) {
         sess.dcx().err(weakening);
     }
+    if let Some(guard) = cfg.strict_profile_id().and_then(|profile_id| {
+        structure::unjustified_allow::SuppressionGovernanceGuard::for_profile(profile_id, cfg.profile_floor_lints())
+    }) {
+        lint_store.register_early_pass(move || Box::new(guard.clone()));
+    }
 }
 
 #[cfg(test)]

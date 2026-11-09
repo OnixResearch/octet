@@ -311,7 +311,9 @@ fn extra_rustc_args(name: &str) -> &'static [&'static str] {
 /// Strict profile selected for a fixture, as `cargo octet check --profile` would set it.
 fn fixture_strict_profile(name: &str) -> Option<&'static str> {
     match name {
-        "strict_profile_force_warn_custom/strict_profile_force_warn_custom" => Some("robust"),
+        "strict_profile_force_warn_custom/strict_profile_force_warn_custom"
+        | "strict_profile_governance_custom/strict_profile_governance_accept"
+        | "strict_profile_governance_custom/strict_profile_governance_reject" => Some("robust"),
         "nominal_inventory_profile_custom/nominal_inventory_profile_custom" => Some("bounded-systems"),
         _ => None,
     }
