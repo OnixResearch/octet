@@ -1085,7 +1085,7 @@ fn compiler_constructions_on_line(shard: &CompilerArchitectureShard, definition:
 #[ignore = "run via cargo test --test ui compiler_architecture -- --ignored --nocapture"]
 fn compiler_architecture_adapter_use_is_not_construction() {
     let toolchain = rustup_toolchain();
-    let library = build_library(&toolchain);
+    let library = build_library();
     let host = host_triple();
     let driver = build_driver(&toolchain);
     let shard =
