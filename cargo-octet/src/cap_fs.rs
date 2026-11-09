@@ -499,6 +499,48 @@ impl CapabilityRoot {
     }
 }
 
+/// Resolves symlinks and `..` through the longest existing ancestor of `path` (made absolute
+/// against the current directory), then applies the remaining components lexically, so paths that
+/// do not exist yet still compare like the files a run will create.
+pub(crate) fn resolve_through_existing_ancestor(path: &Path) -> PathBuf {
+    let path = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
+    for ancestor in path.ancestors() {
+        let (Ok(mut resolved), Ok(remainder)) = (std::fs::canonicalize(ancestor), path.strip_prefix(ancestor)) else {
+            continue;
+        };
+        for component in remainder.components() {
+            match component {
+                Component::ParentDir => {
+                    resolved.pop();
+                }
+                Component::Normal(name) => resolved.push(name),
+                Component::CurDir | Component::RootDir | Component::Prefix(_) => {}
+            }
+        }
+        return resolved;
+    }
+    path
+}
+
+/// Refuses an `--artifact-dir` that is `workspace_root` or one of its ancestors. Commands prune
+/// their own earlier outputs from the artifact directory, and a `proofs/` or `summary.txt` in a
+/// workspace is not one of them, so the bundle must live in a directory of its own.
+pub(crate) fn reject_artifact_dir_enclosing_workspace(
+    artifact_dir: &Path,
+    workspace_root: &Path,
+    bundle_kind: &str,
+) -> Result<(), String> {
+    if resolve_through_existing_ancestor(workspace_root).starts_with(resolve_through_existing_ancestor(artifact_dir)) {
+        return Err(format!(
+            "`--artifact-dir` {} is the workspace root {} or one of its ancestors; choose a directory that holds \
+             only the {bundle_kind} bundle",
+            artifact_dir.display(),
+            workspace_root.display()
+        ));
+    }
+    Ok(())
+}
+
 fn validate_relative_path(path: &Path) -> Result<RootRelativePath, String> {
     if path.as_os_str().is_empty() {
         return Err(format!("capability locator must not be {EMPTY_LOCATOR}"));
@@ -705,5 +747,22 @@ mod tests {
             }
             std::thread::sleep(Duration::from_millis(20));
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn path_resolution_sees_through_symlinks_and_parent_components_of_missing_paths() {
+        let temporary = tempfile::tempdir().expect("resolution fixture");
+        let root = std::fs::canonicalize(temporary.path()).expect("canonical fixture root");
+        let artifacts = root.join("artifacts");
+        std::fs::create_dir(&artifacts).expect("artifact dir");
+        std::os::unix::fs::symlink(&artifacts, root.join("linked")).expect("artifact symlink");
+
+        assert_eq!(
+            resolve_through_existing_ancestor(&root.join("linked/missing/../baseline.json")),
+            artifacts.join("baseline.json")
+        );
+        assert_eq!(resolve_through_existing_ancestor(&root.join("absent/./nested/..")), root.join("absent"));
+        assert!(!resolve_through_existing_ancestor(&root.join("artifacts-baseline.json")).starts_with(&artifacts));
     }
 }

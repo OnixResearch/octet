@@ -161,6 +161,8 @@ pub fn prefixed_identity(bytes: &[u8]) -> String {
 }
 
 mod records;
+pub(crate) use records::RETAINED_DIFF_PREFIX;
+pub(crate) use records::RETAINED_LOG_PREFIX;
 pub(crate) mod request;
 pub mod shell;
 mod validation;

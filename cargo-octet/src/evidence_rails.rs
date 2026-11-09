@@ -18,6 +18,47 @@ pub const RECEIPT_SCHEMA_VERSION: &str = "octet-evidence-rail-receipt/v1";
 pub const RECEIPT_ARTIFACT_NAME: &str = "evidence-rail-receipt.json";
 pub const SUMMARY_ARTIFACT_NAME: &str = "summary.txt";
 pub const PROVENANCE_ARTIFACT_NAME: &str = "provenance.jsonl";
+/// Every top-level entry name an evidence bundle can hold across all rails, plus the prefixes of
+/// retained mutation logs and diffs. Pruning removes only these, so entries the collector never
+/// writes (an operator's notes, another command's outputs, a workspace) survive a rerun.
+const EVIDENCE_BUNDLE_ARTIFACT_NAMES: &[&str] = &[
+    RECEIPT_ARTIFACT_NAME,
+    SUMMARY_ARTIFACT_NAME,
+    PROVENANCE_ARTIFACT_NAME,
+    crate::wasm_artifact::INPUT_ARTIFACT_NAME,
+    crate::charon_semantic::RAW_SNAPSHOT_ARTIFACT,
+    crate::charon_semantic::PROJECTION_ARTIFACT,
+    crate::charon_semantic::ANALYSIS_ARTIFACT,
+    crate::charon_semantic::COMPARISON_ARTIFACT,
+    crate::external::sarif::RAW_ARTIFACT,
+    crate::external::sarif::PROJECTION_ARTIFACT,
+    crate::coverage::SOURCE_MANIFEST_ARTIFACT,
+    crate::coverage::CURRENT_RAW_ARTIFACT,
+    crate::coverage::CURRENT_ENVELOPE_ARTIFACT,
+    crate::coverage::BASELINE_ENVELOPE_ARTIFACT,
+    crate::coverage::PROJECTION_ARTIFACT,
+    crate::mutation::SOURCE_MANIFEST_ARTIFACT,
+    crate::mutation::OUTCOMES_ARTIFACT,
+    crate::mutation::INVENTORY_ARTIFACT,
+    crate::mutation::PROJECTION_ARTIFACT,
+    crate::benchmark::BASELINE_ARTIFACT,
+    crate::benchmark::CANDIDATE_ARTIFACT,
+    crate::benchmark::ALLOCATION_ARTIFACT,
+    crate::benchmark::COPY_ARTIFACT,
+    crate::benchmark::ORACLE_ARTIFACT,
+    crate::benchmark::FINDINGS_ARTIFACT,
+    crate::benchmark::PROJECTION_ARTIFACT,
+    crate::hegel::SUMMARY_ARTIFACT,
+    crate::hegel::LOG_ARTIFACT,
+    crate::hegel::SOURCE_MANIFEST_ARTIFACT,
+    crate::hegel::GENERATOR_MANIFEST_ARTIFACT,
+    crate::hegel::COUNTEREXAMPLE_ARTIFACT,
+    crate::hegel::PROJECTION_ARTIFACT,
+];
+const EVIDENCE_BUNDLE_ARTIFACT_PREFIXES: &[&str] = &[
+    crate::mutation::RETAINED_LOG_PREFIX,
+    crate::mutation::RETAINED_DIFF_PREFIX,
+];
 
 const EXIT_SUCCESS: i32 = 0;
 const EXIT_RAIL_FAILURE: i32 = 1;
@@ -719,6 +760,7 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
     }
 
     let workspace_root = args.workspace_root.as_deref().unwrap_or_else(|| Path::new("."));
+    crate::cap_fs::reject_artifact_dir_enclosing_workspace(&args.artifact_dir, workspace_root, "evidence")?;
     let workspace_scope = workspace_root.display().to_string();
     let mut config_path = args.config.as_ref().map(|path| path.display().to_string());
     let prepared_clippy_run = prepare_clippy_run(args)?;
@@ -4989,6 +5031,10 @@ fn write_artifacts(
     provenance_jsonl: &str,
     additional_artifacts: &BTreeMap<String, Vec<u8>>,
 ) -> Result<(), String> {
+    debug_assert!(
+        additional_artifacts.keys().all(|name| is_evidence_bundle_artifact(name)),
+        "every evidence output must be listed in EVIDENCE_BUNDLE_ARTIFACT_NAMES so a later run can prune it"
+    );
     let root = prepare_artifact_dir(artifact_dir)?;
     remove_stale_artifacts(&root, additional_artifacts.keys())?;
     root.write_atomic(&RootRelativePath::new(RECEIPT_ARTIFACT_NAME)?, receipt_json.as_bytes())?;
@@ -5014,7 +5060,7 @@ fn prepare_artifact_dir(artifact_dir: &Path) -> Result<ArtifactRoot, String> {
 }
 
 /// Every bundle written by `write_artifacts` carries these two sidecars. Only a directory holding
-/// both may have its remaining entries pruned before the next bundle is written.
+/// both may have its earlier rail outputs pruned before the next bundle is written.
 fn is_existing_evidence_bundle(root: &ArtifactRoot) -> Result<bool, String> {
     for marker in [RECEIPT_ARTIFACT_NAME, PROVENANCE_ARTIFACT_NAME] {
         if !root.is_file(&RootRelativePath::new(marker)?)? {
@@ -5024,6 +5070,14 @@ fn is_existing_evidence_bundle(root: &ArtifactRoot) -> Result<bool, String> {
     Ok(true)
 }
 
+/// Whether `name` is a top-level entry some evidence rail writes.
+fn is_evidence_bundle_artifact(name: &str) -> bool {
+    EVIDENCE_BUNDLE_ARTIFACT_NAMES.contains(&name)
+        || EVIDENCE_BUNDLE_ARTIFACT_PREFIXES.iter().any(|prefix| name.starts_with(prefix))
+}
+
+/// Removes outputs an earlier collection left behind that this run does not rewrite, such as a
+/// stale `sarif-raw-report.json` after switching rails. Entries no rail writes are left in place.
 fn remove_stale_artifacts<'a>(
     root: &ArtifactRoot,
     additional_names: impl Iterator<Item = &'a String>,
@@ -5031,7 +5085,7 @@ fn remove_stale_artifacts<'a>(
     let mut expected = expected_bundle_files();
     expected.extend(additional_names.cloned());
     for file_name in root.read_entry_names()? {
-        if expected.iter().any(|expected| expected == &file_name) {
+        if !is_evidence_bundle_artifact(&file_name) || expected.iter().any(|expected| expected == &file_name) {
             continue;
         }
         let relative = RootRelativePath::new(file_name.as_str())?;
@@ -7456,24 +7510,78 @@ mod tests {
 
         let previous = temporary.path().join("previous");
         write_artifacts(&previous, "{}\n", "summary\n", "", &no_additional).expect("missing directory is created");
-        fs::create_dir_all(previous.join("stale-dir")).expect("stale bundle dir");
-        fs::write(previous.join("stale.txt"), "stale\n").expect("stale bundle sidecar");
-        write_artifacts(&previous, "{\"rerun\":true}\n", "summary\n", "", &no_additional)
+        fs::create_dir_all(previous.join("notes")).expect("foreign directory");
+        fs::write(previous.join("notes/review.txt"), "keep\n").expect("foreign nested note");
+        fs::write(previous.join("operator.txt"), "keep\n").expect("foreign note");
+        let stale_outputs = [
+            crate::external::sarif::RAW_ARTIFACT,
+            crate::coverage::PROJECTION_ARTIFACT,
+            crate::wasm_artifact::INPUT_ARTIFACT_NAME,
+            "mutation-log-baseline.txt",
+            "mutation-diff-0123.diff",
+        ];
+        for name in stale_outputs {
+            fs::write(previous.join(name), "stale\n").expect("stale rail output");
+        }
+        let rewritten = BTreeMap::from([(crate::hegel::PROJECTION_ARTIFACT.to_owned(), b"{}\n".to_vec())]);
+        write_artifacts(&previous, "{\"rerun\":true}\n", "summary\n", "", &rewritten)
             .expect("previous evidence bundle is accepted");
-        assert!(!previous.join("stale-dir").exists());
-        assert!(!previous.join("stale.txt").exists());
+        for name in stale_outputs {
+            assert!(!previous.join(name).exists(), "stale rail output `{name}` must be pruned");
+        }
+        assert_eq!(fs::read_to_string(previous.join("operator.txt")).expect("foreign file survives"), "keep\n");
+        assert!(previous.join("notes/review.txt").is_file(), "foreign directory survives");
         let mut entries = fs::read_dir(&previous)
             .expect("read previous bundle")
             .map(|entry| entry.expect("bundle entry").file_name().to_string_lossy().into_owned())
             .collect::<Vec<_>>();
         entries.sort();
         let mut expected = expected_bundle_files();
+        expected.extend([
+            crate::hegel::PROJECTION_ARTIFACT.to_owned(),
+            "notes".to_owned(),
+            "operator.txt".to_owned(),
+        ]);
         expected.sort();
         assert_eq!(entries, expected);
         assert_eq!(
             fs::read_to_string(previous.join(RECEIPT_ARTIFACT_NAME)).expect("rewritten receipt"),
             "{\"rerun\":true}\n"
         );
+    }
+
+    #[test]
+    fn evidence_collect_refuses_artifact_dir_that_is_or_encloses_the_workspace_root() {
+        let report = include_str!("../tests/fixtures/evidence-rails/sarif-codeql.json");
+        for nested in [false, true] {
+            let directory = tempfile::tempdir().expect("create SARIF import workspace");
+            let workspace = if nested {
+                directory.path().join("workspace")
+            } else {
+                directory.path().to_path_buf()
+            };
+            fs::create_dir_all(workspace.join("src")).expect("create workspace");
+            fs::write(workspace.join("report.json"), report).expect("write SARIF report fixture");
+            fs::write(workspace.join("profiles.json"), include_bytes!("../../standards/sarif/profiles.json"))
+                .expect("write SARIF profile fixture");
+            fs::write(workspace.join("src/lib.rs"), "pub fn kept() {}\n").expect("write workspace source");
+            // Evidence-bundle markers make the directory look like an earlier bundle, which is reused.
+            fs::write(directory.path().join(RECEIPT_ARTIFACT_NAME), "{}\n").expect("receipt marker");
+            fs::write(directory.path().join(PROVENANCE_ARTIFACT_NAME), "{}\n").expect("provenance marker");
+            let args = crate::cli::EvidenceRailArgs {
+                artifact_dir: directory.path().to_path_buf(),
+                ..sarif_import_args(workspace.clone())
+            };
+
+            let result = run(&args);
+
+            for kept in ["report.json", "profiles.json", "src/lib.rs"] {
+                assert!(workspace.join(kept).is_file(), "nested={nested}: {kept} must survive");
+            }
+            let error = result.expect_err("an artifact directory enclosing the workspace must be refused");
+            assert!(error.contains("`--artifact-dir`") && error.contains("workspace root"), "{error}");
+            assert!(!directory.path().join(SUMMARY_ARTIFACT_NAME).exists(), "nested={nested}: no bundle is written");
+        }
     }
 
     #[test]
