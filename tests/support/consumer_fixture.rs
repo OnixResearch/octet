@@ -66,7 +66,8 @@ pub(crate) fn write_executable(path: &Path, contents: &str) {
 }
 
 fn copy_path(from: &Path, to: &Path) {
-    let metadata = fs::symlink_metadata(from).expect("symlink metadata");
+    let metadata =
+        fs::symlink_metadata(from).unwrap_or_else(|error| panic!("symlink metadata {}: {error}", from.display()));
     if metadata.is_dir() {
         fs::create_dir_all(to).expect("create copied dir");
         for entry in fs::read_dir(from).expect("read copied dir") {
@@ -623,11 +624,6 @@ pub(crate) fn build_standalone_cargo_octet() -> StandaloneCargoOctet {
         "Cargo.toml",
         "Cargo.lock",
         "rust-toolchain.toml",
-        "LICENSE",
-        "LICENSES",
-        "NOTICE",
-        "README.md",
-        "THIRD_PARTY_NOTICES.md",
         "src",
         "cargo-octet",
         "crates/octet-architecture-ir",
@@ -637,6 +633,14 @@ pub(crate) fn build_standalone_cargo_octet() -> StandaloneCargoOctet {
         "standards",
     ] {
         copy_path(&repo_root.join(relative), &source_root.join(relative));
+    }
+    // Filtered Nix sources may omit optional legal/readme files; the build
+    // script tolerates their absence and the full package source includes them.
+    for relative in ["LICENSE", "LICENSES", "NOTICE", "README.md", "THIRD_PARTY_NOTICES.md"] {
+        let from = repo_root.join(relative);
+        if from.exists() {
+            copy_path(&from, &source_root.join(relative));
+        }
     }
 
     let cargo = env::var("CARGO").expect("CARGO env var");
