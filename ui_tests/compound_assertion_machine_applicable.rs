@@ -13,8 +13,8 @@ fn split_in_match_arm(v: Option<u32>) {
     }
 }
 
-fn split_in_closure(a: bool, b: bool) {
-    let check = || assert!(a && b);
+fn split_in_closure(a: bool, b: u32) {
+    let check = || assert!(a && b > 0);
     check();
 }
 
@@ -28,7 +28,7 @@ fn main() {
     split_pair(1, 2);
     split_three(1, 2, 3);
     split_in_match_arm(Some(1));
-    split_in_closure(true, true);
+    split_in_closure(true, 1);
     split_double_reference(&[&1], 1, true);
 }
 

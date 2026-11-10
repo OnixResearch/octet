@@ -48,16 +48,16 @@ LL +         Some(x) => { assert!(x > 0); assert!(x < 9) },
 warning: compound assertion should be split into separate assertions
   --> $DIR/compound_assertion_machine_applicable.rs:17:20
    |
-LL |     let check = || assert!(a && b);
-   |                    ^^^^^^^^^^^^^^^
+LL |     let check = || assert!(a && b > 0);
+   |                    ^^^^^^^^^^^^^^^^^^^
    |
    = help: Tiger Style (Assertion Quality): split compound assertions so the failing clause is obvious Example: assert!(a > 0); assert!(b > 0);
    = note: structured suggestion applicability: MachineApplicable
    = note: see Tiger Style guide: Assertion Density
 help: split into separate assertions
    |
-LL -     let check = || assert!(a && b);
-LL +     let check = || { assert!(a); assert!(b) };
+LL -     let check = || assert!(a && b > 0);
+LL +     let check = || { assert!(a); assert!(b > 0) };
    |
 
 warning: compound assertion should be split into separate assertions
