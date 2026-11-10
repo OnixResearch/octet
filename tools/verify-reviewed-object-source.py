@@ -20,8 +20,8 @@ APPROVAL_MANIFEST_PATH = "openspec/changes/source-token-v2-function-object-cutov
 APPROVAL_ARCHIVE_PATH = "openspec/changes/archive/2026-10-02-source-token-v2-function-object-cutover/evidence/owner-source-bound-references.txt"
 # This in-repository byte lock detects drift; it is not an external owner signature.
 APPROVAL_ARCHIVE_B3 = "a86d4c22740d4ea0427285d62133c8434dc77c3d144403902f276031836abcae"
-CANDIDATE_B3 = "6d79a8b09c4e7dd20236f4a141c01d6c18b793df7aad93e8ee4ec1d7fb83b221"
-REVIEWED_B3 = "2f420d0464e67a8b6ae518e7215eefd1ba8afc47d1849c07afedf284f196da29"
+CANDIDATE_B3 = "caffea8020a272fd31db8b9f2c6988c14f1ed1878666f7836b1de785171977fa"
+REVIEWED_B3 = "a2d60297c7a308897c0b737cfa2384f69235c60b88c39f38c5700b475de324bc"
 REVISION = "7546a78b4eeef8686c6837e187aa12420f4f03bb"
 MODULE_B3 = "11f0f4233aaf3153966f6aa37de570c2dcd0e75335591934461ae2b25ab3ecb1"
 NIX_NAR_HASH = "sha256-70AmHxWEbeQK3SFi9ZZ67Prmy3d1zgXHLk/AdPp+EdE="
@@ -30,7 +30,7 @@ REVIEW_REF = "review/source-token-v2-7546a78b"
 CARGO_SOURCE = f"git+{GIT_URL}?rev={REVISION}#{REVISION}"
 FLAKE_URL = f"git+{GIT_URL}?ref={REVIEW_REF}&rev={REVISION}"
 MODULE_PATH = "crates/valence-core/src/function_object.rs"
-REFERENCE_COUNTS = [1, 795, 1258, 1258]
+REFERENCE_COUNTS = [1, 1037, 1579, 1579]
 REFERENCE_FILES = {
     "positive-v2-receipt.json": "fixed_quoted_url",
     "internal-corpus-receipt.json": "internal_corpus",

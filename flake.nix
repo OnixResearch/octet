@@ -364,12 +364,7 @@
         };
         # Admission needs the Git-root flake.lock, approval note, and verifier
         # scripts omitted by the Crane-filtered Rust build source.
-        reviewedObjectSource = pkgs.fetchFromGitHub {
-          owner = "OnixResearch";
-          repo = "octet";
-          rev = "b65337f1cd3ce130afb3dd76415b665e91cfd191";
-          sha256 = "0629zcqrs18ibdblfhgf3548r251q97limhs4276j5ixgvhk4ykv";
-        };
+        reviewedObjectSource = ./.;
         fmtSrc = pkgs.lib.cleanSourceWith {
           src = ./.;
           filter =

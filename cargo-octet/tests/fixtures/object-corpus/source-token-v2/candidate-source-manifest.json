@@ -79,7 +79,7 @@
   "source_file_hashes": [
     {
       "path": "cargo-octet/src/baseline.rs",
-      "blake3": "9bc15dd43e6e9dbb20c41aa8dd29add9dc30320ae14b4c0aaebef46396d5367f"
+      "blake3": "5de4bd32eb9d742d8e56fe28278277e0212c133d7058a50ed1ba1ded8581b453"
     },
     {
       "path": "cargo-octet/src/bin/cargo-slotcar.rs",
@@ -91,35 +91,35 @@
     },
     {
       "path": "cargo-octet/src/cli.rs",
-      "blake3": "b58d4c47198d09c78377c88d82c0dc1319d4d8fcb19071cd5aa03592815d0821"
+      "blake3": "2f180af823c873cf8b0500abc7d77515a4ddff86ad73b91dda396256e6c8e7a1"
     },
     {
       "path": "cargo-octet/src/config.rs",
-      "blake3": "82d3574b53caeef4c95505da142db0db1ca0ac904e9cf4dd02bd7d25b794123c"
+      "blake3": "bbc4549349763c80c3c08ee5cff3971313fda595e73ce2c637fd1c9e95f1d830"
     },
     {
       "path": "cargo-octet/src/determinism.rs",
-      "blake3": "c066a130c0990c3967736fd2f5deb8874d2cf549e1cf09f54f130768a11ab2d4"
+      "blake3": "acb8af85dad11cf521e757d1858cbe3674f22b4b01b11a4e69ecbf7ce4bd7258"
     },
     {
       "path": "cargo-octet/src/engine.rs",
-      "blake3": "546489d4cb5919823448264a880f13687a7de4d86fc7c72cdf364b6526a22eb6"
+      "blake3": "3889349e219fca5ea809a39d517c69c39eae9ccbdc2a50489de226eebaa31b7f"
     },
     {
       "path": "cargo-octet/src/evidence.rs",
-      "blake3": "c3ba8efddcc70ed7928db643b49f0b64e08b1f3c866c884c6a22b67dd0af8213"
+      "blake3": "8d155215d80791dc634f10af09efa45a6bd2ea3d37ba86153c0489986d57425b"
     },
     {
       "path": "cargo-octet/src/evidence_rails.rs",
-      "blake3": "79f727d4422d36f9f19c95e383410aa7ba2a192b65c3b8d6560648f3cd082cef"
+      "blake3": "11b8ef487333b111b64f641865fc473f882ddeb21d336c174758ff6dba19e29b"
     },
     {
       "path": "cargo-octet/src/fingerprint.rs",
-      "blake3": "d8efcd8ea9e8b6f21d4dd61ffd81e5f51549a69039b9576a66c5ba1e8e29579f"
+      "blake3": "00416dd84fa95425a3ef2609560a4b916459f1a1e0cb48cb530fed53f23b2ee7"
     },
     {
       "path": "cargo-octet/src/lib.rs",
-      "blake3": "4dccdc6114059f9e30b2a3d6586028f2a1da6dad9f2cefed6ab8db1745873c1b"
+      "blake3": "b95e17830fd82a5f8c29abd3290556c2c84be18642af8b88af3848cafa63f5da"
     },
     {
       "path": "cargo-octet/src/main.rs",
@@ -127,27 +127,27 @@
     },
     {
       "path": "cargo-octet/src/migrate.rs",
-      "blake3": "19f0bc83b5d26125cbf5a8db50149afb0c8e4e44582729038be4a4cf3316fc6e"
+      "blake3": "d1cfccbd372841401fcac0bbc8134352a9947aabac543b0981bce514dbe3d63e"
     },
     {
       "path": "cargo-octet/src/object.rs",
-      "blake3": "4bbd5ecc8d289dbac487cc2b5241c9b1e0d59aed8fdff6ebad947d0406da6c13"
+      "blake3": "847532ed443a647ff40452bacb8d41d2f80900c68b415de3af537dba55cab9eb"
     },
     {
       "path": "cargo-octet/src/output.rs",
-      "blake3": "0a6e45434306070b710597b7a613afbc0d99a968dfb2de02cf04ef80e8f3e832"
+      "blake3": "0a9fc64e9cbdd4ca547e893f37fd7f72afba862610fa1f013f9091c21e403dc8"
     },
     {
       "path": "cargo-octet/src/proof_ref.rs",
-      "blake3": "6f2203ce61c5b0db586f6aae163c718c7c786f64fd9ae704b20e68b1c9fddc33"
+      "blake3": "37418b996c288eac0ead7813dff3a60aaac5fbd4e68572e9e5aa0ed0f6bef338"
     },
     {
       "path": "cargo-octet/src/provider_manifest.rs",
-      "blake3": "8d357d02cd795aa79d6f352c305b4d0d72332653367a3665231c2771a845ad92"
+      "blake3": "e4d9a8305bd1085762a65693e50b0fefbbd1c80c275dc92b12254863f05dae0c"
     },
     {
       "path": "cargo-octet/src/roadmap.rs",
-      "blake3": "402e71508e77f36c9aa988a31e122ef4815d0f4887448bf99efb5ddc4a697dad"
+      "blake3": "ba010f9a2ddd70915a950529f52e2dcf48d1324bf46c1f63b61638380b3ef1d6"
     },
     {
       "path": "cargo-octet/src/transcript.rs",
@@ -159,11 +159,11 @@
     },
     {
       "path": "crates/octet-standards/src/architecture.rs",
-      "blake3": "c63befb9c5b5ae1ef542833ed8270461722784735a2ed442bd491471c578d77d"
+      "blake3": "ea45bf9e938cd230212260fec4d6a9720d00d3d9b8564593bc0baa008fa0c612"
     },
     {
       "path": "crates/octet-standards/src/artifacts.rs",
-      "blake3": "a518101a08e0a3cee8198465707c8bf733962f3b789a1f83a35fc69dadf92ac1"
+      "blake3": "0418b7a42f342740eef1dc863de1848094f457583ba387b992493cebcf0a8ef0"
     },
     {
       "path": "crates/octet-standards/src/bin/slotcar-standards.rs",
@@ -175,7 +175,7 @@
     },
     {
       "path": "crates/octet-standards/src/cli_shell.rs",
-      "blake3": "2e997abe810cb56f0a0f6565735c699c6fdcc571d90308d4852e75afd449370d"
+      "blake3": "6dd736e528488f9fced88a17fd0177e60800728a7c284ad6be736f28dc64b01b"
     },
     {
       "path": "crates/octet-standards/src/diagnostic.rs",
@@ -187,7 +187,7 @@
     },
     {
       "path": "crates/octet-standards/src/lib.rs",
-      "blake3": "192e651221fe079aff668fea7ef1553e27c479c5b77f21feaca4e60acc7adae8"
+      "blake3": "b052b91c20dba4af60085c94cf2a3f77b311ff158552e7873560b2daf323d831"
     },
     {
       "path": "crates/octet-standards/src/main.rs",
@@ -195,19 +195,19 @@
     },
     {
       "path": "crates/octet-standards/src/model.rs",
-      "blake3": "e47a70b1d26c34ac81838a22a23bf2b95485084fe18a3cee4dddcdbe12b505a8"
+      "blake3": "9c9c45c783e8bc3c8ce11615d6ae50b7c5054c571fe29ae6066337f7f3077b9e"
     },
     {
       "path": "crates/octet-standards/src/proof.rs",
-      "blake3": "4adccf5720f9878fcbb4bdfc50050df8436f8770a014e77b47ae1c1b2fda1834"
+      "blake3": "03a8d07abe2759c642e2692ba28fd31cae022eaf596d8dae79ce716304b274e8"
     },
     {
       "path": "crates/octet-standards/src/receipt.rs",
-      "blake3": "6eede8f2db0981143775611d1d549928d1ff0722582876dd3ae81a6dfb566393"
+      "blake3": "9519a07df5d3b12eb4cb2665991d1f3c79420a8053232c829d2ec9921b176332"
     },
     {
       "path": "crates/octet-standards/src/report.rs",
-      "blake3": "ba99bec11112234de886f05f51b210f31d88ce4726d548be97e064f38cef5834"
+      "blake3": "621ff12d0f6f6923be71340b9994383bfc69e7b97d19a05c9608b8d555abc843"
     },
     {
       "path": "crates/octet-standards/src/resource.rs",
@@ -215,7 +215,7 @@
     },
     {
       "path": "crates/octet-standards/src/runner.rs",
-      "blake3": "7430a4f11e59d6088ddc1db491683cf843dad0662c1e5df472d6a77d539c712b"
+      "blake3": "34883d6f8ddb4a634e0286945def882f44748dd947c510eef3b250ce02d936b2"
     },
     {
       "path": "crates/octet-standards/src/source.rs",
@@ -223,24 +223,24 @@
     },
     {
       "path": "crates/octet-standards/src/suppression.rs",
-      "blake3": "4984388719b0ddc3e36cd01835c88754cff071ca661911972e3af27c42a59a5a"
+      "blake3": "a5816ab15fe8f424fccac1097a199fd170d4f8a7c2d8bddc114dc29a4daaea09"
     }
   ],
   "reference_hashes": [
     {
       "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/expanded-internal-corpus-caveat-taxonomy.json",
-      "blake3": "9b91725e693c002b530833a94be113d5830d9c894e8301ccecb2b117bc3c65e1",
-      "object_count": 1258
+      "blake3": "850f8b9497e44ce2e92023e943ba85fbc6894ad2f0a29b8fd7fe49e30d1c24a2",
+      "object_count": 1579
     },
     {
       "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/expanded-internal-corpus-receipt.json",
-      "blake3": "d90b7ddf31362ac7aa5d47844b9cb312bd02554b6862af6d517a25050854ddf5",
-      "object_count": 1258
+      "blake3": "bf205417685d396a9c965b53c8b5a1dddfe98721280d83f93469820b50d91387",
+      "object_count": 1579
     },
     {
       "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/internal-corpus-receipt.json",
-      "blake3": "dbc8c92c0c10055aa135e09d85802fc1a9e0d4985929710ea4d893daedb04bb6",
-      "object_count": 795
+      "blake3": "9eb77fb9514279dba903df797a6c884ce9a9f3795b82469afe5436b4ce5542d1",
+      "object_count": 1037
     },
     {
       "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/positive-v2-receipt.json",
@@ -251,15 +251,15 @@
   "prospective_octet_modules": [
     {
       "path": "cargo-octet/src/fingerprint.rs",
-      "blake3": "d8efcd8ea9e8b6f21d4dd61ffd81e5f51549a69039b9576a66c5ba1e8e29579f"
+      "blake3": "00416dd84fa95425a3ef2609560a4b916459f1a1e0cb48cb530fed53f23b2ee7"
     },
     {
       "path": "cargo-octet/src/function_address.rs",
-      "blake3": "bc57fc0cef8e46a2ad9e67dd7e0d6032196d3acbde05e7d8343e8797670fe6a0"
+      "blake3": "a08e5f28de9994b5cfb76596b37032c03f20a78b3d76412f50bda01d6ad55472"
     },
     {
       "path": "cargo-octet/src/object.rs",
-      "blake3": "4bbd5ecc8d289dbac487cc2b5241c9b1e0d59aed8fdff6ebad947d0406da6c13"
+      "blake3": "847532ed443a647ff40452bacb8d41d2f80900c68b415de3af537dba55cab9eb"
     }
   ],
   "candidate_consumer_test": {
