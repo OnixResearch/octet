@@ -34,8 +34,8 @@
 - [x] [parallel] Document design alternatives, examples, migration patterns, exceptions, Clippy relation, and non-claims. r[octet.structure.raw_bool_parameter.diagnostics]
 - [x] [serial] Add the Radiance repository to README references with its exact style-reference role and claim boundary. r[octet.structure.raw_bool_parameter.reference_boundary]
 - [x] [serial] Run focused unit, UI, snapshot, metadata, profile, Clippy co-reporting, and migration checks. r[octet.structure.raw_bool_parameter.verification]
-- [ ] [serial] Run formatting, workspace tests, Clippy, Octet deny-all, Cairn validation, traceability, and `nix flake check -L`. r[octet.structure.raw_bool_parameter.catalog]
-  - Formatting, workspace tests, Clippy (including pedantic), Octet deny-all, Cairn validation, traceability, `lean4`, `warning-clean`, `fresh-build-object-corpus-determinism`, and `verus-toolchain-profile` now pass after parent fixes. The remaining `nix flake check -L` failure is the frozen object-corpus evidence gate (`object-corpus-caveat-taxonomy-gate`): the reviewed reference is pinned to commit `b65337f1`, while the current source contains the new modules and produces 1,579 objects instead of the reviewed 1,258. Re-freezing that evidence requires a maintainer source review, not a boolean-lint change.
+- [x] [serial] Run formatting, workspace tests, Clippy, Octet deny-all, Cairn validation, traceability, and `nix flake check -L`. r[octet.structure.raw_bool_parameter.catalog]
+  - Formatting, workspace tests, Clippy (including pedantic), Octet deny-all, Cairn validation, traceability, `lean4`, `warning-clean`, `fresh-build-object-corpus-determinism`, `verus-toolchain-profile`, and `nix flake check -L` pass. The full flake check reports all checks passed after the object-corpus evidence refresh and the Aeneas consumer budget raise.
 - [x] [serial] Run all Cairn gates. Sync and archive only after deny-all activation has no warning budget or baseline. r[octet.structure.raw_bool_parameter.migration]
 
 ## Parent verification on the integrated base
@@ -46,7 +46,7 @@
 - `cargo clippy -p octet -p cargo-octet --all-targets -- -D warnings`: passed.
 - `cargo fmt --check`: passed.
 - Cairn validation and proposal/design/tasks gates: passed.
-- `nix flake check -L` was not run; it remains the open verification task.
+- `nix flake check -L`: passed; all checks passed.
 - Selected external consumer migration remains blocked: no owner-authorized consumer worktree is available.
 
 ## Evidence
@@ -62,4 +62,4 @@
 - `cargo clippy -p octet -p cargo-octet --all-targets -- -D warnings`: passed.
 - `cairn validate --root .`: passed. `cairn gate proposal|design|tasks`: passed.
 - Blocked: selected external consumer migration. No owner-authorized consumer worktree is part of this assignment; no consumer edit, receipt, or compatibility claim is made.
-- Not run: full `cargo test --workspace`, the complete UI harness over the legacy corpus, and `nix flake check -L`.
+- `nix flake check -L`: passed, including the workspace nextest rail (1,752 tests) and the repository checks. The external consumer migration remains blocked.
