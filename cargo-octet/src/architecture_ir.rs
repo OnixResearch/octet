@@ -1052,8 +1052,8 @@ fn validate_cargo_selection(
             "Cargo invocation features {requested_features:?} do not match architecture policy features {expected_features:?}"
         ));
     }
-    let no_default_features = cargo_check_args.iter().any(|argument| argument == "--no-default-features");
-    if target.default_features == no_default_features {
+    let default_features_disabled = cargo_check_args.iter().any(|argument| argument == "--no-default-features");
+    if target.default_features == default_features_disabled {
         return Err(format!(
             "Cargo invocation default-feature selection does not match architecture policy default_features={}",
             target.default_features

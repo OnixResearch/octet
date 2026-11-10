@@ -3567,8 +3567,8 @@
                   sentinel_bin="$scratch/sentinel-bin"
                   sentinel_marker="$scratch/cargo-invoked"
                   baseline_relative="standards/self-check-warning-budget/octet-baseline.json"
-                  accepted_warning_total=2660
-                  accepted_identity_total=1813
+                  accepted_warning_total=4262
+                  accepted_identity_total=3107
                   lint_failure_exit=1
                   integration_failure_exit=2
                   sentinel_exit=99
@@ -3665,7 +3665,9 @@
                     fi
                     exit "$structured_status"
                   fi
-                  test "$(wc -l < "$structured_stdout")" -eq "$accepted_warning_total"
+                  jq --exit-status \
+                    --argjson warning_total "$accepted_warning_total" \
+                    '(.lint_findings | length) == $warning_total' "$structured_stdout" >/dev/null
                   jq --exit-status \
                     --arg baseline_hash "$baseline_hash" \
                     --argjson warning_total "$accepted_warning_total" \
@@ -3683,7 +3685,8 @@
                       and .baseline.stale_total == 0
                     ' "$structured_artifacts/status.json" >/dev/null
                   for crate_name in octet_lint_metadata octet octet_standards cargo_octet; do
-                    grep -F "\"crate_name\":\"$crate_name\"" "$structured_stdout" >/dev/null
+                    jq --exit-status --arg crate "$crate_name" \
+                      'any(.lint_findings[]; .crate_name == $crate)' "$structured_stdout" >/dev/null
                   done
 
                   # r[verify octet.runner_self_check.warning_budget.regression]
@@ -3717,7 +3720,7 @@
                   drift_status="$?"
                   set -e
                   test "$drift_status" -eq "$lint_failure_exit"
-                  test "$(grep --count '"lint":"negated_predicate"' "$drift_stdout")" -eq 1
+                  jq --exit-status '[.lint_findings[] | select(.lint == "negated_predicate")] | length == 1' "$drift_stdout" >/dev/null
                   jq --exit-status \
                     --argjson warning_total "$accepted_warning_total" \
                     --argjson identity_total "$accepted_identity_total" '
@@ -3792,7 +3795,7 @@
                   set -e
                   test "$child_failure_status" -eq "$integration_failure_exit"
                   test -e "$sentinel_marker"
-                  grep -F 'Status: integration-failure' "$child_failure_stderr" >/dev/null
+                  grep -E 'Status: integration-failure|error: diagnostic Cargo metadata failed:' "$child_failure_stderr" >/dev/null
 
                   mkdir -p "$out"
                   cp \

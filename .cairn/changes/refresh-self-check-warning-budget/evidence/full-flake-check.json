@@ -1,0 +1,26 @@
+{
+  "command": "nix flake check -L --option builders \"\" --option post-build-hook \"\" --option min-free 0 --option max-free 0",
+  "exit_code": 1,
+  "failed_attribute": "checks.x86_64-linux.mantle-aeneas-consumer-job",
+  "self_check": {
+    "derivation": "/nix/store/s3h0fb2kfwirhjxk189vb40fyvjaswm9-octet-cargo-octet-self-check.drv",
+    "exit_code": 0
+  },
+  "failure": {
+    "stage": "aeneas-lean",
+    "diagnostics": [
+      "Aeneas `lean` stage exited unsuccessfully with None",
+      "Aeneas `lean` stage timed out",
+      "verifier-failure: proof command `cargo octet prove --rail aeneas-external-consumer` timed out",
+      "proof command stdout missing pass signal `aeneas-proof-result: pass`"
+    ],
+    "timeout_ms": 900000
+  },
+  "rerun": {
+    "command": "nix build path:$PWD#checks.x86_64-linux.mantle-aeneas-consumer-job --no-link -L",
+    "exit_code": 1,
+    "same_failure": true
+  },
+  "scope": "The only reported failed flake attribute is the Aeneas consumer job; checks that completed, including cargo-octet-self-check, passed. The Aeneas job is outside the self-check baseline refresh.",
+  "non_claim": "This record does not claim the Aeneas Lean proof completed on this host."
+}

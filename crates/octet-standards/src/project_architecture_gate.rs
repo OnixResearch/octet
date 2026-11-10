@@ -2199,8 +2199,8 @@ fn evaluate_no_std(
         } else {
             indexes.units_for_source_scope(&obligation.scope)
         };
-        let has_no_std = units.iter().all(|unit| indexes.unit_has_configuration(unit, "crate:no-std"));
-        if units.is_empty() || !has_no_std {
+        let has_std = units.iter().any(|unit| !indexes.unit_has_configuration(unit, "crate:no-std"));
+        if units.is_empty() || has_std {
             findings.push(finding_for_scopes(
                 input,
                 indexes,
