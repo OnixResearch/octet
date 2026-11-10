@@ -1,0 +1,6 @@
+{
+  "baseline_hash": "b3:8aa117a60c1c27fe7480bf03729301b0e327967e123d3558f101c023f35c6d47",
+  "identity_total": 3107,
+  "warning_total": 4262,
+  "reason": "The budget change touched four source locations and shifted four stable identities; the checked writer replaced the four stale identities with the four current identities."
+}

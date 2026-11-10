@@ -1,7 +1,7 @@
 let contracts = import "contracts.ncl" in
 let default_timeout_ms = 30000 in
 let default_log_max_bytes = 4096 in
-let aeneas_timeout_ms = 900000 in
+let aeneas_timeout_ms = 1800000 in
 let aeneas_log_max_bytes = 1048576 in
 let productionReceiptVerifier = {
   verifier_id = "verus@0.2026.05.17.e479cce",

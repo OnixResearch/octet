@@ -1,0 +1,10 @@
+{
+  "octet_standards": {"tests": 41, "failed": 0},
+  "cargo_octet_lib": {"tests": 864, "failed": 0, "ignored": 26},
+  "aeneas_live_compatibility": {"tests": 4, "failed": 0},
+  "commands": [
+    "cargo test -p octet-standards --locked",
+    "cargo test -p cargo-octet --lib --locked",
+    "nix build path:$PWD#checks.x86_64-linux.aeneas-lean-compatibility-matrix --no-link -L"
+  ]
+}

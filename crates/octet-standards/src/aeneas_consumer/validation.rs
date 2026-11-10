@@ -16,7 +16,7 @@ use super::model::ConsumerOutcome;
 use super::model::ConsumerProfile;
 use super::model::ConsumerReceiptBinding;
 
-const PROVIDER_TIMEOUT_MAX_MS: u64 = 900_000;
+const PROVIDER_TIMEOUT_MAX_MS: u64 = 1_800_000;
 const PROVIDER_LOG_MAX_BYTES: usize = 1_048_576;
 
 pub(super) fn profile(profile: &ConsumerProfile) -> Vec<String> {

@@ -9,7 +9,7 @@ const CHECKED_RECEIPT: &str = include_str!(
     "../../../../standards/proof-rails/aeneas-lean/fixtures/external-consumer/expected/formal-proof-receipt.json"
 );
 const DIFFERENT_IDENTITY: &str = "b3:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-const EXPECTED_TIMEOUT_MS: u64 = 900_000;
+const EXPECTED_TIMEOUT_MS: u64 = 1_800_000;
 
 #[test]
 fn checked_consumer_receipt_preserves_exact_stage_resource_and_policy_links() {

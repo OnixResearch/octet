@@ -1,0 +1,8 @@
+{
+  "command": "nix flake check -L --option builders '' --option post-build-hook '' --option min-free 0 --option max-free 0",
+  "exit_code": 0,
+  "result": "all checks passed",
+  "live_compatibility": "4 passed; 0 failed",
+  "self_check": "passed with the refreshed baseline",
+  "omitted_systems": ["aarch64-darwin", "aarch64-linux", "x86_64-darwin"]
+}

@@ -2801,7 +2801,7 @@ mod tests {
     const PIPE_OVERFLOW_BYTES: usize = 200_000;
     const DESCENDANT_SLEEP_SECS: u64 = 20;
     const DESCENDANT_TEARDOWN_BOUND_SECS: u64 = 10;
-    const AENEAS_FIXTURE_TIMEOUT_MS: u64 = 900_000;
+    const AENEAS_FIXTURE_TIMEOUT_MS: u64 = 1_800_000;
     const AENEAS_FIXTURE_LOG_LIMIT_BYTES: usize = 1_048_576;
     const AENEAS_CONSUMER_TRUST_BOUNDARY: &str =
         "the external consumer proves only its named theorem over exact bound inputs";

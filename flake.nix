@@ -2703,7 +2703,7 @@
               nickel typecheck standards/proof-rails/aeneas-lean/consumer-profile.ncl
               nickel export --format json standards/proof-rails/aeneas-lean/consumer-profile.ncl > "$consumer_profile_json"
               cmp "$consumer_profile_json" standards/proof-rails/aeneas-lean/generated/consumer-profile.json
-              expected_consumer_identity=62bb3c01a2037eef1410e35d3902d73fb5e7439e8856d721d0823e14c0af4879
+              expected_consumer_identity=eb33b8aaf15dd2041fed7a09dc319636cf0415e75c1398eb526e2ac3af806948
               test "$(b3sum "$consumer_profile_json" | cut -d ' ' -f 1)" = "$expected_consumer_identity"
               jq --exit-status '
                 .schema_version == "octet-aeneas-consumer-profile/v1"

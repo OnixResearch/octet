@@ -1,0 +1,8 @@
+{
+  "command": "nix build path:$PWD#checks.x86_64-linux.mantle-aeneas-consumer-job --no-link -L --option builders '' --option post-build-hook '' --option min-free 0 --option max-free 0",
+  "derivation": "/nix/store/m5qmv4xlp8kjwpf7yxb8hlgi5ld2b2s8-octet-mantle-aeneas-consumer-job-v1.drv",
+  "exit_code": 0,
+  "profile_timeout_ms": 1800000,
+  "rail_timeout_ms": 1800000,
+  "observation": "The Lean stage reached 1546/1632 Mathlib modules at the old 900000 ms rail budget. With the 1800000 ms consumer profile, proof rail manifest, and provider authority bounds, the job completed successfully."
+}
