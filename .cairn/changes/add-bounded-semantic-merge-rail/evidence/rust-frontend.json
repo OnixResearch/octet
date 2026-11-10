@@ -1,0 +1,20 @@
+{
+  "frontend": "crates/octet-merge-rail/src/frontend.rs",
+  "tests": "crates/octet-merge-rail/tests/frontend.rs",
+  "commands": [
+    "cargo test -p octet-merge-rail --locked",
+    "cargo clippy -p octet-merge-rail --all-targets --locked -- -D warnings",
+    "nix flake check -L"
+  ],
+  "frontend_tests": 6,
+  "corpus_tests": 9,
+  "negative_controls": 16,
+  "clippy": "clean",
+  "full_flake_check": "all checks passed",
+  "self_check_baseline": {
+    "hash": "b3:5cc32cd53677514d32050bb8957b179912ff60eb738ffbb595f7edc483431e49",
+    "identity_total": 3120,
+    "warning_total": 4284
+  },
+  "claim_boundary": "The frontend maps a documented syntactic subset exactly once and fails closed on unsupported constructs. It does not prove Rust semantics, compiler correctness, whole-program behavior, or semantic equivalence."
+}

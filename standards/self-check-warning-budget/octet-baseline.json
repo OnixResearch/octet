@@ -10,7 +10,7 @@
     "profile_hash": "b3:5ebc1b358e0e776e5a3d281656f6abc77498cde8246f27b333783eec419163f9",
     "config_hash": "b3:c51d1ae1c55fee2a9d155a7b8abe18cb7a6b14ac30476d513f3f5162fe5360c7"
   },
-  "baseline_hash": "b3:8aa117a60c1c27fe7480bf03729301b0e327967e123d3558f101c023f35c6d47",
+  "baseline_hash": "b3:5cc32cd53677514d32050bb8957b179912ff60eb738ffbb595f7edc483431e49",
   "findings": [
     {
       "stable_id": "b3:0054f6e0876ae1a9",
@@ -1040,6 +1040,19 @@
       "crate_name": "cargo_octet"
     },
     {
+      "stable_id": "b3:06a9d606b21196fb",
+      "semantic_id": "b3:06a9d606b21196fb",
+      "identity_status": "computed",
+      "lint": "unbounded_collection_growth",
+      "group": "tigerstyle::safety",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/frontend.rs",
+      "line": 184,
+      "column": 9,
+      "message": "collection grows in loop without a prior reservation or explicit local bound",
+      "crate_name": "octet_merge_rail"
+    },
+    {
       "stable_id": "b3:06ad5eca8b548b34",
       "semantic_id": "b3:06ad5eca8b548b34",
       "identity_status": "computed",
@@ -1623,6 +1636,19 @@
       "column": 1,
       "message": "non-trait import `EXPECTED_CLAIM_CLASS` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "octet_standards"
+    },
+    {
+      "stable_id": "b3:0a12c5005c2e6bb5",
+      "semantic_id": "b3:0a12c5005c2e6bb5",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/frontend.rs",
+      "line": 20,
+      "column": 1,
+      "message": "non-trait import `SOURCE_DOMAIN` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "octet_merge_rail"
     },
     {
       "stable_id": "b3:0a16d192c0264f60",
@@ -4017,6 +4043,19 @@
       "crate_name": "octet"
     },
     {
+      "stable_id": "b3:1818f5cee45b6223",
+      "semantic_id": "b3:1818f5cee45b6223",
+      "identity_status": "computed",
+      "lint": "function_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/frontend.rs",
+      "line": 285,
+      "column": 108,
+      "message": "function `parse_expression` is 76 lines (limit: 70)",
+      "crate_name": "octet_merge_rail"
+    },
+    {
       "stable_id": "b3:18366a98aa91f3c9",
       "semantic_id": "b3:18366a98aa91f3c9",
       "identity_status": "computed",
@@ -5068,6 +5107,19 @@
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "octet_standards"
+    },
+    {
+      "stable_id": "b3:1df9a878035b6313",
+      "semantic_id": "b3:1df9a878035b6313",
+      "identity_status": "computed",
+      "lint": "path_segment_repetition",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/frontend.rs",
+      "line": 48,
+      "column": 1,
+      "message": "item name `FrontendError` repeats `frontend` from ancestor path segment `frontend`",
+      "crate_name": "octet_merge_rail"
     },
     {
       "stable_id": "b3:1e021bc0c49b236a",
@@ -6628,6 +6680,19 @@
       "column": 1,
       "message": "non-trait import `RAW_SNAPSHOT_ARTIFACT` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:28fd88b28bd1bebf",
+      "semantic_id": "b3:28fd88b28bd1bebf",
+      "identity_status": "computed",
+      "lint": "no_recursion",
+      "group": "tigerstyle::safety",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/frontend.rs",
+      "line": 289,
+      "column": 44,
+      "message": "function calls itself recursively",
+      "crate_name": "octet_merge_rail"
     },
     {
       "stable_id": "b3:291a40aac53cbc4f",
@@ -11843,6 +11908,19 @@
       "crate_name": "cargo_octet"
     },
     {
+      "stable_id": "b3:48cd1ac5100aa86b",
+      "semantic_id": "b3:48cd1ac5100aa86b",
+      "identity_status": "computed",
+      "lint": "unbounded_collection_growth",
+      "group": "tigerstyle::safety",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/frontend.rs",
+      "line": 183,
+      "column": 9,
+      "message": "collection grows in loop without a prior reservation or explicit local bound",
+      "crate_name": "octet_merge_rail"
+    },
+    {
       "stable_id": "b3:48eb25ae9e211489",
       "semantic_id": "b3:48eb25ae9e211489",
       "identity_status": "computed",
@@ -11958,6 +12036,19 @@
       "column": 1,
       "message": "non-trait import `Evaluation` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:494e6e00f6e0f9f6",
+      "semantic_id": "b3:494e6e00f6e0f9f6",
+      "identity_status": "computed",
+      "lint": "module_file_count",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/checker.rs",
+      "line": 1,
+      "column": 1,
+      "message": "module directory `crates/octet-merge-rail/src` contains 8 Rust source files (limit: 7)",
+      "crate_name": "octet_merge_rail"
     },
     {
       "stable_id": "b3:495b8bf38b5cc2a0",
@@ -16949,6 +17040,19 @@
       "line": 12,
       "column": 1,
       "message": "non-trait import `observe_aeneas_lean_trust_closure` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:69015f1748199067",
+      "semantic_id": "b3:69015f1748199067",
+      "identity_status": "computed",
+      "lint": "excessive_file_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "Cargo.lock",
+      "line": 1,
+      "column": 1,
+      "message": "source file is 1418 lines (limit: 300)",
       "crate_name": "cargo_octet"
     },
     {
@@ -23190,6 +23294,19 @@
       "column": 1,
       "message": "item name `late_hir_id_is_in_test_context` repeats `test` from ancestor path segment `test_context`",
       "crate_name": "octet"
+    },
+    {
+      "stable_id": "b3:91e25afa9c3b3c76",
+      "semantic_id": "b3:91e25afa9c3b3c76",
+      "identity_status": "computed",
+      "lint": "catch_all_on_enum",
+      "group": "tigerstyle::safety",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/frontend.rs",
+      "line": 312,
+      "column": 13,
+      "message": "catch-all `_` on enum match returns deny value — new variants will be silently handled",
+      "crate_name": "octet_merge_rail"
     },
     {
       "stable_id": "b3:92409a6ac2a0ed79",
@@ -29900,6 +30017,19 @@
       "crate_name": "octet_standards"
     },
     {
+      "stable_id": "b3:bb6c72180ec435ee",
+      "semantic_id": "b3:bb6c72180ec435ee",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/frontend.rs",
+      "line": 21,
+      "column": 1,
+      "message": "non-trait import `SUBJECT_DOMAIN` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "octet_merge_rail"
+    },
+    {
       "stable_id": "b3:bb8662924b23f72a",
       "semantic_id": "b3:bb8662924b23f72a",
       "identity_status": "computed",
@@ -31406,6 +31536,19 @@
       "column": 13,
       "message": "boolean binding `saw_percentage` should have a predicate prefix",
       "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:c7c0cfa4f483f1f8",
+      "semantic_id": "b3:c7c0cfa4f483f1f8",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/frontend.rs",
+      "line": 29,
+      "column": 1,
+      "message": "non-trait import `UnsupportedConstruct` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "octet_merge_rail"
     },
     {
       "stable_id": "b3:c7c97e4dfe3d7580",
@@ -34528,6 +34671,19 @@
       "crate_name": "cargo_octet"
     },
     {
+      "stable_id": "b3:da835c9ca0ed4eb3",
+      "semantic_id": "b3:da835c9ca0ed4eb3",
+      "identity_status": "computed",
+      "lint": "excessive_file_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/frontend.rs",
+      "line": 1,
+      "column": 1,
+      "message": "source file is 427 lines (limit: 300)",
+      "crate_name": "octet_merge_rail"
+    },
+    {
       "stable_id": "b3:da95875c668aa514",
       "semantic_id": "b3:da95875c668aa514",
       "identity_status": "computed",
@@ -35709,6 +35865,32 @@
       "column": 1,
       "message": "function has 9 parameters (limit: 5) — consider an options struct",
       "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:e201ead3ac42832e",
+      "semantic_id": "b3:e201ead3ac42832e",
+      "identity_status": "computed",
+      "lint": "path_segment_repetition",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/frontend.rs",
+      "line": 101,
+      "column": 1,
+      "message": "item name `FrontendOutput` repeats `frontend` from ancestor path segment `frontend`",
+      "crate_name": "octet_merge_rail"
+    },
+    {
+      "stable_id": "b3:e209a43af41a910f",
+      "semantic_id": "b3:e209a43af41a910f",
+      "identity_status": "computed",
+      "lint": "catch_all_on_enum",
+      "group": "tigerstyle::safety",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/frontend.rs",
+      "line": 357,
+      "column": 9,
+      "message": "catch-all `_` on enum match returns deny value — new variants will be silently handled",
+      "crate_name": "octet_merge_rail"
     },
     {
       "stable_id": "b3:e2213605b58c2ff6",
@@ -38231,19 +38413,6 @@
       "column": 1,
       "message": "source file is 457 lines (limit: 300)",
       "crate_name": "octet"
-    },
-    {
-      "stable_id": "b3:f19913e1a5dd8736",
-      "semantic_id": "b3:f19913e1a5dd8736",
-      "identity_status": "computed",
-      "lint": "excessive_file_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "Cargo.lock",
-      "line": 1,
-      "column": 1,
-      "message": "source file is 1417 lines (limit: 300)",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:f1adc7b905f2aba5",

@@ -56,6 +56,17 @@ The memory and aliasing model is `pure-scalar`: arguments in, scalar result out,
 no memory operation, mutation, pointer, or alias. Extending the model requires a
 new reviewed profile and explicit aliasing assumptions.
 
+## Rust frontend
+
+The rail includes a bounded `syn`-based frontend for the admitted scalar
+subset. It maps every admitted function exactly once, rejects unsupported
+constructs fail-closed, and emits a correspondence report with the exact source
+text identity, emitted program identity, function inventory, obligation, and
+non-claims. The mapping is syntactic; it does not prove Rust semantics,
+compiler correctness, whole-program behavior, or the absence of effects outside
+the parsed items. The merge receipt's `typed-scalar-ir` frontend identity is
+unchanged for hand-authored fixtures.
+
 ## Observables and dependency closure
 
 An observable is a logical item and arity with a bounded input domain. The

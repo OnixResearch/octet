@@ -33,9 +33,14 @@
 
 ## Open obligations
 
-- [ ] [serial] Implement and review a real Rust source-to-IR frontend with an explicit correspondence obligation and evidence. Blocked: this change has no reviewed Rust extraction backend, and no available tool in this environment can supply the exact source-to-IR correspondence; the prototype intentionally uses a hand-authored typed IR. r[octet.semantic_merge_verification.identity]
+- [x] [serial] Implement and review a real Rust source-to-IR frontend with an explicit correspondence obligation and evidence. r[octet.semantic_merge_verification.identity] r[octet.semantic_merge_verification.frontend]
+  - Bounded `syn` frontend in `crates/octet-merge-rail/src/frontend.rs`; tests in `crates/octet-merge-rail/tests/frontend.rs`; guide section. It maps the documented `i64` subset exactly once, rejects unsupported constructs fail-closed, and emits a syntactic correspondence report. It does not prove Rust semantic correspondence; the external verifier and production gating obligations remain blocked.
+  - The advisory self-check baseline was refreshed for the new source findings: 3,120 identities / 4,284 warnings, hash `b3:5cc32c…`; evidence: `evidence/rust-frontend.json`.
 - [ ] [serial] Implement and review a symbolic or external verifier backend with a stated trusted base, proof obligations, universal-versus-bounded evidence, and solver-failure semantics. Blocked: no such backend is admitted in this repository, so only the finite-domain evaluator is exercised. r[octet.semantic_merge_verification.profile]
 - [ ] [serial] Admit production gating or consumer authority. Blocked by the recorded no-go decision: production admission and any whole-program, semantic-equivalence, or release-authority claim are out of scope until the frontend and verifier obligations above are separately scoped and reviewed. r[octet.semantic_merge_verification.claim_boundary]
+
+- `Scenario: Admitted Rust source maps to the scalar IR` -> `frontend::parses_scalar_arithmetic_and_binds_correspondence`, `frontend::frontend_output_admits_identical_roles_and_verifies`
+- `Scenario: Unsupported Rust construct fails closed` -> `frontend::rejects_unsupported_constructs_fail_closed`
 
 ## Verification Coverage
 

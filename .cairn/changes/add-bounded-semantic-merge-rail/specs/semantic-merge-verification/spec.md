@@ -185,6 +185,29 @@ roles, stale receipts, unsupported constructs, and interrupted verification.
 - THEN it MUST return its declared non-verified class
 - AND it MUST NOT return `verified`.
 
+### Requirement: Bounded Rust frontend records syntactic correspondence
+
+r[octet.semantic_merge_verification.frontend]
+
+Octet MUST provide a bounded Rust source-to-IR frontend for the documented
+scalar subset. The frontend MUST map every admitted function exactly once, MUST
+fail closed on unsupported constructs, MUST bind the exact source text and
+emitted program identities, and MUST emit an explicit correspondence report
+with non-claims. The frontend MUST NOT claim semantic equivalence, compiler
+correctness, or whole-program behavior.
+
+#### Scenario: Admitted Rust source maps to the scalar IR
+- GIVEN a source file in the documented `i64` scalar subset
+- WHEN the frontend parses it
+- THEN every admitted function MUST map exactly once
+- AND the source and subject identities MUST bind the exact text and program.
+
+#### Scenario: Unsupported Rust construct fails closed
+- GIVEN a source file uses a construct outside the scalar subset
+- WHEN the frontend parses it
+- THEN it MUST return a typed unsupported error
+- AND no partial program MUST be admitted.
+
 ### Requirement: Consumer contract preserves the bounded non-claims
 
 r[octet.semantic_merge_verification.claim_boundary]

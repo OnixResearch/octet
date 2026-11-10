@@ -53,13 +53,17 @@ proof of the suppressed property.
 The new [bounded semantic merge verification rail](docs/semantic-merge-verification-rail.md)
 adds an opt-in pure-core prototype and reviewed design for checking a supplied
 four-version candidate (`O`, `A`, `B`, `M`) against per-observable
-preservation. The prototype uses a hand-authored typed scalar IR, bounded input
-domains, explicit arithmetic and dependency assumptions, deterministic
-outcomes, and identity-validated receipts. It is not wired into starter
-`cargo octet check`, does not synthesize or apply merges, and makes no claim of
-Rust source-to-IR correspondence, universal verification, release authority, or
-provider trust. Production admission is a no-go pending a separately scoped
-real frontend and verifier.
+preservation. The prototype includes a hand-authored typed scalar IR and a
+bounded `syn`-based Rust source-to-IR frontend, bounded input domains, explicit
+arithmetic and dependency assumptions, deterministic outcomes, and
+identity-validated receipts. The frontend maps the documented `i64` scalar
+subset exactly once, fails closed on unsupported constructs, and emits a
+syntactic correspondence report with explicit non-claims. It is not wired into
+starter `cargo octet check`, does not synthesize or apply merges, and makes no
+claim that the syntactic mapping proves Rust semantic correspondence, universal
+verification, release authority, or provider trust. Production admission is a
+no-go pending a separately scoped production frontend, semantic-correspondence
+proof, and verifier.
 
 ## 2026-11-09: Conservative const-helper classification
 

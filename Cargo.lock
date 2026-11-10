@@ -810,6 +810,7 @@ dependencies = [
  "blake3",
  "serde",
  "serde_json",
+ "syn",
 ]
 
 [[package]]

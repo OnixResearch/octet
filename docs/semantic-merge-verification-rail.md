@@ -1,7 +1,7 @@
 # Bounded semantic merge verification rail
 
-Status: bounded prototype and reviewed design. This rail is opt-in and is not
-part of starter `cargo octet check`. It checks a supplied four-version
+Status: bounded prototype with a bounded Rust frontend and reviewed design.
+This rail is opt-in and is not part of starter `cargo octet check`. It checks a supplied four-version
 candidate; it never constructs, applies, or mutates a merge.
 
 ## Question and boundary
@@ -58,11 +58,37 @@ changed dependencies, and missing items require an explicit reviewed mapping;
 otherwise the outcome is `unsupported`. Textual correspondence, function
 hashes, lint results, and Charon comparison rows are not merge evidence.
 
-The prototype's typed IR is authored by hand. The Rust source-to-IR
-correspondence is therefore unproven. Each variant binds a source-text identity
-and a role-local semantic-subject identity. Binding disagreement is
-`unsupported`; a permutation of the declared role identities is reported as a
-role mismatch.
+The prototype includes a bounded `syn`-based Rust frontend for the documented
+scalar subset. The frontend maps every admitted function exactly once, rejects
+unsupported constructs fail-closed, and emits a correspondence report binding
+the exact source text identity, the emitted program identity, the function
+inventory, the explicit obligation, and the frontend non-claims. The mapping is
+syntactic; it does not prove Rust semantics, compiler correctness, or
+whole-program behavior. Hand-authored variants remain valid inputs. Each
+variant binds a source-text identity and a role-local semantic-subject
+identity. Binding disagreement is `unsupported`; a permutation of the declared
+role identities is reported as a role mismatch.
+
+## Rust frontend
+
+`octet_merge_rail::frontend::parse_source` accepts one Rust source file using
+the admitted `i64` scalar subset:
+
+- plain `fn` items with `i64` parameters and an `i64` return;
+- integer literals with no suffix or `i64`;
+- parameter references, add/sub/mul/div/rem, and integer negation;
+- `if` expressions with both branches;
+- direct calls to other admitted functions.
+
+Local bindings, statements, semicolons, mutable or destructuring parameters,
+generic items, method/field/index operations, unsafe blocks, macros,
+references, closures, async/await, floats, non-`i64` types, and any other
+construct outside the subset return a typed `FrontendError`; no partial program
+is returned. The output exposes `into_variant`, `binding`, and
+`correspondence` so a caller can build the four role-tagged variants and bind
+their source/subject identities explicitly. The merge receipt's existing
+`typed-scalar-ir` frontend identity is unchanged for hand-authored corpus
+fixtures; the Rust frontend has its own profile identity and non-claims.
 
 ## Backend choice and trusted base
 
@@ -130,10 +156,10 @@ malformed role/binding inventories.
 
 - **GO** for the bounded pure-core prototype and fixture experiment in this
   change, with the profile and non-claims above.
-- **NO-GO** for production admission, universal verification, or any claim of
-  Rust source-to-IR correspondence. A real Rust frontend and a checker with a
-  stated trusted base and proof obligations must be separately scoped and
-  reviewed. Until then, this rail may not gate merges or releases and may not
+- **NO-GO** for production admission, universal verification, or any claim
+  that the bounded frontend proves Rust semantic correspondence. A production
+  frontend, a semantic-correspondence proof, and a checker with a stated trusted
+  base and proof obligations must be separately scoped and reviewed. Until then, this rail may not gate merges or releases and may not
   relabel Charon comparisons, function hashes, lint results, or tests as merge
   proofs.
 
@@ -156,3 +182,7 @@ scope and all receipt non-claims.
   and validation.
 - `crates/octet-merge-rail/src/corpus.rs`: reviewed fixture corpus and
   independent expectation table.
+- `crates/octet-merge-rail/src/frontend.rs`: bounded `syn`-based Rust
+  source-to-IR frontend, correspondence report, and fail-closed errors.
+- `crates/octet-merge-rail/tests/frontend.rs`: frontend mapping, identity,
+  rejection, admission, and binding-drift tests.
