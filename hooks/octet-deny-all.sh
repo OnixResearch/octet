@@ -96,6 +96,9 @@ deny_lint_flags='
 -D no_todo
 -D unjustified_no_todo_allow
 -D no_recursion
+-D discarded_sync_result
+-D flush_only_durability
+-D retry_sync_after_error
 '
 deny_lint_flags=$(printf '%s\n' "$deny_lint_flags" | tr '\n' ' ')
 
