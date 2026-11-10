@@ -16,8 +16,10 @@ On 2026-11-09 the pinned Vermilion/Verus/Lean/cvc5 closure was built and
 exercised: Lean 4.33.0, the Mathlib cache, the Vermilion Lean libraries, the
 Rust workspace, and the Verus fork at `4860083` built successfully. A live
 `m1-pipeline` canary and a live u64 checked-increment pilot both passed Lean
-kernel checking with zero `sorry`. Aeneas and Charon remain absent, so the
-Aeneas route and executable refinement bridges remain open.
+kernel checking with zero `sorry`. The pinned Aeneas/Charon closure also built
+and passed four live compatibility tests. The Aeneas u64 pilot bridge is
+checked with a universal Lean theorem over the generated model; the Vermilion
+plain-Rust bridge and the Verus plain-Rust refinement theorem remain open.
 
 ## Decisions
 
@@ -33,8 +35,8 @@ substituted dependency audit fails closed.
 Changing one pin requires a fresh compatibility run. The compatibility matrix
 names live and pure canaries. The pinned closure was built on 2026-11-09; the
 live `m1-pipeline` canary and the live u64 checked-increment pilot are recorded
-under `standards/proof-rails/vermilion-lean/evidence/`. Aeneas/Charon-dependent
-canaries remain blocked.
+under `standards/proof-rails/vermilion-lean/evidence/`. The Aeneas/Charon
+closure and its live compatibility matrix are recorded there as well.
 
 ### Decision: One common semantic contract, explicit route bridges
 
@@ -43,10 +45,12 @@ The pilot subject is `increment_checked(value: u64) -> Option<u64>` with
 statement bytes and subject bytes have stable BLAKE3 identities.
 
 Each route declares the obligations it can actually discharge and one
-refinement-bridge identifier. The Verus route is the existing `nat`
-monotonicity lemma; the Aeneas route is the existing `u32` fixture theorem; the
-Vermilion route names generated value and overflow obligations. All three
-bridges are open. They are recorded as open obligations, not hidden in prose.
+refinement-bridge identifier. The Verus route checks the u64 checked contract
+model with a production proof rail; the Aeneas route checks the extracted u64
+model with a universal Lean theorem; the Vermilion route checks the live
+generated value and overflow obligations. The Vermilion plain-Rust bridge and
+the Verus plain-Rust refinement theorem remain open; the Aeneas bridge is
+checked. Open bridges stay recorded as obligations, not hidden in prose.
 
 ### Decision: Receipts are typed and fail closed
 
