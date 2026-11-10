@@ -25,12 +25,13 @@ let contracts = import "contracts.ncl" in
   routes = [
     {
       backend = "verus",
-      claim_scope = "nat-monotonicity-only",
+      claim_scope = "u64-checked-contract-model",
       required_obligations = [
-        { obligation_id = "verus.nat.monotonic-add", kind = "logical-vc" },
+        { obligation_id = "pilot.increment.overflow-check", kind = "overflow" },
+        { obligation_id = "pilot.increment.value", kind = "logical-vc" },
       ],
-      refinement_bridge_id = "pilot.verus.nat-to-u64-checked",
-      refinement_bridge = "open: the existing nat monotonicity lemma does not cover u64 overflow, Option results, or the checked contract",
+      refinement_bridge_id = "pilot.verus.plain-rust-refinement",
+      refinement_bridge = "open: the production Verus proof target mirrors the executable body and checks the u64 contract, but no formal plain-Rust-to-model refinement theorem is checked",
       modeled_library_contracts = [],
     },
     {

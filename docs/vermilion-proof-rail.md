@@ -195,8 +195,10 @@ u64 checked contract until a refinement bridge exists.
 3. **Executable refinement is open** (`pilot.increment.refinement-to-spec`).
    The Verus-syntax pilot source is a parallel specification, not the plain
    Rust executable; that bridge has not been checked.
-4. **Verus route refinement is open** (`pilot.verus.nat-to-u64-checked`). The
-   existing addition-bound proof is about `nat`, not the u64 checked result.
+4. **Verus route refinement is open** (`pilot.verus.plain-rust-refinement`).
+   The production Verus rail now checks the u64 checked contract model in
+   `verus/proofs/checked_increment_bound.rs`; no formal plain-Rust-to-model
+   refinement theorem is checked yet.
 5. **Aeneas route refinement is open** (`pilot.aeneas.u32-to-u64-checked`). The
    shipped Aeneas external fixture models a `u32` increment.
 6. **Downstream integration is designed only.** `cargo octet prove`, proof

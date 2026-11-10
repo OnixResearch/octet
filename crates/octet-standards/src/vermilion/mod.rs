@@ -69,7 +69,7 @@ pub const CONTRACT_SCHEMA: &str = "octet-proof-semantic-contract/v1";
 /// Pilot semantic-contract identifier.
 pub const CONTRACT_ID: &str = "octet.bounded_increment.checked/v1";
 /// BLAKE3 identity of the reviewed pilot contract bytes.
-pub const CONTRACT_IDENTITY: &str = "b3:0da2a0d4a04c259384a86b91bef1565aad103b6beb315e4a6377f396f0ce3839";
+pub const CONTRACT_IDENTITY: &str = "b3:47abb1f9e604b1ef7259290eda7429417bacfdf4ae6860ad382c656058eb8fae";
 /// Exact pilot semantic statement bytes.
 pub const PILOT_SPEC_TEXT: &str =
     include_str!("../../../../standards/proof-rails/vermilion-lean/pilot/semantic-spec.txt");

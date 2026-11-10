@@ -66,7 +66,7 @@ fn contract_binds_the_actual_pilot_bytes_and_statement() {
         contract
             .routes
             .iter()
-            .any(|route| route.backend == "verus" && route.refinement_bridge.contains("nat"))
+            .any(|route| route.backend == "verus" && route.refinement_bridge.contains("plain-Rust"))
     );
     assert!(contract.routes.iter().any(|route| route.backend == "aeneas-lean"));
 }
