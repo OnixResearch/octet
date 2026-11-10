@@ -16,6 +16,18 @@ profile the lints stay inert. See `docs/durability-claims.md`. A bounded
 storage-fault assurance profile and `octet-standards storage-fault-assurance`
 validate saved producer and Cairn receipts without executing a producer.
 
+## 2026-11-09: Vermilion and Aeneas u64 checked-increment evaluation
+
+The pinned Vermilion/Verus/Lean/cvc5 and Aeneas/Charon closures build and pass
+live compatibility checks. The u64 checked-increment pilot is verified by
+Vermilion (2/2 Lean obligations, 0 sorry) and by a production Verus rail over
+the u64 contract model. Charon/Aeneas extract the plain Rust function, and a
+universal Lean theorem checks both the `value < u64::MAX` and `u64::MAX` cases.
+Cross-provider comparison remains `incomparable_claims` until the Vermilion
+plain-Rust bridge and Verus plain-Rust refinement theorem are checked. No
+provider-soundness, whole-program, semantic-equivalence, or release claim
+follows.
+
 ## 2026-11-09: Opt-in typed multi-hop evidence query experiment
 
 `cargo-octet` gains the opt-in `evidence_multihop` library module over the existing evidence codebase index. It keeps explicit parent links, provenance references, asserted dependency/support, shared labels, and content identity distinct; a shared requirement or policy label is relatedness only, content identity is not proof, and asserted support is reported unavailable because the index carries no such field. A typed-edge breadth-first reference and a bounded fixed-rule Datalog-equivalent evaluator return reached records with typed reasons and one deterministic selected witness, subject to depth, fact, tuple, work, memory, and output limits. The one-expansion `query_evidence_index`, `cargo octet check`, discovery, process execution, and publication are unchanged. The external Datalog dependency decision is stop: one rule program over one typed graph does not justify a new dependency. This is an experiment boundary, not whole-program correctness, semantic equivalence, complete dependency closure, release eligibility, or formal proof.
