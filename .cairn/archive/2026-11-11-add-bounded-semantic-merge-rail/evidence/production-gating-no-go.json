@@ -1,0 +1,20 @@
+{
+  "decision": "retain_production_gating_no_go",
+  "completed_obligations": [
+    "bounded Rust source-to-IR frontend",
+    "Lean-checked per-input external verifier backend"
+  ],
+  "not_admitted": [
+    "production gating",
+    "consumer merge authority",
+    "whole-program correctness",
+    "semantic equivalence",
+    "release authority"
+  ],
+  "non_claims": [
+    "the bounded prototype remains opt-in and outside starter cargo octet check",
+    "the frontend is syntactic and does not prove Rust semantic correspondence",
+    "the Lean backend proves only concrete per-input encoded equalities",
+    "production admission requires a separately reviewed decision and evidence"
+  ]
+}
