@@ -1,0 +1,15 @@
+{
+  "decision": "defer_external_consumer_migration",
+  "completed_scope": [
+    "deterministic Octet self-inventory",
+    "Octet public boolean migration and reviewed expectations",
+    "full pinned deny-all activation"
+  ],
+  "deferred": "selected external-consumer migration and external-signature exception inventory",
+  "blocker": "no owner-authorized external consumer worktree is available",
+  "non_claims": [
+    "no external consumer compatibility change, rejection, or exception is claimed",
+    "no consumer API correctness, migration completeness, or release eligibility follows",
+    "the lint remains a reviewed Octet rule; external adoption is a separate follow-up"
+  ]
+}

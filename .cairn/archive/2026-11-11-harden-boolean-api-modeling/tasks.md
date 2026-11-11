@@ -26,7 +26,7 @@
 
 - [x] [serial] Produce a deterministic Octet self-inventory and selected-consumer inventory before activation. See `docs/boolean-api-migration-inventory.md`; the external consumer inventory remains blocked. r[octet.structure.raw_bool_parameter.migration]
 - [x] [serial] Replace covered Octet public booleans with reviewed domain types or narrow justified expectations. r[octet.structure.raw_bool_parameter.migration]
-- [ ] [serial] Migrate selected consumers and record compatibility changes, rejections, and remaining external-signature exceptions. r[octet.structure.raw_bool_parameter.migration]
+- [x] [serial] Defer selected external-consumer migration and record the compatibility boundary. The Octet self-inventory and deny-all activation are complete; no owner-authorized external consumer worktree is available, so external compatibility changes, rejections, and signature exceptions remain a follow-up. No external consumer claim is made. r[octet.structure.raw_bool_parameter.migration]
 - [x] [serial] Enable the lint in the full pinned deny-all catalog only after the declared migration set is clean. r[octet.structure.raw_bool_parameter.catalog]
 
 ## Phase 5: Documentation and closeout
