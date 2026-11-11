@@ -148,6 +148,7 @@ let ReceiptBindingContract =
   OneOf [
     "none",
     "blake3-command-and-source",
+    "recorded-only",
   ]
 in
 
@@ -295,6 +296,7 @@ let ProofVerifierModeContract =
     "",
     "fixture",
     "production",
+    "recorded",
   ]
 in
 let ProofRailContract = {

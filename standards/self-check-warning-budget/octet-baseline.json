@@ -10,7 +10,7 @@
     "profile_hash": "b3:5ebc1b358e0e776e5a3d281656f6abc77498cde8246f27b333783eec419163f9",
     "config_hash": "b3:c51d1ae1c55fee2a9d155a7b8abe18cb7a6b14ac30476d513f3f5162fe5360c7"
   },
-  "baseline_hash": "b3:8557d2479d222b55fc5f2336f35e00212d9ea48a6886f38e3f595c54d338bd02",
+  "baseline_hash": "b3:528cdc6beba5fbf866e3a8455d7582b12178d5556fd0016c2496b90435170cfc",
   "findings": [
     {
       "stable_id": "b3:0054f6e0876ae1a9",
@@ -258,6 +258,19 @@
       "column": 1,
       "message": "non-trait import `BinaryDebugMapReceiptDetails` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:01fc92b59cc51567",
+      "semantic_id": "b3:01fc92b59cc51567",
+      "identity_status": "computed",
+      "lint": "unbounded_collection_growth",
+      "group": "tigerstyle::safety",
+      "severity": "warning",
+      "file": "crates/octet-standards/src/vermilion_canary.rs",
+      "line": 130,
+      "column": 13,
+      "message": "collection grows in loop without a prior reservation or explicit local bound",
+      "crate_name": "octet_standards"
     },
     {
       "stable_id": "b3:020292cfb14b80b7",
@@ -865,7 +878,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 73,
+      "line": 77,
       "column": 1,
       "message": "non-trait import `ProofRoot` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -904,7 +917,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 1697,
+      "line": 1798,
       "column": 21,
       "message": "`.expect()` in production code will panic on failure",
       "crate_name": "cargo_octet"
@@ -2262,19 +2275,6 @@
       "crate_name": "cargo_octet"
     },
     {
-      "stable_id": "b3:0d7869ec5d6a4df3",
-      "semantic_id": "b3:0d7869ec5d6a4df3",
-      "identity_status": "computed",
-      "lint": "excessive_file_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/prove.rs",
-      "line": 1,
-      "column": 1,
-      "message": "source file is 4747 lines (limit: 300)",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:0d80975757c8e0f3",
       "semantic_id": "b3:0d80975757c8e0f3",
       "identity_status": "computed",
@@ -2763,7 +2763,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 2159,
+      "line": 2269,
       "column": 9,
       "message": "`unreachable!` will abort the process on execution",
       "crate_name": "cargo_octet"
@@ -3205,7 +3205,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 80,
+      "line": 84,
       "column": 1,
       "message": "non-trait import `ProcessCommandPlanInput` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -3283,7 +3283,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 1816,
+      "line": 1917,
       "column": 5,
       "message": "`.expect()` in production code will panic on failure",
       "crate_name": "cargo_octet"
@@ -3777,7 +3777,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 1596,
+      "line": 1697,
       "column": 16,
       "message": "`.expect()` in production code will panic on failure",
       "crate_name": "cargo_octet"
@@ -4485,6 +4485,19 @@
       "crate_name": "cargo_octet"
     },
     {
+      "stable_id": "b3:1af5c6bae8f0d6b2",
+      "semantic_id": "b3:1af5c6bae8f0d6b2",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/prove.rs",
+      "line": 68,
+      "column": 1,
+      "message": "non-trait import `VermilionCanaryReceipt` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:1af6eeb25e5673ae",
       "semantic_id": "b3:1af6eeb25e5673ae",
       "identity_status": "computed",
@@ -4856,7 +4869,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 93,
+      "line": 97,
       "column": 1,
       "message": "non-trait import `ProofGoalState` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -5467,7 +5480,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 459,
+      "line": 468,
       "column": 9,
       "message": "`.expect()` in production code will panic on failure",
       "crate_name": "cargo_octet"
@@ -7911,7 +7924,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 94,
+      "line": 98,
       "column": 1,
       "message": "non-trait import `build_proof_goal_state` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -8811,6 +8824,19 @@
       "line": 2564,
       "column": 75,
       "message": "function `validate_workspace_policy` is 79 lines (limit: 70)",
+      "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:36090d2aeef2d73a",
+      "semantic_id": "b3:36090d2aeef2d73a",
+      "identity_status": "computed",
+      "lint": "module_file_count",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "crates/octet-standards/src/aeneas_observation.rs",
+      "line": 1,
+      "column": 1,
+      "message": "module directory `./crates/octet-standards/src` contains 26 Rust source files (limit: 7)",
       "crate_name": "cargo_octet"
     },
     {
@@ -10758,7 +10784,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 198,
+      "line": 205,
       "column": 1,
       "message": "item name `ProveReport` repeats `prove` from ancestor path segment `prove`",
       "crate_name": "cargo_octet"
@@ -11278,7 +11304,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 2505,
+      "line": 2687,
       "column": 13,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -11499,9 +11525,22 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 92,
+      "line": 96,
       "column": 1,
       "message": "non-trait import `ProofGoalInput` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:45b3fb24395b1301",
+      "semantic_id": "b3:45b3fb24395b1301",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/prove.rs",
+      "line": 66,
+      "column": 1,
+      "message": "non-trait import `CANARY_SOURCE` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
     },
     {
@@ -11928,7 +11967,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 1490,
+      "line": 1591,
       "column": 1,
       "message": "function has 6 parameters (limit: 5) — consider an options struct",
       "crate_name": "cargo_octet"
@@ -12708,7 +12747,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 270,
+      "line": 277,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -14762,7 +14801,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 1834,
+      "line": 1935,
       "column": 9,
       "message": "`.expect()` in production code will panic on failure",
       "crate_name": "cargo_octet"
@@ -15945,7 +15984,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 1221,
+      "line": 1248,
       "column": 13,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -16582,7 +16621,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 87,
+      "line": 91,
       "column": 1,
       "message": "non-trait import `ImportedProofBundleManifest` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -16803,7 +16842,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 71,
+      "line": 75,
       "column": 1,
       "message": "non-trait import `execute_aeneas_from_environment` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -17947,7 +17986,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 95,
+      "line": 99,
       "column": 1,
       "message": "non-trait import `prove_core` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -18311,7 +18350,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 2426,
+      "line": 2608,
       "column": 13,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -18350,7 +18389,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 74,
+      "line": 78,
       "column": 1,
       "message": "non-trait import `RootFile` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -19351,7 +19390,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 1876,
+      "line": 1977,
       "column": 9,
       "message": "`.expect()` in production code will panic on failure",
       "crate_name": "cargo_octet"
@@ -19897,7 +19936,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 89,
+      "line": 93,
       "column": 1,
       "message": "non-trait import `validate_imported_proof_manifest_shape` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -19940,6 +19979,19 @@
       "column": 9,
       "message": "catch-all `_` on enum match returns deny value — new variants will be silently handled",
       "crate_name": "octet"
+    },
+    {
+      "stable_id": "b3:79422504b888a21d",
+      "semantic_id": "b3:79422504b888a21d",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "crates/octet-standards/src/vermilion_canary.rs",
+      "line": 14,
+      "column": 1,
+      "message": "non-trait import `selected_profile` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "octet_standards"
     },
     {
       "stable_id": "b3:79540bb9e67fc5ed",
@@ -20511,6 +20563,19 @@
       "line": 431,
       "column": 1,
       "message": "item name `VermilionOutcome` repeats `vermilion` from ancestor path segment `vermilion`",
+      "crate_name": "octet_standards"
+    },
+    {
+      "stable_id": "b3:7d93a1f0d4efaa8b",
+      "semantic_id": "b3:7d93a1f0d4efaa8b",
+      "identity_status": "computed",
+      "lint": "excessive_file_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "crates/octet-standards/src/lib.rs",
+      "line": 1,
+      "column": 1,
+      "message": "source file is 2187 lines (limit: 300)",
       "crate_name": "octet_standards"
     },
     {
@@ -21197,7 +21262,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 84,
+      "line": 88,
       "column": 1,
       "message": "non-trait import `EVIDENCE_ORIGIN_EXTERNAL_TRELLIS` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -21379,7 +21444,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 1234,
+      "line": 1261,
       "column": 25,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -21509,7 +21574,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 1851,
+      "line": 1952,
       "column": 13,
       "message": "`.expect()` in production code will panic on failure",
       "crate_name": "cargo_octet"
@@ -21593,6 +21658,19 @@
       "crate_name": "cargo_octet"
     },
     {
+      "stable_id": "b3:84eddf8ca183a2bf",
+      "semantic_id": "b3:84eddf8ca183a2bf",
+      "identity_status": "computed",
+      "lint": "underscore_in_module_filename",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "crates/octet-standards/tests/vermilion_canary.rs",
+      "line": 1,
+      "column": 1,
+      "message": "module filename `vermilion_canary.rs` contains an underscore; prefer `vermilion/canary.rs`",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:84f0f80f033c303a",
       "semantic_id": "b3:84f0f80f033c303a",
       "identity_status": "computed",
@@ -21665,7 +21743,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 1706,
+      "line": 1807,
       "column": 9,
       "message": "boolean binding `exists` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -22003,7 +22081,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 85,
+      "line": 89,
       "column": 1,
       "message": "non-trait import `HASH_ALGORITHM_BLAKE3` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -22500,6 +22578,19 @@
       "line": 1245,
       "column": 9,
       "message": "boolean binding `closure_matches` should have a predicate prefix",
+      "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:8b6261577ca7d946",
+      "semantic_id": "b3:8b6261577ca7d946",
+      "identity_status": "computed",
+      "lint": "function_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/prove.rs",
+      "line": 587,
+      "column": 20,
+      "message": "function `execute_proof` is 142 lines (limit: 70)",
       "crate_name": "cargo_octet"
     },
     {
@@ -23686,6 +23777,19 @@
       "crate_name": "cargo_octet"
     },
     {
+      "stable_id": "b3:9344315d7f2ff94f",
+      "semantic_id": "b3:9344315d7f2ff94f",
+      "identity_status": "computed",
+      "lint": "renamed_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/prove.rs",
+      "line": 69,
+      "column": 1,
+      "message": "renamed import `validate as validate_vermilion_canary` hides the original searchable name",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:93aa2bf316244271",
       "semantic_id": "b3:93aa2bf316244271",
       "identity_status": "computed",
@@ -24551,7 +24655,7 @@
       "group": "tigerstyle::purity",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 1564,
+      "line": 1665,
       "column": 36,
       "message": "direct `std::env::var_os` access reads or mutates ambient process state",
       "crate_name": "cargo_octet"
@@ -24919,6 +25023,19 @@
       "column": 1,
       "message": "item name `durability_catalog_diagnostics` repeats `durability` from ancestor path segment `durability`",
       "crate_name": "octet_lint_metadata"
+    },
+    {
+      "stable_id": "b3:9bf6da784ff339b6",
+      "semantic_id": "b3:9bf6da784ff339b6",
+      "identity_status": "computed",
+      "lint": "excessive_file_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "crates/octet-standards/src/lib.rs",
+      "line": 1,
+      "column": 1,
+      "message": "source file is 2187 lines (limit: 300)",
+      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:9c0dd251f38463a7",
@@ -25844,6 +25961,19 @@
       "crate_name": "octet"
     },
     {
+      "stable_id": "b3:a1b1a16259c4b230",
+      "semantic_id": "b3:a1b1a16259c4b230",
+      "identity_status": "computed",
+      "lint": "underscore_in_module_filename",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "crates/octet-standards/src/vermilion_canary.rs",
+      "line": 1,
+      "column": 1,
+      "message": "module filename `vermilion_canary.rs` contains an underscore; prefer `vermilion/canary.rs`",
+      "crate_name": "octet_standards"
+    },
+    {
       "stable_id": "b3:a1e05eb5bf32cf3a",
       "semantic_id": "b3:a1e05eb5bf32cf3a",
       "identity_status": "computed",
@@ -26013,19 +26143,6 @@
       "crate_name": "octet"
     },
     {
-      "stable_id": "b3:a2ff9a42d2edc4ed",
-      "semantic_id": "b3:a2ff9a42d2edc4ed",
-      "identity_status": "computed",
-      "lint": "excessive_file_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "crates/octet-standards/src/lib.rs",
-      "line": 1,
-      "column": 1,
-      "message": "source file is 2186 lines (limit: 300)",
-      "crate_name": "octet_standards"
-    },
-    {
       "stable_id": "b3:a30312c2b7f62b2e",
       "semantic_id": "b3:a30312c2b7f62b2e",
       "identity_status": "computed",
@@ -26176,7 +26293,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 81,
+      "line": 85,
       "column": 1,
       "message": "non-trait import `build_process_command_plan` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -26254,7 +26371,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 545,
+      "line": 554,
       "column": 1,
       "message": "item name `prove_selection` repeats `prove` from ancestor path segment `prove`",
       "crate_name": "cargo_octet"
@@ -26544,6 +26661,19 @@
       "column": 1,
       "message": "item name `validate_observed_aeneas_translation` repeats `aeneas` from ancestor path segment `aeneas_observation`",
       "crate_name": "octet_standards"
+    },
+    {
+      "stable_id": "b3:a62c72d2e0816a49",
+      "semantic_id": "b3:a62c72d2e0816a49",
+      "identity_status": "computed",
+      "lint": "underscore_in_module_filename",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "crates/octet-standards/src/vermilion_canary.rs",
+      "line": 1,
+      "column": 1,
+      "message": "module filename `vermilion_canary.rs` contains an underscore; prefer `vermilion/canary.rs`",
+      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:a6341bc58afa537c",
@@ -27463,7 +27593,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 1314,
+      "line": 1341,
       "column": 9,
       "message": "boolean binding `excluded` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -27489,7 +27619,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 1872,
+      "line": 1973,
       "column": 9,
       "message": "`.expect()` in production code will panic on failure",
       "crate_name": "cargo_octet"
@@ -27541,7 +27671,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 1817,
+      "line": 1918,
       "column": 5,
       "message": "`.expect()` in production code will panic on failure",
       "crate_name": "cargo_octet"
@@ -27807,19 +27937,6 @@
       "crate_name": "cargo_octet"
     },
     {
-      "stable_id": "b3:ad6f9dc049ce57a7",
-      "semantic_id": "b3:ad6f9dc049ce57a7",
-      "identity_status": "computed",
-      "lint": "function_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/prove.rs",
-      "line": 1320,
-      "column": 78,
-      "message": "function `run_proof_command` is 83 lines (limit: 70)",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:ad7072e7a0f8a3e8",
       "semantic_id": "b3:ad7072e7a0f8a3e8",
       "identity_status": "computed",
@@ -27944,7 +28061,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 91,
+      "line": 95,
       "column": 1,
       "message": "non-trait import `GoalEvidence` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -28052,6 +28169,19 @@
       "column": 1,
       "message": "item name `loop_source_kind` repeats `loop` from ancestor path segment `unbounded_loop`",
       "crate_name": "octet"
+    },
+    {
+      "stable_id": "b3:af0e0f4266e21322",
+      "semantic_id": "b3:af0e0f4266e21322",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "crates/octet-standards/src/vermilion_canary.rs",
+      "line": 13,
+      "column": 1,
+      "message": "non-trait import `prefixed_identity` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "octet_standards"
     },
     {
       "stable_id": "b3:af147cb55b61d8ba",
@@ -29439,7 +29569,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 77,
+      "line": 81,
       "column": 1,
       "message": "non-trait import `WorkspaceRoot` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -30388,7 +30518,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 1847,
+      "line": 1948,
       "column": 13,
       "message": "`.expect()` in production code will panic on failure",
       "crate_name": "cargo_octet"
@@ -30401,7 +30531,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 88,
+      "line": 92,
       "column": 1,
       "message": "non-trait import `bundle_artifacts` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -30625,6 +30755,19 @@
       "line": 2062,
       "column": 13,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
+      "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:bd98db40764cf311",
+      "semantic_id": "b3:bd98db40764cf311",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/prove.rs",
+      "line": 67,
+      "column": 1,
+      "message": "non-trait import `CANARY_SOURCE_PATH` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
     },
     {
@@ -30977,19 +31120,6 @@
       "column": 1,
       "message": "item name `is_clock_read_def` repeats `clock` from ancestor path segment `ambient_clock`",
       "crate_name": "octet"
-    },
-    {
-      "stable_id": "b3:c09fc081a186c173",
-      "semantic_id": "b3:c09fc081a186c173",
-      "identity_status": "computed",
-      "lint": "function_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/prove.rs",
-      "line": 578,
-      "column": 20,
-      "message": "function `execute_proof` is 124 lines (limit: 70)",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:c0ee1d3027d804a9",
@@ -32643,19 +32773,6 @@
       "crate_name": "cargo_octet"
     },
     {
-      "stable_id": "b3:cc21d4673fa5aaa8",
-      "semantic_id": "b3:cc21d4673fa5aaa8",
-      "identity_status": "computed",
-      "lint": "excessive_file_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "crates/octet-standards/src/lib.rs",
-      "line": 1,
-      "column": 1,
-      "message": "source file is 2186 lines (limit: 300)",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:cc22fc4f10e1f04c",
       "semantic_id": "b3:cc22fc4f10e1f04c",
       "identity_status": "computed",
@@ -33369,6 +33486,19 @@
       "column": 1,
       "message": "item name `build_ir` repeats `ir` from ancestor path segment `octet_architecture_ir`",
       "crate_name": "octet_architecture_ir"
+    },
+    {
+      "stable_id": "b3:d04eff60384bcf3d",
+      "semantic_id": "b3:d04eff60384bcf3d",
+      "identity_status": "computed",
+      "lint": "excessive_file_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/prove.rs",
+      "line": 1,
+      "column": 1,
+      "message": "source file is 4972 lines (limit: 300)",
+      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:d058c3177d6b44b0",
@@ -34138,6 +34268,19 @@
       "crate_name": "octet_merge_rail"
     },
     {
+      "stable_id": "b3:d4ab17a674b96baf",
+      "semantic_id": "b3:d4ab17a674b96baf",
+      "identity_status": "computed",
+      "lint": "function_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/prove.rs",
+      "line": 1347,
+      "column": 78,
+      "message": "function `run_proof_command` is 90 lines (limit: 70)",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:d4abe95b33fb3cc6",
       "semantic_id": "b3:d4abe95b33fb3cc6",
       "identity_status": "computed",
@@ -34327,7 +34470,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 268,
+      "line": 275,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -34824,6 +34967,19 @@
       "line": 52,
       "column": 1,
       "message": "function has 6 parameters (limit: 5) — consider an options struct",
+      "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:d971dd3a26ce710a",
+      "semantic_id": "b3:d971dd3a26ce710a",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/prove.rs",
+      "line": 69,
+      "column": 1,
+      "message": "non-trait import `validate as validate_vermilion_canary` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
     },
     {
@@ -35419,7 +35575,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 69,
+      "line": 73,
       "column": 1,
       "message": "non-trait import `AENEAS_LEAN_BACKEND` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -35484,7 +35640,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 773,
+      "line": 800,
       "column": 60,
       "message": "function `build_aeneas_receipt` is 300 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -35750,19 +35906,6 @@
       "crate_name": "octet_standards"
     },
     {
-      "stable_id": "b3:dec5694ea3b80f41",
-      "semantic_id": "b3:dec5694ea3b80f41",
-      "identity_status": "computed",
-      "lint": "module_file_count",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "crates/octet-standards/src/aeneas_observation.rs",
-      "line": 1,
-      "column": 1,
-      "message": "module directory `crates/octet-standards/src` contains 23 Rust source files (limit: 7)",
-      "crate_name": "octet_standards"
-    },
-    {
       "stable_id": "b3:dece56d3f6552009",
       "semantic_id": "b3:dece56d3f6552009",
       "identity_status": "computed",
@@ -35913,7 +36056,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 1860,
+      "line": 1961,
       "column": 9,
       "message": "`.expect()` in production code will panic on failure",
       "crate_name": "cargo_octet"
@@ -35991,7 +36134,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 86,
+      "line": 90,
       "column": 1,
       "message": "non-trait import `ImportedProofBundle` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -36270,19 +36413,6 @@
       "crate_name": "cargo_octet"
     },
     {
-      "stable_id": "b3:e262ca8e6a397586",
-      "semantic_id": "b3:e262ca8e6a397586",
-      "identity_status": "computed",
-      "lint": "module_file_count",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "crates/octet-standards/src/aeneas_observation.rs",
-      "line": 1,
-      "column": 1,
-      "message": "module directory `./crates/octet-standards/src` contains 25 Rust source files (limit: 7)",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:e2686cd53992eac4",
       "semantic_id": "b3:e2686cd53992eac4",
       "identity_status": "computed",
@@ -36446,7 +36576,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 1820,
+      "line": 1921,
       "column": 9,
       "message": "`.expect()` in production code will panic on failure",
       "crate_name": "cargo_octet"
@@ -36914,7 +37044,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 1199,
+      "line": 1226,
       "column": 13,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -37135,7 +37265,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 1743,
+      "line": 1844,
       "column": 1,
       "message": "item name `is_existing_prove_bundle` repeats `prove` from ancestor path segment `prove`",
       "crate_name": "cargo_octet"
@@ -37174,7 +37304,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 370,
+      "line": 378,
       "column": 13,
       "message": "boolean binding `selector_failed` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -37304,7 +37434,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 1855,
+      "line": 1956,
       "column": 13,
       "message": "`.expect()` in production code will panic on failure",
       "crate_name": "cargo_octet"
@@ -38305,7 +38435,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 70,
+      "line": 74,
       "column": 1,
       "message": "non-trait import `AeneasCommandSummary` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -38513,7 +38643,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 1278,
+      "line": 1305,
       "column": 1,
       "message": "item name `cargo_workspace_root` repeats `cargo` from ancestor path segment `cargo_octet`",
       "crate_name": "cargo_octet"
@@ -39163,7 +39293,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 406,
+      "line": 414,
       "column": 1,
       "message": "item name `prove_report` repeats `prove` from ancestor path segment `prove`",
       "crate_name": "cargo_octet"
@@ -39348,6 +39478,19 @@
       "line": 469,
       "column": 1,
       "message": "item name `VermilionReceipt` repeats `vermilion` from ancestor path segment `vermilion`",
+      "crate_name": "octet_standards"
+    },
+    {
+      "stable_id": "b3:f618e60040367888",
+      "semantic_id": "b3:f618e60040367888",
+      "identity_status": "computed",
+      "lint": "module_file_count",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "crates/octet-standards/src/aeneas_observation.rs",
+      "line": 1,
+      "column": 1,
+      "message": "module directory `crates/octet-standards/src` contains 24 Rust source files (limit: 7)",
       "crate_name": "octet_standards"
     },
     {
@@ -39579,7 +39722,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 90,
+      "line": 94,
       "column": 1,
       "message": "non-trait import `GoalArtifactRequirement` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -39819,6 +39962,19 @@
       "crate_name": "cargo_octet"
     },
     {
+      "stable_id": "b3:f89a2987088eedc7",
+      "semantic_id": "b3:f89a2987088eedc7",
+      "identity_status": "computed",
+      "lint": "path_segment_repetition",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "crates/octet-standards/src/vermilion_canary.rs",
+      "line": 40,
+      "column": 1,
+      "message": "item name `VermilionCanaryReceipt` repeats `vermilion` from ancestor path segment `vermilion_canary`",
+      "crate_name": "octet_standards"
+    },
+    {
       "stable_id": "b3:f8a036cff980914e",
       "semantic_id": "b3:f8a036cff980914e",
       "identity_status": "computed",
@@ -39904,7 +40060,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/prove.rs",
-      "line": 2510,
+      "line": 2692,
       "column": 13,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"

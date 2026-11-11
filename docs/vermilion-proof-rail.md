@@ -222,13 +222,29 @@ checked-increment pilot passed 2/2 obligations with zero `sorry` and a
 kernel-checked proof twin. The synthetic positive receipt fixture remains a
 contract fixture, not a substitute for the measured pilot receipt.
 
+## Recorded-only measured canary rail
+
+`cargo octet prove --rail octet.vermilion_canary_rail.recorded` validates the
+exact measured u64 canary receipt against the reviewed Vermilion toolchain pins,
+source BLAKE3, obligation counts, outcome, and non-claims. It does not execute a
+provider. The emitted proof card is `manual_review_required`, carries no
+`formal_proof_envelope`, and binds the canary receipt and source as
+recorded-only provenance. `cargo octet artifact verify` accepts the complete
+bundle, and the Valence export preserves the recorded-only tier.
+
+The measured canary is not the typed `octet-vermilion-proof-receipt/v1`
+contract, and the typed positive fixture remains synthetic. The rail therefore
+does not promote either to formal proof or claim a fresh execution.
+
 ## Go/no-go recommendation
 
 - **Go** for the reviewed profile, typed receipt contract, comparison
   vocabulary, negative-control fixtures, and the live Vermilion u64 checked
   route. The pinned closure and the measured u64 pilot now exist.
-- **No-go** for cross-provider comparison, executable refinement, or any
-  whole-program/property claim. The plain-Rust executable bridge, the Verus
+- **Go** for the measured canary as recorded-only manual-review evidence through
+  `cargo octet prove`, artifact verification, and Valence export.
+- **No-go** for cross-provider comparison, executable refinement, formal
+  promotion of the canary or synthetic typed fixture, or any whole-program/property claim. The plain-Rust executable bridge, the Verus
   `nat`-to-`u64` bridge, and the Aeneas `u32`-to-`u64` bridge remain open, and
   Aeneas/Charon are absent.
 
@@ -239,6 +255,8 @@ comparison.
 ## Reproduce the pure checks
 
 ```console
+cargo test -p octet-standards --test vermilion_canary
+cargo test -p cargo-octet --lib canary_rail_validates_measured_receipt
 cargo test -p octet-standards vermilion --lib
 cargo fmt --check
 cargo clippy -p octet -p cargo-octet --all-targets -- -D warnings

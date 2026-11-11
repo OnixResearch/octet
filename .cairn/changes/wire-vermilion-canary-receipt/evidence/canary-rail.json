@@ -1,0 +1,21 @@
+{
+  "validator": "crates/octet-standards/src/vermilion_canary.rs",
+  "validator_tests": "crates/octet-standards/tests/vermilion_canary.rs",
+  "prove_integration": "cargo-octet/src/prove.rs",
+  "measured_receipt": "standards/proof-rails/vermilion-lean/evidence/2026-11-09-u64-pilot/receipt.json",
+  "rail": "standards/proof-rails/manifest.ncl#vermilion_canary",
+  "policy": "standards/policies/registry.ncl#octet.vermilion_canary_rail.recorded",
+  "commands": [
+    "cargo octet prove --policy-artifacts-dir <dir> --source standards/proof-rails/vermilion-lean/evidence/2026-11-09-u64-pilot/checked.rs --rail octet.vermilion_canary_rail.recorded --artifact-dir <artifacts> --output-format json",
+    "cargo octet artifact verify --artifact-dir <artifacts> --output-format json --emit-valence-provenance <export.json>"
+  ],
+  "observed": {
+    "prove_status": "passed",
+    "proof_card_evidence_tier": "manual_review_required",
+    "proof_card_status": "manual_review_required",
+    "formal_proof_envelope": null,
+    "artifact_verification": "valid",
+    "valence_export_evidence_tier": "manual_review_required"
+  },
+  "claim_boundary": "The canary is not a typed formal receipt or a fresh execution. The rail emits recorded-only manual-review evidence; the synthetic typed fixture is not used as measured proof."
+}

@@ -24,9 +24,14 @@ Vermilion (2/2 Lean obligations, 0 sorry) and by a production Verus rail over
 the u64 contract model. Charon/Aeneas extract the plain Rust function, and a
 universal Lean theorem checks both the `value < u64::MAX` and `u64::MAX` cases.
 Cross-provider comparison remains `incomparable_claims` until the Vermilion
-plain-Rust bridge and Verus plain-Rust refinement theorem are checked. No
-provider-soundness, whole-program, semantic-equivalence, or release claim
-follows.
+plain-Rust bridge and Verus plain-Rust refinement theorem are checked. The
+measured u64 canary is now admitted by
+`cargo octet prove --rail octet.vermilion_canary_rail.recorded` as
+recorded-only evidence: it validates the exact canary receipt and emits a
+`manual_review_required` proof card with no formal-proof envelope, and artifact
+verification plus Valence export preserve that tier. The synthetic typed
+fixture is not treated as measured proof. No provider-soundness, whole-program,
+semantic-equivalence, or release claim follows.
 
 ## 2026-11-09: Opt-in typed multi-hop evidence query experiment
 

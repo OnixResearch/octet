@@ -63,6 +63,10 @@ use octet_standards::proof_artifact::path_matches_pattern;
 use octet_standards::proof_artifact::path_pattern_diagnostics;
 use octet_standards::proof_artifact::receipt_paths as proof_artifact_receipt_paths;
 use octet_standards::source::SourceFile;
+use octet_standards::vermilion_canary::CANARY_SOURCE;
+use octet_standards::vermilion_canary::CANARY_SOURCE_PATH;
+use octet_standards::vermilion_canary::VermilionCanaryReceipt;
+use octet_standards::vermilion_canary::validate as validate_vermilion_canary;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -142,6 +146,9 @@ const TRELLIS_IMPORT_PROVENANCE_ARTIFACT: &str = "standards/proof-imports/genera
 const TRELLIS_IMPORTS_JSON: &str = include_str!("../../standards/proof-imports/generated/trellis-proof-imports.json");
 const AENEAS_CONSUMER_POLICY_ID: &str = "octet.aeneas_consumer_contract.external-fixture";
 const EVIDENCE_ORIGIN_OCTET_RERUN: &str = "octet_rerun";
+const EVIDENCE_ORIGIN_VERMILION_CANARY: &str = "recorded-vermilion-canary";
+const VERMILION_CANARY_BACKEND: &str = "vermilion-canary";
+const VERMILION_CANARY_SOURCE_ARTIFACT: &str = "proofs/vermilion-canary/checked.rs";
 const VERIFIER_MODE_EXTERNAL: &str = "external";
 /// Aeneas card non-claim recorded beside the shared `octet_standards` Aeneas non-claims.
 pub(crate) const AENEAS_NON_CLAIM_SEMANTIC_EQUIVALENCE: &str =
@@ -351,6 +358,7 @@ struct CommandOutcome {
     command_blake3: String,
     diagnostics: Vec<String>,
     aeneas_summary: Option<AeneasCommandSummary>,
+    canary_receipt: Option<String>,
 }
 
 pub fn run(args: &ProveArgs) -> Result<i32, String> {
@@ -423,6 +431,7 @@ fn prove_report(args: &ProveArgs, mut diagnostics: Vec<String>, executions: &[Ex
 fn settle_proof_goals(args: &ProveArgs, executions: &mut [ExecutedProof]) -> Vec<ProofGoalState> {
     executions
         .iter_mut()
+        .filter(|execution| execution.row.backend != VERMILION_CANARY_BACKEND)
         .map(|execution| {
             let goal_state = proof_goal_state_for_execution(args, execution);
             if !goal_state.emits_formal_proof {
@@ -596,7 +605,18 @@ fn execute_proof(
         captured_proof_log(&stderr_locator, &outcome.stderr_text, &checked_scope, EVIDENCE_LOG_CAPTURE_STDERR),
     ];
     let mut extra_artifacts = Vec::new();
-    let receipt_text = if selected.rail.backend == AENEAS_LEAN_BACKEND {
+    if selected.rail.backend == VERMILION_CANARY_BACKEND && diagnostics.is_empty() {
+        extra_artifacts.push(GeneratedProofArtifact {
+            locator: VERMILION_CANARY_SOURCE_ARTIFACT.to_owned(),
+            contents: CANARY_SOURCE.as_bytes().to_vec(),
+        });
+    }
+    let receipt_text = if selected.rail.backend == VERMILION_CANARY_BACKEND {
+        outcome
+            .canary_receipt
+            .clone()
+            .unwrap_or_else(|| failed_receipt_text(&selected.policy.policy_id, selected.rail_index, &diagnostics))
+    } else if selected.rail.backend == AENEAS_LEAN_BACKEND {
         match outcome.aeneas_summary.as_ref().and_then(
             |summary| {
                 if diagnostics.is_empty() { Some(summary) } else { None }
@@ -652,7 +672,7 @@ fn execute_proof(
             }
             Err(_) => {}
         }
-    } else {
+    } else if selected.rail.backend != VERMILION_CANARY_BACKEND {
         let proof_source = SourceFile::new(receipt_locator.clone(), receipt_text.clone());
         let mut validation_sources = sources.to_vec();
         // A source scope that contains the proof files (for example the workspace root) already
@@ -682,12 +702,19 @@ fn execute_proof(
         extra_artifacts.clear();
     }
     let formal_provenance = diagnostics.is_empty().then(|| {
-        proof_provenance_record(
+        let mut record = proof_provenance_record(
             &receipt_locator,
             receipt_text.as_bytes(),
             &checked_scope,
             &selected.rail.receipt_verifier.verifier_id,
-        )
+        );
+        if selected.rail.backend == VERMILION_CANARY_BACKEND {
+            record.evidence_tier = EvidenceTier::ManualReviewRequired;
+            record.human_action = Some(
+                "recorded-only measured Vermilion canary; review before any release use; not a formal proof".to_owned(),
+            );
+        }
+        record
     });
     ExecutedProof {
         row: ProofReportRow {
@@ -1318,6 +1345,9 @@ fn workspace_lists_member(workspace: &toml::Table, package: &str) -> bool {
 }
 
 fn run_proof_command(rail: &ProofRail, working_dir: &Path) -> CommandOutcome {
+    if rail.backend == VERMILION_CANARY_BACKEND {
+        return run_vermilion_canary(rail, working_dir);
+    }
     if rail.backend == AENEAS_LEAN_BACKEND {
         let summary = execute_aeneas_from_environment(rail, working_dir);
         let summary_for_outcome = summary.clone();
@@ -1333,6 +1363,7 @@ fn run_proof_command(rail: &ProofRail, working_dir: &Path) -> CommandOutcome {
             command_blake3: summary.command_blake3,
             diagnostics: summary.diagnostics,
             aeneas_summary: Some(summary_for_outcome),
+            canary_receipt: None,
         };
     }
     let spec = match proof_command_spec(rail) {
@@ -1350,6 +1381,7 @@ fn run_proof_command(rail: &ProofRail, working_dir: &Path) -> CommandOutcome {
                 command_blake3: command_blake3(&rail.command_argv),
                 diagnostics: vec![diagnostic],
                 aeneas_summary: None,
+                canary_receipt: None,
             };
         }
     };
@@ -1382,6 +1414,7 @@ fn run_proof_command(rail: &ProofRail, working_dir: &Path) -> CommandOutcome {
                 command_blake3,
                 diagnostics: Vec::new(),
                 aeneas_summary: None,
+                canary_receipt: None,
             }
         }
         Err(diagnostics) => {
@@ -1398,8 +1431,76 @@ fn run_proof_command(rail: &ProofRail, working_dir: &Path) -> CommandOutcome {
                 command_blake3,
                 diagnostics,
                 aeneas_summary: None,
+                canary_receipt: None,
             }
         }
+    }
+}
+
+fn run_vermilion_canary(rail: &ProofRail, working_dir: &Path) -> CommandOutcome {
+    let Some(receipt_path) = rail.receipt_paths.first() else {
+        let diagnostic = "vermilion canary rail has no receipt path".to_owned();
+        return canary_failure(diagnostic, None);
+    };
+    let text = match read_workspace_file(&working_dir.join(receipt_path)) {
+        Ok(text) => text,
+        Err(error) => return canary_failure(error, None),
+    };
+    let receipt = match serde_json::from_str::<VermilionCanaryReceipt>(&text) {
+        Ok(receipt) => receipt,
+        Err(error) => return canary_failure(format!("parse vermilion canary receipt: {error}"), Some(text)),
+    };
+    let diagnostics = validate_vermilion_canary(&receipt);
+    let command_blake3 = crate::evidence::artifact_blake3_hex(format!("vermilion-canary/v1\n{text}").as_bytes());
+    if diagnostics.is_empty() {
+        let stdout_text = format!("{}\n", rail.pass_signal);
+        CommandOutcome {
+            command_succeeded: true,
+            timed_out: false,
+            stdout_original_bytes: stdout_text.len(),
+            stdout_text,
+            stdout_truncated: false,
+            stderr_original_bytes: 0,
+            stderr_text: String::new(),
+            stderr_truncated: false,
+            command_blake3,
+            diagnostics,
+            aeneas_summary: None,
+            canary_receipt: Some(text),
+        }
+    } else {
+        let stderr_text = diagnostics.join("\n");
+        CommandOutcome {
+            command_succeeded: false,
+            timed_out: false,
+            stdout_original_bytes: 0,
+            stdout_text: String::new(),
+            stdout_truncated: false,
+            stderr_original_bytes: stderr_text.len(),
+            stderr_text,
+            stderr_truncated: false,
+            command_blake3,
+            diagnostics,
+            aeneas_summary: None,
+            canary_receipt: Some(text),
+        }
+    }
+}
+
+fn canary_failure(diagnostic: String, canary_receipt: Option<String>) -> CommandOutcome {
+    CommandOutcome {
+        command_succeeded: false,
+        timed_out: false,
+        stdout_text: String::new(),
+        stdout_original_bytes: 0,
+        stdout_truncated: false,
+        stderr_text: diagnostic.clone(),
+        stderr_original_bytes: diagnostic.len(),
+        stderr_truncated: false,
+        command_blake3: crate::evidence::artifact_blake3_hex(b"vermilion-canary/v1/failure"),
+        diagnostics: vec![diagnostic],
+        aeneas_summary: None,
+        canary_receipt,
     }
 }
 
@@ -2103,6 +2204,15 @@ fn imported_trellis_manifest() -> Result<ImportedProofBundleManifest, String> {
 }
 
 fn proof_card_for_execution(execution: &ExecutedProof) -> ProofCard {
+    if execution.row.backend == VERMILION_CANARY_BACKEND {
+        let mut card = initial_vermilion_canary_proof_card(execution);
+        let diagnostics = proof_card_validation_diagnostics(&card, None, None);
+        if !diagnostics.is_empty() {
+            card.evidence_tier = EvidenceTier::ManualReviewRequired.as_str().to_owned();
+            card.diagnostics.extend(diagnostics);
+        }
+        return card;
+    }
     let receipt = parse_verus_receipt(&execution.receipt_text).ok();
     let formal_proof_envelope = parse_formal_proof_envelope(&execution.receipt_text).ok();
     let mut card = formal_proof_envelope.as_ref().map_or_else(
@@ -2261,6 +2371,78 @@ fn initial_proof_card(
         evidence_tier: EvidenceTier::ManualReviewRequired.as_str().to_owned(),
         evidence_origin: EVIDENCE_ORIGIN_OCTET_RERUN.to_owned(),
         status: row.status.to_owned(),
+        trust_boundaries,
+        non_claims,
+        artifact_verifier_command: ARTIFACT_VERIFY_COMMAND.to_owned(),
+        provenance_artifact: PROVENANCE_ARTIFACT_NAME.to_owned(),
+        external_reference: None,
+        formal_proof_envelope: None,
+        negative_check: None,
+        diagnostics: row.diagnostics.clone(),
+    }
+}
+
+fn initial_vermilion_canary_proof_card(execution: &ExecutedProof) -> ProofCard {
+    let row = &execution.row;
+    let receipt_identity = crate::evidence::artifact_blake3_hex(execution.receipt_text.as_bytes());
+    let source_identity = crate::evidence::artifact_blake3_hex(CANARY_SOURCE.as_bytes());
+    let mut non_claims = default_card_non_claims();
+    non_claims
+        .push("recorded-only measured Vermilion canary; not a formal proof or fresh provider execution".to_owned());
+    let mut source_paths = vec![CANARY_SOURCE_PATH.to_owned()];
+    let mut verifier_identity_summary = String::from("vermilion-lean canary");
+    let mut solver_identity_summary = String::new();
+    let mut toolchain_identity_summary = String::new();
+    let mut trust_boundaries = vec![
+        "recorded-only measured Vermilion canary; the canary is not a formal proof or a fresh provider execution"
+            .to_owned(),
+    ];
+    match serde_json::from_str::<VermilionCanaryReceipt>(&execution.receipt_text) {
+        Ok(canary) => {
+            source_paths = vec![canary.source_path.clone()];
+            verifier_identity_summary = format!(
+                "vermilion@{}; verus@{}; lean@{}",
+                canary.vermilion_revision, canary.verus_fork_revision, canary.lean_toolchain
+            );
+            solver_identity_summary = format!("cvc5@{}", canary.cvc5_revision);
+            toolchain_identity_summary = format!("{}; mathlib@{}", canary.lean_toolchain, canary.mathlib_revision);
+            non_claims.extend(canary.non_claims.clone());
+            trust_boundaries.extend(canary.non_claims.clone());
+        }
+        Err(error) => {
+            non_claims.push(format!("recorded-only canary receipt could not be parsed: {error}"));
+        }
+    }
+    non_claims.sort();
+    non_claims.dedup();
+    trust_boundaries.sort();
+    trust_boundaries.dedup();
+    ProofCard {
+        proof_or_property_id: format!("vermilion-canary:{}", row.policy_id),
+        source_requirement_or_policy_id: row.policy_id.clone(),
+        policy_id: row.policy_id.clone(),
+        rail_index: row.rail_index,
+        checked_rust_source_scope: row.checked_scope.clone(),
+        source_paths,
+        proof_target_paths: vec![row.receipt.clone()],
+        verifier_mode: "recorded".to_owned(),
+        verifier_identity_summary,
+        solver_identity_summary,
+        toolchain_identity_summary,
+        receipt_path: row.receipt.clone(),
+        artifact_blake3_identities: vec![
+            ProofCardArtifactIdentity {
+                artifact: row.receipt.clone(),
+                blake3: receipt_identity,
+            },
+            ProofCardArtifactIdentity {
+                artifact: VERMILION_CANARY_SOURCE_ARTIFACT.to_owned(),
+                blake3: source_identity,
+            },
+        ],
+        evidence_tier: EvidenceTier::ManualReviewRequired.as_str().to_owned(),
+        evidence_origin: EVIDENCE_ORIGIN_VERMILION_CANARY.to_owned(),
+        status: STATUS_MANUAL_REVIEW_REQUIRED.to_owned(),
         trust_boundaries,
         non_claims,
         artifact_verifier_command: ARTIFACT_VERIFY_COMMAND.to_owned(),
@@ -4743,5 +4925,48 @@ mod tests {
             });
         }
         files
+    }
+    const CANARY_RECEIPT: &str =
+        include_str!("../../standards/proof-rails/vermilion-lean/evidence/2026-11-09-u64-pilot/receipt.json");
+
+    // r[verify octet.vermilion_canary_rail.recorded_only]
+    #[test]
+    fn canary_rail_validates_measured_receipt_and_emits_manual_review_card() {
+        let directory = std::env::temp_dir().join(format!("octet-prove-canary-{}", std::process::id()));
+        fs::create_dir_all(&directory).expect("canary test directory");
+        fs::write(directory.join("receipt.json"), CANARY_RECEIPT).expect("canary receipt");
+        let rail = ProofRail {
+            backend: VERMILION_CANARY_BACKEND.to_owned(),
+            receipt_paths: vec!["receipt.json".to_owned()],
+            pass_signal: "vermilion-canary-result: pass".to_owned(),
+            ..ProofRail::default()
+        };
+        let outcome = run_proof_command(&rail, &directory);
+        assert!(outcome.command_succeeded, "{:?}", outcome.diagnostics);
+        assert_eq!(outcome.canary_receipt.as_deref(), Some(CANARY_RECEIPT));
+        assert!(outcome.stdout_text.contains("vermilion-canary-result: pass"));
+        let execution = ExecutedProof {
+            row: ProofReportRow {
+                policy_id: "octet.vermilion_canary_rail.recorded".to_owned(),
+                rail_index: 0,
+                backend: VERMILION_CANARY_BACKEND.to_owned(),
+                verifier_mode: "recorded".to_owned(),
+                checked_scope: "recorded-only:vermilion-canary:test".to_owned(),
+                receipt: "proofs/test.receipt".to_owned(),
+                status: STATUS_PASSED,
+                diagnostics: Vec::new(),
+            },
+            receipt_text: CANARY_RECEIPT.to_owned(),
+            formal_provenance: None,
+            logs: Vec::new(),
+            extra_artifacts: Vec::new(),
+        };
+        let card = proof_card_for_execution(&execution);
+        assert_eq!(card.evidence_tier, EvidenceTier::ManualReviewRequired.as_str());
+        assert_eq!(card.status, STATUS_MANUAL_REVIEW_REQUIRED);
+        assert!(card.formal_proof_envelope.is_none());
+        assert_eq!(card.evidence_origin, EVIDENCE_ORIGIN_VERMILION_CANARY);
+        assert_eq!(card.receipt_path, "proofs/test.receipt");
+        let _ = fs::remove_dir_all(directory);
     }
 }

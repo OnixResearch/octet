@@ -30,6 +30,7 @@ pub mod spec_trace_parity;
 pub mod storage_fault;
 pub mod suppression;
 pub mod vermilion;
+pub mod vermilion_canary;
 
 #[cfg(test)]
 mod tests {

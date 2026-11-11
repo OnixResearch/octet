@@ -1,0 +1,16 @@
+{
+  "command": "nix flake check -L --option builders '' --option post-build-hook '' --option min-free 0 --option max-free 0",
+  "exit_code": 1,
+  "failing_check": "checks.x86_64-linux.object-corpus-gate",
+  "diagnostic": "reviewed-v2-source: REJECT selected source byte drift: crates/octet-standards/src/lib.rs",
+  "cause": "The canary module is declared in crates/octet-standards/src/lib.rs, a selected reviewed object-corpus source. The reviewed source manifests, receipts, caveat taxonomy, and verifier anchors must be refreshed in a separate reviewed change.",
+  "focused_verification": {
+    "canary_validator_tests": 5,
+    "prove_integration_test": "passed",
+    "cargo_octet_lib_tests": 865,
+    "cargo_octet_self_check": "passed with 3,160 identities / 4,337 warnings",
+    "canary_prove_cli": "passed",
+    "artifact_verify": "valid",
+    "valence_export_tier": "manual_review_required"
+  }
+}
