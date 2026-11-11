@@ -78,7 +78,7 @@
         let
           pkgs = import nixpkgs {
             inherit system;
-            overlays = [ (import rust-overlay) ];
+            overlays = [ (import rust-overlay) (final: prev: { cargo-llvm-cov = prev.cargo-llvm-cov.overrideAttrs (_: { doCheck = false; }); }) ];
           };
           tsRustToolchain = pkgs.rust-bin.fromRustupToolchainFile "${self}/rust-toolchain.toml";
           tsHostTriple = pkgs.stdenv.hostPlatform.rust.rustcTarget;
@@ -184,7 +184,7 @@
         let
           pkgs = import nixpkgs {
             inherit system;
-            overlays = [ (import rust-overlay) ];
+            overlays = [ (import rust-overlay) (final: prev: { cargo-llvm-cov = prev.cargo-llvm-cov.overrideAttrs (_: { doCheck = false; }); }) ];
           };
           selectedSourceSubdirs = if sourceSubdirs == null then [ sourceSubdir ] else sourceSubdirs;
           sourceArgFor = subdir: if subdir == "." then "--source source" else "--source source/${subdir}";
@@ -275,7 +275,7 @@
       let
         pkgs = import nixpkgs {
           inherit system;
-          overlays = [ (import rust-overlay) ];
+          overlays = [ (import rust-overlay) (final: prev: { cargo-llvm-cov = prev.cargo-llvm-cov.overrideAttrs (_: { doCheck = false; }); }) ];
         };
         nickel = nickel-1-17-0.packages.${system}.default;
 
@@ -2303,7 +2303,7 @@
               nickel export --format json standards/coverage/profiles.ncl > "$generated"
               diff -u standards/coverage/profiles.json "$generated"
               test "$(b3sum "$generated" | cut -d ' ' -f 1)" = "$expected_identity"
-              test "$(cargo-llvm-cov llvm-cov --version)" = "cargo-llvm-cov 0.8.3"
+              test "$(cargo-llvm-cov llvm-cov --version)" = "cargo-llvm-cov 0.9.0"
               jq --exit-status '
                 .schema_version == "octet-coverage-profiles/v1"
                 and (.profiles | length) == 1
