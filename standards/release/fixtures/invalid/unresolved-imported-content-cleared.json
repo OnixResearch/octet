@@ -32,6 +32,14 @@
     {
       "path": "notices.imported_material.0.included_in_qualified_cohort",
       "value": true
+    },
+    {
+      "path": "notices.imported_material.0.resolution",
+      "value": "unresolved"
+    },
+    {
+      "path": "notices.imported_material.1.resolution",
+      "value": "unresolved"
     }
   ],
   "expected_findings": [

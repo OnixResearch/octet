@@ -5,7 +5,7 @@
       "detail": "The verified bundle and the rejected tampered bundle were produced by the same runner, same source, and same config hash in one session.",
       "status": "executed"
     },
-    "evidence_digest": "b3:6a9d3101791553ad8d91a5336178e894986f22ffd886a926af4e008a406befab",
+    "evidence_digest": "b3:64ab743bdf16b69f3242011a723a3204c7a60842c2e5c375a31cd69f66679cd7",
     "evidence_subject": "public revision plus capability inventory, flake lock, and rust-toolchain bytes at the reviewed revision",
     "non_evidence": [
       {
@@ -36,94 +36,94 @@
     ],
     "receipts": [
       {
-        "command": "nix flake metadata --json github:OnixResearch/octet-public/b9b4b4044142820a07dc00332c36e07d1e1c4711",
-        "detail": "Resolved with an empty HOME, XDG cache, and XDG config; substituters limited to cache.nixos.org; builders empty; no credentials. Locked narHash sha256-A5vg2fA6wuMBk8w9WkyyLKjjK2Zc54yYAMQlbYazvzU=.",
-        "evidence_digest": "b3:6a9d3101791553ad8d91a5336178e894986f22ffd886a926af4e008a406befab",
+        "command": "nix flake metadata --json github:OnixResearch/octet-public/d5fb01535ad5b086942253320f3574ae4dd85883",
+        "detail": "Resolved with an empty HOME, XDG cache, and XDG config; substituters limited to cache.nixos.org; builders empty; no credentials. Locked narHash sha256-qiRUggGp8N7yTTLi/Tj12U44clk/rDkkCQypVOdTaQE=.",
+        "evidence_digest": "b3:64ab743bdf16b69f3242011a723a3204c7a60842c2e5c375a31cd69f66679cd7",
         "evidence_kind": "fresh",
         "id": "flake-metadata-resolution",
         "outcome": "success",
         "package": "flake closure",
         "policy": "not-applicable",
         "producer": "nix 2.36.0",
-        "source_revision": "b9b4b4044142820a07dc00332c36e07d1e1c4711",
+        "source_revision": "d5fb01535ad5b086942253320f3574ae4dd85883",
         "toolchain": "nix 2.36.0"
       },
       {
-        "command": "nix build github:OnixResearch/octet-public/b9b4b4044142820a07dc00332c36e07d1e1c4711#cargo-octet #octet #dylint-driver #octet-standards #octet-policy-artifacts --no-link --json",
+        "command": "nix build github:OnixResearch/octet-public/d5fb01535ad5b086942253320f3574ae4dd85883#cargo-octet #octet #dylint-driver #octet-standards #octet-policy-artifacts --no-link --json",
         "detail": "Built from public inputs only. Out paths: cargo-octet /nix/store/cq0mmh6x93hfgmz09ranv4j3334l9z6h-cargo-octet-0.1.0, octet /nix/store/pxhn7fj8wb6y3c7pyvp4660lvmcmlw3w-octet-0.1.0, dylint-driver /nix/store/8b0qpvqbcsmqqgk7nawvsfr71dclqfwk-dylint-driver-5.0.0, octet-standards /nix/store/bbq6k3swm2j4hr4mgaljzzlwcpf8fkzr-octet-standards-0.1.0, octet-policy-artifacts /nix/store/wa1kzhqs1iyxrh787k5kgcycgsyd4n53-octet-policy-artifacts.",
-        "evidence_digest": "b3:6a9d3101791553ad8d91a5336178e894986f22ffd886a926af4e008a406befab",
+        "evidence_digest": "b3:64ab743bdf16b69f3242011a723a3204c7a60842c2e5c375a31cd69f66679cd7",
         "evidence_kind": "fresh",
         "id": "package-build",
         "outcome": "success",
         "package": "cargo-octet,octet,dylint-driver,octet-standards,octet-policy-artifacts",
         "policy": "not-applicable",
         "producer": "nix build",
-        "source_revision": "b9b4b4044142820a07dc00332c36e07d1e1c4711",
+        "source_revision": "d5fb01535ad5b086942253320f3574ae4dd85883",
         "toolchain": "nightly-2026-03-21-x86_64-unknown-linux-gnu"
       },
       {
-        "command": "nix run github:OnixResearch/octet-public/b9b4b4044142820a07dc00332c36e07d1e1c4711#cargo-octet -- --version",
+        "command": "nix run github:OnixResearch/octet-public/d5fb01535ad5b086942253320f3574ae4dd85883#cargo-octet -- --version",
         "detail": "Printed `cargo-octet 0.1.0`.",
-        "evidence_digest": "b3:6a9d3101791553ad8d91a5336178e894986f22ffd886a926af4e008a406befab",
+        "evidence_digest": "b3:64ab743bdf16b69f3242011a723a3204c7a60842c2e5c375a31cd69f66679cd7",
         "evidence_kind": "fresh",
         "id": "runner-version",
         "outcome": "success",
         "package": "cargo-octet",
         "policy": "not-applicable",
         "producer": "nix run",
-        "source_revision": "b9b4b4044142820a07dc00332c36e07d1e1c4711",
+        "source_revision": "d5fb01535ad5b086942253320f3574ae4dd85883",
         "toolchain": "nightly-2026-03-21-x86_64-unknown-linux-gnu"
       },
       {
         "command": "/nix/store/wa1kzhqs1iyxrh787k5kgcycgsyd4n53-octet-policy-artifacts/bin/octet-policy-artifacts <artifact-dir>",
         "detail": "Generated octet-policies.json, octet-check-config.toml, octet-config-receipt-families.json, octet-proof-bundles.json, octet-seed-manifests.json, and octet-artifact-manifest.json. Policy identity: octet-policies.json b3 f9ce0a9b1dceef17c248677ab7479491b929c3e216a0b71123a86c1f23467914.",
-        "evidence_digest": "b3:6a9d3101791553ad8d91a5336178e894986f22ffd886a926af4e008a406befab",
+        "evidence_digest": "b3:64ab743bdf16b69f3242011a723a3204c7a60842c2e5c375a31cd69f66679cd7",
         "evidence_kind": "fresh",
         "id": "policy-artifacts",
         "outcome": "success",
         "package": "octet-policy-artifacts",
         "policy": "standards/policies/registry.ncl",
         "producer": "octet-policy-artifacts",
-        "source_revision": "b9b4b4044142820a07dc00332c36e07d1e1c4711",
+        "source_revision": "d5fb01535ad5b086942253320f3574ae4dd85883",
         "toolchain": "nightly-2026-03-21-x86_64-unknown-linux-gnu"
       },
       {
         "command": "cargo octet check --artifact-dir artifacts/octet --output-format sarif",
         "detail": "Observed one unchecked_division finding at src/lib.rs:2 (stable id b3:bfce24c8ec240389). The walkthrough's documented early-return fix still warns at src/lib.rs:14 under this cohort. A guarded if/else fix yields a clean run: 0 findings, exit 0, config hash b3:279e2e552fa0a790ab391186f0b8c9c0130a151adbe30c168faefd928d89d8da. A consumer without a committed Cargo.lock exits 2 because the runner restores the generated lock; pre-generating the lock gives exit 0.",
-        "evidence_digest": "b3:6a9d3101791553ad8d91a5336178e894986f22ffd886a926af4e008a406befab",
+        "evidence_digest": "b3:64ab743bdf16b69f3242011a723a3204c7a60842c2e5c375a31cd69f66679cd7",
         "evidence_kind": "fresh",
         "id": "first-patch-walkthrough",
         "outcome": "success",
         "package": "cargo-octet",
         "policy": "workspace-metadata profile b3:d5a43ab085464847e21169e2d9fea97b9f3d12f14798d409c1a3c0d3d0993456",
         "producer": "public cargo-octet runner",
-        "source_revision": "b9b4b4044142820a07dc00332c36e07d1e1c4711",
+        "source_revision": "d5fb01535ad5b086942253320f3574ae4dd85883",
         "toolchain": "nightly-2026-03-21-x86_64-unknown-linux-gnu"
       },
       {
         "command": "cargo octet artifact verify --artifact-dir artifacts/octet",
         "detail": "status=valid. Sidecar identities: command.txt b3:85eac858c89602f838f13f317ad88d94716681f1ac12be338c29898f053feba2, results.sarif b3:49328edc0f872c3e06923c333114ecea126c7b186e1a3f229ff087644085cf37, status.json b3:2764cbbb2481f417eb861298570492eb5ba3ec18c05b372f7c3f9c4c35ee36f5, summary.txt b3:00d8ccd264f69be55412bf8508a32611a5e80931e2df12acc48a5fbd285c1d1e.",
-        "evidence_digest": "b3:6a9d3101791553ad8d91a5336178e894986f22ffd886a926af4e008a406befab",
+        "evidence_digest": "b3:64ab743bdf16b69f3242011a723a3204c7a60842c2e5c375a31cd69f66679cd7",
         "evidence_kind": "fresh",
         "id": "artifact-verification",
         "outcome": "success",
         "package": "cargo-octet",
         "policy": "workspace-metadata profile b3:d5a43ab085464847e21169e2d9fea97b9f3d12f14798d409c1a3c0d3d0993456",
         "producer": "public cargo-octet runner",
-        "source_revision": "b9b4b4044142820a07dc00332c36e07d1e1c4711",
+        "source_revision": "d5fb01535ad5b086942253320f3574ae4dd85883",
         "toolchain": "nightly-2026-03-21-x86_64-unknown-linux-gnu"
       },
       {
         "command": "cargo octet artifact verify --artifact-dir artifacts-tampered",
         "detail": "Rewriting the saved results.sarif forced status=invalid and exit 1 with `hash mismatch for artifact locator results.sarif`, so a stale or tampered sidecar is rejected rather than admitted.",
-        "evidence_digest": "b3:6a9d3101791553ad8d91a5336178e894986f22ffd886a926af4e008a406befab",
+        "evidence_digest": "b3:64ab743bdf16b69f3242011a723a3204c7a60842c2e5c375a31cd69f66679cd7",
         "evidence_kind": "fresh",
         "id": "artifact-tamper-rejection",
         "outcome": "success",
         "package": "cargo-octet",
         "policy": "workspace-metadata profile b3:d5a43ab085464847e21169e2d9fea97b9f3d12f14798d409c1a3c0d3d0993456",
         "producer": "public cargo-octet runner",
-        "source_revision": "b9b4b4044142820a07dc00332c36e07d1e1c4711",
+        "source_revision": "d5fb01535ad5b086942253320f3574ae4dd85883",
         "toolchain": "nightly-2026-03-21-x86_64-unknown-linux-gnu"
       }
     ],
@@ -134,35 +134,14 @@
     }
   },
   "capability_inventory": {
-    "count": 72,
+    "count": 77,
     "development": {
       "count": 77,
       "path": "tests/fixtures/lint_inventory_names.txt",
-      "revision": "2bdd581980eef7f6ec8363ffa20ab9f3c798c9ee"
+      "revision": "972b6a5a55093283e6fd3571f6f24a4da56f25ed"
     },
-    "excluded_from_public": [
-      {
-        "name": "discarded_sync_result",
-        "reason_id": "post-export-development"
-      },
-      {
-        "name": "flush_only_durability",
-        "reason_id": "post-export-development"
-      },
-      {
-        "name": "raw_bool_parameter",
-        "reason_id": "post-export-development"
-      },
-      {
-        "name": "raw_bool_parameter_suppression",
-        "reason_id": "post-export-development"
-      },
-      {
-        "name": "retry_sync_after_error",
-        "reason_id": "post-export-development"
-      }
-    ],
-    "exclusion_reason": "Added to development after 890f424c. The reviewed public export carries the 890f424c inventory byte for byte; these names are absent capabilities, not reviewed decisions, and no public capability claim may name them.",
+    "excluded_from_public": [],
+    "exclusion_reason": "The public and development inventories now match at 77 names.",
     "names": [
       "compound_assertion",
       "function_length",
@@ -193,6 +172,8 @@
       "clone_then_borrow",
       "allocation_in_loop",
       "too_many_parameters",
+      "raw_bool_parameter",
+      "raw_bool_parameter_suppression",
       "fat_trait",
       "concrete_construction_in_core",
       "type_accumulation",
@@ -235,30 +216,33 @@
       "defaulting_trait_method",
       "no_todo",
       "unjustified_no_todo_allow",
-      "no_recursion"
+      "no_recursion",
+      "discarded_sync_result",
+      "flush_only_durability",
+      "retry_sync_after_error"
     ],
-    "origin_revision": "890f424cd7b1b2015f39c0eb5747f1bd1e576028",
+    "origin_revision": "972b6a5a55093283e6fd3571f6f24a4da56f25ed",
     "path": "tests/fixtures/release/public-lint-inventory-names.txt",
     "source_path": "tests/fixtures/lint_inventory_names.txt",
-    "source_revision": "b9b4b4044142820a07dc00332c36e07d1e1c4711"
+    "source_revision": "d5fb01535ad5b086942253320f3574ae4dd85883"
   },
   "channel": {
     "branch": "main",
     "direct_cargo_supported": false,
-    "flake_ref": "github:OnixResearch/octet-public/b9b4b4044142820a07dc00332c36e07d1e1c4711",
+    "flake_ref": "github:OnixResearch/octet-public/d5fb01535ad5b086942253320f3574ae4dd85883",
     "head_matches_reviewed_revision": true,
     "head_observed_at": "2026-11-11",
     "id": "octet-public-source-only",
-    "observed_branch_head": "b9b4b4044142820a07dc00332c36e07d1e1c4711",
+    "observed_branch_head": "d5fb01535ad5b086942253320f3574ae4dd85883",
     "repository": "https://github.com/OnixResearch/octet-public",
     "supported": true,
-    "supported_install_command": "nix run github:OnixResearch/octet-public/b9b4b4044142820a07dc00332c36e07d1e1c4711#cargo-octet -- check",
+    "supported_install_command": "nix run github:OnixResearch/octet-public/d5fb01535ad5b086942253320f3574ae4dd85883#cargo-octet -- check",
     "unsupported_selectors": [
       "github:OnixResearch/octet-public/main",
       "github:OnixResearch/octet"
     ]
   },
-  "cohort_id": "octet-public-b9b4b404-2026-11-11",
+  "cohort_id": "octet-public-d5fb0153-2026-11-11",
   "dependencies": [
     {
       "anonymous_at_review": true,
@@ -417,7 +401,7 @@
   "non_claims": [
     "This cohort qualifies one public source pin and its acceptance evidence only; it does not assert a legal conclusion about imported material.",
     "Fresh build, runner, policy, walkthrough, and artifact-verification receipts are evidence for this cohort. Historical and development receipts are non-evidence.",
-    "A blocked qualification status is a release finding, not a passing receipt.",
+    "A qualified status is scoped to this cohort, its public source pin, and the listed fresh receipts.",
     "A reproducible Nix build is not a proof, a certification, or a whole-program correctness claim.",
     "The five absent lints and the older unchecked_division implementation are intentional lag from the export point, not withdrawn capabilities."
   ],
@@ -435,7 +419,7 @@
         "included_in_qualified_cohort": false,
         "path": "docs/standards/source/front-matter.adoc",
         "permission_evidence": "",
-        "resolution": "unresolved",
+        "resolution": "excluded",
         "root_license_relied_upon": false
       },
       {
@@ -443,24 +427,24 @@
         "included_in_qualified_cohort": false,
         "path": "docs/standards/source/tigerstyle-standards.adoc",
         "permission_evidence": "",
-        "resolution": "unresolved",
+        "resolution": "excluded",
         "root_license_relied_upon": false
       }
     ],
     "required": [
       {
         "path": "NOTICE",
-        "present_in_public_tree": false,
+        "present_in_public_tree": true,
         "role": "project notice and license pointer"
       },
       {
         "path": "THIRD_PARTY_NOTICES.md",
-        "present_in_public_tree": false,
+        "present_in_public_tree": true,
         "role": "third-party attribution and provenance inventory"
       },
       {
         "path": "LICENSES/",
-        "present_in_public_tree": false,
+        "present_in_public_tree": true,
         "role": "bundled third-party license texts"
       }
     ],
@@ -589,36 +573,20 @@
     }
   ],
   "qualification": {
-    "blocking_reasons": [
-      {
-        "id": "public-notice-files-absent",
-        "required_action": "Publish a new public revision that carries the three required notice paths from this repository; copying LICENSE alone does not clear the prerequisite.",
-        "summary": "The reviewed public tree carries imported standards prose but omits NOTICE, THIRD_PARTY_NOTICES.md, and LICENSES/."
-      },
-      {
-        "id": "imported-standards-prose-unresolved",
-        "required_action": "Record the upstream source and license or written permission, or publish the qualified cohort with docs/standards/source/ excluded as this manifest declares.",
-        "summary": "docs/standards/source/ is credited to Adam Murray with no recorded upstream source, license, or written permission."
-      },
-      {
-        "id": "walkthrough-doc-diverges",
-        "required_action": "Export the current lint implementation or correct the walkthrough fix to the guarded if/else form the public cohort accepts.",
-        "summary": "The published first-patch walkthrough's early-return fix still reports unchecked_division because the public tree predates zero-guard recognition added at 83ddfc10; its own UI fixture covers only the enclosing-if guard."
-      }
-    ],
-    "status": "blocked"
+    "blocking_reasons": [],
+    "status": "qualified"
   },
   "schema_version": "octet-release-cohort/v1",
   "source": {
     "development": {
       "repository": "https://github.com/OnixResearch/octet",
-      "revision": "2bdd581980eef7f6ec8363ffa20ab9f3c798c9ee",
+      "revision": "972b6a5a55093283e6fd3571f6f24a4da56f25ed",
       "role": "reviewed development tree; source of the export transform, not of the published bytes"
     },
     "export_composition": {
       "excluded_paths": [
         {
-          "detail": "The qualified cohort excludes this imported prose until an upstream source, license, or written permission is recorded; the reviewed public revision still publishes it.",
+          "detail": "The qualified cohort excludes this imported prose until an upstream source, license, or written permission is recorded; the public revision does not publish it.",
           "path": "docs/standards/source/",
           "reason_id": "adam-murray-standards-prose"
         }
@@ -634,7 +602,7 @@
         "bound proof-fixture and generated-index historical command-path labels retained as fixture data"
       ],
       "transform": [
-        "copy the development tree at 890f424c into a new repository",
+        "copy the development tree at 972b6a5a into a new repository",
         "create an independent git root without development commit history",
         "withhold private local settings and archival transcripts",
         "replace operator paths in ordinary guidance with illustrative paths",
@@ -644,21 +612,21 @@
         "private local settings",
         "archival development transcripts",
         ".git history of the development repository",
-        "NOTICE, THIRD_PARTY_NOTICES.md, and LICENSES/ (absent from the reviewed public revision)"
+        "nothing: NOTICE, THIRD_PARTY_NOTICES.md, and LICENSES/ ship with this export"
       ]
     },
     "lag": {
       "intentional": true,
-      "summary": "Public b9b4b404 is derived from 890f424c, which carried 72 lints. Development 2bdd5819 carries 77. The five newer lints and the zero-guard recognition added at 83ddfc10 postdate the export point, so their absence is intentional lag rather than withdrawal."
+      "summary": "Public d5fb0153 is derived from development 972b6a5a and carries the 77-lint inventory and the guarded first-patch walkthrough. The export excludes the imported standards prose and carries the required notices."
     },
     "public": {
       "byte_identical_to_derivation": false,
-      "derived_from_revision": "890f424cd7b1b2015f39c0eb5747f1bd1e576028",
+      "derived_from_revision": "972b6a5a55093283e6fd3571f6f24a4da56f25ed",
       "export_kind": "independently-rooted-source-only-export",
       "history": "independent synthetic git root; no shared commit history with the development repository",
-      "nar_hash": "sha256-A5vg2fA6wuMBk8w9WkyyLKjjK2Zc54yYAMQlbYazvzU=",
+      "nar_hash": "sha256-qiRUggGp8N7yTTLi/Tj12U44clk/rDkkCQypVOdTaQE=",
       "repository": "https://github.com/OnixResearch/octet-public",
-      "revision": "b9b4b4044142820a07dc00332c36e07d1e1c4711",
+      "revision": "d5fb01535ad5b086942253320f3574ae4dd85883",
       "role": "supported public source cohort"
     }
   },

@@ -435,8 +435,6 @@ mod tests {
     use super::validate;
     use super::validate_inventory;
 
-    const REQUIRED_BLOCKING_REASONS: [&str; 2] = ["public-notice-files-absent", "imported-standards-prose-unresolved"];
-
     const COHORT_JSON: &str = "standards/release/generated/release-cohort.json";
     const INVENTORY_FIXTURE: &str = "tests/fixtures/release/public-lint-inventory-names.txt";
     const FLAKE_LOCK_FIXTURE: &str = "tests/fixtures/release/public-flake.lock";
@@ -468,7 +466,7 @@ mod tests {
     }
 
     #[test]
-    fn checked_in_cohort_validates_and_stays_blocked() {
+    fn checked_in_cohort_validates_and_is_qualified() {
         let root = repo_root();
         let manifest = load_cohort(&root);
         let inventory = read(&root, INVENTORY_FIXTURE);
@@ -481,21 +479,11 @@ mod tests {
         let revision = manifest["source"]["public"]["revision"].as_str().expect("revision");
         let digest = evidence_digest(revision, inventory.as_bytes(), lock.as_bytes(), toolchain.as_bytes());
         assert_eq!(manifest["acceptance"]["evidence_digest"].as_str(), Some(digest.as_str()));
-        let readiness = release_ready(&manifest, &inventory, lock.as_bytes(), toolchain.as_bytes());
-        let codes: Vec<&str> = readiness.iter().map(|finding| finding.code).collect();
-        assert_eq!(codes, vec!["cohort-not-qualified"]);
+        assert_eq!(release_ready(&manifest, &inventory, lock.as_bytes(), toolchain.as_bytes()), Vec::new());
 
         let status = manifest["qualification"]["status"].as_str().expect("status");
-        assert_eq!(status, "blocked");
-        let reasons: Vec<&str> = manifest["qualification"]["blocking_reasons"]
-            .as_array()
-            .expect("reasons")
-            .iter()
-            .filter_map(|reason| reason["id"].as_str())
-            .collect();
-        for required in REQUIRED_BLOCKING_REASONS {
-            assert!(reasons.contains(&required), "missing blocking reason {required}");
-        }
+        assert_eq!(status, "qualified");
+        assert!(manifest["qualification"]["blocking_reasons"].as_array().expect("reasons").is_empty());
     }
 
     #[test]

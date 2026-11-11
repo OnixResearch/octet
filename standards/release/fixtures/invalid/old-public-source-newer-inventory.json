@@ -7,5 +7,5 @@
       "value": "2bdd581980eef7f6ec8363ffa20ab9f3c798c9ee"
     }
   ],
-  "expected_findings": ["inventory-source-mismatch", "inventory-fixture-mismatch"]
+  "expected_findings": ["inventory-source-mismatch"]
 }

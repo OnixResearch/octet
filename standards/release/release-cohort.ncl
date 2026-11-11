@@ -7,7 +7,7 @@
 # `generated/release-cohort.json`, and re-checked offline by
 # `octet_standards::release_cohort`.
 #
-# The reviewed public revision is b9b4b4044142820a07dc00332c36e07d1e1c4711,
+# The reviewed public revision is d5fb01535ad5b086942253320f3574ae4dd85883,
 # which is also the observed `main` head at review time. It is an independently
 # rooted source-only export derived from development revision
 # 890f424cd7b1b2015f39c0eb5747f1bd1e576028. Development has moved on:
@@ -26,13 +26,13 @@
 # are listed in `acceptance.non_evidence`; only `acceptance.receipts` entries
 # produced against this source, package, policy, and toolchain set count.
 let contracts = import "./contracts.ncl" in
-let public_revision = "b9b4b4044142820a07dc00332c36e07d1e1c4711" in
-let export_origin = "890f424cd7b1b2015f39c0eb5747f1bd1e576028" in
-let public_flake_ref = "github:OnixResearch/octet-public/b9b4b4044142820a07dc00332c36e07d1e1c4711" in
-let cohort_evidence = "b3:6a9d3101791553ad8d91a5336178e894986f22ffd886a926af4e008a406befab" in
+let public_revision = "d5fb01535ad5b086942253320f3574ae4dd85883" in
+let export_origin = "972b6a5a55093283e6fd3571f6f24a4da56f25ed" in
+let public_flake_ref = "github:OnixResearch/octet-public/d5fb01535ad5b086942253320f3574ae4dd85883" in
+let cohort_evidence = "b3:64ab743bdf16b69f3242011a723a3204c7a60842c2e5c375a31cd69f66679cd7" in
 {
   schema_version = "octet-release-cohort/v1",
-  cohort_id = "octet-public-b9b4b404-2026-11-11",
+  cohort_id = "octet-public-d5fb0153-2026-11-11",
   channel = {
     id = "octet-public-source-only",
     repository = "https://github.com/OnixResearch/octet-public",
@@ -43,7 +43,7 @@ let cohort_evidence = "b3:6a9d3101791553ad8d91a5336178e894986f22ffd886a926af4e00
     head_matches_reviewed_revision = true,
     supported = true,
     direct_cargo_supported = false,
-    supported_install_command = "nix run github:OnixResearch/octet-public/b9b4b4044142820a07dc00332c36e07d1e1c4711#cargo-octet -- check",
+    supported_install_command = "nix run github:OnixResearch/octet-public/d5fb01535ad5b086942253320f3574ae4dd85883#cargo-octet -- check",
     unsupported_selectors = [
       "github:OnixResearch/octet-public/main",
       "github:OnixResearch/octet",
@@ -52,13 +52,13 @@ let cohort_evidence = "b3:6a9d3101791553ad8d91a5336178e894986f22ffd886a926af4e00
   source = {
     development = {
       repository = "https://github.com/OnixResearch/octet",
-      revision = "2bdd581980eef7f6ec8363ffa20ab9f3c798c9ee",
+      revision = "972b6a5a55093283e6fd3571f6f24a4da56f25ed",
       role = "reviewed development tree; source of the export transform, not of the published bytes",
     },
     public = {
       repository = "https://github.com/OnixResearch/octet-public",
       revision = public_revision,
-      nar_hash = "sha256-A5vg2fA6wuMBk8w9WkyyLKjjK2Zc54yYAMQlbYazvzU=",
+      nar_hash = "sha256-qiRUggGp8N7yTTLi/Tj12U44clk/rDkkCQypVOdTaQE=",
       export_kind = "independently-rooted-source-only-export",
       derived_from_revision = export_origin,
       byte_identical_to_derivation = false,
@@ -67,11 +67,11 @@ let cohort_evidence = "b3:6a9d3101791553ad8d91a5336178e894986f22ffd886a926af4e00
     },
     lag = {
       intentional = true,
-      summary = "Public b9b4b404 is derived from 890f424c, which carried 72 lints. Development 2bdd5819 carries 77. The five newer lints and the zero-guard recognition added at 83ddfc10 postdate the export point, so their absence is intentional lag rather than withdrawal.",
+      summary = "Public d5fb0153 is derived from development 972b6a5a and carries the 77-lint inventory and the guarded first-patch walkthrough. The export excludes the imported standards prose and carries the required notices.",
     },
     export_composition = {
       transform = [
-        "copy the development tree at 890f424c into a new repository",
+        "copy the development tree at 972b6a5a into a new repository",
         "create an independent git root without development commit history",
         "withhold private local settings and archival transcripts",
         "replace operator paths in ordinary guidance with illustrative paths",
@@ -81,7 +81,7 @@ let cohort_evidence = "b3:6a9d3101791553ad8d91a5336178e894986f22ffd886a926af4e00
         "private local settings",
         "archival development transcripts",
         ".git history of the development repository",
-        "NOTICE, THIRD_PARTY_NOTICES.md, and LICENSES/ (absent from the reviewed public revision)",
+        "nothing: NOTICE, THIRD_PARTY_NOTICES.md, and LICENSES/ ship with this export",
       ],
       rewritten = [
         "operator paths in ordinary guidance",
@@ -92,7 +92,7 @@ let cohort_evidence = "b3:6a9d3101791553ad8d91a5336178e894986f22ffd886a926af4e00
         {
           path = "docs/standards/source/",
           reason_id = "adam-murray-standards-prose",
-          detail = "The qualified cohort excludes this imported prose until an upstream source, license, or written permission is recorded; the reviewed public revision still publishes it.",
+          detail = "The qualified cohort excludes this imported prose until an upstream source, license, or written permission is recorded; the public revision does not publish it.",
         },
       ],
       required_additions = [ "NOTICE", "THIRD_PARTY_NOTICES.md", "LICENSES/" ],
@@ -163,7 +163,7 @@ let cohort_evidence = "b3:6a9d3101791553ad8d91a5336178e894986f22ffd886a926af4e00
     source_path = "tests/fixtures/lint_inventory_names.txt",
     source_revision = public_revision,
     origin_revision = export_origin,
-    count = 72,
+    count = 77,
     names = [
       "compound_assertion",
       "function_length",
@@ -194,6 +194,8 @@ let cohort_evidence = "b3:6a9d3101791553ad8d91a5336178e894986f22ffd886a926af4e00
       "clone_then_borrow",
       "allocation_in_loop",
       "too_many_parameters",
+      "raw_bool_parameter",
+      "raw_bool_parameter_suppression",
       "fat_trait",
       "concrete_construction_in_core",
       "type_accumulation",
@@ -237,27 +239,24 @@ let cohort_evidence = "b3:6a9d3101791553ad8d91a5336178e894986f22ffd886a926af4e00
       "no_todo",
       "unjustified_no_todo_allow",
       "no_recursion",
+      "discarded_sync_result",
+      "flush_only_durability",
+      "retry_sync_after_error",
     ],
     development = {
       path = "tests/fixtures/lint_inventory_names.txt",
-      revision = "2bdd581980eef7f6ec8363ffa20ab9f3c798c9ee",
+      revision = "972b6a5a55093283e6fd3571f6f24a4da56f25ed",
       count = 77,
     },
-    excluded_from_public = [
-      { name = "discarded_sync_result", reason_id = "post-export-development" },
-      { name = "flush_only_durability", reason_id = "post-export-development" },
-      { name = "raw_bool_parameter", reason_id = "post-export-development" },
-      { name = "raw_bool_parameter_suppression", reason_id = "post-export-development" },
-      { name = "retry_sync_after_error", reason_id = "post-export-development" },
-    ],
-    exclusion_reason = "Added to development after 890f424c. The reviewed public export carries the 890f424c inventory byte for byte; these names are absent capabilities, not reviewed decisions, and no public capability claim may name them.",
+    excluded_from_public = [],
+    exclusion_reason = "The public and development inventories now match at 77 names.",
   },
   notices = {
     root_license = "LICENSE",
     required = [
-      { path = "NOTICE", role = "project notice and license pointer", present_in_public_tree = false },
-      { path = "THIRD_PARTY_NOTICES.md", role = "third-party attribution and provenance inventory", present_in_public_tree = false },
-      { path = "LICENSES/", role = "bundled third-party license texts", present_in_public_tree = false },
+      { path = "NOTICE", role = "project notice and license pointer", present_in_public_tree = true },
+      { path = "THIRD_PARTY_NOTICES.md", role = "third-party attribution and provenance inventory", present_in_public_tree = true },
+      { path = "LICENSES/", role = "bundled third-party license texts", present_in_public_tree = true },
     ],
     attribution_ids = [
       "dylint-support-sources",
@@ -271,7 +270,7 @@ let cohort_evidence = "b3:6a9d3101791553ad8d91a5336178e894986f22ffd886a926af4e00
         path = "docs/standards/source/front-matter.adoc",
         attribution = "Adam Murray (credited in the file's front matter)",
         root_license_relied_upon = false,
-        resolution = "unresolved",
+        resolution = "excluded",
         permission_evidence = "",
         included_in_qualified_cohort = false,
       },
@@ -279,7 +278,7 @@ let cohort_evidence = "b3:6a9d3101791553ad8d91a5336178e894986f22ffd886a926af4e00
         path = "docs/standards/source/tigerstyle-standards.adoc",
         attribution = "Adam Murray (credited in the file's front matter)",
         root_license_relied_upon = false,
-        resolution = "unresolved",
+        resolution = "excluded",
         permission_evidence = "",
         included_in_qualified_cohort = false,
       },
@@ -293,20 +292,20 @@ let cohort_evidence = "b3:6a9d3101791553ad8d91a5336178e894986f22ffd886a926af4e00
         id = "flake-metadata-resolution",
         evidence_kind = "fresh",
         producer = "nix 2.36.0",
-        command = "nix flake metadata --json github:OnixResearch/octet-public/b9b4b4044142820a07dc00332c36e07d1e1c4711",
+        command = "nix flake metadata --json github:OnixResearch/octet-public/d5fb01535ad5b086942253320f3574ae4dd85883",
         outcome = "success",
         source_revision = public_revision,
         package = "flake closure",
         policy = "not-applicable",
         toolchain = "nix 2.36.0",
         evidence_digest = cohort_evidence,
-        detail = "Resolved with an empty HOME, XDG cache, and XDG config; substituters limited to cache.nixos.org; builders empty; no credentials. Locked narHash sha256-A5vg2fA6wuMBk8w9WkyyLKjjK2Zc54yYAMQlbYazvzU=.",
+        detail = "Resolved with an empty HOME, XDG cache, and XDG config; substituters limited to cache.nixos.org; builders empty; no credentials. Locked narHash sha256-qiRUggGp8N7yTTLi/Tj12U44clk/rDkkCQypVOdTaQE=.",
       },
       {
         id = "package-build",
         evidence_kind = "fresh",
         producer = "nix build",
-        command = "nix build github:OnixResearch/octet-public/b9b4b4044142820a07dc00332c36e07d1e1c4711#cargo-octet #octet #dylint-driver #octet-standards #octet-policy-artifacts --no-link --json",
+        command = "nix build github:OnixResearch/octet-public/d5fb01535ad5b086942253320f3574ae4dd85883#cargo-octet #octet #dylint-driver #octet-standards #octet-policy-artifacts --no-link --json",
         outcome = "success",
         source_revision = public_revision,
         package = "cargo-octet,octet,dylint-driver,octet-standards,octet-policy-artifacts",
@@ -319,7 +318,7 @@ let cohort_evidence = "b3:6a9d3101791553ad8d91a5336178e894986f22ffd886a926af4e00
         id = "runner-version",
         evidence_kind = "fresh",
         producer = "nix run",
-        command = "nix run github:OnixResearch/octet-public/b9b4b4044142820a07dc00332c36e07d1e1c4711#cargo-octet -- --version",
+        command = "nix run github:OnixResearch/octet-public/d5fb01535ad5b086942253320f3574ae4dd85883#cargo-octet -- --version",
         outcome = "success",
         source_revision = public_revision,
         package = "cargo-octet",
@@ -414,29 +413,13 @@ let cohort_evidence = "b3:6a9d3101791553ad8d91a5336178e894986f22ffd886a926af4e00
     },
   ],
   qualification = {
-    status = "blocked",
-    blocking_reasons = [
-      {
-        id = "public-notice-files-absent",
-        summary = "The reviewed public tree carries imported standards prose but omits NOTICE, THIRD_PARTY_NOTICES.md, and LICENSES/.",
-        required_action = "Publish a new public revision that carries the three required notice paths from this repository; copying LICENSE alone does not clear the prerequisite.",
-      },
-      {
-        id = "imported-standards-prose-unresolved",
-        summary = "docs/standards/source/ is credited to Adam Murray with no recorded upstream source, license, or written permission.",
-        required_action = "Record the upstream source and license or written permission, or publish the qualified cohort with docs/standards/source/ excluded as this manifest declares.",
-      },
-      {
-        id = "walkthrough-doc-diverges",
-        summary = "The published first-patch walkthrough's early-return fix still reports unchecked_division because the public tree predates zero-guard recognition added at 83ddfc10; its own UI fixture covers only the enclosing-if guard.",
-        required_action = "Export the current lint implementation or correct the walkthrough fix to the guarded if/else form the public cohort accepts.",
-      },
-    ],
+    status = "qualified",
+    blocking_reasons = [],
   },
   non_claims = [
     "This cohort qualifies one public source pin and its acceptance evidence only; it does not assert a legal conclusion about imported material.",
     "Fresh build, runner, policy, walkthrough, and artifact-verification receipts are evidence for this cohort. Historical and development receipts are non-evidence.",
-    "A blocked qualification status is a release finding, not a passing receipt.",
+    "A qualified status is scoped to this cohort, its public source pin, and the listed fresh receipts.",
     "A reproducible Nix build is not a proof, a certification, or a whole-program correctness claim.",
     "The five absent lints and the older unchecked_division implementation are intentional lag from the export point, not withdrawn capabilities.",
   ],
