@@ -7,7 +7,7 @@
 # `generated/release-cohort.json`, and re-checked offline by
 # `octet_standards::release_cohort`.
 #
-# The reviewed public revision is d5fb01535ad5b086942253320f3574ae4dd85883,
+# The reviewed public revision is becae9621fdf96803c7859e83d303cf535f20b15,
 # which is also the observed `main` head at review time. It is an independently
 # rooted source-only export derived from development revision
 # 890f424cd7b1b2015f39c0eb5747f1bd1e576028. Development has moved on:
@@ -26,13 +26,13 @@
 # are listed in `acceptance.non_evidence`; only `acceptance.receipts` entries
 # produced against this source, package, policy, and toolchain set count.
 let contracts = import "./contracts.ncl" in
-let public_revision = "d5fb01535ad5b086942253320f3574ae4dd85883" in
+let public_revision = "becae9621fdf96803c7859e83d303cf535f20b15" in
 let export_origin = "972b6a5a55093283e6fd3571f6f24a4da56f25ed" in
-let public_flake_ref = "github:OnixResearch/octet-public/d5fb01535ad5b086942253320f3574ae4dd85883" in
-let cohort_evidence = "b3:64ab743bdf16b69f3242011a723a3204c7a60842c2e5c375a31cd69f66679cd7" in
+let public_flake_ref = "github:OnixResearch/octet-public/becae9621fdf96803c7859e83d303cf535f20b15" in
+let cohort_evidence = "b3:60b3f2c65f7812669c768507d5c8804af6887e7e18611539e69925ad14e579fa" in
 {
   schema_version = "octet-release-cohort/v1",
-  cohort_id = "octet-public-d5fb0153-2026-11-11",
+  cohort_id = "octet-public-becae962-2026-11-11",
   channel = {
     id = "octet-public-source-only",
     repository = "https://github.com/OnixResearch/octet-public",
@@ -43,7 +43,7 @@ let cohort_evidence = "b3:64ab743bdf16b69f3242011a723a3204c7a60842c2e5c375a31cd6
     head_matches_reviewed_revision = true,
     supported = true,
     direct_cargo_supported = false,
-    supported_install_command = "nix run github:OnixResearch/octet-public/d5fb01535ad5b086942253320f3574ae4dd85883#cargo-octet -- check",
+    supported_install_command = "nix run github:OnixResearch/octet-public/becae9621fdf96803c7859e83d303cf535f20b15#cargo-octet -- check",
     unsupported_selectors = [
       "github:OnixResearch/octet-public/main",
       "github:OnixResearch/octet",
@@ -58,7 +58,7 @@ let cohort_evidence = "b3:64ab743bdf16b69f3242011a723a3204c7a60842c2e5c375a31cd6
     public = {
       repository = "https://github.com/OnixResearch/octet-public",
       revision = public_revision,
-      nar_hash = "sha256-qiRUggGp8N7yTTLi/Tj12U44clk/rDkkCQypVOdTaQE=",
+      nar_hash = "sha256-5qsxu3ncbLCNYRLdryjVQDWPwTkIZ7dQ/F561lcmKCQ=",
       export_kind = "independently-rooted-source-only-export",
       derived_from_revision = export_origin,
       byte_identical_to_derivation = false,
@@ -292,20 +292,20 @@ let cohort_evidence = "b3:64ab743bdf16b69f3242011a723a3204c7a60842c2e5c375a31cd6
         id = "flake-metadata-resolution",
         evidence_kind = "fresh",
         producer = "nix 2.36.0",
-        command = "nix flake metadata --json github:OnixResearch/octet-public/d5fb01535ad5b086942253320f3574ae4dd85883",
+        command = "nix flake metadata --json github:OnixResearch/octet-public/becae9621fdf96803c7859e83d303cf535f20b15",
         outcome = "success",
         source_revision = public_revision,
         package = "flake closure",
         policy = "not-applicable",
         toolchain = "nix 2.36.0",
         evidence_digest = cohort_evidence,
-        detail = "Resolved with an empty HOME, XDG cache, and XDG config; substituters limited to cache.nixos.org; builders empty; no credentials. Locked narHash sha256-qiRUggGp8N7yTTLi/Tj12U44clk/rDkkCQypVOdTaQE=.",
+        detail = "Resolved with an empty HOME, XDG cache, and XDG config; substituters limited to cache.nixos.org; builders empty; no credentials. Locked narHash sha256-5qsxu3ncbLCNYRLdryjVQDWPwTkIZ7dQ/F561lcmKCQ=.",
       },
       {
         id = "package-build",
         evidence_kind = "fresh",
         producer = "nix build",
-        command = "nix build github:OnixResearch/octet-public/d5fb01535ad5b086942253320f3574ae4dd85883#cargo-octet #octet #dylint-driver #octet-standards #octet-policy-artifacts --no-link --json",
+        command = "nix build github:OnixResearch/octet-public/becae9621fdf96803c7859e83d303cf535f20b15#cargo-octet #octet #dylint-driver #octet-standards #octet-policy-artifacts --no-link --json",
         outcome = "success",
         source_revision = public_revision,
         package = "cargo-octet,octet,dylint-driver,octet-standards,octet-policy-artifacts",
@@ -318,7 +318,7 @@ let cohort_evidence = "b3:64ab743bdf16b69f3242011a723a3204c7a60842c2e5c375a31cd6
         id = "runner-version",
         evidence_kind = "fresh",
         producer = "nix run",
-        command = "nix run github:OnixResearch/octet-public/d5fb01535ad5b086942253320f3574ae4dd85883#cargo-octet -- --version",
+        command = "nix run github:OnixResearch/octet-public/becae9621fdf96803c7859e83d303cf535f20b15#cargo-octet -- --version",
         outcome = "success",
         source_revision = public_revision,
         package = "cargo-octet",

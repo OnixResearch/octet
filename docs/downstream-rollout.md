@@ -32,10 +32,10 @@ cargo_check_args = ["--lib"]
 
 Use the published flake app or helper instead of copying bash glue:
 
-- supported public channel (pinned cohort `octet-public-d5fb0153-2026-11-11`):
+- supported public channel (pinned cohort `octet-public-becae962-2026-11-11`):
 
   ```bash
-  nix run github:OnixResearch/octet-public/d5fb01535ad5b086942253320f3574ae4dd85883#cargo-octet -- check
+  nix run github:OnixResearch/octet-public/becae9621fdf96803c7859e83d303cf535f20b15#cargo-octet -- check
   ```
 
 - local development checkout: `nix run path:/path/to/octet#cargo-octet -- check`

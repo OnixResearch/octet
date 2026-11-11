@@ -12,9 +12,9 @@ This document is the pre-tag release candidate receipt for Octet. It is intentio
 ## Public release cohort
 
 The supported public channel is the source-only export pinned at
-`github:OnixResearch/octet-public/d5fb01535ad5b086942253320f3574ae4dd85883`.
+`github:OnixResearch/octet-public/becae9621fdf96803c7859e83d303cf535f20b15`.
 That was also the observed `main` head on 2026-11-11. `main` is a moving ref and
-is not a supported pin. The reviewed cohort is `octet-public-d5fb0153-2026-11-11`.
+is not a supported pin. The reviewed cohort is `octet-public-becae962-2026-11-11`.
 
 `standards/release/release-cohort.ncl` is the reviewed manifest. It is exported
 to `standards/release/generated/release-cohort.json` and re-checked offline by
@@ -29,8 +29,8 @@ cargo test -p octet-standards --lib release_cohort
 
 The manifest binds:
 
-- source: public `d5fb01535ad5b086942253320f3574ae4dd85883`
-  (`narHash sha256-qiRUggGp8N7yTTLi/Tj12U44clk/rDkkCQypVOdTaQE=`), an
+- source: public `becae9621fdf96803c7859e83d303cf535f20b15`
+  (`narHash sha256-5qsxu3ncbLCNYRLdryjVQDWPwTkIZ7dQ/F561lcmKCQ=`), an
   independently rooted export derived from development
   `972b6a5a55093283e6fd3571f6f24a4da56f25ed`.
 - export composition: independent git root, private settings and archival
@@ -77,7 +77,7 @@ cache):
 
 | Receipt | Command | Outcome |
 | --- | --- | --- |
-| flake resolution | `nix flake metadata --json github:OnixResearch/octet-public/d5fb01535ad5b086942253320f3574ae4dd85883` | resolved the pinned revision and nar hash |
+| flake resolution | `nix flake metadata --json github:OnixResearch/octet-public/becae9621fdf96803c7859e83d303cf535f20b15` | resolved the pinned revision and nar hash |
 | package build | `nix build ...#cargo-octet ...#octet ...#dylint-driver ...#octet-standards ...#octet-policy-artifacts --no-link --json` | all five outputs built from public inputs |
 | runner version | `nix run <flake-ref>#cargo-octet -- --version` | `cargo-octet 0.1.0` |
 | policy artifacts | `octet-policy-artifacts <dir>` | five generated policy artifacts plus manifest |
@@ -229,8 +229,8 @@ local checkout. The command below is the copyable form; `main` is not a
 supported pin.
 
 ```bash
-nix run github:OnixResearch/octet-public/d5fb01535ad5b086942253320f3574ae4dd85883#cargo-octet -- --version
-nix run github:OnixResearch/octet-public/d5fb01535ad5b086942253320f3574ae4dd85883#cargo-octet -- check
+nix run github:OnixResearch/octet-public/becae9621fdf96803c7859e83d303cf535f20b15#cargo-octet -- --version
+nix run github:OnixResearch/octet-public/becae9621fdf96803c7859e83d303cf535f20b15#cargo-octet -- check
 ```
 
 Expected version output:
