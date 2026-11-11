@@ -84,6 +84,16 @@ pub struct Evaluation {
     pub diagnostics: Vec<String>,
 }
 
+/// Returns true when a report driver name matches the checked profile name.
+///
+/// Semgrep CLI 1.180.0 emits `Semgrep OSS` in SARIF while older reports and the checked profiles
+/// use `Semgrep`. Both spellings identify the same local OSS producer; the profile and rule
+/// identities still establish which tool and rules produced the report.
+#[must_use]
+pub(crate) fn driver_name_matches(expected: &str, actual: &str) -> bool {
+    expected == actual || (expected == "Semgrep" && actual == "Semgrep OSS")
+}
+
 // r[impl octet.external_lint.sarif_intake]
 // r[impl octet.external_lint.sarif_intake_boundary]
 pub fn evaluate(report: &str, profile_id: &str) -> Evaluation {

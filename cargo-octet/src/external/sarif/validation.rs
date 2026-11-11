@@ -138,7 +138,11 @@ fn parse_run(run: &serde_json::Value, profile: &Profile, diagnostics: &mut Diagn
         diagnostics.push("SARIF run is missing tool driver");
         return findings;
     };
-    if tool.pointer("/driver/name").and_then(serde_json::Value::as_str) != Some(profile.driver_name.as_str()) {
+    if !tool
+        .pointer("/driver/name")
+        .and_then(serde_json::Value::as_str)
+        .is_some_and(|name| super::driver_name_matches(&profile.driver_name, name))
+    {
         diagnostics.push("SARIF driver does not match selected producer profile");
     }
     let Some(invocations) = optional_array(run, "invocations", "run invocations", diagnostics) else {

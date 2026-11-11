@@ -21,7 +21,7 @@ The profile binds the driver name, supported version, required rule identity, so
 
 ## Bounded local execution
 
-Execution is opt-in and uses separate checked producer profiles. The shipped profiles pin Semgrep `1.180.0` and CodeQL `2.27.2`; the CodeQL query pack is `codeql/rust-queries@0.1.46`. A real CodeQL `2.27.2` run against the two fixture crates under `standards/sarif/fixtures/` produced the retained clean and violating reports; the Semgrep package does not build in this environment, so the Semgrep producer remains declarative. The unit tests otherwise use an explicitly labeled test-only executable and do not claim real Semgrep behavior.
+Execution is opt-in and uses separate checked producer profiles. The shipped profiles pin Semgrep `1.180.0` and CodeQL `2.27.2`; the CodeQL query pack is `codeql/rust-queries@0.1.46`. Real Semgrep `1.180.0` and CodeQL `2.27.2` runs against the fixture crates under `standards/sarif/fixtures/` produced the retained clean and violating reports. The unit tests otherwise use an explicitly labeled test-only executable for failure-path coverage. Semgrep 1.180.0 emits the driver name `Semgrep OSS`; the importer accepts that spelling for the checked `Semgrep` profile.
 
 ```console
 cargo octet evidence collect \

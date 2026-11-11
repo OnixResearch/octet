@@ -38,8 +38,9 @@ and CodeQL producer profiles execute above the existing SARIF importer with
 executable/rule/query-pack/source/argv/outcome and CodeQL database bindings; an
 absent tool is unsupported, never clean. The previous invalid
 `codeql/rust-queries@0.2.25` pin is corrected to `0.1.46`, and retained real
-CodeQL `2.27.2` clean and violating reports under
-`standards/sarif/fixtures/` are imported by the checked intake profile. A
+Semgrep `1.180.0` and CodeQL `2.27.2` clean and violating reports under
+`standards/sarif/fixtures/` are imported by the checked intake profiles (Semgrep
+1.180.0's `Semgrep OSS` driver spelling is accepted). A
 separate cross-tool experiment
 contract adds a compiling architecture and assurance corpus, frozen expected
 outcomes, retained observations, comparable-subset metrics, adoption costs, and

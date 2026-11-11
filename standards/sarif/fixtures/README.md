@@ -1,7 +1,39 @@
-# Real CodeQL producer fixtures
+# Real producer fixtures
 
-These two fixture crates retain raw SARIF produced by the pinned local CodeQL
-producer profile, not the test-only scanner executable used by the unit tests.
+These fixture crates retain raw SARIF produced by the pinned local producer
+profiles, not the test-only scanner executable used by the unit tests.
+
+## Semgrep
+
+- Semgrep `1.180.0`
+- Producer profile `semgrep-exec-local`
+- Rule bundle `standards/sarif/semgrep-rust-rules.yml`
+- Profile bytes `standards/sarif/producers.json`
+  (`b3:bc12c39f5fdb66607f0acd91f00cd72785f75f526a4f5504d4e2e847492b94cd`)
+
+`semgrep-clean/report.sarif` has zero results. `semgrep-violation/report.sarif`
+has one `standards.sarif.octet.rust.expect-without-rationale` error at
+`src/lib.rs:5` (Semgrep prefixes the rule ID with the config path). The
+retained reports are imported by the checked `semgrep-local` intake profile in
+`producer_tests::retained_real_semgrep_reports_import_with_expected_findings`.
+Semgrep 1.180.0 emits the driver name `Semgrep OSS`; the importer accepts that
+spelling for the checked `Semgrep` profile while preserving older reports.
+
+Reproduce with Semgrep on `PATH` and a workspace layout containing `src/` and
+`standards/sarif/semgrep-rust-rules.yml`:
+
+```sh
+cargo octet evidence collect \
+  --rail sarif-import \
+  --profile semgrep-exec-local \
+  --config producers.json \
+  --workspace-root /path/to/fixture-workspace \
+  --run \
+  --artifact-dir artifacts/semgrep-violation \
+  --output-format json
+```
+
+## CodeQL
 
 - CodeQL CLI `2.27.2`
 - Query pack `codeql/rust-queries@0.1.46`
@@ -32,11 +64,6 @@ cargo octet evidence collect \
 ```
 
 The producer writes `sarif-raw-report.json`; it is retained here as
-`report.sarif`. The fixture is a bounded external static observation. It does not
-prove complete vulnerability detection, whole-program correctness, or release
-eligibility.
-
-The pinned Semgrep `1.180.0` package does not build in this environment's Nix
-toolchain, so no Semgrep report is retained. The Semgrep producer profile remains
-declarative and is exercised only through the explicitly labeled test-only
-fixture executable.
+`report.sarif`. The fixtures are bounded external static observations. They do
+not prove complete vulnerability detection, whole-program correctness, or
+release eligibility.

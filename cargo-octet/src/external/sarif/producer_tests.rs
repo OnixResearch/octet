@@ -409,6 +409,30 @@ fn failed_scanner_leaves_no_reusable_old_or_empty_report() {
 }
 
 #[test]
+fn retained_real_semgrep_reports_import_with_expected_findings() {
+    let clean = crate::external::sarif::evaluate(
+        include_str!("../../../../standards/sarif/fixtures/semgrep-clean/report.sarif"),
+        "semgrep-local",
+    );
+    assert!(clean.diagnostics.is_empty(), "{:?}", clean.diagnostics);
+    let clean = clean.details.expect("clean Semgrep details");
+    assert!(clean.findings.is_empty());
+
+    let violation = crate::external::sarif::evaluate(
+        include_str!("../../../../standards/sarif/fixtures/semgrep-violation/report.sarif"),
+        "semgrep-local",
+    );
+    assert!(violation.diagnostics.is_empty(), "{:?}", violation.diagnostics);
+    let violation = violation.details.expect("violating Semgrep details");
+    assert_eq!(violation.findings.len(), 1);
+    assert_eq!(violation.findings[0].source_rule_id, "standards.sarif.octet.rust.expect-without-rationale");
+    assert_eq!(violation.findings[0].file, "src/lib.rs");
+    assert_eq!(violation.findings[0].source_level, "error");
+    assert_eq!(violation.source_driver, "Semgrep");
+    assert_eq!(violation.supported_version, "2.1.0");
+}
+
+#[test]
 fn retained_real_codeql_reports_import_with_expected_findings() {
     let clean = crate::external::sarif::evaluate(
         include_str!("../../../../standards/sarif/fixtures/codeql-clean/report.sarif"),

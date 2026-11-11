@@ -111,12 +111,11 @@ conclusion is not asserted.
   re-recording with v2 evidence is required.
 - Freshness depends on the index carrying the declared bindings; partial indexes
   report `incomplete` rather than guessing.
-- The pinned Semgrep package does not build in this environment, so Semgrep
-  producer tests use an explicitly labeled test-only executable; the shipped
-  Semgrep pin is declarative. Real CodeQL `2.27.2` clean and violating reports
-  are retained under `standards/sarif/fixtures/` and imported by the checked
-  intake profile; the invalid `codeql/rust-queries@0.2.25` pin is corrected to
-  `0.1.46`.
+- Real Semgrep `1.180.0` and CodeQL `2.27.2` clean and violating reports are
+  retained under `standards/sarif/fixtures/` and imported by the checked intake
+  profiles. Semgrep 1.180.0's `Semgrep OSS` driver spelling is accepted for the
+  checked `Semgrep` profile. The invalid `codeql/rust-queries@0.2.25` pin is
+  corrected to `0.1.46`.
 - The benchmark retains fixture-only observations for unavailable tools and one
   real local Clippy adoption measurement; no unavailable timing is invented.
 - The public cohort remains blocked until the public export carries the required

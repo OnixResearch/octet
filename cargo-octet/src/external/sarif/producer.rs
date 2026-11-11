@@ -805,7 +805,7 @@ pub(crate) fn version_argv(profile: &ProducerProfile) -> Vec<String> {
     }
 }
 
-fn semgrep_scan_argv(profile: &ProducerProfile, report_path: &Path) -> Vec<String> {
+fn semgrep_scan_argv(profile: &ProducerProfile, report_path: &Path, selected_paths: &[String]) -> Vec<String> {
     let mut argv = string_argv(&[
         "semgrep",
         "scan",
@@ -819,7 +819,7 @@ fn semgrep_scan_argv(profile: &ProducerProfile, report_path: &Path) -> Vec<Strin
     ]);
     argv.push(format!("--jobs={}", profile.limits.max_threads));
     argv.push(format!("--max-memory={}", profile.limits.max_memory_mb));
-    argv.extend(profile.scope.paths.iter().cloned());
+    argv.extend(selected_paths.iter().cloned());
     for glob in &profile.scope.exclude_globs {
         argv.push("--exclude".to_owned());
         argv.push(glob.clone());
@@ -993,7 +993,7 @@ pub(crate) fn execute(
 
     let analyze_argv = match profile.producer.as_str() {
         PRODUCER_CODEQL => codeql_analyze_argv(profile, &database_path, report_path),
-        _ => semgrep_scan_argv(profile, report_path),
+        _ => semgrep_scan_argv(profile, report_path, &execution.scope.selected_paths),
     };
     remove_if_present(report_path)?;
     let scan = match executor.run(&analyze_argv, request.workspace_root, &profile.limits) {
@@ -1351,7 +1351,11 @@ fn verify_report_producer_binding(
     let driver = run
         .pointer("/tool/driver")
         .ok_or_else(|| "SARIF producer report has no tool driver to bind".to_owned())?;
-    if driver.get("name").and_then(serde_json::Value::as_str) != Some(profile.driver_name.as_str()) {
+    if !driver
+        .get("name")
+        .and_then(serde_json::Value::as_str)
+        .is_some_and(|name| super::driver_name_matches(&profile.driver_name, name))
+    {
         return Err("SARIF producer report driver does not match the selected profile".to_owned());
     }
     let driver_version = driver

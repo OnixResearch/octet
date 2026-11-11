@@ -42,7 +42,7 @@
 - [x] [parallel] Add bounded producer execution, fixed argv, source snapshot, tool/rule identity, CodeQL database sidecar, and execution receipt. r[octet.open_issue_resolution.local_scanners]
 - [x] [parallel] Reuse the SARIF importer and distinguish imported from executed evidence; missing tools stay unsupported. r[octet.open_issue_resolution.local_scanners]
 - [x] [serial] Test clean/violation, missing/wrong tool, changed rules, source mutation, stale database, failed/empty report, timeout/overflow, exclusions, malformed SARIF, unsupported scope, replacement, and mislabeled import. r[octet.open_issue_resolution.local_scanners]
-- [x] [parallel] Retain real CodeQL 2.27.2 clean and violating reports, correct the query-pack pin to `0.1.46`, and document the Semgrep build limitation. r[octet.open_issue_resolution.local_scanners]
+- [x] [parallel] Retain real Semgrep 1.180.0 and CodeQL 2.27.2 clean and violating reports, accept the `Semgrep OSS` driver spelling, correct the query-pack pin to `0.1.46`, and document the retained fixtures. r[octet.open_issue_resolution.local_scanners]
 
 ## Cross-tool benchmark
 
