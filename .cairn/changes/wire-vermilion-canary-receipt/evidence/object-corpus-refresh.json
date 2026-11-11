@@ -1,0 +1,13 @@
+{
+  "reason": "The canary module declaration changed crates/octet-standards/src/lib.rs, a selected reviewed object-corpus source.",
+  "candidate_manifest": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/candidate-source-manifest.json",
+  "reviewed_manifest": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/reviewed-source-manifest.json",
+  "candidate_blake3": "faf7a7845fb13e6e16e5d554d377d396a2788351dd397eb1fc86cb68fdb036fd",
+  "reviewed_blake3": "50e60e92000129d4e86ccf63cb331014fbeeec5f2c60fac245121b3629ce5a7f",
+  "changed_source": "crates/octet-standards/src/lib.rs",
+  "changed_source_blake3": "5288998465a2bd83fb723d173df049e12342d63a702bb2ac539f1a1e4bbc0070",
+  "verifier_anchors_updated": true,
+  "reference_files_unchanged": true,
+  "verifier_result": "reviewed-v2-source: ADMITTED independently bound source and references (not a correctness or owner-signature proof)",
+  "scope": "mechanical refresh of the reviewed source manifests and verifier anchors; the original independent audit was not repeated"
+}

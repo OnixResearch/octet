@@ -4,6 +4,8 @@
 - [x] [serial] Add the recorded-only proof rail and advisory verification policy. r[octet.vermilion_canary_rail.recorded_only]
 - [x] [serial] Add the `cargo octet prove` canary branch and manual-review proof card. r[octet.vermilion_canary_rail.recorded_only]
 - [x] [serial] Preserve the recorded-only tier through artifact verification and Valence export. r[octet.vermilion_canary_rail.recorded_only]
+- [x] [serial] Refresh the reviewed object-corpus manifests and verifier anchors for the selected `lib.rs` byte change. r[octet.object_corpus.reviewed_refresh]
+  - Mechanical refresh: candidate and reviewed manifests re-frozen, anchors updated, reference files and counts unchanged; the independent audit was not repeated. Evidence: `evidence/object-corpus-refresh.json`.
 - [ ] [serial] Run focused tests, self-check, and the full flake check. r[octet.vermilion_canary_rail.recorded_only]
   - Focused tests, the CLI canary prove/artifact verify/Valence export, and the self-check pass. The full flake check stops at `octet-object-corpus-gate` because this change adds a module line to the selected reviewed source `crates/octet-standards/src/lib.rs`; a separate mechanical object-corpus refresh is required before publication. Evidence: `evidence/full-flake-check.json`.
 

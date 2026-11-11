@@ -20,8 +20,8 @@ APPROVAL_MANIFEST_PATH = "openspec/changes/source-token-v2-function-object-cutov
 APPROVAL_ARCHIVE_PATH = "openspec/changes/archive/2026-10-02-source-token-v2-function-object-cutover/evidence/owner-source-bound-references.txt"
 # This in-repository byte lock detects drift; it is not an external owner signature.
 APPROVAL_ARCHIVE_B3 = "a86d4c22740d4ea0427285d62133c8434dc77c3d144403902f276031836abcae"
-CANDIDATE_B3 = "caffea8020a272fd31db8b9f2c6988c14f1ed1878666f7836b1de785171977fa"
-REVIEWED_B3 = "a2d60297c7a308897c0b737cfa2384f69235c60b88c39f38c5700b475de324bc"
+CANDIDATE_B3 = "faf7a7845fb13e6e16e5d554d377d396a2788351dd397eb1fc86cb68fdb036fd"
+REVIEWED_B3 = "50e60e92000129d4e86ccf63cb331014fbeeec5f2c60fac245121b3629ce5a7f"
 REVISION = "7546a78b4eeef8686c6837e187aa12420f4f03bb"
 MODULE_B3 = "11f0f4233aaf3153966f6aa37de570c2dcd0e75335591934461ae2b25ab3ecb1"
 NIX_NAR_HASH = "sha256-70AmHxWEbeQK3SFi9ZZ67Prmy3d1zgXHLk/AdPp+EdE="

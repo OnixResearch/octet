@@ -187,7 +187,7 @@
     },
     {
       "path": "crates/octet-standards/src/lib.rs",
-      "blake3": "b052b91c20dba4af60085c94cf2a3f77b311ff158552e7873560b2daf323d831"
+      "blake3": "5288998465a2bd83fb723d173df049e12342d63a702bb2ac539f1a1e4bbc0070"
     },
     {
       "path": "crates/octet-standards/src/main.rs",

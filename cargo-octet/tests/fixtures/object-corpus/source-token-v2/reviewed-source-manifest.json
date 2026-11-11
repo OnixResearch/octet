@@ -3,7 +3,7 @@
   "approval_status": "REVIEWED_SOURCE_AND_REFERENCES",
   "candidate_manifest": {
     "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/candidate-source-manifest.json",
-    "blake3": "caffea8020a272fd31db8b9f2c6988c14f1ed1878666f7836b1de785171977fa"
+    "blake3": "faf7a7845fb13e6e16e5d554d377d396a2788351dd397eb1fc86cb68fdb036fd"
   },
   "normalization_algorithm": "octet-source-token-v2",
   "tested_octet_version": "0.1.0",
@@ -181,7 +181,7 @@
     },
     {
       "path": "crates/octet-standards/src/lib.rs",
-      "blake3": "b052b91c20dba4af60085c94cf2a3f77b311ff158552e7873560b2daf323d831"
+      "blake3": "5288998465a2bd83fb723d173df049e12342d63a702bb2ac539f1a1e4bbc0070"
     },
     {
       "path": "crates/octet-standards/src/main.rs",
@@ -264,7 +264,7 @@
   },
   "approval": {
     "owner_reply": "approve",
-    "scope": "Frozen 37 Rust source paths/byte hashes, 18/36-path selections, four saved reference path/hash/count bindings, octet-source-token-v2, Octet 0.1.0, and independently reviewed immutable Valence module/revision; excludes future consumer-test code. Re-frozen mechanically on 2026-11-09 for the integrated source; the independent audit was not repeated.",
+    "scope": "Frozen 37 Rust source paths/byte hashes, 18/36-path selections, four saved reference path/hash/count bindings, octet-source-token-v2, Octet 0.1.0, and independently reviewed immutable Valence module/revision; excludes future consumer-test code. Re-frozen mechanically on 2026-11-10 for the canary integration source; the independent audit was not repeated.",
     "evidence_path": "openspec/changes/source-token-v2-function-object-cutover/evidence/owner-source-bound-references.txt",
     "independent_audit": "Mechanical re-freeze of the integrated source on 2026-11-09; the original independent audit covered the earlier frozen snapshot and was not repeated."
   }
