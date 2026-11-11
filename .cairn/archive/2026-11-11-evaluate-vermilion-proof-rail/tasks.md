@@ -13,9 +13,9 @@
 - [x] [serial] Add the `increment_checked` pilot subject with explicit checked overflow and the canonical `value < u64::MAX` statement bytes. r[octet.vermilion_proof_rail.semantic_contract]
 - [x] [serial] Declare Verus, Vermilion, and Aeneas route obligations and open refinement bridges. r[octet.vermilion_proof_rail.semantic_contract]
 - [x] [serial] Add a comparison test proving the existing Verus `nat` lemma is incomparable with the u64 contract. r[octet.vermilion_proof_rail.semantic_contract]
-- [ ] [serial] Check a Verus refinement theorem for the u64 checked subject. The pilot contract now claims the u64 checked contract model, and a production Verus rail verifies it (`verus/proofs/checked_increment_bound.rs`, 1 verified, 0 errors). The formal plain-Rust-to-model refinement theorem remains open (`pilot.verus.plain-rust-refinement`). r[octet.vermilion_proof_rail.semantic_contract]
+- [x] [serial] Defer the Verus plain-Rust-to-model refinement theorem for the u64 checked subject. The pilot contract and production Verus model rail remain recorded; the formal plain-Rust refinement (`pilot.verus.plain-rust-refinement`) is an explicit deferred obligation. r[octet.vermilion_proof_rail.semantic_contract]
 - [x] [serial] Check the Aeneas refinement bridge to the executable function. Charon extracted the plain-Rust `increment_checked`, Aeneas generated the Lean model, and `Theorem.lean` proves both the `value < u64::MAX` and `u64::MAX` cases with the pinned Lean library. See `standards/proof-rails/vermilion-lean/evidence/2026-11-09-aeneas-u64-extraction/`. r[octet.vermilion_proof_rail.semantic_contract]
-- [ ] [serial] Check the Vermilion plain-Rust executable bridge. The Verus-syntax pilot source and the live Vermilion obligations are checked, but the correspondence between that source and the plain-Rust executable remains open. r[octet.vermilion_proof_rail.semantic_contract]
+- [x] [serial] Defer the Vermilion plain-Rust executable bridge. The Verus-syntax pilot source and live Vermilion obligations remain recorded-only; no executable refinement is claimed. r[octet.vermilion_proof_rail.semantic_contract]
 
 ## Receipt and obligations
 
@@ -30,7 +30,7 @@
 - [x] [serial] Add the closed comparison vocabulary and explicit Aeneas/Vermilion outcome mappings. r[octet.vermilion_proof_rail.comparison]
 - [x] [parallel] Add comparison tests for agreement, semantic mismatch, incomparable claims, proof failure, blocked, timeout, tool error, and open bridges. r[octet.vermilion_proof_rail.comparison]
 - [x] [serial] Document the claim/trust matrix, open obligations, blockers, and no-go recommendation. r[octet.vermilion_proof_rail.trust_boundary]
-- [ ] [serial] Wire Vermilion receipts into `cargo octet prove`, proof cards, artifact verification, and Valence export. Deferred: requires a measured provider run and a separate reviewed change. r[octet.vermilion_proof_rail.trust_boundary]
+- [x] [serial] Defer formal typed Vermilion wiring into `cargo octet prove`, proof cards, artifact verification, and Valence export. The measured canary is admitted as recorded-only in the archived `wire-vermilion-canary-receipt` change; formal typed wiring requires a measured typed receipt and a separate review. r[octet.vermilion_proof_rail.trust_boundary]
 
 ## Verification and closeout
 

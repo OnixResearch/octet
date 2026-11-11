@@ -1,0 +1,14 @@
+{
+  "decision": "defer_open_bridges_and_formal_typed_wiring",
+  "deferred": [
+    "Verus plain-Rust-to-model refinement theorem (pilot.verus.plain-rust-refinement)",
+    "Vermilion plain-Rust executable bridge",
+    "formal typed Vermilion wiring into cargo octet prove, proof cards, artifact verification, and Valence export"
+  ],
+  "recorded_only_canary": "The measured u64 canary is admitted as recorded-only evidence by the archived `wire-vermilion-canary-receipt` change; that rail emits a manual-review card and does not promote the canary to formal proof.",
+  "non_claims": [
+    "the deferred bridges do not prove executable refinement, provider soundness, whole-program correctness, semantic equivalence, or release eligibility",
+    "the recorded-only canary is not a typed formal receipt and is not a fresh provider execution",
+    "cross-provider comparison remains incomparable_claims until the deferred bridges are separately scoped and reviewed"
+  ]
+}
