@@ -1,9 +1,11 @@
 {
   "command": "nix flake check -L --option builders '' --option post-build-hook '' --option min-free 0 --option max-free 0",
-  "exit_code": 1,
-  "failing_check": "checks.x86_64-linux.object-corpus-gate",
-  "diagnostic": "reviewed-v2-source: REJECT selected source byte drift: crates/octet-standards/src/lib.rs",
-  "cause": "The canary module is declared in crates/octet-standards/src/lib.rs, a selected reviewed object-corpus source. The reviewed source manifests, receipts, caveat taxonomy, and verifier anchors must be refreshed in a separate reviewed change.",
+  "exit_code": 0,
+  "result": "all checks passed",
+  "resolved_blockers": [
+    "reviewed object-corpus source refresh tracked in refresh-reviewed-object-corpus-evidence-canary",
+    "Aeneas consumer timeout extended to 2,700,000 ms in extend-aeneas-consumer-timeout"
+  ],
   "focused_verification": {
     "canary_validator_tests": 5,
     "prove_integration_test": "passed",

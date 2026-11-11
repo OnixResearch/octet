@@ -1,0 +1,7 @@
+{
+  "command": "nix flake check -L --option builders '' --option post-build-hook '' --option min-free 0 --option max-free 0",
+  "exit_code": 0,
+  "result": "all checks passed",
+  "object_corpus_gate": "passed",
+  "self_check": "passed with 3,160 identities / 4,337 warnings"
+}

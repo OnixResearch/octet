@@ -2,7 +2,8 @@
 
 - [x] [serial] Re-freeze the candidate/reviewed manifests and verifier anchors for the selected `lib.rs` byte change. r[octet.object_corpus.reviewed_refresh]
 - [x] [serial] Run the reviewed-source verifier and object-corpus gate. r[octet.object_corpus.reviewed_refresh]
-- [ ] [serial] Run the full flake check; record any unrelated remaining timeout. r[octet.object_corpus.reviewed_refresh]
+- [x] [serial] Run the full flake check; record any unrelated remaining timeout. r[octet.object_corpus.reviewed_refresh]
+  - Full flake check all checks passed; evidence: `evidence/full-flake-check.json`.
 
 ## Verification Coverage
 

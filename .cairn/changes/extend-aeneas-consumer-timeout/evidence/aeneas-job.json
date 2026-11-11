@@ -1,0 +1,13 @@
+{
+  "command": "nix build path:$PWD#checks.x86_64-linux.mantle-aeneas-consumer-job --no-link -L",
+  "exit_code": 0,
+  "timeout_ms": 2700000,
+  "profile_identity": "b3:86351a1b7a93d5fbcacc20aa97ad8fff4c9d15b670f47f55988e5ac2deb66291",
+  "full_flake_check": "all checks passed",
+  "self_check": {
+    "baseline_hash": "b3:dc1b7b0a5a9379702268ff967e391d9595ceacb365032daf25387a232721c576",
+    "identity_total": 3160,
+    "warning_total": 4337
+  },
+  "observation": "The cold Lean closure completed within the 45-minute budget after reaching 1,549/1,632 modules at the former 30-minute budget."
+}
