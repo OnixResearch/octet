@@ -32,7 +32,24 @@ const FIELD_NON_CLAIMS: &str = "non_claims";
 const EVIDENCE_TIER_FORMAL_PROOF: &str = "formal_proof";
 const EVIDENCE_TIER_MANUAL_REVIEW_REQUIRED: &str = "manual_review_required";
 const STATUS_PASSED: &str = "passed";
+const STATUS_FAILED: &str = "failed";
 const STATUS_MANUAL_REVIEW_REQUIRED: &str = "manual_review_required";
+/// Negative-control record written before verifier attribution was required. It remains
+/// deserializable, but its annotated `property_demonstrated` status cannot be verified.
+pub(crate) const NEGATIVE_CHECK_SCHEMA_VERSION_V1: &str = "octet-proof-negative-check/v1";
+/// Negative-control record that retains typed verifier evidence, measured source and deck
+/// identities, the declared mutation identity, and the two-card binding surface.
+pub(crate) const NEGATIVE_CHECK_SCHEMA_VERSION_V2: &str = "octet-proof-negative-check/v2";
+pub(crate) const NEGATIVE_CHECK_EVIDENCE_SCHEMA_VERSION: &str = "octet-proof-negative-check-evidence/v1";
+pub(crate) const NEGATIVE_STATUS_DEMONSTRATED: &str = "property_demonstrated";
+pub(crate) const NEGATIVE_STATUS_NOT_DEMONSTRATED: &str = "property_not_demonstrated";
+pub(crate) const NEGATIVE_STATUS_INCONCLUSIVE: &str = "inconclusive";
+pub(crate) const NEGATIVE_RUN_ACCEPTED: &str = "accepted";
+pub(crate) const NEGATIVE_RUN_REJECTED: &str = "rejected";
+pub(crate) const NEGATIVE_RUN_COMPILE_ERROR: &str = "compile_error";
+pub(crate) const NEGATIVE_RUN_CRASH: &str = "crash";
+pub(crate) const NEGATIVE_RUN_TIMEOUT: &str = "timeout";
+pub(crate) const NEGATIVE_RUN_NO_EVIDENCE: &str = "no_evidence";
 const NON_CLAIM_WHOLE_PROGRAM: &str = "not whole-program correctness";
 const NON_CLAIM_CERTIFICATION: &str = "not certification";
 const NON_CLAIM_BUSINESS_DOMAIN: &str = "not business-domain validation";
@@ -88,10 +105,20 @@ pub(crate) struct ProofCardArtifactIdentity {
 pub(crate) struct ProofCard {
     pub(crate) proof_or_property_id: String,
     pub(crate) source_requirement_or_policy_id: String,
+    #[serde(default)]
+    pub(crate) policy_id: String,
     pub(crate) checked_rust_source_scope: String,
+    #[serde(default)]
+    pub(crate) source_paths: Vec<String>,
     pub(crate) evidence_tier: String,
     pub(crate) evidence_origin: String,
     pub(crate) status: String,
+    #[serde(default)]
+    pub(crate) verifier_mode: String,
+    #[serde(default)]
+    pub(crate) verifier_identity_summary: String,
+    #[serde(default)]
+    pub(crate) toolchain_identity_summary: String,
     pub(crate) artifact_blake3_identities: Vec<ProofCardArtifactIdentity>,
     pub(crate) non_claims: Vec<String>,
     pub(crate) diagnostics: Vec<String>,
@@ -103,8 +130,12 @@ pub(crate) struct ProofCard {
 ///
 /// A mutant rail run is evidence that the rail discriminated the mutation, not evidence that the
 /// theorem matches the intended property in general. `status` is `property_demonstrated` only when
-/// the mutant run failed the same proof/property rail; a still-passing mutant yields
-/// `property_not_demonstrated`.
+/// the retained verifier evidence attributes a rejection to the expected obligation; a
+/// still-passing mutant yields `property_not_demonstrated`.
+///
+/// v1 records carry only an annotated `status` and the mutant card fields, so validation cannot
+/// establish verifier attribution from them. v2 records retain `evidence` and `measured` so
+/// validation recomputes the decision instead of trusting `status`.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(crate) struct ProofCardNegativeCheck {
     pub(crate) schema_version: String,
@@ -115,6 +146,128 @@ pub(crate) struct ProofCardNegativeCheck {
     pub(crate) mutant_cards_blake3: String,
     pub(crate) non_claims: Vec<String>,
     pub(crate) diagnostics: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) evidence: Option<NegativeControlEvidence>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) measured: Option<NegativeControlMeasurement>,
+}
+
+/// Explicit verifier evidence supplied to the negative-control recorder.
+///
+/// The document binds both runs to one approved specification, obligation, checked scope,
+/// provider, toolchain, and verification configuration. Each run supplies its own outcome,
+/// rejection attribution, source and deck identities, and optional raw-output identity.
+#[derive(Clone, Debug, Default, Deserialize, Serialize, Eq, PartialEq)]
+#[serde(default)]
+pub(crate) struct NegativeControlEvidence {
+    pub(crate) schema_version: String,
+    pub(crate) verifier: String,
+    pub(crate) toolchain: String,
+    pub(crate) verification_mode: String,
+    pub(crate) command_argv: Vec<String>,
+    pub(crate) verification_configuration_blake3: String,
+    pub(crate) approved_specification_id: String,
+    pub(crate) proof_or_property_id: String,
+    pub(crate) source_requirement_or_policy_id: String,
+    pub(crate) checked_rust_source_scope: String,
+    pub(crate) evidence_tier: String,
+    pub(crate) mutation: NegativeControlMutation,
+    pub(crate) baseline: NegativeControlVerifierRun,
+    pub(crate) mutant: NegativeControlVerifierRun,
+    pub(crate) non_claims: Vec<String>,
+}
+
+/// The one source mutation the control is allowed to differ by.
+#[derive(Clone, Debug, Default, Deserialize, Serialize, Eq, PartialEq)]
+#[serde(default)]
+pub(crate) struct NegativeControlMutation {
+    pub(crate) mutation_id: String,
+    pub(crate) patch_blake3: String,
+    pub(crate) baseline_source_blake3: String,
+    pub(crate) mutant_source_blake3: String,
+}
+
+/// One verifier run, bound to the shared evidence identity and its measured artifacts.
+#[derive(Clone, Debug, Default, Deserialize, Serialize, Eq, PartialEq)]
+#[serde(default)]
+pub(crate) struct NegativeControlVerifierRun {
+    pub(crate) outcome: String,
+    pub(crate) rejection_attribution: Option<String>,
+    pub(crate) approved_specification_id: String,
+    pub(crate) proof_or_property_id: String,
+    pub(crate) source_requirement_or_policy_id: String,
+    pub(crate) checked_rust_source_scope: String,
+    pub(crate) source_path: String,
+    pub(crate) source_blake3: String,
+    pub(crate) deck_path: String,
+    pub(crate) deck_blake3: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) raw_output: Option<NegativeControlRawOutput>,
+}
+
+/// Optional retained verifier output. When declared it must be readable, non-empty, and match.
+#[derive(Clone, Debug, Default, Deserialize, Serialize, Eq, PartialEq)]
+#[serde(default)]
+pub(crate) struct NegativeControlRawOutput {
+    pub(crate) artifact: String,
+    pub(crate) blake3: String,
+}
+
+/// Identities the recorder measured from the actual files, plus the two-card binding surface.
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
+pub(crate) struct NegativeControlMeasurement {
+    pub(crate) baseline_source_blake3: String,
+    pub(crate) mutant_source_blake3: String,
+    pub(crate) mutation_id: String,
+    pub(crate) patch_blake3: String,
+    pub(crate) baseline_deck_blake3: String,
+    pub(crate) mutant_deck_blake3: String,
+    pub(crate) binding: NegativeControlCardBinding,
+}
+
+/// The proof-card fields both runs must agree on. Only the declared source mutation may differ.
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
+pub(crate) struct NegativeControlCardBinding {
+    pub(crate) baseline_proof_or_property_id: String,
+    pub(crate) mutant_proof_or_property_id: String,
+    pub(crate) baseline_source_requirement_or_policy_id: String,
+    pub(crate) mutant_source_requirement_or_policy_id: String,
+    pub(crate) baseline_policy_id: String,
+    pub(crate) mutant_policy_id: String,
+    pub(crate) baseline_checked_rust_source_scope: String,
+    pub(crate) mutant_checked_rust_source_scope: String,
+    pub(crate) baseline_evidence_tier: String,
+    pub(crate) mutant_evidence_tier: String,
+    pub(crate) baseline_verifier_mode: String,
+    pub(crate) mutant_verifier_mode: String,
+    pub(crate) baseline_verifier_identity_summary: String,
+    pub(crate) mutant_verifier_identity_summary: String,
+    pub(crate) baseline_toolchain_identity_summary: String,
+    pub(crate) mutant_toolchain_identity_summary: String,
+    pub(crate) baseline_source_paths: Vec<String>,
+    pub(crate) mutant_source_paths: Vec<String>,
+}
+
+/// Card fields the retained record is validated against.
+pub(crate) struct NegativeControlExpectation<'a> {
+    pub(crate) proof_or_property_id: &'a str,
+    pub(crate) source_requirement_or_policy_id: &'a str,
+    pub(crate) policy_id: &'a str,
+    pub(crate) checked_rust_source_scope: &'a str,
+    pub(crate) evidence_tier: &'a str,
+    pub(crate) baseline_card_status: &'a str,
+    pub(crate) baseline_card_diagnostics: &'a [String],
+    pub(crate) verifier_mode: &'a str,
+    pub(crate) verifier_identity_summary: &'a str,
+    pub(crate) toolchain_identity_summary: &'a str,
+    pub(crate) baseline_source_paths: &'a [String],
+    /// The recorder hashes the files it was given; validation only re-hashes readable paths.
+    pub(crate) require_readable_artifacts: bool,
+}
+
+pub(crate) struct NegativeControlVerdict {
+    pub(crate) status: &'static str,
+    pub(crate) problems: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -251,6 +404,11 @@ pub(crate) fn read_reference_file(path: &Path) -> Result<ProofEvidenceRef, Strin
 
 /// Reads a saved `proof-cards.json` deck for the proof-candidate lister.
 pub(crate) fn read_deck_file(path: &Path) -> Result<ProofCardDeck, String> {
+    read_json(path)
+}
+
+/// Reads the explicit typed verifier evidence supplied to the negative-control recorder.
+pub(crate) fn read_negative_check_evidence(path: &Path) -> Result<NegativeControlEvidence, String> {
     read_json(path)
 }
 
@@ -451,14 +609,650 @@ fn consumer_source_shape_diagnostics(reference: &ProofEvidenceRef) -> Vec<String
 }
 
 fn proof_card_deck_shape_diagnostics(deck: &ProofCardDeck) -> Vec<String> {
-    if deck.schema_version == PROOF_CARDS_SCHEMA_VERSION {
-        Vec::new()
-    } else {
-        vec![format!(
+    let mut diagnostics = Vec::new();
+    if deck.schema_version != PROOF_CARDS_SCHEMA_VERSION {
+        diagnostics.push(format!(
             "proof card deck field `{FIELD_SCHEMA_VERSION}` expected `{PROOF_CARDS_SCHEMA_VERSION}` but got `{}`",
             deck.schema_version
-        )]
+        ));
     }
+    for (index, card) in deck.cards.iter().enumerate() {
+        if card.proof_or_property_id.trim().is_empty() {
+            diagnostics.push(format!("proof card deck card {index} is missing field `{FIELD_PROOF_OR_PROPERTY_ID}`"));
+        } else if deck.cards.iter().take(index).any(|other| other.proof_or_property_id == card.proof_or_property_id) {
+            diagnostics.push(format!(
+                "proof card deck contains duplicate proof_or_property_id `{}`",
+                card.proof_or_property_id
+            ));
+        }
+        if let Some(record) = card.negative_check.as_ref()
+            && !matches!(
+                record.schema_version.as_str(),
+                NEGATIVE_CHECK_SCHEMA_VERSION_V1 | NEGATIVE_CHECK_SCHEMA_VERSION_V2
+            )
+        {
+            diagnostics.push(format!(
+                "proof card `{}` negative_check has unsupported schema `{}`",
+                card.proof_or_property_id, record.schema_version
+            ));
+        }
+    }
+    diagnostics
+}
+
+/// Recomputes the negative-control decision from the retained record, evidence, and measured
+/// identities instead of trusting the annotated `status`. A still-passing mutant is
+/// `property_not_demonstrated`; absent or unattributable verifier evidence is `inconclusive`.
+pub(crate) fn negative_control_verdict(
+    record: &ProofCardNegativeCheck,
+    expected: &NegativeControlExpectation<'_>,
+) -> NegativeControlVerdict {
+    let mut problems = Vec::new();
+    if expected.proof_or_property_id.trim().is_empty() {
+        problems.push("negative control expected proof or property ID is missing".to_owned());
+    }
+    if expected.baseline_card_status != STATUS_PASSED {
+        problems.push(format!(
+            "negative control requires a passing baseline proof card; found `{}`",
+            expected.baseline_card_status
+        ));
+        return inconclusive_negative_verdict(problems);
+    }
+    if !expected.baseline_card_diagnostics.is_empty() {
+        problems.push(format!(
+            "negative control requires a clean baseline proof card; it has diagnostics: {}",
+            expected.baseline_card_diagnostics.join("; ")
+        ));
+        return inconclusive_negative_verdict(problems);
+    }
+    match record.schema_version.as_str() {
+        NEGATIVE_CHECK_SCHEMA_VERSION_V1 => return v1_negative_control_verdict(record, problems),
+        NEGATIVE_CHECK_SCHEMA_VERSION_V2 => {}
+        other => {
+            problems.push(format!("negative control record has unsupported schema `{other}`"));
+            return inconclusive_negative_verdict(problems);
+        }
+    }
+    if record.mutant_card_status == STATUS_PASSED {
+        if record.evidence.as_ref().is_some_and(|evidence| evidence.mutant.outcome == NEGATIVE_RUN_REJECTED) {
+            problems.push("mutant proof card still passes but verifier evidence claims rejection".to_owned());
+        }
+        return NegativeControlVerdict {
+            status: NEGATIVE_STATUS_NOT_DEMONSTRATED,
+            problems,
+        };
+    }
+    if record.mutant_card_status != STATUS_FAILED {
+        problems.push(format!(
+            "negative control mutant proof card status `{}` is not a verifier rejection",
+            record.mutant_card_status
+        ));
+        return inconclusive_negative_verdict(problems);
+    }
+    let Some(evidence) = record.evidence.as_ref() else {
+        problems.push("negative control is missing verifier evidence".to_owned());
+        return inconclusive_negative_verdict(problems);
+    };
+    let Some(measured) = record.measured.as_ref() else {
+        problems.push("negative control is missing measured source and deck identities".to_owned());
+        return inconclusive_negative_verdict(problems);
+    };
+    negative_evidence_shape_problems(evidence, &mut problems);
+    negative_evidence_binding_problems(evidence, expected, &mut problems);
+    negative_run_binding_problems(&evidence.baseline, "baseline", evidence, &mut problems);
+    negative_run_binding_problems(&evidence.mutant, "mutant", evidence, &mut problems);
+    negative_outcome_problems(evidence, &mut problems);
+    negative_measurement_binding_problems(&measured.binding, expected, evidence, &mut problems);
+    negative_measurement_artifact_problems(record, evidence, measured, expected, &mut problems);
+    if problems.is_empty() {
+        NegativeControlVerdict {
+            status: NEGATIVE_STATUS_DEMONSTRATED,
+            problems,
+        }
+    } else {
+        inconclusive_negative_verdict(problems)
+    }
+}
+
+fn v1_negative_control_verdict(record: &ProofCardNegativeCheck, mut problems: Vec<String>) -> NegativeControlVerdict {
+    match record.status.as_str() {
+        NEGATIVE_STATUS_DEMONSTRATED => {
+            problems.push(format!(
+                "negative control schema `{NEGATIVE_CHECK_SCHEMA_VERSION_V1}` cannot attribute verifier rejection; re-record with `{NEGATIVE_CHECK_SCHEMA_VERSION_V2}` and explicit verifier evidence"
+            ));
+            inconclusive_negative_verdict(problems)
+        }
+        NEGATIVE_STATUS_NOT_DEMONSTRATED => NegativeControlVerdict {
+            status: NEGATIVE_STATUS_NOT_DEMONSTRATED,
+            problems: Vec::new(),
+        },
+        NEGATIVE_STATUS_INCONCLUSIVE => NegativeControlVerdict {
+            status: NEGATIVE_STATUS_INCONCLUSIVE,
+            problems: Vec::new(),
+        },
+        other => {
+            problems.push(format!("negative control record has unsupported status `{other}`"));
+            inconclusive_negative_verdict(problems)
+        }
+    }
+}
+
+fn inconclusive_negative_verdict(problems: Vec<String>) -> NegativeControlVerdict {
+    NegativeControlVerdict {
+        status: NEGATIVE_STATUS_INCONCLUSIVE,
+        problems,
+    }
+}
+
+fn negative_evidence_shape_problems(evidence: &NegativeControlEvidence, problems: &mut Vec<String>) {
+    if evidence.schema_version != NEGATIVE_CHECK_EVIDENCE_SCHEMA_VERSION {
+        problems.push(format!(
+            "negative control evidence field `schema_version` expected `{NEGATIVE_CHECK_EVIDENCE_SCHEMA_VERSION}` but got `{}`",
+            evidence.schema_version
+        ));
+    }
+    for (field, value) in [
+        ("verifier", evidence.verifier.as_str()),
+        ("toolchain", evidence.toolchain.as_str()),
+        ("verification_mode", evidence.verification_mode.as_str()),
+        ("verification_configuration_blake3", evidence.verification_configuration_blake3.as_str()),
+        ("approved_specification_id", evidence.approved_specification_id.as_str()),
+        ("proof_or_property_id", evidence.proof_or_property_id.as_str()),
+        ("source_requirement_or_policy_id", evidence.source_requirement_or_policy_id.as_str()),
+        ("checked_rust_source_scope", evidence.checked_rust_source_scope.as_str()),
+        ("evidence_tier", evidence.evidence_tier.as_str()),
+        ("mutation_id", evidence.mutation.mutation_id.as_str()),
+        ("patch_blake3", evidence.mutation.patch_blake3.as_str()),
+        ("mutation.baseline_source_blake3", evidence.mutation.baseline_source_blake3.as_str()),
+        ("mutation.mutant_source_blake3", evidence.mutation.mutant_source_blake3.as_str()),
+    ] {
+        if value.trim().is_empty() {
+            problems.push(format!("negative control evidence field `{field}` is missing"));
+        }
+    }
+    if evidence.command_argv.is_empty() || evidence.command_argv.iter().any(|argument| argument.trim().is_empty()) {
+        problems.push("negative control evidence field `command_argv` must retain a non-empty command".to_owned());
+    }
+}
+
+fn negative_evidence_binding_problems(
+    evidence: &NegativeControlEvidence,
+    expected: &NegativeControlExpectation<'_>,
+    problems: &mut Vec<String>,
+) {
+    for (field, actual, expected_value) in [
+        ("proof_or_property_id", evidence.proof_or_property_id.as_str(), expected.proof_or_property_id),
+        (
+            "source_requirement_or_policy_id",
+            evidence.source_requirement_or_policy_id.as_str(),
+            expected.source_requirement_or_policy_id,
+        ),
+        (
+            "checked_rust_source_scope",
+            evidence.checked_rust_source_scope.as_str(),
+            expected.checked_rust_source_scope,
+        ),
+        ("evidence_tier", evidence.evidence_tier.as_str(), expected.evidence_tier),
+        ("verifier", evidence.verifier.as_str(), expected.verifier_identity_summary),
+        ("toolchain", evidence.toolchain.as_str(), expected.toolchain_identity_summary),
+        ("verification_mode", evidence.verification_mode.as_str(), expected.verifier_mode),
+    ] {
+        if expected_value.trim().is_empty() {
+            problems.push(format!("negative control proof card field `{field}` is missing"));
+        } else if actual != expected_value {
+            problems.push(format!(
+                "negative control evidence field `{field}` expected `{expected_value}` from the proof card but got `{actual}`"
+            ));
+        }
+    }
+}
+
+fn negative_run_binding_problems(
+    run: &NegativeControlVerifierRun,
+    label: &str,
+    evidence: &NegativeControlEvidence,
+    problems: &mut Vec<String>,
+) {
+    for (field, value) in [
+        ("outcome", run.outcome.as_str()),
+        ("approved_specification_id", run.approved_specification_id.as_str()),
+        ("proof_or_property_id", run.proof_or_property_id.as_str()),
+        ("source_requirement_or_policy_id", run.source_requirement_or_policy_id.as_str()),
+        ("checked_rust_source_scope", run.checked_rust_source_scope.as_str()),
+        ("source_path", run.source_path.as_str()),
+        ("source_blake3", run.source_blake3.as_str()),
+        ("deck_path", run.deck_path.as_str()),
+        ("deck_blake3", run.deck_blake3.as_str()),
+    ] {
+        if value.trim().is_empty() {
+            problems.push(format!("negative control {label} verifier evidence field `{field}` is missing"));
+        }
+    }
+    for (field, actual, expected) in [
+        (
+            "approved_specification_id",
+            run.approved_specification_id.as_str(),
+            evidence.approved_specification_id.as_str(),
+        ),
+        ("proof_or_property_id", run.proof_or_property_id.as_str(), evidence.proof_or_property_id.as_str()),
+        (
+            "source_requirement_or_policy_id",
+            run.source_requirement_or_policy_id.as_str(),
+            evidence.source_requirement_or_policy_id.as_str(),
+        ),
+        (
+            "checked_rust_source_scope",
+            run.checked_rust_source_scope.as_str(),
+            evidence.checked_rust_source_scope.as_str(),
+        ),
+    ] {
+        if actual != expected {
+            problems.push(format!(
+                "negative control {label} verifier evidence field `{field}` expected `{expected}` but got `{actual}`"
+            ));
+        }
+    }
+}
+
+fn negative_outcome_problems(evidence: &NegativeControlEvidence, problems: &mut Vec<String>) {
+    for (label, run) in [("baseline", &evidence.baseline), ("mutant", &evidence.mutant)] {
+        if !run.outcome.is_empty() && !negative_outcome_supported(&run.outcome) {
+            problems.push(format!("negative control {label} verifier outcome `{}` is unsupported", run.outcome));
+        }
+    }
+    if evidence.baseline.outcome != NEGATIVE_RUN_ACCEPTED {
+        problems.push(format!(
+            "negative control baseline verifier outcome `{}` is not an accepted run",
+            evidence.baseline.outcome
+        ));
+    }
+    if evidence
+        .baseline
+        .rejection_attribution
+        .as_deref()
+        .is_some_and(|attribution| !attribution.trim().is_empty())
+    {
+        problems.push("negative control baseline verifier run unexpectedly attributes a rejection".to_owned());
+    }
+    match evidence.mutant.outcome.as_str() {
+        NEGATIVE_RUN_REJECTED => match evidence.mutant.rejection_attribution.as_deref() {
+            Some(attribution) if attribution == evidence.proof_or_property_id => {}
+            Some(attribution) => problems.push(format!(
+                "negative control mutant rejection attributed to `{attribution}` instead of expected obligation `{}`",
+                evidence.proof_or_property_id
+            )),
+            None => problems.push("negative control mutant rejection has no obligation attribution".to_owned()),
+        },
+        NEGATIVE_RUN_ACCEPTED => {
+            problems.push("negative control mutant verifier run was accepted; property not discriminated".to_owned());
+        }
+        other => problems.push(format!(
+            "negative control mutant verifier outcome `{other}` is not an attributable obligation rejection"
+        )),
+    }
+}
+
+fn negative_outcome_supported(outcome: &str) -> bool {
+    matches!(
+        outcome,
+        NEGATIVE_RUN_ACCEPTED
+            | NEGATIVE_RUN_REJECTED
+            | NEGATIVE_RUN_COMPILE_ERROR
+            | NEGATIVE_RUN_CRASH
+            | NEGATIVE_RUN_TIMEOUT
+            | NEGATIVE_RUN_NO_EVIDENCE
+    )
+}
+
+fn negative_measurement_binding_problems(
+    binding: &NegativeControlCardBinding,
+    expected: &NegativeControlExpectation<'_>,
+    evidence: &NegativeControlEvidence,
+    problems: &mut Vec<String>,
+) {
+    for (field, baseline, mutant) in [
+        (
+            "proof_or_property_id",
+            binding.baseline_proof_or_property_id.as_str(),
+            binding.mutant_proof_or_property_id.as_str(),
+        ),
+        (
+            "source_requirement_or_policy_id",
+            binding.baseline_source_requirement_or_policy_id.as_str(),
+            binding.mutant_source_requirement_or_policy_id.as_str(),
+        ),
+        ("policy_id", binding.baseline_policy_id.as_str(), binding.mutant_policy_id.as_str()),
+        (
+            "checked_rust_source_scope",
+            binding.baseline_checked_rust_source_scope.as_str(),
+            binding.mutant_checked_rust_source_scope.as_str(),
+        ),
+        ("evidence_tier", binding.baseline_evidence_tier.as_str(), binding.mutant_evidence_tier.as_str()),
+        ("verifier_mode", binding.baseline_verifier_mode.as_str(), binding.mutant_verifier_mode.as_str()),
+        (
+            "verifier_identity_summary",
+            binding.baseline_verifier_identity_summary.as_str(),
+            binding.mutant_verifier_identity_summary.as_str(),
+        ),
+        (
+            "toolchain_identity_summary",
+            binding.baseline_toolchain_identity_summary.as_str(),
+            binding.mutant_toolchain_identity_summary.as_str(),
+        ),
+    ] {
+        if baseline.trim().is_empty() {
+            problems.push(format!("negative control baseline proof card field `{field}` is missing"));
+        }
+        if mutant.trim().is_empty() {
+            problems.push(format!("negative control mutant proof card field `{field}` is missing"));
+        }
+        if baseline != mutant {
+            problems.push(format!(
+                "negative control proof cards differ on `{field}`: baseline `{baseline}` vs mutant `{mutant}`"
+            ));
+        }
+    }
+    for (field, actual, expected_value) in [
+        (
+            "proof_or_property_id",
+            binding.baseline_proof_or_property_id.as_str(),
+            expected.proof_or_property_id,
+        ),
+        (
+            "source_requirement_or_policy_id",
+            binding.baseline_source_requirement_or_policy_id.as_str(),
+            expected.source_requirement_or_policy_id,
+        ),
+        ("policy_id", binding.baseline_policy_id.as_str(), expected.policy_id),
+        (
+            "checked_rust_source_scope",
+            binding.baseline_checked_rust_source_scope.as_str(),
+            expected.checked_rust_source_scope,
+        ),
+        ("evidence_tier", binding.baseline_evidence_tier.as_str(), expected.evidence_tier),
+        ("verifier_mode", binding.baseline_verifier_mode.as_str(), expected.verifier_mode),
+        (
+            "verifier_identity_summary",
+            binding.baseline_verifier_identity_summary.as_str(),
+            expected.verifier_identity_summary,
+        ),
+        (
+            "toolchain_identity_summary",
+            binding.baseline_toolchain_identity_summary.as_str(),
+            expected.toolchain_identity_summary,
+        ),
+    ] {
+        if actual != expected_value {
+            problems.push(format!(
+                "negative control retained baseline proof card field `{field}` expected `{expected_value}` but got `{actual}`"
+            ));
+        }
+    }
+    if !negative_path_sets_match(&binding.baseline_source_paths, expected.baseline_source_paths) {
+        problems.push(
+            "negative control retained baseline source_paths do not match the proof card source locators".to_owned(),
+        );
+    }
+    if binding.baseline_source_paths.is_empty() || binding.mutant_source_paths.is_empty() {
+        problems.push("negative control proof cards must retain source_paths for locator binding".to_owned());
+    }
+    if !binding
+        .baseline_source_paths
+        .iter()
+        .any(|path| negative_locators_match(path, &evidence.baseline.source_path))
+    {
+        problems.push(format!(
+            "negative control verifier evidence baseline source `{}` is not declared by the baseline proof card source_paths",
+            evidence.baseline.source_path
+        ));
+    }
+    if !binding
+        .mutant_source_paths
+        .iter()
+        .any(|path| negative_locators_match(path, &evidence.mutant.source_path))
+    {
+        problems.push(format!(
+            "negative control verifier evidence mutant source `{}` is not declared by the mutant proof card source_paths",
+            evidence.mutant.source_path
+        ));
+    }
+    if !declared_mutation_only_source_paths(
+        &binding.baseline_source_paths,
+        &binding.mutant_source_paths,
+        &evidence.baseline.source_path,
+        &evidence.mutant.source_path,
+    ) {
+        problems
+            .push("negative control proof card source_paths differ outside the declared source mutation".to_owned());
+    }
+}
+
+fn negative_measurement_artifact_problems(
+    record: &ProofCardNegativeCheck,
+    evidence: &NegativeControlEvidence,
+    measured: &NegativeControlMeasurement,
+    expected: &NegativeControlExpectation<'_>,
+    problems: &mut Vec<String>,
+) {
+    for (field, value) in [
+        ("baseline_source_blake3", measured.baseline_source_blake3.as_str()),
+        ("mutant_source_blake3", measured.mutant_source_blake3.as_str()),
+        ("mutation_id", measured.mutation_id.as_str()),
+        ("patch_blake3", measured.patch_blake3.as_str()),
+        ("baseline_deck_blake3", measured.baseline_deck_blake3.as_str()),
+        ("mutant_deck_blake3", measured.mutant_deck_blake3.as_str()),
+    ] {
+        if value.trim().is_empty() {
+            problems.push(format!("negative control measured field `{field}` is missing"));
+        }
+    }
+    for (field, actual, expected_value) in [
+        (
+            "baseline_source_blake3",
+            measured.baseline_source_blake3.as_str(),
+            evidence.baseline.source_blake3.as_str(),
+        ),
+        (
+            "mutant_source_blake3",
+            measured.mutant_source_blake3.as_str(),
+            evidence.mutant.source_blake3.as_str(),
+        ),
+        (
+            "baseline_deck_blake3",
+            measured.baseline_deck_blake3.as_str(),
+            evidence.baseline.deck_blake3.as_str(),
+        ),
+        ("mutant_deck_blake3", measured.mutant_deck_blake3.as_str(), evidence.mutant.deck_blake3.as_str()),
+        ("mutation_id", measured.mutation_id.as_str(), evidence.mutation.mutation_id.as_str()),
+        ("patch_blake3", measured.patch_blake3.as_str(), evidence.mutation.patch_blake3.as_str()),
+        (
+            "mutation.baseline_source_blake3",
+            measured.baseline_source_blake3.as_str(),
+            evidence.mutation.baseline_source_blake3.as_str(),
+        ),
+        (
+            "mutation.mutant_source_blake3",
+            measured.mutant_source_blake3.as_str(),
+            evidence.mutation.mutant_source_blake3.as_str(),
+        ),
+    ] {
+        if actual != expected_value {
+            problems.push(format!(
+                "negative control measured `{field}` `{actual}` does not match retained evidence `{expected_value}`"
+            ));
+        }
+    }
+    if record.mutant_cards_blake3 != measured.mutant_deck_blake3 {
+        problems.push(format!(
+            "negative control mutant deck identity `{}` does not match measured mutant deck `{}`",
+            record.mutant_cards_blake3, measured.mutant_deck_blake3
+        ));
+    }
+    if measured.baseline_source_blake3 == measured.mutant_source_blake3 {
+        problems.push("negative control mutant source bytes are unchanged from the baseline source".to_owned());
+    }
+    if !negative_locators_match(&record.mutant_source, &evidence.mutant.source_path) {
+        problems.push(format!(
+            "negative control mutant source locator `{}` does not match verifier evidence source `{}`",
+            record.mutant_source, evidence.mutant.source_path
+        ));
+    }
+    let require_readable = expected.require_readable_artifacts;
+    for (label, path, expected_hash, measured_hash) in [
+        (
+            "baseline source",
+            evidence.baseline.source_path.as_str(),
+            evidence.baseline.source_blake3.as_str(),
+            measured.baseline_source_blake3.as_str(),
+        ),
+        (
+            "mutant source",
+            evidence.mutant.source_path.as_str(),
+            evidence.mutant.source_blake3.as_str(),
+            measured.mutant_source_blake3.as_str(),
+        ),
+    ] {
+        if let Some(actual) = verify_retained_artifact(path, expected_hash, label, require_readable, false, problems)
+            && actual != measured_hash
+        {
+            problems.push(format!(
+                "negative control measured `{label}` BLAKE3 `{measured_hash}` does not match current bytes `{actual}`"
+            ));
+        }
+    }
+    if require_readable {
+        for (label, path, expected_hash, measured_hash) in [
+            (
+                "baseline proof-card deck",
+                evidence.baseline.deck_path.as_str(),
+                evidence.baseline.deck_blake3.as_str(),
+                measured.baseline_deck_blake3.as_str(),
+            ),
+            (
+                "mutant proof-card deck",
+                evidence.mutant.deck_path.as_str(),
+                evidence.mutant.deck_blake3.as_str(),
+                measured.mutant_deck_blake3.as_str(),
+            ),
+        ] {
+            if let Some(actual) = verify_retained_artifact(path, expected_hash, label, true, true, problems)
+                && actual != measured_hash
+            {
+                problems.push(format!(
+                    "negative control measured `{label}` BLAKE3 `{measured_hash}` does not match current bytes `{actual}`"
+                ));
+            }
+        }
+    }
+    for (label, run) in [("baseline", &evidence.baseline), ("mutant", &evidence.mutant)] {
+        if let Some(raw_output) = run.raw_output.as_ref() {
+            verify_retained_artifact(
+                &raw_output.artifact,
+                &raw_output.blake3,
+                &format!("{label} verifier output"),
+                true,
+                true,
+                problems,
+            );
+        }
+    }
+}
+
+/// Re-hashes a retained artifact when it is readable. A readable artifact must match the retained
+/// identity; the recorder additionally requires every declared artifact to be readable.
+fn verify_retained_artifact(
+    path: &str,
+    expected_blake3: &str,
+    label: &str,
+    require_readable: bool,
+    require_non_empty: bool,
+    problems: &mut Vec<String>,
+) -> Option<String> {
+    if path.trim().is_empty() {
+        problems.push(format!("negative control {label} path is missing"));
+        return None;
+    }
+    let bytes = match fs::read(path) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            if require_readable {
+                problems.push(format!("negative control {label} `{path}` is not readable: {error}"));
+            }
+            return None;
+        }
+    };
+    if require_non_empty && bytes.is_empty() {
+        problems.push(format!("negative control {label} `{path}` is empty"));
+    }
+    let actual = blake3::hash(&bytes).to_hex().to_string();
+    if expected_blake3.trim().is_empty() {
+        problems.push(format!("negative control {label} BLAKE3 identity is missing"));
+    } else if actual != expected_blake3 {
+        problems.push(format!(
+            "negative control {label} `{path}` BLAKE3 `{actual}` does not match retained identity `{expected_blake3}`"
+        ));
+    }
+    Some(actual)
+}
+
+pub(crate) fn normalize_negative_locator(path: &str) -> String {
+    let mut normalized = path.trim().replace('\\', "/");
+    while let Some(rest) = normalized.strip_prefix("./") {
+        normalized = rest.to_owned();
+    }
+    normalized
+}
+
+pub(crate) fn negative_locators_match(left: &str, right: &str) -> bool {
+    if left == right {
+        return true;
+    }
+    let normalized_left = normalize_negative_locator(left);
+    let normalized_right = normalize_negative_locator(right);
+    if !normalized_left.is_empty() && normalized_left == normalized_right {
+        return true;
+    }
+    matches!(
+        (fs::canonicalize(left), fs::canonicalize(right)),
+        (Ok(left), Ok(right)) if left == right
+    )
+}
+
+fn normalized_sorted_source_paths(paths: &[String]) -> Vec<String> {
+    let mut normalized = paths
+        .iter()
+        .map(|path| normalize_negative_locator(path))
+        .filter(|path| !path.is_empty())
+        .collect::<Vec<_>>();
+    normalized.sort();
+    normalized.dedup();
+    normalized
+}
+
+fn negative_path_sets_match(left: &[String], right: &[String]) -> bool {
+    normalized_sorted_source_paths(left) == normalized_sorted_source_paths(right)
+}
+
+fn declared_mutation_only_source_paths(
+    baseline_paths: &[String],
+    mutant_paths: &[String],
+    baseline_source: &str,
+    mutant_source: &str,
+) -> bool {
+    let baseline_paths = normalized_sorted_source_paths(baseline_paths);
+    let mutant_paths = normalized_sorted_source_paths(mutant_paths);
+    if baseline_paths == mutant_paths {
+        return true;
+    }
+    let baseline_source = normalize_negative_locator(baseline_source);
+    let Some(index) = baseline_paths.iter().position(|path| negative_locators_match(path, &baseline_source)) else {
+        return false;
+    };
+    let mut substituted = baseline_paths;
+    substituted[index] = normalize_negative_locator(mutant_source);
+    substituted.sort();
+    substituted.dedup();
+    substituted == mutant_paths
 }
 
 fn proof_ref_overclaim_diagnostics(reference: &ProofEvidenceRef) -> Vec<String> {
@@ -477,11 +1271,59 @@ fn proof_ref_overclaim_diagnostics(reference: &ProofEvidenceRef) -> Vec<String> 
     diagnostics
 }
 
+/// Fails validation when a card claims a demonstrated negative control that the retained evidence
+/// does not reproduce. Non-demonstrated records make no positive claim, but an unsupported schema
+/// still fails so a malformed record cannot be mistaken for a valid one.
+fn negative_check_linkage_diagnostics(card: &ProofCard) -> Vec<String> {
+    let Some(record) = card.negative_check.as_ref() else {
+        return Vec::new();
+    };
+    if !matches!(record.schema_version.as_str(), NEGATIVE_CHECK_SCHEMA_VERSION_V1 | NEGATIVE_CHECK_SCHEMA_VERSION_V2) {
+        return vec![format!(
+            "proof card `{}` negative_check has unsupported schema `{}`",
+            card.proof_or_property_id, record.schema_version
+        )];
+    }
+    let expected = NegativeControlExpectation {
+        proof_or_property_id: &card.proof_or_property_id,
+        source_requirement_or_policy_id: &card.source_requirement_or_policy_id,
+        policy_id: &card.policy_id,
+        checked_rust_source_scope: &card.checked_rust_source_scope,
+        evidence_tier: &card.evidence_tier,
+        baseline_card_status: &card.status,
+        baseline_card_diagnostics: &card.diagnostics,
+        verifier_mode: &card.verifier_mode,
+        verifier_identity_summary: &card.verifier_identity_summary,
+        toolchain_identity_summary: &card.toolchain_identity_summary,
+        baseline_source_paths: &card.source_paths,
+        require_readable_artifacts: false,
+    };
+    let verdict = negative_control_verdict(record, &expected);
+    if record.status == NEGATIVE_STATUS_DEMONSTRATED {
+        let mut diagnostics = verdict.problems;
+        if verdict.status != NEGATIVE_STATUS_DEMONSTRATED {
+            diagnostics.push(format!(
+                "proof card `{}` negative_check claims `{NEGATIVE_STATUS_DEMONSTRATED}` but retained artifacts recompute `{}`",
+                card.proof_or_property_id, verdict.status
+            ));
+        }
+        diagnostics
+    } else if record.status == NEGATIVE_STATUS_NOT_DEMONSTRATED || record.status == NEGATIVE_STATUS_INCONCLUSIVE {
+        Vec::new()
+    } else {
+        vec![format!(
+            "proof card `{}` negative_check has unsupported status `{}`",
+            card.proof_or_property_id, record.status
+        )]
+    }
+}
+
 fn proof_ref_linkage_diagnostics(reference: &ProofEvidenceRef, deck: &ProofCardDeck) -> Vec<String> {
     let Some(card) = matching_card(reference, deck) else {
         return vec![unmatched_card_diagnostic(deck, &reference.proof_or_property_id)];
     };
     let mut diagnostics = Vec::new();
+    diagnostics.extend(negative_check_linkage_diagnostics(card));
     if !card.diagnostics.is_empty() {
         diagnostics.push(format!(
             "proof card `{}` has diagnostics: {}",
@@ -1025,6 +1867,24 @@ mod tests {
     }
 
     #[test]
+    fn proof_ref_rejects_missing_proof_card_property_id() {
+        let reference = matching_reference();
+        let mut blank = card();
+        blank.proof_or_property_id.clear();
+        let deck = ProofCardDeck {
+            schema_version: PROOF_CARDS_SCHEMA_VERSION.to_owned(),
+            cards: vec![card(), blank],
+        };
+
+        let diagnostics = validate_proof_evidence_ref(&reference, &deck, None).diagnostics;
+
+        assert!(
+            diagnostics.iter().any(|diagnostic| diagnostic.contains(FIELD_PROOF_OR_PROPERTY_ID)),
+            "missing proof card ID should fail validation: {diagnostics:?}"
+        );
+    }
+
+    #[test]
     fn proof_ref_scaffold_refuses_output_that_aliases_an_input() {
         let temp = tempfile::tempdir().expect("tempdir");
         let deck_path = temp.path().join("proof-cards.json");
@@ -1124,10 +1984,15 @@ mod tests {
         ProofCard {
             proof_or_property_id: PROPERTY_ID.to_owned(),
             source_requirement_or_policy_id: POLICY_ID.to_owned(),
+            policy_id: POLICY_ID.to_owned(),
             checked_rust_source_scope: CHECKED_SCOPE.to_owned(),
+            source_paths: vec!["src/codec.rs".to_owned()],
             evidence_tier: EVIDENCE_TIER_FORMAL_PROOF.to_owned(),
             evidence_origin: "octet_rerun".to_owned(),
             status: STATUS_PASSED.to_owned(),
+            verifier_mode: "verus".to_owned(),
+            verifier_identity_summary: "verus@0.2024".to_owned(),
+            toolchain_identity_summary: "rustc 1.83.0".to_owned(),
             artifact_blake3_identities: vec![
                 ProofCardArtifactIdentity {
                     artifact: RECEIPT_ARTIFACT.to_owned(),
@@ -1142,5 +2007,61 @@ mod tests {
             diagnostics: Vec::new(),
             negative_check: None,
         }
+    }
+
+    fn v1_negative_check(status: &str) -> ProofCardNegativeCheck {
+        ProofCardNegativeCheck {
+            schema_version: NEGATIVE_CHECK_SCHEMA_VERSION_V1.to_owned(),
+            status: status.to_owned(),
+            mutant_source: "src/codec_mutant.rs".to_owned(),
+            mutant_card_status: STATUS_FAILED.to_owned(),
+            mutant_card_evidence_tier: EVIDENCE_TIER_FORMAL_PROOF.to_owned(),
+            mutant_cards_blake3: "mutant-deck-digest".to_owned(),
+            non_claims: vec!["mutant rejection demonstrates discrimination for this mutation only".to_owned()],
+            diagnostics: Vec::new(),
+            evidence: None,
+            measured: None,
+        }
+    }
+
+    #[test]
+    fn proof_ref_treats_v1_demonstrated_negative_check_as_inconclusive() {
+        let mut card = card();
+        card.negative_check = Some(v1_negative_check(NEGATIVE_STATUS_DEMONSTRATED));
+        let deck = deck_with(card);
+
+        let diagnostics = validate_proof_evidence_ref(&matching_reference(), &deck, None).diagnostics;
+
+        assert!(
+            diagnostics.iter().any(|diagnostic| diagnostic.contains("cannot attribute verifier rejection")),
+            "v1 demonstrated status must not be trusted: {diagnostics:?}"
+        );
+    }
+
+    #[test]
+    fn proof_ref_accepts_conservative_v1_negative_check() {
+        let mut card = card();
+        card.negative_check = Some(v1_negative_check(NEGATIVE_STATUS_NOT_DEMONSTRATED));
+        let deck = deck_with(card);
+
+        let diagnostics = validate_proof_evidence_ref(&matching_reference(), &deck, None).diagnostics;
+
+        assert!(diagnostics.is_empty(), "conservative v1 record should validate: {diagnostics:?}");
+    }
+
+    #[test]
+    fn proof_ref_rejects_unsupported_negative_check_schema() {
+        let mut card = card();
+        let mut negative = v1_negative_check(NEGATIVE_STATUS_DEMONSTRATED);
+        negative.schema_version = "octet-proof-negative-check/v9".to_owned();
+        card.negative_check = Some(negative);
+        let deck = deck_with(card);
+
+        let diagnostics = validate_proof_evidence_ref(&matching_reference(), &deck, None).diagnostics;
+
+        assert!(
+            diagnostics.iter().any(|diagnostic| diagnostic.contains("unsupported schema")),
+            "unsupported negative-check schema should fail: {diagnostics:?}"
+        );
     }
 }

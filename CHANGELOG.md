@@ -16,6 +16,39 @@ profile the lints stay inert. See `docs/durability-claims.md`. A bounded
 storage-fault assurance profile and `octet-standards storage-fault-assurance`
 validate saved producer and Cairn receipts without executing a producer.
 
+## Unreleased: assurance execution, trust, and release qualification
+
+Nine reviewed assurance gaps now fail closed instead of being inferred from
+selection or supplied annotations. `octet-standards` reports per-policy checker
+execution outcomes (`passed`, `failed`, `not_run`, `unsupported`,
+`not_applicable`, `tool_error`) and `--strict-policy-coverage` rejects required
+external or human checks that were not actually run. Negative controls require a
+typed v2 verifier-evidence record with a passing baseline and a mutant rejection
+attributed to the named obligation; `proof-ref validate` recomputes the decision
+from retained artifacts. `cargo octet requirements check|verify|freshness`
+evaluates a Nickel-authored reviewed requirement contract, rejects empirical
+evidence for formal-proof clauses, binds assumptions and exclusions, recomputes
+the decision, and answers current/stale/missing/failed/unsupported/incomplete
+freshness queries over the evidence codebase index. `roadmap capsule replay`
+keeps supplied-observation comparison as a distinct mode and adds closed-profile
+executed replay with a retained execution receipt. `admit verify` gains opt-in
+consumer-owned Ed25519 producer authentication through the pinned artifact-auth
+crates while unsigned integrity verification remains available. Opt-in Semgrep
+and CodeQL producer profiles execute above the existing SARIF importer with
+executable/rule/query-pack/source/argv/outcome and CodeQL database bindings; an
+absent tool is unsupported, never clean. The previous invalid
+`codeql/rust-queries@0.2.25` pin is corrected to `0.1.46`, and retained real
+CodeQL `2.27.2` clean and violating reports under
+`standards/sarif/fixtures/` are imported by the checked intake profile. A
+separate cross-tool experiment
+contract adds a compiling architecture and assurance corpus, frozen expected
+outcomes, retained observations, comparable-subset metrics, adoption costs, and
+negative controls without relaxing the same-command comparator. The Nickel
+release-cohort manifest binds the supported public channel to exact source,
+export, dependency, toolchain, package, notice, capability, and acceptance
+identities; the current public cohort remains explicitly blocked because the
+public tree omits the development notices and carries unresolved imported prose.
+
 ## 2026-11-09: Vermilion and Aeneas u64 checked-increment evaluation
 
 The pinned Vermilion/Verus/Lean/cvc5 and Aeneas/Charon closures build and pass

@@ -32,9 +32,20 @@ cargo_check_args = ["--lib"]
 
 Use the published flake app or helper instead of copying bash glue:
 
-- `nix run path:/path/to/octet#cargo-octet -- check`
+- supported public channel (pinned cohort `octet-public-b9b4b404-2026-11-11`):
+
+  ```bash
+  nix run github:OnixResearch/octet-public/b9b4b4044142820a07dc00332c36e07d1e1c4711#cargo-octet -- check
+  ```
+
+- local development checkout: `nix run path:/path/to/octet#cargo-octet -- check`
 - consumer flake checks should call the same `cargo-octet` engine through
   `lib.mkConsumerCheck`
+
+Pin the full public revision, not `main`. The reviewed public cohort ships
+72 Dylint lints; the five lints that exist only in the development tree are
+listed in `docs/release-candidate.md#capability-inventory` and must not be
+named in a consumer profile that targets the public channel.
 
 Repo-local helpers like `just octet` should stay thin and delegate to the
 same command surface rather than reimplementing toolchain, lockfile, or Dylint

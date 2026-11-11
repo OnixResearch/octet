@@ -231,6 +231,15 @@ nix run .#octet-policy-validate
 nix run .#octet-standards -- --help
 ```
 
+Policy reports include one execution record per registry policy. A local checker
+that ran on an applicable scope reports `passed` or `failed` with its scope and
+linked diagnostics; a local policy with no implemented checker reports
+`unsupported`; externally owned tools and human review report `not_run` with
+their ownership. `octet-standards check ... --strict-policy-coverage` fails when
+a selected hard policy lacks a completed local check, including a required
+external or human check that was not actually run. Default mode keeps the
+existing diagnostics-only exit behavior.
+
 ## Formal proof rails
 
 Proof rails are opt-in. `cargo octet prove` writes verifier receipts and `proof-cards.json`.
@@ -283,7 +292,10 @@ lint severity and trust-boundary membership. Use `--json` for the stable
 `octet-proof-candidates/v1` report. Only existing rails are mapped; every other
 candidate is reported as unsupported. A rail that still passes against a mutant
 source is recorded as `property_not_demonstrated` by
-`cargo octet prove --record-negative-check`. The guided agent path lives in
+`cargo octet prove --record-negative-check`; `property_demonstrated` requires
+typed verifier evidence with a passing baseline and a mutant rejection
+attributed to the named obligation, and `proof-ref validate` recomputes the
+decision from the retained artifacts. The guided agent path lives in
 [`docs/skills/prove-a-candidate/SKILL.md`](docs/skills/prove-a-candidate/SKILL.md).
 
 `cargo octet check` and `cargo octet prove` write separate bundles, so give each
@@ -297,6 +309,32 @@ artifacts, a maintained theorem, and the existing pinned provider. See
 [`docs/aeneas-consumer-contract.md`](docs/aeneas-consumer-contract.md).
 
 Legacy `cargo slotcar` and `cargo tigerstyle` commands remain compatibility aliases.
+
+## Reviewed requirement contracts
+
+`cargo octet requirements check` evaluates a reviewed Nickel-authored contract against retained
+evidence. It requires a disposition for every clause, binds formal proofs to the exact source and
+scope, rejects empirical evidence for formal-proof requirements, and records the recomputable
+decision. `requirements verify` recomputes that decision from the contract, evidence, and source
+bytes. `requirements freshness` compares the same contract with an evidence codebase index and
+reports `current`, `stale_binding`, `missing`, `failed`, `unsupported`, and `incomplete` outcomes.
+
+```bash
+cargo octet requirements check \
+  --contract standards/requirements/example-contract.json \
+  --evidence standards/requirements/fixtures/example/evidence.json \
+  --source-root . \
+  --output artifacts/requirements/decision.json \
+  --output-format json
+cargo octet requirements verify \
+  --contract standards/requirements/example-contract.json \
+  --evidence standards/requirements/fixtures/example/evidence.json \
+  --decision artifacts/requirements/decision.json \
+  --source-root .
+```
+
+The contract surface does not authenticate reviewers or producers, prove verifier soundness, or
+establish release eligibility. See [`docs/requirements-contracts.md`](docs/requirements-contracts.md).
 
 ## Release operator path
 

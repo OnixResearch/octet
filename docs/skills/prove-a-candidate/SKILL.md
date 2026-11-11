@@ -133,19 +133,29 @@ cargo octet prove --record-negative-check \
   --proof-cards artifacts/octet-proofs/proof-cards.json \
   --mutant-cards artifacts/octet-proofs-mutant/proof-cards.json \
   --proof-or-property-id 'octet.verus_proof_rails.addition-bound-production#rail-0' \
-  --mutant-source <mutant-source-path>
+  --mutant-source <mutant-source-path> \
+  --verifier-evidence artifacts/octet-proofs-mutant/verifier-evidence.json
 ```
 
-- `property_demonstrated`: the mutant failed the rail. State that this is
-  evidence for this mutation only.
+The verifier evidence is a typed `octet-proof-negative-check-evidence/v1` document
+that binds the approved specification, obligation, checked scope, provider,
+toolchain, verification configuration, mutation patch, and measured baseline and
+mutant source/deck bytes. It records the baseline as accepted and the mutant as
+rejected for the named obligation, with optional retained raw output. A positive
+result without this evidence is inconclusive; an annotated `failed` card status
+alone is not a negative control.
+
+- `property_demonstrated`: the mutant was rejected for the named obligation.
+  State that this is evidence for this mutation only.
 - `property_not_demonstrated`: the rail still passed. Do not claim the intended
   property is proven. Report the exact diagnostic and leave the candidate's
   underlying claim unproven.
-- `inconclusive`: the mutant run did not produce a comparable card. Fix the
-  mutant run or stop.
+- `inconclusive`: the mutant run did not produce an attributable rejection.
+  Fix the evidence or stop.
 
 The result is stored in the proof card under `negative_check` in
-`proof-cards.json`.
+`proof-cards.json`; `proof-ref validate` recomputes it from the retained
+artifacts.
 
 ### 7. Report
 

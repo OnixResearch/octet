@@ -9,6 +9,126 @@ This document is the pre-tag release candidate receipt for Octet. It is intentio
 - Compatibility Cargo binaries: `cargo-slotcar`, `cargo-tigerstyle`
 - Lint library package output: `octet` with compatibility aliases `slotcar` and `tigerstyle`
 
+## Public release cohort
+
+The supported public channel is the source-only export pinned at
+`github:OnixResearch/octet-public/b9b4b4044142820a07dc00332c36e07d1e1c4711`.
+That was also the observed `main` head on 2026-11-11. `main` is a moving ref and
+is not a supported pin. The reviewed cohort is `octet-public-b9b4b404-2026-11-11`.
+
+`standards/release/release-cohort.ncl` is the reviewed manifest. It is exported
+to `standards/release/generated/release-cohort.json` and re-checked offline by
+`octet_standards::release_cohort` against `tests/fixtures/release/`. Regenerate
+the export and rerun the checker with:
+
+```bash
+nickel export --format json standards/release/release-cohort.ncl \
+  > standards/release/generated/release-cohort.json
+cargo test -p octet-standards --lib release_cohort
+```
+
+The manifest binds:
+
+- source: public `b9b4b4044142820a07dc00332c36e07d1e1c4711`
+  (`narHash sha256-A5vg2fA6wuMBk8w9WkyyLKjjK2Zc54yYAMQlbYazvzU=`), an
+  independently rooted export derived from development
+  `890f424cd7b1b2015f39c0eb5747f1bd1e576028`; the reviewed development
+  revision is `2bdd581980eef7f6ec8363ffa20ab9f3c798c9ee`.
+- export composition: independent git root, private settings and archival
+  transcripts withheld, operator paths in ordinary guidance illustrative.
+- toolchain: Rust `nightly-2026-03-21`, Nickel `1.17.0`
+  (`1320a983e6c3d1e2fb53dd2464b084b4903b1426`), Dylint baseline
+  `0e0a71eefe6f01563d11acc6e1d7af1d505934a9`.
+- dependencies: the exact pins in `tests/fixtures/release/public-flake.lock`,
+  including `cairn-public`, `valence-public`, `bounded-exec-public`,
+  `onix-artifact-public`, and the three Radicle inputs. Every pin was
+  retrievable anonymously at review with no private cache.
+- packages: `cargo-octet`, `cargo-slotcar`, `cargo-tigerstyle`, `octet`,
+  `slotcar`, `tigerstyle`, `dylint-driver`, `octet-standards`,
+  `slotcar-standards`, `tigerstyle-standards`, `octet-policy-artifacts`,
+  `octet-policy-export`, and `octet-assurance-profile-onixos-lifecycle`.
+- notices: `NOTICE`, `THIRD_PARTY_NOTICES.md`, and `LICENSES/` are required
+  members of a qualified public export.
+- acceptance: fresh receipts bound to one evidence digest.
+
+### Capability inventory
+
+The public cohort ships 72 Dylint lints. `tests/fixtures/release/public-lint-inventory-names.txt`
+is the reviewed public inventory, byte-identical to `tests/fixtures/lint_inventory_names.txt`
+at export origin `890f424c`. Development revision `2bdd5819` ships 77. The five
+names below exist only in development and MUST NOT appear in a public capability
+claim:
+
+| Absent from the public cohort | Reason |
+| --- | --- |
+| `discarded_sync_result` | added in development after the export origin |
+| `flush_only_durability` | added in development after the export origin |
+| `raw_bool_parameter` | added in development after the export origin |
+| `raw_bool_parameter_suppression` | added in development after the export origin |
+| `retry_sync_after_error` | added in development after the export origin |
+
+Capability claims are checked, not copied: the release-cohort test rejects a
+manifest whose inventory names differ from the fixture, whose source revision
+differs from the reviewed public revision, or whose documented count differs.
+
+### Qualification status: blocked
+
+The reviewed cohort is not release-qualified. The manifest records three
+blocking reasons with their required actions:
+
+1. `public-notice-files-absent` — the public tree carries imported standards
+   prose but omits `NOTICE`, `THIRD_PARTY_NOTICES.md`, and `LICENSES/`.
+2. `imported-standards-prose-unresolved` — `docs/standards/source/` is credited
+   to Adam Murray with no recorded upstream source, license, or written
+   permission. The qualified cohort composition excludes those paths;
+   `THIRD_PARTY_NOTICES.md` keeps the attribution. Copying `LICENSE` alone does
+   not clear this prerequisite. This is the repository's own publication rule,
+   not a legal conclusion.
+3. `walkthrough-doc-diverges` — the published first-patch walkthrough's
+   early-return fix still reports `unchecked_division`, because the public tree
+   predates the structural zero-guard recognition added at `83ddfc10` and its
+   own UI fixture covers only the enclosing-`if` guard.
+
+A new public revision that carries the three notice paths, excludes or clears
+the imported prose, and exports the current lint implementation can be
+qualified; this checklist cannot qualify the reviewed bytes by relabelling
+development receipts.
+
+### Fresh acceptance receipts for this cohort
+
+These ran on 2026-11-11 in an isolated environment (`HOME`, `XDG_CACHE_HOME`,
+and `XDG_CONFIG_HOME` under a scratch directory, `substituters` limited to
+`cache.nixos.org`, empty `builders`, no credentials, no pre-populated private
+cache):
+
+| Receipt | Command | Outcome |
+| --- | --- | --- |
+| flake resolution | `nix flake metadata --json github:OnixResearch/octet-public/b9b4b4044142820a07dc00332c36e07d1e1c4711` | resolved the pinned revision and nar hash |
+| package build | `nix build ...#cargo-octet ...#octet ...#dylint-driver ...#octet-standards ...#octet-policy-artifacts --no-link --json` | all five outputs built from public inputs |
+| runner version | `nix run <flake-ref>#cargo-octet -- --version` | `cargo-octet 0.1.0` |
+| policy artifacts | `octet-policy-artifacts <dir>` | five generated policy artifacts plus manifest |
+| walkthrough | `cargo octet check --artifact-dir artifacts/octet --output-format sarif` | finding, corrected fix, clean run |
+| artifact verification | `cargo octet artifact verify --artifact-dir artifacts/octet` | `status=valid` |
+| tamper rejection | same verifier on a rewritten `results.sarif` | `status=invalid`, exit 1 |
+
+The walkthrough observed `unchecked_division` at `src/lib.rs:2`. The reviewed
+public revision publishes an early `return Err(...)` fix, which still reports
+the finding at `src/lib.rs:14` under that cohort. A guarded
+`if completed_operations > 0` with an `else` branch produces a clean run: 0
+findings, exit 0. The development walkthrough now publishes the guarded
+`if`/`else` form, so this reason clears when the next public export carries that
+document; the reviewed public bytes remain divergent. A consumer without a
+committed `Cargo.lock` also sees exit 2, because the runner restores the lock it
+generated; pre-generating the lock gives exit 0.
+
+Historical and development receipts are non-evidence for this cohort. The
+manifest lists them under `acceptance.non_evidence`; they cannot be relabelled.
+
+The full `nix flake check -L` gate for this cohort was **not** executed. Only
+the source-resolution, package-build, runner, policy-artifact, walkthrough, and
+artifact-verification receipts above ran, and only for
+`x86_64-linux`.
+
 ## Open-source publication prerequisites
 
 The maintenance owner is the Octet maintainer publishing the selected revision.
@@ -25,12 +145,19 @@ Before making the repository or a release public:
 - Resolve the Adam Murray standards-prose permission entry in
   [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md). Do not publish uncertain
   imported material on the assumption that the root AGPL notice covers it.
+  The release cohort manifest records the current disposition: the qualified
+  cohort composition excludes `docs/standards/source/`, keeps the attribution,
+  and requires `NOTICE`, `THIRD_PARTY_NOTICES.md`, and `LICENSES/` in the public
+  tree. The reviewed public revision satisfies neither condition, which is
+  blocking reason `public-notice-files-absent` in
+  `standards/release/generated/release-cohort.json`.
 - Fetch every exact Cargo and flake input from a clean, credential-free
   environment. On 2026-10-15 anonymous requests for the pinned Valence,
   Bounded Exec, Cairn, and Cairn artifact sources returned HTTP 404. This does
-  not distinguish private, missing, or renamed sources. Maintainers must make
-  the exact sources available or approve a dependency change before claiming
-  that the public quick start works.
+  not distinguish private, missing, or renamed sources. On 2026-11-11 the
+  public cohort's pins did resolve anonymously, so the check is now a
+  reproducible pass for this cohort rather than an open blocker; rerun it for
+  every new pin.
 - Review every branch/tag intended for publication and scan reachable history
   and the final tracked tree with a redacting secret scanner. Rotate/revoke
   any real credential before considering an approved history repair. Review
@@ -106,7 +233,14 @@ nix build .#checks.x86_64-linux.release-candidate-smoke -L --no-link
 nix flake check -L
 cargo octet check --artifact-dir artifacts/octet
 cargo octet artifact verify --artifact-dir artifacts/octet
+cargo test -p octet-standards --lib release_cohort
 ```
+
+The last gate revalidates the public release cohort and its negative controls;
+it fails on a source/inventory mismatch, an omitted notice, unresolved imported
+content presented as cleared, a warm-cache dependency, a copied or
+source-mismatched receipt, changed evidence, or an unsupported profile presented
+as verified.
 
 ## Install smoke commands
 
@@ -117,6 +251,15 @@ nix run .#cargo-octet -- --version
 nix run .#cargo-slotcar -- --version
 nix run .#cargo-tigerstyle -- --version
 nix build .#cargo-octet .#cargo-slotcar .#cargo-tigerstyle .#octet .#slotcar .#tigerstyle --no-link
+```
+
+For the supported public cohort, install from the pinned channel rather than a
+local checkout. The command below is the copyable form; `main` is not a
+supported pin.
+
+```bash
+nix run github:OnixResearch/octet-public/b9b4b4044142820a07dc00332c36e07d1e1c4711#cargo-octet -- --version
+nix run github:OnixResearch/octet-public/b9b4b4044142820a07dc00332c36e07d1e1c4711#cargo-octet -- check
 ```
 
 Expected version output:

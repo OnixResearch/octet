@@ -127,6 +127,11 @@ struct CheckArgs {
     #[arg(long)]
     execute_proof_rails: bool,
 
+    /// Require complete execution coverage for selected hard policies in addition to no blocking
+    /// diagnostics.
+    #[arg(long)]
+    strict_policy_coverage: bool,
+
     /// Directory where executed proof-rail receipts are persisted for later promotion evidence.
     /// Requires `--execute-proof-rails`.
     #[arg(long, requires = "execute_proof_rails")]
@@ -295,9 +300,15 @@ fn run_check_command(args: CheckArgs) -> Result<bool, CliError> {
                     evaluated_policy_ids: Vec::new(),
                     policy_evaluations: Vec::new(),
                     capability_reports: Vec::new(),
+                    policy_executions: Vec::new(),
+                    required_policy_ids: Vec::new(),
                 };
                 emit_report(args.output, &report)?;
-                return Ok(report.has_blocking_diagnostics());
+                return Ok(if args.strict_policy_coverage {
+                    !report.strict_passing()
+                } else {
+                    report.has_blocking_diagnostics()
+                });
             }
         }
     } else if let Some(registry) = &args.registry {
@@ -327,10 +338,15 @@ fn run_check_command(args: CheckArgs) -> Result<bool, CliError> {
         registry,
         sources,
         selection,
+        checker_failures: Vec::new(),
     });
     report.diagnostics.extend(cargo_metadata_diagnostic);
     emit_report(args.output, &report)?;
-    Ok(report.has_blocking_diagnostics())
+    Ok(if args.strict_policy_coverage {
+        !report.strict_passing()
+    } else {
+        report.has_blocking_diagnostics()
+    })
 }
 
 fn validate_family_selection(registry: &PolicyRegistry, selection: &FamilySelection) -> Result<(), CliError> {
@@ -479,6 +495,8 @@ fn run_fixture_coverage_command(args: FixtureCoverageArgs) -> Result<bool, CliEr
         evaluated_policy_ids: Vec::new(),
         policy_evaluations: Vec::new(),
         capability_reports: Vec::new(),
+        policy_executions: Vec::new(),
+        required_policy_ids: Vec::new(),
     };
     emit_report(output, &report)?;
     Ok(report.has_blocking_diagnostics())

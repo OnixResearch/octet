@@ -1,0 +1,10 @@
+{
+  "description": "Root license offered as clearance for imported prose with no recorded permission",
+  "overrides": [
+    {
+      "path": "notices.imported_material.1.root_license_relied_upon",
+      "value": true
+    }
+  ],
+  "expected_findings": ["root-license-cannot-clear-imported-content"]
+}

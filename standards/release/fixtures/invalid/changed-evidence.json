@@ -1,0 +1,10 @@
+{
+  "description": "Acceptance evidence identity replaced after the receipts were recorded",
+  "overrides": [
+    {
+      "path": "acceptance.evidence_digest",
+      "value": "b3:0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "expected_findings": ["evidence-digest-mismatch"]
+}

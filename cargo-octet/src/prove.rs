@@ -363,7 +363,11 @@ struct CommandOutcome {
 
 pub fn run(args: &ProveArgs) -> Result<i32, String> {
     if let Some(negative_check) = &args.negative_check {
-        return crate::proof_candidates::run_record_negative_check(negative_check, args.output_format);
+        return crate::proof_candidates::run_record_negative_check_with_evidence(
+            negative_check,
+            negative_check.verifier_evidence.as_deref(),
+            args.output_format,
+        );
     }
     if args.candidates {
         return crate::proof_candidates::run(args);

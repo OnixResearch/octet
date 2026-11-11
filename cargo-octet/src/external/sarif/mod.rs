@@ -193,6 +193,8 @@ fn finding_identity(input: &IdentityInput<'_>) -> String {
     format!("b3:{}", hasher.finalize().to_hex())
 }
 
+pub(crate) mod producer;
+
 mod validation;
 
 #[cfg(test)]

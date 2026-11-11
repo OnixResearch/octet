@@ -23,7 +23,7 @@ use crate::cli::ProveArgs;
 use crate::proof_ref;
 
 const SCHEMA_VERSION: &str = "octet-proof-candidates/v1";
-const NEGATIVE_CHECK_SCHEMA_VERSION: &str = "octet-proof-negative-check/v1";
+const NEGATIVE_CHECK_SCHEMA_VERSION: &str = proof_ref::NEGATIVE_CHECK_SCHEMA_VERSION_V2;
 const NEGATIVE_CHECK_DECK_SCHEMA_VERSION: &str = "octet-proof-cards/v1";
 const DEFAULT_PROOF_REF: &str = "proof-ref.json";
 const TRUST_BOUNDARY_FENCE: &str = "trust-boundary-prefixes";
@@ -37,10 +37,13 @@ const STATUS_UNVALIDATED: &str = "unvalidated";
 const STATUS_INVALID: &str = "invalid";
 const STATUS_UNBOUND: &str = "unbound";
 const STATUS_VALIDATED: &str = "validated";
-const NEGATIVE_STATUS_DEMONSTRATED: &str = "property_demonstrated";
-const NEGATIVE_STATUS_NOT_DEMONSTRATED: &str = "property_not_demonstrated";
-const NEGATIVE_STATUS_INCONCLUSIVE: &str = "inconclusive";
+const NEGATIVE_STATUS_DEMONSTRATED: &str = proof_ref::NEGATIVE_STATUS_DEMONSTRATED;
+#[cfg(test)]
+const NEGATIVE_STATUS_NOT_DEMONSTRATED: &str = proof_ref::NEGATIVE_STATUS_NOT_DEMONSTRATED;
+const NEGATIVE_STATUS_INCONCLUSIVE: &str = proof_ref::NEGATIVE_STATUS_INCONCLUSIVE;
+#[cfg(test)]
 const CARD_STATUS_PASSED: &str = "passed";
+#[cfg(test)]
 const CARD_STATUS_FAILED: &str = "failed";
 
 /// One existing rail mapped to a Tiger Style lint.
@@ -124,6 +127,10 @@ struct NegativeCheckReport {
     mutant_source: String,
     mutant_cards: String,
     deck: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    verifier_evidence: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    measurement: Option<proof_ref::NegativeControlMeasurement>,
     diagnostics: Vec<String>,
     non_claims: Vec<String>,
 }
@@ -983,31 +990,46 @@ fn print_candidate_report(output_format: OutputFormat, report: &ProofCandidateRe
     }
 }
 
+/// Records a v2 negative-control record for the selected proof card.
+///
+/// This wrapper retains the original call shape. Without explicit verifier evidence the recorder
+/// cannot attribute a mutant rejection, so the written record is `inconclusive`. Callers that wire
+/// `--verifier-evidence` must use [`run_record_negative_check_with_evidence`].
+#[cfg(test)]
+pub(crate) fn run_record_negative_check(args: &NegativeCheckArgs, output_format: OutputFormat) -> Result<i32, String> {
+    run_record_negative_check_with_evidence(args, None, output_format)
+}
+
+/// Records a v2 negative-control record using the explicit typed verifier evidence at
+/// `verifier_evidence`. The recorder measures both source and deck bytes, binds both proof cards,
+/// and recomputes the decision from the retained artifacts.
 #[allow(
     clippy::too_many_lines,
-    reason = "the negative-check path keeps deck loading, mutant comparison, and report writing in one auditable sequence"
+    reason = "the negative-check path keeps deck loading, card binding, measurement, and report writing in one auditable sequence"
 )]
-pub(crate) fn run_record_negative_check(args: &NegativeCheckArgs, output_format: OutputFormat) -> Result<i32, String> {
-    let mut diagnostics = Vec::new();
+pub(crate) fn run_record_negative_check_with_evidence(
+    args: &NegativeCheckArgs,
+    verifier_evidence: Option<&Path>,
+    output_format: OutputFormat,
+) -> Result<i32, String> {
     let baseline_text = fs::read_to_string(&args.proof_cards)
         .map_err(|error| format!("read {}: {error}", args.proof_cards.display()))?;
-    let mut baseline: serde_json::Value = serde_json::from_str(&baseline_text)
-        .map_err(|error| format!("parse {} as JSON: {error}", args.proof_cards.display()))?;
-    if baseline.get("schema_version").and_then(serde_json::Value::as_str) != Some(NEGATIVE_CHECK_DECK_SCHEMA_VERSION) {
-        return Err(format!(
-            "proof-cards deck `{}` does not declare schema `{NEGATIVE_CHECK_DECK_SCHEMA_VERSION}`",
-            args.proof_cards.display()
-        ));
-    }
     let mutant_text = fs::read_to_string(&args.mutant_cards)
         .map_err(|error| format!("read {}: {error}", args.mutant_cards.display()))?;
-    let mutant: serde_json::Value = serde_json::from_str(&mutant_text)
+    let mut baseline_value: serde_json::Value = serde_json::from_str(&baseline_text)
+        .map_err(|error| format!("parse {} as JSON: {error}", args.proof_cards.display()))?;
+    let mutant_value: serde_json::Value = serde_json::from_str(&mutant_text)
         .map_err(|error| format!("parse {} as JSON: {error}", args.mutant_cards.display()))?;
-    let mutant_blake3 = blake3::hash(mutant_text.as_bytes()).to_hex().to_string();
-    let Some(baseline_cards) = baseline.get_mut("cards").and_then(serde_json::Value::as_array_mut) else {
-        return Err(format!("proof-cards deck `{}` has no cards array", args.proof_cards.display()));
-    };
-    let baseline_positions = card_positions(baseline_cards, &args.proof_or_property_id);
+    check_negative_deck_schema(&baseline_value, &args.proof_cards)?;
+    check_negative_deck_schema(&mutant_value, &args.mutant_cards)?;
+    let baseline_deck: proof_ref::ProofCardDeck = serde_json::from_value(baseline_value.clone())
+        .map_err(|error| format!("parse {} as proof cards: {error}", args.proof_cards.display()))?;
+    let mutant_deck: proof_ref::ProofCardDeck = serde_json::from_value(mutant_value)
+        .map_err(|error| format!("parse {} as proof cards: {error}", args.mutant_cards.display()))?;
+    let baseline_deck_blake3 = blake3::hash(baseline_text.as_bytes()).to_hex().to_string();
+    let mutant_deck_blake3 = blake3::hash(mutant_text.as_bytes()).to_hex().to_string();
+
+    let baseline_positions = deck_card_positions(&baseline_deck, &args.proof_or_property_id);
     if baseline_positions.len() != 1 {
         return Err(format!(
             "baseline deck must contain exactly one card for `{}`; found {}",
@@ -1015,101 +1037,171 @@ pub(crate) fn run_record_negative_check(args: &NegativeCheckArgs, output_format:
             baseline_positions.len()
         ));
     }
-    let mutant_cards = mutant.get("cards").and_then(serde_json::Value::as_array).map_or(&[][..], Vec::as_slice);
-    let mutant_positions = card_positions(mutant_cards, &args.proof_or_property_id);
-    if mutant_positions.len() != 1 {
-        diagnostics.push(format!(
-            "mutant deck must contain exactly one card for `{}`; found {}",
-            args.proof_or_property_id,
-            mutant_positions.len()
-        ));
-    }
     let baseline_index = baseline_positions[0];
-    let (status, mutant_status, mutant_tier) = match mutant_positions.as_slice() {
-        [index] => {
-            let card = &mutant_cards[*index];
-            let mutant_status = string_field(card, "status").unwrap_or("unknown").to_owned();
-            let mutant_tier = string_field(card, "evidence_tier").unwrap_or("unknown").to_owned();
-            let status = if mutant_status == CARD_STATUS_PASSED {
-                NEGATIVE_STATUS_NOT_DEMONSTRATED
-            } else if mutant_status == CARD_STATUS_FAILED {
-                NEGATIVE_STATUS_DEMONSTRATED
-            } else {
-                NEGATIVE_STATUS_INCONCLUSIVE
-            };
-            (status, mutant_status, mutant_tier)
+    let baseline_card = &baseline_deck.cards[baseline_index];
+    let mutant_positions = deck_card_positions(&mutant_deck, &args.proof_or_property_id);
+    let mut diagnostics = Vec::new();
+    let mutant_card = match mutant_positions.as_slice() {
+        [index] => Some(&mutant_deck.cards[*index]),
+        _ => {
+            diagnostics.push(format!(
+                "mutant deck must contain exactly one card for `{}`; found {}",
+                args.proof_or_property_id,
+                mutant_positions.len()
+            ));
+            None
         }
-        _ => (NEGATIVE_STATUS_INCONCLUSIVE, "absent".to_owned(), String::new()),
     };
-    if status == NEGATIVE_STATUS_NOT_DEMONSTRATED {
-        diagnostics.push(format!(
-            "rail `{}` still passes against the mutant source `{}`: property not demonstrated",
-            args.proof_or_property_id, args.mutant_source
-        ));
-    }
-    if status == NEGATIVE_STATUS_DEMONSTRATED {
-        diagnostics.push(format!(
-            "mutant source `{}` fails rail `{}`; property demonstrated for this mutation only",
-            args.mutant_source, args.proof_or_property_id
-        ));
-    }
-    if status == NEGATIVE_STATUS_INCONCLUSIVE {
-        diagnostics.push(format!(
-            "mutant result for `{}` is inconclusive; expected a passed or failed mutant card",
-            args.proof_or_property_id
-        ));
-    }
+
+    let evidence = match verifier_evidence {
+        Some(path) => Some(proof_ref::read_negative_check_evidence(path)?),
+        None => None,
+    };
+    let measured = match (evidence.as_ref(), mutant_card) {
+        (Some(evidence), Some(mutant_card)) => Some(proof_ref::NegativeControlMeasurement {
+            baseline_source_blake3: measure_source_bytes(&evidence.baseline.source_path),
+            mutant_source_blake3: measure_source_bytes(&evidence.mutant.source_path),
+            mutation_id: evidence.mutation.mutation_id.clone(),
+            patch_blake3: evidence.mutation.patch_blake3.clone(),
+            baseline_deck_blake3: baseline_deck_blake3.clone(),
+            mutant_deck_blake3: mutant_deck_blake3.clone(),
+            binding: negative_card_binding(baseline_card, mutant_card),
+        }),
+        _ => None,
+    };
+    let mut record = proof_ref::ProofCardNegativeCheck {
+        schema_version: NEGATIVE_CHECK_SCHEMA_VERSION.to_owned(),
+        status: NEGATIVE_STATUS_INCONCLUSIVE.to_owned(),
+        mutant_source: args.mutant_source.clone(),
+        mutant_card_status: mutant_card.map_or("absent", |card| card.status.as_str()).to_owned(),
+        mutant_card_evidence_tier: mutant_card.map_or("", |card| card.evidence_tier.as_str()).to_owned(),
+        mutant_cards_blake3: mutant_deck_blake3,
+        non_claims: vec![NEGATIVE_CHECK_NON_CLAIM.to_owned()],
+        diagnostics: Vec::new(),
+        evidence,
+        measured,
+    };
+    let expected = proof_ref::NegativeControlExpectation {
+        proof_or_property_id: &baseline_card.proof_or_property_id,
+        source_requirement_or_policy_id: &baseline_card.source_requirement_or_policy_id,
+        policy_id: &baseline_card.policy_id,
+        checked_rust_source_scope: &baseline_card.checked_rust_source_scope,
+        evidence_tier: &baseline_card.evidence_tier,
+        baseline_card_status: &baseline_card.status,
+        baseline_card_diagnostics: &baseline_card.diagnostics,
+        verifier_mode: &baseline_card.verifier_mode,
+        verifier_identity_summary: &baseline_card.verifier_identity_summary,
+        toolchain_identity_summary: &baseline_card.toolchain_identity_summary,
+        baseline_source_paths: &baseline_card.source_paths,
+        require_readable_artifacts: true,
+    };
+    let verdict = proof_ref::negative_control_verdict(&record, &expected);
+    record.status = verdict.status.to_owned();
+    diagnostics.extend(verdict.problems);
     diagnostics.sort();
     diagnostics.dedup();
-    let negative = proof_ref::ProofCardNegativeCheck {
-        schema_version: NEGATIVE_CHECK_SCHEMA_VERSION.to_owned(),
-        status: status.to_owned(),
-        mutant_source: args.mutant_source.clone(),
-        mutant_card_status: mutant_status,
-        mutant_card_evidence_tier: mutant_tier,
-        mutant_cards_blake3: mutant_blake3,
-        non_claims: vec![NEGATIVE_CHECK_NON_CLAIM.to_owned()],
-        diagnostics: diagnostics.clone(),
-    };
-    let Some(card) = baseline_cards[baseline_index].as_object_mut() else {
+    record.diagnostics = diagnostics.clone();
+
+    let Some(card) = baseline_value
+        .get_mut("cards")
+        .and_then(serde_json::Value::as_array_mut)
+        .and_then(|cards| cards.get_mut(baseline_index))
+        .and_then(serde_json::Value::as_object_mut)
+    else {
         return Err(format!("baseline card `{}` is not a JSON object", args.proof_or_property_id));
     };
     card.insert(
         "negative_check".to_owned(),
-        serde_json::to_value(negative).map_err(|error| format!("serialize negative check: {error}"))?,
+        serde_json::to_value(&record).map_err(|error| format!("serialize negative check: {error}"))?,
     );
     let output_path = args.output.as_ref().unwrap_or(&args.proof_cards);
-    if output_path == &args.mutant_cards {
+    if paths_alias(output_path, &args.mutant_cards) {
         return Err("negative-check output must not overwrite the mutant proof-cards deck".to_owned());
     }
-    let text =
-        serde_json::to_string_pretty(&baseline).map_err(|error| format!("serialize proof cards: {error}"))? + "\n";
+    if let Some(evidence_path) = verifier_evidence
+        && paths_alias(output_path, evidence_path)
+    {
+        return Err("negative-check output must not overwrite the verifier evidence input".to_owned());
+    }
+    let text = serde_json::to_string_pretty(&baseline_value)
+        .map_err(|error| format!("serialize proof cards: {error}"))?
+        + "\n";
     fs::write(output_path, text).map_err(|error| format!("write {}: {error}", output_path.display()))?;
     let report = NegativeCheckReport {
         schema_version: NEGATIVE_CHECK_SCHEMA_VERSION.to_owned(),
         proof_or_property_id: args.proof_or_property_id.clone(),
-        status: status.to_owned(),
+        status: record.status.clone(),
         mutant_source: args.mutant_source.clone(),
         mutant_cards: args.mutant_cards.display().to_string(),
         deck: output_path.display().to_string(),
+        verifier_evidence: verifier_evidence.map(|path| path.display().to_string()),
+        measurement: record.measured.clone(),
         diagnostics,
         non_claims: vec![NEGATIVE_CHECK_NON_CLAIM.to_owned()],
     };
     print_negative_check_report(output_format, &report)?;
-    Ok(i32::from(status != NEGATIVE_STATUS_DEMONSTRATED))
+    Ok(i32::from(record.status != NEGATIVE_STATUS_DEMONSTRATED))
 }
 
-fn string_field<'a>(card: &'a serde_json::Value, field: &str) -> Option<&'a str> {
-    card.get(field).and_then(serde_json::Value::as_str)
+fn check_negative_deck_schema(deck: &serde_json::Value, path: &Path) -> Result<(), String> {
+    match deck.get("schema_version").and_then(serde_json::Value::as_str) {
+        Some(NEGATIVE_CHECK_DECK_SCHEMA_VERSION) => Ok(()),
+        Some(other) => Err(format!(
+            "proof-cards deck `{}` declares unsupported schema `{other}`; expected `{NEGATIVE_CHECK_DECK_SCHEMA_VERSION}`",
+            path.display()
+        )),
+        None => Err(format!(
+            "proof-cards deck `{}` does not declare schema `{NEGATIVE_CHECK_DECK_SCHEMA_VERSION}`",
+            path.display()
+        )),
+    }
 }
 
-fn card_positions(cards: &[serde_json::Value], proof_or_property_id: &str) -> Vec<usize> {
-    cards
+fn deck_card_positions(deck: &proof_ref::ProofCardDeck, proof_or_property_id: &str) -> Vec<usize> {
+    deck.cards
         .iter()
         .enumerate()
-        .filter(|(_, card)| string_field(card, "proof_or_property_id") == Some(proof_or_property_id))
+        .filter(|(_, card)| card.proof_or_property_id == proof_or_property_id)
         .map(|(index, _)| index)
         .collect()
+}
+
+fn measure_source_bytes(path: &str) -> String {
+    fs::read(path).map_or_else(|_| String::new(), |bytes| blake3::hash(&bytes).to_hex().to_string())
+}
+
+fn negative_card_binding(
+    baseline: &proof_ref::ProofCard,
+    mutant: &proof_ref::ProofCard,
+) -> proof_ref::NegativeControlCardBinding {
+    proof_ref::NegativeControlCardBinding {
+        baseline_proof_or_property_id: baseline.proof_or_property_id.clone(),
+        mutant_proof_or_property_id: mutant.proof_or_property_id.clone(),
+        baseline_source_requirement_or_policy_id: baseline.source_requirement_or_policy_id.clone(),
+        mutant_source_requirement_or_policy_id: mutant.source_requirement_or_policy_id.clone(),
+        baseline_policy_id: baseline.policy_id.clone(),
+        mutant_policy_id: mutant.policy_id.clone(),
+        baseline_checked_rust_source_scope: baseline.checked_rust_source_scope.clone(),
+        mutant_checked_rust_source_scope: mutant.checked_rust_source_scope.clone(),
+        baseline_evidence_tier: baseline.evidence_tier.clone(),
+        mutant_evidence_tier: mutant.evidence_tier.clone(),
+        baseline_verifier_mode: baseline.verifier_mode.clone(),
+        mutant_verifier_mode: mutant.verifier_mode.clone(),
+        baseline_verifier_identity_summary: baseline.verifier_identity_summary.clone(),
+        mutant_verifier_identity_summary: mutant.verifier_identity_summary.clone(),
+        baseline_toolchain_identity_summary: baseline.toolchain_identity_summary.clone(),
+        mutant_toolchain_identity_summary: mutant.toolchain_identity_summary.clone(),
+        baseline_source_paths: baseline.source_paths.clone(),
+        mutant_source_paths: mutant.source_paths.clone(),
+    }
+}
+
+fn paths_alias(left: &Path, right: &Path) -> bool {
+    left == right
+        || matches!(
+            (fs::canonicalize(left), fs::canonicalize(right)),
+            (Ok(left), Ok(right)) if left == right
+        )
 }
 
 fn print_negative_check_report(output_format: OutputFormat, report: &NegativeCheckReport) -> Result<(), String> {

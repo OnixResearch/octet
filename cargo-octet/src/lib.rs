@@ -64,6 +64,7 @@ mod proof_ref;
 mod prove;
 mod prove_core;
 mod provider_manifest;
+mod requirements;
 mod roadmap;
 #[cfg(test)]
 mod source_acquisition_receipts;
@@ -100,6 +101,7 @@ fn try_main() -> Result<i32, String> {
     match cli::parse(std::env::args_os())? {
         cli::CommandArgs::Admit(args) => admit::run(&args),
         cli::CommandArgs::Artifact(args) => artifact::run(&args),
+        cli::CommandArgs::Benchmark(args) => benchmark::experiment::run_cli(&args.experiment),
         cli::CommandArgs::Check(check) => engine::run(&check),
         cli::CommandArgs::EvidenceIndex(args) => evidence_index::run(args),
         cli::CommandArgs::EvidenceRail(args) => evidence_rails::run(&args),
@@ -109,6 +111,7 @@ fn try_main() -> Result<i32, String> {
         cli::CommandArgs::ProviderManifest(args) => provider_manifest::run(args),
         cli::CommandArgs::Prove(args) => prove::run(&args),
         cli::CommandArgs::ProofRef(args) => proof_ref::run(&args),
+        cli::CommandArgs::Requirements(args) => requirements::run(&args),
         cli::CommandArgs::Roadmap(args) => roadmap::run(args),
         cli::CommandArgs::Transcript(args) => transcript::run(&args),
         cli::CommandArgs::Help(topic) => {

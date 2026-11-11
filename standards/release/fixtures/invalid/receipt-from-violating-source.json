@@ -1,0 +1,10 @@
+{
+  "description": "Receipt produced against the development source paired with the corrected public source",
+  "overrides": [
+    {
+      "path": "acceptance.receipts.2.source_revision",
+      "value": "2bdd581980eef7f6ec8363ffa20ab9f3c798c9ee"
+    }
+  ],
+  "expected_findings": ["receipt-source-mismatch"]
+}

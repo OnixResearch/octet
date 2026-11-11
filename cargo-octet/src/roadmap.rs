@@ -1,9 +1,12 @@
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
+use std::ffi::OsString;
 use std::fs;
+use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
 
+use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
 
@@ -20,6 +23,30 @@ const HOME_PLACEHOLDER: &str = "<home>";
 const TEMP_PLACEHOLDER: &str = "<temp>";
 /// What [`normalize_value`] guarantees about stored artifacts and capsules.
 const REDACTION_STATUS: &str = "secret-like-and-local-fields-dropped-local-roots-normalized";
+/// Evidence mode of the compatible `--observed` path: caller-supplied run metadata is compared,
+/// and the recorded job is never executed.
+const SUPPLIED_OBSERVATION_EVIDENCE_MODE: &str = "supplied_observation";
+const SUPPLIED_OBSERVATION_EVIDENCE_LABEL: &str = "supplied observation comparison; the capsule job was not executed";
+/// Evidence mode of `--execute`: a reviewed profile is launched under bounded execution.
+const EXECUTED_EVIDENCE_MODE: &str = "executed";
+const EXECUTED_EVIDENCE_LABEL: &str = "independent bounded execution of a reviewed native profile";
+/// Stands in for the isolated output directory in the profile-canonical argv recorded in a capsule
+/// and in the execution receipt.
+const OUTPUT_PLACEHOLDER: &str = "<output>";
+/// Isolated output directory, relative to the workspace root.
+const EXECUTION_OUTPUT_DIRECTORY: &str = ".octet/replay-execution";
+const EXECUTION_RECEIPT_KIND: &str = "octet-execution-receipt";
+const EXECUTION_POLL_INTERVAL_MS: u64 = 10;
+const EXECUTION_TEARDOWN_TIMEOUT_MS: u64 = 5_000;
+const EXECUTION_STDIN_MAX_BYTES: usize = 1;
+const EXECUTION_INPUT_FILE_MAX_BYTES: u64 = 64 * 1024 * 1024;
+const EXECUTION_OUTPUT_FILE_MAX_BYTES: u64 = 4 * 1024 * 1024;
+/// Characters that would make a capsule-supplied argument a shell fragment rather than a single
+/// token. Capsule command text is never executed, and it must not look like it could be. Angle
+/// brackets stay allowed because the canonical argv spells the isolated output directory as
+/// [`OUTPUT_PLACEHOLDER`].
+const SHELL_FRAGMENT_CHARACTERS: [char; 14] =
+    [';', '|', '&', '`', '$', '(', ')', '{', '}', '\n', '\r', '\0', '\\', '"'];
 const PURE_CACHE_KEY_FIELDS: [&str; 5] = [
     "command_identity",
     "input_hashes",
@@ -27,6 +54,22 @@ const PURE_CACHE_KEY_FIELDS: [&str; 5] = [
     "tool_revision",
     "environment_allowlist",
 ];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReplayOutputFormat {
+    Human,
+    Json,
+}
+
+impl ReplayOutputFormat {
+    fn parse(value: &str) -> Result<Self, String> {
+        match value {
+            "human" => Ok(Self::Human),
+            "json" => Ok(Self::Json),
+            other => Err(format!("unsupported capsule replay output format `{other}`; expected `human` or `json`")),
+        }
+    }
+}
 
 #[derive(Debug)]
 pub enum RoadmapCommand {
@@ -52,7 +95,11 @@ pub enum RoadmapCommand {
     },
     CapsuleReplay {
         capsule: PathBuf,
-        observed: PathBuf,
+        observed: Option<PathBuf>,
+        execute: bool,
+        inputs: Option<PathBuf>,
+        receipt: Option<PathBuf>,
+        output_format: ReplayOutputFormat,
     },
     AbilityRegistry,
     AbilitySummary {
@@ -118,8 +165,22 @@ pub fn run(command: RoadmapCommand) -> Result<i32, String> {
             capsule_capture(&input, &capsule, &local_roots_from_environment())
         }
         RoadmapCommand::CapsuleInspect { capsule } => capsule_inspect(&capsule),
-        RoadmapCommand::CapsuleReplay { capsule, observed } => {
-            capsule_replay(&capsule, &observed, &local_roots_from_environment())
+        RoadmapCommand::CapsuleReplay {
+            capsule,
+            observed,
+            execute,
+            inputs,
+            receipt,
+            output_format,
+        } => {
+            let local_roots = local_roots_from_environment();
+            if execute {
+                capsule_replay_executed(&capsule, inputs.as_deref(), receipt.as_deref(), &local_roots, output_format)
+            } else {
+                let observed =
+                    observed.ok_or_else(|| "capsule replay requires `--observed PATH` or `--execute`".to_owned())?;
+                capsule_replay_observed(&capsule, &observed, &local_roots, output_format)
+            }
         }
         RoadmapCommand::AbilityRegistry => ability_registry(),
         RoadmapCommand::AbilitySummary { findings } => ability_summary(&findings),
@@ -189,10 +250,43 @@ fn parse_capsule(args: &[String]) -> Result<RoadmapCommand, String> {
             })
         }
         Some("replay") => {
-            let mut flags = RoadmapFlags::parse("capsule", args, &["--capsule", "--observed"])?;
+            let mut flags = RoadmapFlags::parse_with_switches(
+                "capsule",
+                args,
+                &["--capsule", "--observed", "--inputs", "--receipt", "--output-format"],
+                &["--execute"],
+            )?;
+            let execute = flags.switch("--execute");
+            let observed = flags.take_optional("--observed").map(PathBuf::from);
+            let inputs = flags.take_optional("--inputs").map(PathBuf::from);
+            let receipt = flags.take_optional("--receipt").map(PathBuf::from);
+            let output_format = flags
+                .take_optional("--output-format")
+                .map(|format| ReplayOutputFormat::parse(&format))
+                .transpose()?
+                .unwrap_or(ReplayOutputFormat::Json);
+            if execute && observed.is_some() {
+                return Err(
+                    "`--execute` and `--observed` are mutually exclusive; executed replay collects its own observations"
+                        .to_owned(),
+                );
+            }
+            if !execute && observed.is_none() {
+                return Err("missing `--observed`; pass `--observed PATH` to compare supplied observations or `--execute` to run the reviewed profile".to_owned());
+            }
+            if !execute && inputs.is_some() {
+                return Err("`--inputs` requires `--execute`".to_owned());
+            }
+            if !execute && receipt.is_some() {
+                return Err("`--receipt` requires `--execute`".to_owned());
+            }
             Ok(RoadmapCommand::CapsuleReplay {
                 capsule: flags.take_path("--capsule")?,
-                observed: flags.take_path("--observed")?,
+                observed,
+                execute,
+                inputs,
+                receipt,
+                output_format,
             })
         }
         Some(other) => Err(format!("unknown capsule action `{other}`")),
@@ -297,6 +391,7 @@ fn parse_pure_cache(args: &[String]) -> Result<RoadmapCommand, String> {
 /// `--flag VALUE` / `--flag=VALUE` options of one roadmap action, each given at most once.
 struct RoadmapFlags {
     values: BTreeMap<&'static str, String>,
+    switches: BTreeSet<&'static str>,
 }
 
 impl RoadmapFlags {
@@ -304,14 +399,35 @@ impl RoadmapFlags {
     /// stray positional arguments, repeated flags, and missing values (including a following
     /// `--flag`).
     fn parse(surface: &str, args: &[String], allowed: &[&'static str]) -> Result<Self, String> {
+        Self::parse_with_switches(surface, args, allowed, &[])
+    }
+
+    /// Like [`Self::parse`], with `switches` as value-less flags that may appear once.
+    fn parse_with_switches(
+        surface: &str,
+        args: &[String],
+        allowed: &[&'static str],
+        switches: &[&'static str],
+    ) -> Result<Self, String> {
         let action = args.first().map_or("", String::as_str);
         let mut values = BTreeMap::new();
+        let mut switches_seen = BTreeSet::new();
         let mut index = 1;
         while let Some(arg) = args.get(index) {
             let (name, inline_value) = match arg.split_once('=') {
                 Some((name, value)) if name.starts_with("--") => (name, Some(value)),
                 _ => (arg.as_str(), None),
             };
+            if let Some(switch) = switches.iter().copied().find(|switch| *switch == name) {
+                if inline_value.is_some() {
+                    return Err(format!("`{switch}` takes no value"));
+                }
+                if !switches_seen.insert(switch) {
+                    return Err(format!("`{switch}` may be provided only once"));
+                }
+                index += 1;
+                continue;
+            }
             let Some(flag) = allowed.iter().copied().find(|flag| *flag == name) else {
                 return Err(if arg.starts_with('-') {
                     format!("unsupported roadmap {surface} {action} argument `{arg}`")
@@ -334,11 +450,22 @@ impl RoadmapFlags {
                 return Err(format!("`{flag}` may be provided only once"));
             }
         }
-        Ok(Self { values })
+        Ok(Self {
+            values,
+            switches: switches_seen,
+        })
+    }
+
+    fn switch(&self, flag: &str) -> bool {
+        self.switches.contains(flag)
     }
 
     fn take(&mut self, flag: &str) -> Result<String, String> {
         self.values.remove(flag).ok_or_else(|| format!("missing `{flag}`"))
+    }
+
+    fn take_optional(&mut self, flag: &str) -> Option<String> {
+        self.values.remove(flag)
     }
 
     fn take_path(&mut self, flag: &str) -> Result<PathBuf, String> {
@@ -560,8 +687,55 @@ fn capsule_inspect(capsule_path: &Path) -> Result<i32, String> {
     Ok(0)
 }
 
-fn capsule_replay(capsule_path: &Path, observed_path: &Path, local_roots: &LocalRoots) -> Result<i32, String> {
+/// Reads and verifies a replay capsule, returning the capsule document and its manifest. Rejects
+/// a capsule whose manifest is not an object, lacks a compared field, or no longer hashes to its
+/// recorded `capsule_hash`, so an edited capsule is never replayed.
+fn load_capsule(capsule_path: &Path) -> Result<(Value, Value), String> {
     let capsule = read_json(capsule_path)?;
+    let manifest = capsule
+        .get("manifest")
+        .filter(|manifest| manifest.is_object())
+        .ok_or_else(|| format!("capsule {} manifest must be a JSON object", capsule_path.display()))?
+        .clone();
+    if let Some(field) = CAPSULE_COMPARED_FIELDS.iter().find(|field| manifest.get(**field).is_none()) {
+        return Err(format!("capsule manifest missing {field}"));
+    }
+    if manifest.get("expected_exit_code").and_then(Value::as_i64).is_none() {
+        return Err("capsule manifest expected_exit_code must be an integer".to_owned());
+    }
+    let recorded_hash = capsule
+        .get("capsule_hash")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "capsule missing capsule_hash".to_owned())?;
+    let recomputed_hash = determinism::full_hash(&canonical_json(&manifest)?);
+    if recorded_hash != recomputed_hash {
+        return Err(format!(
+            "capsule_hash mismatch: capsule records `{recorded_hash}` but its manifest hashes to `{recomputed_hash}`; the capsule was modified after capture"
+        ));
+    }
+    Ok((capsule, manifest))
+}
+
+/// The compatible comparison path: `--observed` metadata is compared with the capsule and the
+/// recorded job is never launched. The report names its evidence mode so it cannot be mistaken for
+/// executed replay.
+fn capsule_replay_observed(
+    capsule_path: &Path,
+    observed_path: &Path,
+    local_roots: &LocalRoots,
+    output_format: ReplayOutputFormat,
+) -> Result<i32, String> {
+    let (code, report) = capsule_replay_observed_report(capsule_path, observed_path, local_roots)?;
+    emit_replay(&report, output_format, &observed_human_lines(&report))?;
+    Ok(code)
+}
+
+fn capsule_replay_observed_report(
+    capsule_path: &Path,
+    observed_path: &Path,
+    local_roots: &LocalRoots,
+) -> Result<(i32, Value), String> {
+    let (capsule, manifest) = load_capsule(capsule_path)?;
     let mut observed = normalize_value(read_json(observed_path)?, local_roots);
     if observed.get("octet_binary_identity").is_none()
         && let Some(legacy_identity) = observed.get("slotcar_binary_identity").cloned()
@@ -571,28 +745,11 @@ fn capsule_replay(capsule_path: &Path, observed_path: &Path, local_roots: &Local
     if let Some(object) = observed.as_object_mut() {
         object.remove("slotcar_binary_identity");
     }
-    let manifest = capsule
-        .get("manifest")
-        .filter(|manifest| manifest.is_object())
-        .ok_or_else(|| format!("capsule {} manifest must be a JSON object", capsule_path.display()))?;
-    if let Some(field) = CAPSULE_COMPARED_FIELDS.iter().find(|field| manifest.get(**field).is_none()) {
-        return Err(format!("capsule manifest missing {field}"));
-    }
     let expected_exit = manifest
         .get("expected_exit_code")
         .and_then(Value::as_i64)
         .ok_or_else(|| "capsule manifest expected_exit_code must be an integer".to_owned())?;
-    let recorded_hash = capsule
-        .get("capsule_hash")
-        .and_then(Value::as_str)
-        .ok_or_else(|| "capsule missing capsule_hash".to_owned())?;
-    let recomputed_hash = determinism::full_hash(&canonical_json(manifest)?);
-    if recorded_hash != recomputed_hash {
-        return Err(format!(
-            "capsule_hash mismatch: capsule records `{recorded_hash}` but its manifest hashes to `{recomputed_hash}`; the capsule was modified after capture"
-        ));
-    }
-    let mismatches = capsule_mismatches(manifest, &observed);
+    let mismatches = capsule_mismatches(&manifest, &observed);
     let observed_exit = observed["exit_code"].as_i64().unwrap_or(i64::MIN);
     let status = if mismatches.is_empty() && expected_exit == observed_exit {
         if expected_exit == 0 {
@@ -603,17 +760,1689 @@ fn capsule_replay(capsule_path: &Path, observed_path: &Path, local_roots: &Local
     } else {
         "drifted"
     };
-    print_json(&serde_json::json!({
+    let report = serde_json::json!({
         "schema_version": SCHEMA_VERSION,
         "operation": "replay",
+        "evidence_mode": SUPPLIED_OBSERVATION_EVIDENCE_MODE,
+        "evidence_mode_label": SUPPLIED_OBSERVATION_EVIDENCE_LABEL,
         "capsule_hash": capsule["capsule_hash"],
         "status": status,
         "expected_exit_code": expected_exit,
         "observed_exit_code": observed_exit,
         "mismatches": mismatches,
         "drift_behavior": "fail-closed",
-    }))?;
-    Ok(i32::from(status == "drifted"))
+    });
+    Ok((i32::from(status == "drifted"), report))
+}
+
+/// A reviewed executable source. Capsule text selects a profile; it never selects a program.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ProfileExecutable {
+    /// The running Octet binary performs the reviewed job itself.
+    SelfOctet,
+    /// The caller declares a workspace-relative executable with the reviewed name.
+    DeclaredWorkspaceExecutable,
+}
+
+/// One profile-owned argv token.
+#[derive(Clone, Copy)]
+enum ArgTemplate {
+    Literal(&'static str),
+    OutputDirectory,
+    InputPath,
+    InputBinding,
+}
+
+/// One output identity the reviewed profile produces and a capsule may expect.
+#[derive(Clone, Copy)]
+enum ProfileOutput {
+    Stdout,
+    Stderr,
+    File(&'static str),
+}
+
+#[derive(Clone, Copy)]
+enum ContractStream {
+    Stdout,
+    Stderr,
+}
+
+/// A reviewed named failure contract. An expected failure is only replayed when the executed run
+/// satisfies this contract; an arbitrary nonzero exit is not enough.
+#[derive(Clone, Copy)]
+struct FailureContract {
+    name: &'static str,
+    stream: ContractStream,
+    marker: &'static str,
+}
+
+/// A closed, reviewed native job profile. Everything the child may do comes from this table, not
+/// from the capsule.
+struct ReviewedProfile {
+    id: &'static str,
+    run_kind: &'static str,
+    executable_name: &'static str,
+    executable: ProfileExecutable,
+    /// Spellings of argv[0] that a recorded command line may use for this profile. A recorded
+    /// program outside this set is an imported executable and is rejected.
+    argv0_aliases: &'static [&'static str],
+    argv_prefix: &'static [ArgTemplate],
+    argv_per_input: &'static [ArgTemplate],
+    environment_allowlist: &'static [&'static str],
+    fixed_environment: &'static [(&'static str, &'static str)],
+    capabilities: &'static [&'static str],
+    timeout_ms: u64,
+    stdout_max_bytes: usize,
+    stderr_max_bytes: usize,
+    outputs: &'static [ProfileOutput],
+    failure_contracts: &'static [FailureContract],
+}
+
+const FINGERPRINT_PRODUCTION_PROFILE: ReviewedProfile = ReviewedProfile {
+    id: "fingerprint-production-v1",
+    run_kind: "fingerprint",
+    executable_name: "octet",
+    executable: ProfileExecutable::SelfOctet,
+    argv0_aliases: &["octet", "cargo-octet", "cargo"],
+    argv_prefix: &[ArgTemplate::Literal("fingerprint"), ArgTemplate::Literal("--check")],
+    argv_per_input: &[ArgTemplate::InputPath],
+    environment_allowlist: &["PATH", "TMPDIR", "HOME", "LANG", "LC_ALL"],
+    fixed_environment: &[("NO_COLOR", "1"), ("RUST_BACKTRACE", "0")],
+    capabilities: &[
+        "process-execute:self-octet-binary",
+        "filesystem-read:declared-inputs",
+        "filesystem-write:isolated-output-directory",
+        "environment:allowlisted-only",
+        "network:not-restricted-not-claimed",
+        "cargo-build-scripts:not-applicable-no-cargo-invocation",
+        "cargo-procedural-macros:not-applicable-no-cargo-invocation",
+    ],
+    timeout_ms: 120_000,
+    stdout_max_bytes: 1024 * 1024,
+    stderr_max_bytes: 1024 * 1024,
+    outputs: &[ProfileOutput::Stdout, ProfileOutput::Stderr],
+    failure_contracts: &[FailureContract {
+        name: "fingerprint-drift",
+        stream: ContractStream::Stdout,
+        marker: "fingerprint-drift:",
+    }],
+};
+
+const CHECK_PROFILE: ReviewedProfile = ReviewedProfile {
+    id: "check-v1",
+    run_kind: "check",
+    executable_name: "octet-check-probe",
+    executable: ProfileExecutable::DeclaredWorkspaceExecutable,
+    argv0_aliases: &["octet-check-probe"],
+    argv_prefix: &[ArgTemplate::Literal("--output-dir"), ArgTemplate::OutputDirectory],
+    argv_per_input: &[ArgTemplate::Literal("--input"), ArgTemplate::InputBinding],
+    environment_allowlist: &["PATH", "TMPDIR", "HOME", "LANG", "LC_ALL"],
+    fixed_environment: &[("NO_COLOR", "1"), ("RUST_BACKTRACE", "0")],
+    capabilities: &[
+        "process-execute:declared-workspace-executable",
+        "filesystem-read:declared-inputs-and-executable",
+        "filesystem-write:isolated-output-directory",
+        "environment:allowlisted-only",
+        "network:not-restricted-not-claimed",
+        "cargo-build-scripts:not-applicable-no-cargo-invocation",
+        "cargo-procedural-macros:not-applicable-no-cargo-invocation",
+    ],
+    timeout_ms: 60_000,
+    stdout_max_bytes: 64 * 1024,
+    stderr_max_bytes: 64 * 1024,
+    outputs: &[ProfileOutput::File("check-report.json"), ProfileOutput::Stderr],
+    failure_contracts: &[FailureContract {
+        name: "check-diagnostic-failure",
+        stream: ContractStream::Stderr,
+        marker: "octet-check-failure:",
+    }],
+};
+
+const REVIEWED_PROFILES: [&ReviewedProfile; 2] = [&CHECK_PROFILE, &FINGERPRINT_PRODUCTION_PROFILE];
+
+/// The caller-owned half of executed replay: which local files stand in for the capsule inputs and
+/// which reviewed executable to run. Capsule text cannot supply any of these.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ExecutionInputsDocument {
+    #[serde(default)]
+    schema_version: Option<u64>,
+    #[serde(default)]
+    profile: Option<String>,
+    #[serde(default)]
+    executable: Option<String>,
+    #[serde(default)]
+    inputs: BTreeMap<String, String>,
+    #[serde(default)]
+    config_hash: Option<String>,
+    #[serde(default)]
+    nix_closure_identity: Option<String>,
+    #[serde(default)]
+    environment: BTreeMap<String, String>,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct EffectiveLimits {
+    timeout_ms: u64,
+    stdout_max_bytes: usize,
+    stderr_max_bytes: usize,
+}
+
+struct BoundInput {
+    name: String,
+    path: PathBuf,
+    normalized_path: String,
+    hash: String,
+}
+
+/// One precise difference between a capsule expectation and an independently collected fact.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+struct Drift {
+    kind: &'static str,
+    field: String,
+    expected: String,
+    actual: String,
+}
+
+struct PreparedExecution {
+    profile: &'static ReviewedProfile,
+    executable: PathBuf,
+    executable_hash: String,
+    octet_identity: String,
+    inputs: Vec<BoundInput>,
+    config_hash: String,
+    nix_closure: Option<String>,
+    environment: Vec<(OsString, OsString)>,
+    environment_names: Vec<String>,
+    environment_overrides: Vec<String>,
+    limits: EffectiveLimits,
+    failure_contract: Option<&'static FailureContract>,
+    comparison_argv: Vec<String>,
+    expected_outputs: BTreeMap<String, String>,
+    expected_exit_code: i32,
+    output_dir: PathBuf,
+    pre_execution_drifts: Vec<Drift>,
+}
+
+enum Preparation {
+    Ready(Box<PreparedExecution>),
+    Failed { reason: &'static str, detail: String },
+}
+
+enum DeclaredPath {
+    Present(PathBuf),
+    Missing(PathBuf),
+}
+
+enum OutputFile {
+    Present(Vec<u8>),
+    Missing,
+    Oversized(u64),
+}
+
+/// Whether a reviewed loader may appear in a caller-declared executable path. This is stricter
+/// than an input path because the executable is spawned directly.
+fn is_executable_path_character(character: char) -> bool {
+    character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | '.' | '/')
+}
+
+fn contains_shell_fragment(text: &str) -> bool {
+    text.chars().any(|character| SHELL_FRAGMENT_CHARACTERS.contains(&character))
+}
+
+fn byte_identity(bytes: &[u8]) -> String {
+    format!("{BLAKE3_IDENTITY_PREFIX}{}", crate::evidence::artifact_blake3_hex(bytes))
+}
+
+fn file_identity(path: &Path) -> Result<String, String> {
+    let bytes = fs::read(path).map_err(|error| format!("read {}: {error}", path.display()))?;
+    Ok(byte_identity(&bytes))
+}
+
+#[cfg(unix)]
+fn is_executable_file(path: &Path) -> bool {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    fs::metadata(path).is_ok_and(|metadata| metadata.is_file() && metadata.permissions().mode() & 0o111 != 0)
+}
+
+#[cfg(not(unix))]
+fn is_executable_file(path: &Path) -> bool {
+    path.is_file()
+}
+
+/// Binds a caller-declared path to the workspace. Parent components are rejected before touching
+/// the filesystem, and a path whose resolved form escapes the resolved workspace root is refused,
+/// so neither `..` nor a symlink can leave the reviewed root.
+fn bind_declared_path(raw: &str, workspace: &Path, role: &str, executable: bool) -> Result<DeclaredPath, String> {
+    if raw.is_empty() {
+        return Err(format!("{role} path is empty"));
+    }
+    if raw.contains('\0') {
+        return Err(format!("{role} path `{raw}` contains a NUL byte"));
+    }
+    if raw.starts_with('-') {
+        return Err(format!("{role} path `{raw}` may not start with `-`"));
+    }
+    if executable && !raw.chars().all(is_executable_path_character) {
+        return Err(format!("{role} path `{raw}` contains characters outside the reviewed executable path set"));
+    }
+    let declared = Path::new(raw);
+    if declared
+        .components()
+        .any(|component| matches!(component, Component::ParentDir | Component::Prefix(_)))
+    {
+        return Err(format!("path escape: {role} path `{raw}` contains a parent or prefix component"));
+    }
+    let joined = if declared.is_absolute() {
+        declared.to_path_buf()
+    } else {
+        workspace.join(declared)
+    };
+    if !joined.exists() {
+        return Ok(DeclaredPath::Missing(joined));
+    }
+    let canonical_workspace =
+        fs::canonicalize(workspace).map_err(|error| format!("resolve workspace {}: {error}", workspace.display()))?;
+    let canonical = fs::canonicalize(&joined).map_err(|error| format!("resolve {role} path `{raw}`: {error}"))?;
+    if !canonical.starts_with(&canonical_workspace) {
+        return Err(format!("path escape: {role} path `{raw}` resolves outside the workspace root"));
+    }
+    Ok(DeclaredPath::Present(joined))
+}
+
+/// Normalizes a bound path to the same placeholder spelling `capsule capture` records, falling back
+/// to the workspace root this replay was given.
+fn normalize_bound_path(path: &Path, workspace: &Path, local_roots: &LocalRoots) -> String {
+    let text = path.to_str().unwrap_or_default();
+    if let Some(normalized) = local_roots.normalize(text) {
+        return normalized;
+    }
+    let workspace_text = workspace.to_str().unwrap_or_default().trim_end_matches(std::path::is_separator);
+    if !workspace_text.is_empty()
+        && let Some(remainder) = text.strip_prefix(workspace_text)
+        && (remainder.is_empty() || remainder.starts_with(std::path::is_separator))
+    {
+        return format!("{WORKSPACE_PLACEHOLDER}{remainder}");
+    }
+    text.to_owned()
+}
+
+/// Reads a capsule's named identities, which executed replay requires as a name-to-`b3:`-identity
+/// object so every input and output can be bound individually.
+fn named_hash_map(value: Option<&Value>, field: &str) -> Result<BTreeMap<String, String>, String> {
+    let Some(Value::Object(map)) = value else {
+        return Err(format!(
+            "capsule {field} must be a JSON object mapping names to `{BLAKE3_IDENTITY_PREFIX}` identities for executed replay"
+        ));
+    };
+    let mut identities = BTreeMap::new();
+    for (name, value) in map {
+        let Some(identity) = value.as_str() else {
+            return Err(format!("capsule {field}.{name} must be a string identity"));
+        };
+        validate_artifact_hash(identity).map_err(|error| format!("capsule {field}.{name}: {error}"))?;
+        identities.insert(name.clone(), identity.to_owned());
+    }
+    Ok(identities)
+}
+
+fn capsule_is_import_only(manifest: &Value) -> bool {
+    ["imported", "import_only"]
+        .iter()
+        .any(|field| manifest.get(*field).and_then(Value::as_bool) == Some(true))
+        || manifest.get("run_kind").and_then(Value::as_str).is_some_and(|kind| kind.starts_with("imported"))
+        || manifest.get("capsule_kind").and_then(Value::as_str).is_some_and(|kind| kind.contains("import"))
+}
+
+/// Rejects capsule command text that could confer execution authority: shell fragments,
+/// non-reviewed programs, and a recorded argv that is not a single-token vector.
+fn validate_capsule_command_argv(profile: &ReviewedProfile, argv: &[String]) -> Result<(), String> {
+    let Some(program) = argv.first() else {
+        return Err("capsule manifest command_argv must not be empty".to_owned());
+    };
+    if argv.iter().any(|argument| contains_shell_fragment(argument)) {
+        return Err(format!(
+            "capsule command text contains a shell fragment; executed replay accepts single tokens only: {argv:?}"
+        ));
+    }
+    if !profile.argv0_aliases.contains(&program.as_str()) {
+        return Err(format!(
+            "imported executable `{program}` is not the reviewed program for profile `{}` (expected one of {:?})",
+            profile.id, profile.argv0_aliases
+        ));
+    }
+    Ok(())
+}
+
+fn render_argv_template(template: ArgTemplate, input: Option<&BoundInput>) -> Result<String, String> {
+    match (template, input) {
+        (ArgTemplate::Literal(literal), _) => Ok(literal.to_owned()),
+        (ArgTemplate::OutputDirectory, _) => Ok(OUTPUT_PLACEHOLDER.to_owned()),
+        (ArgTemplate::InputPath, Some(input)) => Ok(input.normalized_path.clone()),
+        (ArgTemplate::InputBinding, Some(input)) => Ok(format!("{}={}", input.name, input.normalized_path)),
+        (ArgTemplate::InputPath | ArgTemplate::InputBinding, None) => {
+            Err("reviewed profile uses a per-input argument outside the per-input section".to_owned())
+        }
+    }
+}
+
+fn render_process_argument(
+    template: ArgTemplate,
+    input: Option<&BoundInput>,
+    output_dir: &Path,
+) -> Result<String, String> {
+    match (template, input) {
+        (ArgTemplate::Literal(literal), _) => Ok(literal.to_owned()),
+        (ArgTemplate::OutputDirectory, _) => output_dir
+            .to_str()
+            .map(str::to_owned)
+            .ok_or_else(|| format!("isolated output directory {} is not valid UTF-8", output_dir.display())),
+        (ArgTemplate::InputPath, Some(input)) => input
+            .path
+            .to_str()
+            .map(str::to_owned)
+            .ok_or_else(|| format!("input `{}` is not valid UTF-8", input.name)),
+        (ArgTemplate::InputBinding, Some(input)) => {
+            let path = input.path.to_str().ok_or_else(|| format!("input `{}` is not valid UTF-8", input.name))?;
+            Ok(format!("{}={path}", input.name))
+        }
+        (ArgTemplate::InputPath | ArgTemplate::InputBinding, None) => {
+            Err("reviewed profile uses a per-input argument outside the per-input section".to_owned())
+        }
+    }
+}
+
+fn comparison_argv(profile: &ReviewedProfile, inputs: &[BoundInput]) -> Result<Vec<String>, String> {
+    let mut argv = vec![profile.executable_name.to_owned()];
+    for template in profile.argv_prefix {
+        argv.push(render_argv_template(*template, None)?);
+    }
+    for input in inputs {
+        for template in profile.argv_per_input {
+            argv.push(render_argv_template(*template, Some(input))?);
+        }
+    }
+    Ok(argv)
+}
+
+fn process_arguments(
+    profile: &ReviewedProfile,
+    inputs: &[BoundInput],
+    output_dir: &Path,
+) -> Result<Vec<OsString>, String> {
+    let mut arguments = Vec::new();
+    for template in profile.argv_prefix {
+        arguments.push(OsString::from(render_process_argument(*template, None, output_dir)?));
+    }
+    for input in inputs {
+        for template in profile.argv_per_input {
+            arguments.push(OsString::from(render_process_argument(*template, Some(input), output_dir)?));
+        }
+    }
+    Ok(arguments)
+}
+
+fn default_inputs_path(capsule_path: &Path) -> PathBuf {
+    let file_name = capsule_path.file_name().and_then(|name| name.to_str()).unwrap_or("capsule.json");
+    let stem = file_name.strip_suffix(".json").unwrap_or(file_name);
+    let mut path = capsule_path.to_path_buf();
+    path.set_file_name(format!("{stem}.inputs.json"));
+    path
+}
+
+fn read_execution_inputs_document(path: &Path) -> Result<Option<ExecutionInputsDocument>, String> {
+    if !path.exists() {
+        return Ok(None);
+    }
+    let text = fs::read_to_string(path).map_err(|error| format!("read {}: {error}", path.display()))?;
+    serde_json::from_str(&text)
+        .map(Some)
+        .map_err(|error| format!("parse execution inputs {}: {error}", path.display()))
+}
+
+/// Applies a capsule's optional `execution.resource_limits`, which can only tighten the reviewed
+/// profile limits and never loosen them.
+fn effective_limits(
+    execution: Option<&Value>,
+    profile: &ReviewedProfile,
+) -> Result<EffectiveLimits, (&'static str, String)> {
+    let mut limits = EffectiveLimits {
+        timeout_ms: profile.timeout_ms,
+        stdout_max_bytes: profile.stdout_max_bytes,
+        stderr_max_bytes: profile.stderr_max_bytes,
+    };
+    let Some(declared) = execution.and_then(|execution| execution.get("resource_limits")) else {
+        return Ok(limits);
+    };
+    let Value::Object(declared) = declared else {
+        return Err((
+            "unsupported-resource-limits",
+            "capsule execution.resource_limits must be a JSON object".to_owned(),
+        ));
+    };
+    for (name, value) in declared {
+        let Some(value) = value.as_u64() else {
+            return Err((
+                "unsupported-resource-limits",
+                format!("capsule execution.resource_limits.{name} must be a positive integer"),
+            ));
+        };
+        match name.as_str() {
+            "timeout_ms" => {
+                if value == 0 || value > profile.timeout_ms {
+                    return Err((
+                        "unsupported-resource-limits",
+                        format!(
+                            "capsule execution.resource_limits.timeout_ms {value} must be in 1..={}",
+                            profile.timeout_ms
+                        ),
+                    ));
+                }
+                limits.timeout_ms = value;
+            }
+            "stdout_max_bytes" => {
+                let value = usize::try_from(value)
+                    .map_err(|_| ("unsupported-resource-limits", "stdout_max_bytes is too large".to_owned()))?;
+                if value == 0 || value > profile.stdout_max_bytes {
+                    return Err((
+                        "unsupported-resource-limits",
+                        format!(
+                            "capsule execution.resource_limits.stdout_max_bytes must be in 1..={}",
+                            profile.stdout_max_bytes
+                        ),
+                    ));
+                }
+                limits.stdout_max_bytes = value;
+            }
+            "stderr_max_bytes" => {
+                let value = usize::try_from(value)
+                    .map_err(|_| ("unsupported-resource-limits", "stderr_max_bytes is too large".to_owned()))?;
+                if value == 0 || value > profile.stderr_max_bytes {
+                    return Err((
+                        "unsupported-resource-limits",
+                        format!(
+                            "capsule execution.resource_limits.stderr_max_bytes must be in 1..={}",
+                            profile.stderr_max_bytes
+                        ),
+                    ));
+                }
+                limits.stderr_max_bytes = value;
+            }
+            other => {
+                return Err((
+                    "unsupported-resource-limits",
+                    format!("capsule execution.resource_limits.{other} is not a reviewed limit"),
+                ));
+            }
+        }
+    }
+    Ok(limits)
+}
+
+fn prepare_execution(
+    profile: &'static ReviewedProfile,
+    manifest: &Value,
+    inputs_path: &Path,
+    workspace: &Path,
+    local_roots: &LocalRoots,
+) -> Result<Preparation, String> {
+    let Some(document) = read_execution_inputs_document(inputs_path)? else {
+        return Ok(Preparation::Failed {
+            reason: "missing-inputs",
+            detail: format!("execution inputs document {} does not exist", inputs_path.display()),
+        });
+    };
+    if let Some(schema_version) = document.schema_version
+        && schema_version != u64::from(SCHEMA_VERSION)
+    {
+        return Ok(Preparation::Failed {
+            reason: "unsupported-inputs-schema",
+            detail: format!("execution inputs schema_version {schema_version} is unsupported"),
+        });
+    }
+    if let Some(declared_profile) = document.profile.as_deref()
+        && declared_profile != profile.id
+    {
+        return Ok(Preparation::Failed {
+            reason: "profile-mismatch",
+            detail: format!(
+                "execution inputs name profile `{declared_profile}` but the capsule selects `{}`",
+                profile.id
+            ),
+        });
+    }
+    let expected_exit = manifest.get("expected_exit_code").and_then(Value::as_i64).unwrap_or_default();
+    let Ok(expected_exit_code) = i32::try_from(expected_exit) else {
+        return Ok(Preparation::Failed {
+            reason: "unsupported-exit-code",
+            detail: format!("capsule expected_exit_code {expected_exit} is not a portable exit code"),
+        });
+    };
+    if !(0..=255).contains(&expected_exit) {
+        return Ok(Preparation::Failed {
+            reason: "unsupported-exit-code",
+            detail: format!("capsule expected_exit_code {expected_exit} is not a portable exit code"),
+        });
+    }
+    let execution = match manifest.get("execution") {
+        None => None,
+        Some(value) if value.is_object() => Some(value),
+        Some(_) => {
+            return Ok(Preparation::Failed {
+                reason: "unsupported-execution-binding",
+                detail: "capsule execution must be a JSON object".to_owned(),
+            });
+        }
+    };
+    let Some(capsule_config) = manifest.get("config_hash").and_then(Value::as_str) else {
+        return Ok(Preparation::Failed {
+            reason: "unsupported-config-binding",
+            detail: "capsule config_hash must be a string for executed replay".to_owned(),
+        });
+    };
+    let Some(capsule_identity) = manifest.get("octet_binary_identity").and_then(Value::as_str) else {
+        return Ok(Preparation::Failed {
+            reason: "unsupported-toolchain-binding",
+            detail: "capsule octet_binary_identity must be a string for executed replay".to_owned(),
+        });
+    };
+    let Some(config_hash) = document.config_hash.clone() else {
+        return Ok(Preparation::Failed {
+            reason: "missing-config",
+            detail: "execution inputs must bind config_hash".to_owned(),
+        });
+    };
+    let expected_outputs = match named_hash_map(manifest.get("output_hashes"), "output_hashes") {
+        Ok(outputs) => outputs,
+        Err(detail) => {
+            return Ok(Preparation::Failed {
+                reason: "unsupported-output-binding",
+                detail,
+            });
+        }
+    };
+    let capsule_inputs = match named_hash_map(manifest.get("input_hashes"), "input_hashes") {
+        Ok(inputs) => inputs,
+        Err(detail) => {
+            return Ok(Preparation::Failed {
+                reason: "unsupported-input-binding",
+                detail,
+            });
+        }
+    };
+
+    let current_exe =
+        std::env::current_exe().map_err(|error| format!("resolve the running Octet executable: {error}"))?;
+    let octet_identity = file_identity(&current_exe)?;
+    let executable = match profile.executable {
+        ProfileExecutable::SelfOctet => {
+            if document.executable.is_some() {
+                return Ok(Preparation::Failed {
+                    reason: "unexpected-executable",
+                    detail: format!(
+                        "profile `{}` runs the Octet binary itself and does not accept a declared executable",
+                        profile.id
+                    ),
+                });
+            }
+            current_exe.clone()
+        }
+        ProfileExecutable::DeclaredWorkspaceExecutable => {
+            let Some(declared) = document.executable.as_deref() else {
+                return Ok(Preparation::Failed {
+                    reason: "missing-executable",
+                    detail: format!("profile `{}` requires `executable` in the execution inputs", profile.id),
+                });
+            };
+            match bind_declared_path(declared, workspace, "executable", true)? {
+                DeclaredPath::Missing(path) => {
+                    return Ok(Preparation::Failed {
+                        reason: "missing-executable",
+                        detail: format!("declared executable {} does not exist", path.display()),
+                    });
+                }
+                DeclaredPath::Present(path) => {
+                    let name = path.file_name().and_then(|name| name.to_str()).unwrap_or_default();
+                    if name != profile.executable_name {
+                        return Err(format!(
+                            "imported executable `{declared}` does not have the reviewed name `{}`",
+                            profile.executable_name
+                        ));
+                    }
+                    if !is_executable_file(&path) {
+                        return Err(format!("declared executable {} is not an executable file", path.display()));
+                    }
+                    path
+                }
+            }
+        }
+    };
+    let executable_hash = if profile.executable == ProfileExecutable::SelfOctet {
+        octet_identity.clone()
+    } else {
+        file_identity(&executable)?
+    };
+
+    let missing_inputs: Vec<String> =
+        capsule_inputs.keys().filter(|name| !document.inputs.contains_key(*name)).cloned().collect();
+    if !missing_inputs.is_empty() {
+        return Ok(Preparation::Failed {
+            reason: "missing-input",
+            detail: format!("execution inputs do not bind capsule inputs {missing_inputs:?}"),
+        });
+    }
+    let undeclared_inputs: Vec<String> =
+        document.inputs.keys().filter(|name| !capsule_inputs.contains_key(*name)).cloned().collect();
+    if !undeclared_inputs.is_empty() {
+        return Ok(Preparation::Failed {
+            reason: "undeclared-input",
+            detail: format!("execution inputs declare inputs the capsule does not record: {undeclared_inputs:?}"),
+        });
+    }
+
+    let mut pre_execution_drifts = Vec::new();
+    let mut inputs = Vec::with_capacity(capsule_inputs.len());
+    for (name, expected_hash) in &capsule_inputs {
+        let declared = document.inputs.get(name).map(String::as_str).unwrap_or_default();
+        let path = match bind_declared_path(declared, workspace, "input", false)? {
+            DeclaredPath::Missing(path) => {
+                return Ok(Preparation::Failed {
+                    reason: "missing-input",
+                    detail: format!("input `{name}` at {} does not exist", path.display()),
+                });
+            }
+            DeclaredPath::Present(path) => path,
+        };
+        if !path.is_file() {
+            return Ok(Preparation::Failed {
+                reason: "unsupported-input",
+                detail: format!("input `{name}` at {} is not a regular file", path.display()),
+            });
+        }
+        let size = fs::metadata(&path).map_err(|error| format!("stat {}: {error}", path.display()))?.len();
+        if size > EXECUTION_INPUT_FILE_MAX_BYTES {
+            return Ok(Preparation::Failed {
+                reason: "unsupported-input",
+                detail: format!(
+                    "input `{name}` is {size} bytes, above the {EXECUTION_INPUT_FILE_MAX_BYTES} byte limit"
+                ),
+            });
+        }
+        let hash = file_identity(&path)?;
+        if &hash != expected_hash {
+            pre_execution_drifts.push(Drift {
+                kind: "source",
+                field: name.clone(),
+                expected: expected_hash.clone(),
+                actual: hash.clone(),
+            });
+        }
+        inputs.push(BoundInput {
+            name: name.clone(),
+            normalized_path: normalize_bound_path(&path, workspace, local_roots),
+            path,
+            hash,
+        });
+    }
+
+    if capsule_config != config_hash {
+        pre_execution_drifts.push(Drift {
+            kind: "config",
+            field: "config_hash".to_owned(),
+            expected: capsule_config.to_owned(),
+            actual: config_hash.clone(),
+        });
+    }
+    if capsule_identity != octet_identity {
+        pre_execution_drifts.push(Drift {
+            kind: "toolchain",
+            field: "octet_binary_identity".to_owned(),
+            expected: capsule_identity.to_owned(),
+            actual: octet_identity.clone(),
+        });
+    }
+    if let Some(toolchain) = execution.and_then(|execution| execution.get("toolchain")) {
+        if !toolchain.is_object() {
+            return Ok(Preparation::Failed {
+                reason: "unsupported-toolchain-binding",
+                detail: "capsule execution.toolchain must be a JSON object".to_owned(),
+            });
+        }
+        if let Some(declared_hash) = toolchain.get("executable_hash") {
+            let Some(declared_hash) = declared_hash.as_str() else {
+                return Ok(Preparation::Failed {
+                    reason: "unsupported-toolchain-binding",
+                    detail: "capsule execution.toolchain.executable_hash must be a string".to_owned(),
+                });
+            };
+            if declared_hash != executable_hash {
+                pre_execution_drifts.push(Drift {
+                    kind: "toolchain",
+                    field: "executable_hash".to_owned(),
+                    expected: declared_hash.to_owned(),
+                    actual: executable_hash.clone(),
+                });
+            }
+        }
+        if let Some(declared_closure) = toolchain.get("nix_closure_identity") {
+            let Some(declared_closure) = declared_closure.as_str() else {
+                return Ok(Preparation::Failed {
+                    reason: "unsupported-toolchain-binding",
+                    detail: "capsule execution.toolchain.nix_closure_identity must be a string".to_owned(),
+                });
+            };
+            let Some(actual_closure) = document.nix_closure_identity.as_deref() else {
+                return Ok(Preparation::Failed {
+                    reason: "missing-tool-closure",
+                    detail: format!(
+                        "capsule binds Nix closure `{declared_closure}` but the execution inputs provide no nix_closure_identity"
+                    ),
+                });
+            };
+            if declared_closure != actual_closure {
+                pre_execution_drifts.push(Drift {
+                    kind: "toolchain",
+                    field: "nix_closure_identity".to_owned(),
+                    expected: declared_closure.to_owned(),
+                    actual: actual_closure.to_owned(),
+                });
+            }
+        }
+    }
+
+    let recorded_argv = match manifest.get("command_argv") {
+        Some(Value::Array(items)) => {
+            let mut argv = Vec::with_capacity(items.len());
+            for (index, item) in items.iter().enumerate() {
+                let Some(argument) = item.as_str() else {
+                    return Err(format!("capsule manifest command_argv[{index}] must be a string"));
+                };
+                argv.push(argument.to_owned());
+            }
+            argv
+        }
+        _ => return Err("capsule manifest command_argv must be an array of strings".to_owned()),
+    };
+    validate_capsule_command_argv(profile, &recorded_argv)?;
+    let comparison_argv = comparison_argv(profile, &inputs)?;
+    let mut recorded_argv = recorded_argv;
+    if let Some(program) = recorded_argv.first_mut() {
+        *program = profile.executable_name.to_owned();
+    }
+    if recorded_argv != comparison_argv {
+        pre_execution_drifts.push(Drift {
+            kind: "argv",
+            field: "command_argv".to_owned(),
+            expected: recorded_argv.join(" "),
+            actual: comparison_argv.join(" "),
+        });
+    }
+
+    let declared_contract = execution.and_then(|execution| execution.get("failure_contract"));
+    let failure_contract = if expected_exit != 0 {
+        let Some(name) = declared_contract.and_then(Value::as_str) else {
+            return Ok(Preparation::Failed {
+                reason: "missing-failure-contract",
+                detail: format!(
+                    "expected exit {expected_exit} requires a named failure contract reviewed for profile `{}`",
+                    profile.id
+                ),
+            });
+        };
+        match profile.failure_contracts.iter().find(|contract| contract.name == name) {
+            Some(contract) => Some(contract),
+            None => {
+                return Ok(Preparation::Failed {
+                    reason: "unsupported-failure-contract",
+                    detail: format!("failure contract `{name}` is not reviewed for profile `{}`", profile.id),
+                });
+            }
+        }
+    } else {
+        if declared_contract.is_some() {
+            return Ok(Preparation::Failed {
+                reason: "unexpected-failure-contract",
+                detail: "a capsule failure contract requires a non-zero expected_exit_code".to_owned(),
+            });
+        }
+        None
+    };
+    let limits = match effective_limits(execution, profile) {
+        Ok(limits) => limits,
+        Err((reason, detail)) => return Ok(Preparation::Failed { reason, detail }),
+    };
+
+    let fixed_names: BTreeSet<&str> = profile.fixed_environment.iter().map(|(name, _)| *name).collect();
+    for name in document.environment.keys() {
+        if !profile.environment_allowlist.contains(&name.as_str()) {
+            return Err(format!(
+                "undeclared environment `{name}` is not in the profile `{}` allowlist {:?}",
+                profile.id, profile.environment_allowlist
+            ));
+        }
+        if fixed_names.contains(name.as_str()) {
+            return Err(format!("environment `{name}` is fixed by profile `{}` and cannot be overridden", profile.id));
+        }
+    }
+    let mut environment: BTreeMap<OsString, OsString> = BTreeMap::new();
+    for name in profile.environment_allowlist {
+        if let Some(value) = std::env::var_os(name) {
+            environment.insert(OsString::from(*name), value);
+        }
+    }
+    for (name, value) in profile.fixed_environment {
+        environment.insert(OsString::from(*name), OsString::from(*value));
+    }
+    for (name, value) in &document.environment {
+        environment.insert(OsString::from(name), OsString::from(value));
+    }
+    let environment: Vec<(OsString, OsString)> = environment.into_iter().collect();
+    let environment_names: Vec<String> =
+        environment.iter().filter_map(|(name, _)| name.to_str().map(str::to_owned)).collect();
+    let environment_overrides: Vec<String> = document.environment.keys().cloned().collect();
+
+    let output_dir = workspace.join(EXECUTION_OUTPUT_DIRECTORY).join(capsule_hash_file_name(manifest, profile)?);
+
+    Ok(Preparation::Ready(Box::new(PreparedExecution {
+        profile,
+        executable,
+        executable_hash,
+        octet_identity,
+        inputs,
+        config_hash,
+        nix_closure: document.nix_closure_identity,
+        environment,
+        environment_names,
+        environment_overrides,
+        limits,
+        failure_contract,
+        comparison_argv,
+        expected_outputs,
+        expected_exit_code,
+        output_dir,
+        pre_execution_drifts,
+    })))
+}
+
+/// The isolated output directory name is derived from the verified capsule manifest, so a stale
+/// directory is always cleared rather than silently reused.
+fn capsule_hash_file_name(manifest: &Value, profile: &ReviewedProfile) -> Result<String, String> {
+    let identity = determinism::full_hash(&canonical_json(manifest)?);
+    Ok(format!("{}-{}", profile.id, identity.replace(':', "_")))
+}
+
+fn run_prepared_execution(
+    prepared: &PreparedExecution,
+    workspace: &Path,
+) -> Result<bounded_exec::ExecutionOutput, String> {
+    if prepared.output_dir.exists() {
+        fs::remove_dir_all(&prepared.output_dir)
+            .map_err(|error| format!("clear isolated output directory {}: {error}", prepared.output_dir.display()))?;
+    }
+    fs::create_dir_all(&prepared.output_dir)
+        .map_err(|error| format!("create isolated output directory {}: {error}", prepared.output_dir.display()))?;
+    let arguments = process_arguments(prepared.profile, &prepared.inputs, &prepared.output_dir)?;
+    let current_dir =
+        fs::canonicalize(workspace).map_err(|error| format!("resolve workspace {}: {error}", workspace.display()))?;
+    let outcome_policy = bounded_exec::OutcomePolicy::new(vec![prepared.expected_exit_code], false, false)
+        .map_err(|error| format!("construct profile outcome policy: {error:?}"))?;
+    let request = bounded_exec::RunRequest {
+        command: bounded_exec::CommandSpec {
+            program: prepared.executable.clone(),
+            args: arguments,
+            current_dir,
+            environment_mode: bounded_exec::EnvironmentMode::Clear,
+            environment: prepared.environment.clone(),
+            input: bounded_exec::Input::Null,
+        },
+        limits: bounded_exec::ExecutionLimits {
+            timeout_ms: prepared.limits.timeout_ms,
+            stdin_max_bytes: EXECUTION_STDIN_MAX_BYTES,
+            stdout_max_bytes: prepared.limits.stdout_max_bytes,
+            stderr_max_bytes: prepared.limits.stderr_max_bytes,
+            poll_interval_ms: EXECUTION_POLL_INTERVAL_MS.min(prepared.limits.timeout_ms),
+            teardown_timeout_ms: EXECUTION_TEARDOWN_TIMEOUT_MS,
+        },
+        termination_scope: bounded_exec::TerminationScope::ProcessGroup,
+        outcome_policy,
+    };
+    bounded_exec::run(request).map_err(|error| format!("run reviewed profile `{}`: {error}", prepared.profile.id))
+}
+
+fn read_output_file(output_dir: &Path, name: &str) -> Result<OutputFile, String> {
+    if name.is_empty()
+        || name == "."
+        || name == ".."
+        || name.contains('/')
+        || name.contains('\\')
+        || name.contains('\0')
+    {
+        return Err(format!("reviewed profile output `{name}` must be a simple file name"));
+    }
+    let path = output_dir.join(name);
+    if !path.exists() {
+        return Ok(OutputFile::Missing);
+    }
+    let metadata = fs::symlink_metadata(&path).map_err(|error| format!("stat output {}: {error}", path.display()))?;
+    if !metadata.is_file() {
+        return Ok(OutputFile::Missing);
+    }
+    if metadata.len() > EXECUTION_OUTPUT_FILE_MAX_BYTES {
+        return Ok(OutputFile::Oversized(metadata.len()));
+    }
+    fs::read(&path)
+        .map(OutputFile::Present)
+        .map_err(|error| format!("read output {}: {error}", path.display()))
+}
+
+fn completion_name(completion: bounded_exec::Completion) -> &'static str {
+    match completion {
+        bounded_exec::Completion::Exited => "exited",
+        bounded_exec::Completion::TimedOut => "timed-out",
+        bounded_exec::Completion::Cancelled => "cancelled",
+    }
+}
+
+fn contract_satisfied(contract: &FailureContract, output: &bounded_exec::ExecutionOutput) -> bool {
+    let bytes = match contract.stream {
+        ContractStream::Stdout => &output.stdout.bytes,
+        ContractStream::Stderr => &output.stderr.bytes,
+    };
+    String::from_utf8_lossy(bytes).contains(contract.marker)
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+struct ReceiptProfile {
+    id: String,
+    run_kind: String,
+    executable_name: String,
+    executable_source: String,
+    executable_hash: String,
+    argv: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+struct ReceiptInput {
+    path: String,
+    hash: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+struct ReceiptSource {
+    inputs: BTreeMap<String, ReceiptInput>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+struct ReceiptPolicy {
+    config_hash: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+struct ReceiptToolchain {
+    octet_binary_identity: String,
+    executable_hash: String,
+    nix_closure_identity: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+struct ReceiptEnvironment {
+    allowlist: Vec<String>,
+    fixed: BTreeMap<String, String>,
+    present: Vec<String>,
+    overrides: Vec<String>,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+struct ReceiptLimits {
+    timeout_ms: u64,
+    stdout_max_bytes: usize,
+    stderr_max_bytes: usize,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+struct ReceiptExpected {
+    exit_code: i64,
+    outputs: BTreeMap<String, String>,
+    failure_contract: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+struct ReceiptStream {
+    hash: String,
+    bytes: u64,
+    truncated: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+struct ReceiptOutput {
+    hash: String,
+    bytes: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+struct ReceiptOutcome {
+    completion: String,
+    exit_code: Option<i32>,
+    signal: Option<i32>,
+    timed_out: bool,
+    stdout: ReceiptStream,
+    stderr: ReceiptStream,
+    outputs: BTreeMap<String, ReceiptOutput>,
+    output_directory: String,
+}
+
+/// Versioned, Rust-owned execution receipt. The `receipt_hash` covers every other field, so a
+/// fabricated or edited receipt cannot pass [`verify_execution_receipt`].
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+struct ExecutionReceiptBody {
+    schema_version: u32,
+    receipt_kind: String,
+    capsule_hash: String,
+    evidence_mode: String,
+    profile: ReceiptProfile,
+    source: ReceiptSource,
+    policy: ReceiptPolicy,
+    toolchain: ReceiptToolchain,
+    capabilities: Vec<String>,
+    environment: ReceiptEnvironment,
+    limits: ReceiptLimits,
+    expected: ReceiptExpected,
+    outcome: ReceiptOutcome,
+    status: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+struct ExecutionReceipt {
+    #[serde(flatten)]
+    body: ExecutionReceiptBody,
+    receipt_hash: String,
+}
+
+fn verify_execution_receipt(path: &Path, capsule_hash: &str) -> Result<ExecutionReceipt, String> {
+    let receipt: ExecutionReceipt = serde_json::from_value(read_json(path)?)
+        .map_err(|error| format!("parse execution receipt {}: {error}", path.display()))?;
+    if receipt.body.schema_version != SCHEMA_VERSION {
+        return Err(format!("execution receipt {} schema_version must be {SCHEMA_VERSION}", path.display()));
+    }
+    if receipt.body.receipt_kind != EXECUTION_RECEIPT_KIND {
+        return Err(format!("execution receipt {} receipt_kind must be `{EXECUTION_RECEIPT_KIND}`", path.display()));
+    }
+    let body = serde_json::to_value(&receipt.body)
+        .map_err(|error| format!("serialize execution receipt {} body: {error}", path.display()))?;
+    let recomputed = determinism::full_hash(&canonical_json(&body)?);
+    if recomputed != receipt.receipt_hash {
+        return Err(format!(
+            "execution receipt {} was modified: recorded receipt_hash `{}` does not match the recomputed `{recomputed}`",
+            path.display(),
+            receipt.receipt_hash
+        ));
+    }
+    if receipt.body.capsule_hash != capsule_hash {
+        return Err(format!(
+            "execution receipt {} is linked to capsule `{}`, not `{capsule_hash}`",
+            path.display(),
+            receipt.body.capsule_hash
+        ));
+    }
+    Ok(receipt)
+}
+
+fn capsule_field_for_kind(kind: &str) -> &'static str {
+    match kind {
+        "source" => "input_hashes",
+        "config" => "config_hash",
+        "toolchain" => "octet_binary_identity",
+        "argv" => "command_argv",
+        "output" => "output_hashes",
+        "exit" => "expected_exit_code",
+        "failure_contract" => "execution.failure_contract",
+        "receipt" => "receipt",
+        _ => "execution",
+    }
+}
+
+struct ExecutedReport<'a> {
+    capsule_hash: &'a str,
+    profile_id: &'a str,
+    run_kind: &'a str,
+    status: &'a str,
+    reason: Option<&'a str>,
+    detail: Option<&'a str>,
+    expected_exit: i64,
+    observed_exit: Option<i64>,
+    drifts: &'a [Drift],
+    failure_contract: Option<(&'a str, bool)>,
+    limits: Option<&'a EffectiveLimits>,
+    executed: bool,
+    receipt: Option<(&'a Path, &'a str)>,
+}
+
+fn executed_report(input: &ExecutedReport<'_>) -> Value {
+    let mismatches: Vec<&'static str> = input
+        .drifts
+        .iter()
+        .map(|drift| capsule_field_for_kind(drift.kind))
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    serde_json::json!({
+        "schema_version": SCHEMA_VERSION,
+        "operation": "replay",
+        "evidence_mode": EXECUTED_EVIDENCE_MODE,
+        "evidence_mode_label": EXECUTED_EVIDENCE_LABEL,
+        "capsule_hash": input.capsule_hash,
+        "profile": input.profile_id,
+        "run_kind": input.run_kind,
+        "status": input.status,
+        "reason": input.reason,
+        "detail": input.detail,
+        "expected_exit_code": input.expected_exit,
+        "observed_exit_code": input.observed_exit,
+        "drifts": input.drifts,
+        "mismatches": mismatches,
+        "failure_contract": input.failure_contract.map(|(name, satisfied)| serde_json::json!({
+            "name": name,
+            "satisfied": satisfied,
+        })),
+        "limits": input.limits.map(|limits| serde_json::json!({
+            "timeout_ms": limits.timeout_ms,
+            "stdout_max_bytes": limits.stdout_max_bytes,
+            "stderr_max_bytes": limits.stderr_max_bytes,
+        })),
+        "executed": input.executed,
+        "receipt": input.receipt.map(|(path, receipt_hash)| serde_json::json!({
+            "path": path.display().to_string(),
+            "receipt_hash": receipt_hash,
+        })),
+        "drift_behavior": "fail-closed",
+    })
+}
+
+fn report_string(report: &Value, field: &str) -> String {
+    report.get(field).and_then(Value::as_str).unwrap_or("-").to_owned()
+}
+
+fn observed_human_lines(report: &Value) -> Vec<String> {
+    let mut lines = vec![
+        format!("capsule replay ({SUPPLIED_OBSERVATION_EVIDENCE_MODE})"),
+        format!("  evidence mode: {SUPPLIED_OBSERVATION_EVIDENCE_MODE} ({SUPPLIED_OBSERVATION_EVIDENCE_LABEL})"),
+        format!("  capsule: {}", report_string(report, "capsule_hash")),
+        format!("  status: {}", report_string(report, "status")),
+        format!("  expected exit: {}", report.get("expected_exit_code").map(Value::to_string).unwrap_or_default()),
+        format!("  observed exit: {}", report.get("observed_exit_code").map(Value::to_string).unwrap_or_default()),
+    ];
+    let mismatches = report
+        .get("mismatches")
+        .and_then(Value::as_array)
+        .map(|fields| fields.iter().filter_map(Value::as_str).collect::<Vec<_>>().join(", "))
+        .unwrap_or_default();
+    lines.push(format!(
+        "  mismatches: {}",
+        if mismatches.is_empty() {
+            "none".to_owned()
+        } else {
+            mismatches
+        }
+    ));
+    lines
+}
+
+fn executed_human_lines(report: &Value) -> Vec<String> {
+    let mut lines = vec![
+        format!("capsule replay ({EXECUTED_EVIDENCE_MODE})"),
+        format!("  evidence mode: {EXECUTED_EVIDENCE_MODE} ({EXECUTED_EVIDENCE_LABEL})"),
+        format!("  capsule: {}", report_string(report, "capsule_hash")),
+        format!("  profile: {}", report_string(report, "profile")),
+        format!("  status: {}", report_string(report, "status")),
+    ];
+    if let Some(reason) = report.get("reason").and_then(Value::as_str) {
+        lines.push(format!("  reason: {reason}"));
+    }
+    if let Some(detail) = report.get("detail").and_then(Value::as_str) {
+        lines.push(format!("  detail: {detail}"));
+    }
+    lines.push(format!(
+        "  expected exit: {}",
+        report.get("expected_exit_code").map(Value::to_string).unwrap_or_default()
+    ));
+    lines.push(format!(
+        "  observed exit: {}",
+        report.get("observed_exit_code").map(Value::to_string).unwrap_or_default()
+    ));
+    let drifts = report.get("drifts").and_then(Value::as_array).map_or(0, Vec::len);
+    lines.push(format!("  drifts: {drifts}"));
+    if let Some(contract) = report.get("failure_contract") {
+        lines.push(format!(
+            "  failure contract: {} (satisfied: {})",
+            contract.get("name").and_then(Value::as_str).unwrap_or("-"),
+            contract.get("satisfied").and_then(Value::as_bool).unwrap_or(false)
+        ));
+    }
+    if let Some(receipt) = report.get("receipt") {
+        lines.push(format!(
+            "  receipt: {} ({})",
+            receipt.get("path").and_then(Value::as_str).unwrap_or("-"),
+            receipt.get("receipt_hash").and_then(Value::as_str).unwrap_or("-")
+        ));
+    }
+    lines
+}
+
+fn emit_replay(report: &Value, format: ReplayOutputFormat, human_lines: &[String]) -> Result<(), String> {
+    match format {
+        ReplayOutputFormat::Json => print_json(report),
+        ReplayOutputFormat::Human => {
+            for line in human_lines {
+                println!("{line}");
+            }
+            Ok(())
+        }
+    }
+}
+
+fn capsule_replay_executed(
+    capsule_path: &Path,
+    inputs_path: Option<&Path>,
+    receipt_path: Option<&Path>,
+    local_roots: &LocalRoots,
+    output_format: ReplayOutputFormat,
+) -> Result<i32, String> {
+    let workspace = std::env::current_dir().map_err(|error| format!("resolve the workspace root: {error}"))?;
+    let (code, report) =
+        capsule_replay_executed_report(capsule_path, inputs_path, receipt_path, &workspace, local_roots)?;
+    emit_replay(&report, output_format, &executed_human_lines(&report))?;
+    Ok(code)
+}
+
+fn capsule_replay_executed_report(
+    capsule_path: &Path,
+    inputs_path: Option<&Path>,
+    receipt_path: Option<&Path>,
+    workspace: &Path,
+    local_roots: &LocalRoots,
+) -> Result<(i32, Value), String> {
+    let (capsule, manifest) = load_capsule(capsule_path)?;
+    let capsule_hash = capsule.get("capsule_hash").and_then(Value::as_str).unwrap_or_default().to_owned();
+    let run_kind = manifest.get("run_kind").and_then(Value::as_str).unwrap_or_default().to_owned();
+    let expected_exit = manifest.get("expected_exit_code").and_then(Value::as_i64).unwrap_or_default();
+    if capsule_is_import_only(&manifest) {
+        let report = executed_report(&ExecutedReport {
+            capsule_hash: &capsule_hash,
+            profile_id: "",
+            run_kind: &run_kind,
+            status: "failed-closed",
+            reason: Some("import-only-capsule"),
+            detail: Some("an imported capsule has no reviewed execution profile"),
+            expected_exit,
+            observed_exit: None,
+            drifts: &[],
+            failure_contract: None,
+            limits: None,
+            executed: false,
+            receipt: None,
+        });
+        return Ok((1, report));
+    }
+    let execution = match manifest.get("execution") {
+        None => None,
+        Some(value) if value.is_object() => Some(value),
+        Some(_) => {
+            let report = executed_report(&ExecutedReport {
+                capsule_hash: &capsule_hash,
+                profile_id: "",
+                run_kind: &run_kind,
+                status: "failed-closed",
+                reason: Some("unsupported-execution-binding"),
+                detail: Some("capsule execution must be a JSON object"),
+                expected_exit,
+                observed_exit: None,
+                drifts: &[],
+                failure_contract: None,
+                limits: None,
+                executed: false,
+                receipt: None,
+            });
+            return Ok((1, report));
+        }
+    };
+    let declared_profile = execution.and_then(|execution| execution.get("profile")).and_then(Value::as_str);
+    let profile = match declared_profile {
+        Some(id) => REVIEWED_PROFILES.iter().copied().find(|profile| profile.id == id),
+        None => REVIEWED_PROFILES.iter().copied().find(|profile| profile.run_kind == run_kind),
+    };
+    let Some(profile) = profile else {
+        let (reason, detail) = match declared_profile {
+            Some(id) => (
+                "unsupported-profile",
+                format!("declared execution profile `{id}` is not reviewed for executed replay"),
+            ),
+            None => ("unsupported-run-kind", format!("no reviewed execution profile covers run_kind `{run_kind}`")),
+        };
+        let report = executed_report(&ExecutedReport {
+            capsule_hash: &capsule_hash,
+            profile_id: "unsupported",
+            run_kind: &run_kind,
+            status: "failed-closed",
+            reason: Some(reason),
+            detail: Some(detail.as_str()),
+            expected_exit,
+            observed_exit: None,
+            drifts: &[],
+            failure_contract: None,
+            limits: None,
+            executed: false,
+            receipt: None,
+        });
+        return Ok((1, report));
+    };
+    if profile.run_kind != run_kind {
+        let detail = format!("profile `{}` covers run_kind `{}`, not `{run_kind}`", profile.id, profile.run_kind);
+        let report = executed_report(&ExecutedReport {
+            capsule_hash: &capsule_hash,
+            profile_id: profile.id,
+            run_kind: &run_kind,
+            status: "failed-closed",
+            reason: Some("profile-run-kind-mismatch"),
+            detail: Some(detail.as_str()),
+            expected_exit,
+            observed_exit: None,
+            drifts: &[],
+            failure_contract: None,
+            limits: None,
+            executed: false,
+            receipt: None,
+        });
+        return Ok((1, report));
+    }
+
+    let inputs_path = inputs_path.map_or_else(|| default_inputs_path(capsule_path), Path::to_path_buf);
+    let prepared = match prepare_execution(profile, &manifest, &inputs_path, workspace, local_roots)? {
+        Preparation::Ready(prepared) => prepared,
+        Preparation::Failed { reason, detail } => {
+            let report = executed_report(&ExecutedReport {
+                capsule_hash: &capsule_hash,
+                profile_id: profile.id,
+                run_kind: &run_kind,
+                status: "failed-closed",
+                reason: Some(reason),
+                detail: Some(detail.as_str()),
+                expected_exit,
+                observed_exit: None,
+                drifts: &[],
+                failure_contract: None,
+                limits: None,
+                executed: false,
+                receipt: None,
+            });
+            return Ok((1, report));
+        }
+    };
+
+    if !prepared.pre_execution_drifts.is_empty() {
+        let report = executed_report(&ExecutedReport {
+            capsule_hash: &capsule_hash,
+            profile_id: profile.id,
+            run_kind: &run_kind,
+            status: "drifted",
+            reason: None,
+            detail: Some("bindings changed before execution, so the reviewed profile was not launched"),
+            expected_exit,
+            observed_exit: None,
+            drifts: &prepared.pre_execution_drifts,
+            failure_contract: None,
+            limits: Some(&prepared.limits),
+            executed: false,
+            receipt: None,
+        });
+        return Ok((1, report));
+    }
+
+    let existing_receipt = match receipt_path {
+        Some(path) if path.exists() => Some(verify_execution_receipt(path, &capsule_hash)?),
+        _ => None,
+    };
+
+    let output = run_prepared_execution(&prepared, workspace)?;
+    let stdout = ReceiptStream {
+        hash: byte_identity(&output.stdout.bytes),
+        bytes: u64::try_from(output.stdout.observed_bytes).unwrap_or(u64::MAX),
+        truncated: output.stdout.truncated,
+    };
+    let stderr = ReceiptStream {
+        hash: byte_identity(&output.stderr.bytes),
+        bytes: u64::try_from(output.stderr.observed_bytes).unwrap_or(u64::MAX),
+        truncated: output.stderr.truncated,
+    };
+
+    let mut drifts = Vec::new();
+    let mut failure: Option<(&'static str, String)> = None;
+    let mut contract_result: Option<(&'static str, bool)> = None;
+    let mut produced = BTreeMap::new();
+    let mut produced_hashes = BTreeMap::new();
+    if output.completion == bounded_exec::Completion::TimedOut {
+        failure = Some(("timeout", format!("profile execution exceeded {} ms", prepared.limits.timeout_ms)));
+    } else if output.completion == bounded_exec::Completion::Cancelled {
+        failure = Some(("cancelled", "profile execution was cancelled".to_owned()));
+    } else if output.stdout.truncated || output.stderr.truncated {
+        failure = Some((
+            "output-overflow",
+            format!(
+                "captured output exceeded the {} / {} byte limits",
+                prepared.limits.stdout_max_bytes, prepared.limits.stderr_max_bytes
+            ),
+        ));
+    }
+    for declared in profile.outputs {
+        if failure.is_some() {
+            break;
+        }
+        match declared {
+            ProfileOutput::Stdout => {
+                produced.insert("stdout".to_owned(), ReceiptOutput {
+                    hash: stdout.hash.clone(),
+                    bytes: stdout.bytes,
+                });
+                produced_hashes.insert("stdout".to_owned(), stdout.hash.clone());
+            }
+            ProfileOutput::Stderr => {
+                produced.insert("stderr".to_owned(), ReceiptOutput {
+                    hash: stderr.hash.clone(),
+                    bytes: stderr.bytes,
+                });
+                produced_hashes.insert("stderr".to_owned(), stderr.hash.clone());
+            }
+            ProfileOutput::File(name) => match read_output_file(&prepared.output_dir, name)? {
+                OutputFile::Present(bytes) => {
+                    let hash = byte_identity(&bytes);
+                    produced.insert((*name).to_owned(), ReceiptOutput {
+                        hash: hash.clone(),
+                        bytes: u64::try_from(bytes.len()).unwrap_or(u64::MAX),
+                    });
+                    produced_hashes.insert((*name).to_owned(), hash);
+                }
+                OutputFile::Missing => {
+                    failure = Some(("missing-output", format!("reviewed profile output `{name}` was not produced")));
+                }
+                OutputFile::Oversized(size) => {
+                    failure = Some((
+                        "output-overflow",
+                        format!(
+                            "reviewed profile output `{name}` is {size} bytes, above the {EXECUTION_OUTPUT_FILE_MAX_BYTES} byte limit"
+                        ),
+                    ));
+                }
+            },
+        }
+    }
+
+    if failure.is_none() {
+        let names: BTreeSet<String> = produced_hashes.keys().chain(prepared.expected_outputs.keys()).cloned().collect();
+        for name in &names {
+            match (prepared.expected_outputs.get(name), produced_hashes.get(name)) {
+                (Some(expected), Some(actual)) if expected == actual => {}
+                (expected, actual) => drifts.push(Drift {
+                    kind: "output",
+                    field: name.clone(),
+                    expected: expected.cloned().unwrap_or_else(|| "<absent>".to_owned()),
+                    actual: actual.cloned().unwrap_or_else(|| "<absent>".to_owned()),
+                }),
+            }
+        }
+        match output.exit_code {
+            None => {
+                failure = Some(("missing-exit-status", "the child produced no portable exit code".to_owned()));
+            }
+            Some(exit_code) => {
+                if i64::from(exit_code) != expected_exit {
+                    drifts.push(Drift {
+                        kind: "exit",
+                        field: "expected_exit_code".to_owned(),
+                        expected: expected_exit.to_string(),
+                        actual: exit_code.to_string(),
+                    });
+                } else if expected_exit != 0
+                    && let Some(contract) = prepared.failure_contract
+                {
+                    let satisfied = contract_satisfied(contract, &output);
+                    contract_result = Some((contract.name, satisfied));
+                    if !satisfied {
+                        drifts.push(Drift {
+                            kind: "failure_contract",
+                            field: contract.name.to_owned(),
+                            expected: format!("named failure contract `{}` was satisfied", contract.name),
+                            actual: "contract marker missing from the executed run".to_owned(),
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    let mut body = ExecutionReceiptBody {
+        schema_version: SCHEMA_VERSION,
+        receipt_kind: EXECUTION_RECEIPT_KIND.to_owned(),
+        capsule_hash: capsule_hash.clone(),
+        evidence_mode: EXECUTED_EVIDENCE_MODE.to_owned(),
+        profile: ReceiptProfile {
+            id: profile.id.to_owned(),
+            run_kind: profile.run_kind.to_owned(),
+            executable_name: profile.executable_name.to_owned(),
+            executable_source: match profile.executable {
+                ProfileExecutable::SelfOctet => "self-octet".to_owned(),
+                ProfileExecutable::DeclaredWorkspaceExecutable => "declared-workspace".to_owned(),
+            },
+            executable_hash: prepared.executable_hash.clone(),
+            argv: prepared.comparison_argv.clone(),
+        },
+        source: ReceiptSource {
+            inputs: prepared
+                .inputs
+                .iter()
+                .map(|input| {
+                    (input.name.clone(), ReceiptInput {
+                        path: input.normalized_path.clone(),
+                        hash: input.hash.clone(),
+                    })
+                })
+                .collect(),
+        },
+        policy: ReceiptPolicy {
+            config_hash: prepared.config_hash.clone(),
+        },
+        toolchain: ReceiptToolchain {
+            octet_binary_identity: prepared.octet_identity.clone(),
+            executable_hash: prepared.executable_hash.clone(),
+            nix_closure_identity: prepared.nix_closure.clone(),
+        },
+        capabilities: profile.capabilities.iter().map(|capability| (*capability).to_owned()).collect(),
+        environment: ReceiptEnvironment {
+            allowlist: profile.environment_allowlist.iter().map(|name| (*name).to_owned()).collect(),
+            fixed: profile
+                .fixed_environment
+                .iter()
+                .map(|(name, value)| ((*name).to_owned(), (*value).to_owned()))
+                .collect(),
+            present: prepared.environment_names.clone(),
+            overrides: prepared.environment_overrides.clone(),
+        },
+        limits: ReceiptLimits {
+            timeout_ms: prepared.limits.timeout_ms,
+            stdout_max_bytes: prepared.limits.stdout_max_bytes,
+            stderr_max_bytes: prepared.limits.stderr_max_bytes,
+        },
+        expected: ReceiptExpected {
+            exit_code: expected_exit,
+            outputs: prepared.expected_outputs.clone(),
+            failure_contract: prepared.failure_contract.map(|contract| contract.name.to_owned()),
+        },
+        outcome: ReceiptOutcome {
+            completion: completion_name(output.completion).to_owned(),
+            exit_code: output.exit_code,
+            signal: output.signal,
+            timed_out: output.completion == bounded_exec::Completion::TimedOut,
+            stdout,
+            stderr,
+            outputs: produced,
+            output_directory: normalize_bound_path(&prepared.output_dir, workspace, local_roots),
+        },
+        status: String::new(),
+    };
+
+    if let Some(existing) = &existing_receipt {
+        let mut comparable_existing = existing.body.clone();
+        comparable_existing.status = String::new();
+        if comparable_existing != body {
+            drifts.push(Drift {
+                kind: "receipt",
+                field: existing.receipt_hash.clone(),
+                expected: "execution receipt matching the recomputed outcome".to_owned(),
+                actual: "recomputed outcome differs from the retained receipt".to_owned(),
+            });
+        }
+    }
+
+    let status = if failure.is_some() {
+        "failed-closed"
+    } else if drifts.is_empty() {
+        if expected_exit == 0 {
+            "replayed"
+        } else {
+            "expected-failure-replayed"
+        }
+    } else {
+        "drifted"
+    };
+    body.status = status.to_owned();
+    let receipt_hash = {
+        let body_value =
+            serde_json::to_value(&body).map_err(|error| format!("serialize execution receipt body: {error}"))?;
+        determinism::full_hash(&canonical_json(&body_value)?)
+    };
+    let receipt = ExecutionReceipt { body, receipt_hash };
+    if let Some(path) = receipt_path {
+        write_json(path, &receipt)?;
+    }
+
+    let failure_contract = contract_result
+        .or_else(|| prepared.failure_contract.map(|contract| (contract.name, status == "expected-failure-replayed")));
+    let report = executed_report(&ExecutedReport {
+        capsule_hash: &capsule_hash,
+        profile_id: profile.id,
+        run_kind: &run_kind,
+        status,
+        reason: failure.as_ref().map(|(reason, _)| *reason),
+        detail: failure.as_ref().map(|(_, detail)| detail.as_str()),
+        expected_exit,
+        observed_exit: output.exit_code.map(i64::from),
+        drifts: &drifts,
+        failure_contract,
+        limits: Some(&prepared.limits),
+        executed: true,
+        receipt: receipt_path.map(|path| (path, receipt.receipt_hash.as_str())),
+    });
+    let code = i32::from(status == "drifted" || status == "failed-closed");
+    Ok((code, report))
 }
 
 const CAPSULE_COMPARED_FIELDS: [&str; 6] = [
@@ -1923,8 +3752,46 @@ mod tests {
         let command = parse(&args(&["capsule", "replay", "--capsule=c.json", "--observed", "o.json"]))
             .expect("valid capsule replay args");
         assert!(
-            matches!(&command, RoadmapCommand::CapsuleReplay { capsule, observed }
-                if capsule == Path::new("c.json") && observed == Path::new("o.json")),
+            matches!(
+                &command,
+                RoadmapCommand::CapsuleReplay {
+                    capsule,
+                    observed: Some(observed),
+                    execute: false,
+                    inputs: None,
+                    receipt: None,
+                    output_format: ReplayOutputFormat::Json,
+                } if capsule == Path::new("c.json") && observed == Path::new("o.json")
+            ),
+            "{command:?}"
+        );
+        let command = parse(&args(&[
+            "capsule",
+            "replay",
+            "--capsule",
+            "c.json",
+            "--execute",
+            "--inputs=inputs.json",
+            "--receipt",
+            "receipt.json",
+            "--output-format",
+            "human",
+        ]))
+        .expect("valid executed capsule replay args");
+        assert!(
+            matches!(
+                &command,
+                RoadmapCommand::CapsuleReplay {
+                    capsule,
+                    observed: None,
+                    execute: true,
+                    inputs: Some(inputs),
+                    receipt: Some(receipt),
+                    output_format: ReplayOutputFormat::Human,
+                } if capsule == Path::new("c.json")
+                    && inputs == Path::new("inputs.json")
+                    && receipt == Path::new("receipt.json")
+            ),
             "{command:?}"
         );
         let command = parse(&args(&[
@@ -1944,5 +3811,570 @@ mod tests {
             "{command:?}"
         );
         assert!(matches!(parse(&args(&["ability", "registry"])), Ok(RoadmapCommand::AbilityRegistry)));
+    }
+
+    #[test]
+    fn roadmap_parse_rejects_conflicting_executed_replay_flags() {
+        let error = parse(&args(&[
+            "capsule",
+            "replay",
+            "--capsule",
+            "c.json",
+            "--execute",
+            "--observed",
+            "o.json",
+        ]))
+        .expect_err("executed replay must not also compare supplied observations");
+        assert!(error.contains("mutually exclusive"), "{error}");
+
+        let error = parse(&args(&["capsule", "replay", "--capsule", "c.json"]))
+            .expect_err("capsule replay needs an evidence mode");
+        assert!(error.contains("missing `--observed`"), "{error}");
+
+        let error = parse(&args(&[
+            "capsule",
+            "replay",
+            "--capsule",
+            "c.json",
+            "--observed",
+            "o.json",
+            "--inputs",
+            "i.json",
+        ]))
+        .expect_err("--inputs requires --execute");
+        assert!(error.contains("`--inputs` requires `--execute`"), "{error}");
+
+        let error = parse(&args(&[
+            "capsule",
+            "replay",
+            "--capsule",
+            "c.json",
+            "--observed",
+            "o.json",
+            "--receipt",
+            "r.json",
+        ]))
+        .expect_err("--receipt requires --execute");
+        assert!(error.contains("`--receipt` requires `--execute`"), "{error}");
+
+        let error = parse(&args(&["capsule", "replay", "--capsule", "c.json", "--execute", "--execute"]))
+            .expect_err("repeated switch fails");
+        assert!(error.contains("`--execute` may be provided only once"), "{error}");
+
+        let error = parse(&args(&["capsule", "replay", "--capsule", "c.json", "--execute=true"]))
+            .expect_err("switches take no value");
+        assert!(error.contains("`--execute` takes no value"), "{error}");
+
+        let error = parse(&args(&[
+            "capsule",
+            "replay",
+            "--capsule",
+            "c.json",
+            "--execute",
+            "--output-format",
+            "yaml",
+        ]))
+        .expect_err("unknown output format fails");
+        assert!(error.contains("unsupported capsule replay output format `yaml`"), "{error}");
+    }
+
+    const SUCCESS_REPORT: &str = "{\"findings\":0}";
+    const PROBE_PROLOGUE: &str = "out=\"\"\nprevious=\"\"\nfor argument in \"$@\"; do\n  if [ \"$previous\" = \"--output-dir\" ]; then out=\"$argument\"; fi\n  previous=\"$argument\"\ndone\n";
+
+    fn test_workspace() -> (tempfile::TempDir, PathBuf) {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let workspace = std::fs::canonicalize(temp.path()).expect("canonical workspace");
+        (temp, workspace)
+    }
+
+    fn test_local_roots(workspace: &Path) -> LocalRoots {
+        local_roots_from(Some(workspace.to_path_buf()), None, None, std::env::temp_dir())
+    }
+
+    fn write_test_json(path: &Path, value: &Value) {
+        std::fs::write(path, serde_json::to_string_pretty(value).expect("serialize json")).expect("write json");
+    }
+
+    fn write_test_input(workspace: &Path) -> String {
+        let directory = workspace.join("inputs");
+        std::fs::create_dir_all(&directory).expect("create inputs directory");
+        std::fs::write(directory.join("src.rs"), "pub fn f() {}\n").expect("write input");
+        byte_identity(b"pub fn f() {}\n")
+    }
+
+    fn current_octet_identity() -> String {
+        file_identity(&std::env::current_exe().expect("current executable")).expect("octet identity")
+    }
+
+    fn write_probe(workspace: &Path, body: &str) -> String {
+        let path = workspace.join("octet-check-probe");
+        crate::test_support::write_executable_script(&path, &format!("#!/bin/sh\n{PROBE_PROLOGUE}{body}\n"));
+        file_identity(&path).expect("probe identity")
+    }
+
+    fn executed_capsule(manifest: &Value) -> Value {
+        let capsule_hash = determinism::full_hash(&canonical_json(manifest).expect("canonical manifest"));
+        serde_json::json!({
+            "schema_version": SCHEMA_VERSION,
+            "capsule_hash": capsule_hash,
+            "capsule_kind": "octet-replay-capsule",
+            "manifest": manifest,
+            "redaction_status": REDACTION_STATUS,
+        })
+    }
+
+    fn check_manifest(
+        input_hash: &str,
+        expected_report: &str,
+        expected_stderr: &str,
+        executable_hash: &str,
+        expected_exit: i64,
+        extra_execution: Value,
+    ) -> Value {
+        let mut execution = serde_json::json!({
+            "profile": "check-v1",
+            "toolchain": {"executable_hash": executable_hash},
+        });
+        if let (Value::Object(execution), Value::Object(extra)) = (&mut execution, extra_execution) {
+            for (key, value) in extra {
+                execution.insert(key, value);
+            }
+        }
+        serde_json::json!({
+            "command_argv": [
+                "octet-check-probe",
+                "--output-dir",
+                OUTPUT_PLACEHOLDER,
+                "--input",
+                format!("src/lib.rs={WORKSPACE_PLACEHOLDER}/inputs/src.rs"),
+            ],
+            "run_kind": "check",
+            "octet_binary_identity": current_octet_identity(),
+            "config_hash": "b3:cfg",
+            "input_hashes": {"src/lib.rs": input_hash},
+            "output_hashes": {
+                "check-report.json": byte_identity(expected_report.as_bytes()),
+                "stderr": byte_identity(expected_stderr.as_bytes()),
+            },
+            "expected_exit_code": expected_exit,
+            "execution": execution,
+        })
+    }
+
+    fn check_inputs() -> Value {
+        serde_json::json!({
+            "schema_version": 1,
+            "profile": "check-v1",
+            "executable": "octet-check-probe",
+            "inputs": {"src/lib.rs": "inputs/src.rs"},
+            "config_hash": "b3:cfg",
+        })
+    }
+
+    fn try_run_executed(
+        workspace: &Path,
+        manifest: &Value,
+        inputs: &Value,
+        receipt: Option<&Path>,
+    ) -> Result<(i32, Value), String> {
+        let capsule_path = workspace.join("capsule.json");
+        let inputs_path = workspace.join("execution-inputs.json");
+        write_test_json(&capsule_path, &executed_capsule(manifest));
+        write_test_json(&inputs_path, inputs);
+        let roots = test_local_roots(workspace);
+        capsule_replay_executed_report(&capsule_path, Some(&inputs_path), receipt, workspace, &roots)
+    }
+
+    fn run_executed(workspace: &Path, manifest: &Value, inputs: &Value, receipt: Option<&Path>) -> (i32, Value) {
+        try_run_executed(workspace, manifest, inputs, receipt).expect("executed replay report")
+    }
+
+    fn drift_kinds(report: &Value) -> Vec<String> {
+        report["drifts"]
+            .as_array()
+            .map(|drifts| drifts.iter().filter_map(|drift| drift["kind"].as_str().map(str::to_owned)).collect())
+            .unwrap_or_default()
+    }
+
+    #[test]
+    fn executed_replay_selects_the_fingerprint_profile_and_requires_local_inputs() {
+        let (_temp, workspace) = test_workspace();
+        let input_hash = write_test_input(&workspace);
+        let manifest = serde_json::json!({
+            "command_argv": [
+                "octet",
+                "fingerprint",
+                "--check",
+                format!("{WORKSPACE_PLACEHOLDER}/inputs/src.rs"),
+            ],
+            "run_kind": "fingerprint",
+            "octet_binary_identity": current_octet_identity(),
+            "config_hash": "b3:cfg",
+            "input_hashes": {"src/lib.rs": input_hash},
+            "output_hashes": {"stdout": byte_identity(b""), "stderr": byte_identity(b"")},
+            "expected_exit_code": 0,
+        });
+        let capsule_path = workspace.join("capsule.json");
+        write_test_json(&capsule_path, &executed_capsule(&manifest));
+        let roots = test_local_roots(&workspace);
+        let (code, report) = capsule_replay_executed_report(
+            &capsule_path,
+            Some(&workspace.join("missing-execution-inputs.json")),
+            None,
+            &workspace,
+            &roots,
+        )
+        .expect("executed replay report");
+        assert_eq!(code, 1, "{report}");
+        assert_eq!(report["profile"], FINGERPRINT_PRODUCTION_PROFILE.id);
+        assert_eq!(report["status"], "failed-closed");
+        assert_eq!(report["reason"], "missing-inputs");
+        assert_eq!(report["executed"], false);
+    }
+
+    #[test]
+    fn executed_replay_launches_reviewed_profile_and_retains_receipt() {
+        let (_temp, workspace) = test_workspace();
+        let input_hash = write_test_input(&workspace);
+        let executable_hash =
+            write_probe(&workspace, &format!("printf '%s' '{SUCCESS_REPORT}' > \"$out/check-report.json\"\n"));
+        let manifest = check_manifest(&input_hash, SUCCESS_REPORT, "", &executable_hash, 0, Value::Null);
+        let receipt_path = workspace.join("receipt.json");
+
+        let (code, report) = run_executed(&workspace, &manifest, &check_inputs(), Some(&receipt_path));
+        assert_eq!(code, 0, "{report}");
+        assert_eq!(report["status"], "replayed");
+        assert_eq!(report["evidence_mode"], EXECUTED_EVIDENCE_MODE);
+        assert_eq!(report["executed"], true);
+        assert_eq!(report["profile"], "check-v1");
+        assert_eq!(report["mismatches"], serde_json::json!([]));
+        assert!(workspace.join(EXECUTION_OUTPUT_DIRECTORY).exists(), "isolated output directory is used");
+
+        let receipt: Value = serde_json::from_str(&std::fs::read_to_string(&receipt_path).expect("read receipt"))
+            .expect("parse receipt");
+        assert_eq!(receipt["receipt_kind"], EXECUTION_RECEIPT_KIND);
+        assert_eq!(receipt["capsule_hash"], executed_capsule(&manifest)["capsule_hash"]);
+        assert_eq!(receipt["evidence_mode"], EXECUTED_EVIDENCE_MODE);
+        assert_eq!(receipt["outcome"]["exit_code"], serde_json::json!(0));
+        assert_eq!(receipt["source"]["inputs"]["src/lib.rs"]["path"], "<workspace>/inputs/src.rs");
+        assert!(receipt["receipt_hash"].as_str().expect("receipt hash").starts_with("b3:"));
+        assert_eq!(report["receipt"]["receipt_hash"], receipt["receipt_hash"]);
+
+        let human = executed_human_lines(&report).join("\n");
+        assert!(human.contains("evidence mode: executed"), "{human}");
+
+        let (replay_code, replay) = run_executed(&workspace, &manifest, &check_inputs(), Some(&receipt_path));
+        assert_eq!(replay_code, 0, "{replay}");
+        assert_eq!(replay["status"], "replayed");
+        assert!(drift_kinds(&replay).is_empty(), "{replay}");
+    }
+
+    #[test]
+    fn executed_replay_cannot_be_satisfied_by_a_fabricated_observation() {
+        let (_temp, workspace) = test_workspace();
+        let input_hash = write_test_input(&workspace);
+        let executable_hash =
+            write_probe(&workspace, &format!("printf '%s' '{SUCCESS_REPORT}' > \"$out/check-report.json\"\n"));
+        let manifest = check_manifest(&input_hash, "{\"findings\":7}", "", &executable_hash, 0, Value::Null);
+        let capsule = executed_capsule(&manifest);
+        let capsule_path = workspace.join("capsule.json");
+        write_test_json(&capsule_path, &capsule);
+
+        let observed_path = workspace.join("observed.json");
+        write_test_json(
+            &observed_path,
+            &serde_json::json!({
+                "command_argv": manifest["command_argv"],
+                "run_kind": "check",
+                "octet_binary_identity": manifest["octet_binary_identity"],
+                "config_hash": "b3:cfg",
+                "input_hashes": manifest["input_hashes"],
+                "output_hashes": manifest["output_hashes"],
+                "exit_code": 0,
+            }),
+        );
+        let roots = test_local_roots(&workspace);
+        let (supplied_code, supplied) =
+            capsule_replay_observed_report(&capsule_path, &observed_path, &roots).expect("supplied replay");
+        assert_eq!(supplied_code, 0);
+        assert_eq!(supplied["status"], "replayed");
+        assert_eq!(supplied["evidence_mode"], SUPPLIED_OBSERVATION_EVIDENCE_MODE);
+        let human = observed_human_lines(&supplied).join("\n");
+        assert!(human.contains("evidence mode: supplied_observation"), "{human}");
+
+        let (code, report) = run_executed(&workspace, &manifest, &check_inputs(), None);
+        assert_eq!(code, 1, "{report}");
+        assert_eq!(report["status"], "drifted");
+        assert_eq!(report["executed"], true);
+        assert!(drift_kinds(&report).contains(&"output".to_owned()), "{report}");
+    }
+
+    #[test]
+    fn executed_replay_reports_source_argv_output_and_exit_drift() {
+        let (_temp, workspace) = test_workspace();
+        let input_hash = write_test_input(&workspace);
+        let executable_hash =
+            write_probe(&workspace, &format!("printf '%s' '{SUCCESS_REPORT}' > \"$out/check-report.json\"\n"));
+
+        let manifest = check_manifest(&input_hash, SUCCESS_REPORT, "", &executable_hash, 0, Value::Null);
+        std::fs::write(workspace.join("inputs/src.rs"), "pub fn f() { changed(); }\n").expect("change input");
+        let (code, report) = run_executed(&workspace, &manifest, &check_inputs(), None);
+        assert_eq!(code, 1, "{report}");
+        assert_eq!(report["status"], "drifted");
+        assert_eq!(report["executed"], false);
+        assert_eq!(drift_kinds(&report), vec!["source".to_owned()]);
+        assert_eq!(report["mismatches"], serde_json::json!(["input_hashes"]));
+
+        std::fs::write(workspace.join("inputs/src.rs"), "pub fn f() {}\n").expect("restore input");
+        let mut argv_manifest = check_manifest(&input_hash, SUCCESS_REPORT, "", &executable_hash, 0, Value::Null);
+        argv_manifest["command_argv"] = serde_json::json!([
+            "octet-check-probe",
+            "--verbose",
+            "--output-dir",
+            OUTPUT_PLACEHOLDER,
+            "--input",
+            format!("src/lib.rs={WORKSPACE_PLACEHOLDER}/inputs/src.rs"),
+        ]);
+        let (code, report) = run_executed(&workspace, &argv_manifest, &check_inputs(), None);
+        assert_eq!(code, 1, "{report}");
+        assert_eq!(report["status"], "drifted");
+        assert_eq!(report["executed"], false);
+        assert_eq!(drift_kinds(&report), vec!["argv".to_owned()]);
+
+        let mut changed_config = check_inputs();
+        changed_config["config_hash"] = serde_json::json!("b3:changed-config");
+        let config_manifest = check_manifest(&input_hash, SUCCESS_REPORT, "", &executable_hash, 0, Value::Null);
+        let (code, report) = run_executed(&workspace, &config_manifest, &changed_config, None);
+        assert_eq!(code, 1, "{report}");
+        assert_eq!(report["status"], "drifted");
+        assert_eq!(report["executed"], false);
+        assert_eq!(drift_kinds(&report), vec!["config".to_owned()]);
+        assert_eq!(report["mismatches"], serde_json::json!(["config_hash"]));
+
+        let mut changed_toolchain = check_manifest(&input_hash, SUCCESS_REPORT, "", &executable_hash, 0, Value::Null);
+        changed_toolchain["execution"]["toolchain"]["executable_hash"] = serde_json::json!(byte_identity(b"other"));
+        let (code, report) = run_executed(&workspace, &changed_toolchain, &check_inputs(), None);
+        assert_eq!(code, 1, "{report}");
+        assert_eq!(report["status"], "drifted");
+        assert_eq!(report["executed"], false);
+        assert_eq!(drift_kinds(&report), vec!["toolchain".to_owned()]);
+        assert_eq!(report["mismatches"], serde_json::json!(["octet_binary_identity"]));
+
+        let output_manifest = check_manifest(&input_hash, "{\"findings\":9}", "", &executable_hash, 0, Value::Null);
+        let (code, report) = run_executed(&workspace, &output_manifest, &check_inputs(), None);
+        assert_eq!(code, 1, "{report}");
+        assert_eq!(report["status"], "drifted");
+        assert_eq!(report["executed"], true);
+        assert_eq!(drift_kinds(&report), vec!["output".to_owned()]);
+
+        let failing_executable =
+            write_probe(&workspace, &format!("printf '%s' '{SUCCESS_REPORT}' > \"$out/check-report.json\"\nexit 4\n"));
+        let exit_manifest = check_manifest(&input_hash, SUCCESS_REPORT, "", &failing_executable, 0, Value::Null);
+        let (code, report) = run_executed(&workspace, &exit_manifest, &check_inputs(), None);
+        assert_eq!(code, 1, "{report}");
+        assert_eq!(report["status"], "drifted");
+        assert_eq!(report["observed_exit_code"], serde_json::json!(4));
+        assert_eq!(drift_kinds(&report), vec!["exit".to_owned()]);
+        assert_eq!(report["mismatches"], serde_json::json!(["expected_exit_code"]));
+    }
+
+    #[test]
+    fn executed_replay_fails_closed_on_timeout_and_output_overflow() {
+        let (_temp, workspace) = test_workspace();
+        let input_hash = write_test_input(&workspace);
+        let spinner = write_probe(&workspace, "while :; do :; done\n");
+        let timeout_manifest = check_manifest(
+            &input_hash,
+            SUCCESS_REPORT,
+            "",
+            &spinner,
+            0,
+            serde_json::json!({"resource_limits": {"timeout_ms": 250}}),
+        );
+        let (code, report) = run_executed(&workspace, &timeout_manifest, &check_inputs(), None);
+        assert_eq!(code, 1, "{report}");
+        assert_eq!(report["status"], "failed-closed");
+        assert_eq!(report["reason"], "timeout");
+        assert_eq!(report["executed"], true);
+
+        let noisy = write_probe(
+            &workspace,
+            &format!(
+                "count=0\nwhile [ \"$count\" -lt 200 ]; do printf 'xxxxxxxxxx'; count=$((count + 1)); done\nprintf '%s' '{SUCCESS_REPORT}' > \"$out/check-report.json\"\n"
+            ),
+        );
+        let overflow_manifest = check_manifest(
+            &input_hash,
+            SUCCESS_REPORT,
+            "",
+            &noisy,
+            0,
+            serde_json::json!({"resource_limits": {"stdout_max_bytes": 64}}),
+        );
+        let (code, report) = run_executed(&workspace, &overflow_manifest, &check_inputs(), None);
+        assert_eq!(code, 1, "{report}");
+        assert_eq!(report["status"], "failed-closed");
+        assert_eq!(report["reason"], "output-overflow");
+    }
+
+    #[test]
+    fn executed_replay_fails_closed_on_unsupported_profiles_and_import_only_capsules() {
+        let (_temp, workspace) = test_workspace();
+        let input_hash = write_test_input(&workspace);
+        let executable_hash =
+            write_probe(&workspace, &format!("printf '%s' '{SUCCESS_REPORT}' > \"$out/check-report.json\"\n"));
+        let manifest = check_manifest(&input_hash, SUCCESS_REPORT, "", &executable_hash, 0, Value::Null);
+
+        let mut unsupported = manifest.clone();
+        unsupported.as_object_mut().expect("manifest object").remove("execution");
+        unsupported["run_kind"] = serde_json::json!("coverage");
+        let (code, report) = run_executed(&workspace, &unsupported, &check_inputs(), None);
+        assert_eq!(code, 1, "{report}");
+        assert_eq!(report["status"], "failed-closed");
+        assert_eq!(report["reason"], "unsupported-run-kind");
+
+        let mut imported = manifest.clone();
+        imported.as_object_mut().expect("manifest object").remove("execution");
+        imported["run_kind"] = serde_json::json!("imported-tool-evidence");
+        let (code, report) = run_executed(&workspace, &imported, &check_inputs(), None);
+        assert_eq!(code, 1, "{report}");
+        assert_eq!(report["status"], "failed-closed");
+        assert_eq!(report["reason"], "import-only-capsule");
+
+        let mut foreign_program = manifest.clone();
+        foreign_program["command_argv"][0] = serde_json::json!("sh");
+        let error = try_run_executed(&workspace, &foreign_program, &check_inputs(), None)
+            .expect_err("an imported executable is rejected");
+        assert!(error.contains("imported executable"), "{error}");
+
+        let mut shell_fragment = manifest.clone();
+        shell_fragment["command_argv"] =
+            serde_json::json!(["octet-check-probe", "--input", "src/lib.rs; touch pwned",]);
+        let error = try_run_executed(&workspace, &shell_fragment, &check_inputs(), None)
+            .expect_err("shell fragments are rejected");
+        assert!(error.contains("shell fragment"), "{error}");
+
+        let mut escaped = check_inputs();
+        escaped["executable"] = serde_json::json!("../outside-probe");
+        let error =
+            try_run_executed(&workspace, &manifest, &escaped, None).expect_err("executable path escapes are rejected");
+        assert!(error.contains("path escape"), "{error}");
+
+        let mut escaped_input = check_inputs();
+        escaped_input["inputs"] = serde_json::json!({"src/lib.rs": "../escape.rs"});
+        let error =
+            try_run_executed(&workspace, &manifest, &escaped_input, None).expect_err("input path escapes are rejected");
+        assert!(error.contains("path escape"), "{error}");
+
+        let mut undeclared_environment = check_inputs();
+        undeclared_environment["environment"] = serde_json::json!({"LD_PRELOAD": "evil.so"});
+        let error = try_run_executed(&workspace, &manifest, &undeclared_environment, None)
+            .expect_err("undeclared environment is rejected");
+        assert!(error.contains("undeclared environment"), "{error}");
+
+        let foreign_path = workspace.join("other-probe");
+        crate::test_support::write_executable_script(&foreign_path, "#!/bin/sh\nexit 0\n");
+        let mut imported_name = check_inputs();
+        imported_name["executable"] = serde_json::json!("other-probe");
+        let error = try_run_executed(&workspace, &manifest, &imported_name, None)
+            .expect_err("an imported executable name is rejected");
+        assert!(error.contains("imported executable"), "{error}");
+
+        let mut missing_inputs = check_inputs();
+        missing_inputs["inputs"] = serde_json::json!({});
+        let (code, report) = run_executed(&workspace, &manifest, &missing_inputs, None);
+        assert_eq!(code, 1, "{report}");
+        assert_eq!(report["status"], "failed-closed");
+        assert_eq!(report["reason"], "missing-input");
+        assert_eq!(report["executed"], false);
+
+        let mut closure_bound = manifest.clone();
+        closure_bound["execution"]["toolchain"]["nix_closure_identity"] = serde_json::json!("nix:fixture-closure");
+        let (code, report) = run_executed(&workspace, &closure_bound, &check_inputs(), None);
+        assert_eq!(code, 1, "{report}");
+        assert_eq!(report["status"], "failed-closed");
+        assert_eq!(report["reason"], "missing-tool-closure");
+    }
+
+    #[test]
+    fn executed_replay_requires_the_named_failure_contract() {
+        let (_temp, workspace) = test_workspace();
+        let input_hash = write_test_input(&workspace);
+        let contract_stderr = "octet-check-failure: source drift";
+
+        let marker_probe = write_probe(
+            &workspace,
+            &format!(
+                "printf '%s' '{SUCCESS_REPORT}' > \"$out/check-report.json\"\nprintf '%s' '{contract_stderr}' >&2\nexit 3\n"
+            ),
+        );
+        let satisfying = check_manifest(
+            &input_hash,
+            SUCCESS_REPORT,
+            contract_stderr,
+            &marker_probe,
+            3,
+            serde_json::json!({"failure_contract": "check-diagnostic-failure"}),
+        );
+        let (code, report) = run_executed(&workspace, &satisfying, &check_inputs(), None);
+        assert_eq!(code, 0, "{report}");
+        assert_eq!(report["status"], "expected-failure-replayed");
+        assert_eq!(report["failure_contract"]["name"], "check-diagnostic-failure");
+        assert_eq!(report["failure_contract"]["satisfied"], true);
+
+        let silent_probe =
+            write_probe(&workspace, &format!("printf '%s' '{SUCCESS_REPORT}' > \"$out/check-report.json\"\nexit 3\n"));
+        let unsatisfied = check_manifest(
+            &input_hash,
+            SUCCESS_REPORT,
+            "",
+            &silent_probe,
+            3,
+            serde_json::json!({"failure_contract": "check-diagnostic-failure"}),
+        );
+        let (code, report) = run_executed(&workspace, &unsatisfied, &check_inputs(), None);
+        assert_eq!(code, 1, "{report}");
+        assert_eq!(report["status"], "drifted");
+        assert_eq!(drift_kinds(&report), vec!["failure_contract".to_owned()]);
+        assert_eq!(report["failure_contract"]["satisfied"], false);
+
+        let unnamed = check_manifest(&input_hash, SUCCESS_REPORT, "", &silent_probe, 3, Value::Null);
+        let (code, report) = run_executed(&workspace, &unnamed, &check_inputs(), None);
+        assert_eq!(code, 1, "{report}");
+        assert_eq!(report["status"], "failed-closed");
+        assert_eq!(report["reason"], "missing-failure-contract");
+
+        let unknown = check_manifest(
+            &input_hash,
+            SUCCESS_REPORT,
+            "",
+            &silent_probe,
+            3,
+            serde_json::json!({"failure_contract": "unreviewed-contract"}),
+        );
+        let (code, report) = run_executed(&workspace, &unknown, &check_inputs(), None);
+        assert_eq!(code, 1, "{report}");
+        assert_eq!(report["status"], "failed-closed");
+        assert_eq!(report["reason"], "unsupported-failure-contract");
+    }
+
+    #[test]
+    fn executed_replay_rejects_a_tampered_retained_receipt() {
+        let (_temp, workspace) = test_workspace();
+        let input_hash = write_test_input(&workspace);
+        let executable_hash =
+            write_probe(&workspace, &format!("printf '%s' '{SUCCESS_REPORT}' > \"$out/check-report.json\"\n"));
+        let manifest = check_manifest(&input_hash, SUCCESS_REPORT, "", &executable_hash, 0, Value::Null);
+        let receipt_path = workspace.join("receipt.json");
+        let (code, _report) = run_executed(&workspace, &manifest, &check_inputs(), Some(&receipt_path));
+        assert_eq!(code, 0);
+
+        let mut receipt: Value = serde_json::from_str(&std::fs::read_to_string(&receipt_path).expect("read receipt"))
+            .expect("parse receipt");
+        receipt["outcome"]["exit_code"] = serde_json::json!(9);
+        write_test_json(&receipt_path, &receipt);
+        let error = try_run_executed(&workspace, &manifest, &check_inputs(), Some(&receipt_path))
+            .expect_err("a modified receipt cannot be verified");
+        assert!(error.contains("does not match the recomputed"), "{error}");
     }
 }

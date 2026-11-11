@@ -290,6 +290,12 @@ struct SourceScopeMatch {
     class: &'static str,
 }
 
+/// Returns true when the capability-manifest checker evaluates `policy`.
+#[must_use]
+pub fn capability_manifest_checker_applies(policy: &PolicyEntry) -> bool {
+    capability_mechanism(policy).is_some()
+}
+
 /// Evaluates capability manifest diagnostics and report data for one checker run.
 // r[impl octet.capability_manifest_checker.manifest]
 // r[impl octet.capability_manifest_checker.scope_resolution]

@@ -22,6 +22,7 @@ pub mod project_architecture_policy;
 pub mod proof;
 pub mod proof_artifact;
 pub mod receipt;
+pub mod release_cohort;
 pub mod report;
 pub mod resource;
 pub mod runner;
@@ -63,15 +64,25 @@ mod tests {
     use crate::proof::VerusProofReceiptInput;
     use crate::proof::build_verus_proof_receipt;
     use crate::proof::check_verified_proof_rails;
+    use crate::report::CheckReport;
+    use crate::report::PolicyExecution;
+    use crate::report::PolicyExecutionOwnership;
+    use crate::report::PolicyExecutionStatus;
     use crate::report::render_json;
     use crate::report::render_markdown;
     use crate::resource::check_resources;
     use crate::runner::CheckInput;
+    use crate::runner::CheckerFailure;
+    use crate::runner::CheckerFailureKind;
     use crate::runner::run_checks;
     use crate::source::SourceFile;
 
     const DEVTOOLS_POLICY_ID: &str = "tigerstyle.devtools.lint-suppressions";
     const EMBEDDED_POLICY_ID: &str = "tigerstyle.embedded.bounded-queues";
+    const BLOCKING_IO_POLICY_ID: &str = "tigerstyle.embedded.blocking-io-timeouts";
+    const SAFE_SERIAL_POLICY_ID: &str = "tigerstyle.embedded.safe-serial-api";
+    const EXTERNAL_POLICY_ID: &str = "tigerstyle.devtools.deny-warnings";
+    const HUMAN_POLICY_ID: &str = "tigerstyle.culture.flow-protection";
     const FCIS_POLICY_ID: &str = "tigerstyle.architecture.fcis-crate-boundary";
     const EXTERNAL_DOMAIN_LEAKAGE_POLICY_ID: &str = "tigerstyle.architecture.external-domain-leakage";
     const ROOT_THINNESS_POLICY_ID: &str = "tigerstyle.architecture.root-crate-thinness";
@@ -119,6 +130,7 @@ mod tests {
             registry: sample_registry(),
             sources: vec![SourceFile::new(SOURCE_PATH, valid_suppression_line(DEVTOOLS_POLICY_ID))],
             selection: FamilySelection::all(),
+            checker_failures: Vec::new(),
         });
 
         assert!(report.diagnostics.is_empty());
@@ -137,6 +149,7 @@ mod tests {
             registry: sample_registry(),
             sources: vec![SourceFile::new(SOURCE_PATH, text)],
             selection: FamilySelection::from_families(["embedded"]),
+            checker_failures: Vec::new(),
         });
 
         assert_eq!(report.active_suppressions.len(), 1);
@@ -160,6 +173,7 @@ mod tests {
             registry: sample_registry(),
             sources: vec![SourceFile::new(SOURCE_PATH, text)],
             selection: FamilySelection::from_families(["embedded"]),
+            checker_failures: Vec::new(),
         });
 
         assert!(report.diagnostics.is_empty(), "{:?}", report.diagnostics);
@@ -182,6 +196,7 @@ mod tests {
                 SourceFile::new("src/device.rs", format!("\n{UNBOUNDED_CHANNEL_LINE}\n")),
             ],
             selection: FamilySelection::from_families(["devtools", "embedded"]),
+            checker_failures: Vec::new(),
         });
 
         assert_eq!(report.active_suppressions.len(), 2);
@@ -206,6 +221,7 @@ mod tests {
             registry: sample_registry(),
             sources: vec![SourceFile::new(SOURCE_PATH, text)],
             selection: FamilySelection::all(),
+            checker_failures: Vec::new(),
         });
 
         assert!(report.has_blocking_diagnostics());
@@ -222,6 +238,7 @@ mod tests {
             registry: sample_registry(),
             sources: vec![SourceFile::new(SOURCE_PATH, text)],
             selection: FamilySelection::from_families(["embedded"]),
+            checker_failures: Vec::new(),
         });
         let markdown = render_markdown(&report);
         let (findings, _) =
@@ -243,6 +260,7 @@ mod tests {
                 "// tigerstyle-allow: policy=tigerstyle.devtools.lint-suppressions; owner=platform",
             )],
             selection: FamilySelection::all(),
+            checker_failures: Vec::new(),
         });
 
         assert!(report.has_blocking_diagnostics());
@@ -263,6 +281,7 @@ mod tests {
             registry: sample_registry(),
             sources: vec![SourceFile::new(SOURCE_PATH, line)],
             selection: FamilySelection::all(),
+            checker_failures: Vec::new(),
         });
 
         assert!(report.has_blocking_diagnostics());
@@ -279,6 +298,7 @@ mod tests {
                 "// tigerstyle-allow: policy=tigerstyle.unknown.rule; source=doc; owner=a; rationale=b; review=c; safer_default=d",
             )],
             selection: FamilySelection::all(),
+            checker_failures: Vec::new(),
         });
 
         assert!(report.has_blocking_diagnostics());
@@ -292,6 +312,7 @@ mod tests {
             registry: sample_registry(),
             sources: vec![SourceFile::new(SOURCE_PATH, valid_suppression_line(EMBEDDED_POLICY_ID))],
             selection: FamilySelection::from_families(["devtools"]),
+            checker_failures: Vec::new(),
         });
 
         assert!(report.diagnostics.is_empty());
@@ -305,6 +326,7 @@ mod tests {
             registry: sample_registry(),
             sources: vec![SourceFile::new(SOURCE_PATH, valid_suppression_line(DEVTOOLS_POLICY_ID))],
             selection: FamilySelection::from_families(["devtools"]),
+            checker_failures: Vec::new(),
         });
         let json = render_json(&report).expect("report should serialize");
 
@@ -319,12 +341,241 @@ mod tests {
             registry: sample_registry(),
             sources: vec![SourceFile::new(SOURCE_PATH, valid_suppression_line(DEVTOOLS_POLICY_ID))],
             selection: FamilySelection::from_families(["devtools"]),
+            checker_failures: Vec::new(),
         });
         let markdown = render_markdown(&report);
 
         assert!(markdown.starts_with("# Tiger Style Standards Report"));
         assert!(markdown.contains("## Active Suppressions"));
         assert!(markdown.contains(DEVTOOLS_POLICY_ID));
+    }
+
+    #[test]
+    fn unimplemented_hard_local_policies_are_unsupported() {
+        let registry = PolicyRegistry {
+            schema_version: "test".to_owned(),
+            checker_ids: vec!["octet-standards".to_owned()],
+            policies: vec![
+                sample_policy(BLOCKING_IO_POLICY_ID, "embedded", EMBEDDED_SOURCE),
+                sample_policy(SAFE_SERIAL_POLICY_ID, "embedded", EMBEDDED_SOURCE),
+            ],
+            seed_manifests: Vec::new(),
+            config_receipt_families: Vec::new(),
+        };
+        let report = run_checks(&CheckInput {
+            registry,
+            sources: vec![SourceFile::new(SOURCE_PATH, "fn start() {}\n")],
+            selection: FamilySelection::from_families(["embedded"]),
+            checker_failures: Vec::new(),
+        });
+
+        let timeout = execution_for(&report, BLOCKING_IO_POLICY_ID);
+        let serial = execution_for(&report, SAFE_SERIAL_POLICY_ID);
+        assert_eq!(timeout.status, PolicyExecutionStatus::Unsupported);
+        assert_eq!(serial.status, PolicyExecutionStatus::Unsupported);
+        assert_eq!(timeout.ownership, PolicyExecutionOwnership::Local);
+        assert!(timeout.required);
+        assert!(timeout.coverage_explanation.contains("no implemented local checker"), "{timeout:?}");
+        assert!(!timeout.is_completed_local_check());
+        assert!(!report.coverage_complete());
+        assert!(!report.strict_passing());
+    }
+
+    #[test]
+    fn implemented_passing_policy_reports_passed_with_scope() {
+        let report = run_checks(&CheckInput {
+            registry: sample_registry(),
+            sources: vec![SourceFile::new(SOURCE_PATH, "fn start() {}\n")],
+            selection: FamilySelection::from_families(["embedded"]),
+            checker_failures: Vec::new(),
+        });
+
+        let execution = execution_for(&report, EMBEDDED_POLICY_ID);
+        assert_eq!(execution.status, PolicyExecutionStatus::Passed);
+        assert_eq!(execution.checker, "resource");
+        assert!(execution.selected_scope.contains("family=embedded"), "{}", execution.selected_scope);
+        assert!(
+            execution.selected_scope.contains("scope=embedded-bounded-primitives"),
+            "{}",
+            execution.selected_scope
+        );
+        assert!(execution.coverage_explanation.contains("emitted no diagnostic"));
+        assert!(execution.is_completed_local_check());
+        assert!(report.coverage_complete());
+        assert!(report.strict_passing());
+    }
+
+    #[test]
+    fn checker_violation_reports_failed_execution() {
+        let report = run_checks(&CheckInput {
+            registry: sample_registry(),
+            sources: vec![SourceFile::new(SOURCE_PATH, UNBOUNDED_CHANNEL_LINE)],
+            selection: FamilySelection::from_families(["embedded"]),
+            checker_failures: Vec::new(),
+        });
+
+        let execution = execution_for(&report, EMBEDDED_POLICY_ID);
+        assert_eq!(execution.status, PolicyExecutionStatus::Failed);
+        assert_eq!(execution.linked_diagnostics, vec![format!("{SOURCE_PATH}:1")]);
+        assert!(execution.coverage_explanation.contains("emitted 1 diagnostic"), "{execution:?}");
+        assert!(execution.is_completed_local_check());
+        assert!(report.coverage_complete());
+        assert!(!report.strict_passing());
+    }
+
+    #[test]
+    fn checker_failure_reports_tool_error_and_blocks_strict_coverage() {
+        let report = run_checks(&CheckInput {
+            registry: sample_registry(),
+            sources: vec![SourceFile::new(SOURCE_PATH, "fn start() {}\n")],
+            selection: FamilySelection::from_families(["embedded"]),
+            checker_failures: vec![CheckerFailure {
+                checker: "resource".to_owned(),
+                kind: CheckerFailureKind::Timeout,
+                policy_ids: vec![EMBEDDED_POLICY_ID.to_owned()],
+                message: "checker deadline exceeded".to_owned(),
+            }],
+        });
+
+        let execution = execution_for(&report, EMBEDDED_POLICY_ID);
+        assert_eq!(execution.status, PolicyExecutionStatus::ToolError);
+        assert!(execution.coverage_explanation.contains("timeout"), "{execution:?}");
+        assert!(execution.coverage_explanation.contains("checker deadline exceeded"));
+        assert!(!execution.is_completed_local_check());
+        assert!(!report.coverage_complete());
+        assert!(!report.strict_passing());
+    }
+
+    #[test]
+    fn family_exclusion_and_missing_source_scope_are_not_applicable() {
+        let excluded = run_checks(&CheckInput {
+            registry: sample_registry(),
+            sources: vec![SourceFile::new(SOURCE_PATH, "fn start() {}\n")],
+            selection: FamilySelection::from_families(["devtools"]),
+            checker_failures: Vec::new(),
+        });
+        let excluded_embedded = execution_for(&excluded, EMBEDDED_POLICY_ID);
+        assert_eq!(excluded_embedded.status, PolicyExecutionStatus::NotApplicable);
+        assert!(!excluded_embedded.required);
+        assert!(excluded_embedded.coverage_explanation.contains("was not selected"), "{excluded_embedded:?}");
+        assert!(excluded.coverage_complete());
+
+        let no_scope = run_checks(&CheckInput {
+            registry: sample_registry(),
+            sources: vec![SourceFile::new(SOURCE_PATH, "fn start() {}\n")],
+            selection: FamilySelection::from_families(["architecture"]),
+            checker_failures: Vec::new(),
+        });
+        let fcis = execution_for(&no_scope, FCIS_POLICY_ID);
+        assert_eq!(fcis.status, PolicyExecutionStatus::NotApplicable);
+        assert!(fcis.selected_scope.contains("scope=none"), "{}", fcis.selected_scope);
+        assert!(fcis.coverage_explanation.contains("no applicable architecture source scope"), "{fcis:?}");
+        assert!(no_scope.coverage_complete());
+    }
+
+    #[test]
+    fn external_and_human_policies_are_not_run_and_not_completed_local_checks() {
+        let registry = PolicyRegistry {
+            schema_version: "test".to_owned(),
+            checker_ids: vec!["rustc".to_owned(), "human-process".to_owned()],
+            policies: vec![
+                PolicyEntry {
+                    checker_id: "rustc".to_owned(),
+                    checker_owner: "devtools".to_owned(),
+                    ..sample_policy(EXTERNAL_POLICY_ID, "devtools", DEVTOOLS_SOURCE)
+                },
+                PolicyEntry {
+                    checker_id: "human-process".to_owned(),
+                    checker_owner: "culture".to_owned(),
+                    classification: Classification::HumanProcessOnly,
+                    enforcement_level: EnforcementLevel::HumanProcessOnly,
+                    ..sample_policy(HUMAN_POLICY_ID, "devtools", DEVTOOLS_SOURCE)
+                },
+            ],
+            seed_manifests: Vec::new(),
+            config_receipt_families: Vec::new(),
+        };
+        let report = run_checks(&CheckInput {
+            registry,
+            sources: vec![SourceFile::new(SOURCE_PATH, "fn start() {}\n")],
+            selection: FamilySelection::from_families(["devtools"]),
+            checker_failures: Vec::new(),
+        });
+
+        let external = execution_for(&report, EXTERNAL_POLICY_ID);
+        assert_eq!(external.status, PolicyExecutionStatus::NotRun);
+        assert_eq!(external.ownership, PolicyExecutionOwnership::External);
+        assert_eq!(external.checker, "rustc");
+        assert!(external.coverage_explanation.contains("not executed by octet-standards"), "{external:?}");
+        assert!(!external.is_completed_local_check());
+
+        let human = execution_for(&report, HUMAN_POLICY_ID);
+        assert_eq!(human.status, PolicyExecutionStatus::NotRun);
+        assert_eq!(human.ownership, PolicyExecutionOwnership::HumanProcess);
+        assert_eq!(human.checker, "human-process");
+        assert!(human.coverage_explanation.contains("human review process required"), "{human:?}");
+        assert!(!human.is_completed_local_check());
+        assert!(report.coverage_complete());
+        assert!(!report.strict_passing());
+    }
+
+    #[test]
+    fn missing_execution_record_blocks_strict_coverage() {
+        let missing = CheckReport {
+            required_policy_ids: vec![DEVTOOLS_POLICY_ID.to_owned()],
+            ..CheckReport::default()
+        };
+        assert!(!missing.coverage_complete());
+        assert!(!missing.strict_passing());
+
+        let not_run = CheckReport {
+            required_policy_ids: vec![DEVTOOLS_POLICY_ID.to_owned()],
+            policy_executions: vec![PolicyExecution {
+                policy_id: DEVTOOLS_POLICY_ID.to_owned(),
+                policy_revision: "test".to_owned(),
+                checker: "suppression".to_owned(),
+                checker_owner: "test".to_owned(),
+                selected_scope: "family=devtools; sources=1; scope=suppression-markers".to_owned(),
+                status: PolicyExecutionStatus::NotRun,
+                coverage_explanation: "checker did not execute".to_owned(),
+                linked_diagnostics: Vec::new(),
+                evidence_identity: "checker=suppression".to_owned(),
+                ownership: PolicyExecutionOwnership::Local,
+                required: true,
+            }],
+            ..CheckReport::default()
+        };
+        assert!(!not_run.coverage_complete());
+        assert!(!not_run.strict_passing());
+    }
+
+    #[test]
+    fn json_and_markdown_agree_on_policy_execution_status() {
+        let report = run_checks(&CheckInput {
+            registry: sample_registry(),
+            sources: vec![SourceFile::new(SOURCE_PATH, UNBOUNDED_CHANNEL_LINE)],
+            selection: FamilySelection::from_families(["embedded"]),
+            checker_failures: Vec::new(),
+        });
+        let json = render_json(&report).expect("report should serialize");
+        let parsed: CheckReport = serde_json::from_str(&json).expect("report JSON should deserialize");
+        let markdown = render_markdown(&report);
+        let execution = execution_for(&parsed, EMBEDDED_POLICY_ID);
+
+        assert_eq!(execution.status, PolicyExecutionStatus::Failed);
+        assert_eq!(execution.checker, "resource");
+        assert!(json.contains("\"status\": \"failed\""));
+        assert!(json.contains("\"checker\": \"resource\""));
+        assert!(
+            markdown.contains("`tigerstyle.embedded.bounded-queues` status=failed checker=resource"),
+            "{markdown}"
+        );
+        assert!(
+            markdown.contains("Scope: family=embedded; sources=1; scope=embedded-bounded-primitives"),
+            "{markdown}"
+        );
+        assert!(markdown.contains("Explanation: resource checker ran on embedded-bounded-primitives scope"));
+        assert!(markdown.contains("Coverage complete: yes."));
     }
 
     #[test]
@@ -1493,6 +1744,7 @@ impl Session<Authenticated> { pub fn send(self) {} }
                 PUBLIC_API_BUDGET_FIXTURE_SOURCE,
             )],
             selection: FamilySelection::from_families(["architecture"]),
+            checker_failures: Vec::new(),
         });
 
         assert_eq!(report.diagnostics.len(), 1);
@@ -1512,6 +1764,7 @@ impl Session<Authenticated> { pub fn send(self) {} }
             registry: sample_registry(),
             sources: vec![SourceFile::new(SOURCE_PATH, "pub fn one_public_item() {}\n")],
             selection: FamilySelection::from_families(["architecture"]),
+            checker_failures: Vec::new(),
         });
 
         assert!(report.diagnostics.is_empty());
@@ -1532,6 +1785,14 @@ impl Session<Authenticated> { pub fn send(self) {} }
         assert_eq!(diagnostics.len(), MISSING_FIXTURE_COVERAGE_DIAGNOSTICS);
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.message.contains("no noncompliant fixture")));
         assert!(diagnostics.iter().any(|diagnostic| diagnostic.message.contains("missing fixture coverage")));
+    }
+
+    fn execution_for<'a>(report: &'a CheckReport, policy_id: &str) -> &'a PolicyExecution {
+        report
+            .policy_executions
+            .iter()
+            .find(|execution| execution.policy_id == policy_id)
+            .unwrap_or_else(|| panic!("missing policy execution for {policy_id}"))
     }
 
     fn sample_registry() -> PolicyRegistry {

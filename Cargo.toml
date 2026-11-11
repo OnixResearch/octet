@@ -39,7 +39,7 @@ members = [
   "crates/octet-merge-rail",
   "crates/octet-standards",
 ]
-exclude = ["crates/valence-core"]
+exclude = ["crates/valence-core", "vendor/sources/artifact"]
 
 [workspace.metadata.octet]
 default_scope = ["--workspace"]

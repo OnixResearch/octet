@@ -1,0 +1,10 @@
+{
+  "description": "Private or pre-populated input presented as a public dependency",
+  "overrides": [
+    {
+      "path": "dependencies.3.warm_cache_dependency",
+      "value": true
+    }
+  ],
+  "expected_findings": ["private-input-hidden-by-warm-cache"]
+}

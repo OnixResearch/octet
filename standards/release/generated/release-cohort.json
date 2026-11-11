@@ -1,0 +1,684 @@
+{
+  "acceptance": {
+    "artifact_admission": {
+      "command": "cargo octet artifact verify --artifact-dir artifacts/octet",
+      "detail": "The verified bundle and the rejected tampered bundle were produced by the same runner, same source, and same config hash in one session.",
+      "status": "executed"
+    },
+    "evidence_digest": "b3:6a9d3101791553ad8d91a5336178e894986f22ffd886a926af4e008a406befab",
+    "evidence_subject": "public revision plus capability inventory, flake lock, and rust-toolchain bytes at the reviewed revision",
+    "non_evidence": [
+      {
+        "evidence_role": "non-evidence",
+        "reason": "development-tree rollout history; not produced against the public cohort",
+        "reference": "docs/downstream-rollout-evidence.md"
+      },
+      {
+        "evidence_role": "non-evidence",
+        "reason": "transcript-structure example; runs no command and signs no source identity",
+        "reference": "docs/examples/release-operator-smoke/transcript.md"
+      },
+      {
+        "evidence_role": "non-evidence",
+        "reason": "development-head Valence evidence; the public cohort pins valence-public 99cbe41f instead",
+        "reference": "docs/current-head-valence-evidence.md"
+      },
+      {
+        "evidence_role": "non-evidence",
+        "reason": "bound proof fixtures retain historical source identities and do not verify this cohort",
+        "reference": "standards/proof-rails/aeneas-lean/fixtures/"
+      },
+      {
+        "evidence_role": "non-evidence",
+        "reason": "development receipts cannot be relabelled for the derived public export",
+        "reference": "all acceptance receipts recorded at 2bdd581980eef7f6ec8363ffa20ab9f3c798c9ee"
+      }
+    ],
+    "receipts": [
+      {
+        "command": "nix flake metadata --json github:OnixResearch/octet-public/b9b4b4044142820a07dc00332c36e07d1e1c4711",
+        "detail": "Resolved with an empty HOME, XDG cache, and XDG config; substituters limited to cache.nixos.org; builders empty; no credentials. Locked narHash sha256-A5vg2fA6wuMBk8w9WkyyLKjjK2Zc54yYAMQlbYazvzU=.",
+        "evidence_digest": "b3:6a9d3101791553ad8d91a5336178e894986f22ffd886a926af4e008a406befab",
+        "evidence_kind": "fresh",
+        "id": "flake-metadata-resolution",
+        "outcome": "success",
+        "package": "flake closure",
+        "policy": "not-applicable",
+        "producer": "nix 2.36.0",
+        "source_revision": "b9b4b4044142820a07dc00332c36e07d1e1c4711",
+        "toolchain": "nix 2.36.0"
+      },
+      {
+        "command": "nix build github:OnixResearch/octet-public/b9b4b4044142820a07dc00332c36e07d1e1c4711#cargo-octet #octet #dylint-driver #octet-standards #octet-policy-artifacts --no-link --json",
+        "detail": "Built from public inputs only. Out paths: cargo-octet /nix/store/cq0mmh6x93hfgmz09ranv4j3334l9z6h-cargo-octet-0.1.0, octet /nix/store/pxhn7fj8wb6y3c7pyvp4660lvmcmlw3w-octet-0.1.0, dylint-driver /nix/store/8b0qpvqbcsmqqgk7nawvsfr71dclqfwk-dylint-driver-5.0.0, octet-standards /nix/store/bbq6k3swm2j4hr4mgaljzzlwcpf8fkzr-octet-standards-0.1.0, octet-policy-artifacts /nix/store/wa1kzhqs1iyxrh787k5kgcycgsyd4n53-octet-policy-artifacts.",
+        "evidence_digest": "b3:6a9d3101791553ad8d91a5336178e894986f22ffd886a926af4e008a406befab",
+        "evidence_kind": "fresh",
+        "id": "package-build",
+        "outcome": "success",
+        "package": "cargo-octet,octet,dylint-driver,octet-standards,octet-policy-artifacts",
+        "policy": "not-applicable",
+        "producer": "nix build",
+        "source_revision": "b9b4b4044142820a07dc00332c36e07d1e1c4711",
+        "toolchain": "nightly-2026-03-21-x86_64-unknown-linux-gnu"
+      },
+      {
+        "command": "nix run github:OnixResearch/octet-public/b9b4b4044142820a07dc00332c36e07d1e1c4711#cargo-octet -- --version",
+        "detail": "Printed `cargo-octet 0.1.0`.",
+        "evidence_digest": "b3:6a9d3101791553ad8d91a5336178e894986f22ffd886a926af4e008a406befab",
+        "evidence_kind": "fresh",
+        "id": "runner-version",
+        "outcome": "success",
+        "package": "cargo-octet",
+        "policy": "not-applicable",
+        "producer": "nix run",
+        "source_revision": "b9b4b4044142820a07dc00332c36e07d1e1c4711",
+        "toolchain": "nightly-2026-03-21-x86_64-unknown-linux-gnu"
+      },
+      {
+        "command": "/nix/store/wa1kzhqs1iyxrh787k5kgcycgsyd4n53-octet-policy-artifacts/bin/octet-policy-artifacts <artifact-dir>",
+        "detail": "Generated octet-policies.json, octet-check-config.toml, octet-config-receipt-families.json, octet-proof-bundles.json, octet-seed-manifests.json, and octet-artifact-manifest.json. Policy identity: octet-policies.json b3 f9ce0a9b1dceef17c248677ab7479491b929c3e216a0b71123a86c1f23467914.",
+        "evidence_digest": "b3:6a9d3101791553ad8d91a5336178e894986f22ffd886a926af4e008a406befab",
+        "evidence_kind": "fresh",
+        "id": "policy-artifacts",
+        "outcome": "success",
+        "package": "octet-policy-artifacts",
+        "policy": "standards/policies/registry.ncl",
+        "producer": "octet-policy-artifacts",
+        "source_revision": "b9b4b4044142820a07dc00332c36e07d1e1c4711",
+        "toolchain": "nightly-2026-03-21-x86_64-unknown-linux-gnu"
+      },
+      {
+        "command": "cargo octet check --artifact-dir artifacts/octet --output-format sarif",
+        "detail": "Observed one unchecked_division finding at src/lib.rs:2 (stable id b3:bfce24c8ec240389). The walkthrough's documented early-return fix still warns at src/lib.rs:14 under this cohort. A guarded if/else fix yields a clean run: 0 findings, exit 0, config hash b3:279e2e552fa0a790ab391186f0b8c9c0130a151adbe30c168faefd928d89d8da. A consumer without a committed Cargo.lock exits 2 because the runner restores the generated lock; pre-generating the lock gives exit 0.",
+        "evidence_digest": "b3:6a9d3101791553ad8d91a5336178e894986f22ffd886a926af4e008a406befab",
+        "evidence_kind": "fresh",
+        "id": "first-patch-walkthrough",
+        "outcome": "success",
+        "package": "cargo-octet",
+        "policy": "workspace-metadata profile b3:d5a43ab085464847e21169e2d9fea97b9f3d12f14798d409c1a3c0d3d0993456",
+        "producer": "public cargo-octet runner",
+        "source_revision": "b9b4b4044142820a07dc00332c36e07d1e1c4711",
+        "toolchain": "nightly-2026-03-21-x86_64-unknown-linux-gnu"
+      },
+      {
+        "command": "cargo octet artifact verify --artifact-dir artifacts/octet",
+        "detail": "status=valid. Sidecar identities: command.txt b3:85eac858c89602f838f13f317ad88d94716681f1ac12be338c29898f053feba2, results.sarif b3:49328edc0f872c3e06923c333114ecea126c7b186e1a3f229ff087644085cf37, status.json b3:2764cbbb2481f417eb861298570492eb5ba3ec18c05b372f7c3f9c4c35ee36f5, summary.txt b3:00d8ccd264f69be55412bf8508a32611a5e80931e2df12acc48a5fbd285c1d1e.",
+        "evidence_digest": "b3:6a9d3101791553ad8d91a5336178e894986f22ffd886a926af4e008a406befab",
+        "evidence_kind": "fresh",
+        "id": "artifact-verification",
+        "outcome": "success",
+        "package": "cargo-octet",
+        "policy": "workspace-metadata profile b3:d5a43ab085464847e21169e2d9fea97b9f3d12f14798d409c1a3c0d3d0993456",
+        "producer": "public cargo-octet runner",
+        "source_revision": "b9b4b4044142820a07dc00332c36e07d1e1c4711",
+        "toolchain": "nightly-2026-03-21-x86_64-unknown-linux-gnu"
+      },
+      {
+        "command": "cargo octet artifact verify --artifact-dir artifacts-tampered",
+        "detail": "Rewriting the saved results.sarif forced status=invalid and exit 1 with `hash mismatch for artifact locator results.sarif`, so a stale or tampered sidecar is rejected rather than admitted.",
+        "evidence_digest": "b3:6a9d3101791553ad8d91a5336178e894986f22ffd886a926af4e008a406befab",
+        "evidence_kind": "fresh",
+        "id": "artifact-tamper-rejection",
+        "outcome": "success",
+        "package": "cargo-octet",
+        "policy": "workspace-metadata profile b3:d5a43ab085464847e21169e2d9fea97b9f3d12f14798d409c1a3c0d3d0993456",
+        "producer": "public cargo-octet runner",
+        "source_revision": "b9b4b4044142820a07dc00332c36e07d1e1c4711",
+        "toolchain": "nightly-2026-03-21-x86_64-unknown-linux-gnu"
+      }
+    ],
+    "walkthrough": {
+      "command": "cargo octet check --artifact-dir artifacts/octet --output-format sarif",
+      "detail": "Before: unchecked_division at src/lib.rs:2. Documented fix: still warns. Cohort-recognized guarded fix: clean, exit 0. Artifact verification: valid, tampered copy: invalid.",
+      "status": "executed"
+    }
+  },
+  "capability_inventory": {
+    "count": 72,
+    "development": {
+      "count": 77,
+      "path": "tests/fixtures/lint_inventory_names.txt",
+      "revision": "2bdd581980eef7f6ec8363ffa20ab9f3c798c9ee"
+    },
+    "excluded_from_public": [
+      {
+        "name": "discarded_sync_result",
+        "reason_id": "post-export-development"
+      },
+      {
+        "name": "flush_only_durability",
+        "reason_id": "post-export-development"
+      },
+      {
+        "name": "raw_bool_parameter",
+        "reason_id": "post-export-development"
+      },
+      {
+        "name": "raw_bool_parameter_suppression",
+        "reason_id": "post-export-development"
+      },
+      {
+        "name": "retry_sync_after_error",
+        "reason_id": "post-export-development"
+      }
+    ],
+    "exclusion_reason": "Added to development after 890f424c. The reviewed public export carries the 890f424c inventory byte for byte; these names are absent capabilities, not reviewed decisions, and no public capability claim may name them.",
+    "names": [
+      "compound_assertion",
+      "function_length",
+      "acronym_style",
+      "numeric_units",
+      "magic_number",
+      "excessive_file_length",
+      "module_file_count",
+      "underscore_in_module_filename",
+      "non_trait_imports",
+      "renamed_imports",
+      "path_segment_repetition",
+      "unbounded_loop",
+      "compound_condition",
+      "verified_purity",
+      "unjustified_allow",
+      "nested_conditionals",
+      "assertion_density",
+      "multi_lock_ordering",
+      "ignored_join_handle",
+      "explicit_defaults",
+      "unbounded_channel",
+      "unbounded_collection_growth",
+      "sentinel_fallback",
+      "usize_in_public_api",
+      "borrowed_argument_types",
+      "deref_polymorphism",
+      "clone_then_borrow",
+      "allocation_in_loop",
+      "too_many_parameters",
+      "fat_trait",
+      "concrete_construction_in_core",
+      "type_accumulation",
+      "negated_predicate",
+      "bool_naming",
+      "ignored_result",
+      "drop_must_use",
+      "fallible_int_fallback",
+      "unchecked_narrowing",
+      "unchecked_division",
+      "contradictory_time",
+      "ambient_clock",
+      "ambient_env",
+      "ambient_random",
+      "global_state_in_core",
+      "impure_call_in_core",
+      "interior_mutability_in_core",
+      "logging_in_core",
+      "missing_const_fn",
+      "mutating_input_in_pure",
+      "nondeterministic_output",
+      "pure_attr_contract",
+      "resource_return_from_core",
+      "spawn_in_core",
+      "zero_alloc_attr_contract",
+      "catch_all_on_enum",
+      "foreign_enum_catch_all",
+      "fragile_exhaustive_enum_match",
+      "state_machine_exhaustiveness",
+      "platform_dependent_cast",
+      "float_for_currency",
+      "ambiguous_params",
+      "primitive_domain_alias",
+      "raw_domain_value",
+      "newtype_invariant_bypass",
+      "raw_arithmetic_overflow",
+      "no_unwrap",
+      "no_panic",
+      "public_unsafe_api",
+      "defaulting_trait_method",
+      "no_todo",
+      "unjustified_no_todo_allow",
+      "no_recursion"
+    ],
+    "origin_revision": "890f424cd7b1b2015f39c0eb5747f1bd1e576028",
+    "path": "tests/fixtures/release/public-lint-inventory-names.txt",
+    "source_path": "tests/fixtures/lint_inventory_names.txt",
+    "source_revision": "b9b4b4044142820a07dc00332c36e07d1e1c4711"
+  },
+  "channel": {
+    "branch": "main",
+    "direct_cargo_supported": false,
+    "flake_ref": "github:OnixResearch/octet-public/b9b4b4044142820a07dc00332c36e07d1e1c4711",
+    "head_matches_reviewed_revision": true,
+    "head_observed_at": "2026-11-11",
+    "id": "octet-public-source-only",
+    "observed_branch_head": "b9b4b4044142820a07dc00332c36e07d1e1c4711",
+    "repository": "https://github.com/OnixResearch/octet-public",
+    "supported": true,
+    "supported_install_command": "nix run github:OnixResearch/octet-public/b9b4b4044142820a07dc00332c36e07d1e1c4711#cargo-octet -- check",
+    "unsupported_selectors": [
+      "github:OnixResearch/octet-public/main",
+      "github:OnixResearch/octet"
+    ]
+  },
+  "cohort_id": "octet-public-b9b4b404-2026-11-11",
+  "dependencies": [
+    {
+      "anonymous_at_review": true,
+      "id": "valence-public",
+      "revision": "99cbe41f742035c37b6a7b503e4748e2e5ce2bea",
+      "role": "Valence provider flake input",
+      "transport": "https",
+      "url": "https://github.com/OnixResearch/valence-public",
+      "warm_cache_dependency": false
+    },
+    {
+      "anonymous_at_review": true,
+      "id": "cairn-public",
+      "revision": "acb4c3d2cb90b231e07a6b71115c79adde46349c",
+      "role": "Cairn policy and artifact receiver flake input",
+      "transport": "https",
+      "url": "https://github.com/OnixResearch/cairn-public",
+      "warm_cache_dependency": false
+    },
+    {
+      "anonymous_at_review": true,
+      "id": "nickel-export",
+      "revision": "257fafc1c746f1faf156207043a4c826bfb16d49",
+      "role": "evaluator-neutral export core",
+      "transport": "https",
+      "url": "https://github.com/OnixResearch/nickel-export",
+      "warm_cache_dependency": false
+    },
+    {
+      "anonymous_at_review": true,
+      "id": "dylint-src",
+      "revision": "0e0a71eefe6f01563d11acc6e1d7af1d505934a9",
+      "role": "Dylint driver source",
+      "transport": "https",
+      "url": "https://github.com/trailofbits/dylint",
+      "warm_cache_dependency": false
+    },
+    {
+      "anonymous_at_review": true,
+      "id": "nickel",
+      "revision": "1320a983e6c3d1e2fb53dd2464b084b4903b1426",
+      "role": "Nickel 1.17.0 evaluator",
+      "transport": "https",
+      "url": "https://github.com/nickel-lang/nickel",
+      "warm_cache_dependency": false
+    },
+    {
+      "anonymous_at_review": true,
+      "id": "aeneas",
+      "revision": "bc2eb6f941369fa3c695e30598b5758b11e4f0de",
+      "role": "proof-rail provider",
+      "transport": "https",
+      "url": "https://github.com/AeneasVerif/aeneas",
+      "warm_cache_dependency": false
+    },
+    {
+      "anonymous_at_review": true,
+      "id": "charon",
+      "revision": "cb50ff16b9f1066b8a97dc06da704de2da2fa41c",
+      "role": "proof-rail frontend",
+      "transport": "https",
+      "url": "https://github.com/AeneasVerif/charon",
+      "warm_cache_dependency": false
+    },
+    {
+      "anonymous_at_review": true,
+      "id": "lean4-src",
+      "revision": "68218e876d2a38b1985b8590fff244a83c321783",
+      "role": "proof-rail checker",
+      "transport": "https",
+      "url": "https://github.com/leanprover/lean4",
+      "warm_cache_dependency": false
+    },
+    {
+      "anonymous_at_review": true,
+      "id": "mathlib-src",
+      "revision": "fabf563a7c95a166b8d7b6efca11c8b4dc9d911f",
+      "role": "proof-rail library",
+      "transport": "https",
+      "url": "https://github.com/leanprover-community/mathlib4",
+      "warm_cache_dependency": false
+    },
+    {
+      "anonymous_at_review": true,
+      "id": "bounded-exec-public",
+      "revision": "ff4af395b2c415fddd1ed51f4829aeba2d4259a5",
+      "role": "Cairn transitive input",
+      "transport": "https",
+      "url": "https://github.com/OnixResearch/bounded-exec-public",
+      "warm_cache_dependency": false
+    },
+    {
+      "anonymous_at_review": true,
+      "id": "onix-artifact-public",
+      "revision": "f379f2583b5d152cfd6d58919738652861793c90",
+      "role": "Cairn transitive input",
+      "transport": "https",
+      "url": "https://github.com/OnixResearch/onix-artifact-public",
+      "warm_cache_dependency": false
+    },
+    {
+      "anonymous_at_review": true,
+      "id": "mantle-build-contract",
+      "revision": "0bbab77e23ab95caa4e4184b9945cfaa5c8040e2",
+      "role": "Cairn transitive input",
+      "transport": "https",
+      "url": "https://github.com/OnixResearch/mantle",
+      "warm_cache_dependency": false
+    },
+    {
+      "anonymous_at_review": true,
+      "id": "cap-root",
+      "revision": "8991e2572578c16e590c2f1c0915db6c46c5d9cb",
+      "role": "Cairn transitive input",
+      "transport": "https",
+      "url": "https://seed.radicle.garden/z3cWBCK7VPbEmbL5MAvKJWKjCE745.git",
+      "warm_cache_dependency": false
+    },
+    {
+      "anonymous_at_review": true,
+      "id": "durable-file-publication",
+      "revision": "951c27f59003cea9bfdb40ed4d89653d50fada1f",
+      "role": "Cairn transitive input",
+      "transport": "https",
+      "url": "https://seed.radicle.garden/z3tAR4For7qw8ZirkJzoDw1VNDDLM.git",
+      "warm_cache_dependency": false
+    },
+    {
+      "anonymous_at_review": true,
+      "id": "kiln-core",
+      "revision": "5d99f4e9bb954743443e340baece31256b4c53f1",
+      "role": "Cairn transitive input",
+      "transport": "https",
+      "url": "https://seed.radicle.garden/z2wsvXm5S2sJGvuV1k5JHiwi1PbKE.git",
+      "warm_cache_dependency": false
+    },
+    {
+      "anonymous_at_review": true,
+      "id": "slotcar-public",
+      "revision": "e0d07898aafd26a307eb4c5579dbd0e7931f991b",
+      "role": "legacy compatibility flake input",
+      "transport": "https",
+      "url": "https://github.com/OnixResearch/slotcar-public",
+      "warm_cache_dependency": false
+    },
+    {
+      "anonymous_at_review": true,
+      "id": "nixpkgs",
+      "revision": "b3d51a0365f6695e7dd5cdf3e180604530ed33b4",
+      "role": "package set",
+      "transport": "https",
+      "url": "https://github.com/NixOS/nixpkgs",
+      "warm_cache_dependency": false
+    }
+  ],
+  "non_claims": [
+    "This cohort qualifies one public source pin and its acceptance evidence only; it does not assert a legal conclusion about imported material.",
+    "Fresh build, runner, policy, walkthrough, and artifact-verification receipts are evidence for this cohort. Historical and development receipts are non-evidence.",
+    "A blocked qualification status is a release finding, not a passing receipt.",
+    "A reproducible Nix build is not a proof, a certification, or a whole-program correctness claim.",
+    "The five absent lints and the older unchecked_division implementation are intentional lag from the export point, not withdrawn capabilities."
+  ],
+  "notices": {
+    "attribution_ids": [
+      "dylint-support-sources",
+      "clippy-match-def-path",
+      "cairn-policy-provenance",
+      "imported-standards-prose",
+      "fetched-dependencies"
+    ],
+    "imported_material": [
+      {
+        "attribution": "Adam Murray (credited in the file's front matter)",
+        "included_in_qualified_cohort": false,
+        "path": "docs/standards/source/front-matter.adoc",
+        "permission_evidence": "",
+        "resolution": "unresolved",
+        "root_license_relied_upon": false
+      },
+      {
+        "attribution": "Adam Murray (credited in the file's front matter)",
+        "included_in_qualified_cohort": false,
+        "path": "docs/standards/source/tigerstyle-standards.adoc",
+        "permission_evidence": "",
+        "resolution": "unresolved",
+        "root_license_relied_upon": false
+      }
+    ],
+    "required": [
+      {
+        "path": "NOTICE",
+        "present_in_public_tree": false,
+        "role": "project notice and license pointer"
+      },
+      {
+        "path": "THIRD_PARTY_NOTICES.md",
+        "present_in_public_tree": false,
+        "role": "third-party attribution and provenance inventory"
+      },
+      {
+        "path": "LICENSES/",
+        "present_in_public_tree": false,
+        "role": "bundled third-party license texts"
+      }
+    ],
+    "root_license": "LICENSE"
+  },
+  "packages": [
+    {
+      "cargo_package": "cargo-octet",
+      "output": "cargo-octet",
+      "role": "runner subcommand",
+      "version": "0.1.0"
+    },
+    {
+      "cargo_package": "cargo-octet",
+      "output": "cargo-slotcar",
+      "role": "compatibility subcommand alias",
+      "version": "0.1.0"
+    },
+    {
+      "cargo_package": "cargo-octet",
+      "output": "cargo-tigerstyle",
+      "role": "compatibility subcommand alias",
+      "version": "0.1.0"
+    },
+    {
+      "cargo_package": "octet",
+      "output": "octet",
+      "role": "lint library",
+      "version": "0.1.0"
+    },
+    {
+      "cargo_package": "octet",
+      "output": "slotcar",
+      "role": "lint library compatibility alias",
+      "version": "0.1.0"
+    },
+    {
+      "cargo_package": "octet",
+      "output": "tigerstyle",
+      "role": "lint library compatibility alias",
+      "version": "0.1.0"
+    },
+    {
+      "cargo_package": "dylint-driver",
+      "output": "dylint-driver",
+      "role": "Dylint driver",
+      "version": "5.0.0"
+    },
+    {
+      "cargo_package": "octet-standards",
+      "output": "octet-standards",
+      "role": "standards and policy checker",
+      "version": "0.1.0"
+    },
+    {
+      "cargo_package": "octet-standards",
+      "output": "slotcar-standards",
+      "role": "standards checker compatibility alias",
+      "version": "0.1.0"
+    },
+    {
+      "cargo_package": "octet-standards",
+      "output": "tigerstyle-standards",
+      "role": "standards checker compatibility alias",
+      "version": "0.1.0"
+    },
+    {
+      "cargo_package": "octet-standards",
+      "output": "octet-policy-artifacts",
+      "role": "generated policy artifact producer",
+      "version": "0.1.0"
+    },
+    {
+      "cargo_package": "octet-standards",
+      "output": "octet-policy-export",
+      "role": "policy export",
+      "version": "0.1.0"
+    },
+    {
+      "cargo_package": "octet-standards",
+      "output": "octet-assurance-profile-onixos-lifecycle",
+      "role": "assurance profile artifact",
+      "version": "0.1.0"
+    }
+  ],
+  "policies": {
+    "contracts_path": "standards/policies/contracts.ncl",
+    "export_command": "nix run <flake-ref>#octet-policy-artifacts -- <artifact-dir>",
+    "identities": [
+      {
+        "name": "octet-policies",
+        "path": "octet-policies.json"
+      },
+      {
+        "name": "octet-check-config",
+        "path": "octet-check-config.toml"
+      },
+      {
+        "name": "octet-config-receipt-families",
+        "path": "octet-config-receipt-families.json"
+      },
+      {
+        "name": "octet-proof-bundles",
+        "path": "octet-proof-bundles.json"
+      },
+      {
+        "name": "octet-seed-manifests",
+        "path": "octet-seed-manifests.json"
+      }
+    ],
+    "registry_path": "standards/policies/registry.ncl",
+    "self_architecture_policy_path": "standards/project-architecture/octet-self-architecture.ncl"
+  },
+  "profiles": [
+    {
+      "detail": "The assurance profile artifact ships in the public flake, but no fresh cohort receipt binds its required evidence, so profile support is not asserted.",
+      "evidence_refs": [],
+      "id": "onixos-lifecycle-proof",
+      "support_status": "not-claimed"
+    },
+    {
+      "detail": "No fresh cohort receipt binds this strict profile to the public inventory; it must not be reported as verified.",
+      "evidence_refs": [],
+      "id": "deterministic-core",
+      "support_status": "unsupported"
+    }
+  ],
+  "qualification": {
+    "blocking_reasons": [
+      {
+        "id": "public-notice-files-absent",
+        "required_action": "Publish a new public revision that carries the three required notice paths from this repository; copying LICENSE alone does not clear the prerequisite.",
+        "summary": "The reviewed public tree carries imported standards prose but omits NOTICE, THIRD_PARTY_NOTICES.md, and LICENSES/."
+      },
+      {
+        "id": "imported-standards-prose-unresolved",
+        "required_action": "Record the upstream source and license or written permission, or publish the qualified cohort with docs/standards/source/ excluded as this manifest declares.",
+        "summary": "docs/standards/source/ is credited to Adam Murray with no recorded upstream source, license, or written permission."
+      },
+      {
+        "id": "walkthrough-doc-diverges",
+        "required_action": "Export the current lint implementation or correct the walkthrough fix to the guarded if/else form the public cohort accepts.",
+        "summary": "The published first-patch walkthrough's early-return fix still reports unchecked_division because the public tree predates zero-guard recognition added at 83ddfc10; its own UI fixture covers only the enclosing-if guard."
+      }
+    ],
+    "status": "blocked"
+  },
+  "schema_version": "octet-release-cohort/v1",
+  "source": {
+    "development": {
+      "repository": "https://github.com/OnixResearch/octet",
+      "revision": "2bdd581980eef7f6ec8363ffa20ab9f3c798c9ee",
+      "role": "reviewed development tree; source of the export transform, not of the published bytes"
+    },
+    "export_composition": {
+      "excluded_paths": [
+        {
+          "detail": "The qualified cohort excludes this imported prose until an upstream source, license, or written permission is recorded; the reviewed public revision still publishes it.",
+          "path": "docs/standards/source/",
+          "reason_id": "adam-murray-standards-prose"
+        }
+      ],
+      "required_additions": [
+        "NOTICE",
+        "THIRD_PARTY_NOTICES.md",
+        "LICENSES/"
+      ],
+      "rewritten": [
+        "operator paths in ordinary guidance",
+        "signed collaboration fixture git roots",
+        "bound proof-fixture and generated-index historical command-path labels retained as fixture data"
+      ],
+      "transform": [
+        "copy the development tree at 890f424c into a new repository",
+        "create an independent git root without development commit history",
+        "withhold private local settings and archival transcripts",
+        "replace operator paths in ordinary guidance with illustrative paths",
+        "re-root signed collaboration fixtures under synthetic git roots"
+      ],
+      "withheld": [
+        "private local settings",
+        "archival development transcripts",
+        ".git history of the development repository",
+        "NOTICE, THIRD_PARTY_NOTICES.md, and LICENSES/ (absent from the reviewed public revision)"
+      ]
+    },
+    "lag": {
+      "intentional": true,
+      "summary": "Public b9b4b404 is derived from 890f424c, which carried 72 lints. Development 2bdd5819 carries 77. The five newer lints and the zero-guard recognition added at 83ddfc10 postdate the export point, so their absence is intentional lag rather than withdrawal."
+    },
+    "public": {
+      "byte_identical_to_derivation": false,
+      "derived_from_revision": "890f424cd7b1b2015f39c0eb5747f1bd1e576028",
+      "export_kind": "independently-rooted-source-only-export",
+      "history": "independent synthetic git root; no shared commit history with the development repository",
+      "nar_hash": "sha256-A5vg2fA6wuMBk8w9WkyyLKjjK2Zc54yYAMQlbYazvzU=",
+      "repository": "https://github.com/OnixResearch/octet-public",
+      "revision": "b9b4b4044142820a07dc00332c36e07d1e1c4711",
+      "role": "supported public source cohort"
+    }
+  },
+  "toolchain": {
+    "dylint_baseline": "0e0a71eefe6f01563d11acc6e1d7af1d505934a9",
+    "dylint_source": "github:trailofbits/dylint/0e0a71eefe6f01563d11acc6e1d7af1d505934a9",
+    "nickel_revision": "1320a983e6c3d1e2fb53dd2464b084b4903b1426",
+    "nickel_source": "github:nickel-lang/nickel/1320a983e6c3d1e2fb53dd2464b084b4903b1426",
+    "nickel_version": "1.17.0",
+    "nixpkgs_revision": "b3d51a0365f6695e7dd5cdf3e180604530ed33b4",
+    "nixpkgs_source": "github:NixOS/nixpkgs",
+    "rust_channel": "nightly-2026-03-21",
+    "rust_components": [
+      "rust-src",
+      "rustfmt",
+      "clippy",
+      "rustc-dev",
+      "llvm-tools-preview"
+    ],
+    "rust_profile": "default",
+    "rust_toolchain_path": "rust-toolchain.toml"
+  }
+}

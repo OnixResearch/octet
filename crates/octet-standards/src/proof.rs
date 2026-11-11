@@ -1246,9 +1246,21 @@ fn default_non_claims() -> Vec<String> {
     .collect()
 }
 
-fn policy_is_verified(policy: &PolicyEntry) -> bool {
+/// Returns true when a policy declares verified enforcement.
+#[must_use]
+pub fn policy_is_verified(policy: &PolicyEntry) -> bool {
     policy.current_enforcement_mode == EnforcementMode::Verified
         || policy.target_enforcement_mode == EnforcementMode::Verified
+}
+
+/// Returns true when the proof-rail checker evaluates `policy` for the supplied sources.
+///
+/// A verified policy with no declared rails still runs the metadata check and fails, so it is
+/// applicable. With declared rails, at least one rail must match the supplied source scope.
+#[must_use]
+pub fn proof_rail_checker_applies(policy: &PolicyEntry, sources: &[SourceFile]) -> bool {
+    policy_is_verified(policy)
+        && (policy.proof_rails.is_empty() || policy.proof_rails.iter().any(|rail| rail_is_relevant(rail, sources)))
 }
 
 fn check_policy_proof_rails(

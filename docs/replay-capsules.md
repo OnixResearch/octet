@@ -140,6 +140,49 @@ integer `expected_exit_code`, and the `capsule_hash` recomputed from that
 manifest must equal the recorded `capsule_hash`. Editing a captured manifest,
 such as its `output_hashes`, is therefore detected instead of replayed.
 
+## Executed replay
+
+The `--observed` path compares caller-supplied observations. It is a distinct
+evidence mode and reports `evidence_mode: "supplied_observation"`. It does not
+launch the recorded job.
+
+Executed replay is opt-in and uses only a reviewed, closed job profile:
+
+```sh
+cargo octet roadmap capsule replay --capsule check-capsule.json --execute \
+  --inputs check-capsule.inputs.json --receipt check-capsule.receipt.json
+```
+
+The initial profiles are `check-v1` for the `check` run kind and
+`fingerprint-production-v1` for deterministic fingerprint production. The
+executable and argv are built from the selected profile; command text inside a
+capsule never grants execution authority. Imported executable names, shell
+fragments, path escapes, undeclared environment entries, unsupported run kinds,
+and unsupported profiles fail closed.
+
+The inputs document is JSON with `schema_version`, `profile`, `inputs`
+(`name -> path`), `config_hash`, an optional `nix_closure_identity`, an
+allowlisted `environment` object, and, for `check-v1`, the workspace
+`executable`. Canonical capsule argv uses `<output>` for the isolated output
+directory and `<workspace>/...` for workspace paths. Capsule resource limits may
+only tighten the profile limits.
+
+Executed replay collects an `octet-execution-receipt` that binds the capsule
+hash, profile and executable identity, source input hashes, config hash,
+toolchain and available Nix closure identity, allowlisted environment, resource
+limits, expected outputs and failure contract, and the observed process outcome,
+output hashes, and isolated output directory. The receipt hash is recomputed
+during replay; a fabricated `observed.json` cannot satisfy executed replay.
+Statuses are `replayed`, `expected-failure-replayed`, `drifted`, or
+`failed-closed`, with drift kinds for source, config, toolchain, argv, output,
+exit, failure contract, and receipt changes. An expected failure requires both
+the reviewed failure-contract name and its marker in the executed stream; an
+arbitrary nonzero exit is insufficient.
+
+Executed replay establishes reproduction of the named bounded observation only.
+It does not authenticate the producer, prove verifier soundness, establish
+whole-program correctness, or grant release authority.
+
 ## Limits
 
 A replay capsule proves identity of captured evidence and replay inputs. It does

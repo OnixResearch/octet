@@ -217,6 +217,7 @@ pub fn prefixed_identity(bytes: &[u8]) -> String {
 
 mod bundle;
 mod comparison;
+pub mod experiment;
 mod profile;
 mod profile_validation;
 pub(crate) mod request;

@@ -22,6 +22,7 @@ impl OutputFormat {
 pub enum CommandArgs {
     Admit(AdmissionArgs),
     Artifact(ArtifactArgs),
+    Benchmark(BenchmarkArgs),
     Check(CheckArgs),
     EvidenceIndex(EvidenceIndexArgs),
     EvidenceRail(EvidenceRailArgs),
@@ -31,6 +32,7 @@ pub enum CommandArgs {
     ProviderManifest(ProviderManifestArgs),
     Prove(ProveArgs),
     ProofRef(ProofRefArgs),
+    Requirements(RequirementsArgs),
     Roadmap(crate::roadmap::RoadmapCommand),
     Transcript(TranscriptArgs),
     Help(HelpTopic),
@@ -42,6 +44,7 @@ pub enum HelpTopic {
     Root,
     Admit,
     Artifact,
+    Benchmark,
     Check,
     EvidenceIndex,
     EvidenceRail,
@@ -51,6 +54,7 @@ pub enum HelpTopic {
     ProviderManifest,
     Prove,
     ProofRef,
+    Requirements,
     Roadmap,
     Transcript,
 }
@@ -73,7 +77,10 @@ pub enum AdmissionMode {
         scope_args: Vec<String>,
         cargo_check_args: Option<Vec<String>>,
     },
-    Verify,
+    Verify {
+        auth_policy: Option<PathBuf>,
+        auth_evidence: Option<PathBuf>,
+    },
 }
 
 #[derive(Debug)]
@@ -81,6 +88,23 @@ pub struct ArtifactArgs {
     pub artifact_dir: PathBuf,
     pub output_format: OutputFormat,
     pub emit_valence_provenance: Option<PathBuf>,
+}
+
+#[derive(Debug)]
+pub struct BenchmarkArgs {
+    pub experiment: BenchmarkExperimentArgs,
+}
+
+#[derive(Debug)]
+pub struct BenchmarkExperimentArgs {
+    pub profile: String,
+    pub input: Option<PathBuf>,
+    pub execute: bool,
+    pub verify: bool,
+    pub artifact: Option<PathBuf>,
+    pub workspace_root: PathBuf,
+    pub artifact_dir: PathBuf,
+    pub output_format: OutputFormat,
 }
 
 #[allow(clippy::struct_field_names)]
@@ -311,6 +335,7 @@ pub struct NegativeCheckArgs {
     pub mutant_cards: PathBuf,
     pub proof_or_property_id: String,
     pub mutant_source: String,
+    pub verifier_evidence: Option<PathBuf>,
     pub output: Option<PathBuf>,
 }
 
@@ -329,6 +354,43 @@ pub enum ProofRefMode {
 pub struct ProofRefValidateArgs {
     pub proof_cards: PathBuf,
     pub reference: PathBuf,
+    pub output_format: OutputFormat,
+}
+
+#[derive(Debug)]
+pub struct RequirementsArgs {
+    pub mode: RequirementsMode,
+}
+
+#[derive(Debug)]
+pub enum RequirementsMode {
+    Check(RequirementsCheckArgs),
+    Verify(RequirementsVerifyArgs),
+    Freshness(RequirementsFreshnessArgs),
+}
+
+#[derive(Debug)]
+pub struct RequirementsCheckArgs {
+    pub contract: PathBuf,
+    pub evidence: PathBuf,
+    pub source_root: PathBuf,
+    pub output: Option<PathBuf>,
+    pub output_format: OutputFormat,
+}
+
+#[derive(Debug)]
+pub struct RequirementsVerifyArgs {
+    pub contract: PathBuf,
+    pub evidence: PathBuf,
+    pub decision: PathBuf,
+    pub source_root: PathBuf,
+    pub output_format: OutputFormat,
+}
+
+#[derive(Debug)]
+pub struct RequirementsFreshnessArgs {
+    pub contract: PathBuf,
+    pub index: PathBuf,
     pub output_format: OutputFormat,
 }
 
@@ -390,6 +452,8 @@ pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CommandArgs, St
         Some("admit") => parse_admission(&argv[1..], command_line).map(CommandArgs::Admit),
         Some("artifact") if artifact_wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Artifact)),
         Some("artifact") => parse_artifact(&argv[1..]).map(CommandArgs::Artifact),
+        Some("benchmark") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Benchmark)),
+        Some("benchmark") => parse_benchmark(&argv[1..]).map(CommandArgs::Benchmark),
         Some("check") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Check)),
         Some("check") => parse_check(&argv[1..], command_line).map(CommandArgs::Check),
         Some("evidence-index") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::EvidenceIndex)),
@@ -408,15 +472,17 @@ pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CommandArgs, St
         Some("prove") => parse_prove(&argv[1..], command_line).map(CommandArgs::Prove),
         Some("proof-ref") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::ProofRef)),
         Some("proof-ref") => parse_proof_ref(&argv[1..]).map(CommandArgs::ProofRef),
+        Some("requirements") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Requirements)),
+        Some("requirements") => parse_requirements(&argv[1..]).map(CommandArgs::Requirements),
         Some("roadmap") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Roadmap)),
         Some("roadmap") => crate::roadmap::parse(&argv[1..]).map(CommandArgs::Roadmap),
         Some("transcript") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Transcript)),
         Some("transcript") => parse_transcript(&argv[1..]).map(CommandArgs::Transcript),
         Some(other) => Err(format!(
-            "unknown subcommand `{other}`; expected `admit`, `artifact`, `check`, `evidence`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `prove`, `proof-ref`, `roadmap`, or `transcript`"
+            "unknown subcommand `{other}`; expected `admit`, `artifact`, `benchmark`, `check`, `evidence`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `prove`, `proof-ref`, `requirements`, `roadmap`, or `transcript`"
         )),
         None => Err(
-            "missing subcommand; expected `admit`, `artifact`, `check`, `evidence`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `prove`, `proof-ref`, `roadmap`, or `transcript`"
+            "missing subcommand; expected `admit`, `artifact`, `benchmark`, `check`, `evidence`, `evidence-index`, `fingerprint`, `migrate`, `object`, `provider-manifest`, `prove`, `proof-ref`, `requirements`, `roadmap`, or `transcript`"
                 .to_owned(),
         ),
     }
@@ -439,6 +505,7 @@ pub fn help_text(topic: HelpTopic) -> &'static str {
         HelpTopic::Root => ROOT_HELP,
         HelpTopic::Admit => ADMIT_HELP,
         HelpTopic::Artifact => ARTIFACT_HELP,
+        HelpTopic::Benchmark => BENCHMARK_HELP,
         HelpTopic::Check => CHECK_HELP,
         HelpTopic::EvidenceIndex => EVIDENCE_INDEX_HELP,
         HelpTopic::EvidenceRail => EVIDENCE_RAIL_HELP,
@@ -448,6 +515,7 @@ pub fn help_text(topic: HelpTopic) -> &'static str {
         HelpTopic::ProviderManifest => PROVIDER_MANIFEST_HELP,
         HelpTopic::Prove => PROVE_HELP,
         HelpTopic::ProofRef => PROOF_REF_HELP,
+        HelpTopic::Requirements => REQUIREMENTS_HELP,
         HelpTopic::Roadmap => ROADMAP_HELP,
         HelpTopic::Transcript => TRANSCRIPT_HELP,
     }
@@ -457,8 +525,9 @@ const ROOT_HELP: &str = "Octet operator commands
 
 Usage:
   cargo octet admit --profile deterministic-core --closure [--policy PATH] [--kamacite-effect-profile PATH] [--artifact-dir PATH] [SCOPE] -- --target TARGET [CARGO_CHECK_ARGS]
-  cargo octet admit verify --artifact-dir PATH [--output-format human|json]
+  cargo octet admit verify --artifact-dir PATH [--auth-policy PATH --auth-evidence PATH] [--output-format human|json]
   cargo octet artifact verify --artifact-dir PATH [--output-format human|json] [--emit-valence-provenance PATH]
+  cargo octet benchmark experiment (--input PATH | --execute | --verify [--artifact PATH]) [--profile ID] [--workspace-root PATH] [--artifact-dir PATH] [--output-format human|json]
   cargo octet check [SCOPE] [--profile robust|bounded-systems|deterministic-core] [--function-addresses off|observe|warn|deny] [--function-address-path PATH] [-- CARGO_CHECK_ARGS]
   cargo octet evidence collect --rail RAIL --input PATH --artifact-dir PATH [--output-format human|json]
   cargo octet evidence-index render --payload-commit HASH --capture-time RFC3339
@@ -488,9 +557,12 @@ Usage:
   cargo octet provider-manifest validate --manifest PATH
   cargo octet prove --candidates [--source PATH] [--proof-cards PATH] [--proof-ref PATH] [--trust-boundary PATH] [--json]
   cargo octet prove --policy-artifacts-dir PATH --source PATH [--artifact-dir artifacts/octet-proofs] [--rail POLICY[#rail-N]] [--list] [--explain] [--output-format human|json]
-  cargo octet prove --record-negative-check --proof-cards PATH --mutant-cards PATH --proof-or-property-id ID --mutant-source PATH [--output PATH]
+  cargo octet prove --record-negative-check --proof-cards PATH --mutant-cards PATH --proof-or-property-id ID --mutant-source PATH --verifier-evidence PATH [--output PATH]
   cargo octet proof-ref validate --proof-cards PATH --ref PATH [--output-format human|json]
   cargo octet proof-ref scaffold --proof-cards PATH --proof-or-property-id ID --reference-id ID --consumer-context TEXT --consumer-source PATH --anchor TEXT [--output PATH]
+  cargo octet requirements check --contract PATH --evidence PATH [--source-root PATH] [--output PATH] [--output-format human|json]
+  cargo octet requirements verify --contract PATH --evidence PATH --decision PATH [--source-root PATH] [--output-format human|json]
+  cargo octet requirements freshness --contract PATH --index PATH [--output-format human|json]
   cargo octet roadmap <artifact|capsule|ability|pointer|session|pure-cache> ...
   cargo octet transcript <PATH>
   cargo octet --version
@@ -504,9 +576,9 @@ const ADMIT_HELP: &str = "cargo octet admit
 
 Commands:
   cargo octet admit --profile deterministic-core --closure [--policy octet-effect-closure.json] [--kamacite-effect-profile PATH] [--artifact-dir target/octet-admission] [SCOPE] -- --target TARGET [CARGO_CHECK_ARGS]
-  cargo octet admit verify --artifact-dir PATH [--output-format human|json]
+  cargo octet admit verify --artifact-dir PATH [--auth-policy PATH --auth-evidence PATH] [--output-format human|json]
 
-Runs the existing deterministic-core check first, then computes conservative selected source-token effect closure under exact reviewed call summaries. An explicit Cargo target is required to exclude ambient target ambiguity. Unknown effects, opaque constructs, stale function identities, forbidden role edges, and unadmitted or identity-mismatched calls fail closed. Verification checks stored BLAKE3 artifact integrity without rerunning Cargo.
+Runs the existing deterministic-core check first, then computes conservative selected source-token effect closure under exact reviewed call summaries. An explicit Cargo target is required to exclude ambient target ambiguity. Unknown effects, opaque constructs, stale function identities, forbidden role edges, and unadmitted or identity-mismatched calls fail closed. Verification checks stored BLAKE3 artifact integrity without rerunning Cargo. The opt-in --auth-policy and --auth-evidence inputs verify detached Ed25519 signatures, producer authorization, and consumer-supplied key currentness through the pinned artifact-auth crates; both flags are required together, and neither input may come from inside the candidate artifact directory. Unsigned verification remains the default and keeps its integrity-only non-claim.
 
 The optional --kamacite-effect-profile PATH input runs after direct checks and effect closure pass. It compares admitted closure evidence with one frozen Kamacite effect-summary compatibility projection and writes a non-authoritative handoff. It does not invoke Kamacite, change default admission, or grant consumer, publication, or runtime authority.
 
@@ -518,6 +590,18 @@ const ARTIFACT_HELP: &str = "cargo octet artifact verify
 Options: --artifact-dir PATH, --output-format human|json, --emit-valence-provenance PATH.
 
 Verifies a saved cargo octet check/prove artifact directory or a log-only evidence-log-manifest.json directory without mutating it. The verifier recomputes BLAKE3 hashes, validates provenance coverage, verifies raw log artifacts, rejects stale sidecars, and reports deterministic human or JSON output. The optional Valence provenance export is written only after verification succeeds, and only to a path outside the artifact directory.
+";
+
+const BENCHMARK_HELP: &str = "cargo octet benchmark experiment
+
+Usage:
+  cargo octet benchmark experiment --input PATH [--profile ID] [--artifact-dir PATH] [--output-format human|json]
+  cargo octet benchmark experiment --execute [--profile ID] [--workspace-root PATH] [--artifact-dir PATH] [--output-format human|json]
+  cargo octet benchmark experiment --verify [--artifact PATH] [--profile ID] [--output-format human|json]
+
+Runs the opt-in cross-tool experiment contract. Recorded mode consumes a retained observation file; execute mode performs bounded local probes and adoption measurements. The experiment keeps architecture detection, assurance behavior, and adoption cost separate, computes precision and recall only on declared comparable subsets, retains raw observations and unsuccessful runs, freezes adjudicated expected outcomes before candidate output, and verifies every derived artifact field from retained inputs. The same-command benchmark comparator remains stricter and rejects unequal command arguments.
+
+Unavailable tools are recorded as unavailable/unsupported, never clean evidence. Execute mode can establish local scope and timing only for the tools actually present; it does not prove correctness, universal detection, complete Rust coverage, or release eligibility.
 ";
 
 const CHECK_HELP: &str = "cargo octet check
@@ -546,6 +630,8 @@ const EVIDENCE_RAIL_HELP: &str = "cargo octet evidence collect
 Options: --rail dependency-audit|clippy-co-reporting|ast-grep|wasm-artifact|charon-semantic|dependency-trust|api-stability|dynamic-evidence|sarif-import|release-supply-chain|mutation-testing|coverage-baseline|kani-model-check|hegel-property|z4-solver|verifier-fixture|binary-debug-map, --input PATH or --run, --artifact-dir PATH, --workspace-root PATH, --config PATH, --baseline PATH, --profile NAME, --command COMMAND, --debug-companion PATH, --function-address-artifact PATH, --requirement-refs PATH, --parent-artifact PATH, --external-report PATH, --locked, --update-advisory-database, --output-format human|json.
 
 Collects optional non-starter evidence from external tools or saved tool output into a Rust-owned evidence-rail receipt, summary, and provenance bundle. Clippy run mode selects the shipped checked restriction catalog with `--profile production-safety|canonical-determinism|shell-boundary-inventory`; `--config PATH` may supply another checked catalog. It constructs fixed workspace/all-target argv and rejects arbitrary command authority; the blanket `clippy::restriction` group is unsupported. The ast-grep run mode requires a checked generated profile and rejects arbitrary command authority. The wasm-artifact rail requires exact `--input` bytes plus `--config` and `--profile`, never executes the artifact, and embeds JSON/SARIF findings in a self-verifiable exact-byte bundle. SpaceWasm profiles may link identity-verified Mantle, ChaosControl, or Molten observations with repeated `--external-report`; linked observations remain recorded-only and cannot change static conformance. The charon-semantic rail requires the shipped profile, reuses the pinned network-denied Charon stage, rejects arbitrary command authority, and records optional source/token comparisons without merging authority. The `cargo-fuzz-libfuzzer` dynamic profile binds the generated Nickel registry, fixed argv, bounded corpus identities, crash roles, replay argv, and transcript-only non-claims; it rejects arbitrary `--command` input. The `sarif-import` rail accepts only checked local producer profiles and preserves raw and normalized identities without running a scanner. Hegel run mode requires the checked `octet-pure-core-laws-v1` producer profile, uses a fixed command and dedicated bounded summary, and rejects `--command`. Legacy Hegel v1 import remains available. Z4 and verifier-fixture run modes require explicit commands and never bootstrap their tools automatically. These rails are complementary to cargo octet check; they do not upgrade validation evidence into formal proof.
+
+SARIF import remains `--rail sarif-import --profile codeql-local|semgrep-local --config standards/sarif/profiles.json --input PATH`. Bounded local producer execution is opt-in: `--rail sarif-import --profile codeql-exec-local|semgrep-exec-local --config standards/sarif/producers.json --run`. Producer execution rejects `--input`, `--command`, `--baseline`, `--external-report`, `--parent-artifact`, `--debug-companion`, `--function-address-artifact`, and `--requirement-refs`; the shipped profiles pin executable, rules/query packs, source scope, fixed argv, limits, and non-claims. `sarif-producer-execution.json` records the executable/rules/source/argv/outcome/raw-report bindings, and CodeQL database creation and analysis are recorded separately with a database sidecar bound to source, build configuration, and query packs. A missing tool is `unsupported`, never clean evidence. The shipped producer pins are declarative in this environment; tests use an explicitly labeled test-only scanner fixture.
 ";
 
 const FINGERPRINT_HELP: &str = "cargo octet fingerprint
@@ -606,11 +692,17 @@ Modes:
       with the existing rail mapped to the lint when one exists. Ranking uses lint severity and
       trust-boundary membership from the trust-boundary document. Validated references drop off
       the list. This mode runs no verifier and emits no formal_proof provenance.
-  --record-negative-check --proof-cards PATH --mutant-cards PATH --proof-or-property-id ID --mutant-source PATH [--output PATH]
+  --record-negative-check --proof-cards PATH --mutant-cards PATH --proof-or-property-id ID --mutant-source PATH --verifier-evidence PATH [--output PATH]
       Compares a baseline proof-card deck with a mutant-run deck and records the result in the
-      card. A rail that still passes against the mutant is reported as
-      `property_not_demonstrated`; only a mutant failure reports `property_demonstrated`, scoped
-      to that mutation.
+      card. `--verifier-evidence` supplies typed baseline and mutant verifier outcomes, rejection
+      attribution, source/deck identities, mutation identity, and optional retained raw output.
+      A positive `property_demonstrated` result requires a passing baseline and a mutant rejection
+      attributed to the named obligation; compile errors, crashes, timeouts, missing evidence, or
+      an unrelated failure are inconclusive. A rail that still passes against the mutant is
+      `property_not_demonstrated`. Without verifier evidence, the recorder is inconclusive.
+      `--mutant-source` must match the evidence mutant source path; the baseline source path comes
+      from the evidence baseline run. Retained artifacts are recomputed during `proof-ref`
+      validation rather than trusting the annotated status.
 
 Run options: --registry PATH or --policy-artifacts-dir PATH, --source PATH (repeatable), --family NAME, --rail POLICY[#rail-N], --artifact-dir PATH (default artifacts/octet-proofs), --list, --explain, --output-format human|json.
 
@@ -626,13 +718,25 @@ Commands:
 Validates a Rust-owned ProofEvidenceRef JSON record against a saved proof-cards.json deck and, when the reference names consumer_source_path/consumer_source_blake3/consumer_source_anchor fields, checks that source/comment anchor too. Scaffold reads a proof card and anchored consumer source to emit ready JSON without rerunning Verus. This command set does not emit formal_proof provenance and does not introduce a consumer-implementable Verified trait.
 ";
 
+const REQUIREMENTS_HELP: &str = "cargo octet requirements
+
+Commands:
+  check --contract PATH --evidence PATH [--source-root PATH] [--output PATH] [--output-format human|json]
+  verify --contract PATH --evidence PATH --decision PATH [--source-root PATH] [--output-format human|json]
+  freshness --contract PATH --index PATH [--output-format human|json]
+
+Evaluates a reviewed, Nickel-authored requirement contract against retained evidence. Each clause carries a stable ID, reviewed specification identity, implementation scope, disposition, allowed evidence, required negative controls, and explicit exclusions. Formal-proof clauses require a passing proof card with matching scope, source identities, retained artifact hashes, and provider evidence; empirical checks cannot satisfy a formal-proof requirement. Assumptions are bound to an identity, trusted boundary, and required empirical evidence. A decision is recomputable from the same contract and evidence without an AI model or hosted provider.
+
+Freshness consumes the same contract as its required-obligation inventory and compares it with an evidence codebase index. It reports current, stale_binding, missing, failed, unsupported, and incomplete outcomes, shows old/new bindings, and uses bounded typed traversal for related records. Shared labels and content identity establish relatedness only; they never establish causal dependency or proof support. This command never executes providers.
+";
+
 const ROADMAP_HELP: &str = "cargo octet roadmap
 
 Unison-inspired agent roadmap fixtures: content-addressed artifacts, ability manifests, name-to-hash pointers, typed session records, structured todos, and pure-result cache receipts.
 
 Actions:
   artifact store|inspect|replay
-  capsule capture|inspect|replay
+  capsule capture|inspect|replay (replay: --observed PATH or --execute [--inputs PATH] [--receipt PATH])
   ability registry|summary|enforce
   pointer set|inspect|rollback
   session check|migrate|todo
@@ -643,6 +747,93 @@ const TRANSCRIPT_HELP: &str = "cargo octet transcript <PATH>
 
 Checks transcript structure for docs-example and release smoke artifacts: every fence closes, fences with `$ ` command lines use octet-transcript, slotcar-transcript, console, or sh, and the transcript has at least one `$ ` command line and one `=> ` expected-output line. Records the transcript BLAKE3 identity. It does not run commands or compare their output.
 ";
+
+// Flag parsing is one linear match over the subcommand's flags; splitting it would hide which flags
+// the command accepts.
+fn parse_requirements(args: &[String]) -> Result<RequirementsArgs, String> {
+    let (mode, rest) = match args.first().map(String::as_str) {
+        Some("check") => ("check", &args[1..]),
+        Some("verify") => ("verify", &args[1..]),
+        Some("freshness") => ("freshness", &args[1..]),
+        Some(other) => {
+            return Err(format!(
+                "unknown requirements subcommand `{other}`; expected `check`, `verify`, or `freshness`"
+            ));
+        }
+        None => return Err("missing requirements subcommand; expected `check`, `verify`, or `freshness`".to_owned()),
+    };
+    let mut contract = None;
+    let mut evidence = None;
+    let mut decision = None;
+    let mut index = None;
+    let mut source_root = PathBuf::from(".");
+    let mut output = None;
+    let mut output_format = OutputFormat::Human;
+    let mut position = 0;
+    while position < rest.len() {
+        let arg = &rest[position];
+        let (flag, inline_value) =
+            arg.split_once('=').map_or((arg.as_str(), None), |(flag, value)| (flag, Some(value)));
+        match flag {
+            "--contract" => contract = Some(PathBuf::from(requirement_value(rest, &mut position, flag, inline_value)?)),
+            "--evidence" => evidence = Some(PathBuf::from(requirement_value(rest, &mut position, flag, inline_value)?)),
+            "--decision" => decision = Some(PathBuf::from(requirement_value(rest, &mut position, flag, inline_value)?)),
+            "--index" => index = Some(PathBuf::from(requirement_value(rest, &mut position, flag, inline_value)?)),
+            "--source-root" => {
+                source_root = PathBuf::from(requirement_value(rest, &mut position, flag, inline_value)?);
+            }
+            "--output" => output = Some(PathBuf::from(requirement_value(rest, &mut position, flag, inline_value)?)),
+            "--output-format" | "--format" => {
+                output_format = parse_output_format(&requirement_value(rest, &mut position, flag, inline_value)?)?;
+            }
+            other => {
+                return Err(format!(
+                    "unsupported requirements {mode} argument `{other}`; expected --contract, --evidence, --decision, --index, --source-root, --output, or --output-format"
+                ));
+            }
+        }
+        position += 1;
+    }
+    let contract = contract.ok_or_else(|| format!("requirements {mode} requires `--contract PATH`"))?;
+    let mode = match mode {
+        "check" => RequirementsMode::Check(RequirementsCheckArgs {
+            contract,
+            evidence: evidence.ok_or_else(|| "requirements check requires `--evidence PATH`".to_owned())?,
+            source_root,
+            output,
+            output_format,
+        }),
+        "verify" => RequirementsMode::Verify(RequirementsVerifyArgs {
+            contract,
+            evidence: evidence.ok_or_else(|| "requirements verify requires `--evidence PATH`".to_owned())?,
+            decision: decision.ok_or_else(|| "requirements verify requires `--decision PATH`".to_owned())?,
+            source_root,
+            output_format,
+        }),
+        "freshness" => RequirementsMode::Freshness(RequirementsFreshnessArgs {
+            contract,
+            index: index.ok_or_else(|| "requirements freshness requires `--index PATH`".to_owned())?,
+            output_format,
+        }),
+        _ => unreachable!("requirements subcommand was validated above"),
+    };
+    Ok(RequirementsArgs { mode })
+}
+
+fn requirement_value(
+    args: &[String],
+    position: &mut usize,
+    flag: &str,
+    inline: Option<&str>,
+) -> Result<String, String> {
+    if let Some(value) = inline {
+        return Ok(value.to_owned());
+    }
+    let next = position.checked_add(1).ok_or_else(|| format!("argument index overflow after `{flag}`"))?;
+    let value = args.get(next).cloned().ok_or_else(|| format!("missing value after `{flag}`"))?;
+    *position = next;
+    Ok(value)
+}
 
 // Flag parsing is one linear match over the subcommand's flags; splitting it would hide which flags
 // the command accepts.
@@ -786,6 +977,8 @@ fn parse_admission_verify(args: &[String], command_line: String) -> Result<Admis
 
     let mut artifact_dir = None;
     let mut output_format = OutputFormat::Human;
+    let mut auth_policy = None;
+    let mut auth_evidence = None;
     let mut index = 0;
     while index < args.len() {
         let arg = &args[index];
@@ -796,6 +989,20 @@ fn parse_admission_verify(args: &[String], command_line: String) -> Result<Admis
             }
             "--output-format" | "--format" => {
                 output_format = parse_output_format(&required_arg_at(args, index, arg)?)?;
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            "--auth-policy" => {
+                if auth_policy.is_some() {
+                    return Err("`--auth-policy` may be provided only once".to_owned());
+                }
+                auth_policy = Some(PathBuf::from(required_arg_at(args, index, arg)?));
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            "--auth-evidence" => {
+                if auth_evidence.is_some() {
+                    return Err("`--auth-evidence` may be provided only once".to_owned());
+                }
+                auth_evidence = Some(PathBuf::from(required_arg_at(args, index, arg)?));
                 index += FLAG_AND_VALUE_ARGS;
             }
             _ if arg.starts_with("--artifact-dir=") => {
@@ -810,14 +1017,34 @@ fn parse_admission_verify(args: &[String], command_line: String) -> Result<Admis
                 output_format = parse_output_format(arg.trim_start_matches("--format="))?;
                 index += 1;
             }
+            _ if arg.starts_with("--auth-policy=") => {
+                if auth_policy.is_some() {
+                    return Err("`--auth-policy` may be provided only once".to_owned());
+                }
+                auth_policy = Some(PathBuf::from(arg.trim_start_matches("--auth-policy=")));
+                index += 1;
+            }
+            _ if arg.starts_with("--auth-evidence=") => {
+                if auth_evidence.is_some() {
+                    return Err("`--auth-evidence` may be provided only once".to_owned());
+                }
+                auth_evidence = Some(PathBuf::from(arg.trim_start_matches("--auth-evidence=")));
+                index += 1;
+            }
             _ => return Err(format!("unsupported admission verification argument `{arg}`")),
         }
+    }
+    if auth_policy.is_some() != auth_evidence.is_some() {
+        return Err("admission authentication requires both `--auth-policy` and `--auth-evidence`".to_owned());
     }
     if output_format == OutputFormat::Sarif {
         return Err("effect closure admission verification supports human or json output, not SARIF".to_owned());
     }
     Ok(AdmissionArgs {
-        mode: AdmissionMode::Verify,
+        mode: AdmissionMode::Verify {
+            auth_policy,
+            auth_evidence,
+        },
         artifact_dir: artifact_dir.ok_or_else(|| "admission verification requires `--artifact-dir PATH`".to_owned())?,
         output_format,
         command_line,
@@ -890,6 +1117,96 @@ fn parse_artifact_verify(args: &[String]) -> Result<ArtifactArgs, String> {
 // Flag parsing is one linear match over the subcommand's flags; splitting it would hide which flags
 // the command accepts.
 #[allow(clippy::too_many_lines)]
+fn parse_benchmark(args: &[String]) -> Result<BenchmarkArgs, String> {
+    if args.first().map(String::as_str) != Some("experiment") {
+        return Err("unknown benchmark action; expected `experiment`".to_owned());
+    }
+    let rest = &args[1..];
+    let mut profile = crate::benchmark::experiment::PROFILE_ID.to_owned();
+    let mut input = None;
+    let mut execute = false;
+    let mut verify = false;
+    let mut artifact = None;
+    let mut workspace_root = PathBuf::from("standards/benchmark/corpus");
+    let mut artifact_dir = PathBuf::from("artifacts/octet-benchmark");
+    let mut output_format = OutputFormat::Human;
+    let mut index = 0;
+    while index < rest.len() {
+        let arg = &rest[index];
+        let (flag, inline_value) =
+            arg.split_once('=').map_or((arg.as_str(), None), |(flag, value)| (flag, Some(value)));
+        match flag {
+            "--profile" => {
+                profile = benchmark_value(rest, &mut index, flag, inline_value)?;
+            }
+            "--input" => {
+                input = Some(PathBuf::from(benchmark_value(rest, &mut index, flag, inline_value)?));
+            }
+            "--artifact" => {
+                artifact = Some(PathBuf::from(benchmark_value(rest, &mut index, flag, inline_value)?));
+            }
+            "--workspace-root" => {
+                workspace_root = PathBuf::from(benchmark_value(rest, &mut index, flag, inline_value)?);
+            }
+            "--artifact-dir" => {
+                artifact_dir = PathBuf::from(benchmark_value(rest, &mut index, flag, inline_value)?);
+            }
+            "--output-format" | "--format" => {
+                output_format = parse_output_format(&benchmark_value(rest, &mut index, flag, inline_value)?)?;
+            }
+            "--execute" => {
+                if inline_value.is_some() {
+                    return Err("`--execute` does not take a value".to_owned());
+                }
+                execute = true;
+            }
+            "--verify" => {
+                if inline_value.is_some() {
+                    return Err("`--verify` does not take a value".to_owned());
+                }
+                verify = true;
+            }
+            other => {
+                return Err(format!(
+                    "unsupported benchmark experiment argument `{other}`; expected --input, --execute, --verify, --artifact, --profile, --workspace-root, --artifact-dir, or --output-format"
+                ));
+            }
+        }
+        index += 1;
+    }
+    if execute && verify {
+        return Err("`--execute` and `--verify` are mutually exclusive".to_owned());
+    }
+    if verify && input.is_some() {
+        return Err("`--verify` consumes a retained artifact, not `--input`".to_owned());
+    }
+    if output_format == OutputFormat::Sarif {
+        return Err("benchmark experiment supports human or json output, not SARIF".to_owned());
+    }
+    Ok(BenchmarkArgs {
+        experiment: BenchmarkExperimentArgs {
+            profile,
+            input,
+            execute,
+            verify,
+            artifact,
+            workspace_root,
+            artifact_dir,
+            output_format,
+        },
+    })
+}
+
+fn benchmark_value(args: &[String], index: &mut usize, flag: &str, inline: Option<&str>) -> Result<String, String> {
+    if let Some(value) = inline {
+        return Ok(value.to_owned());
+    }
+    let next = index.checked_add(1).ok_or_else(|| format!("argument index overflow after `{flag}`"))?;
+    let value = args.get(next).cloned().ok_or_else(|| format!("missing value after `{flag}`"))?;
+    *index = next;
+    Ok(value)
+}
+
 fn parse_check(args: &[String], command_line: String) -> Result<CheckArgs, String> {
     let mut scope_args = Vec::new();
     let mut cargo_check_args = None;
@@ -2300,6 +2617,7 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
     let mut mutant_cards = None;
     let mut proof_or_property_id = None;
     let mut mutant_source = None;
+    let mut verifier_evidence = None;
     let mut output = None;
     let mut index = 0;
     while index < args.len() {
@@ -2377,6 +2695,10 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
                 mutant_source = Some(required_arg_at(args, index, arg)?);
                 index += 2;
             }
+            "--verifier-evidence" => {
+                verifier_evidence = Some(PathBuf::from(required_arg_at(args, index, arg)?));
+                index += 2;
+            }
             "--output" => {
                 output = Some(PathBuf::from(required_arg_at(args, index, arg)?));
                 index += 2;
@@ -2427,6 +2749,10 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
             }
             _ if arg.starts_with("--mutant-source=") => {
                 mutant_source = Some(arg.trim_start_matches("--mutant-source=").to_owned());
+                index += 1;
+            }
+            _ if arg.starts_with("--verifier-evidence=") => {
+                verifier_evidence = Some(PathBuf::from(arg.trim_start_matches("--verifier-evidence=")));
                 index += 1;
             }
             _ if arg.starts_with("--output=") => {
@@ -2483,6 +2809,7 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
                 mutant_cards,
                 proof_or_property_id,
                 mutant_source,
+                verifier_evidence,
                 output,
             }),
         });
@@ -2491,7 +2818,12 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
     if (proof_cards.is_some() || !proof_refs.is_empty() || trust_boundary.is_some()) && !candidates {
         return Err("`--proof-cards`, `--proof-ref`, and `--trust-boundary` require `--candidates`".to_owned());
     }
-    if mutant_cards.is_some() || proof_or_property_id.is_some() || mutant_source.is_some() || output.is_some() {
+    if mutant_cards.is_some()
+        || proof_or_property_id.is_some()
+        || mutant_source.is_some()
+        || verifier_evidence.is_some()
+        || output.is_some()
+    {
         return Err("negative-check flags require `--record-negative-check`".to_owned());
     }
     if candidates {
@@ -2876,6 +3208,7 @@ mod tests {
     use super::ObjectMode;
     use super::OutputFormat;
     use super::ProofRefMode;
+    use super::RequirementsMode;
     use super::format_command_line;
     use super::help_text;
     use super::parse;
@@ -3019,7 +3352,7 @@ mod tests {
                         assert_eq!(scope_args, ["-p", "domain"]);
                         assert_eq!(cargo_check_args.as_deref(), Some(["--lib".to_owned()].as_slice()));
                     }
-                    AdmissionMode::Verify => panic!("expected admission run mode"),
+                    AdmissionMode::Verify { .. } => panic!("expected admission run mode"),
                 }
             }
             other => panic!("expected admission args, got {other:?}"),
@@ -3063,7 +3396,7 @@ mod tests {
                     } => {
                         assert_eq!(kamacite_effect_profile, Some(std::path::PathBuf::from("kamacite.json")));
                     }
-                    AdmissionMode::Verify => panic!("expected admission run mode"),
+                    AdmissionMode::Verify { .. } => panic!("expected admission run mode"),
                 },
                 other => panic!("expected admission args, got {other:?}"),
             }
@@ -3115,7 +3448,7 @@ mod tests {
         match parsed {
             CommandArgs::Admit(args) => {
                 assert_eq!(args.output_format, OutputFormat::Json);
-                assert!(matches!(args.mode, AdmissionMode::Verify));
+                assert!(matches!(args.mode, AdmissionMode::Verify { .. }));
             }
             other => panic!("expected admission args, got {other:?}"),
         }
@@ -3137,6 +3470,150 @@ mod tests {
         .expect_err("SARIF verification fails");
         assert!(missing.contains("requires `--artifact-dir PATH`"));
         assert!(sarif.contains("supports human or json"));
+    }
+
+    #[test]
+    fn admission_verify_parse_requires_auth_inputs_together() {
+        let parsed = parse(
+            [
+                "cargo",
+                "octet",
+                "admit",
+                "verify",
+                "--artifact-dir",
+                "artifacts/admission",
+                "--auth-policy",
+                "consumer-auth-policy.json",
+                "--auth-evidence=consumer-auth-evidence.json",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse admission authentication");
+        match parsed {
+            CommandArgs::Admit(args) => match args.mode {
+                AdmissionMode::Verify {
+                    auth_policy,
+                    auth_evidence,
+                } => {
+                    assert_eq!(auth_policy, Some(std::path::PathBuf::from("consumer-auth-policy.json")));
+                    assert_eq!(auth_evidence, Some(std::path::PathBuf::from("consumer-auth-evidence.json")));
+                }
+                AdmissionMode::Run { .. } => panic!("expected admission verification"),
+            },
+            other => panic!("expected admission args, got {other:?}"),
+        }
+
+        let missing = parse(
+            [
+                "cargo",
+                "octet",
+                "admit",
+                "verify",
+                "--artifact-dir",
+                "artifacts/admission",
+                "--auth-policy",
+                "consumer-auth-policy.json",
+            ]
+            .map(OsString::from),
+        )
+        .expect_err("auth policy without evidence fails");
+        assert!(missing.contains("requires both `--auth-policy` and `--auth-evidence`"));
+
+        let duplicate = parse(
+            [
+                "cargo",
+                "octet",
+                "admit",
+                "verify",
+                "--artifact-dir",
+                "artifacts/admission",
+                "--auth-policy",
+                "a.json",
+                "--auth-policy",
+                "b.json",
+            ]
+            .map(OsString::from),
+        )
+        .expect_err("duplicate auth policy fails");
+        assert!(duplicate.contains("`--auth-policy` may be provided only once"));
+    }
+
+    #[test]
+    fn benchmark_parse_accepts_recorded_execute_and_verify_modes() {
+        let parsed = parse(
+            [
+                "cargo",
+                "octet",
+                "benchmark",
+                "experiment",
+                "--input",
+                "standards/benchmark/benchmark-experiment-observations.json",
+                "--artifact-dir",
+                "artifacts/octet-benchmark",
+                "--output-format=json",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse recorded benchmark");
+        match parsed {
+            CommandArgs::Benchmark(args) => {
+                assert_eq!(args.experiment.profile, crate::benchmark::experiment::PROFILE_ID);
+                assert_eq!(
+                    args.experiment.input,
+                    Some(std::path::PathBuf::from("standards/benchmark/benchmark-experiment-observations.json"))
+                );
+                assert!(!args.experiment.execute);
+                assert!(!args.experiment.verify);
+                assert_eq!(args.experiment.output_format, OutputFormat::Json);
+            }
+            other => panic!("expected benchmark args, got {other:?}"),
+        }
+
+        let parsed = parse(
+            [
+                "cargo",
+                "octet",
+                "benchmark",
+                "experiment",
+                "--execute",
+                "--workspace-root",
+                "corpus",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse executed benchmark");
+        match parsed {
+            CommandArgs::Benchmark(args) => {
+                assert!(args.experiment.execute);
+                assert_eq!(args.experiment.workspace_root, std::path::PathBuf::from("corpus"));
+            }
+            other => panic!("expected benchmark args, got {other:?}"),
+        }
+
+        let parsed = parse(
+            [
+                "cargo",
+                "octet",
+                "benchmark",
+                "experiment",
+                "--verify",
+                "--artifact",
+                "artifact.json",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse benchmark verification");
+        match parsed {
+            CommandArgs::Benchmark(args) => {
+                assert!(args.experiment.verify);
+                assert_eq!(args.experiment.artifact, Some(std::path::PathBuf::from("artifact.json")));
+            }
+            other => panic!("expected benchmark args, got {other:?}"),
+        }
+
+        let error = parse(["cargo", "octet", "benchmark", "experiment", "--execute", "--verify"].map(OsString::from))
+            .expect_err("execute and verify conflict");
+        assert!(error.contains("mutually exclusive"));
     }
 
     #[test]
@@ -4932,6 +5409,8 @@ mod tests {
                 "octet.verus_proof_rails.addition-bound-production#rail-0",
                 "--mutant-source",
                 "src/codec_mutant.rs",
+                "--verifier-evidence",
+                "mutant/evidence.json",
             ]
             .map(OsString::from),
         )
@@ -4944,6 +5423,7 @@ mod tests {
                 assert_eq!(negative.mutant_cards, std::path::PathBuf::from("mutant/proof-cards.json"));
                 assert_eq!(negative.proof_or_property_id, "octet.verus_proof_rails.addition-bound-production#rail-0");
                 assert_eq!(negative.mutant_source, "src/codec_mutant.rs");
+                assert_eq!(negative.verifier_evidence, Some(std::path::PathBuf::from("mutant/evidence.json")));
                 assert!(negative.output.is_none());
             }
             other => panic!("expected prove args, got {other:?}"),
@@ -4972,12 +5452,114 @@ mod tests {
     }
 
     #[test]
-    fn compatibility_alias_command_line_records_octet_canonical_identity() {
-        let parsed = parse(["cargo", "slotcar", "check", "--output-format", "json"].map(OsString::from))
-            .expect("parse alias check args");
+    fn requirements_parse_accepts_check_verify_and_freshness() {
+        let parsed = parse(
+            [
+                "cargo",
+                "octet",
+                "requirements",
+                "check",
+                "--contract",
+                "standards/requirements/example-contract.json",
+                "--evidence=standards/requirements/fixtures/example/evidence.json",
+                "--source-root",
+                ".",
+                "--output",
+                "artifacts/requirements/decision.json",
+                "--output-format",
+                "json",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse requirements check");
         match parsed {
-            CommandArgs::Check(args) => assert_eq!(args.command_line, "cargo octet check --output-format json"),
-            other => panic!("expected check args, got {other:?}"),
+            CommandArgs::Requirements(args) => match args.mode {
+                RequirementsMode::Check(check) => {
+                    assert_eq!(
+                        check.contract,
+                        std::path::PathBuf::from("standards/requirements/example-contract.json")
+                    );
+                    assert_eq!(
+                        check.evidence,
+                        std::path::PathBuf::from("standards/requirements/fixtures/example/evidence.json")
+                    );
+                    assert_eq!(check.source_root, std::path::PathBuf::from("."));
+                    assert_eq!(check.output, Some(std::path::PathBuf::from("artifacts/requirements/decision.json")));
+                    assert_eq!(check.output_format, OutputFormat::Json);
+                }
+                other => panic!("expected requirements check, got {other:?}"),
+            },
+            other => panic!("expected requirements args, got {other:?}"),
         }
+
+        let parsed = parse(
+            [
+                "cargo",
+                "octet",
+                "requirements",
+                "verify",
+                "--contract",
+                "contract.json",
+                "--evidence",
+                "evidence.json",
+                "--decision",
+                "decision.json",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse requirements verify");
+        match parsed {
+            CommandArgs::Requirements(args) => {
+                assert!(matches!(args.mode, RequirementsMode::Verify(_)));
+            }
+            other => panic!("expected requirements args, got {other:?}"),
+        }
+
+        let parsed = parse(
+            [
+                "cargo",
+                "octet",
+                "requirements",
+                "freshness",
+                "--contract",
+                "contract.json",
+                "--index",
+                "index.json",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse requirements freshness");
+        match parsed {
+            CommandArgs::Requirements(args) => {
+                assert!(matches!(args.mode, RequirementsMode::Freshness(_)));
+            }
+            other => panic!("expected requirements args, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn requirements_parse_rejects_unknown_or_missing_arguments() {
+        let error =
+            parse(["cargo", "octet", "requirements", "check", "--contract", "contract.json"].map(OsString::from))
+                .expect_err("missing evidence");
+        assert!(error.contains("--evidence"));
+
+        let error = parse(
+            [
+                "cargo",
+                "octet",
+                "requirements",
+                "freshness",
+                "--contract",
+                "contract.json",
+                "--index",
+                "index.json",
+                "--observed",
+                "observed.json",
+            ]
+            .map(OsString::from),
+        )
+        .expect_err("unsupported flag");
+        assert!(error.contains("unsupported requirements freshness argument"));
     }
 }

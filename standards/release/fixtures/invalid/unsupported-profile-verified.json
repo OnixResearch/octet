@@ -1,0 +1,10 @@
+{
+  "description": "Unsupported strict profile presented as verified without cohort receipts",
+  "overrides": [
+    {
+      "path": "profiles.1.support_status",
+      "value": "verified"
+    }
+  ],
+  "expected_findings": ["unsupported-profile-claimed-verified"]
+}

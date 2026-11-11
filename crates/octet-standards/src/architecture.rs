@@ -319,6 +319,75 @@ pub fn crate_boundary_mechanism_active(registry: &PolicyRegistry) -> bool {
     registry.policy_by_id(FCIS_POLICY_ID).and_then(CrateBoundaryObligations::from_policy).is_some()
 }
 
+/// Policy IDs the local architecture checker evaluates.
+pub const ARCHITECTURE_CHECKED_POLICY_IDS: &[&str] = &[
+    FCIS_POLICY_ID,
+    EXTERNAL_DOMAIN_LEAKAGE_POLICY_ID,
+    ROOT_THINNESS_POLICY_ID,
+    PUBLIC_API_BUDGET_POLICY_ID,
+    EFFECT_CAPABILITY_POLICY_ID,
+    HEXAGONAL_PORT_POLICY_ID,
+    TYPE_STATE_POLICY_ID,
+];
+
+/// Returns a stable applicable-scope label when the architecture checker has source scope for
+/// `policy`, or `None` when it would inspect nothing.
+#[must_use]
+pub fn architecture_applicable_scope(
+    registry: &PolicyRegistry,
+    sources: &[SourceFile],
+    policy: &PolicyEntry,
+) -> Option<&'static str> {
+    match policy.policy_id.as_str() {
+        FCIS_POLICY_ID => {
+            let boundary = registry.policy_by_id(FCIS_POLICY_ID).and_then(CrateBoundaryObligations::from_policy)?;
+            let has_scope = sources.iter().any(|source| {
+                source.path.ends_with(CARGO_METADATA_SOURCE_PATH)
+                    || boundary.core_boundaries.iter().any(|core| {
+                        source.path.ends_with(&core.lib_path_suffix)
+                            || source.path.ends_with(&core.manifest_path_suffix)
+                    })
+                    || boundary.shell_boundaries.iter().any(|shell| {
+                        source.path.ends_with(&shell.lib_path_suffix)
+                            || source.path.ends_with(&shell.manifest_path_suffix)
+                    })
+            });
+            has_scope.then_some("crate-boundary")
+        }
+        EXTERNAL_DOMAIN_LEAKAGE_POLICY_ID => {
+            let boundary = registry.policy_by_id(FCIS_POLICY_ID).and_then(CrateBoundaryObligations::from_policy)?;
+            let has_scope = sources.iter().any(|source| {
+                source.path.ends_with(RUST_SOURCE_EXTENSION)
+                    && boundary.core_boundaries.iter().any(|core| source.path.contains(&core.rust_path_segment))
+            });
+            has_scope.then_some("core-public-api")
+        }
+        ROOT_THINNESS_POLICY_ID => {
+            let has_scope = root_sources_by_suffix(sources, ROOT_LIB_PATH_SUFFIX).next().is_some()
+                || root_sources_by_suffix(sources, ROOT_MAIN_PATH_SUFFIX).next().is_some();
+            has_scope.then_some("root-lib-or-main")
+        }
+        PUBLIC_API_BUDGET_POLICY_ID => {
+            root_sources_by_suffix(sources, ROOT_LIB_PATH_SUFFIX).next().is_some().then_some("root-lib")
+        }
+        EFFECT_CAPABILITY_POLICY_ID => {
+            let obligations = CapabilityApiObligations::from_policy(policy)?;
+            capability_core_sources(sources, &obligations).next().is_some().then_some("capability-core-sources")
+        }
+        HEXAGONAL_PORT_POLICY_ID => {
+            let obligations = PortObligations::from_policy(policy)?;
+            let applicable =
+                !sources.is_empty() && (!obligations.legacy_core_owner_scope.is_empty() || obligations.enabled());
+            applicable.then_some("port-scopes")
+        }
+        TYPE_STATE_POLICY_ID => {
+            let obligations = TypeStateObligations::from_policy(policy);
+            type_state_sources(sources, &obligations).next().is_some().then_some("type-state-scopes")
+        }
+        _ => None,
+    }
+}
+
 /// Runs architecture policy checks over source files.
 #[must_use]
 pub fn check_architecture(

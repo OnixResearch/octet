@@ -22,6 +22,8 @@ name = "cargo-tigerstyle"
 path = "src/bin/cargo-tigerstyle.rs"
 
 [dependencies]
+artifact-auth-core = { path = "../vendor/sources/artifact/crates/artifact-auth-core", default-features = false, features = ["serde"] }
+artifact-auth-ed25519 = { path = "../vendor/sources/artifact/crates/artifact-auth-ed25519", default-features = false, features = ["serde"] }
 octet-architecture-ir = { path = "../crates/octet-architecture-ir" }
 octet-lint-metadata = { path = "../crates/octet-lint-metadata" }
 octet-standards = { path = "../crates/octet-standards" }
@@ -45,6 +47,7 @@ rustc-demangle = "=0.1.28"
 blake3 = "1"
 
 [dev-dependencies]
+ed25519-dalek = { version = "2.2", default-features = false }
 object = { version = "=0.37.3", default-features = false, features = ["write", "std"] }
 gimli = { version = "=0.34.0", default-features = false, features = ["write", "std"] }
 hegeltest = { version = "=0.14.27", features = ["native"] }

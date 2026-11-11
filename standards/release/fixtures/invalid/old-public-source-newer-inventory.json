@@ -1,0 +1,11 @@
+{
+  "description": "Old reviewed public source paired with the newer development inventory",
+  "inventory": "tests/fixtures/release/development-lint-inventory-names.txt",
+  "overrides": [
+    {
+      "path": "capability_inventory.source_revision",
+      "value": "2bdd581980eef7f6ec8363ffa20ab9f3c798c9ee"
+    }
+  ],
+  "expected_findings": ["inventory-source-mismatch", "inventory-fixture-mismatch"]
+}

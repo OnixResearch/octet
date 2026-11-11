@@ -1,0 +1,10 @@
+{
+  "description": "Development receipt copied into the public cohort's fresh receipt list",
+  "overrides": [
+    {
+      "path": "acceptance.receipts.0.evidence_kind",
+      "value": "development"
+    }
+  ],
+  "expected_findings": ["receipt-not-fresh"]
+}

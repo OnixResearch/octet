@@ -1,6 +1,6 @@
 # Local SARIF intake
 
-Octet imports a bounded SARIF 2.1.0 subset from an explicit local file. It does not run CodeQL, Semgrep, or a hosted scanner.
+Octet imports a bounded SARIF 2.1.0 subset from an explicit local file. Import mode never runs CodeQL, Semgrep, or a hosted scanner. A separate, opt-in execution mode runs a checked producer profile locally through Bounded Exec and then feeds its report through the same importer.
 
 ## Import
 
@@ -15,9 +15,57 @@ cargo octet evidence collect \
   --artifact-dir artifacts/sarif-codeql
 ```
 
-Use `semgrep-local` for a Semgrep report. Octet rejects `--run` and `--command` for this rail.
+Use `semgrep-local` for a Semgrep report. Octet rejects `--run` and `--command` for the `-local` intake profiles, and it rejects a `-exec-local` producer profile on the import path.
 
 The profile binds the driver name, supported version, required rule identity, source-level mapping, local path policy, evidence tier, and resource limits. The checked JSON profile has BLAKE3 identity `b3:81a482fe3b807b973898bd7454e73857605f6c5e48e5092d1d6e47b3fe7a9ce7`.
+
+## Bounded local execution
+
+Execution is opt-in and uses separate checked producer profiles. The shipped profiles pin Semgrep `1.180.0` and CodeQL `2.27.2`; the CodeQL query pack is `codeql/rust-queries@0.1.46`. A real CodeQL `2.27.2` run against the two fixture crates under `standards/sarif/fixtures/` produced the retained clean and violating reports; the Semgrep package does not build in this environment, so the Semgrep producer remains declarative. The unit tests otherwise use an explicitly labeled test-only executable and do not claim real Semgrep behavior.
+
+```console
+cargo octet evidence collect \
+  --rail sarif-import \
+  --profile semgrep-exec-local \
+  --config standards/sarif/producers.json \
+  --workspace-root . \
+  --run \
+  --artifact-dir artifacts/semgrep-exec
+```
+
+Use `codeql-exec-local` for CodeQL. The rail rejects `--input`, `--command`, `--baseline`, `--external-report`, `--parent-artifact`, `--debug-companion`, `--function-address-artifact`, and `--requirement-refs` in this mode: the checked profile, not caller text, is the only execution authority.
+
+The checked producer profile binds the declared and observed executable version, the executable file's BLAKE3 identity, the checked rule-bundle bytes or the pinned query-pack set, the selected workspace-relative paths, extensions and exclusion globs, the explicitly unsupported Rust features, the fixed argv each step may use, resource limits, and non-claims. `producers.ncl` is the human-authored source; `producers.json` is its deterministic Nickel export with BLAKE3 identity `b3:bc12c39f5fdb66607f0acd91f00cd72785f75f526a4f5504d4e2e847492b94cd`.
+
+Octet runs every step through Bounded Exec in its own process group with the profile's wall-clock deadline and per-stream caps. Each execution writes `sarif-producer-execution.json` next to the receipt. That versioned receipt binds:
+
+- the producer profile and intake profile identities;
+- the resolved executable path, executable BLAKE3 identity, declared version, and observed `semgrep --version` or `codeql version --format=json` version;
+- the rule-bundle identity or the CodeQL query-pack pins;
+- the exact per-step argv, exit codes, and step outcomes;
+- the source snapshot BLAKE3 identity and its sorted `path`/`content` identity rows over the declared files and exclusions;
+- the declared Rust scope, including explicit unsupported features;
+- the resource limits, process outcome, and raw report BLAKE3 identity;
+- for CodeQL, the database creation and analysis steps separately, plus the database binding.
+
+The receipt's `bounded_log_identity` is the execution receipt artifact's BLAKE3 identity, and provenance records that artifact so artifact verification rechecks the exact retained bytes. The raw report and its normalized projection keep their existing identities and provenance linkage.
+
+### CodeQL database binding
+
+CodeQL staging lives under `<workspace>/.octet/sarif-producer/codeql-exec-local/`. The first successful `codeql database create` records an Octet-owned `octet-sarif-database-binding.json` inside the database directory binding the source snapshot, language, build mode, query packs, and executable identity. Analysis rereads that binding and fails when the database is stale, was created for a different source snapshot, build configuration, query pack set, or executable, or has no Octet binding at all.
+
+### Outcomes
+
+An executed receipt reports one of these outcomes:
+
+- `completed`: the process exited successfully, the report is valid, every finding path is inside the bound snapshot, and the source snapshot did not change during the scan.
+- `failed`: the scan completed but its report is malformed, references files outside the declared scope, or the source changed during the scan.
+- `unsupported`: the executable is missing, or the declared scope selects no supported source file.
+- `tool_error`: the executable resolved but reported another version, a fixed step exited nonzero, or the report disagrees with the executed version or query packs.
+- `timeout`: Bounded Exec reached the profile deadline.
+- `incomplete_analysis`: Bounded Exec hit a stream cap, or the scanner exited successfully without a report.
+
+An empty SARIF result set is clean only when the outcome is `completed` and the bound snapshot and scope are established. Missing tools, failed steps, timeouts, truncated output, and scope mismatches never produce a passing clean receipt.
 
 ## Supported subset
 
@@ -44,3 +92,5 @@ SARIF messages and paths can contain sensitive data. Review the local report bef
 ## Non-claims
 
 Imported SARIF findings remain external static observations. They do not prove complete vulnerability detection, semantic equivalence, whole-program correctness, or release eligibility.
+
+Executed producer evidence records that one pinned local scanner ran against one bound source snapshot and retained the report it produced. It does not transfer CodeQL pack, Semgrep, GitHub code scanning, or Semgrep Cloud authority, and a clean result is bounded to the declared rules, scope, exclusions, and unsupported features. The shipped Semgrep and CodeQL producer profiles are declarative pins for real local tool installations; this repository's automated tests exercise the producer shell with a clearly labeled test-only executable fixture instead.

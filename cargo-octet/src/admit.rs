@@ -8,6 +8,17 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 
+use artifact_auth_core::ALGORITHM_BLAKE3;
+use artifact_auth_core::ArtifactRef as AuthArtifactRef;
+use artifact_auth_core::ArtifactStatement;
+use artifact_auth_core::AuthenticationPolicy;
+use artifact_auth_core::AuthenticationScope;
+use artifact_auth_core::KeyCurrentness;
+use artifact_auth_core::POLICY_SCHEMA_V1;
+use artifact_auth_core::TrustedKeyObservation;
+use artifact_auth_ed25519::Ed25519Evidence;
+use artifact_auth_ed25519::public_key_identity;
+use artifact_auth_ed25519::verify_and_evaluate;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -107,6 +118,66 @@ pub(crate) const INTEGRATED_CLOSURE_GRAPH_ARTIFACT_NAME: &str = "effect-closure-
 pub(crate) const INTEGRATED_CLOSURE_PARENT_STATUS_ARTIFACT_NAME: &str = "effect-closure-parent-status.json";
 pub(crate) const INTEGRATED_CLOSURE_PROVENANCE_SOURCE_ID: &str = "octet.runner.effect-closure";
 const NON_CLAIM_INTEGRITY: &str = "Admission verification checks stored BLAKE3 identity and linkage only; it does not rerun Cargo, source inference, dependency review, or compiler analysis, and it provides no signer authenticity, authorization, or defense against coherent replacement of every trust root.";
+const ADMISSION_AUTH_POLICY_SCHEMA: &str = "octet-admission-auth-policy/v1";
+const ADMISSION_AUTH_EVIDENCE_SCHEMA: &str = "octet-admission-auth-evidence/v1";
+const ADMISSION_AUTH_DECISION_SCHEMA: &str = "octet-admission-auth-decision/v1";
+const ADMISSION_AUTH_REPORT_SCHEMA: &str = "octet-admission-auth-verification/v1";
+const ADMISSION_AUTH_BUNDLE_PROFILE: &str = "octet-effect-closure-bundle.v1";
+const ADMISSION_AUTH_RECEIPT_PROFILE: &str = "octet-effect-closure-receipt.v1";
+const ADMISSION_AUTH_COMMAND_PROFILE: &str = "octet-effect-closure-command.v1";
+const ADMISSION_AUTH_CHECK_STATUS_PROFILE: &str = "octet-effect-closure-check-status.v1";
+const ADMISSION_AUTH_FUNCTION_ADDRESS_PROFILE: &str = "octet-effect-closure-function-addresses.v1";
+const ADMISSION_AUTH_WORKSPACE_POLICY_PROFILE: &str = "octet-effect-closure-workspace-policy.v1";
+const ADMISSION_AUTH_CARGO_GRAPH_PROFILE: &str = "octet-effect-closure-cargo-graph.v1";
+const ADMISSION_AUTH_CARGO_LOCK_PROFILE: &str = "octet-effect-closure-cargo-lock.v1";
+const ADMISSION_AUTH_POLICY_IDENTITY_PROFILE: &str = "octet-admission-auth-policy-identity.v1";
+const ADMISSION_AUTH_SCOPE_IDENTITY_PROFILE: &str = "octet-admission-auth-scope-identity.v1";
+const ADMISSION_AUTH_DECISION_DOMAIN: &str = "octet.admission-auth.decision.v1";
+const ADMISSION_AUTH_BUNDLE_DOMAIN: &str = "octet.admission-auth.bundle.v1";
+const AUTH_BLAKE3_PREFIX: &str = "b3:";
+const AUTH_HEX_CHARS: usize = 64;
+const AUTH_PUBLIC_KEY_BYTES: usize = 32;
+const AUTH_SIGNATURE_BYTES: usize = 64;
+const NON_CLAIM_AUTH: &str = "Admission authentication verifies detached Ed25519 signatures over consumer-selected statements and checks consumer-owned producer authorization, key trust, and currentness observations only; it does not prove build correctness, source inference, provenance truth, release eligibility, or deployment safety, and it cannot detect a consumer policy that authorizes the wrong artifact.";
+const AUTH_SIGNATURE_UNSUPPORTED_CODES: &[&str] = &[
+    "auth.signature_algorithm_unsupported",
+    "auth.statement_schema_unsupported",
+    "admission_auth.evidence_schema_unsupported",
+    "admission_auth.signature_malformed",
+];
+const AUTH_SIGNATURE_UNVERIFIED_CODES: &[&str] = &[
+    "auth.signature_unverified",
+    "auth.cryptographic_failure_present",
+    "auth.cryptographic_key_identity_mismatch",
+    "auth.signature_evidence_missing",
+    "admission_auth.evidence_key_untrusted",
+];
+const AUTH_TRUST_CODES: &[&str] = &[
+    "auth.key_untrusted",
+    "auth.key_generation_stale",
+    "auth.key_not_current",
+    "auth.distinct_key_threshold_unsatisfied",
+    "auth.threshold_zero",
+    "auth.threshold_exceeds_key_count",
+    "auth.trusted_key_count_invalid",
+    "auth.trusted_key_identity_duplicate",
+    "auth.key_generation_zero",
+    "auth.allowed_purpose_missing",
+    "auth.allowed_purpose_duplicate",
+    "admission_auth.currentness_unacceptable",
+    "admission_auth.evidence_key_untrusted",
+    "admission_auth.evidence_key_duplicate",
+];
+const AUTH_AUTHORIZATION_CODES: &[&str] = &[
+    "auth.purpose_unauthorized",
+    "auth.policy_profile_mismatch",
+    "auth.statement_scope_mismatch",
+    "admission_auth.producer_unauthorized",
+    "admission_auth.subject_mismatch",
+    "admission_auth.receipt_identity_mismatch",
+    "admission_auth.provenance_missing",
+    "admission_auth.provenance_malformed",
+];
 
 #[derive(Clone, Debug, Deserialize)]
 struct CheckStatus {
@@ -236,8 +307,212 @@ struct AdmissionVerificationReport {
     status: String,
     receipt_identity: Option<String>,
     checked_artifacts: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    auth: Option<AdmissionAuthReport>,
     diagnostics: Vec<String>,
     non_claims: Vec<String>,
+}
+
+/// Consumer-owned admission authentication policy.
+///
+/// This file is authored as Nickel by the consumer and exported deterministically to the JSON
+/// shape below. It is supplied outside the candidate artifact directory and is the only source of
+/// trust roots, expected identity, authorized scope, and currentness rules. A candidate bundle is
+/// never consulted for policy, key bytes, or currentness observations. A policy is authored
+/// after deciding which producer keys are trusted, for example:
+///
+/// ```json
+/// {
+///   "schema_version": "octet-admission-auth-policy/v1",
+///   "policy_id": "release-admission",
+///   "profile_id": "onix-artifact-auth.v1",
+///   "domain": "octet.effect-closure.admission.v1",
+///   "purpose": "admission-verification",
+///   "scope_id": "effect-closure-admission",
+///   "verifier_context": {
+///     "profile": "octet-verifier-context.v1",
+///     "algorithm": "blake3",
+///     "digest_hex": "<consumer-owned verifier context digest>"
+///   },
+///   "expected_subject": {
+///     "profile": "octet-effect-closure-bundle.v1",
+///     "algorithm": "blake3",
+///     "digest_hex": "<candidate bundle identity from a prior verification receipt>"
+///   },
+///   "expected_receipt_identity": "b3:<expected effect-closure receipt identity>",
+///   "authorized_producers": [{
+///     "producer_id": "release",
+///     "key_ids": ["release-key"],
+///     "purposes": ["admission-verification"],
+///     "scope_ids": ["effect-closure-admission"]
+///   }],
+///   "threshold": 1,
+///   "trusted_keys": [{
+///     "producer_id": "release",
+///     "key_id": "release-key",
+///     "public_key_hex": "<64 lowercase hex characters of the consumer-owned Ed25519 public key>",
+///     "generation": 1,
+///     "allowed_purposes": ["admission-verification"],
+///     "currentness": "current",
+///     "currentness_ref": {
+///       "profile": "octet-key-currentness-observation.v1",
+///       "algorithm": "blake3",
+///       "digest_hex": "<consumer-owned currentness observation digest>"
+///     },
+///     "observed_at_unix": 1760000000
+///   }],
+///   "currentness_rules": {
+///     "accepted": ["current", "verification_overlap"],
+///     "observation_profile": "octet-key-currentness-observation.v1",
+///     "maximum_observation_age_seconds": 86400,
+///     "evaluated_at_unix": 1760000000
+///   },
+///   "required_provenance": [
+///     "octet-effect-closure-receipt.v1",
+///     "octet-effect-closure-command.v1",
+///     "octet-effect-closure-check-status.v1"
+///   ]
+/// }
+/// ```
+///
+/// The verifier constructs the canonical statement scope from this policy and the candidate:
+/// `domain`, `purpose`, `profile_id`, and `verifier_context` come from the policy; `subject` is
+/// the BLAKE3 identity of every retained bundle file plus the receipt identity; parents are the
+/// `policy_id` identity, the `scope_id` identity, and the receipt/command/check-status/
+/// function-address/workspace-policy/cargo-graph/cargo-lock execution provenance identities.
+/// Producers sign that exact scope; the candidate never supplies these values.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct AdmissionAuthPolicyInput {
+    schema_version: String,
+    policy_id: String,
+    profile_id: String,
+    domain: String,
+    purpose: String,
+    scope_id: String,
+    verifier_context: AuthArtifactRef,
+    expected_subject: AuthArtifactRef,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    expected_receipt_identity: Option<String>,
+    authorized_producers: Vec<AuthorizedProducerInput>,
+    threshold: u16,
+    trusted_keys: Vec<TrustedKeyInput>,
+    currentness_rules: CurrentnessRulesInput,
+    required_provenance: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct AuthorizedProducerInput {
+    producer_id: String,
+    key_ids: Vec<String>,
+    purposes: Vec<String>,
+    scope_ids: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct TrustedKeyInput {
+    producer_id: String,
+    key_id: String,
+    public_key_hex: String,
+    generation: u64,
+    allowed_purposes: Vec<String>,
+    currentness: KeyCurrentness,
+    currentness_ref: AuthArtifactRef,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    observed_at_unix: Option<u64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct CurrentnessRulesInput {
+    accepted: Vec<KeyCurrentness>,
+    observation_profile: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    maximum_observation_age_seconds: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    evaluated_at_unix: Option<u64>,
+}
+
+/// Consumer-owned detached statements and raw Ed25519 signatures over those exact statements.
+///
+/// Evidence carries no cryptographic observations and no public keys: key bytes, trust,
+/// currentness, and authorization come only from [`AdmissionAuthPolicyInput`].
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct AdmissionAuthEvidenceInput {
+    schema_version: String,
+    evidence: Vec<SignatureEvidenceInput>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct SignatureEvidenceInput {
+    /// Exact canonical statement signed by the trusted key.
+    statement: ArtifactStatement,
+    /// Key generation claimed by the signature carrier; it must equal the policy generation.
+    generation: u64,
+    /// Raw 64-byte Ed25519 detached signature as lowercase hexadecimal.
+    signature_hex: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+#[serde(deny_unknown_fields)]
+struct ArtifactAuthIssueV1 {
+    code: String,
+    field: String,
+}
+
+/// Versioned, recomputable admission authentication decision.
+///
+/// `decision_receipt_blake3` is BLAKE3 over the length-prefixed encoding in
+/// [`auth_decision_bytes`]: the decision domain, every field in declaration order, the
+/// `passed`/`denied` label, then the issue and non-claim counts and values. The whole decision is
+/// embedded in the verification report so consumers can recompute it without the candidate bundle.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+struct ArtifactAuthDecisionV1 {
+    schema_version: String,
+    policy_id: String,
+    policy_profile_id: String,
+    subject_blake3: String,
+    receipt_identity: String,
+    policy_blake3: String,
+    scope_blake3: String,
+    checker_blake3: String,
+    verified_key_blake3: Vec<String>,
+    passed: bool,
+    issues: Vec<ArtifactAuthIssueV1>,
+    non_claims: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+struct AdmissionAuthReport {
+    schema_version: String,
+    policy_id: String,
+    integrity: String,
+    signature_authenticity: String,
+    authorization: String,
+    trust_currentness: String,
+    checker: String,
+    passed: bool,
+    decision_receipt_blake3: String,
+    decision: ArtifactAuthDecisionV1,
+    diagnostics: Vec<String>,
+    non_claims: Vec<String>,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct AdmissionVerificationInputs<'a> {
+    pub auth_policy: Option<&'a Path>,
+    pub auth_evidence: Option<&'a Path>,
+}
+
+struct TrustedKeyMaterial {
+    observation: TrustedKeyObservation,
+    public_key_bytes: [u8; AUTH_PUBLIC_KEY_BYTES],
+    observed_at_unix: Option<u64>,
 }
 
 pub(crate) struct PreparedIntegratedClosure {
@@ -275,7 +550,13 @@ pub fn run(args: &AdmissionArgs) -> Result<i32, String> {
             scope_args,
             cargo_check_args.as_deref(),
         ),
-        AdmissionMode::Verify => run_verification(args),
+        AdmissionMode::Verify {
+            auth_policy,
+            auth_evidence,
+        } => run_verification_with(args, AdmissionVerificationInputs {
+            auth_policy: auth_policy.as_deref(),
+            auth_evidence: auth_evidence.as_deref(),
+        }),
     }
 }
 
@@ -389,15 +670,41 @@ fn run_admission(
     Ok(if admitted { EXIT_ADMITTED } else { EXIT_DENIED })
 }
 
-fn run_verification(args: &AdmissionArgs) -> Result<i32, String> {
+pub(crate) fn run_verification_with(
+    args: &AdmissionArgs,
+    inputs: AdmissionVerificationInputs<'_>,
+) -> Result<i32, String> {
     let cwd = env::current_dir().map_err(|error| format!("current_dir: {error}"))?;
-    let report = verify_bundle(&verification_artifact_dir(&cwd, &args.artifact_dir)?)?;
+    let artifact_dir = verification_artifact_dir(&cwd, &args.artifact_dir)?;
+    let report = match (inputs.auth_policy, inputs.auth_evidence) {
+        (None, None) => verify_bundle(&artifact_dir)?,
+        (Some(policy), Some(evidence)) => verify_bundle_authorized(
+            &artifact_dir,
+            &consumer_input_path(&cwd, policy),
+            &consumer_input_path(&cwd, evidence),
+        )?,
+        _ => {
+            return Err("admission authentication requires both `--auth-policy` and `--auth-evidence`".to_owned());
+        }
+    };
     match args.output_format {
         OutputFormat::Human => {
             eprintln!("Effect closure admission verification: {}", report.status);
             eprintln!("Artifact directory: {}", report.artifact_dir);
             if let Some(identity) = &report.receipt_identity {
                 eprintln!("Receipt identity: {identity}");
+            }
+            if let Some(auth) = &report.auth {
+                eprintln!("Admission authentication: {}", if auth.passed { "passed" } else { "denied" });
+                eprintln!(
+                    "  integrity={} signature_authenticity={} authorization={} trust_currentness={} checker={}",
+                    auth.integrity,
+                    auth.signature_authenticity,
+                    auth.authorization,
+                    auth.trust_currentness,
+                    auth.checker
+                );
+                eprintln!("  decision receipt: {}", auth.decision_receipt_blake3);
             }
             for diagnostic in &report.diagnostics {
                 eprintln!("- {diagnostic}");
@@ -415,6 +722,14 @@ fn run_verification(args: &AdmissionArgs) -> Result<i32, String> {
     } else {
         EXIT_DENIED
     })
+}
+
+fn consumer_input_path(cwd: &Path, path: &Path) -> PathBuf {
+    if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        cwd.join(path)
+    }
 }
 
 /// Resolves `admit verify --artifact-dir` the same way `admit` does: an absolute path is used as
@@ -1224,6 +1539,658 @@ fn verify_bundle(artifact_dir: &Path) -> Result<AdmissionVerificationReport, Str
     verify_bundle_inner(artifact_dir, true)
 }
 
+/// Run the unsigned integrity verification first, then evaluate consumer-owned detached
+/// signatures and policy over the exact candidate bytes. The unsigned mode and its non-claim are
+/// unchanged when no authentication inputs are supplied.
+fn verify_bundle_authorized(
+    artifact_dir: &Path,
+    policy_path: &Path,
+    evidence_path: &Path,
+) -> Result<AdmissionVerificationReport, String> {
+    verify_bundle_authorized_inner(artifact_dir, true, policy_path, evidence_path)
+}
+
+fn verify_bundle_authorized_inner(
+    artifact_dir: &Path,
+    verify_strict_profile_parent: bool,
+    policy_path: &Path,
+    evidence_path: &Path,
+) -> Result<AdmissionVerificationReport, String> {
+    reject_candidate_supplied_input(artifact_dir, policy_path, "admission auth policy")?;
+    reject_candidate_supplied_input(artifact_dir, evidence_path, "admission auth evidence")?;
+    let policy = load_admission_auth_policy(policy_path)?;
+    let evidence = load_admission_auth_evidence(evidence_path)?;
+    let mut report = verify_bundle_inner(artifact_dir, verify_strict_profile_parent)?;
+    let root = ArtifactRoot::open_existing(artifact_dir)?;
+    let files = root
+        .read_files_recursive()?
+        .into_iter()
+        .map(|file| (file.locator, file.contents))
+        .collect::<BTreeMap<_, _>>();
+    let receipt = files
+        .get(effect_closure::RECEIPT_FILE)
+        .and_then(|bytes| serde_json::from_slice::<EffectClosureReceipt>(bytes).ok());
+    let auth = evaluate_admission_auth(&report, &files, receipt.as_ref(), &policy, &evidence)?;
+    for issue in &auth.decision.issues {
+        report.diagnostics.push(format!("admission auth {}: {}", issue.code, issue.field));
+    }
+    report.diagnostics.sort();
+    report.diagnostics.dedup();
+    if !auth.passed {
+        report.status = STATUS_INVALID.to_owned();
+    }
+    report.auth = Some(auth);
+    report.non_claims = [NON_CLAIM_INTEGRITY, NON_CLAIM_AUTH]
+        .into_iter()
+        .map(str::to_owned)
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    Ok(report)
+}
+
+/// Trust roots and evidence must be consumer-owned inputs outside the candidate bundle. A bundle
+/// can still contain arbitrary files, but none of them can become a trust root or observation.
+fn reject_candidate_supplied_input(artifact_dir: &Path, input_path: &Path, label: &str) -> Result<(), String> {
+    let artifact_dir = fs::canonicalize(artifact_dir)
+        .map_err(|error| format!("open artifact dir {}: {error}", artifact_dir.display()))?;
+    let input_path =
+        fs::canonicalize(input_path).map_err(|error| format!("read {label} {}: {error}", input_path.display()))?;
+    if input_path.starts_with(&artifact_dir) {
+        return Err(format!(
+            "{label} must be consumer-owned and outside the candidate artifact directory: {} is inside {}",
+            input_path.display(),
+            artifact_dir.display()
+        ));
+    }
+    Ok(())
+}
+
+fn load_admission_auth_policy(path: &Path) -> Result<AdmissionAuthPolicyInput, String> {
+    let bytes = fs::read(path).map_err(|error| format!("read admission auth policy {}: {error}", path.display()))?;
+    let policy = serde_json::from_slice::<AdmissionAuthPolicyInput>(&bytes)
+        .map_err(|error| format!("parse admission auth policy {}: {error}", path.display()))?;
+    validate_admission_auth_policy(&policy)?;
+    Ok(policy)
+}
+
+fn load_admission_auth_evidence(path: &Path) -> Result<AdmissionAuthEvidenceInput, String> {
+    let bytes = fs::read(path).map_err(|error| format!("read admission auth evidence {}: {error}", path.display()))?;
+    serde_json::from_slice::<AdmissionAuthEvidenceInput>(&bytes)
+        .map_err(|error| format!("parse admission auth evidence {}: {error}", path.display()))
+}
+
+fn auth_issue(code: &str, field: &str) -> ArtifactAuthIssueV1 {
+    ArtifactAuthIssueV1 {
+        code: code.to_owned(),
+        field: field.to_owned(),
+    }
+}
+
+fn validate_auth_text(value: &str, field: &str) -> Result<(), String> {
+    if value.is_empty() || value.len() > artifact_auth_core::MAX_TEXT_BYTES || value.chars().any(char::is_control) {
+        return Err(format!("invalid admission auth policy text field `{field}`"));
+    }
+    Ok(())
+}
+
+fn validate_auth_ref(value: &AuthArtifactRef, field: &str) -> Result<(), String> {
+    validate_auth_text(&value.profile, &format!("{field}.profile"))?;
+    if !matches!(value.algorithm.as_str(), "blake3" | "sha256") {
+        return Err(format!("admission auth policy `{field}.algorithm` must be `blake3` or `sha256`"));
+    }
+    if value.digest_hex.len() != AUTH_HEX_CHARS || decode_lower_hex(&value.digest_hex, AUTH_HEX_CHARS / 2).is_none() {
+        return Err(format!("admission auth policy `{field}.digest_hex` must be 64 lowercase hex characters"));
+    }
+    Ok(())
+}
+
+fn validate_admission_auth_policy(policy: &AdmissionAuthPolicyInput) -> Result<(), String> {
+    if policy.schema_version != ADMISSION_AUTH_POLICY_SCHEMA {
+        return Err(format!(
+            "unsupported admission auth policy schema `{}`; expected `{ADMISSION_AUTH_POLICY_SCHEMA}`",
+            policy.schema_version
+        ));
+    }
+    for (value, field) in [
+        (&policy.policy_id, "policy_id"),
+        (&policy.profile_id, "profile_id"),
+        (&policy.domain, "domain"),
+        (&policy.purpose, "purpose"),
+        (&policy.scope_id, "scope_id"),
+    ] {
+        validate_auth_text(value, field)?;
+    }
+    validate_auth_ref(&policy.verifier_context, "verifier_context")?;
+    validate_auth_ref(&policy.expected_subject, "expected_subject")?;
+    if policy.expected_subject.profile != ADMISSION_AUTH_BUNDLE_PROFILE
+        || policy.expected_subject.algorithm != ALGORITHM_BLAKE3
+    {
+        return Err(format!(
+            "admission auth policy `expected_subject` must use profile `{ADMISSION_AUTH_BUNDLE_PROFILE}` and algorithm `blake3`"
+        ));
+    }
+    if let Some(receipt_identity) = &policy.expected_receipt_identity
+        && normalize_auth_digest(receipt_identity, "expected_receipt_identity").is_err()
+    {
+        return Err("admission auth policy `expected_receipt_identity` must be a blake3 identity".to_owned());
+    }
+    if policy.threshold == 0 {
+        return Err("admission auth policy `threshold` must be at least 1".to_owned());
+    }
+    if policy.trusted_keys.is_empty() || policy.trusted_keys.len() > artifact_auth_core::MAX_TRUSTED_KEYS {
+        return Err("admission auth policy must supply between 1 and 64 trusted keys".to_owned());
+    }
+    if usize::from(policy.threshold) > policy.trusted_keys.len() {
+        return Err("admission auth policy `threshold` exceeds the trusted-key count".to_owned());
+    }
+    let mut key_identities = BTreeSet::new();
+    let mut key_labels = BTreeSet::new();
+    for (index, key) in policy.trusted_keys.iter().enumerate() {
+        let field = format!("trusted_keys[{index}]");
+        validate_auth_text(&key.producer_id, &format!("{field}.producer_id"))?;
+        validate_auth_text(&key.key_id, &format!("{field}.key_id"))?;
+        if !key_labels.insert((key.producer_id.as_str(), key.key_id.as_str())) {
+            return Err(format!("admission auth policy has duplicate trusted key label `{field}`"));
+        }
+        if decode_lower_hex(&key.public_key_hex, AUTH_PUBLIC_KEY_BYTES).is_none() {
+            return Err(format!("admission auth policy `{field}.public_key_hex` must be 64 lowercase hex characters"));
+        }
+        if key.generation == 0 {
+            return Err(format!("admission auth policy `{field}.generation` must be at least 1"));
+        }
+        validate_auth_purposes(&key.allowed_purposes, &format!("{field}.allowed_purposes"))?;
+        validate_auth_ref(&key.currentness_ref, &format!("{field}.currentness_ref"))?;
+        let identity = decode_lower_hex(&key.public_key_hex, AUTH_PUBLIC_KEY_BYTES)
+            .map(|bytes| public_key_identity(&bytes))
+            .ok_or_else(|| format!("admission auth policy `{field}.public_key_hex` is invalid"))?;
+        if !key_identities.insert(identity.digest_hex.clone()) {
+            return Err(format!("admission auth policy has duplicate trusted key `{field}`"));
+        }
+    }
+    if policy.currentness_rules.accepted.is_empty() {
+        return Err("admission auth policy `currentness_rules.accepted` must not be empty".to_owned());
+    }
+    validate_auth_text(&policy.currentness_rules.observation_profile, "currentness_rules.observation_profile")?;
+    if policy.currentness_rules.maximum_observation_age_seconds.is_some()
+        && policy.currentness_rules.evaluated_at_unix.is_none()
+    {
+        return Err(
+            "admission auth policy `currentness_rules.evaluated_at_unix` is required when a maximum observation age is set"
+                .to_owned(),
+        );
+    }
+    if policy.authorized_producers.is_empty() {
+        return Err("admission auth policy `authorized_producers` must not be empty".to_owned());
+    }
+    let mut producers = BTreeSet::new();
+    for (index, producer) in policy.authorized_producers.iter().enumerate() {
+        let field = format!("authorized_producers[{index}]");
+        validate_auth_text(&producer.producer_id, &format!("{field}.producer_id"))?;
+        if !producers.insert(producer.producer_id.as_str()) {
+            return Err(format!("admission auth policy has duplicate authorized producer `{field}`"));
+        }
+        if producer.key_ids.is_empty() {
+            return Err(format!("admission auth policy `{field}.key_ids` must not be empty"));
+        }
+        validate_auth_text_list(&producer.key_ids, &format!("{field}.key_ids"))?;
+        validate_auth_purposes(&producer.purposes, &format!("{field}.purposes"))?;
+        validate_auth_text_list(&producer.scope_ids, &format!("{field}.scope_ids"))?;
+    }
+    if policy.required_provenance.is_empty() {
+        return Err("admission auth policy `required_provenance` must not be empty".to_owned());
+    }
+    validate_auth_text_list(&policy.required_provenance, "required_provenance")?;
+    Ok(())
+}
+
+fn validate_auth_text_list(values: &[String], field: &str) -> Result<(), String> {
+    if values.is_empty() {
+        return Err(format!("admission auth policy `{field}` must not be empty"));
+    }
+    let mut seen = BTreeSet::new();
+    for (index, value) in values.iter().enumerate() {
+        validate_auth_text(value, &format!("{field}[{index}]"))?;
+        if !seen.insert(value.as_str()) {
+            return Err(format!("admission auth policy `{field}` has a duplicate value"));
+        }
+    }
+    Ok(())
+}
+
+fn validate_auth_purposes(values: &[String], field: &str) -> Result<(), String> {
+    validate_auth_text_list(values, field)
+}
+
+fn decode_lower_hex(value: &str, expected_bytes: usize) -> Option<Vec<u8>> {
+    if value.len() != expected_bytes * 2 {
+        return None;
+    }
+    let mut output = Vec::with_capacity(expected_bytes);
+    let bytes = value.as_bytes();
+    for pair in bytes.chunks_exact(2) {
+        let high = lower_hex_digit(pair[0])?;
+        let low = lower_hex_digit(pair[1])?;
+        output.push((high << 4) | low);
+    }
+    Some(output)
+}
+
+fn lower_hex_digit(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+fn encode_lower_hex(bytes: &[u8]) -> String {
+    let mut output = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        let _ = write!(output, "{byte:02x}");
+    }
+    output
+}
+
+fn normalize_auth_digest(value: &str, field: &str) -> Result<String, String> {
+    let digest = value.strip_prefix(AUTH_BLAKE3_PREFIX).unwrap_or(value);
+    if digest.len() != AUTH_HEX_CHARS || decode_lower_hex(digest, AUTH_HEX_CHARS / 2).is_none() {
+        return Err(format!("admission auth `{field}` must be a 64-character lowercase blake3 identity"));
+    }
+    Ok(digest.to_owned())
+}
+
+fn blake3_auth_bytes(bytes: &[u8]) -> String {
+    blake3::hash(bytes).to_hex().to_string()
+}
+
+fn push_auth_text(output: &mut Vec<u8>, value: &str) {
+    let length = u32::try_from(value.len()).unwrap_or(u32::MAX);
+    output.extend_from_slice(&length.to_be_bytes());
+    output.extend_from_slice(value.as_bytes());
+}
+
+fn push_auth_count(output: &mut Vec<u8>, count: usize) {
+    let length = u32::try_from(count).unwrap_or(u32::MAX);
+    output.extend_from_slice(&length.to_be_bytes());
+}
+
+/// Canonical candidate bundle identity over every retained file and the receipt identity.
+fn admission_bundle_identity(
+    files: &BTreeMap<String, Vec<u8>>,
+    receipt: Option<&EffectClosureReceipt>,
+) -> AuthArtifactRef {
+    let mut bytes = Vec::new();
+    push_auth_text(&mut bytes, ADMISSION_AUTH_BUNDLE_DOMAIN);
+    push_auth_text(&mut bytes, receipt.map(|receipt| receipt.receipt_identity.as_str()).unwrap_or_default());
+    push_auth_count(&mut bytes, files.len());
+    for (locator, contents) in files {
+        push_auth_text(&mut bytes, locator);
+        push_auth_text(&mut bytes, &blake3_auth_bytes(contents));
+    }
+    AuthArtifactRef {
+        profile: ADMISSION_AUTH_BUNDLE_PROFILE.to_owned(),
+        algorithm: ALGORITHM_BLAKE3.to_owned(),
+        digest_hex: blake3_auth_bytes(&bytes),
+    }
+}
+
+fn admission_provenance_refs(receipt: &EffectClosureReceipt) -> Result<Vec<AuthArtifactRef>, String> {
+    let mut parents = Vec::new();
+    for (profile, value, field) in [
+        (ADMISSION_AUTH_RECEIPT_PROFILE, receipt.receipt_identity.as_str(), "receipt_identity"),
+        (ADMISSION_AUTH_COMMAND_PROFILE, receipt.inputs.command_blake3.as_str(), "command_blake3"),
+        (
+            ADMISSION_AUTH_CHECK_STATUS_PROFILE,
+            receipt.inputs.check_status_blake3.as_str(),
+            "check_status_blake3",
+        ),
+        (
+            ADMISSION_AUTH_FUNCTION_ADDRESS_PROFILE,
+            receipt.inputs.function_address_artifact_blake3.as_str(),
+            "function_address_artifact_blake3",
+        ),
+        (
+            ADMISSION_AUTH_WORKSPACE_POLICY_PROFILE,
+            receipt.inputs.workspace_policy_blake3.as_str(),
+            "workspace_policy_blake3",
+        ),
+        (ADMISSION_AUTH_CARGO_GRAPH_PROFILE, receipt.inputs.cargo_graph_blake3.as_str(), "cargo_graph_blake3"),
+        (ADMISSION_AUTH_CARGO_LOCK_PROFILE, receipt.inputs.cargo_lock_blake3.as_str(), "cargo_lock_blake3"),
+    ] {
+        parents.push(AuthArtifactRef {
+            profile: profile.to_owned(),
+            algorithm: ALGORITHM_BLAKE3.to_owned(),
+            digest_hex: normalize_auth_digest(value, field)?,
+        });
+    }
+    parents.sort();
+    Ok(parents)
+}
+
+struct AdmissionAuthScope {
+    scope: AuthenticationScope,
+    subject: AuthArtifactRef,
+    issues: Vec<ArtifactAuthIssueV1>,
+}
+
+fn build_admission_auth_scope(
+    policy: &AdmissionAuthPolicyInput,
+    files: &BTreeMap<String, Vec<u8>>,
+    receipt: Option<&EffectClosureReceipt>,
+) -> AdmissionAuthScope {
+    let subject = admission_bundle_identity(files, receipt);
+    let mut issues = Vec::new();
+    if subject != policy.expected_subject {
+        issues.push(auth_issue("admission_auth.subject_mismatch", "policy.expected_subject"));
+    }
+    let actual_receipt_identity = receipt.map(|receipt| receipt.receipt_identity.clone()).unwrap_or_default();
+    if receipt.is_none() {
+        issues.push(auth_issue("admission_auth.receipt_missing", "bundle.effect-closure.json"));
+    }
+    if let Some(expected) = &policy.expected_receipt_identity
+        && normalize_auth_digest(expected, "expected_receipt_identity").ok().as_deref()
+            != normalize_auth_digest(&actual_receipt_identity, "receipt_identity").ok().as_deref()
+    {
+        issues.push(auth_issue("admission_auth.receipt_identity_mismatch", "policy.expected_receipt_identity"));
+    }
+    let mut parents = vec![
+        AuthArtifactRef {
+            profile: ADMISSION_AUTH_POLICY_IDENTITY_PROFILE.to_owned(),
+            algorithm: ALGORITHM_BLAKE3.to_owned(),
+            digest_hex: blake3_auth_bytes(policy.policy_id.as_bytes()),
+        },
+        AuthArtifactRef {
+            profile: ADMISSION_AUTH_SCOPE_IDENTITY_PROFILE.to_owned(),
+            algorithm: ALGORITHM_BLAKE3.to_owned(),
+            digest_hex: blake3_auth_bytes(policy.scope_id.as_bytes()),
+        },
+    ];
+    if let Some(receipt) = receipt {
+        match admission_provenance_refs(receipt) {
+            Ok(refs) => {
+                let present = refs.iter().map(|parent| parent.profile.as_str()).collect::<BTreeSet<_>>();
+                for (index, required) in policy.required_provenance.iter().enumerate() {
+                    if !present.contains(required.as_str()) {
+                        issues.push(auth_issue(
+                            "admission_auth.provenance_missing",
+                            &format!("policy.required_provenance[{index}]"),
+                        ));
+                    }
+                }
+                parents.extend(refs);
+            }
+            Err(_) => {
+                issues.push(auth_issue("admission_auth.provenance_malformed", "bundle.effect-closure.json"));
+            }
+        }
+    }
+    parents.sort();
+    AdmissionAuthScope {
+        scope: AuthenticationScope {
+            domain: policy.domain.clone(),
+            purpose: policy.purpose.clone(),
+            profile_id: policy.profile_id.clone(),
+            subject: subject.clone(),
+            parents,
+            verifier_context: policy.verifier_context.clone(),
+        },
+        subject,
+        issues,
+    }
+}
+
+fn build_authentication_policy(
+    policy: &AdmissionAuthPolicyInput,
+) -> Result<(AuthenticationPolicy, Vec<TrustedKeyMaterial>), String> {
+    let mut materials = Vec::with_capacity(policy.trusted_keys.len());
+    for (index, key) in policy.trusted_keys.iter().enumerate() {
+        let bytes = decode_lower_hex(&key.public_key_hex, AUTH_PUBLIC_KEY_BYTES)
+            .ok_or_else(|| format!("admission auth policy `trusted_keys[{index}].public_key_hex` is invalid"))?;
+        let public_key_bytes: [u8; AUTH_PUBLIC_KEY_BYTES] = bytes
+            .try_into()
+            .map_err(|_| format!("admission auth policy `trusted_keys[{index}].public_key_hex` is invalid"))?;
+        let key_identity = public_key_identity(&public_key_bytes);
+        materials.push(TrustedKeyMaterial {
+            observation: TrustedKeyObservation {
+                producer_id: key.producer_id.clone(),
+                key_id: key.key_id.clone(),
+                key_identity,
+                allowed_purposes: key.allowed_purposes.clone(),
+                generation: key.generation,
+                currentness: key.currentness,
+                currentness_ref: key.currentness_ref.clone(),
+            },
+            public_key_bytes,
+            observed_at_unix: key.observed_at_unix,
+        });
+    }
+    let trusted_keys = materials.iter().map(|material| material.observation.clone()).collect();
+    Ok((
+        AuthenticationPolicy {
+            schema: POLICY_SCHEMA_V1.to_owned(),
+            profile_id: policy.profile_id.clone(),
+            threshold: policy.threshold,
+            trusted_keys,
+        },
+        materials,
+    ))
+}
+
+fn producer_authorized(policy: &AdmissionAuthPolicyInput, statement: &ArtifactStatement) -> bool {
+    policy.authorized_producers.iter().any(|producer| {
+        producer.producer_id == statement.producer_id
+            && producer.key_ids.contains(&statement.key_id)
+            && producer.purposes.contains(&policy.purpose)
+            && producer.scope_ids.contains(&policy.scope_id)
+    })
+}
+
+fn currentness_observation_issue(
+    policy: &AdmissionAuthPolicyInput,
+    material: &TrustedKeyMaterial,
+    field: &str,
+) -> Option<ArtifactAuthIssueV1> {
+    let rules = &policy.currentness_rules;
+    let key = &material.observation;
+    if !rules.accepted.contains(&key.currentness) {
+        return Some(auth_issue("admission_auth.currentness_unacceptable", &format!("{field}.currentness")));
+    }
+    if key.currentness_ref.profile != rules.observation_profile {
+        return Some(auth_issue(
+            "admission_auth.currentness_unacceptable",
+            &format!("{field}.currentness_ref.profile"),
+        ));
+    }
+    if let Some(maximum_age) = rules.maximum_observation_age_seconds {
+        let Some(evaluated_at) = rules.evaluated_at_unix else {
+            return Some(auth_issue(
+                "admission_auth.currentness_unacceptable",
+                "policy.currentness_rules.evaluated_at_unix",
+            ));
+        };
+        let Some(observed_at) = material.observed_at_unix else {
+            return Some(auth_issue("admission_auth.currentness_unacceptable", &format!("{field}.observed_at_unix")));
+        };
+        let age = evaluated_at.saturating_sub(observed_at);
+        if observed_at > evaluated_at || age > maximum_age {
+            return Some(auth_issue("admission_auth.currentness_unacceptable", &format!("{field}.observed_at_unix")));
+        }
+    } else if let (Some(evaluated_at), Some(observed_at)) = (rules.evaluated_at_unix, material.observed_at_unix)
+        && observed_at > evaluated_at
+    {
+        return Some(auth_issue("admission_auth.currentness_unacceptable", &format!("{field}.observed_at_unix")));
+    }
+    None
+}
+
+fn auth_code_present(issues: &[ArtifactAuthIssueV1], codes: &[&str]) -> bool {
+    issues.iter().any(|issue| codes.contains(&issue.code.as_str()))
+}
+
+fn auth_decision_bytes(decision: &ArtifactAuthDecisionV1) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    push_auth_text(&mut bytes, ADMISSION_AUTH_DECISION_DOMAIN);
+    push_auth_text(&mut bytes, &decision.schema_version);
+    push_auth_text(&mut bytes, &decision.policy_id);
+    push_auth_text(&mut bytes, &decision.policy_profile_id);
+    push_auth_text(&mut bytes, &decision.subject_blake3);
+    push_auth_text(&mut bytes, &decision.receipt_identity);
+    push_auth_text(&mut bytes, &decision.policy_blake3);
+    push_auth_text(&mut bytes, &decision.scope_blake3);
+    push_auth_text(&mut bytes, &decision.checker_blake3);
+    push_auth_count(&mut bytes, decision.verified_key_blake3.len());
+    for key in &decision.verified_key_blake3 {
+        push_auth_text(&mut bytes, key);
+    }
+    push_auth_text(&mut bytes, if decision.passed { "passed" } else { "denied" });
+    push_auth_count(&mut bytes, decision.issues.len());
+    for issue in &decision.issues {
+        push_auth_text(&mut bytes, &issue.code);
+        push_auth_text(&mut bytes, &issue.field);
+    }
+    push_auth_count(&mut bytes, decision.non_claims.len());
+    for claim in &decision.non_claims {
+        push_auth_text(&mut bytes, claim);
+    }
+    bytes
+}
+
+fn auth_decision_receipt_blake3(decision: &ArtifactAuthDecisionV1) -> String {
+    blake3_auth_bytes(&auth_decision_bytes(decision))
+}
+
+fn evaluate_admission_auth(
+    report: &AdmissionVerificationReport,
+    files: &BTreeMap<String, Vec<u8>>,
+    receipt: Option<&EffectClosureReceipt>,
+    policy: &AdmissionAuthPolicyInput,
+    evidence: &AdmissionAuthEvidenceInput,
+) -> Result<AdmissionAuthReport, String> {
+    let (core_policy, materials) = build_authentication_policy(policy)?;
+    let scope_result = build_admission_auth_scope(policy, files, receipt);
+    let mut issues = scope_result.issues;
+    if !report.diagnostics.is_empty() {
+        issues.push(auth_issue("admission_auth.candidate_integrity_invalid", "bundle"));
+    }
+    if evidence.schema_version != ADMISSION_AUTH_EVIDENCE_SCHEMA {
+        issues.push(auth_issue("admission_auth.evidence_schema_unsupported", "evidence.schema_version"));
+    }
+    let mut matched = Vec::new();
+    let mut signatures = Vec::new();
+    let mut seen_keys = BTreeSet::new();
+    if evidence.schema_version == ADMISSION_AUTH_EVIDENCE_SCHEMA {
+        for (index, item) in evidence.evidence.iter().enumerate() {
+            let field = format!("evidence[{index}]");
+            if !producer_authorized(policy, &item.statement) {
+                issues.push(auth_issue(
+                    "admission_auth.producer_unauthorized",
+                    &format!("{field}.statement.producer_id"),
+                ));
+            }
+            let Some((material_index, material)) = materials.iter().enumerate().find(|(_, material)| {
+                material.observation.producer_id == item.statement.producer_id
+                    && material.observation.key_id == item.statement.key_id
+            }) else {
+                issues.push(auth_issue(
+                    "admission_auth.evidence_key_untrusted",
+                    &format!("{field}.statement.key_identity"),
+                ));
+                continue;
+            };
+            let key_marker = (item.statement.producer_id.clone(), item.statement.key_id.clone());
+            if !seen_keys.insert(key_marker) {
+                issues.push(auth_issue("admission_auth.evidence_key_duplicate", &format!("{field}.statement.key_id")));
+                continue;
+            }
+            if let Some(issue) = currentness_observation_issue(policy, material, &field) {
+                issues.push(issue);
+            }
+            let Some(signature) = decode_lower_hex(&item.signature_hex, AUTH_SIGNATURE_BYTES) else {
+                issues.push(auth_issue("admission_auth.signature_malformed", &format!("{field}.signature_hex")));
+                continue;
+            };
+            matched.push((&item.statement, item.generation, material_index));
+            signatures.push(signature);
+        }
+    }
+    let ed25519_evidence = matched
+        .iter()
+        .zip(signatures.iter())
+        .map(|((statement, generation, material_index), signature)| Ed25519Evidence {
+            statement,
+            generation: *generation,
+            public_key_bytes: &materials[*material_index].public_key_bytes,
+            signature_bytes: signature,
+        })
+        .collect::<Vec<_>>();
+    let core_decision = verify_and_evaluate(&core_policy, &scope_result.scope, &ed25519_evidence);
+    issues.extend(core_decision.issues.iter().map(|issue| ArtifactAuthIssueV1 {
+        code: issue.code.clone(),
+        field: issue.field.clone(),
+    }));
+    issues.sort();
+    issues.dedup();
+    let integrity = if report.diagnostics.is_empty() {
+        STATUS_VALID
+    } else {
+        STATUS_INVALID
+    };
+    let signature_authenticity = if auth_code_present(&issues, AUTH_SIGNATURE_UNSUPPORTED_CODES) {
+        "unsupported"
+    } else if auth_code_present(&issues, AUTH_SIGNATURE_UNVERIFIED_CODES) || ed25519_evidence.is_empty() {
+        "unverified"
+    } else {
+        "verified"
+    };
+    let authorization = if auth_code_present(&issues, AUTH_AUTHORIZATION_CODES) {
+        "unsatisfied"
+    } else {
+        "satisfied"
+    };
+    let trust_currentness = if auth_code_present(&issues, AUTH_TRUST_CODES) {
+        "unsatisfied"
+    } else {
+        "satisfied"
+    };
+    let checker = if core_decision.passed { "passed" } else { "denied" };
+    let mut non_claims = core_decision.non_claims.clone();
+    non_claims.push(NON_CLAIM_AUTH.to_owned());
+    non_claims.sort();
+    non_claims.dedup();
+    let decision = ArtifactAuthDecisionV1 {
+        schema_version: ADMISSION_AUTH_DECISION_SCHEMA.to_owned(),
+        policy_id: policy.policy_id.clone(),
+        policy_profile_id: policy.profile_id.clone(),
+        subject_blake3: scope_result.subject.digest_hex.clone(),
+        receipt_identity: receipt.map(|receipt| receipt.receipt_identity.clone()).unwrap_or_default(),
+        policy_blake3: core_decision.policy_blake3,
+        scope_blake3: core_decision.scope_blake3,
+        checker_blake3: core_decision.decision_blake3,
+        verified_key_blake3: core_decision.verified_key_blake3,
+        passed: core_decision.passed && issues.is_empty() && integrity == STATUS_VALID,
+        issues: issues.clone(),
+        non_claims: non_claims.clone(),
+    };
+    let decision_receipt_blake3 = auth_decision_receipt_blake3(&decision);
+    let diagnostics = issues.iter().map(|issue| format!("{}: {}", issue.code, issue.field)).collect::<Vec<_>>();
+    Ok(AdmissionAuthReport {
+        schema_version: ADMISSION_AUTH_REPORT_SCHEMA.to_owned(),
+        policy_id: policy.policy_id.clone(),
+        integrity: integrity.to_owned(),
+        signature_authenticity: signature_authenticity.to_owned(),
+        authorization: authorization.to_owned(),
+        trust_currentness: trust_currentness.to_owned(),
+        checker: checker.to_owned(),
+        passed: decision.passed,
+        decision_receipt_blake3,
+        decision,
+        diagnostics,
+        non_claims,
+    })
+}
+
 // Bundle verification checks every bound artifact against one parsed receipt; splitting it would
 // scatter the cross-artifact identity checks.
 #[allow(clippy::too_many_lines)]
@@ -1368,6 +2335,7 @@ fn verify_bundle_inner(
         .to_owned(),
         receipt_identity: receipt.map(|receipt| receipt.receipt_identity),
         checked_artifacts,
+        auth: None,
         diagnostics,
         non_claims: vec![NON_CLAIM_INTEGRITY.to_owned()],
     })
@@ -1639,6 +2607,10 @@ fn pretty_json_bytes<T: Serialize>(value: &T) -> Result<Vec<u8>, String> {
 
 #[cfg(test)]
 mod tests {
+    use artifact_auth_core::STATEMENT_SCHEMA_V1;
+    use ed25519_dalek::Signer;
+    use ed25519_dalek::SigningKey;
+
     use super::*;
 
     const TEST_PROFILE: &str = "deterministic-core";
@@ -2427,5 +3399,573 @@ mod tests {
         );
         let absolute = workspace.join("elsewhere");
         assert_eq!(verification_artifact_dir(&nested, &absolute).expect("absolute artifact dir"), absolute);
+    }
+
+    const AUTH_TEST_SEED_A: u8 = 31;
+    const AUTH_TEST_SEED_B: u8 = 37;
+    const AUTH_TEST_SEED_C: u8 = 41;
+    const AUTH_TEST_CURRENTNESS_PROFILE: &str = "octet-key-currentness-observation.v1";
+    const AUTH_TEST_PURPOSE: &str = "admission-verification";
+    const AUTH_TEST_SCOPE: &str = "effect-closure-admission";
+    const AUTH_TEST_PRODUCER: &str = "release";
+    const AUTH_TEST_KEY_A: &str = "release-key-a";
+    const AUTH_TEST_KEY_B: &str = "release-key-b";
+
+    struct AuthTestBundle {
+        dir: PathBuf,
+        files: BTreeMap<String, Vec<u8>>,
+        receipt: EffectClosureReceipt,
+        subject: AuthArtifactRef,
+    }
+
+    fn auth_test_ref(profile: &str, seed: &str) -> AuthArtifactRef {
+        AuthArtifactRef {
+            profile: profile.to_owned(),
+            algorithm: ALGORITHM_BLAKE3.to_owned(),
+            digest_hex: blake3::hash(seed.as_bytes()).to_hex().to_string(),
+        }
+    }
+
+    fn read_bundle_files(dir: &Path) -> BTreeMap<String, Vec<u8>> {
+        ArtifactRoot::open_existing(dir)
+            .expect("artifact root")
+            .read_files_recursive()
+            .expect("bundle files")
+            .into_iter()
+            .map(|file| (file.locator, file.contents))
+            .collect()
+    }
+
+    fn auth_test_bundle(dir: &Path, source: &str) -> AuthTestBundle {
+        let fixture = bundle_fixture(source, &[("root", 'a')], Vec::new(), Vec::new());
+        let receipt = effect_closure::compute_closure(fixture.input.clone());
+        assert_eq!(receipt.status, AdmissionStatus::Admitted);
+        write_bundle(dir, &fixture, &receipt, None);
+        let files = read_bundle_files(dir);
+        let subject = admission_bundle_identity(&files, Some(&receipt));
+        AuthTestBundle {
+            dir: dir.to_path_buf(),
+            files,
+            receipt,
+            subject,
+        }
+    }
+
+    fn auth_test_key(
+        seed: u8,
+        key_id: &str,
+        generation: u64,
+        currentness: KeyCurrentness,
+    ) -> (TrustedKeyInput, SigningKey) {
+        let signing = SigningKey::from_bytes(&[seed; AUTH_PUBLIC_KEY_BYTES]);
+        let public_key = signing.verifying_key().to_bytes();
+        (
+            TrustedKeyInput {
+                producer_id: AUTH_TEST_PRODUCER.to_owned(),
+                key_id: key_id.to_owned(),
+                public_key_hex: encode_lower_hex(&public_key),
+                generation,
+                allowed_purposes: vec![AUTH_TEST_PURPOSE.to_owned()],
+                currentness,
+                currentness_ref: auth_test_ref(AUTH_TEST_CURRENTNESS_PROFILE, key_id),
+                observed_at_unix: None,
+            },
+            signing,
+        )
+    }
+
+    fn auth_test_policy(
+        subject: &AuthArtifactRef,
+        keys: &[&TrustedKeyInput],
+        threshold: u16,
+    ) -> AdmissionAuthPolicyInput {
+        AdmissionAuthPolicyInput {
+            schema_version: ADMISSION_AUTH_POLICY_SCHEMA.to_owned(),
+            policy_id: "release-admission".to_owned(),
+            profile_id: "onix-artifact-auth.v1".to_owned(),
+            domain: "octet.effect-closure.admission.v1".to_owned(),
+            purpose: AUTH_TEST_PURPOSE.to_owned(),
+            scope_id: AUTH_TEST_SCOPE.to_owned(),
+            verifier_context: auth_test_ref("octet-verifier-context.v1", "verifier-context"),
+            expected_subject: subject.clone(),
+            expected_receipt_identity: None,
+            authorized_producers: vec![AuthorizedProducerInput {
+                producer_id: AUTH_TEST_PRODUCER.to_owned(),
+                key_ids: keys.iter().map(|key| key.key_id.clone()).collect(),
+                purposes: vec![AUTH_TEST_PURPOSE.to_owned()],
+                scope_ids: vec![AUTH_TEST_SCOPE.to_owned()],
+            }],
+            threshold,
+            trusted_keys: keys.iter().map(|key| (*key).clone()).collect(),
+            currentness_rules: CurrentnessRulesInput {
+                accepted: vec![KeyCurrentness::Current, KeyCurrentness::VerificationOverlap],
+                observation_profile: AUTH_TEST_CURRENTNESS_PROFILE.to_owned(),
+                maximum_observation_age_seconds: None,
+                evaluated_at_unix: None,
+            },
+            required_provenance: vec![
+                ADMISSION_AUTH_RECEIPT_PROFILE.to_owned(),
+                ADMISSION_AUTH_COMMAND_PROFILE.to_owned(),
+                ADMISSION_AUTH_CHECK_STATUS_PROFILE.to_owned(),
+            ],
+        }
+    }
+
+    fn auth_test_scope(policy: &AdmissionAuthPolicyInput, bundle: &AuthTestBundle) -> AuthenticationScope {
+        build_admission_auth_scope(policy, &bundle.files, Some(&bundle.receipt)).scope
+    }
+
+    fn auth_test_signed(
+        signing: &SigningKey,
+        scope: &AuthenticationScope,
+        key_id: &str,
+        generation: u64,
+    ) -> SignatureEvidenceInput {
+        auth_test_signed_for(AUTH_TEST_PRODUCER, signing, scope, key_id, generation)
+    }
+
+    fn auth_test_signed_for(
+        producer_id: &str,
+        signing: &SigningKey,
+        scope: &AuthenticationScope,
+        key_id: &str,
+        generation: u64,
+    ) -> SignatureEvidenceInput {
+        let public_key = signing.verifying_key().to_bytes();
+        let statement = ArtifactStatement {
+            schema: STATEMENT_SCHEMA_V1.to_owned(),
+            scope: scope.clone(),
+            producer_id: producer_id.to_owned(),
+            key_id: key_id.to_owned(),
+            key_identity: public_key_identity(&public_key),
+        };
+        let message = artifact_auth_core::canonical_statement_bytes(&statement).expect("canonical statement");
+        let signature = signing.sign(&message);
+        SignatureEvidenceInput {
+            statement,
+            generation,
+            signature_hex: encode_lower_hex(&signature.to_bytes()),
+        }
+    }
+
+    fn auth_test_evidence(items: Vec<SignatureEvidenceInput>) -> AdmissionAuthEvidenceInput {
+        AdmissionAuthEvidenceInput {
+            schema_version: ADMISSION_AUTH_EVIDENCE_SCHEMA.to_owned(),
+            evidence: items,
+        }
+    }
+
+    fn write_auth_inputs(
+        dir: &Path,
+        policy: &AdmissionAuthPolicyInput,
+        evidence: &AdmissionAuthEvidenceInput,
+    ) -> (PathBuf, PathBuf) {
+        fs::create_dir_all(dir).expect("consumer input dir");
+        let policy_path = dir.join("auth-policy.json");
+        let evidence_path = dir.join("auth-evidence.json");
+        fs::write(&policy_path, serde_json::to_vec_pretty(policy).expect("policy JSON")).expect("write policy");
+        fs::write(&evidence_path, serde_json::to_vec_pretty(evidence).expect("evidence JSON")).expect("write evidence");
+        (policy_path, evidence_path)
+    }
+
+    fn verify_auth(
+        bundle: &AuthTestBundle,
+        policy: &AdmissionAuthPolicyInput,
+        evidence: &AdmissionAuthEvidenceInput,
+        inputs_dir: &Path,
+    ) -> AdmissionVerificationReport {
+        let (policy_path, evidence_path) = write_auth_inputs(inputs_dir, policy, evidence);
+        verify_bundle_authorized_inner(&bundle.dir, false, &policy_path, &evidence_path)
+            .expect("authorized verification report")
+    }
+
+    fn auth_issue_codes(report: &AdmissionVerificationReport) -> Vec<String> {
+        report
+            .auth
+            .as_ref()
+            .expect("auth report")
+            .decision
+            .issues
+            .iter()
+            .map(|issue| issue.code.clone())
+            .collect()
+    }
+
+    // r[verify octet.effect_closure.evidence.tamper]
+    #[test]
+    fn authorized_verification_binds_two_distinct_keys_and_recomputes_the_decision() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let bundle = auth_test_bundle(&temp.path().join("bundle"), "fn root() {}\n");
+        let (key_a, signing_a) = auth_test_key(AUTH_TEST_SEED_A, AUTH_TEST_KEY_A, 1, KeyCurrentness::Current);
+        let (key_b, signing_b) = auth_test_key(AUTH_TEST_SEED_B, AUTH_TEST_KEY_B, 1, KeyCurrentness::Current);
+        let policy = auth_test_policy(&bundle.subject, &[&key_a, &key_b], 2);
+        let scope = auth_test_scope(&policy, &bundle);
+        let evidence = auth_test_evidence(vec![
+            auth_test_signed(&signing_a, &scope, AUTH_TEST_KEY_A, 1),
+            auth_test_signed(&signing_b, &scope, AUTH_TEST_KEY_B, 1),
+        ]);
+        let report = verify_auth(&bundle, &policy, &evidence, &temp.path().join("consumer"));
+        assert_eq!(report.status, STATUS_VALID, "{:?}", report.diagnostics);
+        let auth = report.auth.as_ref().expect("auth report");
+        assert!(auth.passed, "{:?}", auth.decision.issues);
+        assert_eq!(auth.integrity, STATUS_VALID);
+        assert_eq!(auth.signature_authenticity, "verified");
+        assert_eq!(auth.authorization, "satisfied");
+        assert_eq!(auth.trust_currentness, "satisfied");
+        assert_eq!(auth.checker, "passed");
+        assert_eq!(auth.decision.verified_key_blake3.len(), 2);
+        assert_eq!(auth.decision_receipt_blake3, auth_decision_receipt_blake3(&auth.decision));
+        let serialized = serde_json::to_vec(&auth.decision).expect("decision JSON");
+        let reparsed = serde_json::from_slice::<ArtifactAuthDecisionV1>(&serialized).expect("decision round trip");
+        assert_eq!(auth.decision_receipt_blake3, auth_decision_receipt_blake3(&reparsed));
+        assert!(auth.non_claims.iter().any(|claim| claim.as_str() == NON_CLAIM_AUTH));
+        assert!(report.non_claims.iter().any(|claim| claim.as_str() == NON_CLAIM_INTEGRITY));
+
+        let unsigned = verify_bundle_inner(&bundle.dir, false).expect("unsigned report");
+        assert!(unsigned.auth.is_none());
+        assert_eq!(unsigned.non_claims, vec![NON_CLAIM_INTEGRITY.to_owned()]);
+        assert_eq!(unsigned.status, STATUS_VALID, "{:?}", unsigned.diagnostics);
+    }
+
+    #[test]
+    fn changed_policy_scope_or_subject_is_rejected() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let bundle = auth_test_bundle(&temp.path().join("bundle"), "fn root() {}\n");
+        let (key_a, signing_a) = auth_test_key(AUTH_TEST_SEED_A, AUTH_TEST_KEY_A, 1, KeyCurrentness::Current);
+        let policy = auth_test_policy(&bundle.subject, &[&key_a], 1);
+        let scope = auth_test_scope(&policy, &bundle);
+        let evidence = auth_test_evidence(vec![auth_test_signed(&signing_a, &scope, AUTH_TEST_KEY_A, 1)]);
+
+        let mut changed_subject = policy.clone();
+        changed_subject.expected_subject.digest_hex = blake3::hash(b"other-bundle").to_hex().to_string();
+        let report = verify_auth(&bundle, &changed_subject, &evidence, &temp.path().join("subject"));
+        assert!(!report.auth.as_ref().expect("auth").passed);
+        assert!(auth_issue_codes(&report).contains(&"admission_auth.subject_mismatch".to_owned()));
+        assert_eq!(report.auth.as_ref().expect("auth").authorization, "unsatisfied");
+
+        let mut changed_purpose = policy.clone();
+        changed_purpose.purpose = "release-evidence".to_owned();
+        let report = verify_auth(&bundle, &changed_purpose, &evidence, &temp.path().join("purpose"));
+        assert!(!report.auth.as_ref().expect("auth").passed);
+        assert!(auth_issue_codes(&report).contains(&"auth.statement_scope_mismatch".to_owned()));
+
+        let mut wrong_purpose_scope = scope.clone();
+        wrong_purpose_scope.purpose = "release-evidence".to_owned();
+        let wrong_purpose_evidence =
+            auth_test_evidence(vec![auth_test_signed(&signing_a, &wrong_purpose_scope, AUTH_TEST_KEY_A, 1)]);
+        let report = verify_auth(&bundle, &policy, &wrong_purpose_evidence, &temp.path().join("wrong-purpose"));
+        assert!(!report.auth.as_ref().expect("auth").passed);
+        assert!(auth_issue_codes(&report).contains(&"auth.statement_scope_mismatch".to_owned()));
+
+        let mut changed_profile = policy.clone();
+        changed_profile.profile_id = "other-profile".to_owned();
+        let report = verify_auth(&bundle, &changed_profile, &evidence, &temp.path().join("profile"));
+        assert!(!report.auth.as_ref().expect("auth").passed);
+        assert!(auth_issue_codes(&report).contains(&"auth.statement_scope_mismatch".to_owned()));
+
+        let mut changed_scope_id = policy.clone();
+        changed_scope_id.scope_id = "other-scope".to_owned();
+        let report = verify_auth(&bundle, &changed_scope_id, &evidence, &temp.path().join("scope"));
+        assert!(!report.auth.as_ref().expect("auth").passed);
+        assert!(auth_issue_codes(&report).contains(&"admission_auth.producer_unauthorized".to_owned()));
+        assert!(auth_issue_codes(&report).contains(&"auth.statement_scope_mismatch".to_owned()));
+
+        let mut changed_policy_id = policy;
+        changed_policy_id.policy_id = "other-policy".to_owned();
+        let report = verify_auth(&bundle, &changed_policy_id, &evidence, &temp.path().join("policy-id"));
+        assert!(!report.auth.as_ref().expect("auth").passed);
+        assert!(auth_issue_codes(&report).contains(&"auth.statement_scope_mismatch".to_owned()));
+    }
+
+    #[test]
+    fn producer_authorization_is_required_in_addition_to_signature_validity() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let bundle = auth_test_bundle(&temp.path().join("bundle"), "fn root() {}\n");
+        let (key_a, signing_a) = auth_test_key(AUTH_TEST_SEED_A, AUTH_TEST_KEY_A, 1, KeyCurrentness::Current);
+        let policy = auth_test_policy(&bundle.subject, &[&key_a], 1);
+        let scope = auth_test_scope(&policy, &bundle);
+        let evidence = auth_test_evidence(vec![auth_test_signed(&signing_a, &scope, AUTH_TEST_KEY_A, 1)]);
+
+        let mut unauthorized = policy.clone();
+        unauthorized.authorized_producers[0].purposes = vec!["release-evidence".to_owned()];
+        let report = verify_auth(&bundle, &unauthorized, &evidence, &temp.path().join("purpose"));
+        let auth = report.auth.as_ref().expect("auth");
+        assert!(!auth.passed);
+        assert_eq!(auth.signature_authenticity, "verified");
+        assert_eq!(auth.authorization, "unsatisfied");
+        assert!(auth_issue_codes(&report).contains(&"admission_auth.producer_unauthorized".to_owned()));
+
+        let mut unknown_producer = policy.clone();
+        unknown_producer.authorized_producers[0].producer_id = "other-producer".to_owned();
+        let report = verify_auth(&bundle, &unknown_producer, &evidence, &temp.path().join("producer"));
+        assert!(!report.auth.as_ref().expect("auth").passed);
+        assert!(auth_issue_codes(&report).contains(&"admission_auth.producer_unauthorized".to_owned()));
+
+        let (_, intruder_signing) = auth_test_key(AUTH_TEST_SEED_C, "intruder-key", 1, KeyCurrentness::Current);
+        let intruder = auth_test_evidence(vec![auth_test_signed_for(
+            "intruder",
+            &intruder_signing,
+            &scope,
+            "intruder-key",
+            1,
+        )]);
+        let report = verify_auth(&bundle, &policy, &intruder, &temp.path().join("intruder"));
+        assert!(!report.auth.as_ref().expect("auth").passed);
+        assert!(auth_issue_codes(&report).contains(&"admission_auth.producer_unauthorized".to_owned()));
+    }
+
+    #[test]
+    fn generation_threshold_and_duplicate_evidence_are_enforced() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let bundle = auth_test_bundle(&temp.path().join("bundle"), "fn root() {}\n");
+        let (key_a, signing_a) = auth_test_key(AUTH_TEST_SEED_A, AUTH_TEST_KEY_A, 1, KeyCurrentness::Current);
+        let policy = auth_test_policy(&bundle.subject, &[&key_a], 1);
+        let scope = auth_test_scope(&policy, &bundle);
+        let evidence = auth_test_evidence(vec![auth_test_signed(&signing_a, &scope, AUTH_TEST_KEY_A, 1)]);
+
+        let mut stale_generation = policy.clone();
+        stale_generation.trusted_keys[0].generation = 2;
+        let report = verify_auth(&bundle, &stale_generation, &evidence, &temp.path().join("generation"));
+        assert!(auth_issue_codes(&report).contains(&"auth.key_generation_stale".to_owned()));
+        assert_eq!(report.auth.as_ref().expect("auth").trust_currentness, "unsatisfied");
+
+        let mut two_keys = policy.clone();
+        two_keys.threshold = 2;
+        let (key_b, _) = auth_test_key(AUTH_TEST_SEED_B, AUTH_TEST_KEY_B, 1, KeyCurrentness::Current);
+        two_keys.trusted_keys.push(key_b);
+        two_keys.authorized_producers[0].key_ids.push(AUTH_TEST_KEY_B.to_owned());
+        let report = verify_auth(&bundle, &two_keys, &evidence, &temp.path().join("threshold"));
+        assert!(auth_issue_codes(&report).contains(&"auth.distinct_key_threshold_unsatisfied".to_owned()));
+        assert_eq!(report.auth.as_ref().expect("auth").trust_currentness, "unsatisfied");
+
+        let duplicate = auth_test_evidence(vec![
+            auth_test_signed(&signing_a, &scope, AUTH_TEST_KEY_A, 1),
+            auth_test_signed(&signing_a, &scope, AUTH_TEST_KEY_A, 1),
+        ]);
+        let report = verify_auth(&bundle, &policy, &duplicate, &temp.path().join("duplicate"));
+        assert!(auth_issue_codes(&report).contains(&"admission_auth.evidence_key_duplicate".to_owned()));
+    }
+
+    #[test]
+    fn altered_bytes_and_coherent_whole_bundle_replacement_are_rejected() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let bundle = auth_test_bundle(&temp.path().join("bundle"), "fn root() {}\n");
+        let (key_a, signing_a) = auth_test_key(AUTH_TEST_SEED_A, AUTH_TEST_KEY_A, 1, KeyCurrentness::Current);
+        let policy = auth_test_policy(&bundle.subject, &[&key_a], 1);
+        let scope = auth_test_scope(&policy, &bundle);
+        let evidence = auth_test_evidence(vec![auth_test_signed(&signing_a, &scope, AUTH_TEST_KEY_A, 1)]);
+        let (policy_path, evidence_path) = write_auth_inputs(&temp.path().join("consumer"), &policy, &evidence);
+
+        fs::write(bundle.dir.join(SUMMARY_FILE), b"tampered\n").expect("tamper summary");
+        let report = verify_bundle_authorized_inner(&bundle.dir, false, &policy_path, &evidence_path)
+            .expect("authorized verification report");
+        let auth = report.auth.as_ref().expect("auth");
+        assert!(!auth.passed);
+        assert_eq!(auth.integrity, STATUS_INVALID);
+        assert!(auth_issue_codes(&report).contains(&"admission_auth.subject_mismatch".to_owned()));
+
+        let pristine = auth_test_bundle(&temp.path().join("pristine"), "fn root() {}\n");
+        let replacement = auth_test_bundle(&temp.path().join("replacement"), "fn root() { let _value = 1; }\n");
+        assert_ne!(replacement.subject.digest_hex, pristine.subject.digest_hex);
+        for (locator, contents) in &replacement.files {
+            let path = pristine.dir.join(locator);
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent).expect("replacement parent");
+            }
+            fs::write(path, contents).expect("replace bundle file");
+        }
+        let report = verify_bundle_authorized_inner(&pristine.dir, false, &policy_path, &evidence_path)
+            .expect("authorized verification report");
+        let auth = report.auth.as_ref().expect("auth");
+        assert!(!auth.passed);
+        assert!(auth_issue_codes(&report).contains(&"admission_auth.subject_mismatch".to_owned()));
+        assert!(auth_issue_codes(&report).contains(&"auth.statement_scope_mismatch".to_owned()));
+    }
+
+    #[test]
+    fn malformed_and_unsupported_evidence_is_rejected() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let bundle = auth_test_bundle(&temp.path().join("bundle"), "fn root() {}\n");
+        let (key_a, signing_a) = auth_test_key(AUTH_TEST_SEED_A, AUTH_TEST_KEY_A, 1, KeyCurrentness::Current);
+        let policy = auth_test_policy(&bundle.subject, &[&key_a], 1);
+        let scope = auth_test_scope(&policy, &bundle);
+        let valid = auth_test_signed(&signing_a, &scope, AUTH_TEST_KEY_A, 1);
+
+        let mut malformed = valid.clone();
+        malformed.signature_hex = "zz".to_owned();
+        let report =
+            verify_auth(&bundle, &policy, &auth_test_evidence(vec![malformed]), &temp.path().join("malformed"));
+        let auth = report.auth.as_ref().expect("auth");
+        assert!(!auth.passed);
+        assert_eq!(auth.signature_authenticity, "unsupported");
+        assert!(auth_issue_codes(&report).contains(&"admission_auth.signature_malformed".to_owned()));
+
+        let mut wrong_signature = valid.clone();
+        wrong_signature.signature_hex = "00".repeat(AUTH_SIGNATURE_BYTES);
+        let report = verify_auth(
+            &bundle,
+            &policy,
+            &auth_test_evidence(vec![wrong_signature]),
+            &temp.path().join("wrong-signature"),
+        );
+        let auth = report.auth.as_ref().expect("auth");
+        assert!(!auth.passed);
+        assert_eq!(auth.signature_authenticity, "unverified");
+        assert_eq!(auth.checker, "denied");
+
+        let mut unsupported = auth_test_evidence(vec![valid.clone()]);
+        unsupported.schema_version = "octet-admission-auth-evidence/v2".to_owned();
+        let report = verify_auth(&bundle, &policy, &unsupported, &temp.path().join("unsupported"));
+        let auth = report.auth.as_ref().expect("auth");
+        assert!(!auth.passed);
+        assert_eq!(auth.signature_authenticity, "unsupported");
+        assert!(auth_issue_codes(&report).contains(&"admission_auth.evidence_schema_unsupported".to_owned()));
+
+        let (untrusted_key, untrusted_signing) =
+            auth_test_key(AUTH_TEST_SEED_C, "unknown-key", 1, KeyCurrentness::Current);
+        let mut permissive = policy.clone();
+        permissive.authorized_producers[0].key_ids.push(untrusted_key.key_id.clone());
+        let untrusted =
+            auth_test_evidence(vec![auth_test_signed(&untrusted_signing, &scope, &untrusted_key.key_id, 1)]);
+        let report = verify_auth(&bundle, &permissive, &untrusted, &temp.path().join("untrusted"));
+        let auth = report.auth.as_ref().expect("auth");
+        assert!(!auth.passed);
+        assert_eq!(auth.trust_currentness, "unsatisfied");
+        assert!(auth_issue_codes(&report).contains(&"admission_auth.evidence_key_untrusted".to_owned()));
+    }
+
+    #[test]
+    fn revoked_superseded_unknown_and_stale_currentness_is_rejected() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let bundle = auth_test_bundle(&temp.path().join("bundle"), "fn root() {}\n");
+        let (key_a, signing_a) = auth_test_key(AUTH_TEST_SEED_A, AUTH_TEST_KEY_A, 1, KeyCurrentness::Current);
+        let policy = auth_test_policy(&bundle.subject, &[&key_a], 1);
+        let scope = auth_test_scope(&policy, &bundle);
+        let evidence = auth_test_evidence(vec![auth_test_signed(&signing_a, &scope, AUTH_TEST_KEY_A, 1)]);
+
+        for (index, currentness) in [
+            KeyCurrentness::Revoked,
+            KeyCurrentness::Superseded,
+            KeyCurrentness::Unknown,
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let mut rejected = policy.clone();
+            rejected.trusted_keys[0].currentness = currentness;
+            rejected.currentness_rules.accepted = vec![currentness];
+            let report = verify_auth(&bundle, &rejected, &evidence, &temp.path().join(format!("currentness-{index}")));
+            let auth = report.auth.as_ref().expect("auth");
+            assert!(!auth.passed, "{currentness:?}");
+            assert_eq!(auth.trust_currentness, "unsatisfied", "{currentness:?}");
+            assert!(
+                auth_issue_codes(&report).contains(&"auth.key_not_current".to_owned()),
+                "{currentness:?}: {:?}",
+                auth_issue_codes(&report)
+            );
+        }
+
+        let mut unacceptable = policy.clone();
+        unacceptable.currentness_rules.accepted = vec![KeyCurrentness::VerificationOverlap];
+        let report = verify_auth(&bundle, &unacceptable, &evidence, &temp.path().join("unacceptable"));
+        assert!(!report.auth.as_ref().expect("auth").passed);
+        assert!(auth_issue_codes(&report).contains(&"admission_auth.currentness_unacceptable".to_owned()));
+
+        let mut stale = policy.clone();
+        stale.currentness_rules.maximum_observation_age_seconds = Some(60);
+        stale.currentness_rules.evaluated_at_unix = Some(1_000);
+        stale.trusted_keys[0].observed_at_unix = Some(900);
+        let report = verify_auth(&bundle, &stale, &evidence, &temp.path().join("stale"));
+        assert!(!report.auth.as_ref().expect("auth").passed);
+        assert!(auth_issue_codes(&report).contains(&"admission_auth.currentness_unacceptable".to_owned()));
+
+        stale.trusted_keys[0].observed_at_unix = Some(950);
+        let report = verify_auth(&bundle, &stale, &evidence, &temp.path().join("fresh"));
+        assert!(report.auth.as_ref().expect("auth").passed, "{:?}", auth_issue_codes(&report));
+    }
+
+    #[test]
+    fn candidate_files_cannot_supply_trust_roots_or_observations() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let bundle = auth_test_bundle(&temp.path().join("bundle"), "fn root() {}\n");
+        let forged_policy = auth_test_ref("octet-verifier-context.v1", "forged");
+        fs::write(
+            bundle.dir.join("auth-policy.json"),
+            serde_json::to_vec_pretty(&forged_policy).expect("forged policy"),
+        )
+        .expect("write forged policy into bundle");
+        fs::write(bundle.dir.join("auth-evidence.json"), b"{\"verified\":true}\n")
+            .expect("write forged evidence into bundle");
+        let files = read_bundle_files(&bundle.dir);
+        let subject = admission_bundle_identity(&files, Some(&bundle.receipt));
+        let (key_a, signing_a) = auth_test_key(AUTH_TEST_SEED_A, AUTH_TEST_KEY_A, 1, KeyCurrentness::Current);
+        let policy = auth_test_policy(&subject, &[&key_a], 1);
+        let scope = build_admission_auth_scope(&policy, &files, Some(&bundle.receipt)).scope;
+        let evidence = auth_test_evidence(vec![auth_test_signed(&signing_a, &scope, AUTH_TEST_KEY_A, 1)]);
+        let consumer = temp.path().join("consumer");
+        let (policy_path, evidence_path) = write_auth_inputs(&consumer, &policy, &evidence);
+
+        let report = verify_bundle_authorized_inner(&bundle.dir, false, &policy_path, &evidence_path)
+            .expect("external consumer inputs still verify");
+        assert!(report.auth.as_ref().expect("auth").passed, "{:?}", report.diagnostics);
+
+        let error =
+            verify_bundle_authorized_inner(&bundle.dir, false, &bundle.dir.join("auth-policy.json"), &evidence_path)
+                .expect_err("candidate-supplied policy must be rejected");
+        assert!(error.contains("outside the candidate artifact directory"), "{error}");
+
+        let error =
+            verify_bundle_authorized_inner(&bundle.dir, false, &policy_path, &bundle.dir.join("auth-evidence.json"))
+                .expect_err("candidate-supplied evidence must be rejected");
+        assert!(error.contains("outside the candidate artifact directory"), "{error}");
+    }
+
+    #[test]
+    fn receipt_identity_and_required_provenance_are_enforced() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let bundle = auth_test_bundle(&temp.path().join("bundle"), "fn root() {}\n");
+        let (key_a, signing_a) = auth_test_key(AUTH_TEST_SEED_A, AUTH_TEST_KEY_A, 1, KeyCurrentness::Current);
+        let policy = auth_test_policy(&bundle.subject, &[&key_a], 1);
+        let scope = auth_test_scope(&policy, &bundle);
+        let evidence = auth_test_evidence(vec![auth_test_signed(&signing_a, &scope, AUTH_TEST_KEY_A, 1)]);
+
+        let mut wrong_receipt = policy.clone();
+        wrong_receipt.expected_receipt_identity = Some(format!("{AUTH_BLAKE3_PREFIX}{}", "0".repeat(AUTH_HEX_CHARS)));
+        let report = verify_auth(&bundle, &wrong_receipt, &evidence, &temp.path().join("receipt"));
+        let auth = report.auth.as_ref().expect("auth");
+        assert!(!auth.passed);
+        assert_eq!(auth.authorization, "unsatisfied");
+        assert!(auth_issue_codes(&report).contains(&"admission_auth.receipt_identity_mismatch".to_owned()));
+
+        let mut missing_provenance = policy.clone();
+        missing_provenance.required_provenance.push("octet-effect-closure-proof.v1".to_owned());
+        let report = verify_auth(&bundle, &missing_provenance, &evidence, &temp.path().join("provenance"));
+        let auth = report.auth.as_ref().expect("auth");
+        assert!(!auth.passed);
+        assert_eq!(auth.authorization, "unsatisfied");
+        assert!(auth_issue_codes(&report).contains(&"admission_auth.provenance_missing".to_owned()));
+    }
+
+    #[test]
+    fn admission_auth_input_files_reject_unknown_fields_and_invalid_keys() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let bundle = auth_test_bundle(&temp.path().join("bundle"), "fn root() {}\n");
+        let (key_a, _) = auth_test_key(AUTH_TEST_SEED_A, AUTH_TEST_KEY_A, 1, KeyCurrentness::Current);
+        let policy = auth_test_policy(&bundle.subject, &[&key_a], 1);
+        let consumer = temp.path().join("consumer");
+        fs::create_dir_all(&consumer).expect("consumer dir");
+        let mut value = serde_json::to_value(&policy).expect("policy value");
+        value["unknown_field"] = serde_json::Value::Bool(true);
+        let path = consumer.join("unknown.json");
+        fs::write(&path, serde_json::to_vec(&value).expect("policy JSON")).expect("write policy");
+        assert!(load_admission_auth_policy(&path).is_err());
+
+        let mut invalid_key = policy.clone();
+        invalid_key.trusted_keys[0].public_key_hex = "00".to_owned();
+        assert!(validate_admission_auth_policy(&invalid_key).is_err());
+
+        let mut zero_threshold = policy;
+        zero_threshold.threshold = 0;
+        assert!(validate_admission_auth_policy(&zero_threshold).is_err());
     }
 }

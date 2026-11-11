@@ -1,0 +1,16 @@
+{
+  "description": "Required public notice inventory with THIRD_PARTY_NOTICES.md and LICENSES/ dropped",
+  "overrides": [
+    {
+      "path": "notices.required",
+      "value": [
+        {
+          "path": "NOTICE",
+          "role": "project notice and license pointer",
+          "present_in_public_tree": false
+        }
+      ]
+    }
+  ],
+  "expected_findings": ["required-notice-omitted"]
+}

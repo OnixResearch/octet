@@ -1,0 +1,41 @@
+{
+  "description": "Unresolved imported prose admitted and the cohort relabelled qualified",
+  "overrides": [
+    {
+      "path": "qualification.status",
+      "value": "qualified"
+    },
+    {
+      "path": "qualification.blocking_reasons",
+      "value": []
+    },
+    {
+      "path": "notices.required",
+      "value": [
+        {
+          "path": "NOTICE",
+          "role": "project notice and license pointer",
+          "present_in_public_tree": true
+        },
+        {
+          "path": "THIRD_PARTY_NOTICES.md",
+          "role": "third-party attribution and provenance inventory",
+          "present_in_public_tree": true
+        },
+        {
+          "path": "LICENSES/",
+          "role": "bundled third-party license texts",
+          "present_in_public_tree": true
+        }
+      ]
+    },
+    {
+      "path": "notices.imported_material.0.included_in_qualified_cohort",
+      "value": true
+    }
+  ],
+  "expected_findings": [
+    "unresolved-imported-content-represented-as-cleared",
+    "imported-content-included-without-permission"
+  ]
+}
