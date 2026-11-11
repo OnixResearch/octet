@@ -10,6 +10,7 @@
 pub mod checker;
 pub mod corpus;
 pub mod evaluate;
+pub mod external_lean;
 pub mod frontend;
 pub mod identity;
 pub mod model;

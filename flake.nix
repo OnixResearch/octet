@@ -3567,8 +3567,8 @@
                   sentinel_bin="$scratch/sentinel-bin"
                   sentinel_marker="$scratch/cargo-invoked"
                   baseline_relative="standards/self-check-warning-budget/octet-baseline.json"
-                  accepted_warning_total=4284
-                  accepted_identity_total=3120
+                  accepted_warning_total=4325
+                  accepted_identity_total=3148
                   lint_failure_exit=1
                   integration_failure_exit=2
                   sentinel_exit=99
@@ -4767,6 +4767,7 @@
               OCTET_HEGEL_PATH = "${cargoOctetRuntimePath}/bin";
               OCTET_HEGEL_CARGO_CONFIG = "${cargoVendorDir}/config.toml";
               OCTET_HEGEL_LD_LIBRARY_PATH = rustToolchainLibPath;
+              OCTET_MERGE_RAIL_LEAN = "${aeneasLeanProviderClosure}/share/octet/aeneas-lean/lean";
               preCheck = ''
                 export PATH="${dylintShimPath}:$PATH"
                 export CARGO_OCTET_BIN="${cargoOctetUnwrapped}/bin/cargo-octet"

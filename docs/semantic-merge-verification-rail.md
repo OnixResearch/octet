@@ -1,6 +1,6 @@
 # Bounded semantic merge verification rail
 
-Status: bounded prototype with a bounded Rust frontend and reviewed design.
+Status: bounded prototype with a bounded Rust frontend, an optional Lean-checking backend, and reviewed design.
 This rail is opt-in and is not part of starter `cargo octet check`. It checks a supplied four-version
 candidate; it never constructs, applies, or mutates a merge.
 
@@ -92,10 +92,21 @@ fixtures; the Rust frontend has its own profile identity and non-claims.
 
 ## Backend choice and trusted base
 
-The prototype uses a deterministic in-memory evaluator over the typed IR. Its
-trusted base is the Rust implementation of the admitted integer operations, the
-explicit arithmetic profile, the relation checker, and canonical BLAKE3
+The default backend is a deterministic in-memory evaluator over the typed IR.
+Its trusted base is the Rust implementation of the admitted integer operations,
+the explicit arithmetic profile, the relation checker, and canonical BLAKE3
 serialization. It has no solver, so `solver` is absent from receipts.
+
+An opt-in `LeanBackend` first computes the expected observation with the
+in-memory evaluator, then asks the pinned Lean kernel to check a concrete
+theorem binding the encoded program result to that observation. The Lean
+backend supports checked arithmetic only; wrapping is outside its declared
+profile. Its trusted base is the Lean kernel, the fixed generated encoding, and
+the pinned Lean executable. Evidence is bounded to the supplied concrete input:
+it does not prove the relation for all inputs, the semantic adequacy of the
+encoding, Rust compiler correctness, or whole-program behavior. A Lean
+rejection, timeout, spawn failure, or nonzero exit is a tool error, never a
+semantic conflict.
 
 Direct four-program checking was chosen for the prototype. Shared-fragment
 summaries and product construction are a later design option only if each
@@ -154,7 +165,8 @@ malformed role/binding inventories.
 
 ## Go/no-go decision
 
-- **GO** for the bounded pure-core prototype and fixture experiment in this
+- **GO** for the bounded pure-core prototype, the bounded Rust frontend, the
+  optional per-input Lean-checking backend, and the fixture experiment in this
   change, with the profile and non-claims above.
 - **NO-GO** for production admission, universal verification, or any claim
   that the bounded frontend proves Rust semantic correspondence. A production
@@ -186,3 +198,8 @@ scope and all receipt non-claims.
   source-to-IR frontend, correspondence report, and fail-closed errors.
 - `crates/octet-merge-rail/tests/frontend.rs`: frontend mapping, identity,
   rejection, admission, and binding-drift tests.
+- `crates/octet-merge-rail/src/external_lean.rs`: opt-in pinned-Lean concrete
+  verifier with a fixed checked-arithmetic encoding and bounded tool-error
+  semantics.
+- `crates/octet-merge-rail/tests/lean_backend.rs`: Lean success, overflow,
+  rejection, timeout, wrapping-profile, and cycle tests.

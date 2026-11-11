@@ -185,6 +185,36 @@ roles, stale receipts, unsupported constructs, and interrupted verification.
 - THEN it MUST return its declared non-verified class
 - AND it MUST NOT return `verified`.
 
+### Requirement: External Lean backend records bounded concrete proofs
+
+r[octet.semantic_merge_verification.external_backend]
+
+Octet MUST provide an optional external Lean backend that, for a concrete
+admitted input, asks the pinned Lean kernel to check a theorem binding the
+encoded program result to the evaluator's observation. The backend MUST state
+its trusted base, MUST reject arithmetic outside its declared profile, and MUST
+classify Lean rejection, timeout, spawn failure, or nonzero exit as a tool
+error, never a semantic conflict. Its evidence MUST be bounded to the supplied
+input and MUST NOT be presented as a universal proof.
+
+#### Scenario: Concrete evaluation is Lean-checked
+- GIVEN a checked-arithmetic request and a concrete integer input
+- WHEN the Lean backend evaluates the observable
+- THEN Lean MUST accept the encoded concrete equality
+- AND the receipt MUST record the Lean backend identity.
+
+#### Scenario: Lean rejection or timeout is a tool error
+- GIVEN Lean rejects the theorem, times out, or cannot run
+- WHEN the backend returns
+- THEN the checker MUST report `tool-error`
+- AND it MUST NOT report a counterexample or semantic conflict.
+
+#### Scenario: Wrapping is outside the backend profile
+- GIVEN a request using wrapping arithmetic
+- WHEN the Lean backend is selected
+- THEN it MUST return `unsupported` for the backend profile
+- AND it MUST NOT claim a Lean-checked result.
+
 ### Requirement: Bounded Rust frontend records syntactic correspondence
 
 r[octet.semantic_merge_verification.frontend]

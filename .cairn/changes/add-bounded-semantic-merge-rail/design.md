@@ -112,6 +112,17 @@ If those premises cannot be justified, the rail must fall back to `unknown`.
 A symbolic-model proof, if added, would remain distinct from Rust extraction,
 IR correspondence, and runtime behavior.
 
+## External Lean backend
+
+The optional `LeanBackend` computes the expected observation with the in-memory
+evaluator and asks the pinned Lean kernel to check a concrete theorem binding
+the encoded program result to that observation. It supports checked arithmetic
+only. The trusted base is the Lean kernel, the fixed generated encoding, and the
+pinned Lean executable. Evidence is bounded to the supplied input; it is not a
+universal relation proof or a Rust compiler-correctness claim. Lean rejection,
+timeout, spawn failure, or nonzero exit maps to `tool-error`, never a semantic
+conflict.
+
 ## Outcomes
 
 - `verified`: the relation held for every declared observable and admitted

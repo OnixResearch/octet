@@ -1,0 +1,24 @@
+{
+  "backend": "crates/octet-merge-rail/src/external_lean.rs",
+  "tests": "crates/octet-merge-rail/tests/lean_backend.rs",
+  "lean_executable": "/nix/store/3lh4savplcckg4zzg0kpx9747md8g53w-octet-aeneas-lean-provider-closure-x86_64-linux/share/octet/aeneas-lean/lean",
+  "tests_passed": 7,
+  "profile": "checked arithmetic only; wrapping is outside the backend profile",
+  "trusted_base": [
+    "Lean kernel",
+    "fixed generated MrResult/MrAbort encoding",
+    "pinned Lean executable"
+  ],
+  "tool_error_semantics": "Lean rejection, timeout, spawn failure, or nonzero exit maps to tool-error, never a semantic conflict",
+  "bounded_evidence": "one concrete encoded equality per supplied input; no universal relation or Rust compiler-correctness claim",
+  "commands": [
+    "OCTET_MERGE_RAIL_LEAN=<pinned-lean> cargo test -p octet-merge-rail --locked",
+    "cargo clippy -p octet-merge-rail --all-targets --locked -- -D warnings"
+  ],
+  "full_flake_check": "all checks passed",
+  "self_check_baseline": {
+    "hash": "b3:8557d2479d222b55fc5f2336f35e00212d9ea48a6886f38e3f595c54d338bd02",
+    "identity_total": 3148,
+    "warning_total": 4325
+  }
+}

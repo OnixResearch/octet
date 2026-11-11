@@ -10,7 +10,7 @@
     "profile_hash": "b3:5ebc1b358e0e776e5a3d281656f6abc77498cde8246f27b333783eec419163f9",
     "config_hash": "b3:c51d1ae1c55fee2a9d155a7b8abe18cb7a6b14ac30476d513f3f5162fe5360c7"
   },
-  "baseline_hash": "b3:5cc32cd53677514d32050bb8957b179912ff60eb738ffbb595f7edc483431e49",
+  "baseline_hash": "b3:8557d2479d222b55fc5f2336f35e00212d9ea48a6886f38e3f595c54d338bd02",
   "findings": [
     {
       "stable_id": "b3:0054f6e0876ae1a9",
@@ -2665,6 +2665,19 @@
       "crate_name": "cargo_octet"
     },
     {
+      "stable_id": "b3:0ffcef7ec669d54f",
+      "semantic_id": "b3:0ffcef7ec669d54f",
+      "identity_status": "computed",
+      "lint": "ignored_result",
+      "group": "tigerstyle::safety",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/external_lean.rs",
+      "line": 211,
+      "column": 17,
+      "message": "`Result` value silently discarded with `let _ = ...`",
+      "crate_name": "octet_merge_rail"
+    },
+    {
       "stable_id": "b3:0ffe04df0544b20e",
       "semantic_id": "b3:0ffe04df0544b20e",
       "identity_status": "computed",
@@ -2988,6 +3001,19 @@
       "column": 1,
       "message": "item name `lint_names_for_group` repeats `lint` from ancestor path segment `octet_lint_metadata`",
       "crate_name": "octet_lint_metadata"
+    },
+    {
+      "stable_id": "b3:11b724f67cea50e1",
+      "semantic_id": "b3:11b724f67cea50e1",
+      "identity_status": "computed",
+      "lint": "unbounded_collection_growth",
+      "group": "tigerstyle::safety",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/external_lean.rs",
+      "line": 242,
+      "column": 9,
+      "message": "collection grows in loop without a prior reservation or explicit local bound",
+      "crate_name": "octet_merge_rail"
     },
     {
       "stable_id": "b3:11d268a0ad36baa5",
@@ -3924,6 +3950,19 @@
       "column": 1,
       "message": "source file is 2260 lines (limit: 300)",
       "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:17857d65e5903b5c",
+      "semantic_id": "b3:17857d65e5903b5c",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/external_lean.rs",
+      "line": 22,
+      "column": 1,
+      "message": "non-trait import `Ordering` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "octet_merge_rail"
     },
     {
       "stable_id": "b3:1785f360d66d783f",
@@ -6394,6 +6433,19 @@
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:2714345df747dc96",
+      "semantic_id": "b3:2714345df747dc96",
+      "identity_status": "computed",
+      "lint": "no_unwrap",
+      "group": "tigerstyle::safety",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/external_lean.rs",
+      "line": 320,
+      "column": 5,
+      "message": "`.expect()` in production code will panic on failure",
+      "crate_name": "octet_merge_rail"
     },
     {
       "stable_id": "b3:271c6955d0d879dd",
@@ -9223,8 +9275,8 @@
       "lint": "non_trait_imports",
       "group": "tigerstyle::naming",
       "severity": "warning",
-      "file": "crates/octet-merge-rail/src/receipt.rs",
-      "line": 10,
+      "file": "crates/octet-merge-rail/src/external_lean.rs",
+      "line": 29,
       "column": 1,
       "message": "non-trait import `BackendIdentity` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "octet_merge_rail"
@@ -9659,6 +9711,19 @@
       "crate_name": "octet"
     },
     {
+      "stable_id": "b3:3aa729791b9d03f9",
+      "semantic_id": "b3:3aa729791b9d03f9",
+      "identity_status": "computed",
+      "lint": "no_recursion",
+      "group": "tigerstyle::safety",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/external_lean.rs",
+      "line": 403,
+      "column": 9,
+      "message": "function calls itself recursively",
+      "crate_name": "octet_merge_rail"
+    },
+    {
       "stable_id": "b3:3abe25b4bdd01226",
       "semantic_id": "b3:3abe25b4bdd01226",
       "identity_status": "computed",
@@ -10047,6 +10112,19 @@
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:3d8c5b0b4de17af9",
+      "semantic_id": "b3:3d8c5b0b4de17af9",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/external_lean.rs",
+      "line": 25,
+      "column": 1,
+      "message": "non-trait import `Instant` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "octet_merge_rail"
     },
     {
       "stable_id": "b3:3dacce6b3d569678",
@@ -10582,6 +10660,19 @@
       "crate_name": "cargo_octet"
     },
     {
+      "stable_id": "b3:40e734b32b498545",
+      "semantic_id": "b3:40e734b32b498545",
+      "identity_status": "computed",
+      "lint": "no_unwrap",
+      "group": "tigerstyle::safety",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/external_lean.rs",
+      "line": 299,
+      "column": 9,
+      "message": "`.expect()` in production code will panic on failure",
+      "crate_name": "octet_merge_rail"
+    },
+    {
       "stable_id": "b3:40e9533d8dee209d",
       "semantic_id": "b3:40e9533d8dee209d",
       "identity_status": "computed",
@@ -10983,6 +11074,19 @@
       "column": 59,
       "message": "function calls itself recursively",
       "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:43073ff355ca86fe",
+      "semantic_id": "b3:43073ff355ca86fe",
+      "identity_status": "computed",
+      "lint": "path_segment_repetition",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/external_lean.rs",
+      "line": 238,
+      "column": 1,
+      "message": "item name `lean_source` repeats `lean` from ancestor path segment `external_lean`",
+      "crate_name": "octet_merge_rail"
     },
     {
       "stable_id": "b3:430d099212714d70",
@@ -12038,19 +12142,6 @@
       "crate_name": "cargo_octet"
     },
     {
-      "stable_id": "b3:494e6e00f6e0f9f6",
-      "semantic_id": "b3:494e6e00f6e0f9f6",
-      "identity_status": "computed",
-      "lint": "module_file_count",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "crates/octet-merge-rail/src/checker.rs",
-      "line": 1,
-      "column": 1,
-      "message": "module directory `crates/octet-merge-rail/src` contains 8 Rust source files (limit: 7)",
-      "crate_name": "octet_merge_rail"
-    },
-    {
       "stable_id": "b3:495b8bf38b5cc2a0",
       "semantic_id": "b3:495b8bf38b5cc2a0",
       "identity_status": "computed",
@@ -13000,6 +13091,19 @@
       "crate_name": "octet_standards"
     },
     {
+      "stable_id": "b3:4f77c527d46f91a9",
+      "semantic_id": "b3:4f77c527d46f91a9",
+      "identity_status": "computed",
+      "lint": "ignored_result",
+      "group": "tigerstyle::safety",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/external_lean.rs",
+      "line": 210,
+      "column": 17,
+      "message": "`Result` value silently discarded with `let _ = ...`",
+      "crate_name": "octet_merge_rail"
+    },
+    {
       "stable_id": "b3:4f9195e0ed8aed82",
       "semantic_id": "b3:4f9195e0ed8aed82",
       "identity_status": "computed",
@@ -13247,6 +13351,19 @@
       "crate_name": "cargo_octet"
     },
     {
+      "stable_id": "b3:515030e56bf38c02",
+      "semantic_id": "b3:515030e56bf38c02",
+      "identity_status": "computed",
+      "lint": "ignored_result",
+      "group": "tigerstyle::safety",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/external_lean.rs",
+      "line": 224,
+      "column": 9,
+      "message": "`Result` value silently discarded with `let _ = ...`",
+      "crate_name": "octet_merge_rail"
+    },
+    {
       "stable_id": "b3:516969eff3d0036a",
       "semantic_id": "b3:516969eff3d0036a",
       "identity_status": "computed",
@@ -13336,6 +13453,19 @@
       "column": 1,
       "message": "non-trait import `DenialLayer` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "octet_standards"
+    },
+    {
+      "stable_id": "b3:51d9fcb5fcb9ff05",
+      "semantic_id": "b3:51d9fcb5fcb9ff05",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/external_lean.rs",
+      "line": 23,
+      "column": 1,
+      "message": "non-trait import `thread` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "octet_merge_rail"
     },
     {
       "stable_id": "b3:51de535578dd0a07",
@@ -13752,6 +13882,19 @@
       "column": 13,
       "message": "`Result` value silently discarded with `let _ = ...`",
       "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:54dacf21a2e04f4a",
+      "semantic_id": "b3:54dacf21a2e04f4a",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/external_lean.rs",
+      "line": 28,
+      "column": 1,
+      "message": "non-trait import `BackendError` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "octet_merge_rail"
     },
     {
       "stable_id": "b3:54dcb407649409e9",
@@ -14337,6 +14480,19 @@
       "column": 13,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:58742508ca530fdc",
+      "semantic_id": "b3:58742508ca530fdc",
+      "identity_status": "computed",
+      "lint": "no_recursion",
+      "group": "tigerstyle::safety",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/external_lean.rs",
+      "line": 374,
+      "column": 16,
+      "message": "function calls itself recursively",
+      "crate_name": "octet_merge_rail"
     },
     {
       "stable_id": "b3:587bb8b3edae8a31",
@@ -15795,6 +15951,19 @@
       "crate_name": "cargo_octet"
     },
     {
+      "stable_id": "b3:611bef14882eafe8",
+      "semantic_id": "b3:611bef14882eafe8",
+      "identity_status": "computed",
+      "lint": "no_recursion",
+      "group": "tigerstyle::safety",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/external_lean.rs",
+      "line": 334,
+      "column": 25,
+      "message": "function calls itself recursively",
+      "crate_name": "octet_merge_rail"
+    },
+    {
       "stable_id": "b3:616ca3b73f7f5c48",
       "semantic_id": "b3:616ca3b73f7f5c48",
       "identity_status": "computed",
@@ -15910,6 +16079,19 @@
       "column": 3,
       "message": "function `push_resource_findings` is 99 lines (limit: 70)",
       "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:62091d5162fa4ac9",
+      "semantic_id": "b3:62091d5162fa4ac9",
+      "identity_status": "computed",
+      "lint": "ignored_result",
+      "group": "tigerstyle::safety",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/external_lean.rs",
+      "line": 227,
+      "column": 9,
+      "message": "`Result` value silently discarded with `let _ = ...`",
+      "crate_name": "octet_merge_rail"
     },
     {
       "stable_id": "b3:620e89a30c976b15",
@@ -16172,6 +16354,19 @@
       "crate_name": "octet_merge_rail"
     },
     {
+      "stable_id": "b3:63585cd266242f45",
+      "semantic_id": "b3:63585cd266242f45",
+      "identity_status": "computed",
+      "lint": "ambient_clock",
+      "group": "tigerstyle::purity",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/external_lean.rs",
+      "line": 196,
+      "column": 24,
+      "message": "direct system clock read in production code",
+      "crate_name": "octet_merge_rail"
+    },
+    {
       "stable_id": "b3:636049beaefdbc98",
       "semantic_id": "b3:636049beaefdbc98",
       "identity_status": "computed",
@@ -16183,6 +16378,19 @@
       "column": 5,
       "message": "`Result` value silently discarded with `let _ = ...`",
       "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:637d5dbf2d4f54ab",
+      "semantic_id": "b3:637d5dbf2d4f54ab",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/external_lean.rs",
+      "line": 24,
+      "column": 1,
+      "message": "non-trait import `Duration` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "octet_merge_rail"
     },
     {
       "stable_id": "b3:6387e7c1e418a6db",
@@ -17028,6 +17236,19 @@
       "column": 1,
       "message": "non-trait import `intravisit` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "octet"
+    },
+    {
+      "stable_id": "b3:68f34c6c8ac67a70",
+      "semantic_id": "b3:68f34c6c8ac67a70",
+      "identity_status": "computed",
+      "lint": "underscore_in_module_filename",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/external_lean.rs",
+      "line": 1,
+      "column": 1,
+      "message": "module filename `external_lean.rs` contains an underscore; prefer `external/lean.rs`",
+      "crate_name": "octet_merge_rail"
     },
     {
       "stable_id": "b3:68fd5bf164934266",
@@ -22789,6 +23010,19 @@
       "crate_name": "cargo_octet"
     },
     {
+      "stable_id": "b3:8ea0da18ae8c9b38",
+      "semantic_id": "b3:8ea0da18ae8c9b38",
+      "identity_status": "computed",
+      "lint": "module_file_count",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/checker.rs",
+      "line": 1,
+      "column": 1,
+      "message": "module directory `crates/octet-merge-rail/src` contains 9 Rust source files (limit: 7)",
+      "crate_name": "octet_merge_rail"
+    },
+    {
       "stable_id": "b3:8ef8b27897bf882a",
       "semantic_id": "b3:8ef8b27897bf882a",
       "identity_status": "computed",
@@ -25337,6 +25571,19 @@
       "crate_name": "build-script-build"
     },
     {
+      "stable_id": "b3:9f8143a9eee9abca",
+      "semantic_id": "b3:9f8143a9eee9abca",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/external_lean.rs",
+      "line": 20,
+      "column": 1,
+      "message": "non-trait import `Stdio` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "octet_merge_rail"
+    },
+    {
       "stable_id": "b3:9f97afeea284646d",
       "semantic_id": "b3:9f97afeea284646d",
       "identity_status": "computed",
@@ -26234,6 +26481,19 @@
       "crate_name": "octet_standards"
     },
     {
+      "stable_id": "b3:a5eda3389ad9ba57",
+      "semantic_id": "b3:a5eda3389ad9ba57",
+      "identity_status": "computed",
+      "lint": "ambient_env",
+      "group": "tigerstyle::purity",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/external_lean.rs",
+      "line": 78,
+      "column": 20,
+      "message": "direct `std::env::var` access reads or mutates ambient process state",
+      "crate_name": "octet_merge_rail"
+    },
+    {
       "stable_id": "b3:a5f0da45c57164bc",
       "semantic_id": "b3:a5f0da45c57164bc",
       "identity_status": "computed",
@@ -26440,6 +26700,19 @@
       "column": 1,
       "message": "non-trait import `AeneasTranslationDeclaration` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "octet_standards"
+    },
+    {
+      "stable_id": "b3:a7236e5a8d817898",
+      "semantic_id": "b3:a7236e5a8d817898",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/external_lean.rs",
+      "line": 21,
+      "column": 1,
+      "message": "non-trait import `AtomicU64` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "octet_merge_rail"
     },
     {
       "stable_id": "b3:a753eca42b888bc1",
@@ -28002,6 +28275,19 @@
       "crate_name": "octet_merge_rail"
     },
     {
+      "stable_id": "b3:afea31427bd1e580",
+      "semantic_id": "b3:afea31427bd1e580",
+      "identity_status": "computed",
+      "lint": "function_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/external_lean.rs",
+      "line": 238,
+      "column": 116,
+      "message": "function `lean_source` is 75 lines (limit: 70)",
+      "crate_name": "octet_merge_rail"
+    },
+    {
       "stable_id": "b3:aff044fbfc929f72",
       "semantic_id": "b3:aff044fbfc929f72",
       "identity_status": "computed",
@@ -28728,6 +29014,19 @@
       "column": 1,
       "message": "non-trait import `Encoding` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:b3861ab35412ef8e",
+      "semantic_id": "b3:b3861ab35412ef8e",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/external_lean.rs",
+      "line": 18,
+      "column": 1,
+      "message": "non-trait import `PathBuf` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "octet_merge_rail"
     },
     {
       "stable_id": "b3:b388ec12e16167fe",
@@ -29469,6 +29768,19 @@
       "column": 5,
       "message": "direct `std::env::temp_dir` access reads or mutates ambient process state",
       "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:b6f0892ee61c5dea",
+      "semantic_id": "b3:b6f0892ee61c5dea",
+      "identity_status": "computed",
+      "lint": "excessive_file_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/external_lean.rs",
+      "line": 1,
+      "column": 1,
+      "message": "source file is 435 lines (limit: 300)",
+      "crate_name": "octet_merge_rail"
     },
     {
       "stable_id": "b3:b714e478a67a17e9",
@@ -32446,6 +32758,19 @@
       "column": 1,
       "message": "non-trait import `SourceFile` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "octet"
+    },
+    {
+      "stable_id": "b3:ccf6e93765c09a54",
+      "semantic_id": "b3:ccf6e93765c09a54",
+      "identity_status": "computed",
+      "lint": "ignored_result",
+      "group": "tigerstyle::safety",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/external_lean.rs",
+      "line": 179,
+      "column": 9,
+      "message": "`Result` value silently discarded with `let _ = ...`",
+      "crate_name": "octet_merge_rail"
     },
     {
       "stable_id": "b3:cd0fb88297bc393e",
@@ -35789,6 +36114,19 @@
       "crate_name": "cargo_octet"
     },
     {
+      "stable_id": "b3:e122e123d4b8f16d",
+      "semantic_id": "b3:e122e123d4b8f16d",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/external_lean.rs",
+      "line": 17,
+      "column": 1,
+      "message": "non-trait import `Path` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "octet_merge_rail"
+    },
+    {
       "stable_id": "b3:e12e179cf4435e27",
       "semantic_id": "b3:e12e179cf4435e27",
       "identity_status": "computed",
@@ -36645,6 +36983,19 @@
       "column": 17,
       "message": "catch-all `_` on enum match returns deny value — new variants will be silently handled",
       "crate_name": "octet_standards"
+    },
+    {
+      "stable_id": "b3:e77f4ad7f3e73cf5",
+      "semantic_id": "b3:e77f4ad7f3e73cf5",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/external_lean.rs",
+      "line": 19,
+      "column": 1,
+      "message": "non-trait import `Command` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "octet_merge_rail"
     },
     {
       "stable_id": "b3:e7a060b8b8fa9d4b",
@@ -37711,6 +38062,19 @@
       "column": 1,
       "message": "module filename `project_architecture_policy.rs` contains an underscore; prefer `project/architecture/policy.rs`",
       "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:edc373bf6f8dfd4c",
+      "semantic_id": "b3:edc373bf6f8dfd4c",
+      "identity_status": "computed",
+      "lint": "ambient_clock",
+      "group": "tigerstyle::purity",
+      "severity": "warning",
+      "file": "crates/octet-merge-rail/src/external_lean.rs",
+      "line": 209,
+      "column": 16,
+      "message": "direct system clock read in production code",
+      "crate_name": "octet_merge_rail"
     },
     {
       "stable_id": "b3:edcd221e17bb0dc1",

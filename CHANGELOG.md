@@ -58,10 +58,13 @@ bounded `syn`-based Rust source-to-IR frontend, bounded input domains, explicit
 arithmetic and dependency assumptions, deterministic outcomes, and
 identity-validated receipts. The frontend maps the documented `i64` scalar
 subset exactly once, fails closed on unsupported constructs, and emits a
-syntactic correspondence report with explicit non-claims. It is not wired into
-starter `cargo octet check`, does not synthesize or apply merges, and makes no
-claim that the syntactic mapping proves Rust semantic correspondence, universal
-verification, release authority, or provider trust. Production admission is a
+syntactic correspondence report with explicit non-claims. An optional
+`LeanBackend` checks a concrete encoded equality with the pinned Lean kernel;
+its evidence is bounded per input, and Lean rejection, timeout, or failure is a
+tool error rather than a semantic conflict. It is not wired into starter
+`cargo octet check`, does not synthesize or apply merges, and makes no claim
+that the syntactic mapping or concrete Lean checks prove Rust semantic
+correspondence, universal verification, release authority, or provider trust. Production admission is a
 no-go pending a separately scoped production frontend, semantic-correspondence
 proof, and verifier.
 

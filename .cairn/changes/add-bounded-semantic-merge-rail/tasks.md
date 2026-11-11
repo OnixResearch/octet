@@ -35,12 +35,18 @@
 
 - [x] [serial] Implement and review a real Rust source-to-IR frontend with an explicit correspondence obligation and evidence. r[octet.semantic_merge_verification.identity] r[octet.semantic_merge_verification.frontend]
   - Bounded `syn` frontend in `crates/octet-merge-rail/src/frontend.rs`; tests in `crates/octet-merge-rail/tests/frontend.rs`; guide section. It maps the documented `i64` subset exactly once, rejects unsupported constructs fail-closed, and emits a syntactic correspondence report. It does not prove Rust semantic correspondence; the external verifier and production gating obligations remain blocked.
-  - The advisory self-check baseline was refreshed for the new source findings: 3,120 identities / 4,284 warnings, hash `b3:5cc32c…`; evidence: `evidence/rust-frontend.json`.
-- [ ] [serial] Implement and review a symbolic or external verifier backend with a stated trusted base, proof obligations, universal-versus-bounded evidence, and solver-failure semantics. Blocked: no such backend is admitted in this repository, so only the finite-domain evaluator is exercised. r[octet.semantic_merge_verification.profile]
+  - Initial frontend refresh: 3,120 identities / 4,284 warnings, hash `b3:5cc32c…`; evidence: `evidence/rust-frontend.json`. The later Lean backend added findings and refreshed the baseline again.
+- [x] [serial] Implement and review a symbolic or external verifier backend with a stated trusted base, proof obligations, universal-versus-bounded evidence, and solver-failure semantics. r[octet.semantic_merge_verification.profile] r[octet.semantic_merge_verification.external_backend]
+  - Opt-in `LeanBackend` in `crates/octet-merge-rail/src/external_lean.rs`; tests in `crates/octet-merge-rail/tests/lean_backend.rs`; pinned Lean binary supplied by the Nix nextest check. It checks a concrete encoded equality per input with the Lean kernel, supports checked arithmetic only, and maps Lean rejection, timeout, spawn failure, or nonzero exit to `tool-error`. Evidence is bounded per input; no universal claim.
+  - The advisory self-check baseline was refreshed for the new backend findings: 3,148 identities / 4,325 warnings, hash `b3:8557d2…`; evidence: `evidence/lean-backend.json`. The full flake check reports all checks passed.
 - [ ] [serial] Admit production gating or consumer authority. Blocked by the recorded no-go decision: production admission and any whole-program, semantic-equivalence, or release-authority claim are out of scope until the frontend and verifier obligations above are separately scoped and reviewed. r[octet.semantic_merge_verification.claim_boundary]
 
 - `Scenario: Admitted Rust source maps to the scalar IR` -> `frontend::parses_scalar_arithmetic_and_binds_correspondence`, `frontend::frontend_output_admits_identical_roles_and_verifies`
 - `Scenario: Unsupported Rust construct fails closed` -> `frontend::rejects_unsupported_constructs_fail_closed`
+
+- `Scenario: Concrete evaluation is Lean-checked` -> `lean_backend::lean_backend_verifies_frontend_request_when_available`, `lean_backend::lean_backend_verifies_checked_overflow_when_available`
+- `Scenario: Lean rejection or timeout is a tool error` -> `lean_backend::lean_backend_reports_tool_error_on_rejection`, `lean_backend::lean_backend_times_out_as_tool_error`
+- `Scenario: Wrapping is outside the backend profile` -> `lean_backend::lean_backend_rejects_wrapping_arithmetic`
 
 ## Verification Coverage
 
