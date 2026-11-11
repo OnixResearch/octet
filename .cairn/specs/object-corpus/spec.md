@@ -11,8 +11,9 @@ Defines the `object-corpus` capability.
 r[octet.object_corpus.reviewed_refresh] The reviewed v2 object-corpus candidate
 and reviewed manifests, reference receipts, caveat taxonomy, verifier anchors,
 and reference counts MUST be refreshed together when the selected source bytes
-change. The refresh MUST preserve the 37-path/three-module selection, the
-four reference artifacts, the Valence module/revision binding, and the explicit
+change, including rail source integrations such as the measured Vermilion
+canary. The refresh MUST preserve the 37-path/three-module selection, the four
+reference artifacts, the Valence module/revision binding, and the explicit
 mechanical-refresh non-claim.
 
 #### Scenario: Refreshed source is admitted
