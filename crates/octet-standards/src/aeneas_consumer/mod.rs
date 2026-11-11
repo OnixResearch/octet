@@ -13,7 +13,7 @@ pub const RECEIPT_SCHEMA: &str = "octet-aeneas-consumer-receipt-binding/v1";
 /// Selected external-consumer fixture profile.
 pub const EXPECTED_PROFILE_ID: &str = "octet-external-aeneas-consumer-v1";
 /// BLAKE3 identity of the generated consumer profile.
-pub const PROFILE_IDENTITY: &str = "b3:eb33b8aaf15dd2041fed7a09dc319636cf0415e75c1398eb526e2ac3af806948";
+pub const PROFILE_IDENTITY: &str = "b3:86351a1b7a93d5fbcacc20aa97ad8fff4c9d15b670f47f55988e5ac2deb66291";
 /// Reviewed provider backend.
 pub const EXPECTED_BACKEND: &str = "aeneas-lean";
 /// Reviewed provider profile identifier.

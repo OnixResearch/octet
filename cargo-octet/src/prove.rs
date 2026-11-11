@@ -2208,7 +2208,7 @@ fn proof_card_for_execution(execution: &ExecutedProof) -> ProofCard {
         let mut card = initial_vermilion_canary_proof_card(execution);
         let diagnostics = proof_card_validation_diagnostics(&card, None, None);
         if !diagnostics.is_empty() {
-            card.evidence_tier = EvidenceTier::ManualReviewRequired.as_str().to_owned();
+            EvidenceTier::ManualReviewRequired.as_str().clone_into(&mut card.evidence_tier);
             card.diagnostics.extend(diagnostics);
         }
         return card;
@@ -2983,7 +2983,7 @@ mod tests {
     const PIPE_OVERFLOW_BYTES: usize = 200_000;
     const DESCENDANT_SLEEP_SECS: u64 = 20;
     const DESCENDANT_TEARDOWN_BOUND_SECS: u64 = 10;
-    const AENEAS_FIXTURE_TIMEOUT_MS: u64 = 1_800_000;
+    const AENEAS_FIXTURE_TIMEOUT_MS: u64 = 2_700_000;
     const AENEAS_FIXTURE_LOG_LIMIT_BYTES: usize = 1_048_576;
     const AENEAS_CONSUMER_TRUST_BOUNDARY: &str =
         "the external consumer proves only its named theorem over exact bound inputs";

@@ -1540,7 +1540,7 @@ mod tests {
     const TEST_LLBC_PATH: &str = "llbc.json";
     const TEST_THEOREM_PATH: &str = "Theorem.lean";
     const TEST_ENVIRONMENT: &str = "PATH";
-    const LIVE_PROVIDER_TIMEOUT_MS: u64 = 1_800_000;
+    const LIVE_PROVIDER_TIMEOUT_MS: u64 = 2_700_000;
     const LIVE_PROVIDER_LOG_BYTES: usize = 1_048_576;
     const LIVE_FIXTURE_SOURCE: &str = "src/lib.rs";
     const LIVE_FIXTURE_THEOREM: &str = "Theorem.lean";

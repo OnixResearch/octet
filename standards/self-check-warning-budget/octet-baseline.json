@@ -10,7 +10,7 @@
     "profile_hash": "b3:5ebc1b358e0e776e5a3d281656f6abc77498cde8246f27b333783eec419163f9",
     "config_hash": "b3:c51d1ae1c55fee2a9d155a7b8abe18cb7a6b14ac30476d513f3f5162fe5360c7"
   },
-  "baseline_hash": "b3:528cdc6beba5fbf866e3a8455d7582b12178d5556fd0016c2496b90435170cfc",
+  "baseline_hash": "b3:dc1b7b0a5a9379702268ff967e391d9595ceacb365032daf25387a232721c576",
   "findings": [
     {
       "stable_id": "b3:0054f6e0876ae1a9",
@@ -8762,19 +8762,6 @@
       "crate_name": "cargo_octet"
     },
     {
-      "stable_id": "b3:35ab465fb116dfcc",
-      "semantic_id": "b3:35ab465fb116dfcc",
-      "identity_status": "computed",
-      "lint": "underscore_in_module_filename",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "crates/octet-standards/src/aeneas_consumer/envelope_tests.rs",
-      "line": 1,
-      "column": 1,
-      "message": "module filename `envelope_tests.rs` contains an underscore; prefer `envelope/tests.rs`",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:35b4919e1c45b6ae",
       "semantic_id": "b3:35b4919e1c45b6ae",
       "identity_status": "computed",
@@ -14038,6 +14025,19 @@
       "column": 1,
       "message": "non-trait import `ParityRequest` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "octet_standards"
+    },
+    {
+      "stable_id": "b3:55609e1a39bdd286",
+      "semantic_id": "b3:55609e1a39bdd286",
+      "identity_status": "computed",
+      "lint": "excessive_file_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/aeneas_execution.rs",
+      "line": 1,
+      "column": 1,
+      "message": "source file is 2322 lines (limit: 300)",
+      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:5587f61a5ac3db33",
@@ -22256,6 +22256,19 @@
       "crate_name": "octet_standards"
     },
     {
+      "stable_id": "b3:88a5fdafa2265fa5",
+      "semantic_id": "b3:88a5fdafa2265fa5",
+      "identity_status": "computed",
+      "lint": "underscore_in_module_filename",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/aeneas_execution.rs",
+      "line": 1,
+      "column": 1,
+      "message": "module filename `aeneas_execution.rs` contains an underscore; prefer `aeneas/execution.rs`",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:88b5265bd9e35c70",
       "semantic_id": "b3:88b5265bd9e35c70",
       "identity_status": "computed",
@@ -24190,19 +24203,6 @@
       "line": 53,
       "column": 37,
       "message": "function `run_with` is 72 lines (limit: 70)",
-      "crate_name": "cargo_octet"
-    },
-    {
-      "stable_id": "b3:96ebfe9ba8d2700c",
-      "semantic_id": "b3:96ebfe9ba8d2700c",
-      "identity_status": "computed",
-      "lint": "underscore_in_module_filename",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "cargo-octet/src/aeneas_execution.rs",
-      "line": 1,
-      "column": 1,
-      "message": "module filename `aeneas_execution.rs` contains an underscore; prefer `aeneas/execution.rs`",
       "crate_name": "cargo_octet"
     },
     {
@@ -29432,6 +29432,19 @@
       "crate_name": "octet_standards"
     },
     {
+      "stable_id": "b3:b4d978a0b233e87c",
+      "semantic_id": "b3:b4d978a0b233e87c",
+      "identity_status": "computed",
+      "lint": "underscore_in_module_filename",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "crates/octet-standards/src/aeneas_consumer/envelope_tests.rs",
+      "line": 1,
+      "column": 1,
+      "message": "module filename `envelope_tests.rs` contains an underscore; prefer `envelope/tests.rs`",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:b4e10d7b706cb65f",
       "semantic_id": "b3:b4e10d7b706cb65f",
       "identity_status": "computed",
@@ -33488,19 +33501,6 @@
       "crate_name": "octet_architecture_ir"
     },
     {
-      "stable_id": "b3:d04eff60384bcf3d",
-      "semantic_id": "b3:d04eff60384bcf3d",
-      "identity_status": "computed",
-      "lint": "excessive_file_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/prove.rs",
-      "line": 1,
-      "column": 1,
-      "message": "source file is 4972 lines (limit: 300)",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:d058c3177d6b44b0",
       "semantic_id": "b3:d058c3177d6b44b0",
       "identity_status": "computed",
@@ -34603,6 +34603,19 @@
       "line": 5412,
       "column": 1,
       "message": "item name `cargo_deny_report_from_json_lines` repeats `cargo` from ancestor path segment `cargo_octet`",
+      "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:d6b623974adee1ec",
+      "semantic_id": "b3:d6b623974adee1ec",
+      "identity_status": "computed",
+      "lint": "excessive_file_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/prove.rs",
+      "line": 1,
+      "column": 1,
+      "message": "source file is 4972 lines (limit: 300)",
       "crate_name": "cargo_octet"
     },
     {
@@ -41064,19 +41077,6 @@
       "line": 14,
       "column": 1,
       "message": "non-trait import `WasmFeatures` hides the owner path; prefer the qualified path at the use site",
-      "crate_name": "cargo_octet"
-    },
-    {
-      "stable_id": "b3:ffcbbf5df801ff9e",
-      "semantic_id": "b3:ffcbbf5df801ff9e",
-      "identity_status": "computed",
-      "lint": "excessive_file_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/aeneas_execution.rs",
-      "line": 1,
-      "column": 1,
-      "message": "source file is 2322 lines (limit: 300)",
       "crate_name": "cargo_octet"
     },
     {

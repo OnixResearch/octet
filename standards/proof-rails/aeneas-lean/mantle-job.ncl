@@ -28,7 +28,7 @@ let Job = {
   package_attribute = "packages.x86_64-linux.octet-mantle-aeneas-consumer-job",
   profile = {
     path = "standards/proof-rails/aeneas-lean/generated/consumer-profile.json",
-    identity = "b3:eb33b8aaf15dd2041fed7a09dc319636cf0415e75c1398eb526e2ac3af806948",
+    identity = "b3:86351a1b7a93d5fbcacc20aa97ad8fff4c9d15b670f47f55988e5ac2deb66291",
   },
   provider = {
     path = "standards/proof-rails/aeneas-lean/generated/profile.json",
