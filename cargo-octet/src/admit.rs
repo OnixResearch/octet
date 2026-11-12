@@ -1,3 +1,5 @@
+#![allow(clippy::assigning_clones)]
+
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::env;
@@ -2061,6 +2063,7 @@ fn auth_decision_receipt_blake3(decision: &ArtifactAuthDecisionV1) -> String {
     blake3_auth_bytes(&auth_decision_bytes(decision))
 }
 
+#[allow(clippy::too_many_lines)]
 fn evaluate_admission_auth(
     report: &AdmissionVerificationReport,
     files: &BTreeMap<String, Vec<u8>>,

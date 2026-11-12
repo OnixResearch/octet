@@ -7,7 +7,7 @@ Nix environment, and focused verification commands. Read the
 ## Changes
 
 - Open an issue for a bug or proposal at
-  <https://github.com/OnixResearch/octet/issues>. Include the pinned Octet
+  <https://github.com/OnixResearch/octet-public/issues>. Include the pinned Octet
   revision, platform, exact command, and a small reproducible example.
 - Keep pull requests focused. Explain the consumer-visible behavior, the
   exercised checks, and any remaining limits. Update affected docs and the

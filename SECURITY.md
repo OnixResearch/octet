@@ -8,7 +8,7 @@ SLA or long-term support window for historical revisions.
 
 Use GitHub's **Report a vulnerability** action in the repository's Security tab:
 
-<https://github.com/OnixResearch/octet/security/advisories/new>
+<https://github.com/OnixResearch/octet-public/security/advisories/new>
 
 This channel requires maintainers to enable private vulnerability reporting.
 If it is unavailable, open an issue asking for a private contact channel

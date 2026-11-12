@@ -1,3 +1,5 @@
+#![allow(clippy::assigning_clones)]
+
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::ffi::OsString;
@@ -1280,6 +1282,7 @@ fn effective_limits(
     Ok(limits)
 }
 
+#[allow(clippy::too_many_lines)]
 fn prepare_execution(
     profile: &'static ReviewedProfile,
     manifest: &Value,
@@ -2055,6 +2058,7 @@ fn capsule_replay_executed(
     Ok(code)
 }
 
+#[allow(clippy::too_many_lines)]
 fn capsule_replay_executed_report(
     capsule_path: &Path,
     inputs_path: Option<&Path>,

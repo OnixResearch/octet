@@ -631,6 +631,7 @@ pub(crate) fn build_standalone_cargo_octet() -> StandaloneCargoOctet {
         "crates/octet-merge-rail",
         "crates/octet-standards",
         "standards",
+        "vendor/sources/artifact",
     ] {
         copy_path(&repo_root.join(relative), &source_root.join(relative));
     }

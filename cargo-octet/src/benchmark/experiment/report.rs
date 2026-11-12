@@ -21,8 +21,8 @@ pub fn render_report(artifact: &ExperimentArtifact) -> String {
     let _ = writeln!(output, "- Source revision: `{}`", profile.source_revision);
     let _ = writeln!(output, "- Rust toolchain: `{}`", profile.rust_toolchain);
     let _ = writeln!(output, "- Evidence tier: `{}`", profile.evidence_tier);
-    let _ = writeln!(output, "- Machine artifact: `{}`", ARTIFACT_NAME);
-    let _ = writeln!(output, "- Retained observations: `{}`", OBSERVATIONS_NAME);
+    let _ = writeln!(output, "- Machine artifact: `{ARTIFACT_NAME}`");
+    let _ = writeln!(output, "- Retained observations: `{OBSERVATIONS_NAME}`");
     let _ = writeln!(output, "- Declared before measurement: `{}`", profile.declared_before_measurement);
     let _ = writeln!(output);
 
@@ -75,8 +75,7 @@ fn write_tool_pins(output: &mut String, artifact: &ExperimentArtifact) {
     for tool in &artifact.profile.tools {
         let status = availability
             .get(tool.tool_id.as_str())
-            .map(|record| availability_label(&record.status))
-            .unwrap_or("missing");
+            .map_or("missing", |record| availability_label(&record.status));
         let config = if tool.config_path.is_empty() {
             format!("{:?}: {}", tool.configuration_status, tool.rules_pin)
         } else {
@@ -125,8 +124,7 @@ fn write_applicability(output: &mut String, artifact: &ExperimentArtifact) {
         for tool in tools {
             let status = matrix
                 .get(&(task.task_id.as_str(), tool.tool_id.as_str()))
-                .map(|status| applicability_mark(status))
-                .unwrap_or("?");
+                .map_or("?", |status| applicability_mark(status));
             let _ = write!(row, " {status} |");
         }
         let _ = writeln!(output, "{row}");
@@ -158,6 +156,7 @@ fn write_corpus(output: &mut String, artifact: &ExperimentArtifact) {
     let _ = writeln!(output);
 }
 
+#[allow(clippy::needless_pass_by_value)]
 fn write_metrics(output: &mut String, title: &str, rows: &[ToolTaskMetrics], category: Category) {
     let _ = writeln!(output, "## {title}");
     let _ = writeln!(output);
@@ -352,11 +351,11 @@ fn option_number(value: Option<u64>) -> String {
 }
 
 fn option_duration(value: Option<u64>) -> String {
-    value.map_or_else(|| "unavailable".to_owned(), |value| format!("{} ns", value))
+    value.map_or_else(|| "unavailable".to_owned(), |value| format!("{value} ns"))
 }
 
 fn option_ratio(value: Option<u64>) -> String {
-    value.map_or_else(|| "unavailable".to_owned(), |value| format!("{} bp", value))
+    value.map_or_else(|| "unavailable".to_owned(), |value| format!("{value} bp"))
 }
 
 fn source_link(path: &str, case_id: &str) -> String {

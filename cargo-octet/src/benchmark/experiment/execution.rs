@@ -129,7 +129,7 @@ pub fn run_command(root: &Path, argv: &[String]) -> Result<CommandOutcome, Strin
     };
     let executable = resolve_executable(program)
         .ok_or_else(|| format!("experiment executable `{program}` is not available on PATH"))?;
-    let args = argv.iter().skip(1).map(|argument| OsString::from(argument.as_str())).collect();
+    let command_args = argv.iter().skip(1).map(|argument| OsString::from(argument.as_str())).collect();
     let root = absolute_root(root)?;
     let scratch = scratch_directory("command");
     let target_dir = scratch.join("target");
@@ -139,11 +139,12 @@ pub fn run_command(root: &Path, argv: &[String]) -> Result<CommandOutcome, Strin
         let _ = std::fs::create_dir_all(directory);
     }
     let environment = adoption_environment(&home, &temp, &target_dir);
-    let outcome = execute(&executable, args, &root, &environment, ADOPTION_TIMEOUT_MS);
+    let outcome = execute(&executable, command_args, &root, &environment, ADOPTION_TIMEOUT_MS);
     let _ = std::fs::remove_dir_all(&scratch);
     outcome
 }
 
+#[allow(clippy::too_many_lines)]
 fn execute_observations(
     profile: &ExperimentProfile,
     corpus_root: &Path,
@@ -377,8 +378,8 @@ fn run_adoption_phase(
             &format!("executable `{program}` is not available on PATH"),
         );
     };
-    let args = argv.iter().skip(1).map(|argument| OsString::from(argument.as_str())).collect();
-    let outcome = execute(&executable, args, root, environment, ADOPTION_TIMEOUT_MS);
+    let command_args = argv.iter().skip(1).map(|argument| OsString::from(argument.as_str())).collect();
+    let outcome = execute(&executable, command_args, root, environment, ADOPTION_TIMEOUT_MS);
     let cache_state = match phase {
         AdoptionPhase::Initial => CacheState::Cold,
         AdoptionPhase::Incremental => CacheState::Warm,

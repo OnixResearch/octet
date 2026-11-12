@@ -434,7 +434,7 @@ fn first_checked_patch_walkthrough_names_lint_commands_artifacts_and_boundaries(
         "missing explicit zero guard",
         "Fixed patch",
         "Result<u64, AverageBytesError>",
-        "if completed_operations == 0",
+        "if completed_operations > 0",
         "bounded remediation rationale",
         "static lint evidence and artifact verification",
         "not a solver model",

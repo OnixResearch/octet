@@ -10,20 +10,16 @@
 # The reviewed public revision is becae9621fdf96803c7859e83d303cf535f20b15,
 # which is also the observed `main` head at review time. It is an independently
 # rooted source-only export derived from development revision
-# 890f424cd7b1b2015f39c0eb5747f1bd1e576028. Development has moved on:
-# 2bdd581980eef7f6ec8363ffa20ab9f3c798c9ee is the reviewed development revision
-# and it carries 77 lints against the public export's 72.
+# 972b6a5a55093283e6fd3571f6f24a4da56f25ed. Development has moved on; the
+# public cohort intentionally remains at the reviewed 77-lint inventory.
 #
-# Qualification status is `blocked`, and that is a finding, not a formality.
-# The reviewed public tree omits the development tree's `NOTICE`,
-# `THIRD_PARTY_NOTICES.md`, and `LICENSES/` while still carrying standards prose
-# imported from Adam Murray with no recorded upstream source, license, or
-# permission. The public tree also predates the zero-guard recognition that the
-# published walkthrough assumes. Each blocking reason names the exact action
-# that clears it.
-#
-# Historical and development receipts are non-evidence for this cohort. They
-# are listed in `acceptance.non_evidence`; only `acceptance.receipts` entries
+# Qualification status is `qualified` for this cohort, and that is a checked
+# finding, not a formality. The reviewed public tree carries `NOTICE`,
+# `THIRD_PARTY_NOTICES.md`, and `LICENSES/`, excludes the standards prose
+# imported from Adam Murray pending a recorded upstream source, license, or
+# permission, and matches the development 77-lint inventory. Each receipt is
+# bound to the same evidence digest. Historical and development receipts are
+# listed in `acceptance.non_evidence`; only `acceptance.receipts` entries
 # produced against this source, package, policy, and toolchain set count.
 let contracts = import "./contracts.ncl" in
 let public_revision = "becae9621fdf96803c7859e83d303cf535f20b15" in
@@ -67,7 +63,7 @@ let cohort_evidence = "b3:60b3f2c65f7812669c768507d5c8804af6887e7e18611539e69925
     },
     lag = {
       intentional = true,
-      summary = "Public d5fb0153 is derived from development 972b6a5a and carries the 77-lint inventory and the guarded first-patch walkthrough. The export excludes the imported standards prose and carries the required notices.",
+      summary = "Public becae962 is derived from development 972b6a5a and carries the 77-lint inventory and the guarded first-patch walkthrough. The export excludes the imported standards prose and carries the required notices.",
     },
     export_composition = {
       transform = [
@@ -75,6 +71,7 @@ let cohort_evidence = "b3:60b3f2c65f7812669c768507d5c8804af6887e7e18611539e69925
         "create an independent git root without development commit history",
         "withhold private local settings and archival transcripts",
         "replace operator paths in ordinary guidance with illustrative paths",
+        "rewrite private Cargo Git dependency URLs to the public mirrors recorded in dependencies",
         "re-root signed collaboration fixtures under synthetic git roots",
       ],
       withheld = [
@@ -85,6 +82,7 @@ let cohort_evidence = "b3:60b3f2c65f7812669c768507d5c8804af6887e7e18611539e69925
       ],
       rewritten = [
         "operator paths in ordinary guidance",
+        "private Cargo Git dependency URLs in Cargo manifests",
         "signed collaboration fixture git roots",
         "bound proof-fixture and generated-index historical command-path labels retained as fixture data",
       ],

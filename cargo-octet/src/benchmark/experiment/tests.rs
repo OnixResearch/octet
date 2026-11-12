@@ -446,5 +446,5 @@ fn regenerate_experiment_artifacts() {
     )
     .expect("write artifact");
     std::fs::write(directory.join(REPORT_NAME), report.as_bytes()).expect("write report");
-    eprintln!("wrote {} / {} / {}", OBSERVATIONS_NAME, ARTIFACT_NAME, REPORT_NAME);
+    eprintln!("wrote {OBSERVATIONS_NAME} / {ARTIFACT_NAME} / {REPORT_NAME}");
 }

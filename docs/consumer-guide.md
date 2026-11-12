@@ -25,7 +25,16 @@ gates.
 
 Use the first-class Octet runner surface. Pick one of these paths:
 
-Nix one-off:
+Supported public channel (pinned source-only export):
+
+```bash
+nix run github:OnixResearch/octet-public/becae9621fdf96803c7859e83d303cf535f20b15#cargo-octet -- check
+```
+
+Pin the full public revision. `main` and `github:OnixResearch/octet` are not
+supported public selectors.
+
+Local development checkout:
 
 ```bash
 nix run path:/path/to/octet#cargo-octet -- check
@@ -410,7 +419,7 @@ same pinned hook checkout:
 
 ```yaml
 repos:
-  - repo: https://github.com/OnixResearch/octet
+  - repo: https://github.com/OnixResearch/octet-public
     # Replace with a reviewed release tag or commit SHA.
     rev: 0123456789abcdef0123456789abcdef01234567
     hooks:

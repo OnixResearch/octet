@@ -1,3 +1,5 @@
+#![allow(clippy::assigning_clones)]
+
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 
@@ -447,6 +449,7 @@ fn validate_controls(profile: &ExperimentProfile, diagnostics: &mut Vec<String>)
     }
 }
 
+#[allow(clippy::too_many_lines)]
 pub(crate) fn validate_observations(profile: &ExperimentProfile, observations: &ExperimentObservations) -> Vec<String> {
     let mut diagnostics = Vec::new();
     if observations.schema_version != OBSERVATIONS_SCHEMA || observations.profile_id != profile.profile_id {
@@ -751,6 +754,7 @@ fn validate_adoption_observations(
     }
 }
 
+#[allow(clippy::trivially_copy_pass_by_ref)]
 fn adoption_phase_key(phase: &AdoptionPhase) -> &'static str {
     match phase {
         AdoptionPhase::Initial => "initial",
@@ -838,6 +842,7 @@ fn derive_projection(
     })
 }
 
+#[allow(clippy::needless_pass_by_value)]
 fn push_metrics(
     architecture: &mut Vec<ToolTaskMetrics>,
     assurance: &mut Vec<ToolTaskMetrics>,
@@ -876,6 +881,7 @@ fn empty_metrics(entry: &Applicability, category: Category, availability: Availa
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn classify_case(
     profile: &ExperimentProfile,
     tool: &ToolPin,

@@ -6,6 +6,25 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## 2026-11-11: Public release channel and launch kit
+
+Consumer-facing documentation now names the supported source-only public
+channel, `github:OnixResearch/octet-public`, at the reviewed cohort revision.
+README quick starts, issue and security links, pre-commit examples, Cargo
+metadata, and the trust-boundary deployment posture no longer point at the
+private development repository or the unsupported `main` selector. The project
+does not claim `octet.dev`; Cargo metadata points at the public repository, and
+the public repository README is the canonical public home until an owned domain
+exists. The release cohort manifest and its generated export were reconciled
+with the qualified cohort state.
+
+The public launch kit adds positioning, a phased launch plan, v0.1.0 release
+notes, an announcement draft, outreach copy, and an operational checklist under
+`docs/gtm/`. The expected-green coverage profile check now asserts the pinned
+`cargo-llvm-cov 0.8.3` provider, matching the registry and coverage guide,
+instead of an unreviewed `0.9.0` string. No lint, runner, policy, or evidence
+behavior changed.
+
 ## Unreleased: durability-claim lints
 
 Three new `warn`-level safety lints analyze consumer-declared durability
@@ -187,7 +206,7 @@ still needs review.
 Public distribution remains blocked on imported standards-prose permission
 and anonymous access to exact dependency sources. Maintainers must also finish
 the final history/privacy and binary-closure reviews in the
-[release checklist](docs/release-candidate.md#open-source-publication-prerequisites).
+[release checklist](docs/release-candidate.md#public-export-and-development-repository-prerequisites).
 
 ## 2026-11-09: Optional binary debug-map evidence rail
 

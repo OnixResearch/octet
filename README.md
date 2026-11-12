@@ -20,6 +20,16 @@ The checked path is:
 Rust source → cargo octet check → standards and policy → evidence artifacts → consumer gates
 ```
 
+| Property | Value |
+| --- | --- |
+| Install | Pinned source-only Nix channel: `github:OnixResearch/octet-public` |
+| Checked path | `cargo octet check` -> policy -> local artifacts -> consumer gate |
+| Lint inventory | 77 Dylint lints across safety, naming, performance, structure, purity, and concurrency |
+| Evidence | `status.json`, `summary.txt`, SARIF or JSONL findings, `provenance.jsonl`, and `cargo octet artifact verify` |
+| Profiles | `robust`, `bounded-systems`, `deterministic-core` |
+| Proof rails | Optional and scoped; starter check does not require Verus |
+| License | `AGPL-3.0-or-later` |
+
 Read [`docs/trust-boundary-evidence.md`](docs/trust-boundary-evidence.md) for evidence tiers, provenance, scope, and deployment boundaries.
 
 Use [`docs/trust-boundary-evidence.md#checked-contract-ladder`](docs/trust-boundary-evidence.md#checked-contract-ladder) to review the evidence ladder.
@@ -44,7 +54,15 @@ Octet is under active development. Nix pins Rust, Dylint, Verus, solvers, and su
 
 Direct Cargo use is an advanced path. It must reproduce the same pins.
 
-Octet pins exact Valence and Bounded Exec revisions in Cargo and Nix. Public source availability and redistribution permissions must be checked independently; the [release checklist](docs/release-candidate.md#open-source-publication-prerequisites) records unresolved publication prerequisites. Cached local builds do not prove anonymous checkout reproducibility.
+Octet pins exact Valence and Bounded Exec revisions in Cargo and Nix. The
+supported public channel is the source-only export at
+`github:OnixResearch/octet-public`, pinned by the reviewed cohort
+`octet-public-becae962-2026-11-11`. That cohort resolves its flake and Cargo
+inputs anonymously, carries `NOTICE`, `THIRD_PARTY_NOTICES.md`, and `LICENSES/`,
+and excludes imported standards prose pending permission. Cached local builds
+are not accepted as anonymous checkout evidence. The
+[release checklist](docs/release-candidate.md) records the cohort manifest and
+fresh acceptance receipts.
 
 The [Mantle producer handoff](docs/aeneas-consumer-contract.md#mantle-producer-handoff)
 exports an immutable ordinary Nix job with an explicit legacy or Nix v4 wire
@@ -69,11 +87,14 @@ Installed Cargo subcommand:
 cargo octet check
 ```
 
-Public Nix flake:
+Supported public channel (pinned source-only export):
 
 ```bash
-nix run github:OnixResearch/octet#cargo-octet -- check
+nix run github:OnixResearch/octet-public/becae9621fdf96803c7859e83d303cf535f20b15#cargo-octet -- check
 ```
+
+Pin the full public revision. `github:OnixResearch/octet-public/main` and
+`github:OnixResearch/octet` are not supported public selectors.
 
 Local checkout:
 
@@ -390,9 +411,9 @@ Canonical attributes use `tigerstyle::<lint>`. Domain groups use `tigerstyle::<d
 
 | Surface | Current name | Compatibility name |
 |---|---|---|
-| Public site | `octet.dev` | `slotcar.dev` is historical |
+| Public site | Repository README is the canonical public home | No custom domain is claimed |
 | Project | `Octet` or `octet` | `slotcar` is legacy |
-| Repository | `github:OnixResearch/octet` | Old repository names are obsolete |
+| Repository | `github:OnixResearch/octet-public` | `github:OnixResearch/octet` is the private development source; old repository names are obsolete |
 | Package | `octet` | `slotcar` and `tigerstyle` are aliases |
 | Runner binary | `cargo-octet` | `cargo-slotcar` and `cargo-tigerstyle` are aliases |
 | Runner command | `cargo octet check` | Legacy commands route to the same engine |

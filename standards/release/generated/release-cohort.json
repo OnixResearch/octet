@@ -598,6 +598,7 @@
       ],
       "rewritten": [
         "operator paths in ordinary guidance",
+        "private Cargo Git dependency URLs in Cargo manifests",
         "signed collaboration fixture git roots",
         "bound proof-fixture and generated-index historical command-path labels retained as fixture data"
       ],
@@ -606,6 +607,7 @@
         "create an independent git root without development commit history",
         "withhold private local settings and archival transcripts",
         "replace operator paths in ordinary guidance with illustrative paths",
+        "rewrite private Cargo Git dependency URLs to the public mirrors recorded in dependencies",
         "re-root signed collaboration fixtures under synthetic git roots"
       ],
       "withheld": [
@@ -617,7 +619,7 @@
     },
     "lag": {
       "intentional": true,
-      "summary": "Public d5fb0153 is derived from development 972b6a5a and carries the 77-lint inventory and the guarded first-patch walkthrough. The export excludes the imported standards prose and carries the required notices."
+      "summary": "Public becae962 is derived from development 972b6a5a and carries the 77-lint inventory and the guarded first-patch walkthrough. The export excludes the imported standards prose and carries the required notices."
     },
     "public": {
       "byte_identical_to_derivation": false,

@@ -1,4 +1,6 @@
 // r[impl octet.external_lint.sarif_producer_execution]
+#![allow(clippy::assigning_clones)]
+
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -209,8 +211,8 @@ pub(crate) struct ReportReceipt {
     pub identity: String,
 }
 
-/// The database facts a CodeQL analysis is bound to. A database whose recorded facts disagree with
-/// the current source snapshot, build configuration, query packs, or executable is stale.
+/// The database facts a `CodeQL` analysis is bound to. A database whose recorded facts disagree
+/// with the current source snapshot, build configuration, query packs, or executable is stale.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub(crate) struct DatabaseBinding {
     pub source_snapshot_identity: String,
@@ -366,7 +368,7 @@ pub(crate) fn intake_profile_id(profile_id: &str) -> Result<String, String> {
     Ok(profile_id.to_owned())
 }
 
-/// The surrogate identity of one CodeQL query pack pin: `name` and declared `version` only. It is
+/// The surrogate identity of one `CodeQL` query pack pin: `name` and declared `version` only. It is
 /// not byte evidence for the locally resolved pack; the analysis report binding is.
 pub(crate) fn query_pack_identity(name: &str, version: &str) -> String {
     let mut hasher = blake3::Hasher::new();
@@ -741,6 +743,7 @@ fn scope_includes(profile: &ProducerProfile, path: &Path, locator: &str) -> bool
     }) && !profile.scope.exclude_globs.iter().any(|glob| glob_matches(glob, locator))
 }
 
+#[allow(clippy::unnecessary_wraps)]
 pub(crate) fn source_snapshot_identity(files: &[SourceFile]) -> Result<String, String> {
     let mut sorted = files.to_vec();
     sorted.sort_by(|left, right| left.path.cmp(&right.path));
@@ -1205,7 +1208,7 @@ fn codeql_create_argv(profile: &ProducerProfile, database_path: &Path, workspace
     let mut argv = string_argv(&["codeql", "database", "create"]);
     argv.push(executable_path_string(database_path));
     argv.push("--language=rust".to_owned());
-    argv.push(format!("--build-mode={}", BUILD_MODE_NONE));
+    argv.push(format!("--build-mode={BUILD_MODE_NONE}"));
     argv.push(format!("--source-root={}", workspace_root.display()));
     argv.push(format!("--threads={}", profile.limits.max_threads));
     argv.push(format!("--ram={}", profile.limits.max_memory_mb));
@@ -1371,11 +1374,8 @@ fn verify_report_producer_binding(
     if profile.producer != PRODUCER_CODEQL {
         return Ok(());
     }
-    let extensions = run
-        .pointer("/tool/extensions")
-        .and_then(serde_json::Value::as_array)
-        .map(Vec::as_slice)
-        .unwrap_or(&[]);
+    let extensions: &[serde_json::Value] =
+        run.pointer("/tool/extensions").and_then(serde_json::Value::as_array).map_or(&[], Vec::as_slice);
     for pack in &profile.query_packs {
         let declared = extensions
             .iter()

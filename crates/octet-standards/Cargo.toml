@@ -5,8 +5,8 @@ edition = "2024"
 license = "AGPL-3.0-or-later"
 publish = false
 description = "Policy registry and standards checks for Octet"
-repository = "https://github.com/OnixResearch/octet"
-homepage = "https://octet.dev"
+repository = "https://github.com/OnixResearch/octet-public"
+homepage = "https://github.com/OnixResearch/octet-public"
 readme = "../../README.md"
 
 [lib]

@@ -904,6 +904,7 @@ fn negative_outcome_supported(outcome: &str) -> bool {
     )
 }
 
+#[allow(clippy::too_many_lines)]
 fn negative_measurement_binding_problems(
     binding: &NegativeControlCardBinding,
     expected: &NegativeControlExpectation<'_>,
@@ -1027,6 +1028,7 @@ fn negative_measurement_binding_problems(
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn negative_measurement_artifact_problems(
     record: &ProofCardNegativeCheck,
     evidence: &NegativeControlEvidence,

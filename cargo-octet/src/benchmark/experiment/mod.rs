@@ -127,7 +127,7 @@ pub(crate) fn run_cli(args: &crate::cli::BenchmarkExperimentArgs) -> Result<i32,
                 println!("non-claim: {REQUIRED_NON_CLAIM}");
             }
         }
-        return Ok(if diagnostics.is_empty() { 0 } else { 1 });
+        return Ok(i32::from(!diagnostics.is_empty()));
     }
 
     let corpus_root: &Path = if args.execute {

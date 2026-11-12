@@ -7,6 +7,8 @@
 //! The command is a triage aid. It does not run a verifier, does not emit `formal_proof`
 //! provenance, and does not claim that a mapped rail proves the suppressed property.
 
+#![allow(clippy::assigning_clones)]
+
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
@@ -1041,16 +1043,15 @@ pub(crate) fn run_record_negative_check_with_evidence(
     let baseline_card = &baseline_deck.cards[baseline_index];
     let mutant_positions = deck_card_positions(&mutant_deck, &args.proof_or_property_id);
     let mut diagnostics = Vec::new();
-    let mutant_card = match mutant_positions.as_slice() {
-        [index] => Some(&mutant_deck.cards[*index]),
-        _ => {
-            diagnostics.push(format!(
-                "mutant deck must contain exactly one card for `{}`; found {}",
-                args.proof_or_property_id,
-                mutant_positions.len()
-            ));
-            None
-        }
+    let mutant_card = if let [index] = mutant_positions.as_slice() {
+        Some(&mutant_deck.cards[*index])
+    } else {
+        diagnostics.push(format!(
+            "mutant deck must contain exactly one card for `{}`; found {}",
+            args.proof_or_property_id,
+            mutant_positions.len()
+        ));
+        None
     };
 
     let evidence = match verifier_evidence {

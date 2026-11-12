@@ -157,7 +157,8 @@ fn outcome_for(tool: &ToolPin, case: &ExperimentCase) -> Option<RecordedOutcome>
             | "macro-expansion-compliant"
             | "trait-method-compliant"
             | "workspace-target-compliant"
-            | "valid-evidence-control" => completed(false, false, false),
+            | "valid-evidence-control"
+            | "macro-expansion-violating" => completed(false, false, false),
             "dependency-boundary-violating"
             | "reexport-alias-violating"
             | "trait-method-violating"
@@ -166,9 +167,8 @@ fn outcome_for(tool: &ToolPin, case: &ExperimentCase) -> Option<RecordedOutcome>
             | "stale-evidence"
             | "changed-policy"
             | "missing-execution"
-            | "invalid-proof-source-linkage" => completed(true, false, false),
-            "macro-expansion-violating" => completed(false, false, false),
-            "cfg-compliant" => completed(true, false, false),
+            | "invalid-proof-source-linkage"
+            | "cfg-compliant" => completed(true, false, false),
             "cfg-violating" => Some((
                 ObservationStatus::TimedOut,
                 CompileStatus::Unknown,

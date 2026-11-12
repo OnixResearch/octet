@@ -1207,6 +1207,7 @@ fn benchmark_value(args: &[String], index: &mut usize, flag: &str, inline: Optio
     Ok(value)
 }
 
+#[allow(clippy::too_many_lines)]
 fn parse_check(args: &[String], command_line: String) -> Result<CheckArgs, String> {
     let mut scope_args = Vec::new();
     let mut cargo_check_args = None;

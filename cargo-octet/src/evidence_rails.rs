@@ -1,3 +1,5 @@
+#![allow(clippy::assigning_clones)]
+
 use std::collections::BTreeMap;
 use std::fs;
 use std::io::Read as _;
@@ -793,6 +795,7 @@ struct RailParseOutput {
     verifier_fixtures: Option<VerifierFixtureReceiptDetails>,
 }
 
+#[allow(clippy::too_many_lines)]
 pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
     if args.output_format == OutputFormat::Sarif {
         return Err("evidence collect does not support SARIF output; use human or json".to_owned());
@@ -1157,7 +1160,6 @@ fn sarif_producer_status(outcome: &str, findings: &[EvidenceRailFinding]) -> Str
                 STATUS_PASSED.to_owned()
             }
         }
-        crate::external::sarif::producer::OUTCOME_FAILED => STATUS_FAILED.to_owned(),
         crate::external::sarif::producer::OUTCOME_UNSUPPORTED => STATUS_UNSUPPORTED.to_owned(),
         crate::external::sarif::producer::OUTCOME_TOOL_ERROR => STATUS_TOOL_ERROR.to_owned(),
         crate::external::sarif::producer::OUTCOME_TIMEOUT => STATUS_TIMEOUT.to_owned(),
@@ -1428,6 +1430,7 @@ pub fn render_provenance_jsonl(
     Ok(rendered)
 }
 
+#[allow(clippy::too_many_lines)]
 fn specialized_provenance(receipt: &EvidenceRailReceipt) -> (Vec<ProvenanceRecord>, Vec<String>) {
     let mut records = Vec::new();
     let mut parents = Vec::new();
@@ -3102,12 +3105,13 @@ fn parse_sarif_import(input: &EvaluationInput<'_>) -> RailParseOutput {
             verifier_fixtures: None,
         };
     };
-    let evaluation = crate::external::sarif::producer::intake_profile_id(profile)
-        .map(|intake| crate::external::sarif::evaluate(input.import_text, &intake))
-        .unwrap_or_else(|error| crate::external::sarif::Evaluation {
+    let evaluation = crate::external::sarif::producer::intake_profile_id(profile).map_or_else(
+        |error| crate::external::sarif::Evaluation {
             details: None,
             diagnostics: vec![error],
-        });
+        },
+        |intake| crate::external::sarif::evaluate(input.import_text, &intake),
+    );
     let findings = evaluation
         .details
         .as_ref()

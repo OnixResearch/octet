@@ -484,6 +484,7 @@ fn non_claims(contract: &RequirementContract) -> Vec<String> {
     claims
 }
 
+#[allow(clippy::too_many_lines)]
 fn validate_contract(contract: &RequirementContract) -> Vec<String> {
     let mut diagnostics = Vec::new();
     if contract.schema_version != CONTRACT_SCHEMA_VERSION {
@@ -633,6 +634,7 @@ fn resolve_path(root: &Path, locator: &str) -> PathBuf {
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn evaluate_contract(
     contract: &RequirementContract,
     evidence: &RequirementEvidence,
@@ -987,7 +989,7 @@ fn evaluate_clause(
         clause_id: clause.clause_id.clone(),
         required: clause.required,
         disposition: clause.disposition.clone(),
-        status: status.to_owned(),
+        status: status.clone(),
         evidence_ids,
         source_bindings: clause.source_bindings.clone(),
         diagnostics: clause_diagnostics,
@@ -1086,7 +1088,7 @@ fn validate_formal_card(
         diagnostics.push("proof card carries diagnostics".to_owned());
     }
     let non_claims = card.get("non_claims").and_then(serde_json::Value::as_array);
-    if non_claims.is_none_or(|items| items.is_empty()) {
+    if non_claims.is_none_or(std::vec::Vec::is_empty) {
         diagnostics.push("proof card must carry explicit non-claims".to_owned());
     }
     if clause.required_negative_controls.is_empty() {
@@ -1434,6 +1436,8 @@ fn compare_decisions(recorded: &RequirementDecision, recomputed: &RequirementDec
     }
 }
 
+#[allow(clippy::too_many_lines)]
+#[allow(clippy::unnecessary_wraps)]
 fn evaluate_freshness(
     contract: &RequirementContract,
     index: &EvidenceCodebaseIndex,

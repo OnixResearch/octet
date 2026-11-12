@@ -492,7 +492,7 @@ pub struct ExperimentEvaluation {
     pub diagnostics: Vec<String>,
 }
 
-/// BTreeMap of case id to case for deterministic iteration.
+/// `BTreeMap` of case id to case for deterministic iteration.
 pub(crate) fn case_map(profile: &ExperimentProfile) -> BTreeMap<&str, &ExperimentCase> {
     profile.corpus.iter().map(|case| (case.case_id.as_str(), case)).collect()
 }

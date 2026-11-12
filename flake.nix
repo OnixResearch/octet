@@ -2303,7 +2303,7 @@
               nickel export --format json standards/coverage/profiles.ncl > "$generated"
               diff -u standards/coverage/profiles.json "$generated"
               test "$(b3sum "$generated" | cut -d ' ' -f 1)" = "$expected_identity"
-              test "$(cargo-llvm-cov llvm-cov --version)" = "cargo-llvm-cov 0.9.0"
+              test "$(cargo-llvm-cov llvm-cov --version)" = "cargo-llvm-cov 0.8.3"
               jq --exit-status '
                 .schema_version == "octet-coverage-profiles/v1"
                 and (.profiles | length) == 1

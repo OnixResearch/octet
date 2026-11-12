@@ -4,6 +4,16 @@ This walkthrough starts with an ordinary Rust patch. It runs Octet, fixes one fi
 
 First, complete the setup in [`docs/consumer-guide.md`](../../consumer-guide.md). That guide also defines the production onboarding process.
 
+The commands below use `cargo octet check` after the runner is installed. From
+the pinned public channel without installing, use:
+
+```bash
+nix run github:OnixResearch/octet-public/becae9621fdf96803c7859e83d303cf535f20b15#cargo-octet -- check \
+  --artifact-dir artifacts/octet --output-format sarif
+```
+
+Pin the full public revision; `main` is not a supported pin.
+
 ## Before patch
 
 The patch adds a pure helper that computes average bytes per completed operation:
