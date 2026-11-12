@@ -240,13 +240,13 @@ fn validate_manifest_shape(manifest: &ConflictPilotManifest) -> Result<(), Confl
             field: "backend".to_string(),
         });
     }
-    let expected_parents = vec![
-        manifest.creator.operation_id.clone(),
-        manifest.delegate.operation_id.clone(),
-    ];
+    let expected_parents = [&manifest.creator.operation_id, &manifest.delegate.operation_id];
+    let direct_parents = &manifest.resolution.direct_parents;
     if manifest.resolution.selected_revision != manifest.creator.operation_id
         || manifest.resolution.losing_revision != manifest.delegate.operation_id
-        || manifest.resolution.direct_parents != expected_parents
+        || expected_parents[0] == expected_parents[1]
+        || direct_parents.len() != expected_parents.len()
+        || !expected_parents.iter().all(|expected| direct_parents.contains(expected))
     {
         return Err(ConflictEvidenceError::Field {
             receipt: MANIFEST_FILE.to_string(),
@@ -338,23 +338,23 @@ fn validate_actor_update(
     require_field(execute_name, executed, "plan_hash", preview["plan_hash"].clone())
 }
 
-fn conflict_heads(manifest: &ConflictPilotManifest) -> Value {
-    json!([
-        {
+fn conflict_heads(manifest: &ConflictPilotManifest) -> [Value; EXPECTED_CONFLICT_HEAD_COUNT] {
+    [
+        json!({
             "actor": manifest.creator.actor,
             "content_blake3": manifest.creator.content_blake3,
             "content_bytes": manifest.creator.content_bytes,
             "deleted": false,
             "revision_id": manifest.creator.operation_id,
-        },
-        {
+        }),
+        json!({
             "actor": manifest.delegate.actor,
             "content_blake3": manifest.delegate.content_blake3,
             "content_bytes": manifest.delegate.content_bytes,
             "deleted": false,
             "revision_id": manifest.delegate.operation_id,
-        }
-    ])
+        }),
+    ]
 }
 
 fn validate_conflict_inspection(
@@ -368,8 +368,10 @@ fn validate_conflict_inspection(
     require_field(CONFLICTS_METADATA, metadata, "state_hash", json!(manifest.conflict_state_hash))?;
     require_field(CONFLICTS_METADATA, metadata, "shown_head", Value::Null)?;
     require_pointer(CONFLICTS_METADATA, metadata, "/artifact_conflicts/0/artifact", json!(TASKS_ARTIFACT))?;
-    require_pointer(CONFLICTS_METADATA, metadata, "/artifact_conflicts/0/heads", conflict_heads(manifest))?;
-    if metadata["artifact_conflicts"][0]["heads"].as_array().map(Vec::len) != Some(EXPECTED_CONFLICT_HEAD_COUNT) {
+    let expected_heads = conflict_heads(manifest);
+    if !metadata["artifact_conflicts"][0]["heads"].as_array().is_some_and(|heads| {
+        heads.len() == EXPECTED_CONFLICT_HEAD_COUNT && expected_heads.iter().all(|head| heads.contains(head))
+    }) {
         return Err(ConflictEvidenceError::Field {
             receipt: CONFLICTS_METADATA.to_string(),
             field: "artifact_conflicts.heads".to_string(),

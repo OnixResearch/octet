@@ -1,5 +1,5 @@
 {
-  "actor": "z6MkjPAjbbnXWtKTuUarEF3CbhnPjFzU9ify9Xuz7qdTv4Dn",
+  "actor": "z6Mksf9UyKHypB1cGbW2PoHLdYnxLwFGgv1zphuQXxPZ1rAS",
   "artifact_count": 4,
   "artifacts": [
     {
@@ -34,7 +34,7 @@
   "change": "adopt-cairn-cob-collaboration",
   "collaboration_command": "collaboration import",
   "command": "cob import",
-  "content_root": "8784e2755b58d8dee68a02044ac379769053e35f6af35b47fa47ade7c9d7a679",
+  "content_root": "806861f84959d2f11be25481fbf7a9552ba0240bf012d9a5dbfafc9c1de6bc9f",
   "delegates": [],
   "dry_run": false,
   "format_libraries": {
@@ -44,7 +44,7 @@
     "radicle-crypto": "0.17.0",
     "radicle-oid": "0.2.0"
   },
-  "input_hash": "3a6e3fe75f4f2853d7ee8579b357ab7dbd77189481eb6fc13004af1dae7f5f93",
+  "input_hash": "a3d191c2b912f26730001453c96cbc712813d69ad58389113dcbed7056a20a01",
   "mutated": true,
   "non_claims": [
     "signed COB creation proves bounded local Git object and reference observations only",
@@ -52,15 +52,15 @@
     "embedded creator and delegate keys are immutable object authority, not Radicle identity-document or future authorization proof",
     "local Git COB creation does not prove node participation, publication, synchronization, peer availability, convergence, or remote trust"
   ],
-  "object_id": "8d4cf943a20d666c16cea0190db2541767ef8603",
-  "operation_id": "8d4cf943a20d666c16cea0190db2541767ef8603",
-  "plan_hash": "2ae88fba8d6f24f62d7d6a96c72bb8945a7905f4f90ef6d1329966a1400dca98",
+  "object_id": "3e35b2b00092bb3f6d4310b495d0eeec1a23e5e0",
+  "operation_id": "3e35b2b00092bb3f6d4310b495d0eeec1a23e5e0",
+  "plan_hash": "5e05465a7d0d83dcb71bccb5822a6c7034f4b7d10a361d015f8334f1c1c96822",
   "policy": "octet-default",
   "policy_hash": "49562ab462bbd243839837783c8edfd3743ff34c83e7d788bc5db236b4f91d4c",
-  "receipt_hash": "cf3e2705810122c09b2568e943ee91b318810081fcbb4c5798547120706ceb89",
-  "repository_head_oid": "28ffbe8cfb01879a241cad248008b75252a8b7f5",
-  "root": ".",
-  "state_hash": "87897cd174fef555c400a10c0aacff8f18ea0001e4c315d3b28e382f418dd279",
+  "receipt_hash": "e1693730f5103b7dce8a330dac24107ea7acf3d47774198c78f459315c9294c0",
+  "repository_head_oid": "5a8114f6689fde68978eb86526ef3302beefe09e",
+  "root": "/tmp/octet-cob-pilot-0l0fvcft/source",
+  "state_hash": "85c6c4704474b4993a3ab0321038e881df38a6bd47dfae4bf53f7fc5874ffa6c",
   "type_name": "xyz.onixresearch.cairn-change",
   "valid": true,
   "verdict": "PASS",

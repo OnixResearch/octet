@@ -157,7 +157,7 @@ private launch tracker, not in this public document.
 
 | Risk | Impact | Mitigation |
 | --- | --- | --- |
-| Imported standards prose is redistributed without permission | Legal and reputational harm | Keep `docs/standards/source/` out of the public export until permission is recorded; do not make the development repository public |
+| Imported standards prose is redistributed without permission | Legal and reputational harm | Both repositories are public: remove the prose from reachable history and embedded bundles, preserve attribution, and require permission before reimport |
 | Public README or metadata points at an unsupported selector | Users fail on first command | Regression-check every public link; use the pinned `octet-public` revision only |
 | An unowned domain is referenced | Dead link and lost trust | Use the public repository README until a domain is owned; never reference `octet.dev` |
 | Dylint/nightly install friction | Low activation | Lead with the pinned Nix command; mark direct Cargo as advanced |

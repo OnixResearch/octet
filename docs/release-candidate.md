@@ -68,14 +68,16 @@ release-cohort test rejects a manifest whose inventory names differ from the
 fixture, whose source revision differs from the reviewed public revision, or
 whose documented count differs.
 
-### Qualification status: qualified for this cohort
+### Qualification status: blocked after nested-history audit
 
-The reviewed cohort carries `NOTICE`, `THIRD_PARTY_NOTICES.md`, and `LICENSES/`,
-excludes `docs/standards/source/` from the public source tree while preserving
-its attribution, and exports the 77-lint inventory and the guarded first-patch
-walkthrough. The manifest records no blocking reasons. This is a bounded
-qualification of one public source pin and its fresh receipts; it is not a legal
-conclusion about the imported prose or a release tag.
+The reviewed source tree carries the notices and omits the top-level
+`docs/standards/source/` directory, but that is not sufficient exclusion. On
+2026-11-12 both `fixtures/cairn-cob-pilot/octet-cob.bundle` and
+`fixtures/cairn-cob-conflict-pilot/octet-cob-conflict.bundle` were unpacked and
+found to retain old development history containing the prose and local settings.
+The same bytes occur in `octet-public` at `becae962`; the manifest now records
+that blocker. Earlier build and walkthrough receipts remain bounded observations,
+not publication clearance. A new clean export and qualification are required.
 
 ### Re-pinning this cohort
 
@@ -129,13 +131,14 @@ directly. Observed on 2026-11-12, the current public cohort withholds at least:
 - `crates/valence-core/**` except the retained manifest surface;
 - `crates/octet-standards/src/release_cohort.rs`.
 
-It rewrites private Cargo/flake Git URLs to the public mirrors, operator paths
-to illustrative paths, and signed collaboration fixture roots. After those
-rewrites, regenerate `Cargo.lock` and `flake.lock` in the public worktree and
-record their exact identities; do not copy private lock sources. The owner's
-export tool remains the authority for the exact list. The next export must also
-carry the corrected `coverage-profiles` check (`cargo-llvm-cov 0.8.3`) and the
-launch kit; the current public pin does not.
+It rewrites private Cargo/flake Git URLs to public mirrors and operator paths
+to illustrative paths. The earlier claim that signed collaboration fixture
+roots had been rewritten was false: their bundles retained development history.
+Rebuild those fixtures from clean roots using actual signed operations; never
+change signed payloads or relabel old receipts. Regenerate `Cargo.lock` and
+`flake.lock` after dependency rewrites and record their exact identities.
+The next export must also carry the `cargo-llvm-cov 0.8.3` coverage correction
+and launch kit; the old public pin does not.
 
 ### Fresh acceptance receipts for this cohort
 
@@ -171,14 +174,76 @@ the source-resolution, package-build, runner, policy-artifact, walkthrough, and
 artifact-verification receipts above ran, and only for
 `x86_64-linux`.
 
+## History cleanup and cutover
+
+The Octet maintainer owns this bounded one-time publication repair. The current
+consumer is the full `OnixResearch/octet` repository; its public branch and tag
+history must not redistribute the unlicensed prose or machine-local agent data.
+The recurrence trigger is a proposed reimport, old-history merge, or new export.
+
+Prepare a restricted recovery directory outside every published checkout.
+Back up all local refs and stash with `git bundle create "$RECOVERY/local.bundle"
+--all`, verify the bundle, and preserve a separate remote mirror. Never put a
+backup branch, stash, bundle, or old-to-new ref map in the published repository.
+Work in a fresh, non-hardlinked mirror, not in the live repository with linked
+worktrees. The path filter for `git-filter-repo 2.47.0` removes:
+
+```text
+docs/standards/source/
+.agent/
+.pi/
+.claude/settings.local.json
+.envrc
+fixtures/cairn-cob-pilot/octet-cob.bundle
+fixtures/cairn-cob-conflict-pilot/octet-cob-conflict.bundle
+openspec/changes/archive/2026-05-15-rename-to-slotcar/evidence/name-classification.txt
+openspec/changes/archive/2026-05-18-rename-slotcar-to-octet/evidence/name-classification.txt
+openspec/changes/rename-slotcar-to-octet/evidence/name-classification.txt
+openspec/changes/rename-to-slotcar/evidence/name-classification.txt
+```
+
+Use `git-filter-repo --sensitive-data-removal --no-fetch --invert-paths
+--paths-from-file "$RECOVERY/purge-paths.txt"` in the isolated mirror. Preserve
+authorship and all advertised branch/tag names. Old commit identities and
+signatures cannot be carried forward as valid signatures over rewritten commits.
+Rebuild the two COB bundles through real signed fixture runs on clean roots;
+keep their Nickel manifests, exported JSON, and BLAKE3 identities synchronized.
+Do not modify signed fixture bytes by global text substitution.
+The four name-classification logs contain copied narrative blocks; their
+removal is not a deletion of the executable policy, migration records, or
+canonical Aspen rollout evidence.
+
+
+Check every reachable path and original prohibited blob ID, recursively unpack
+all Git bundles, verify Git connectivity, and run a redacting history and tree
+scan. The initial Gitleaks 8.28.0 run inspected 1,325 commits and reported two
+`private-key` matches in `crates/octet-standards/src/customs.rs`; both were
+reviewed Rust test strings with no complete private key. Preserve the negative
+security tests rather than deleting them to obtain a zero-warning report.
+
+At cutover, verify the old remote ref OIDs again and use explicit per-ref
+`--force-with-lease` values with an atomic push; never `git push --mirror`,
+which could publish local recovery refs. Other clones must reclone or rebase
+onto rewritten history instead of merging old branches back in. Keep the local
+recovery store restricted until the maintainer's retention decision.
+
+The audit found no Git LFS pointers, submodules, pull requests, releases, or
+Actions artifacts, but did find a public fork, `meta-introspector/octet`.
+Those are observations, not deletion authority or future absence guarantees.
+Coordinate fork cleanup and ask GitHub Support about cached/dangling objects
+using the first changed commit `ac199e72622ffbbc26f4972ed5489243994950f6`.
+The separate `octet-public` repository and Radicle replica need their own
+approved cleanup. This operation is not a credential-rotation, privacy, legal,
+binary-release, or fresh-cohort qualification claim.
+
 ## Public export and development-repository prerequisites
 
-The supported public channel is the source-only export described above; it is
-public and qualified for that pinned cohort. The private development repository
-is a separate publication decision. These checks prepare a repeatable source
-release; they do not authorize a tag, repository visibility change, binary
-upload, or Git history rewrite. The existing license grant is
-`AGPL-3.0-or-later`, not a new relicensing of imported material.
+Both the development repository and the separate source-only export are public.
+The `becae962` export is blocked after the nested-history audit above. Cleaning
+development history does not repair the export, a fork, a Radicle replica, or a
+hosting provider's retained objects. These checks do not authorize a visibility
+change, binary upload, or a force-push without the exact ref scope being approved.
+The existing grant remains `AGPL-3.0-or-later`, not a relicensing of imported work.
 
 For every new public export:
 
@@ -188,9 +253,9 @@ For every new public export:
   standards-prose permission entry in
   [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) is resolved. Do not publish
   uncertain imported material on the assumption that the root AGPL notice
-  covers it. The qualified public export excludes that path, keeps the
-  attribution, and carries the required notices as recorded in
-  `standards/release/generated/release-cohort.json`.
+  covers it. Check nested Git bundles and archives as well as ordinary paths;
+  the old export's top-level exclusion did not remove its embedded copies.
+  Keep the attribution and required notices.
 - Fetch every exact Cargo and flake input from a clean, credential-free
   environment. On 2026-10-15 anonymous requests for the pinned Valence,
   Bounded Exec, Cairn, and Cairn artifact sources returned HTTP 404. This does
@@ -209,10 +274,13 @@ For every new public export:
 - Confirm the right to distribute original contributions, including employer
   permissions where applicable. Git authorship is not a copyright assignment.
 
-If the development repository itself is made public, resolve the imported
-standards-prose permission first, or remove that prose from the development
-tree. The qualified public export's exclusion does not clear the development
-repository.
+The development history repair removes the prose rather than assuming
+permission. Reintroduction requires recorded rights. Historical source labels
+remain in registry comments, not in live policy source fields. All 72 live
+citations use policy-specific clauses in `docs/standards/policy-contract.md`;
+downstream suppression comments must use those new `source_anchor` values.
+Source files and headings remain mandatory; no missing-source check is bypassed.
+No previous publication or cached copy is erased merely by rewriting Git refs.
 
 The preparation scan used Gitleaks 8.30.1:
 

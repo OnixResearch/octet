@@ -35,3 +35,7 @@ data/
 !/.env.example
 !/.env.*.example
 /.claude/settings.local.json
+/.envrc
+
+# Imported prose is withheld until redistribution permission is recorded.
+/docs/standards/source/

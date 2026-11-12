@@ -13,14 +13,13 @@
 # 972b6a5a55093283e6fd3571f6f24a4da56f25ed. Development has moved on; the
 # public cohort intentionally remains at the reviewed 77-lint inventory.
 #
-# Qualification status is `qualified` for this cohort, and that is a checked
-# finding, not a formality. The reviewed public tree carries `NOTICE`,
-# `THIRD_PARTY_NOTICES.md`, and `LICENSES/`, excludes the standards prose
-# imported from Adam Murray pending a recorded upstream source, license, or
-# permission, and matches the development 77-lint inventory. Each receipt is
-# bound to the same evidence digest. Historical and development receipts are
-# listed in `acceptance.non_evidence`; only `acceptance.receipts` entries
-# produced against this source, package, policy, and toolchain set count.
+# Qualification is blocked after the 2026-11-12 nested-history audit. Although
+# the top-level imported prose is absent, both collaboration Git bundles retain
+# old development commits and their prose/settings. The previous source-tree
+# exclusion and synthetic-root claims did not cover nested object stores.
+# Historical build and walkthrough receipts remain bounded observations, not
+# publication clearance. Clean the separate public repository, publish a new
+# source pin, and rerun qualification before promoting the channel.
 let contracts = import "./contracts.ncl" in
 let public_revision = "becae9621fdf96803c7859e83d303cf535f20b15" in
 let export_origin = "972b6a5a55093283e6fd3571f6f24a4da56f25ed" in
@@ -59,11 +58,11 @@ let cohort_evidence = "b3:60b3f2c65f7812669c768507d5c8804af6887e7e18611539e69925
       derived_from_revision = export_origin,
       byte_identical_to_derivation = false,
       history = "independent synthetic git root; no shared commit history with the development repository",
-      role = "supported public source cohort",
+      role = "reviewed public source cohort; release qualification blocked",
     },
     lag = {
       intentional = true,
-      summary = "Public becae962 is derived from development 972b6a5a and carries the 77-lint inventory and the guarded first-patch walkthrough. The export excludes the imported standards prose and carries the required notices.",
+      summary = "Public becae962 is derived from development 972b6a5a and carries the 77-lint inventory and guarded walkthrough. Top-level prose is absent, but two collaboration bundles embed old development history containing it; publication qualification is blocked.",
     },
     export_composition = {
       transform = [
@@ -72,25 +71,24 @@ let cohort_evidence = "b3:60b3f2c65f7812669c768507d5c8804af6887e7e18611539e69925
         "withhold private local settings and archival transcripts",
         "replace operator paths in ordinary guidance with illustrative paths",
         "rewrite private Cargo Git dependency URLs to the public mirrors recorded in dependencies",
-        "re-root signed collaboration fixtures under synthetic git roots",
+        "retain original signed collaboration bundles; their embedded development history was not sanitized",
       ],
       withheld = [
         "private local settings",
         "archival development transcripts",
-        ".git history of the development repository",
+        "outer .git history of the development repository; nested fixture bundles still retain development ancestry",
         "nothing: NOTICE, THIRD_PARTY_NOTICES.md, and LICENSES/ ship with this export",
       ],
       rewritten = [
         "operator paths in ordinary guidance",
         "private Cargo Git dependency URLs in Cargo manifests",
-        "signed collaboration fixture git roots",
         "bound proof-fixture and generated-index historical command-path labels retained as fixture data",
       ],
       excluded_paths = [
         {
           path = "docs/standards/source/",
           reason_id = "adam-murray-standards-prose",
-          detail = "The qualified cohort excludes this imported prose until an upstream source, license, or written permission is recorded; the public revision does not publish it.",
+          detail = "The top-level path is absent, but the collaboration Git bundles retain copies. Exclusion is incomplete until those nested histories and the separate public repository are cleaned.",
         },
       ],
       required_additions = [ "NOTICE", "THIRD_PARTY_NOTICES.md", "LICENSES/" ],
@@ -268,7 +266,7 @@ let cohort_evidence = "b3:60b3f2c65f7812669c768507d5c8804af6887e7e18611539e69925
         path = "docs/standards/source/front-matter.adoc",
         attribution = "Adam Murray (credited in the file's front matter)",
         root_license_relied_upon = false,
-        resolution = "excluded",
+        resolution = "unresolved",
         permission_evidence = "",
         included_in_qualified_cohort = false,
       },
@@ -276,7 +274,7 @@ let cohort_evidence = "b3:60b3f2c65f7812669c768507d5c8804af6887e7e18611539e69925
         path = "docs/standards/source/tigerstyle-standards.adoc",
         attribution = "Adam Murray (credited in the file's front matter)",
         root_license_relied_upon = false,
-        resolution = "excluded",
+        resolution = "unresolved",
         permission_evidence = "",
         included_in_qualified_cohort = false,
       },
@@ -411,14 +409,19 @@ let cohort_evidence = "b3:60b3f2c65f7812669c768507d5c8804af6887e7e18611539e69925
     },
   ],
   qualification = {
-    status = "qualified",
-    blocking_reasons = [],
+    status = "blocked",
+    blocking_reasons = [
+      {
+        id = "imported-prose-in-nested-git-history",
+        summary = "Both collaboration fixture bundles at public becae962 retain old Octet history containing excluded Adam Murray prose and local settings.",
+        required_action = "Clean the nested bundles and public repository history, publish a new source revision, and rerun source-bound acceptance and qualification. Cleaning only the development repository does not clear becae962.",
+      },
+    ],
   },
   non_claims = [
-    "This cohort qualifies one public source pin and its acceptance evidence only; it does not assert a legal conclusion about imported material.",
+    "This cohort is blocked for publication; previous source-tree exclusion did not inspect nested Git object stores.",
     "Fresh build, runner, policy, walkthrough, and artifact-verification receipts are evidence for this cohort. Historical and development receipts are non-evidence.",
     "A qualified status is scoped to this cohort, its public source pin, and the listed fresh receipts.",
     "A reproducible Nix build is not a proof, a certification, or a whole-program correctness claim.",
-    "The five absent lints and the older unchecked_division implementation are intentional lag from the export point, not withdrawn capabilities.",
   ],
 } | contracts.ReleaseCohortManifest

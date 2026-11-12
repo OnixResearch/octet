@@ -299,7 +299,8 @@ claims smaller, inspectable, and harder to overstate.
 ## GitHub launch discussion prompt
 
 ```text
-Octet 0.1.0 is the first qualified public cohort. If you try it, please include:
+After the blocked cohort is replaced and re-qualified, invite users to try
+Octet 0.1.0 and include:
 
 - the pinned public revision;
 - platform and Nix version;

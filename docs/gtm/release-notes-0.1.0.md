@@ -2,7 +2,8 @@
 
 > Draft release body. Do not publish until
 > [launch-checklist.md](launch-checklist.md) is green and the release owner has
-> replaced the qualification block with the final tag's receipts.
+> replaced the qualification block with the final tag's receipts. The old
+> `becae962` pin is blocked after nested Git history exposed excluded prose.
 
 Octet is the evidence-backed checked path for agent-written and human-written
 Rust systems code. Existing Rust source runs through pinned static checks,
@@ -125,9 +126,10 @@ and the development-receipt non-evidence list.
   tradeoff for compiler-internal checks.
 - Crates.io publication is not prepared.
 - No binary distribution is offered for this release.
-- The public export is source-only and excludes imported standards prose pending
-  permission. `NOTICE`, `THIRD_PARTY_NOTICES.md`, and `LICENSES/` ship with the
-  export.
+- Before publication, the source export and every embedded Git history must
+  exclude imported standards prose pending permission. The `becae962` export
+  fails that condition. Preserve `NOTICE`, `THIRD_PARTY_NOTICES.md`, and
+  `LICENSES/` in its clean replacement.
 - Octet is `AGPL-3.0-or-later`. Running Octet does not relicense the code being
   checked.
 - Static lint cleanliness is not whole-program correctness. Optional proof

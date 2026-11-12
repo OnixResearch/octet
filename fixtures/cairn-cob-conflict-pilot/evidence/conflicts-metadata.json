@@ -4,33 +4,33 @@
       "artifact": "tasks",
       "heads": [
         {
-          "actor": "z6MkrYePae54PSMayuv3YJJcPV65GE6Mhvuq2537cmJybFCW",
+          "actor": "z6MkksdCQEQdRwG6c747WuMbyFoLvLhxKYGio5JPBBYEvt6y",
           "content_blake3": "7f8eca743500d0d33ded2ec7f0a17e0d45821359630933250943fa2571d305bc",
           "content_bytes": 2200,
           "deleted": false,
-          "revision_id": "2ba95e8204bd05dd566d93f7f5f9ac68f7126904"
+          "revision_id": "59b694a4d9aa1b78f4509402e49d3f3ff595a5db"
         },
         {
-          "actor": "z6Mkgvh5Qq4bjh8BZUDwPB9ZPNoQvHGMu1wvPX2KRyPNUDtq",
+          "actor": "z6Mkehh68deeBD4NyGrgYNyCsPujeE1r8QHCs5Csn72SwBVz",
           "content_blake3": "fb6963a6391aa2524c5d31a0531362e8a334f3f1b0f70026f7781a328c93ec22",
           "content_bytes": 2201,
           "deleted": false,
-          "revision_id": "e73bf24a150c12c5cbeda410c40d113d002ef259"
+          "revision_id": "7d65fb53fe6232fd0cdcf0424f064f3329b5bdc5"
         }
       ]
     }
   ],
   "authority": {
-    "creator": "z6MkrYePae54PSMayuv3YJJcPV65GE6Mhvuq2537cmJybFCW",
+    "creator": "z6MkksdCQEQdRwG6c747WuMbyFoLvLhxKYGio5JPBBYEvt6y",
     "delegates": [
-      "z6Mkgvh5Qq4bjh8BZUDwPB9ZPNoQvHGMu1wvPX2KRyPNUDtq"
+      "z6Mkehh68deeBD4NyGrgYNyCsPujeE1r8QHCs5Csn72SwBVz"
     ],
     "source": "signed_root_embedded_authority"
   },
   "backend": "radicle-cob.v1",
   "base_revision": {
     "kind": "git_oid",
-    "value": "22722030cd734900c565840997a62b36055aa85d"
+    "value": "03c74d76cb153d88bce33a76b4c40fbf2a0fc365"
   },
   "blocked": false,
   "blockers": [],
@@ -54,15 +54,15 @@
     "an explicit lifecycle reset to open does not prove review, approval, evidence truth, source correctness, archive execution, or release eligibility",
     "local signed COB resolution does not prove node participation, publication, synchronization, peer convergence, availability, or remote trust"
   ],
-  "object_id": "0702d3bd89a7be698cd24ec343323d7786a99d6d",
+  "object_id": "87027ed6c24b75036ea5d409e5eedb21a969f5b2",
   "observed_policy_hash": "0d5e71092b45e2a8cfbaed4edffe6b01cd6cd0e4dc71f9c86fc1d0bf82cc70fc",
   "policy": "octet-default",
   "policy_current": true,
   "policy_hash": "0d5e71092b45e2a8cfbaed4edffe6b01cd6cd0e4dc71f9c86fc1d0bf82cc70fc",
-  "receipt_hash": "0250ad9cf39947a53a998e6e69a5f11e5a1ffa8f433fd3b5b0031c265e76b6e7",
-  "root": ".",
+  "receipt_hash": "eb3bdacce53b0e361fe46d1b4d2d188da0ebbd1386f2c176d7c6fe68126fb7d3",
+  "root": "/tmp/octet-cob-conflict-5au8iuas/source-root",
   "shown_head": null,
-  "state_hash": "43267f6822bfb76815fe5639f94b9a7615aeed57baaec6a6ec6e047008394e35",
+  "state_hash": "7540f89c55021c51dd7a2323719f6911b8d2bd24011da911253eaafa6f0a9cbd",
   "valid": true,
   "verdict": "PASS",
   "workspace_id": "workspace:octet"

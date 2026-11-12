@@ -1,5 +1,5 @@
 {
-  "actor": "z6MkjPAjbbnXWtKTuUarEF3CbhnPjFzU9ify9Xuz7qdTv4Dn",
+  "actor": "z6Mksf9UyKHypB1cGbW2PoHLdYnxLwFGgv1zphuQXxPZ1rAS",
   "artifact_count": 4,
   "artifacts": [
     {
@@ -34,7 +34,7 @@
   "change": "adopt-cairn-cob-collaboration",
   "collaboration_command": "collaboration import",
   "command": "cob import",
-  "content_root": "8784e2755b58d8dee68a02044ac379769053e35f6af35b47fa47ade7c9d7a679",
+  "content_root": "806861f84959d2f11be25481fbf7a9552ba0240bf012d9a5dbfafc9c1de6bc9f",
   "delegates": [],
   "dry_run": true,
   "format_libraries": {
@@ -44,7 +44,7 @@
     "radicle-crypto": "0.17.0",
     "radicle-oid": "0.2.0"
   },
-  "input_hash": "3a6e3fe75f4f2853d7ee8579b357ab7dbd77189481eb6fc13004af1dae7f5f93",
+  "input_hash": "a3d191c2b912f26730001453c96cbc712813d69ad58389113dcbed7056a20a01",
   "mutated": false,
   "non_claims": [
     "signed COB creation proves bounded local Git object and reference observations only",
@@ -54,12 +54,12 @@
   ],
   "object_id": null,
   "operation_id": null,
-  "plan_hash": "2ae88fba8d6f24f62d7d6a96c72bb8945a7905f4f90ef6d1329966a1400dca98",
+  "plan_hash": "5e05465a7d0d83dcb71bccb5822a6c7034f4b7d10a361d015f8334f1c1c96822",
   "policy": "octet-default",
   "policy_hash": "49562ab462bbd243839837783c8edfd3743ff34c83e7d788bc5db236b4f91d4c",
-  "receipt_hash": "5b76851ce49cf0fa630c9007baafc83685e5a1a04ad90a705740979c6f29b3d5",
-  "repository_head_oid": "28ffbe8cfb01879a241cad248008b75252a8b7f5",
-  "root": ".",
+  "receipt_hash": "c2e5a53d86d2ca5ac6026259e789269e8f24fd720f90303071dba4a029e1b734",
+  "repository_head_oid": "5a8114f6689fde68978eb86526ef3302beefe09e",
+  "root": "/tmp/octet-cob-pilot-0l0fvcft/source",
   "state_hash": null,
   "type_name": "xyz.onixresearch.cairn-change",
   "valid": true,

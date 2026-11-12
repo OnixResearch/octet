@@ -64,7 +64,7 @@ Use these only with their bounds.
 | Artifact bundle plus `artifact verify` | Verifies saved sidecar identities; not a release decision by itself |
 | Nickel policy registry and generated bundles | Policy checks validate declared contracts; they do not validate business requirements |
 | Optional Verus, Lean/Aeneas, Kani, and external evidence rails | Each rail proves only its named property and receipt scope |
-| Public cohort `octet-public-becae962-2026-11-11` is qualified | Bounded to one source pin and its fresh receipts |
+| Public cohort `octet-public-becae962-2026-11-11` has source-bound build and walkthrough receipts | Release qualification is blocked: nested fixture bundles still contain excluded development history |
 | Aspen phase-1 starter rollout produced six `ambient_clock` findings on three starter packages | Historical archived evidence for that scope; not Aspen HEAD and not a noise guarantee |
 
 ## Differentiation

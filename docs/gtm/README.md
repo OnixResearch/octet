@@ -10,18 +10,26 @@ contacts, unreleased roadmap, customer names, or unverified metrics.
 | --- | --- |
 | Product version | `0.1.0` |
 | Supported public channel | `github:OnixResearch/octet-public` pinned at `becae9621fdf96803c7859e83d303cf535f20b15` |
-| Reviewed cohort | `octet-public-becae962-2026-11-11`, status `qualified` |
+| Reviewed cohort | `octet-public-becae962-2026-11-11`, status `blocked` after nested-history audit |
 | Distribution | Source-only public export plus the pinned Nix flake; no crates.io or binary release |
 | License | `AGPL-3.0-or-later` |
 | Hosted service | None required; checks run locally or in consumer CI |
-| Launch status | Prepared. Publish only after [launch-checklist.md](launch-checklist.md) is green. |
+| Launch status | Blocked. Clean nested Git histories and re-qualify before publication. |
 
 The public channel is a source-only export. The development repository is not
 the supported public install path, and `main` is not a supported pin.
 
-## Open launch blockers (observed 2026-11-11)
+The earlier `core` receipt below predates history sanitization and the policy
+source migration. It is not verification of this sanitized tree; this repair
+reran the focused Rust, policy, and COB gates, not the full core/flake suite.
 
-These are external or final-export actions, not product-code work:
+## Open launch blockers
+
+The 2026-11-12 nested-history audit supersedes the earlier qualification claim:
+both public fixture bundles retain old development history containing the
+excluded Adam Murray prose and local settings. Clean the separate public
+repository and publish a newly qualified revision before using these drafts.
+Other hosting observations below date from 2026-11-11 unless stated otherwise.
 
 - the public tree still points its quick start at the unsupported
   `github:OnixResearch/octet` selector; regenerate the export with this tree;
@@ -46,9 +54,10 @@ These are external or final-export actions, not product-code work:
   receipt is recorded in `docs/release-candidate.md`;
 - the final secret/history scan has not been rerun against the final export.
 
-The development repository also still contains `docs/standards/source/`, so it
-must not be made public before the imported prose permission is resolved or the
-prose is removed. The qualified public export excludes that path.
+Both repositories are already public. The development-history repair removes
+the imported prose, machine-local agent data, and unsafe embedded bundles;
+it does not erase public-export, fork, or hosting-cache copies. The
+`becae962` export remains blocked until its own history is repaired.
 
 ## Assets
 

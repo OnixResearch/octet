@@ -6,13 +6,37 @@ specific commits via `TIGERSTYLE_DYLINT_REV`.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## 2026-11-12: Public-history sanitization
+
+The history cleanup removes imported Adam Murray standards prose, local agent
+notes and prompt logs, machine-local permissions, and `.envrc` across published
+branches and tags. Authorship, project and third-party notices, executable
+policies, and lifecycle records are preserved. Two signed COB fixture bundles
+also carried old Octet history; fresh real fixture runs replace those copies
+without relabelling historical receipts or retaining signing keys.
+
+All 72 live policy source references now point at policy-specific clauses in
+the existing Octet-owned `docs/standards/policy-contract.md`; historical source
+labels remain in registry comments. Policy IDs and enforcement settings are
+unchanged. Downstream suppression comments must migrate their `source=` value
+to the new `source_anchor`. Source and heading validation remain fail-closed;
+the validator now recognizes both Markdown and AsciiDoc headings.
+
+The separate `octet-public` pin `becae962` contains the same unsafe bundles.
+Its cohort is now blocked pending cleanup and fresh qualification. Previous
+package-build and walkthrough receipts do not establish publication clearance.
+History rewriting changes commit and tag identities; downstream pins and clones
+must be migrated. See `docs/release-candidate.md` for the recovery and cutover
+boundary. This is a bounded publication repair, not a general privacy or legal
+clearance.
+
 ## 2026-11-11: Public release channel and launch kit
 
 Consumer-facing documentation now names the supported source-only public
 channel, `github:OnixResearch/octet-public`, at the reviewed cohort revision.
 README quick starts, issue and security links, pre-commit examples, Cargo
 metadata, and the trust-boundary deployment posture no longer point at the
-private development repository or the unsupported `main` selector. The project
+development repository or the unsupported `main` selector. The project
 does not claim `octet.dev`; Cargo metadata points at the public repository, and
 the public repository README is the canonical public home until an owned domain
 exists. The release cohort manifest and its generated export were reconciled

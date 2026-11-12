@@ -15,15 +15,17 @@ gate below is `[x]`. Soft or optional items are marked.
 - [x] Project license is `AGPL-3.0-or-later`.
 - [x] `NOTICE`, `THIRD_PARTY_NOTICES.md`, and `LICENSES/` are required members of
       the qualified public export.
-- [x] Imported standards prose is excluded from the qualified public export and
-      retained only in the attribution inventory.
+- [ ] Imported standards prose is absent from every reachable object, including
+      nested Git bundles, in the final public repository. The `becae962` export
+      failed this audit on 2026-11-12 despite omitting the top-level path.
 - [x] The public cohort manifest is `standards/release/release-cohort.ncl` and
       its generated export is `standards/release/generated/release-cohort.json`.
-- [x] The manifest and generated export now report the `qualified` state and
-      agree on the public revision and 77-lint inventory.
-- [ ] Legal/maintainer: if the development repository will also become public,
-      recover and record the upstream source and license, or written permission,
-      for the Adam Murray standards prose before changing visibility.
+- [x] The manifest and generated export report `blocked` after the nested-history
+      audit; the public revision and 77-lint inventory remain recorded.
+- [ ] Legal/maintainer: keep the imported prose out of all public histories and
+      embedded bundles, or record the upstream license or written permission.
+      Both repositories are already public; a future visibility change is not
+      the boundary of this obligation.
 - [ ] Legal/maintainer: confirm the right to distribute original contributions,
       including employer permissions where applicable.
 - [ ] Release owner: decide whether to publish source only or also publish
@@ -55,10 +57,10 @@ gate below is `[x]`. Soft or optional items are marked.
       generated.
 - [x] The current public tree at `becae962` carries `NOTICE`,
       `THIRD_PARTY_NOTICES.md`, and `LICENSES/` (observed 2026-11-11).
-- [x] The current public tree at `becae962` has no `docs/standards/source/`
-      path (observed 2026-11-11).
-- [ ] Public export: re-verify the notices and the excluded prose after the new
-      export is generated.
+- [x] The `becae962` top-level tree has no `docs/standards/source/` path, but
+      the same prose remains recoverable from its fixture bundles.
+- [ ] Public export: re-verify notices and excluded prose recursively through
+      all Git histories and archives, not just the final source tree.
 - [ ] Release owner: re-pin the cohort to the new public revision and regenerate
       `release-cohort.json`.
 - [ ] Release owner: run the fresh acceptance receipts for the new revision.

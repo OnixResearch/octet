@@ -57,12 +57,13 @@ Direct Cargo use is an advanced path. It must reproduce the same pins.
 Octet pins exact Valence and Bounded Exec revisions in Cargo and Nix. The
 supported public channel is the source-only export at
 `github:OnixResearch/octet-public`, pinned by the reviewed cohort
-`octet-public-becae962-2026-11-11`. That cohort resolves its flake and Cargo
-inputs anonymously, carries `NOTICE`, `THIRD_PARTY_NOTICES.md`, and `LICENSES/`,
-and excludes imported standards prose pending permission. Cached local builds
-are not accepted as anonymous checkout evidence. The
-[release checklist](docs/release-candidate.md) records the cohort manifest and
-fresh acceptance receipts.
+`octet-public-becae962-2026-11-11`. Its recorded build and walkthrough receipts
+remain source-bound, but release qualification is blocked: two bundled COB
+fixtures embed old development history containing the excluded standards prose.
+Do not promote that pin as publication-cleared. The development repository is
+also public; its sanitized history is a separate cutover, not a new qualified
+install channel. The [release checklist](docs/release-candidate.md) records
+the cleanup boundary and the acceptance work required for a new cohort.
 
 The [Mantle producer handoff](docs/aeneas-consumer-contract.md#mantle-producer-handoff)
 exports an immutable ordinary Nix job with an explicit legacy or Nix v4 wire
@@ -413,7 +414,7 @@ Canonical attributes use `tigerstyle::<lint>`. Domain groups use `tigerstyle::<d
 |---|---|---|
 | Public site | Repository README is the canonical public home | No custom domain is claimed |
 | Project | `Octet` or `octet` | `slotcar` is legacy |
-| Repository | `github:OnixResearch/octet-public` | `github:OnixResearch/octet` is the private development source; old repository names are obsolete |
+| Repository | `github:OnixResearch/octet-public` is the reviewed install channel, currently blocked for release | `github:OnixResearch/octet` is the full public development repository; old repository names are obsolete |
 | Package | `octet` | `slotcar` and `tigerstyle` are aliases |
 | Runner binary | `cargo-octet` | `cargo-slotcar` and `cargo-tigerstyle` are aliases |
 | Runner command | `cargo octet check` | Legacy commands route to the same engine |

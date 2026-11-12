@@ -34,15 +34,18 @@ redistributed under the [MIT license](LICENSES/clippy-MIT.txt).
 
 ## Imported standards prose: publication blocked pending permission
 
-`docs/standards/source/` includes material credited to Adam Murray in
+The removed `docs/standards/source/` material was credited to Adam Murray in
 `front-matter.adoc` and `tigerstyle-standards.adoc`. The archived
 `openspec/changes/archive/2026-04-25-codify-tigerstyle-standards/` records
 migration from a standalone repository, but does not identify an immutable
 upstream source, original license, or redistribution permission.
 
-The attribution is preserved. Octet's project notice does not establish a
-right to relicense this material. Before public distribution, maintainers
-must recover and record the original source and license or written permission.
+The attribution is preserved; the prose is not part of this sanitized source
+history. Old development clones and the `becae962` public export contain copies,
+including embedded Git bundles, and require separate history cleanup. Octet's
+project notice does not establish a right to relicense this material. Before
+reintroducing it, maintainers must record the original source and license or
+written permission.
 
 ## Cairn policy provenance
 

@@ -809,7 +809,7 @@ in
     {
       family_id = "octet.verus-raw-verifier-internals",
       ownership = "non-candidate",
-      owner_source_path = "docs/standards/source/verification.adoc#verus-proof-rails",
+      owner_source_path = "docs/standards/policy-contract.md#octet-verus_proof_rails-addition-bound-production",
       artifact_path = "",
       generation_command = "manual review of verifier internals exclusion",
       validation_command = "nix develop -c cargo test -p cargo-octet prove::tests::prove_writes_valid_formal_proof_artifact_bundle",
@@ -1450,7 +1450,7 @@ in
     {
       family_id = "tigerstyle.raw-secrets-and-crypto-internals",
       ownership = "non-candidate",
-      owner_source_path = "docs/standards/source/what-safety-critical-means.adoc",
+      owner_source_path = "docs/standards/policy-contract.md#tigerstyle-verification-safety-critical-claims",
       generation_command = "review registry exclusion rationale",
       validation_command = "nix run .#octet-policy-validate",
       status = "non-candidate",
@@ -1470,9 +1470,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.architecture.fcis-crate-boundary",
       pillar = "architecture",
-      source_path = "docs/standards/source/architecture.adoc",
-      source_heading = "Boundaries the Compiler Can See",
-      source_anchor = "docs/standards/source/architecture.adoc#boundaries-the-compiler-can-see",
+      # Historical citation (prose withheld): docs/standards/source/architecture.adoc#boundaries-the-compiler-can-see
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-architecture-fcis-crate-boundary",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-architecture-fcis-crate-boundary",
       summary = "Business logic belongs behind compiler-visible crate boundaries with an FCIS core/shell split.",
       classification = "hard",
       enforcement_level = "hard",
@@ -1502,9 +1503,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.architecture.external-domain-leakage",
       pillar = "architecture",
-      source_path = "docs/standards/source/architecture.adoc",
-      source_heading = "Boundaries as architecture",
-      source_anchor = "docs/standards/source/architecture.adoc#boundaries-as-architecture",
+      # Historical citation (prose withheld): docs/standards/source/architecture.adoc#boundaries-as-architecture
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-architecture-external-domain-leakage",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-architecture-external-domain-leakage",
       summary = "External domain types must not leak into core domain APIs.",
       classification = "hard",
       enforcement_level = "hard",
@@ -1517,9 +1519,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.architecture.explicit-boundary-conversions",
       pillar = "architecture",
-      source_path = "docs/standards/source/architecture.adoc",
-      source_heading = "Boundaries as architecture",
-      source_anchor = "docs/standards/source/architecture.adoc#boundaries-as-architecture",
+      # Historical citation (prose withheld): docs/standards/source/architecture.adoc#boundaries-as-architecture
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-architecture-explicit-boundary-conversions",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-architecture-explicit-boundary-conversions",
       summary = "Cross-context data translation must be explicit at adapters instead of implicit inside domain code.",
       classification = "advisory",
       enforcement_level = "advisory",
@@ -1532,9 +1535,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.architecture.root-crate-thinness",
       pillar = "architecture",
-      source_path = "docs/standards/source/architecture.adoc",
-      source_heading = "Boundaries the Compiler Can See",
-      source_anchor = "docs/standards/source/architecture.adoc#boundaries-the-compiler-can-see",
+      # Historical citation (prose withheld): docs/standards/source/architecture.adoc#boundaries-the-compiler-can-see
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-architecture-root-crate-thinness",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-architecture-root-crate-thinness",
       summary = "Root package stays a thin compatibility and binary wiring layer.",
       classification = "hard",
       enforcement_level = "hard",
@@ -1547,9 +1551,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.architecture.public-api-budget",
       pillar = "architecture",
-      source_path = "docs/standards/source/architecture.adoc",
-      source_heading = "When boundaries are too tight",
-      source_anchor = "docs/standards/source/architecture.adoc#when-boundaries-are-too-tight",
+      # Historical citation (prose withheld): docs/standards/source/architecture.adoc#when-boundaries-are-too-tight
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-architecture-public-api-budget",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-architecture-public-api-budget",
       summary = "Public API surface expansion should be controlled and reviewable.",
       classification = "advisory",
       enforcement_level = "advisory",
@@ -1562,9 +1567,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.devtools.single-command-verification",
       pillar = "devtools",
-      source_path = "docs/standards/source/devtools.adoc",
-      source_heading = "The Standard Is the Toolchain",
-      source_anchor = "docs/standards/source/devtools.adoc#the-standard-is-the-toolchain",
+      # Historical citation (prose withheld): docs/standards/source/devtools.adoc#the-standard-is-the-toolchain
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-devtools-single-command-verification",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-devtools-single-command-verification",
       summary = "The standard verification set must run through a documented local-first command.",
       classification = "hard",
       enforcement_level = "hard",
@@ -1578,9 +1584,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.devtools.deny-warnings",
       pillar = "devtools",
-      source_path = "docs/standards/source/devtools.adoc",
-      source_heading = "Enforcing, not advising",
-      source_anchor = "docs/standards/source/devtools.adoc#enforcing-not-advising",
+      # Historical citation (prose withheld): docs/standards/source/devtools.adoc#enforcing-not-advising
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-devtools-deny-warnings",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-devtools-deny-warnings",
       summary = "Warnings must fail verification instead of serving as optional advice.",
       classification = "hard",
       enforcement_level = "hard",
@@ -1594,9 +1601,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.devtools.formatting",
       pillar = "devtools",
-      source_path = "docs/standards/source/devtools.adoc",
-      source_heading = "The full chain looks like this",
-      source_anchor = "docs/standards/source/devtools.adoc#the-full-chain-looks-like-this",
+      # Historical citation (prose withheld): docs/standards/source/devtools.adoc#the-full-chain-looks-like-this
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-devtools-formatting",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-devtools-formatting",
       summary = "Formatting must be enforced by a local-first formatting gate.",
       classification = "hard",
       enforcement_level = "hard",
@@ -1610,9 +1618,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.devtools.documentation-gates",
       pillar = "devtools",
-      source_path = "docs/standards/source/devtools.adoc",
-      source_heading = "The principle",
-      source_anchor = "docs/standards/source/devtools.adoc#the-principle",
+      # Historical citation (prose withheld): docs/standards/source/devtools.adoc#the-principle
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-devtools-documentation-gates",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-devtools-documentation-gates",
       summary = "Public APIs and standards need documentation gates where the signal is reliable.",
       classification = "hard",
       enforcement_level = "hard",
@@ -1626,9 +1635,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.devtools.dependency-audit",
       pillar = "devtools",
-      source_path = "docs/standards/source/devtools.adoc",
-      source_heading = "The full chain looks like this",
-      source_anchor = "docs/standards/source/devtools.adoc#the-full-chain-looks-like-this",
+      # Historical citation (prose withheld): docs/standards/source/devtools.adoc#the-full-chain-looks-like-this
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-devtools-dependency-audit",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-devtools-dependency-audit",
       summary = "Dependency advisories, license policy, and duplicate dependency risk must be visible in local verification.",
       classification = "hard",
       enforcement_level = "hard",
@@ -1642,9 +1652,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.devtools.lint-suppressions",
       pillar = "devtools",
-      source_path = "docs/standards/source/devtools.adoc",
-      source_heading = "Enforcing, not advising",
-      source_anchor = "docs/standards/source/devtools.adoc#enforcing-not-advising",
+      # Historical citation (prose withheld): docs/standards/source/devtools.adoc#enforcing-not-advising
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-devtools-lint-suppressions",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-devtools-lint-suppressions",
       summary = "Lint suppressions must be narrow and justified by policy metadata.",
       classification = "hard",
       enforcement_level = "hard",
@@ -1657,9 +1668,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.embedded.opt-in-subsystem-manifest",
       pillar = "embedded",
-      source_path = "docs/standards/source/embedded.adoc",
-      source_heading = "Opt-in subsystems",
-      source_anchor = "docs/standards/source/embedded.adoc#opt-in-subsystems",
+      # Historical citation (prose withheld): docs/standards/source/embedded.adoc#opt-in-subsystems
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-embedded-opt-in-subsystem-manifest",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-embedded-opt-in-subsystem-manifest",
       summary = "Hardware subsystems must start only when declared by a hardware manifest or explicit config.",
       classification = "hard",
       enforcement_level = "hard",
@@ -1672,9 +1684,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.embedded.bounded-queues",
       pillar = "embedded",
-      source_path = "docs/standards/source/embedded.adoc",
-      source_heading = "Bounded everything",
-      source_anchor = "docs/standards/source/embedded.adoc#bounded-everything",
+      # Historical citation (prose withheld): docs/standards/source/embedded.adoc#bounded-everything
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-embedded-bounded-queues",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-embedded-bounded-queues",
       summary = "Queues and channels at the edge must be bounded.",
       classification = "hard",
       enforcement_level = "hard",
@@ -1715,9 +1728,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.embedded.blocking-io-timeouts",
       pillar = "embedded",
-      source_path = "docs/standards/source/embedded.adoc",
-      source_heading = "Actor threads for synchronous hardware",
-      source_anchor = "docs/standards/source/embedded.adoc#actor-threads-for-synchronous-hardware",
+      # Historical citation (prose withheld): docs/standards/source/embedded.adoc#actor-threads-for-synchronous-hardware
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-embedded-blocking-io-timeouts",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-embedded-blocking-io-timeouts",
       summary = "Blocking I/O paths must carry explicit timeout or cancellation bounds.",
       classification = "hard",
       enforcement_level = "hard",
@@ -1730,9 +1744,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.embedded.safe-serial-api",
       pillar = "embedded",
-      source_path = "docs/standards/source/embedded.adoc",
-      source_heading = "Safe serial communication",
-      source_anchor = "docs/standards/source/embedded.adoc#safe-serial-communication",
+      # Historical citation (prose withheld): docs/standards/source/embedded.adoc#safe-serial-communication
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-embedded-safe-serial-api",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-embedded-safe-serial-api",
       summary = "Serial APIs must expose safe, bounded operations instead of leaking raw unsafe or unchecked byte handling.",
       classification = "hard",
       enforcement_level = "hard",
@@ -1745,9 +1760,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.embedded.bounded-task-topology",
       pillar = "embedded",
-      source_path = "docs/standards/source/embedded.adoc",
-      source_heading = "Bounded everything",
-      source_anchor = "docs/standards/source/embedded.adoc#bounded-everything",
+      # Historical citation (prose withheld): docs/standards/source/embedded.adoc#bounded-everything
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-embedded-bounded-task-topology",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-embedded-bounded-task-topology",
       summary = "Task and thread topology must be bounded instead of growing dynamically without limit.",
       classification = "hard",
       enforcement_level = "hard",
@@ -1761,9 +1777,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.resilience.typed-errors",
       pillar = "resilience",
-      source_path = "docs/standards/source/resilience.adoc",
-      source_heading = "Missing failure mode",
-      source_anchor = "docs/standards/source/resilience.adoc#missing-failure-mode",
+      # Historical citation (prose withheld): docs/standards/source/resilience.adoc#missing-failure-mode
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-resilience-typed-errors",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-resilience-typed-errors",
       summary = "Failure modes must be modeled as explicit typed errors instead of catch-all or string buckets.",
       classification = "hard",
       enforcement_level = "hard",
@@ -1776,9 +1793,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.resilience.no-silent-defaults",
       pillar = "resilience",
-      source_path = "docs/standards/source/resilience.adoc",
-      source_heading = "Silent error swallowing",
-      source_anchor = "docs/standards/source/resilience.adoc#silent-error-swallowing",
+      # Historical citation (prose withheld): docs/standards/source/resilience.adoc#silent-error-swallowing
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-resilience-no-silent-defaults",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-resilience-no-silent-defaults",
       summary = "Fallible paths must not silently default away errors.",
       classification = "hard",
       enforcement_level = "hard",
@@ -1792,9 +1810,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.resilience.modeled-failure-modes",
       pillar = "resilience",
-      source_path = "docs/standards/source/resilience.adoc",
-      source_heading = "Missing failure mode",
-      source_anchor = "docs/standards/source/resilience.adoc#missing-failure-mode",
+      # Historical citation (prose withheld): docs/standards/source/resilience.adoc#missing-failure-mode
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-resilience-modeled-failure-modes",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-resilience-modeled-failure-modes",
       summary = "Known operational failures must be represented explicitly instead of hidden behind vague buckets.",
       classification = "hard",
       enforcement_level = "hard",
@@ -1807,9 +1826,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.resilience.durable-persistence-claims",
       pillar = "resilience",
-      source_path = "docs/standards/source/resilience.adoc",
-      source_heading = "Silent error swallowing",
-      source_anchor = "docs/standards/source/resilience.adoc#silent-error-swallowing",
+      # Historical citation (prose withheld): docs/standards/source/resilience.adoc#silent-error-swallowing
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-resilience-durable-persistence-claims",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-resilience-durable-persistence-claims",
       summary = "Declared durable boundaries observe synchronization, configured commit, or adapter results and never treat Write::flush() as durable-persistence evidence.",
       classification = "hard",
       enforcement_level = "hard",
@@ -1823,9 +1843,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.resilience.fail-closed-handling",
       pillar = "resilience",
-      source_path = "docs/standards/source/resilience.adoc",
-      source_heading = "Silent error swallowing",
-      source_anchor = "docs/standards/source/resilience.adoc#silent-error-swallowing",
+      # Historical citation (prose withheld): docs/standards/source/resilience.adoc#silent-error-swallowing
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-resilience-fail-closed-handling",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-resilience-fail-closed-handling",
       summary = "Error handling must fail closed when safety or correctness state is uncertain.",
       classification = "hard",
       enforcement_level = "hard",
@@ -1838,9 +1859,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.resilience.five-whys-process",
       pillar = "resilience",
-      source_path = "docs/standards/source/resilience.adoc",
-      source_heading = "Five Whys to the Architecture",
-      source_anchor = "docs/standards/source/resilience.adoc#five-whys-to-the-architecture",
+      # Historical citation (prose withheld): docs/standards/source/resilience.adoc#five-whys-to-the-architecture
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-resilience-five-whys-process",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-resilience-five-whys-process",
       summary = "Incident analysis should use Five Whys to reach architectural causes without assigning blame.",
       classification = "human-process-only",
       enforcement_level = "human-process-only",
@@ -1853,9 +1875,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.orchestration.transition-tables",
       pillar = "orchestration",
-      source_path = "docs/standards/source/orchestration.adoc",
-      source_heading = "Transitions as declarations",
-      source_anchor = "docs/standards/source/orchestration.adoc#transitions-as-declarations",
+      # Historical citation (prose withheld): docs/standards/source/orchestration.adoc#transitions-as-declarations
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-orchestration-transition-tables",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-orchestration-transition-tables",
       summary = "State-machine transitions should be declared in tables that the compiler or checker can inspect.",
       classification = "hard",
       enforcement_level = "hard",
@@ -1868,9 +1891,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.orchestration.deny-by-default-work-acceptance",
       pillar = "orchestration",
-      source_path = "docs/standards/source/orchestration.adoc",
-      source_heading = "The fail-closed invariant",
-      source_anchor = "docs/standards/source/orchestration.adoc#the-fail-closed-invariant",
+      # Historical citation (prose withheld): docs/standards/source/orchestration.adoc#the-fail-closed-invariant
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-orchestration-deny-by-default-work-acceptance",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-orchestration-deny-by-default-work-acceptance",
       summary = "Work acceptance gates must be deny-by-default allow lists.",
       classification = "hard",
       enforcement_level = "hard",
@@ -1883,9 +1907,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.orchestration.invalid-transition-preserves-state",
       pillar = "orchestration",
-      source_path = "docs/standards/source/orchestration.adoc",
-      source_heading = "The fail-closed invariant",
-      source_anchor = "docs/standards/source/orchestration.adoc#the-fail-closed-invariant",
+      # Historical citation (prose withheld): docs/standards/source/orchestration.adoc#the-fail-closed-invariant
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-orchestration-invalid-transition-preserves-state",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-orchestration-invalid-transition-preserves-state",
       summary = "Rejected state-machine transitions must leave state unchanged.",
       classification = "hard",
       enforcement_level = "hard",
@@ -1898,9 +1923,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.orchestration.priority-ordering",
       pillar = "orchestration",
-      source_path = "docs/standards/source/orchestration.adoc",
-      source_heading = "Priority-aware scheduling",
-      source_anchor = "docs/standards/source/orchestration.adoc#priority-aware-scheduling",
+      # Historical citation (prose withheld): docs/standards/source/orchestration.adoc#priority-aware-scheduling
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-orchestration-priority-ordering",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-orchestration-priority-ordering",
       summary = "Urgent, expedite, and standard queues must preserve configured priority and FIFO within a tier.",
       classification = "hard",
       enforcement_level = "hard",
@@ -1913,9 +1939,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.idioms.one-behavior-one-type",
       pillar = "idioms",
-      source_path = "docs/standards/source/idioms.adoc",
-      source_heading = "One Behavior, One Type",
-      source_anchor = "docs/standards/source/idioms.adoc#one-behavior-one-type",
+      # Historical citation (prose withheld): docs/standards/source/idioms.adoc#one-behavior-one-type
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-idioms-one-behavior-one-type",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-idioms-one-behavior-one-type",
       summary = "Duplicated primitive behavior should become a named type that carries the shared invariant.",
       classification = "advisory",
       enforcement_level = "advisory",
@@ -1928,9 +1955,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.idioms.duplicate-primitive-behavior",
       pillar = "idioms",
-      source_path = "docs/standards/source/idioms.adoc",
-      source_heading = "When to apply this idiom",
-      source_anchor = "docs/standards/source/idioms.adoc#when-to-apply-this-idiom",
+      # Historical citation (prose withheld): docs/standards/source/idioms.adoc#when-to-apply-this-idiom
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-idioms-duplicate-primitive-behavior",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-idioms-duplicate-primitive-behavior",
       summary = "Repeated primitive validation/conversion behavior should be reported for possible newtype extraction.",
       classification = "advisory",
       enforcement_level = "advisory",
@@ -1943,9 +1971,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.idioms.thin-forwarder-verifier",
       pillar = "idioms",
-      source_path = "docs/standards/source/one-idiom-one-verifier.adoc",
-      source_heading = "The right response: teach the tool",
-      source_anchor = "docs/standards/source/one-idiom-one-verifier.adoc#the-right-response-teach-the-tool",
+      # Historical citation (prose withheld): docs/standards/source/one-idiom-one-verifier.adoc#the-right-response-teach-the-tool
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-idioms-thin-forwarder-verifier",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-idioms-thin-forwarder-verifier",
       summary = "Approved idioms such as thin forwarders must be recognized by verifiers instead of broadly suppressed.",
       classification = "hard",
       enforcement_level = "hard",
@@ -1959,9 +1988,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.external.source-classification",
       pillar = "external-sources",
-      source_path = "docs/standards/source/external-sources.adoc",
-      source_heading = "Classification before incorporation",
-      source_anchor = "docs/standards/source/external-sources.adoc#classification-before-incorporation",
+      # Historical citation (prose withheld): docs/standards/source/external-sources.adoc#classification-before-incorporation
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-external-source-classification",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-external-source-classification",
       summary = "External concepts must be classified by source, Tiger Style outcome, enforcement tier, and first implementation surface before incorporation.",
       classification = "hard",
       enforcement_level = "hard",
@@ -1975,9 +2005,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.devtools.dynamic-evidence-profiles",
       pillar = "devtools",
-      source_path = "docs/standards/source/devtools.adoc",
-      source_heading = "Dynamic evidence profiles",
-      source_anchor = "docs/standards/source/devtools.adoc#dynamic-evidence-profiles",
+      # Historical citation (prose withheld): docs/standards/source/devtools.adoc#dynamic-evidence-profiles
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-devtools-dynamic-evidence-profiles",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-devtools-dynamic-evidence-profiles",
       summary = "Runtime and profiling tools are selected opt-in evidence profiles with run timing, acceptance signals, and saved transcripts.",
       classification = "advisory",
       enforcement_level = "advisory",
@@ -1991,9 +2022,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.idioms.imported-rust-idioms",
       pillar = "idioms",
-      source_path = "docs/standards/source/idioms.adoc",
-      source_heading = "Imported Rust idiom guidance",
-      source_anchor = "docs/standards/source/idioms.adoc#imported-rust-idiom-guidance",
+      # Historical citation (prose withheld): docs/standards/source/idioms.adoc#imported-rust-idiom-guidance
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-idioms-imported-rust-idioms",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-idioms-imported-rust-idioms",
       summary = "Imported Rust idioms must map to Tiger Style outcomes and start as docs/advisory policy unless fixtures justify a hard gate.",
       classification = "advisory",
       enforcement_level = "advisory",
@@ -2007,9 +2039,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.idioms.functional-api-boundaries",
       pillar = "idioms",
-      source_path = "docs/standards/source/idioms.adoc",
-      source_heading = "Functional API boundaries",
-      source_anchor = "docs/standards/source/idioms.adoc#functional-api-boundaries",
+      # Historical citation (prose withheld): docs/standards/source/idioms.adoc#functional-api-boundaries
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-idioms-functional-api-boundaries",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-idioms-functional-api-boundaries",
       summary = "Functional API guidance should promote type-level state/protocol separation while rejecting opaque point-free or deeply chained hot-path code.",
       classification = "human-process-only",
       enforcement_level = "human-process-only",
@@ -2023,9 +2056,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.build-what-you-test.test-builders",
       pillar = "build-what-you-test",
-      source_path = "docs/standards/source/build-what-you-test.adoc",
-      source_heading = "The builder",
-      source_anchor = "docs/standards/source/build-what-you-test.adoc#the-builder",
+      # Historical citation (prose withheld): docs/standards/source/build-what-you-test.adoc#the-builder
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-build-what-you-test-test-builders",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-build-what-you-test-test-builders",
       summary = "Broad test configuration setup should use builders that expose only relevant preconditions.",
       classification = "hard",
       enforcement_level = "hard",
@@ -2038,9 +2072,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.build-what-you-test.visible-preconditions",
       pillar = "build-what-you-test",
-      source_path = "docs/standards/source/build-what-you-test.adoc",
-      source_heading = "Test code is infrastructure",
-      source_anchor = "docs/standards/source/build-what-you-test.adoc#test-code-is-infrastructure",
+      # Historical citation (prose withheld): docs/standards/source/build-what-you-test.adoc#test-code-is-infrastructure
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-build-what-you-test-visible-preconditions",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-build-what-you-test-visible-preconditions",
       summary = "Tests must state meaningful preconditions instead of hiding them in broad fixture setup.",
       classification = "hard",
       enforcement_level = "hard",
@@ -2053,9 +2088,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.build-what-you-test.no-hidden-external-fixtures",
       pillar = "build-what-you-test",
-      source_path = "docs/standards/source/build-what-you-test.adoc",
-      source_heading = "The calcified fixture",
-      source_anchor = "docs/standards/source/build-what-you-test.adoc#the-calcified-fixture",
+      # Historical citation (prose withheld): docs/standards/source/build-what-you-test.adoc#the-calcified-fixture
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-build-what-you-test-no-hidden-external-fixtures",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-build-what-you-test-no-hidden-external-fixtures",
       summary = "Unit tests must not depend on hidden external resources or setup scripts.",
       classification = "hard",
       enforcement_level = "hard",
@@ -2068,9 +2104,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.build-what-you-test.process-global-isolation",
       pillar = "build-what-you-test",
-      source_path = "docs/standards/source/verification.adoc",
-      source_heading = "Five lies tests tell",
-      source_anchor = "docs/standards/source/verification.adoc#five-lies-tests-tell",
+      # Historical citation (prose withheld): docs/standards/source/verification.adoc#five-lies-tests-tell
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-build-what-you-test-process-global-isolation",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-build-what-you-test-process-global-isolation",
       summary = "Tests must not couple through process-global state unless isolated or serialized.",
       classification = "hard",
       enforcement_level = "hard",
@@ -2083,9 +2120,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.metrics.flat-telemetry",
       pillar = "metrics",
-      source_path = "docs/standards/source/metrics.adoc",
-      source_heading = "Structured telemetry",
-      source_anchor = "docs/standards/source/metrics.adoc#structured-telemetry",
+      # Historical citation (prose withheld): docs/standards/source/metrics.adoc#structured-telemetry
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-metrics-flat-telemetry",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-metrics-flat-telemetry",
       summary = "Health and telemetry payloads should use flat fields instead of nested trees.",
       classification = "hard",
       enforcement_level = "hard",
@@ -2098,9 +2136,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.metrics.threshold-backed-health",
       pillar = "metrics",
-      source_path = "docs/standards/source/metrics.adoc",
-      source_heading = "Thresholds beat cleverness",
-      source_anchor = "docs/standards/source/metrics.adoc#thresholds-beat-cleverness",
+      # Historical citation (prose withheld): docs/standards/source/metrics.adoc#thresholds-beat-cleverness
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-metrics-threshold-backed-health",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-metrics-threshold-backed-health",
       summary = "Health checks must use named thresholds and explicit pass/fail boundaries.",
       classification = "hard",
       enforcement_level = "hard",
@@ -2113,9 +2152,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.metrics.prometheus-text",
       pillar = "metrics",
-      source_path = "docs/standards/source/metrics.adoc",
-      source_heading = "Prometheus text format",
-      source_anchor = "docs/standards/source/metrics.adoc#prometheus-text-format",
+      # Historical citation (prose withheld): docs/standards/source/metrics.adoc#prometheus-text-format
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-metrics-prometheus-text",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-metrics-prometheus-text",
       summary = "Metrics endpoints that expose Prometheus must satisfy text exposition fixtures.",
       classification = "hard",
       enforcement_level = "hard",
@@ -2128,9 +2168,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.metrics.blake3-audit-chain",
       pillar = "metrics",
-      source_path = "docs/standards/source/metrics.adoc",
-      source_heading = "Hash-chained audit trail",
-      source_anchor = "docs/standards/source/metrics.adoc#hash-chained-audit-trail",
+      # Historical citation (prose withheld): docs/standards/source/metrics.adoc#hash-chained-audit-trail
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-metrics-blake3-audit-chain",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-metrics-blake3-audit-chain",
       summary = "Audit chains should use BLAKE3-linked records with tamper detection fixtures.",
       classification = "hard",
       enforcement_level = "hard",
@@ -2143,9 +2184,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.verification.positive-negative-tests",
       pillar = "verification",
-      source_path = "docs/standards/source/verification.adoc",
-      source_heading = "Tests That Earn Trust",
-      source_anchor = "docs/standards/source/verification.adoc#tests-that-earn-trust",
+      # Historical citation (prose withheld): docs/standards/source/verification.adoc#tests-that-earn-trust
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-verification-positive-negative-tests",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-verification-positive-negative-tests",
       summary = "Test suites must include positive and negative cases.",
       classification = "hard",
       enforcement_level = "hard",
@@ -2158,9 +2200,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.verification.first-properties",
       pillar = "verification",
-      source_path = "docs/standards/source/verification.adoc",
-      source_heading = "What makes a test trustworthy",
-      source_anchor = "docs/standards/source/verification.adoc#what-makes-a-test-trustworthy",
+      # Historical citation (prose withheld): docs/standards/source/verification.adoc#what-makes-a-test-trustworthy
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-verification-first-properties",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-verification-first-properties",
       summary = "Tests should satisfy FIRST properties where statically or fixture-detectable.",
       classification = "hard",
       enforcement_level = "hard",
@@ -2173,9 +2216,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.verification.exact-error-assertions",
       pillar = "verification",
-      source_path = "docs/standards/source/verification.adoc",
-      source_heading = "What makes a test trustworthy",
-      source_anchor = "docs/standards/source/verification.adoc#what-makes-a-test-trustworthy",
+      # Historical citation (prose withheld): docs/standards/source/verification.adoc#what-makes-a-test-trustworthy
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-verification-exact-error-assertions",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-verification-exact-error-assertions",
       summary = "Error-path tests must assert exact returned error surfaces instead of logs or vague failure.",
       classification = "hard",
       enforcement_level = "hard",
@@ -2188,9 +2232,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.verification.target-hardware-coverage",
       pillar = "verification",
-      source_path = "docs/standards/source/what-safety-critical-means.adoc",
-      source_heading = "Practical implications for Rust teams",
-      source_anchor = "docs/standards/source/what-safety-critical-means.adoc#practical-implications-for-rust-teams",
+      # Historical citation (prose withheld): docs/standards/source/what-safety-critical-means.adoc#practical-implications-for-rust-teams
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-verification-target-hardware-coverage",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-verification-target-hardware-coverage",
       summary = "Tests that claim hardware-relevant safety evidence must declare target or hardware coverage.",
       classification = "hard",
       enforcement_level = "hard",
@@ -2203,9 +2248,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.verification.safety-critical-claims",
       pillar = "verification",
-      source_path = "docs/standards/source/what-safety-critical-means.adoc",
-      source_heading = "Practical implications for Rust teams",
-      source_anchor = "docs/standards/source/what-safety-critical-means.adoc#practical-implications-for-rust-teams",
+      # Historical citation (prose withheld): docs/standards/source/what-safety-critical-means.adoc#practical-implications-for-rust-teams
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-verification-safety-critical-claims",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-verification-safety-critical-claims",
       summary = "Safety-critical claims must cite standard, level or class, evidence path, tool-qualification notes, and verification strategy.",
       classification = "hard",
       enforcement_level = "hard",
@@ -2218,9 +2264,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.fitness.readability",
       pillar = "fitness",
-      source_path = "docs/standards/source/fitness.adoc",
-      source_heading = "1. Readability",
-      source_anchor = "docs/standards/source/fitness.adoc#1-readability",
+      # Historical citation (prose withheld): docs/standards/source/fitness.adoc#1-readability
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-fitness-readability",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-fitness-readability",
       summary = "Readability fitness should be reported from deterministic source-shape inputs.",
       classification = "advisory",
       enforcement_level = "advisory",
@@ -2233,9 +2280,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.fitness.changeability",
       pillar = "fitness",
-      source_path = "docs/standards/source/fitness.adoc",
-      source_heading = "2. Changeability",
-      source_anchor = "docs/standards/source/fitness.adoc#2-changeability",
+      # Historical citation (prose withheld): docs/standards/source/fitness.adoc#2-changeability
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-fitness-changeability",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-fitness-changeability",
       summary = "Changeability fitness should report change coupling and boundary pressure.",
       classification = "advisory",
       enforcement_level = "advisory",
@@ -2248,9 +2296,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.fitness.operational-resilience",
       pillar = "fitness",
-      source_path = "docs/standards/source/fitness.adoc",
-      source_heading = "3. Operational resilience",
-      source_anchor = "docs/standards/source/fitness.adoc#3-operational-resilience",
+      # Historical citation (prose withheld): docs/standards/source/fitness.adoc#3-operational-resilience
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-fitness-operational-resilience",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-fitness-operational-resilience",
       summary = "Operational resilience fitness should summarize observable failure-handling and recovery signals.",
       classification = "advisory",
       enforcement_level = "advisory",
@@ -2263,9 +2312,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.fitness.dependency-health",
       pillar = "fitness",
-      source_path = "docs/standards/source/fitness.adoc",
-      source_heading = "4. Dependency health",
-      source_anchor = "docs/standards/source/fitness.adoc#4-dependency-health",
+      # Historical citation (prose withheld): docs/standards/source/fitness.adoc#4-dependency-health
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-fitness-dependency-health",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-fitness-dependency-health",
       summary = "Dependency health fitness should report age, advisories, duplication, and license risk.",
       classification = "advisory",
       enforcement_level = "advisory",
@@ -2278,9 +2328,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.fitness.test-quality",
       pillar = "fitness",
-      source_path = "docs/standards/source/fitness.adoc",
-      source_heading = "5. Test quality",
-      source_anchor = "docs/standards/source/fitness.adoc#5-test-quality",
+      # Historical citation (prose withheld): docs/standards/source/fitness.adoc#5-test-quality
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-fitness-test-quality",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-fitness-test-quality",
       summary = "Test quality fitness should report error-path coverage and fixture health signals.",
       classification = "advisory",
       enforcement_level = "advisory",
@@ -2293,9 +2344,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.fitness.change-risk",
       pillar = "fitness",
-      source_path = "docs/standards/source/fitness.adoc",
-      source_heading = "6. Change risk",
-      source_anchor = "docs/standards/source/fitness.adoc#6-change-risk",
+      # Historical citation (prose withheld): docs/standards/source/fitness.adoc#6-change-risk
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-fitness-change-risk",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-fitness-change-risk",
       summary = "Change risk fitness should report coupled files and risky churn trends when history exists.",
       classification = "advisory",
       enforcement_level = "advisory",
@@ -2308,9 +2360,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.culture.flow-protection",
       pillar = "culture",
-      source_path = "docs/standards/source/culture.adoc",
-      source_heading = "Protecting Flow",
-      source_anchor = "docs/standards/source/culture.adoc#protecting-flow",
+      # Historical citation (prose withheld): docs/standards/source/culture.adoc#protecting-flow
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-culture-flow-protection",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-culture-flow-protection",
       summary = "Teams should protect deep-work flow and reduce avoidable context switching.",
       classification = "human-process-only",
       enforcement_level = "human-process-only",
@@ -2323,9 +2376,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.culture.snapshot-readability",
       pillar = "culture",
-      source_path = "docs/standards/source/culture.adoc",
-      source_heading = "How Engineers Read Systems",
-      source_anchor = "docs/standards/source/culture.adoc#how-engineers-read-systems",
+      # Historical citation (prose withheld): docs/standards/source/culture.adoc#how-engineers-read-systems
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-culture-snapshot-readability",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-culture-snapshot-readability",
       summary = "System structure should support fast, accurate mental snapshots for readers.",
       classification = "advisory",
       enforcement_level = "advisory",
@@ -2340,9 +2394,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.architecture.effect-capability-boundaries",
       pillar = "architecture",
-      source_path = "docs/standards/source/architecture.adoc",
-      source_heading = "Effect capability boundaries",
-      source_anchor = "docs/standards/source/architecture.adoc#effect-capability-boundaries",
+      # Historical citation (prose withheld): docs/standards/source/architecture.adoc#effect-capability-boundaries
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-architecture-effect-capability-boundaries",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-architecture-effect-capability-boundaries",
       summary = "Domain cores receive explicit facts and return effect plans while application shells interpret ambient authority.",
       classification = "hard",
       enforcement_level = "hard",
@@ -2401,9 +2456,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.architecture.hexagonal-ports",
       pillar = "architecture",
-      source_path = "docs/standards/source/architecture.adoc",
-      source_heading = "Boundaries as architecture",
-      source_anchor = "docs/standards/source/architecture.adoc#boundaries-as-architecture",
+      # Historical citation (prose withheld): docs/standards/source/architecture.adoc#boundaries-as-architecture
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-architecture-hexagonal-ports",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-architecture-hexagonal-ports",
       summary = "Declared ports remain application-owned traits with adapter-owned concrete implementations.",
       classification = "hard",
       enforcement_level = "hard",
@@ -2435,9 +2491,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.architecture.top-level-purity",
       pillar = "architecture",
-      source_path = "docs/standards/source/architecture.adoc",
-      source_heading = "Top-level purity and delayed effects",
-      source_anchor = "docs/standards/source/architecture.adoc#top-level-purity-and-delayed-effects",
+      # Historical citation (prose withheld): docs/standards/source/architecture.adoc#top-level-purity-and-delayed-effects
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-architecture-top-level-purity",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-architecture-top-level-purity",
       summary = "Constructors, builders, statics, and lazy initialization validate or assemble delayed effects instead of performing ambient IO.",
       classification = "advisory",
       enforcement_level = "advisory",
@@ -2450,9 +2507,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.devtools.content-addressed-evidence",
       pillar = "devtools",
-      source_path = "docs/standards/source/devtools.adoc",
-      source_heading = "Content-addressed evidence and function fingerprints",
-      source_anchor = "docs/standards/source/devtools.adoc#content-addressed-evidence-and-function-fingerprints",
+      # Historical citation (prose withheld): docs/standards/source/devtools.adoc#content-addressed-evidence-and-function-fingerprints
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-devtools-content-addressed-evidence",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-devtools-content-addressed-evidence",
       summary = "Evidence, findings, transcripts, and selected function fingerprints use BLAKE3 identity hashes without claiming correctness.",
       classification = "hard",
       enforcement_level = "hard",
@@ -2466,9 +2524,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.devtools.live-example-verification",
       pillar = "devtools",
-      source_path = "docs/standards/source/devtools.adoc",
-      source_heading = "Live example verification",
-      source_anchor = "docs/standards/source/devtools.adoc#live-example-verification",
+      # Historical citation (prose withheld): docs/standards/source/devtools.adoc#live-example-verification
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-devtools-live-example-verification",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-devtools-live-example-verification",
       summary = "Verification-claiming examples link to fixtures, doctests, trybuild cases, or saved transcripts with content hashes.",
       classification = "advisory",
       enforcement_level = "advisory",
@@ -2481,9 +2540,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.idioms.nominal-type-boundaries",
       pillar = "idioms",
-      source_path = "docs/standards/source/idioms.adoc",
-      source_heading = "Nominal and structural type boundaries",
-      source_anchor = "docs/standards/source/idioms.adoc#nominal-and-structural-type-boundaries",
+      # Historical citation (prose withheld): docs/standards/source/idioms.adoc#nominal-and-structural-type-boundaries
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-idioms-nominal-type-boundaries",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-idioms-nominal-type-boundaries",
       summary = "Identities, units, secrets, capabilities, protocol states, and idempotency keys use nominal wrappers instead of primitive aliases.",
       classification = "hard",
       enforcement_level = "hard",
@@ -2525,9 +2585,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.idioms.named-capability-vocabulary",
       pillar = "idioms",
-      source_path = "docs/standards/source/idioms.adoc",
-      source_heading = "Named capability vocabulary",
-      source_anchor = "docs/standards/source/idioms.adoc#named-capability-vocabulary",
+      # Historical citation (prose withheld): docs/standards/source/idioms.adoc#named-capability-vocabulary
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-idioms-named-capability-vocabulary",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-idioms-named-capability-vocabulary",
       summary = "Capability traits and tokens are named by the authority they grant rather than vague context/client names.",
       classification = "advisory",
       enforcement_level = "advisory",
@@ -2540,9 +2601,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.verification.deterministic-effect-handlers",
       pillar = "verification",
-      source_path = "docs/standards/source/verification.adoc",
-      source_heading = "Deterministic effect handler tests",
-      source_anchor = "docs/standards/source/verification.adoc#deterministic-effect-handler-tests",
+      # Historical citation (prose withheld): docs/standards/source/verification.adoc#deterministic-effect-handler-tests
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-verification-deterministic-effect-handlers",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-verification-deterministic-effect-handlers",
       summary = "Effect handlers used for tests record requested effects and replay scripted time, filesystem, network, and environment responses.",
       classification = "hard",
       enforcement_level = "hard",
@@ -2593,9 +2655,10 @@ in
     mk_policy {
       policy_id = "octet.aeneas_lean_proof_rails.fixture",
       pillar = "verification",
-      source_path = "docs/standards/source/verification.adoc",
-      source_heading = "Verus proof rails",
-      source_anchor = "docs/standards/source/verification.adoc#aeneas-lean-proof-rail",
+      # Historical citation (prose withheld): docs/standards/source/verification.adoc#aeneas-lean-proof-rail
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "octet-aeneas_lean_proof_rails-fixture",
+      source_anchor = "docs/standards/policy-contract.md#octet-aeneas_lean_proof_rails-fixture",
       summary = "An opt-in pinned Aeneas/Charon/Lean fixture rail binds a real generated model, named theorem, receipt, and artifact identities without broadening starter checks.",
       classification = "hard",
       enforcement_level = "hard",
@@ -2614,9 +2677,10 @@ in
     mk_policy {
       policy_id = "octet.vermilion_canary_rail.recorded",
       pillar = "verification",
-      source_path = "docs/standards/source/verification.adoc",
-      source_heading = "Verus proof rails",
-      source_anchor = "docs/standards/source/verification.adoc#aeneas-lean-proof-rail",
+      # Historical citation (prose withheld): docs/standards/source/verification.adoc#aeneas-lean-proof-rail
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "octet-vermilion_canary_rail-recorded",
+      source_anchor = "docs/standards/policy-contract.md#octet-vermilion_canary_rail-recorded",
       summary = "The measured Vermilion u64 canary is validated as recorded-only evidence and emitted as a manual-review proof card; it is never promoted to a formal-proof claim.",
       classification = "advisory",
       enforcement_level = "advisory",
@@ -2634,9 +2698,10 @@ in
     mk_policy {
       policy_id = "octet.aeneas_consumer_contract.external-fixture",
       pillar = "verification",
-      source_path = "docs/standards/source/verification.adoc",
-      source_heading = "Verus proof rails",
-      source_anchor = "docs/standards/source/verification.adoc#aeneas-lean-proof-rail",
+      # Historical citation (prose withheld): docs/standards/source/verification.adoc#aeneas-lean-proof-rail
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "octet-aeneas_consumer_contract-external-fixture",
+      source_anchor = "docs/standards/policy-contract.md#octet-aeneas_consumer_contract-external-fixture",
       summary = "An external-consumer fixture binds exact source, selected item, generated model, maintained theorem, requirement, trust closure, and provider identities.",
       classification = "hard",
       enforcement_level = "hard",
@@ -2655,9 +2720,10 @@ in
     mk_policy {
       policy_id = "octet.charon_semantic_analysis.recorded-snapshot",
       pillar = "verification",
-      source_path = "docs/standards/source/verification.adoc",
-      source_heading = "Charon semantic analysis rail",
-      source_anchor = "docs/standards/source/verification.adoc#charon-semantic-analysis-rail",
+      # Historical citation (prose withheld): docs/standards/source/verification.adoc#charon-semantic-analysis-rail
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "octet-charon_semantic_analysis-recorded-snapshot",
+      source_anchor = "docs/standards/policy-contract.md#octet-charon_semantic_analysis-recorded-snapshot",
       summary = "An opt-in pinned Charon rail projects selected LLBC facts and conservative effect candidates as role-separated recorded evidence without proof-authority promotion.",
       classification = "hard",
       enforcement_level = "hard",
@@ -2675,9 +2741,10 @@ in
     mk_policy {
       policy_id = "octet.verus_proof_rails.addition-bound",
       pillar = "verification",
-      source_path = "docs/standards/source/verification.adoc",
-      source_heading = "Verus proof rails",
-      source_anchor = "docs/standards/source/verification.adoc#verus-proof-rails",
+      # Historical citation (prose withheld): docs/standards/source/verification.adoc#verus-proof-rails
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "octet-verus_proof_rails-addition-bound",
+      source_anchor = "docs/standards/policy-contract.md#octet-verus_proof_rails-addition-bound",
       summary = "A fixture-scoped Verus rail binds the Octet-owned proof target, pinned verifier wrapper identity, pass signal, receipt, and non-claim boundary.",
       classification = "hard",
       enforcement_level = "hard",
@@ -2696,9 +2763,10 @@ in
     mk_policy {
       policy_id = "octet.verus_proof_rails.addition-bound-production",
       pillar = "verification",
-      source_path = "docs/standards/source/verification.adoc",
-      source_heading = "Verus proof rails",
-      source_anchor = "docs/standards/source/verification.adoc#verus-proof-rails",
+      # Historical citation (prose withheld): docs/standards/source/verification.adoc#verus-proof-rails
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "octet-verus_proof_rails-addition-bound-production",
+      source_anchor = "docs/standards/policy-contract.md#octet-verus_proof_rails-addition-bound-production",
       summary = "A production-mode Verus pilot rail runs the pinned upstream Verus binary release against the Octet-owned addition-bound proof target.",
       classification = "hard",
       enforcement_level = "hard",
@@ -2717,9 +2785,10 @@ in
     mk_policy {
       policy_id = "octet.verus_proof_rails.ordering-reflexive-production",
       pillar = "verification",
-      source_path = "docs/standards/source/verification.adoc",
-      source_heading = "Verus proof rails",
-      source_anchor = "docs/standards/source/verification.adoc#verus-proof-rails",
+      # Historical citation (prose withheld): docs/standards/source/verification.adoc#verus-proof-rails
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "octet-verus_proof_rails-ordering-reflexive-production",
+      source_anchor = "docs/standards/policy-contract.md#octet-verus_proof_rails-ordering-reflexive-production",
       summary = "A second production-mode Verus pilot rail runs the pinned upstream Verus binary release against the Octet-owned reflexive-order proof target.",
       classification = "hard",
       enforcement_level = "hard",
@@ -2738,9 +2807,10 @@ in
     mk_policy {
       policy_id = "octet.verus_proof_rails.addition-bound-production-negative",
       pillar = "verification",
-      source_path = "docs/standards/source/verification.adoc",
-      source_heading = "Verus proof rails",
-      source_anchor = "docs/standards/source/verification.adoc#verus-proof-rails",
+      # Historical citation (prose withheld): docs/standards/source/verification.adoc#verus-proof-rails
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "octet-verus_proof_rails-addition-bound-production-negative",
+      source_anchor = "docs/standards/policy-contract.md#octet-verus_proof_rails-addition-bound-production-negative",
       summary = "An opt-in production-mode Verus negative rail proves invalid proofs fail closed and emit no formal_proof provenance.",
       classification = "hard",
       enforcement_level = "hard",
@@ -2759,9 +2829,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.resilience.remote-effect-contracts",
       pillar = "resilience",
-      source_path = "docs/standards/source/resilience.adoc",
-      source_heading = "Remote effect contracts",
-      source_anchor = "docs/standards/source/resilience.adoc#remote-effect-contracts",
+      # Historical citation (prose withheld): docs/standards/source/resilience.adoc#remote-effect-contracts
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-resilience-remote-effect-contracts",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-resilience-remote-effect-contracts",
       summary = "Remote boundaries name endpoint authority, timeout, retry, idempotency key, receipt identity, and replay evidence.",
       classification = "hard",
       enforcement_level = "hard",
@@ -2774,9 +2845,10 @@ in
     mk_policy {
       policy_id = "tigerstyle.resilience.semantic-refactor-evidence",
       pillar = "resilience",
-      source_path = "docs/standards/source/resilience.adoc",
-      source_heading = "Semantic refactor evidence",
-      source_anchor = "docs/standards/source/resilience.adoc#semantic-refactor-evidence",
+      # Historical citation (prose withheld): docs/standards/source/resilience.adoc#semantic-refactor-evidence
+      source_path = "docs/standards/policy-contract.md",
+      source_heading = "tigerstyle-resilience-semantic-refactor-evidence",
+      source_anchor = "docs/standards/policy-contract.md#tigerstyle-resilience-semantic-refactor-evidence",
       summary = "Behavior-preserving moves and renames record old/new symbol identity, rationale, fingerprints, and verification command.",
       classification = "advisory",
       enforcement_level = "advisory",

@@ -1,71 +1,71 @@
 {
-  "actor": "z6MkjPAjbbnXWtKTuUarEF3CbhnPjFzU9ify9Xuz7qdTv4Dn",
+  "actor": "z6Mksf9UyKHypB1cGbW2PoHLdYnxLwFGgv1zphuQXxPZ1rAS",
   "backend": "radicle-cob.v1",
-  "base_git_oid": "28ffbe8cfb01879a241cad248008b75252a8b7f5",
+  "base_git_oid": "5a8114f6689fde68978eb86526ef3302beefe09e",
   "bundle": {
-    "blake3_hex": "f79e2c3bde695876e9e9b62168f5de50b3446662664bc24eff6803d28c0d9b5a",
+    "blake3_hex": "e313b6079f7e4761c939ac3a8c75a6e962ec68b49b5a1a2cdc2ff38268c36760",
     "heads": [
       {
         "ref_name": "refs/heads/main",
-        "target": "28ffbe8cfb01879a241cad248008b75252a8b7f5"
+        "target": "5a8114f6689fde68978eb86526ef3302beefe09e"
       },
       {
-        "ref_name": "refs/namespaces/z6MkjPAjbbnXWtKTuUarEF3CbhnPjFzU9ify9Xuz7qdTv4Dn/refs/cobs/xyz.onixresearch.cairn-change/8d4cf943a20d666c16cea0190db2541767ef8603",
-        "target": "35e76bfd1dc9755f936c53762c9af999b8a666dd"
+        "ref_name": "refs/namespaces/z6Mksf9UyKHypB1cGbW2PoHLdYnxLwFGgv1zphuQXxPZ1rAS/refs/cobs/xyz.onixresearch.cairn-change/3e35b2b00092bb3f6d4310b495d0eeec1a23e5e0",
+        "target": "c13d51f7542a291caccd92562be41cbb3d9996e0"
       }
     ],
     "path": "octet-cob.bundle"
   },
   "cairn_commit": "70db8fe114910feb5d162fea5db8ad4ffdb6f176",
   "change": "adopt-cairn-cob-collaboration",
-  "final_content_root": "2a54f7e9216fd71d7e23ba11114ce6bf3eb3df7a4e5b7e064dee1c25cf66c183",
-  "final_state_hash": "70baef24a418d18478cfdc5169b1dbfa3e093f2da05c8bd3beba5e8fbd46814d",
-  "import_operation_id": "8d4cf943a20d666c16cea0190db2541767ef8603",
-  "namespace_ref": "refs/namespaces/z6MkjPAjbbnXWtKTuUarEF3CbhnPjFzU9ify9Xuz7qdTv4Dn/refs/cobs/xyz.onixresearch.cairn-change/8d4cf943a20d666c16cea0190db2541767ef8603",
-  "object_id": "8d4cf943a20d666c16cea0190db2541767ef8603",
+  "final_content_root": "2ef8ae4970b7f6570c0ef3c11c2d9c856f54a97f843cd03b791a0b25ed8e2814",
+  "final_state_hash": "2bcf85d31b3184a0a4ea8998c620296d41fe1b2140fc7895f587442680f745be",
+  "import_operation_id": "3e35b2b00092bb3f6d4310b495d0eeec1a23e5e0",
+  "namespace_ref": "refs/namespaces/z6Mksf9UyKHypB1cGbW2PoHLdYnxLwFGgv1zphuQXxPZ1rAS/refs/cobs/xyz.onixresearch.cairn-change/3e35b2b00092bb3f6d4310b495d0eeec1a23e5e0",
+  "object_id": "3e35b2b00092bb3f6d4310b495d0eeec1a23e5e0",
   "receipts": [
     {
-      "blake3_hex": "090241b2338a9afb2dd12c9d974135610b0c3862295ec68d3049cc2f4d660b92",
+      "blake3_hex": "79df80ebb010cff785526360796df35bd36ebbc1e2f78e1c81ff4fae5757c0c9",
       "name": "bundle-reload.json"
     },
     {
-      "blake3_hex": "25f540774434b27c6708d027a4f94b55269a1fd75f6ab9a60bbe8379c9f9a4f1",
+      "blake3_hex": "0d66a760b30d46c58c62cc07dbe5c74c24e6dcda12bec7f5d719d693aba814a9",
       "name": "checkout-execute.json"
     },
     {
-      "blake3_hex": "c716f2540fb41fce4ab9cba6cd40dfbb3feb23acf04337e3605e7868f702abba",
+      "blake3_hex": "7d4d8725b0cd964881084bf1b54f7715aeee48a4ca114c2731770b6abb9ba8d9",
       "name": "checkout-missing-changes-negative.json"
     },
     {
-      "blake3_hex": "9bbf1c077497bf770bf2bcb860cf1e4526bc1aa38208001897ab786f3e5a85af",
+      "blake3_hex": "adb99f1b383fa58a1947f61a8320fdfa6a5ae897ea7bdbd6135789b31fdf3b66",
       "name": "checkout-preview.json"
     },
     {
-      "blake3_hex": "89b3d8325a38f617475cffc04191846b85f72e13ba18da6aa07ccc78fc4d47b7",
+      "blake3_hex": "afaf841a02cfbb98db55390fa9ff222edfc2bcb78259d5871562b5389c57cc98",
       "name": "conflicts-secondary.json"
     },
     {
-      "blake3_hex": "0ae774df27989babb1f8792aff97938c680dc50abf19b6986ca09ffbe7a0918c",
+      "blake3_hex": "68de71791c2bfc631be695bf31bd75ebb308138cb16a6c000bce32d8b50c9ed3",
       "name": "import-execute.json"
     },
     {
-      "blake3_hex": "8c463ec5fcf6bc2c0fa35d53cfd48ef9c392f7aa442861368610775c177c55ee",
+      "blake3_hex": "1093cb61fbef42cedc5db825fe2301ecfdc9e70bbff49cb6290ded08811e63d1",
       "name": "import-preview.json"
     },
     {
-      "blake3_hex": "4ae0a83e99a09f0f5056a249e8df772fe232cd09de7f843e2f41c5b75cca5f06",
+      "blake3_hex": "ca426211708b943907b4a549fc20d0c4309941da3a27e8001c5b0311c26df098",
       "name": "status-secondary.json"
     },
     {
-      "blake3_hex": "baf4aef855f84069a670cf10f0b46bc0c40a6bfc2dec5801f19b58bcf7d1251a",
+      "blake3_hex": "9d057eb7e69074bdb81ef08fbadbe3fa72971650f47768dd948b08cd3f82e879",
       "name": "transport.json"
     },
     {
-      "blake3_hex": "37033dd38fb2e232a13ae8f7d1a62b85270afba4cc598462c5956282ec2140ec",
+      "blake3_hex": "b0f9a006c53f1af7f2d070913b71ae3ed0ffca47a2bd34df0da623631a3ffa9b",
       "name": "update-execute.json"
     },
     {
-      "blake3_hex": "a5e0f58083a33bea420421d96f878434ca8d9e29286f7f7cc30705aa322958cf",
+      "blake3_hex": "5428fe1f337f76acefc508e8e93dd4c0b0caab3596e0ecbf382dd41feeb8f438",
       "name": "update-preview.json"
     }
   ],
@@ -78,12 +78,12 @@
   ],
   "schema": "octet.cairn-cob-pilot.v1",
   "transport": {
-    "artifact_tree_blake3": "blake3-+nSMyo4rJmdEBytxIOC0enxjQIHLWXpR2MjkD0Rkexo=",
-    "destination_ref_target": "35e76bfd1dc9755f936c53762c9af999b8a666dd",
+    "artifact_tree_blake3": "blake3-5Z5eC+IFuSKTVTnkHNF0KA1so8FLCuJ7pcFjPtAuzSM=",
+    "destination_ref_target": "c13d51f7542a291caccd92562be41cbb3d9996e0",
     "destination_remotes": [],
-    "source_ref_target": "35e76bfd1dc9755f936c53762c9af999b8a666dd",
+    "source_ref_target": "c13d51f7542a291caccd92562be41cbb3d9996e0",
     "source_remotes": []
   },
-  "update_operation_id": "35e76bfd1dc9755f936c53762c9af999b8a666dd",
+  "update_operation_id": "c13d51f7542a291caccd92562be41cbb3d9996e0",
   "workspace_id": "workspace:octet"
 }

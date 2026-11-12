@@ -1,8 +1,12 @@
 # Tiger Style policy registry
 
-`registry.ncl` maps Tiger Style prose to typed executable policy.
+`registry.ncl` declares Octet's typed executable policy.
 
-The narrative sources are `docs/standards/source/octet-standards.adoc` and `docs/standards/source/*.adoc`.
+Live `source_path`, `source_heading`, and `source_anchor` fields point to
+the policy-specific clauses in `docs/standards/policy-contract.md`. Historical
+citations under `docs/standards/source/` remain in registry comments only; the
+imported narrative is withheld pending recorded redistribution permission.
+Source-path and heading validation remain mandatory for the owned clauses.
 
 The registry gives checkers stable IDs, source anchors, enforcement modes, mechanisms, proof rails, suppression rules, seed manifests, and planned evidence.
 

@@ -466,7 +466,7 @@ mod tests {
     }
 
     #[test]
-    fn checked_in_cohort_validates_and_is_qualified() {
+    fn blocked_cohort_cannot_be_admitted_with_valid_receipts() {
         let root = repo_root();
         let manifest = load_cohort(&root);
         let inventory = read(&root, INVENTORY_FIXTURE);
@@ -479,11 +479,8 @@ mod tests {
         let revision = manifest["source"]["public"]["revision"].as_str().expect("revision");
         let digest = evidence_digest(revision, inventory.as_bytes(), lock.as_bytes(), toolchain.as_bytes());
         assert_eq!(manifest["acceptance"]["evidence_digest"].as_str(), Some(digest.as_str()));
-        assert_eq!(release_ready(&manifest, &inventory, lock.as_bytes(), toolchain.as_bytes()), Vec::new());
-
-        let status = manifest["qualification"]["status"].as_str().expect("status");
-        assert_eq!(status, "qualified");
-        assert!(manifest["qualification"]["blocking_reasons"].as_array().expect("reasons").is_empty());
+        let findings = release_ready(&manifest, &inventory, lock.as_bytes(), toolchain.as_bytes());
+        assert_eq!(findings.iter().map(|finding| finding.code).collect::<Vec<_>>(), vec!["cohort-not-qualified"]);
     }
 
     #[test]

@@ -1738,9 +1738,9 @@
                 exit 1
               fi
               if ! awk -v heading="$source_heading" '
-                /^=+ / {
+                /^(=+|#+) / {
                   current = $0
-                  sub(/^=+ /, "", current)
+                  sub(/^(=+|#+) /, "", current)
                   if (current == heading) {
                     found = 1
                   }
@@ -1810,9 +1810,9 @@
                   exit 1
                 fi
                 if ! awk -v heading="$source_heading" '
-                  /^=+ / {
+                  /^(=+|#+) / {
                     current = $0
-                    sub(/^=+ /, "", current)
+                    sub(/^(=+|#+) /, "", current)
                     if (current == heading) {
                       found = 1
                     }
@@ -4651,6 +4651,7 @@
                     diffutils
                     gitMinimal
                     gnugrep
+                    jq
                     nickel
                   ];
                 }
@@ -4662,9 +4663,9 @@
                   bundle_heads="$scratch/bundle-heads.txt"
                   bundle_verify="$scratch/bundle-verify.txt"
                   base_ref='refs/heads/main'
-                  base_oid='28ffbe8cfb01879a241cad248008b75252a8b7f5'
-                  namespace_ref='refs/namespaces/z6MkjPAjbbnXWtKTuUarEF3CbhnPjFzU9ify9Xuz7qdTv4Dn/refs/cobs/xyz.onixresearch.cairn-change/8d4cf943a20d666c16cea0190db2541767ef8603'
-                  namespace_oid='35e76bfd1dc9755f936c53762c9af999b8a666dd'
+                  base_oid="$(jq --exit-status --raw-output '.base_git_oid' "$fixture/manifest.json")"
+                  namespace_ref="$(jq --exit-status --raw-output '.namespace_ref' "$fixture/manifest.json")"
+                  namespace_oid="$(jq --exit-status --raw-output '.update_operation_id' "$fixture/manifest.json")"
                   expected_head_count=2
 
                   nickel typecheck "$fixture/manifest.ncl"
@@ -4693,6 +4694,7 @@
                     diffutils
                     gitMinimal
                     gnugrep
+                    jq
                     nickel
                   ];
                 }
@@ -4704,12 +4706,12 @@
                   bundle_heads="$scratch/bundle-heads.txt"
                   bundle_verify="$scratch/bundle-verify.txt"
                   base_ref='refs/heads/main'
-                  base_oid='22722030cd734900c565840997a62b36055aa85d'
-                  creator_ref='refs/namespaces/z6MkrYePae54PSMayuv3YJJcPV65GE6Mhvuq2537cmJybFCW/refs/cobs/xyz.onixresearch.cairn-change/0702d3bd89a7be698cd24ec343323d7786a99d6d'
-                  delegate_ref='refs/namespaces/z6Mkgvh5Qq4bjh8BZUDwPB9ZPNoQvHGMu1wvPX2KRyPNUDtq/refs/cobs/xyz.onixresearch.cairn-change/0702d3bd89a7be698cd24ec343323d7786a99d6d'
-                  creator_operation='2ba95e8204bd05dd566d93f7f5f9ac68f7126904'
-                  delegate_operation='e73bf24a150c12c5cbeda410c40d113d002ef259'
-                  resolution_operation='3669f3e1001bba8878d9ad4bcaf874d21207703b'
+                  base_oid="$(jq --exit-status --raw-output '.octet_base_git_oid' "$fixture/manifest.json")"
+                  creator_ref="$(jq --exit-status --raw-output '.creator.ref_name' "$fixture/manifest.json")"
+                  delegate_ref="$(jq --exit-status --raw-output '.delegate.ref_name' "$fixture/manifest.json")"
+                  creator_operation="$(jq --exit-status --raw-output '.creator.operation_id' "$fixture/manifest.json")"
+                  delegate_operation="$(jq --exit-status --raw-output '.delegate.operation_id' "$fixture/manifest.json")"
+                  resolution_operation="$(jq --exit-status --raw-output '.resolution.operation_id' "$fixture/manifest.json")"
                   expected_head_count=3
 
                   nickel typecheck "$fixture/manifest.ncl"
@@ -4731,8 +4733,9 @@
                   test -z "$(git --git-dir="$audit_store" remote)"
                   git --git-dir="$audit_store" merge-base --is-ancestor "$creator_operation" "$resolution_operation"
                   git --git-dir="$audit_store" merge-base --is-ancestor "$delegate_operation" "$resolution_operation"
-                  test "$(git --git-dir="$audit_store" rev-list --parents -n 1 "$resolution_operation")" = \
-                    "$resolution_operation $creator_operation $delegate_operation"
+                  expected_parents="$(printf '%s\n' "$creator_operation" "$delegate_operation" | sort)"
+                  actual_parents="$(git --git-dir="$audit_store" rev-parse "$resolution_operation^@" | sort)"
+                  test "$actual_parents" = "$expected_parents"
                   mkdir -p "$out"
                   cp "$generated_manifest" "$bundle_heads" "$bundle_verify" "$out/"
                 '';

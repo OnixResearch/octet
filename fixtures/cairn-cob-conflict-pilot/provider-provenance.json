@@ -1,0 +1,16 @@
+{
+  "source_revision": "70db8fe114910feb5d162fea5db8ad4ffdb6f176",
+  "executable": "/nix/store/09nvvq1mz46vsa9kgxx126zl93ypq6dv-cairn-0.1.0/bin/cairn",
+  "executable_blake3": "f0e10eb627478121702ceef21bb3636cd4e1a3d8bfffaf2ad9474fff8e50e3ca",
+  "observation_kind": "fresh signed CLI capture; not a historical receipt migration",
+  "base_has_parents": false,
+  "base_paths": [
+    "cairn-policy/contracts.ncl",
+    "cairn-policy/default.ncl",
+    "cairn-policy/generated/cairn-policy.json",
+    "cairn/changes/exercise-cairn-cob-conflict-recovery/design.md",
+    "cairn/changes/exercise-cairn-cob-conflict-recovery/proposal.md",
+    "cairn/changes/exercise-cairn-cob-conflict-recovery/specs/cob-collaboration-conflict-recovery/spec.md",
+    "cairn/changes/exercise-cairn-cob-conflict-recovery/tasks.md"
+  ]
+}

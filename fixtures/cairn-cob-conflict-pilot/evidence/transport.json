@@ -1,34 +1,59 @@
 {
   "schema": "octet.cairn-cob-conflict-transport.v1",
   "commands": [
-    "git fetch --no-tags <creator-store> +refs/heads/main:refs/heads/main +<creator-ref>:<creator-ref>",
-    "git fetch --no-tags <delegate-store> +<delegate-ref>:<delegate-ref>",
-    "git fetch --no-tags octet-cob-conflict.bundle +refs/heads/main:refs/heads/main +refs/namespaces/*:refs/namespaces/*"
+    [
+      "git",
+      "-C",
+      "<scratch>/convergence.git",
+      "fetch",
+      "--no-tags",
+      "<scratch>/creator.git",
+      "+refs/namespaces/z6MkksdCQEQdRwG6c747WuMbyFoLvLhxKYGio5JPBBYEvt6y/refs/cobs/xyz.onixresearch.cairn-change/87027ed6c24b75036ea5d409e5eedb21a969f5b2:refs/namespaces/z6MkksdCQEQdRwG6c747WuMbyFoLvLhxKYGio5JPBBYEvt6y/refs/cobs/xyz.onixresearch.cairn-change/87027ed6c24b75036ea5d409e5eedb21a969f5b2"
+    ],
+    [
+      "git",
+      "-C",
+      "<scratch>/convergence.git",
+      "fetch",
+      "--no-tags",
+      "<scratch>/delegate.git",
+      "+refs/namespaces/z6Mkehh68deeBD4NyGrgYNyCsPujeE1r8QHCs5Csn72SwBVz/refs/cobs/xyz.onixresearch.cairn-change/87027ed6c24b75036ea5d409e5eedb21a969f5b2:refs/namespaces/z6Mkehh68deeBD4NyGrgYNyCsPujeE1r8QHCs5Csn72SwBVz/refs/cobs/xyz.onixresearch.cairn-change/87027ed6c24b75036ea5d409e5eedb21a969f5b2"
+    ],
+    [
+      "git",
+      "-C",
+      "<scratch>/reload.git",
+      "fetch",
+      "--no-tags",
+      "<scratch>/captured/octet-cob-conflict.bundle",
+      "+refs/heads/main:refs/heads/main",
+      "+refs/namespaces/*:refs/namespaces/*"
+    ]
   ],
   "backend": "radicle-cob.v1",
   "change": "exercise-cairn-cob-conflict-recovery",
   "cairn_commit": "70db8fe114910feb5d162fea5db8ad4ffdb6f176",
-  "octet_base_git_oid": "22722030cd734900c565840997a62b36055aa85d",
-  "object_id": "0702d3bd89a7be698cd24ec343323d7786a99d6d",
+  "octet_base_git_oid": "03c74d76cb153d88bce33a76b4c40fbf2a0fc365",
+  "object_id": "87027ed6c24b75036ea5d409e5eedb21a969f5b2",
   "creator": {
-    "actor": "z6MkrYePae54PSMayuv3YJJcPV65GE6Mhvuq2537cmJybFCW",
-    "ref_name": "refs/namespaces/z6MkrYePae54PSMayuv3YJJcPV65GE6Mhvuq2537cmJybFCW/refs/cobs/xyz.onixresearch.cairn-change/0702d3bd89a7be698cd24ec343323d7786a99d6d",
-    "conflict_target": "2ba95e8204bd05dd566d93f7f5f9ac68f7126904",
-    "resolved_target": "3669f3e1001bba8878d9ad4bcaf874d21207703b"
+    "actor": "z6MkksdCQEQdRwG6c747WuMbyFoLvLhxKYGio5JPBBYEvt6y",
+    "ref_name": "refs/namespaces/z6MkksdCQEQdRwG6c747WuMbyFoLvLhxKYGio5JPBBYEvt6y/refs/cobs/xyz.onixresearch.cairn-change/87027ed6c24b75036ea5d409e5eedb21a969f5b2",
+    "conflict_target": "59b694a4d9aa1b78f4509402e49d3f3ff595a5db",
+    "resolved_target": "a575f27c24f673dd32b46d8901c93bbbfaa26d2b"
   },
   "delegate": {
-    "actor": "z6Mkgvh5Qq4bjh8BZUDwPB9ZPNoQvHGMu1wvPX2KRyPNUDtq",
-    "ref_name": "refs/namespaces/z6Mkgvh5Qq4bjh8BZUDwPB9ZPNoQvHGMu1wvPX2KRyPNUDtq/refs/cobs/xyz.onixresearch.cairn-change/0702d3bd89a7be698cd24ec343323d7786a99d6d",
-    "conflict_target": "e73bf24a150c12c5cbeda410c40d113d002ef259",
-    "resolved_target": "e73bf24a150c12c5cbeda410c40d113d002ef259"
+    "actor": "z6Mkehh68deeBD4NyGrgYNyCsPujeE1r8QHCs5Csn72SwBVz",
+    "ref_name": "refs/namespaces/z6Mkehh68deeBD4NyGrgYNyCsPujeE1r8QHCs5Csn72SwBVz/refs/cobs/xyz.onixresearch.cairn-change/87027ed6c24b75036ea5d409e5eedb21a969f5b2",
+    "conflict_target": "7d65fb53fe6232fd0cdcf0424f064f3329b5bdc5",
+    "resolved_target": "7d65fb53fe6232fd0cdcf0424f064f3329b5bdc5"
   },
   "resolution": {
-    "operation_id": "3669f3e1001bba8878d9ad4bcaf874d21207703b",
+    "operation_id": "a575f27c24f673dd32b46d8901c93bbbfaa26d2b",
     "direct_parents": [
-      "2ba95e8204bd05dd566d93f7f5f9ac68f7126904",
-      "e73bf24a150c12c5cbeda410c40d113d002ef259"
+      "59b694a4d9aa1b78f4509402e49d3f3ff595a5db",
+      "7d65fb53fe6232fd0cdcf0424f064f3329b5bdc5"
     ],
-    "selected_revision": "2ba95e8204bd05dd566d93f7f5f9ac68f7126904",
+    "selected_revision": "59b694a4d9aa1b78f4509402e49d3f3ff595a5db",
     "losing_revision_reachable": true
   },
   "source_remotes": [],
