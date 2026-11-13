@@ -46,6 +46,12 @@ current artifact verifier so its tool identities match `0.1.1-rc.1`; the
 retained historical Charon evidence remains recorded-only, not a new execution
 or proof claim.
 
+GitHub's full verification job now loads a CI-only AppArmor user-namespace
+profile for the exact locked Nix Bubblewrap executable and probes the sandbox
+before building. This addresses Ubuntu's unprofiled namespace denial without
+disabling the host restriction, sharing the producer's network, running the
+producer as root, or omitting the live Aeneas/Charon checks.
+
 The owner separately approved the exact native warning-baseline migration from
 3,160 to 3,030 identities and lowered the occurrence expectation from 4,337 to
 4,239. Two genuinely introduced import findings were repaired rather than

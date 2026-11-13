@@ -32,4 +32,20 @@ jobs:
         with:
           persist-credentials: false
       - uses: cachix/install-nix-action@v31
+      - name: Admit pinned Bubblewrap user namespaces
+        # Ubuntu restricts unprofiled user namespaces. Admit only the locked
+        # Nix executable; keep the global restriction and network denial intact.
+        run: |
+          bwrap="$(nix shell --inputs-from . nixpkgs#bubblewrap --command sh -c 'command -v bwrap')"
+          case "$bwrap" in
+            /nix/store/*-bubblewrap-*/bin/bwrap) ;;
+            *) printf 'Unexpected Bubblewrap path: %s\n' "$bwrap" >&2; exit 1 ;;
+          esac
+          profile="$RUNNER_TEMP/octet-nix-bwrap.apparmor"
+          printf 'abi <abi/4.0>,\ninclude <tunables/global>\nprofile octet-nix-bwrap "%s" flags=(unconfined) {\n  userns,\n}\n' "$bwrap" > "$profile"
+          sudo install -m 0644 "$profile" /etc/apparmor.d/octet-nix-bwrap
+          sudo apparmor_parser -r /etc/apparmor.d/octet-nix-bwrap
+          "$bwrap" --unshare-user --unshare-net --unshare-pid \
+            --die-with-parent --new-session --ro-bind / / \
+            --proc /proc --dev /dev /bin/true
       - run: nix flake check

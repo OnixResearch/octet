@@ -53,6 +53,16 @@ qualified release: the complete flake rail rejected stale reviewed-object
 admission locks and a `0.1.0` Charon handoff projection. Replacement source
 must pass those gates and receive its own source-bound qualification.
 
+Later staging commit `24b1768d8ad990eab6a65dba179d64dd3f0fa14b` passed
+the complete local flake rail and the anonymous five-output build. Its real
+consumer capture passed after moving the capture directory outside an ambient
+ancestor Cargo configuration; that initial refusal is retained, not bypassed.
+The pinned Valence scope reported 44 warnings and no errors, with policy,
+lockfile, and sources unchanged. All 32 flake inputs were also archived
+anonymously. GitHub run `43483770888` passed `core` but failed `verify` when
+Bubblewrap could not configure loopback (`RTM_NEWADDR: Operation not permitted`).
+That host admission failure still blocks publication of a qualified RC.
+
 The old `octet-public` repository remains unchanged by explicit owner decision.
 It is blocked and unsupported, not a fallback install or reporting route. Its
 reachable history and nested bundles still need separate cleanup; the owner
@@ -208,6 +218,16 @@ policy freshness, source/reference parity, signed fixture, and native Cairn
 validation/review/traceability gates. Do not remove an actual gate, change owner
 policy, or substitute an incidental prose grep for behavior. Pure wording tests
 are not release evidence.
+
+The GitHub `verify` job admits user namespaces for the exact Bubblewrap
+executable resolved from the locked Nix inputs. Its CI-only AppArmor profile
+keeps Ubuntu's global restrictions enabled; it does not remove `--unshare-net`,
+run the proof producer as root, or skip a live rail. An immediate namespace
+probe fails before the full build if admission does not work. See
+[Ubuntu's per-application namespace policy](https://ubuntu.com/blog/ubuntu-23-10-restricted-unprivileged-user-namespaces).
+Loading this profile changes only the disposable GitHub runner, not consumer
+machines. A local full-flake pass does not establish that GitHub's host setup
+has passed.
 
 Update the cohort's inventory/toolchain/lock fixtures from the selected source,
 export the Nickel manifest, and recompute its evidence identity. Source,
