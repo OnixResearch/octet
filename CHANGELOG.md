@@ -50,6 +50,12 @@ Prose-only onboarding and hook source-string assertions were removed. The
 contributor guide points to the actual packaged-consumer smoke, which exercises
 the denied finding, guarded fix, artifact verification, and tamper rejection.
 
+Nix output ignores are restricted to the repository root, so the benchmark's
+model and report `results.rs` modules are included in Git-based source builds.
+The Cairn traceability rail explicitly selects Octet's checked-in policy and
+profile for both its positive case and missing-marker negative control; it no
+longer inherits the provider package's unrelated default policy.
+
 The packaged Dylint driver now binds its compiler sysroot to the immutable Nix
 toolchain instead of the consumer's `RUSTUP_HOME`. A fresh empty Rustup home
 previously produced `E0463: can't find crate for std`. The release-candidate

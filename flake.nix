@@ -4627,7 +4627,9 @@
 
                   (
                     cd "$repository"
-                    "$cairn_bin" tracey coverage --root . --json
+                    "$cairn_bin" traceability coverage --root . \
+                      --policy cairn-policy/generated/cairn-policy.json \
+                      --profile octet-default --json
                   ) > "$out/positive.json"
                   jq --exit-status '.valid == true and .missing == [] and .dangling == []' \
                     "$out/positive.json" >/dev/null
@@ -4644,7 +4646,9 @@
 
                   if (
                     cd "$negative"
-                    "$cairn_bin" tracey coverage --root . --json
+                    "$cairn_bin" traceability coverage --root . \
+                      --policy cairn-policy/generated/cairn-policy.json \
+                      --profile octet-default --json
                   ) > "$out/negative.json" 2> "$out/negative.stderr"; then
                     echo 'traceability negative fixture unexpectedly passed' >&2
                     exit 1
