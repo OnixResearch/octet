@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "mode": "check",
+  "records": [
+    {
+      "path": "reviewed.rs",
+      "name": "capped_batch_size",
+      "stored_hash": "c2cb392a462f04b9e56590bc9f2941b9724e16647901322fa15c00928af7d687",
+      "computed_hash": "c2cb392a462f04b9e56590bc9f2941b9724e16647901322fa15c00928af7d687",
+      "normalized_body_hash": "b3:bf1a790276003a2b820de69adfc014ca2bcbc642cd025f5e1df2b6aeec8fc9b3",
+      "semantic_id": "b3:832a9e45118972e0",
+      "dependency_set_hash": "b3:9f7b32fc7ac6829f706f54291701febc4773309cd79cd065a6342beaa9a6e14e",
+      "dependency_identity_status": "source-scanner-token-set",
+      "tool_version": "0.1.1-rc.1",
+      "status": "match",
+      "review": "operator-human-summary",
+      "evidence": "docs/examples/function-fingerprint-human-summary/transcript.md",
+      "macro_calls": false,
+      "macro_warning": false
+    },
+    {
+      "path": "reviewed.rs",
+      "name": "describe_batch",
+      "stored_hash": "e41c5b7b5d94059a506351f35048fa77df8b9c53c3955c8890cbb2212e037876",
+      "computed_hash": "e41c5b7b5d94059a506351f35048fa77df8b9c53c3955c8890cbb2212e037876",
+      "normalized_body_hash": "b3:893e1751e1d78f2bcce29e68d58fc4713ca86b7925942f58345659d462c10fd8",
+      "semantic_id": "b3:e77dd3cff10f1654",
+      "dependency_set_hash": "b3:01558e6a1e1215709d26cd4675b0a79bcae161ddf2d6a8e26a7fbcf92966ede2",
+      "dependency_identity_status": "unsupported-macro-context",
+      "tool_version": "0.1.1-rc.1",
+      "status": "match",
+      "review": "operator-human-summary",
+      "evidence": "docs/examples/function-fingerprint-human-summary/transcript.md",
+      "macro_calls": true,
+      "macro_warning": false
+    }
+  ]
+}

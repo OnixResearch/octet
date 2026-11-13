@@ -9,17 +9,13 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     flake-utils.url = "github:numtide/flake-utils";
-    cairn = {
-      url = "git+ssh://git@github.com/OnixResearch/cairn.git?ref=change/hash-bound-cairn-migration&rev=695124d459574ba7aeba6097310d237f393c243c";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
     dylint-src = {
       url = "github:trailofbits/dylint/0e0a71eefe6f01563d11acc6e1d7af1d505934a9";
       flake = false;
     };
     valence = {
-      url = "git+ssh://git@github.com/OnixResearch/valence.git?ref=review/source-token-v2-7546a78b&rev=7546a78b4eeef8686c6837e187aa12420f4f03bb";
-      inputs.nixpkgs.follows = "nixpkgs";
+      url = "git+https://github.com/OnixResearch/valence.git?ref=review/source-token-v2-7546a78b&rev=7546a78b4eeef8686c6837e187aa12420f4f03bb";
+      flake = false;
     };
     nickel-export = {
       url = "github:OnixResearch/nickel-export/257fafc1c746f1faf156207043a4c826bfb16d49";
@@ -51,7 +47,6 @@
       crane,
       rust-overlay,
       flake-utils,
-      cairn,
       dylint-src,
       valence,
       nickel-export,
@@ -314,6 +309,11 @@
             "${toolchainChannel}-${hostTriple}";
 
         craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
+        publicDependencies = import ./nix/public-dependencies.nix {
+          inherit pkgs craneLib nickel;
+          root = ./.;
+        };
+        octetVersion = (builtins.fromTOML (builtins.readFile ./Cargo.toml)).package.version;
 
         src = pkgs.lib.cleanSourceWith {
           src = ./.;
@@ -321,8 +321,15 @@
             path: type:
             let
               inUiTests = pkgs.lib.hasSuffix "/ui_tests" path || pkgs.lib.hasInfix "/ui_tests/" path;
+              inDependencyDistribution =
+                pkgs.lib.hasSuffix "/vendor/cargo" path
+                || pkgs.lib.hasInfix "/vendor/cargo/" path
+                || pkgs.lib.hasSuffix "/vendor/sources/artifact" path
+                || pkgs.lib.hasInfix "/vendor/sources/artifact/" path;
               inTestFixtures =
                 pkgs.lib.hasSuffix "/tests/fixtures" path || pkgs.lib.hasInfix "/tests/fixtures/" path;
+              inPolicyInputs =
+                pkgs.lib.hasSuffix "/policy_inputs" path || pkgs.lib.hasInfix "/policy_inputs/" path;
               inCairnCobPilot =
                 pkgs.lib.hasSuffix "/fixtures/cairn-cob-pilot" path
                 || pkgs.lib.hasInfix "/fixtures/cairn-cob-pilot/" path;
@@ -347,7 +354,9 @@
             in
             (craneLib.filterCargoSources path type)
             || inUiTests
+            || inDependencyDistribution
             || inTestFixtures
+            || inPolicyInputs
             || inCairnCobPilot
             || inCairnCobConflictPilot
             || inArchitectureTargets
@@ -415,6 +424,12 @@
           rustToolchain
         ];
         rustToolchainLibPath = pkgs.lib.makeLibraryPath [ rustToolchain ];
+        dylintRustupHome = pkgs.linkFarm "octet-dylint-rustup-home" [
+          {
+            name = "toolchains/${rustupToolchain}";
+            path = rustToolchain;
+          }
+        ];
         verusToolchainProfile = builtins.fromJSON (
           builtins.readFile ./standards/verus-toolchain/generated/profile.json
         );
@@ -562,26 +577,7 @@
         nickelExportInputRevision = nickel-export.rev;
         cargoVendorDir = craneLib.vendorCargoDeps {
           inherit src;
-          overrideVendorGitCheckout =
-            packages: drv:
-            if
-              pkgs.lib.any (
-                package: package.name == "valence-core" && package.source == valenceCargoSource
-              ) packages
-            then
-              drv.overrideAttrs (_old: {
-                src = valence;
-              })
-            else if
-              pkgs.lib.any (
-                package: package.name == "nickel-export-core" && package.source == nickelExportCargoSource
-              ) packages
-            then
-              drv.overrideAttrs (_old: {
-                src = nickel-export;
-              })
-            else
-              drv;
+          overrideVendorGitCheckout = publicDependencies.overrideGitSource;
         };
         workspaceVendorDir = cargoVendorDir;
 
@@ -592,6 +588,12 @@
             buildInputs
             cargoVendorDir
             ;
+          # Directory-source checksums bind the real upstream bytes, not Crane's
+          # stub crates. Keep those dependency distributions real in dummySrc.
+          extraDummyScript = ''
+            rm -rf "$out/vendor/cargo"
+            ln -s ${./vendor/cargo} "$out/vendor/cargo"
+          '';
           RUSTUP_TOOLCHAIN = rustupToolchain;
         };
 
@@ -615,7 +617,7 @@
             cargoVendorDir
             ;
           pname = "cargo-octet";
-          version = "0.1.0";
+          version = octetVersion;
           cargoExtraArgs = "-p cargo-octet";
           doCheck = false;
         };
@@ -629,7 +631,7 @@
             cargoVendorDir
             ;
           pname = "cargo-octet-fresh-build-a";
-          version = "0.1.0";
+          version = octetVersion;
           cargoExtraArgs = "-p cargo-octet";
           doCheck = false;
         };
@@ -643,7 +645,7 @@
             cargoVendorDir
             ;
           pname = "cargo-octet-fresh-build-b";
-          version = "0.1.0";
+          version = octetVersion;
           cargoExtraArgs = "-p cargo-octet";
           doCheck = false;
         };
@@ -742,7 +744,7 @@
             cargoVendorDir
             ;
           pname = "octet-standards";
-          version = "0.1.0";
+          version = octetVersion;
           cargoExtraArgs = "-p octet-standards";
           doCheck = false;
         };
@@ -1551,7 +1553,7 @@
           cargoLock = "${dylint-src}/driver/Cargo.lock";
         };
 
-        dylintDriver = pkgs.stdenv.mkDerivation {
+        dylintDriverUnwrapped = pkgs.stdenv.mkDerivation {
           pname = "dylint-driver";
           version = "5.0.0";
           src = dylintDriverSrc;
@@ -1594,8 +1596,20 @@
           '';
         };
 
+        dylintDriver = pkgs.symlinkJoin {
+          name = "dylint-driver-${dylintDriverUnwrapped.version}";
+          paths = [ dylintDriverUnwrapped ];
+          nativeBuildInputs = [ pkgs.makeWrapper ];
+          postBuild = ''
+            wrapProgram "$out/bin/dylint-driver" \
+              --prefix LD_LIBRARY_PATH : "${rustToolchainLibPath}" \
+              --set RUSTUP_HOME "${dylintRustupHome}" \
+              --set RUSTUP_TOOLCHAIN "${rustupToolchain}"
+          '';
+        };
+
         cargoOctet = pkgs.symlinkJoin {
-          name = "cargo-octet-0.1.0";
+          name = "cargo-octet-${octetVersion}";
           paths = [ cargoOctetUnwrapped ];
           nativeBuildInputs = [ pkgs.makeWrapper ];
           postBuild = ''
@@ -2375,7 +2389,7 @@
               cd ${./.}
               generated_profiles=$(mktemp)
               generated_laws=$(mktemp)
-              expected_profile_identity=8739e90ca0707af37eae8553c3b792ec747b0668cad8c4e7e6b0b7c7a5e00e17
+              expected_profile_identity=10e01458cca9ccc821a3adbf56afa70d21161c4bfdaf888525a5f61c64c913de
               expected_law_identity=33710ac60efb4a7edca25de746d9740d75233b372d0016f54a2e138ec1a038eb
               nickel typecheck standards/hegel/profiles.ncl
               nickel typecheck standards/hegel/laws.ncl
@@ -3358,7 +3372,7 @@
           cargo-slotcar = cargoOctet;
           cargo-tigerstyle = cargoOctet;
           fingerprint-docs-downstream-smoke = fingerprintDocsDownstreamSmoke;
-          cairn = cairn.packages.${system}.cairn;
+          cairn = publicDependencies.cairn;
           dylint-driver = dylintDriver;
           octet-standards = octetStandards;
           slotcar-standards = octetStandards;
@@ -3405,7 +3419,7 @@
           };
 
           cairn = flake-utils.lib.mkApp {
-            drv = cairn.packages.${system}.cairn;
+            drv = publicDependencies.cairn;
             exePath = "/bin/cairn";
           };
 
@@ -3503,7 +3517,7 @@
                   ;
                 cargoToml = ./Cargo.toml;
                 inherit pname;
-                version = "0.1.0";
+                version = octetVersion;
                 nativeBuildInputs = checkNativeBuildInputs ++ (pkgs.lib.optionals verifyObject [ pkgs.python3 pkgs.b3sum ]);
                 cargoExtraArgs = "-p cargo-octet";
                 doNotPostBuildInstallCargoBinaries = true;
@@ -3567,8 +3581,8 @@
                   sentinel_bin="$scratch/sentinel-bin"
                   sentinel_marker="$scratch/cargo-invoked"
                   baseline_relative="standards/self-check-warning-budget/octet-baseline.json"
-                  accepted_warning_total=4337
-                  accepted_identity_total=3160
+                  accepted_warning_total=4239
+                  accepted_identity_total=3030
                   lint_failure_exit=1
                   integration_failure_exit=2
                   sentinel_exit=99
@@ -3807,11 +3821,11 @@
                     "$out/"
                   cp -r "$positive_artifacts" "$structured_artifacts" "$drift_artifacts" "$out/"
                 '';
-            fingerprintLifecycleDocs = mkFingerprintDocsCheck "octet-fingerprint-lifecycle-docs" "fingerprint_lifecycle_docs_fixture_matches_transcript";
-            fingerprintHumanSummaryDocs = mkFingerprintDocsCheck "octet-fingerprint-human-summary-docs" "fingerprint_human_summary_docs_fixture_matches_transcript";
-            fingerprintWarningSummaryDocs = mkFingerprintDocsCheck "octet-fingerprint-warning-summary-docs" "fingerprint_warning_summary_docs_fixture_matches_transcript";
-            fingerprintJsonOutputDocs = mkFingerprintDocsCheck "octet-fingerprint-json-output-docs" "fingerprint_json_output_docs_fixture_matches_transcript";
-            fingerprintSourceScannerDocs = mkFingerprintDocsCheck "octet-fingerprint-source-scanner-docs" "fingerprint_source_scanner_docs_fixture_matches_transcript";
+            fingerprintLifecycleDocs = mkFingerprintDocsCheck "octet-fingerprint-lifecycle-docs" "fingerprint_lifecycle_fixture_detects_drift_and_accepts_repair";
+            fingerprintHumanSummaryDocs = mkFingerprintDocsCheck "octet-fingerprint-human-summary-docs" "fingerprint_human_summary_distinguishes_matching_and_drifted_functions";
+            fingerprintWarningSummaryDocs = mkFingerprintDocsCheck "octet-fingerprint-warning-summary-docs" "fingerprint_warning_summary_preserves_macro_and_missing_review_failures";
+            fingerprintJsonOutputDocs = mkFingerprintDocsCheck "octet-fingerprint-json-output-docs" "fingerprint_json_records_preserve_metadata_and_detect_drift";
+            fingerprintSourceScannerDocs = mkFingerprintDocsCheck "octet-fingerprint-source-scanner-docs" "fingerprint_source_scanner_keeps_explicit_boundaries_and_omits_generated_bodies";
             releaseOperatorSmokeDocs = mkFingerprintDocsCheck "octet-release-operator-smoke-docs" "release_operator_smoke_transcript_and_help_cover_operator_surfaces";
             objectCorpusGate = mkObjectRail "octet-object-corpus-gate" "object_internal_corpus";
             objectCorpusCompatibilityGate = mkObjectRail "octet-object-corpus-compatibility-gate" "object_corpus_compatibility";
@@ -4140,9 +4154,6 @@
                   repo=${src}
                   authored="$repo/standards/valence-core-cutover/manifest.ncl"
                   generated="$repo/standards/valence-core-cutover/generated-manifest.json"
-                  legacy_manifest="$repo/crates/valence-core/Cargo.toml"
-                  lockfile="$repo/Cargo.lock"
-                  workflow="$repo/.github/workflows/nix-flake-check.yml"
                   expected_revision=${valenceRevision}
                   expected_source='${valenceCargoSource}'
 
@@ -4154,6 +4165,9 @@
                       '.schema_version == "octet-valence-core-cutover-manifest/v2"
                        and .standalone_source.revision == $revision
                        and .standalone_source.cargo_source == $source
+                       and .standalone_source.flake_source == "git+https://github.com/OnixResearch/valence.git?ref=review/source-token-v2-7546a78b&rev=\($revision)"
+                       and .standalone_source.cargo_distribution == "vendor/cargo/valence-core-0.1.0"
+                       and .standalone_source.source_archive_sha256 == "ad52e40be1b503c390dad3e8016cb0ded9df079bff5df691072302cdf89e85d0"
                        and .standalone_source.hardened_profile_archive == "cairn/archive/2026-07-12-harden-preserves-integrity-boundaries"
                        and (.modules | length == 3)
                        and all(.modules[]; .compatibility_disposition == "legacy-fixture")
@@ -4192,18 +4206,25 @@
                   test "$evidence_index_b3" = "$(jq -r '.modules[] | select(.module_or_schema == "evidence_index") | .standalone_source_b3' "$generated")"
                   test "$evidence_codebase_index_b3" = "$(jq -r '.modules[] | select(.module_or_schema == "evidence_codebase_index") | .standalone_source_b3' "$generated")"
 
-                  grep -F 'name = "octet-valence-legacy-fixture"' "$legacy_manifest" >/dev/null
-                  grep -F 'publish = false' "$legacy_manifest" >/dev/null
-                  grep -F 'exclude = ["crates/valence-core"]' "$repo/Cargo.toml" >/dev/null
-                  if grep -F 'valence-core = { path = "../crates/valence-core"' "$repo/cargo-octet/Cargo.toml" >/dev/null; then
-                    echo 'canonical dependency unexpectedly falls back to hosted path' >&2
-                    exit 1
-                  fi
-                  grep -F "valence-core = { git = \"ssh://git@github.com/OnixResearch/valence.git\", rev = \"$expected_revision\"" "$repo/cargo-octet/Cargo.toml" >/dev/null
-                  test "$(grep -Fc "source = \"$expected_source\"" "$lockfile")" -eq 1
-                  test "$(grep -Fc 'name = "valence-core"' "$lockfile")" -eq 1
-                  grep -F 'pub(crate) use valence_core::' "$repo/cargo-octet/src/valence_core_shim.rs" >/dev/null
-                  grep -Fx '      - run: nix flake check' "$workflow" >/dev/null
+                  ${pkgs.python3}/bin/python3 - "$repo" "$expected_revision" "$expected_source" <<'PY'
+                  import pathlib
+                  import sys
+                  import tomllib
+                  root = pathlib.Path(sys.argv[1])
+                  workspace = tomllib.loads((root / "Cargo.toml").read_text())
+                  legacy = tomllib.loads((root / "crates/valence-core/Cargo.toml").read_text())
+                  runner = tomllib.loads((root / "cargo-octet/Cargo.toml").read_text())
+                  lock = tomllib.loads((root / "Cargo.lock").read_text())
+                  assert "crates/valence-core" in workspace["workspace"]["exclude"]
+                  assert legacy["package"]["name"] == "octet-valence-legacy-fixture"
+                  assert legacy["package"]["publish"] is False
+                  assert runner["dependencies"]["valence-core"] == {
+                      "git": "ssh://git@github.com/OnixResearch/valence.git",
+                      "rev": sys.argv[2], "package": "valence-core",
+                  }
+                  selected = [package for package in lock["package"] if package["name"] == "valence-core"]
+                  assert len(selected) == 1 and selected[0]["source"] == sys.argv[3]
+                  PY
 
                   echo "standalone_valence_cutover.manifest_freshness: PASS"
                   echo "standalone_valence_cutover.exact_source: PASS"
@@ -4348,7 +4369,7 @@
                 ;
               cargoToml = ./Cargo.toml;
               pname = "octet-roadmap-agent-surfaces-docs";
-              version = "0.1.0";
+              version = octetVersion;
               nativeBuildInputs = checkNativeBuildInputs;
               cargoExtraArgs = "-p cargo-octet";
               doNotPostBuildInstallCargoBinaries = true;
@@ -4370,40 +4391,31 @@
                   ${fingerprintDocsDownstreamSmoke}/bin/octet-fingerprint-docs-downstream-smoke
                   mkdir -p "$out"
                 '';
-            fingerprintDocsReviewGateDocsCheck =
-              pkgs.runCommand "octet-fingerprint-docs-review-gate-docs-check" { }
+            releaseCandidateSmokeCheck =
+              pkgs.runCommand "octet-release-candidate-smoke"
+                {
+                  nativeBuildInputs = [
+                    cargo-shim
+                    rustToolchain
+                    pkgs.git
+                    pkgs.python3
+                    pkgs.b3sum
+                  ];
+                }
                 ''
-                  cd ${self}
-                  grep -F "For fingerprint docs/examples, use one review command:" docs/contributor-guide.md
-                  grep -F "nix build .#checks.x86_64-linux.docs-examples --no-link -L" docs/contributor-guide.md
-                  grep -F "CI/operator gate for executable" docs/contributor-guide.md
-                  grep -F "focused flake checks or direct Cargo filters only after the aggregate gate" docs/contributor-guide.md
-                  grep -F "2026-05-05: Function fingerprint docs and checks" CHANGELOG.md
-                  grep -F "nix build .#checks.x86_64-linux.docs-examples --no-link -L" CHANGELOG.md
+                  ${cargoOctet}/bin/cargo-octet --version | tee "$TMPDIR/cargo-octet.version"
+                  ${cargoOctet}/bin/cargo-slotcar --version | tee "$TMPDIR/cargo-slotcar.version"
+                  ${cargoOctet}/bin/cargo-tigerstyle --version | tee "$TMPDIR/cargo-tigerstyle.version"
+                  grep -Fx "cargo-octet ${octetVersion}" "$TMPDIR/cargo-octet.version"
+                  grep -Fx "cargo-octet ${octetVersion}" "$TMPDIR/cargo-slotcar.version"
+                  grep -Fx "cargo-octet ${octetVersion}" "$TMPDIR/cargo-tigerstyle.version"
+                  python3 ${./tools/public-release-smoke.py} \
+                    --runner ${cargoOctet}/bin/cargo-octet \
+                    --cargo ${cargo-shim}/bin/cargo \
+                    --output "$TMPDIR/consumer-onboarding"
                   mkdir -p "$out"
+                  cp -r "$TMPDIR/consumer-onboarding" "$out/consumer-onboarding"
                 '';
-            releaseCandidateSmokeCheck = pkgs.runCommand "octet-release-candidate-smoke" { } ''
-              repo=${self}
-              grep -F 'Candidate version: `0.1.0`' "$repo/docs/release-candidate.md"
-              grep -F 'nix build .#checks.x86_64-linux.release-candidate-smoke -L --no-link' "$repo/docs/release-candidate.md"
-              grep -F 'nix flake check -L' "$repo/docs/release-candidate.md"
-              grep -F 'cargo-octet' "$repo/docs/release-candidate.md"
-              grep -F 'cargo-tigerstyle' "$repo/docs/release-candidate.md"
-              grep -F 'slotcar' "$repo/docs/release-candidate.md"
-              grep -F 'tigerstyle' "$repo/docs/release-candidate.md"
-              test -x ${cargoOctetUnwrapped}/bin/cargo-octet
-              test -x ${cargoOctetUnwrapped}/bin/cargo-slotcar
-              test -x ${cargoOctetUnwrapped}/bin/cargo-tigerstyle
-              ${cargoOctetUnwrapped}/bin/cargo-octet --version | tee "$TMPDIR/cargo-octet.version"
-              ${cargoOctetUnwrapped}/bin/cargo-slotcar --version | tee "$TMPDIR/cargo-slotcar.version"
-              ${cargoOctetUnwrapped}/bin/cargo-tigerstyle --version | tee "$TMPDIR/cargo-tigerstyle.version"
-              grep -Fx "cargo-octet 0.1.0" "$TMPDIR/cargo-octet.version"
-              grep -Fx "cargo-octet 0.1.0" "$TMPDIR/cargo-slotcar.version"
-              grep -Fx "cargo-octet 0.1.0" "$TMPDIR/cargo-tigerstyle.version"
-              test -d ${octet}
-              test -d ${cargoOctetUnwrapped}
-              mkdir -p "$out"
-            '';
             warningClean = craneLib.buildPackage {
               inherit
                 src
@@ -4413,7 +4425,7 @@
                 ;
               cargoToml = ./Cargo.toml;
               pname = "octet-warning-clean";
-              version = "0.1.0";
+              version = octetVersion;
               nativeBuildInputs = checkNativeBuildInputs;
               doCheck = false;
               doNotPostBuildInstallCargoBinaries = true;
@@ -4481,7 +4493,7 @@
                   cargoTestExtraArgs
                   ;
                 cargoToml = ./Cargo.toml;
-                version = "0.1.0";
+                version = octetVersion;
                 nativeBuildInputs = checkNativeBuildInputs;
                 cargoExtraArgs = "-p ${cargoPackage}";
                 doNotPostBuildInstallCargoBinaries = true;
@@ -4608,7 +4620,7 @@
                   ];
                 }
                 ''
-                  cairn_bin=${cairn.packages.${system}.cairn}/bin/cairn
+                  cairn_bin=${publicDependencies.cairn}/bin/cairn
                   repository=${./.}
                   negative="$TMPDIR/negative-repository"
                   mkdir -p "$out" "$negative"
@@ -4786,7 +4798,7 @@
                 ;
               cargoToml = ./Cargo.toml;
               pname = "octet-ui";
-              version = "0.1.0";
+              version = octetVersion;
               nativeBuildInputs = checkNativeBuildInputs;
               doNotPostBuildInstallCargoBinaries = true;
               buildPhaseCargoCommand = ":";
@@ -4815,7 +4827,7 @@
                 ;
               cargoToml = ./Cargo.toml;
               pname = "octet-compiler-architecture-targets";
-              version = "0.1.0";
+              version = octetVersion;
               nativeBuildInputs = checkNativeBuildInputs;
               doNotPostBuildInstallCargoBinaries = true;
               buildPhaseCargoCommand = ":";
@@ -4896,7 +4908,6 @@
             warning-clean-regression = warningCleanRegression;
 
             fingerprint-docs-downstream-smoke = fingerprintDocsDownstreamSmokeCheck;
-            fingerprint-docs-review-gate-docs = fingerprintDocsReviewGateDocsCheck;
 
             docs-examples = pkgs.runCommand "octet-docs-examples" { } ''
               test -d ${fingerprintLifecycleDocs}
@@ -4907,7 +4918,6 @@
               test -d ${releaseOperatorSmokeDocs}
               test -d ${roadmapAgentSurfacesDocs}
               test -d ${fingerprintDocsDownstreamSmokeCheck}
-              test -d ${fingerprintDocsReviewGateDocsCheck}
               mkdir -p "$out"
             '';
 
@@ -5047,7 +5057,7 @@
             pkgs.cargo-llvm-cov
             pkgs.cargo-mutants
             pkgs.ast-grep
-            cairn.packages.${system}.cairn
+            publicDependencies.cairn
             pkgs.jq
             nickel
             pkgs.rust-analyzer

@@ -5,18 +5,19 @@ use serde::Serialize;
 
 pub const FUNCTION_OBJECT_SCHEMA: &str = "octet.function-object.v1";
 pub const NORMALIZATION_ALGORITHM: &str = "octet-source-token-v1";
+/// Label for Octet's literal-sensitive source tokens; the scanner lives outside this crate.
+pub const NORMALIZATION_ALGORITHM_V2: &str = "octet-source-token-v2";
 const HASH_ALGORITHM: &str = "BLAKE3";
 
-/// Typed, algorithm-tagged normalized function source for Function Object v1.
+/// Typed, algorithm-tagged normalized function source for Function Object receipts.
 ///
 /// Carries the normalization algorithm identifier alongside the normalized bytes
-/// so callers cannot silently pair raw source with normalized source produced by
-/// a different algorithm. Construct with [`NormalizedFunctionSource::new`],
-/// which fails closed if the algorithm does not match [`NORMALIZATION_ALGORITHM`].
+/// so the selected tokenization version becomes part of the object identity.
+/// Construction rejects unknown labels; it does not verify that the caller's
+/// normalized bytes match its raw source or the declared algorithm.
 ///
-/// `valence-core` owns the Function Object v1 normalization algorithm identity
-/// and the typed contract; `cargo-octet` retains the source-token scanning that
-/// produces the normalized bytes, matching the documented extraction boundary.
+/// `valence-core` owns the versioned algorithm labels and typed contract;
+/// `cargo-octet` owns the source-token scanner that produces the bytes.
 #[derive(Debug, Clone)]
 pub struct NormalizedFunctionSource {
     algorithm: &'static str,
@@ -24,15 +25,14 @@ pub struct NormalizedFunctionSource {
 }
 
 impl NormalizedFunctionSource {
-    /// Create a typed normalized source, failing closed if `algorithm` is not
-    /// the Function Object v1 normalization algorithm.
+    /// Create a typed normalized source with a supported algorithm label.
     ///
     /// # Errors
     ///
-    /// Returns [`ConstructionError::NormalizationAlgorithm`] if `algorithm` does
-    /// not match [`NORMALIZATION_ALGORITHM`].
+    /// Returns [`ConstructionError::NormalizationAlgorithm`] if `algorithm`
+    /// is neither [`NORMALIZATION_ALGORITHM`] nor [`NORMALIZATION_ALGORITHM_V2`].
     pub fn new(algorithm: &'static str, normalized: String) -> Result<Self, ConstructionError> {
-        if algorithm != NORMALIZATION_ALGORITHM {
+        if algorithm != NORMALIZATION_ALGORITHM && algorithm != NORMALIZATION_ALGORITHM_V2 {
             return Err(ConstructionError::NormalizationAlgorithm {
                 algorithm: algorithm.to_owned(),
             });
@@ -40,7 +40,7 @@ impl NormalizedFunctionSource {
         Ok(Self { algorithm, normalized })
     }
 
-    /// The normalization algorithm that produced these bytes.
+    /// The normalization algorithm declared by the caller for these bytes.
     #[must_use]
     pub fn algorithm(&self) -> &'static str {
         self.algorithm
@@ -62,8 +62,7 @@ impl NormalizedFunctionSource {
 /// existing v1 contract.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConstructionError {
-    /// The caller tagged normalized source with an algorithm that is not the
-    /// Function Object v1 normalization algorithm.
+    /// The caller tagged normalized source with an unsupported algorithm.
     NormalizationAlgorithm { algorithm: String },
     /// The canonical BLAKE3 hash payload could not be serialized.
     CanonicalSerialization { detail: String },
@@ -77,7 +76,7 @@ impl fmt::Display for ConstructionError {
         match self {
             Self::NormalizationAlgorithm { algorithm } => write!(
                 f,
-                "function object normalization algorithm `{algorithm}` does not match v1 algorithm `{NORMALIZATION_ALGORITHM}`"
+                "unsupported function object normalization algorithm `{algorithm}`; expected `{NORMALIZATION_ALGORITHM}` or `{NORMALIZATION_ALGORITHM_V2}`"
             ),
             Self::CanonicalSerialization { detail } => write!(f, "canonicalize function object: {detail}"),
             Self::UnknownDependencyIdentityStatus { status } => {
@@ -395,17 +394,18 @@ impl<'a> FunctionObjectHashPayload<'a> {
 /// Returns [`ConstructionError`] if the resulting object cannot be serialized
 /// into the canonical JSON payload used for BLAKE3 object identity.
 pub fn build_function_object(input: FunctionObjectInput<'_>) -> Result<FunctionObjectV1, ConstructionError> {
+    let algorithm = input.normalized_function_source.algorithm();
     let normalized = input.normalized_function_source.as_str();
     let normalized_body_hash = full_hash(normalized);
     let body_hash = normalized_body_hash.clone();
     let signature_hash = signature_hash(normalized);
     let dependency_caveats = dependency_caveats(input.dependency_identity_status);
-    let effect_caveats = effect_caveats_from_normalized(normalized);
-    let macro_caveats = macro_caveats(input.macro_calls);
+    let effect_caveats = effect_caveats_from_normalized(normalized, algorithm);
+    let macro_caveats = macro_caveats(input.macro_calls, algorithm);
     let caveat_summary = caveat_summary(&dependency_caveats, &effect_caveats, &macro_caveats);
     let pure_cache_eligibility = pure_cache_eligibility(&dependency_caveats, &effect_caveats, &macro_caveats);
     let semantic_id = short_hash(&format!(
-        "schema={FUNCTION_OBJECT_SCHEMA}\nname={}\nbody={normalized_body_hash}\nsignature={signature_hash}\ndeps={}\ndep_status={}\nnormalization={NORMALIZATION_ALGORITHM}\ntool={}\n",
+        "schema={FUNCTION_OBJECT_SCHEMA}\nname={}\nbody={normalized_body_hash}\nsignature={signature_hash}\ndeps={}\ndep_status={}\nnormalization={algorithm}\ntool={}\n",
         input.name,
         input.dependency_set_hash,
         input.dependency_identity_status.as_str(),
@@ -426,7 +426,7 @@ pub fn build_function_object(input: FunctionObjectInput<'_>) -> Result<FunctionO
         effect_caveats,
         macro_caveats,
         normalization: NormalizationMetadata {
-            algorithm: NORMALIZATION_ALGORITHM,
+            algorithm,
             tool_name: input.tool_name,
             tool_version: input.tool_version,
             hash_algorithm: HASH_ALGORITHM,
@@ -455,18 +455,17 @@ pub fn object_hash(object: &FunctionObjectV1) -> Result<String, ConstructionErro
 /// Returns the typed effect caveats scanned from raw function source using the
 /// coarse whitespace-collapse tokenization.
 ///
-/// Note that [`build_function_object`] scans effect caveats from the v1
-/// normalized source (`NormalizedFunctionSource`), which is produced by the
-/// cargo-octet source-token scanner; this public helper uses a distinct coarse
-/// whitespace tokenization and is retained for compatibility with existing
-/// callers that scan raw source directly.
+/// [`build_function_object`] scans supplied normalized source
+/// (`NormalizedFunctionSource`); this public helper uses a distinct coarse
+/// whitespace tokenization and retains the historical v1 caveat wording
+/// for compatibility with existing callers that scan raw source directly.
 #[must_use]
 pub fn effect_caveats(function_source: &str) -> Vec<EffectCaveat> {
     let normalized = coarse_whitespace_tokens(function_source);
-    effect_caveats_from_normalized(&normalized)
+    effect_caveats_from_normalized(&normalized, NORMALIZATION_ALGORITHM)
 }
 
-fn effect_caveats_from_normalized(normalized: &str) -> Vec<EffectCaveat> {
+fn effect_caveats_from_normalized(normalized: &str, algorithm: &str) -> Vec<EffectCaveat> {
     let mut caveats = Vec::new();
     for (needle, kind, detail) in [
         ("unsafe", EffectCaveatKind::Unsafe, "Source tokens contain unsafe; effect summary remains caveated."),
@@ -518,7 +517,11 @@ fn effect_caveats_from_normalized(normalized: &str) -> Vec<EffectCaveat> {
         caveats.push(EffectCaveat {
             kind: EffectCaveatKind::EffectSummary.as_str(),
             status: EffectCaveatStatus::UnknownSourceScannerOnly.as_str(),
-            detail: "No coarse ambient effect token was found, but v1 source scanning does not prove purity.",
+            detail: if algorithm == NORMALIZATION_ALGORITHM {
+                "No coarse ambient effect token was found, but v1 source scanning does not prove purity."
+            } else {
+                "No coarse ambient effect token was found in supplied normalized source; source scanning does not prove purity."
+            },
         });
     }
     caveats
@@ -543,14 +546,25 @@ fn dependency_caveats(status: DependencyIdentityStatus) -> Vec<DependencyCaveat>
     }]
 }
 
-fn macro_caveats(macro_calls: bool) -> Vec<MacroCaveat> {
+fn macro_caveats(macro_calls: bool, algorithm: &str) -> Vec<MacroCaveat> {
     let (status, detail) = if macro_calls {
         (
             MacroCaveatStatus::ReviewRequired,
-            "Function body contains a macro call; v1 object identity is based on source tokens, not expanded macro output.",
+            if algorithm == NORMALIZATION_ALGORITHM {
+                "Function body contains a macro call; v1 object identity is based on source tokens, not expanded macro output."
+            } else {
+                "Caller reports a macro call; object identity is based on supplied source tokens, not expanded macro output."
+            },
         )
     } else {
-        (MacroCaveatStatus::NoneDetected, "No macro call was detected by the v1 source scanner.")
+        (
+            MacroCaveatStatus::NoneDetected,
+            if algorithm == NORMALIZATION_ALGORITHM {
+                "No macro call was detected by the v1 source scanner."
+            } else {
+                "No macro call was reported in caller-supplied source facts."
+            },
+        )
     };
     vec![MacroCaveat {
         kind: "macro_call",
@@ -642,7 +656,11 @@ mod tests {
 
     use super::*;
 
-    fn input(function_source: &str) -> FunctionObjectInput<'_> {
+    fn input_with_normalization<'a>(
+        function_source: &'a str,
+        normalized: String,
+        algorithm: &'static str,
+    ) -> FunctionObjectInput<'a> {
         FunctionObjectInput {
             tool_name: "cargo-octet",
             tool_version: "0.1.0",
@@ -653,15 +671,16 @@ mod tests {
                 end_line: 1,
             },
             function_source,
-            normalized_function_source: NormalizedFunctionSource::new(
-                NORMALIZATION_ALGORITHM,
-                coarse_whitespace_tokens(function_source),
-            )
-            .expect("v1 normalized source"),
+            normalized_function_source: NormalizedFunctionSource::new(algorithm, normalized)
+                .expect("supported normalization label"),
             dependency_set_hash: full_hash("answer"),
             dependency_identity_status: DependencyIdentityStatus::SourceScannerTokenSet,
             macro_calls: false,
         }
+    }
+
+    fn input(function_source: &str) -> FunctionObjectInput<'_> {
+        input_with_normalization(function_source, coarse_whitespace_tokens(function_source), NORMALIZATION_ALGORITHM)
     }
 
     fn input_with_macro(function_source: &str) -> FunctionObjectInput<'_> {
@@ -679,6 +698,18 @@ mod tests {
         assert_eq!(one.object_hash, two.object_hash);
         assert_eq!(one.schema, FUNCTION_OBJECT_SCHEMA);
         assert!(!one.correctness_claim.claims_correctness);
+    }
+
+    #[test]
+    fn pinned_v1_canonical_payload_and_object_identity_are_unchanged() {
+        // Captured from the public constructor at standalone Valence
+        // 5f1c2ba5072c6f9622fa59b1af20502985f569fd, before v2 admission.
+        let object = build_function_object(input("pub fn answer() -> u32 { 42 }")).unwrap();
+        let payload = FunctionObjectHashPayload::from_object(&object).canonical_json().unwrap();
+        let golden = r#"{"body_hash":"b3:ced95733616d5c172c9a4a368f3c496ab22405e9ca2d0db5562d4cb5a74c63fb","caveat_summary":{"cache_policy":"pure-cache-blocked-unless-external-policy-accepts-caveats","dependency_identity":"unresolved-source-scanner","effect_summary":"unknown-not-pure-proof","macro_expansion":"none-detected"},"correctness_claim":{"claims_correctness":false,"detail":"Function object hashes identify reviewed source evidence and caveats; they do not prove behavioral correctness."},"dependency_caveats":[{"detail":"Dependency identity is a source-scanner token set, not a resolved dependency graph.","kind":"dependency_identity","status":"source-scanner-token-set"}],"dependency_set_hash":"b3:63b24a318813c47bce54f4e4dc1f052a586c63eeb96d20ed88bf1b86bd6d362c","effect_caveats":[{"detail":"No coarse ambient effect token was found, but v1 source scanning does not prove purity.","kind":"effect_summary","status":"unknown-source-scanner-only"}],"macro_caveats":[{"detail":"No macro call was detected by the v1 source scanner.","kind":"macro_call","status":"none-detected"}],"name":"answer","normalization":{"algorithm":"octet-source-token-v1","hash_algorithm":"BLAKE3","tool_name":"cargo-octet","tool_version":"0.1.0"},"normalized_body_hash":"b3:ced95733616d5c172c9a4a368f3c496ab22405e9ca2d0db5562d4cb5a74c63fb","pure_cache_eligibility":{"blockers":["dependency-identity-unresolved","effect-summary-unresolved"],"eligible":false,"status":"blocked-by-caveats"},"schema":"octet.function-object.v1","semantic_id":"b3:560b33d500ca1383","signature_hash":"b3:cf479cc5354ccd63dedce8c7f1397a25850c0ba452a99d0dc4423e14cb9328e6"}"#;
+        assert_eq!(payload, golden);
+        assert_eq!(object.semantic_id, "b3:560b33d500ca1383");
+        assert_eq!(object.object_hash, "b3:da550fa4897c0b6b3ba9adb819eb1c1bedf5f5b6ad6c1c4498d9afef0719c9b4");
     }
 
     #[test]
@@ -746,8 +777,92 @@ mod tests {
         ));
         let mismatched = NormalizedFunctionSource::new("octet-source-token-v0", String::new());
         assert!(matches!(mismatched, Err(ConstructionError::NormalizationAlgorithm { .. })));
-        let valid = NormalizedFunctionSource::new(NORMALIZATION_ALGORITHM, "pub fn answer ( ) { 42 }".to_owned());
-        assert!(valid.is_ok());
+        for algorithm in [NORMALIZATION_ALGORITHM, NORMALIZATION_ALGORITHM_V2] {
+            let valid = NormalizedFunctionSource::new(algorithm, "pub fn answer ( ) { 42 }".to_owned())
+                .expect("supported normalization label");
+            assert_eq!(valid.algorithm(), algorithm);
+        }
+    }
+
+    #[test]
+    fn normalization_version_separates_semantic_and_object_identity() {
+        let tokens = "pub fn answer ( ) -> u32 { 42 }";
+        let v1 = build_function_object(input_with_normalization(
+            "pub fn answer() -> u32 { 42 }",
+            tokens.to_owned(),
+            NORMALIZATION_ALGORITHM,
+        ))
+        .unwrap();
+        let v2 = build_function_object(input_with_normalization(
+            "pub fn answer() -> u32 { 42 }",
+            tokens.to_owned(),
+            NORMALIZATION_ALGORITHM_V2,
+        ))
+        .unwrap();
+
+        assert_eq!(v1.schema, v2.schema);
+        assert_eq!(v1.normalized_body_hash, v2.normalized_body_hash);
+        assert_eq!(v1.signature_hash, v2.signature_hash);
+        assert_eq!(v1.normalization.algorithm, NORMALIZATION_ALGORITHM);
+        assert_eq!(v2.normalization.algorithm, NORMALIZATION_ALGORITHM_V2);
+        assert_ne!(v1.semantic_id, v2.semantic_id);
+        assert_ne!(v1.object_hash, v2.object_hash);
+        assert_eq!(FunctionObjectHashPayload::from_object(&v2).canonical_hash().unwrap(), v2.object_hash);
+        assert_eq!(v1.correctness_claim.claims_correctness, v2.correctness_claim.claims_correctness);
+        assert!(!v2.correctness_claim.claims_correctness);
+        assert!(!v1.pure_cache_eligibility.eligible);
+        assert_eq!(v1.pure_cache_eligibility.blockers, v2.pure_cache_eligibility.blockers);
+        assert_eq!(v1.effect_caveats[0].status, v2.effect_caveats[0].status);
+        assert_eq!(v1.macro_caveats[0].status, v2.macro_caveats[0].status);
+        assert!(!v2.effect_caveats[0].detail.contains("v1 source scanning"));
+        assert!(!v2.macro_caveats[0].detail.contains("v1 source scanner"));
+    }
+
+    #[test]
+    fn v2_caller_supplied_literal_and_quoted_url_tokens_affect_identity() {
+        // The core consumes supplied tokens; it does not lex source or verify the
+        // caller's tag. The Octet scanner must supply literal-sensitive v2 bytes.
+        let source = "pub fn answer() -> u32 { let _url = \"https://example.invalid/a\"; 1 }";
+        let original_tokens = "pub fn answer ( ) -> u32 { let _url = \"https://example.invalid/a\" ; 1 }";
+        let changed_literal = "pub fn answer ( ) -> u32 { let _url = \"https://example.invalid/b\" ; 1 }";
+        let changed_tail = "pub fn answer ( ) -> u32 { let _url = \"https://example.invalid/a\" ; 2 }";
+        let original = build_function_object(input_with_normalization(
+            source,
+            original_tokens.to_owned(),
+            NORMALIZATION_ALGORITHM_V2,
+        ))
+        .unwrap();
+        for tokens in [changed_literal, changed_tail] {
+            let changed =
+                build_function_object(input_with_normalization(source, tokens.to_owned(), NORMALIZATION_ALGORITHM_V2))
+                    .unwrap();
+            assert_ne!(original.normalized_body_hash, changed.normalized_body_hash);
+            assert_ne!(original.semantic_id, changed.semantic_id);
+            assert_ne!(original.object_hash, changed.object_hash);
+            assert!(!changed.correctness_claim.claims_correctness);
+            assert!(!changed.pure_cache_eligibility.eligible);
+            assert!(changed.pure_cache_eligibility.blockers.contains(&"effect-summary-unresolved"));
+        }
+    }
+
+    #[test]
+    fn v2_reported_macro_context_stays_unresolved_and_source_bound() {
+        let object = build_function_object(FunctionObjectInput {
+            macro_calls: true,
+            dependency_identity_status: DependencyIdentityStatus::UnsupportedMacroContext,
+            ..input_with_normalization(
+                "pub fn answer() { work!(); }",
+                "pub fn answer ( ) { work ! ( ) ; }".to_owned(),
+                NORMALIZATION_ALGORITHM_V2,
+            )
+        })
+        .unwrap();
+        assert_eq!(object.macro_caveats[0].status, MacroCaveatStatus::ReviewRequired.as_str());
+        assert!(object.macro_caveats[0].detail.contains("supplied source tokens"));
+        assert!(!object.macro_caveats[0].detail.contains("v1 object"));
+        assert!(!object.pure_cache_eligibility.eligible);
+        assert!(object.pure_cache_eligibility.blockers.contains(&"macro-expansion-unmodeled"));
+        assert!(!object.correctness_claim.claims_correctness);
     }
 
     #[test]

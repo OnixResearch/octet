@@ -83,11 +83,16 @@ fn policy_exception_request_status_and_validate() -> Result<(), Box<dyn Error>> 
         "revoker",
         "--observers",
         "observer",
+        "--workspace",
+        "workspace:custom",
         "--policy",
         &policy,
         "--execute",
     ]);
     let requested = run_json(&mut request)?;
+    let portable = fs::read_to_string(store.join("pe-1.portable.json"))?;
+    let value: Value = serde_json::from_str(&portable)?;
+    assert_eq!(value["state"]["workspace_id"], "workspace:custom");
     assert_eq!(
         requested["request_root"].as_str().map(|s| s.len()),
         Some(64)
@@ -120,9 +125,18 @@ fn policy_exception_request_status_and_validate() -> Result<(), Box<dyn Error>> 
         "100",
         "--finite-valid-until",
         "1000",
+        "--operation-id",
+        "custom-observe",
         "--execute",
     ]);
     run_json(&mut observe)?;
+    let portable = fs::read_to_string(store.join("pe-1.portable.json"))?;
+    let value: Value = serde_json::from_str(&portable)?;
+    assert!(value["state"]["operations"]
+        .as_array()
+        .is_some_and(|operations| operations
+            .iter()
+            .any(|operation| operation == "custom-observe")));
 
     let mut status2 = cairn();
     status2.args([
@@ -135,5 +149,56 @@ fn policy_exception_request_status_and_validate() -> Result<(), Box<dyn Error>> 
     ]);
     let status2 = run_json(&mut status2)?;
     assert_eq!(status2["applicability"], "not-approved");
+    Ok(())
+}
+
+#[test]
+fn policy_exception_default_workspace_is_base_revision() -> Result<(), Box<dyn Error>> {
+    let dir = test_dir("workspace-default")?;
+    let store = dir.join("store");
+    fs::create_dir_all(&store)?;
+    let store_s = store.to_string_lossy().to_string();
+    let base = base_arg();
+    let policy = policy_arg();
+
+    let mut request = cairn();
+    request.args([
+        "policy-exception",
+        "request",
+        "--store",
+        &store_s,
+        "--exception-id",
+        "pe-default",
+        "--base-revision",
+        &base,
+        "--rules",
+        "allow-network-egress",
+        "--targets",
+        "svc:bar",
+        "--rationale",
+        "temporary migration",
+        "--controls",
+        "audit-log",
+        "--requesters",
+        "requester",
+        "--reviewers",
+        "reviewer",
+        "--approvers",
+        "approver",
+        "--revokers",
+        "revoker",
+        "--observers",
+        "observer",
+        "--policy",
+        &policy,
+        "--execute",
+    ]);
+    run_json(&mut request)?;
+
+    let portable = fs::read_to_string(store.join("pe-default.portable.json"))?;
+    let value: Value = serde_json::from_str(&portable)?;
+    assert_eq!(value["state"]["workspace_id"], base);
+
+    fs::remove_dir_all(dir)?;
     Ok(())
 }

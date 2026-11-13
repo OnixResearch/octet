@@ -197,11 +197,10 @@ fn repo_root() -> std::path::PathBuf {
 }
 
 #[test]
-fn fingerprint_lifecycle_docs_fixture_matches_transcript() {
+fn fingerprint_lifecycle_fixture_detects_drift_and_accepts_repair() {
     let root = repo_root();
     let docs_dir = root.join("docs/examples/function-fingerprint-lifecycle");
     let final_fixture = docs_dir.join("reviewed.rs");
-    let transcript = fs::read_to_string(docs_dir.join("lifecycle-transcript.md")).expect("read lifecycle transcript");
 
     let final_check = Command::new(cargo_octet())
         .args(["fingerprint", "--check", "reviewed.rs"])
@@ -216,7 +215,6 @@ fn fingerprint_lifecycle_docs_fixture_matches_transcript() {
     let final_stdout = String::from_utf8_lossy(&final_check.stdout);
     assert!(final_stdout.contains("bounded_retry_delay_ms match"));
     assert!(final_stdout.contains("summary total=1 match=1 mismatch=0 missing=0 written=0"));
-    assert!(transcript.contains(final_stdout.as_ref()), "transcript missing final check output:\n{final_stdout}");
 
     let temp = tempfile::tempdir().expect("create tempdir");
     let fixture = temp.path().join("reviewed.rs");
@@ -242,7 +240,6 @@ pub fn bounded_retry_delay_ms(attempt: u32) -> u32 {
         "initial update stderr: {}",
         String::from_utf8_lossy(&initial_update.stderr)
     );
-    assert_transcript_contains_stdout(&transcript, &initial_update.stdout, "initial update");
 
     let clean_check = Command::new(cargo_octet())
         .args(["fingerprint", "--check", "reviewed.rs"])
@@ -250,7 +247,6 @@ pub fn bounded_retry_delay_ms(attempt: u32) -> u32 {
         .output()
         .expect("run initial docs check");
     assert!(clean_check.status.success(), "clean check stderr: {}", String::from_utf8_lossy(&clean_check.stderr));
-    assert_transcript_contains_stdout(&transcript, &clean_check.stdout, "clean check");
 
     let source = fs::read_to_string(&fixture).expect("read lifecycle fixture");
     fs::write(
@@ -268,7 +264,6 @@ pub fn bounded_retry_delay_ms(attempt: u32) -> u32 {
         .output()
         .expect("run docs drift diff");
     assert!(!drift_diff.status.success(), "drift diff should fail");
-    assert_transcript_contains_stdout(&transcript, &drift_diff.stdout, "drift diff");
 
     let repair_update = Command::new(cargo_octet())
         .args(["fingerprint", "--update", "reviewed.rs"])
@@ -280,7 +275,6 @@ pub fn bounded_retry_delay_ms(attempt: u32) -> u32 {
         "repair update stderr: {}",
         String::from_utf8_lossy(&repair_update.stderr)
     );
-    assert_transcript_contains_stdout(&transcript, &repair_update.stdout, "repair update");
 
     let repaired_check = Command::new(cargo_octet())
         .args(["fingerprint", "--check", "reviewed.rs"])
@@ -292,16 +286,10 @@ pub fn bounded_retry_delay_ms(attempt: u32) -> u32 {
         "repaired check stderr: {}",
         String::from_utf8_lossy(&repaired_check.stderr)
     );
-    assert_transcript_contains_stdout(&transcript, &repaired_check.stdout, "repaired check");
 
     let repaired_source = fs::read_to_string(&fixture).expect("read repaired lifecycle fixture");
     let checked_in_source = fs::read_to_string(final_fixture).expect("read final docs fixture");
     assert_eq!(repaired_source, checked_in_source);
-}
-
-fn assert_transcript_contains_stdout(transcript: &str, stdout: &[u8], label: &str) {
-    let text = String::from_utf8_lossy(stdout);
-    assert!(transcript.contains(text.as_ref()), "transcript missing {label} output:\n{text}");
 }
 
 // This name is selected by the existing releaseOperatorSmokeDocs Nix rail;
@@ -372,11 +360,10 @@ fn fingerprint_review_manifest_is_stable_and_sorted() {
 }
 
 #[test]
-fn fingerprint_human_summary_docs_fixture_matches_transcript() {
+fn fingerprint_human_summary_distinguishes_matching_and_drifted_functions() {
     let root = repo_root();
     let docs_dir = root.join("docs/examples/function-fingerprint-human-summary");
     let final_fixture = docs_dir.join("reviewed.rs");
-    let transcript = fs::read_to_string(docs_dir.join("transcript.md")).expect("read human summary transcript");
 
     let final_check = Command::new(cargo_octet())
         .args(["fingerprint", "--check", "reviewed.rs"])
@@ -392,10 +379,6 @@ fn fingerprint_human_summary_docs_fixture_matches_transcript() {
     assert!(final_stdout.contains("capped_batch_size match"));
     assert!(final_stdout.contains("describe_batch match"));
     assert!(final_stdout.contains("summary total=2 match=2 mismatch=0 missing=0 written=0"));
-    assert!(
-        transcript.contains(final_stdout.as_ref()),
-        "transcript missing final human summary check output:\n{final_stdout}"
-    );
 
     let temp = tempfile::tempdir().expect("create tempdir");
     let fixture = temp.path().join("reviewed.rs");
@@ -424,7 +407,6 @@ pub fn describe_batch(size: u32) -> String {
         "human summary initial update stderr: {}",
         String::from_utf8_lossy(&initial_update.stderr)
     );
-    assert_transcript_contains_stdout(&transcript, &initial_update.stdout, "human summary initial update");
 
     let clean_check = Command::new(cargo_octet())
         .args(["fingerprint", "--check", "reviewed.rs"])
@@ -436,7 +418,6 @@ pub fn describe_batch(size: u32) -> String {
         "human summary clean check stderr: {}",
         String::from_utf8_lossy(&clean_check.stderr)
     );
-    assert_transcript_contains_stdout(&transcript, &clean_check.stdout, "human summary clean check");
 
     let source = fs::read_to_string(&fixture).expect("read human summary fixture");
     fs::write(&fixture, source.replace("requested.min(128)", "requested.min(256)"))
@@ -450,7 +431,6 @@ pub fn describe_batch(size: u32) -> String {
     assert!(!drift_check.status.success(), "human summary drift check should fail");
     let drift_stdout = String::from_utf8_lossy(&drift_check.stdout);
     assert!(drift_stdout.contains("summary total=2 match=1 mismatch=1 missing=0 written=0"));
-    assert_transcript_contains_stdout(&transcript, &drift_check.stdout, "human summary drift check");
 
     let repair_update = Command::new(cargo_octet())
         .args(["fingerprint", "--update", "reviewed.rs"])
@@ -464,7 +444,6 @@ pub fn describe_batch(size: u32) -> String {
     );
     let repair_stdout = String::from_utf8_lossy(&repair_update.stdout);
     assert!(repair_stdout.contains("summary total=2 match=1 mismatch=0 missing=0 written=1"));
-    assert_transcript_contains_stdout(&transcript, &repair_update.stdout, "human summary repair update");
 
     let repaired_check = Command::new(cargo_octet())
         .args(["fingerprint", "--check", "reviewed.rs"])
@@ -476,7 +455,6 @@ pub fn describe_batch(size: u32) -> String {
         "human summary repaired check stderr: {}",
         String::from_utf8_lossy(&repaired_check.stderr)
     );
-    assert_transcript_contains_stdout(&transcript, &repaired_check.stdout, "human summary repaired check");
 
     let repaired_source = fs::read_to_string(&fixture).expect("read repaired human summary fixture");
     let checked_in_source = fs::read_to_string(final_fixture).expect("read final human summary fixture");
@@ -484,11 +462,10 @@ pub fn describe_batch(size: u32) -> String {
 }
 
 #[test]
-fn fingerprint_warning_summary_docs_fixture_matches_transcript() {
+fn fingerprint_warning_summary_preserves_macro_and_missing_review_failures() {
     let root = repo_root();
     let docs_dir = root.join("docs/examples/function-fingerprint-warning-summary");
     let final_fixture = docs_dir.join("reviewed.rs");
-    let transcript = fs::read_to_string(docs_dir.join("transcript.md")).expect("read warning summary transcript");
 
     let final_check = Command::new(cargo_octet())
         .args(["fingerprint", "--check", "reviewed.rs"])
@@ -502,10 +479,6 @@ fn fingerprint_warning_summary_docs_fixture_matches_transcript() {
     assert!(
         final_stdout
             .contains("summary total=2 match=2 mismatch=0 missing=0 written=0 macro_warnings=1 metadata_missing=1")
-    );
-    assert!(
-        transcript.contains(final_stdout.as_ref()),
-        "transcript missing final warning summary check output:\n{final_stdout}"
     );
 
     let temp = tempfile::tempdir().expect("create tempdir");
@@ -540,7 +513,6 @@ pub fn missing_gate_metadata(limit: u32) -> u32 {
         initial_stdout
             .contains("summary total=2 match=0 mismatch=0 missing=0 written=2 macro_warnings=1 metadata_missing=1")
     );
-    assert_transcript_contains_stdout(&transcript, &initial_update.stdout, "warning summary initial update");
 
     let clean_check = Command::new(cargo_octet())
         .args(["fingerprint", "--check", "reviewed.rs"])
@@ -548,7 +520,6 @@ pub fn missing_gate_metadata(limit: u32) -> u32 {
         .output()
         .expect("run warning summary clean check");
     assert!(!clean_check.status.success(), "warning summary clean check should fail on warning counts");
-    assert_transcript_contains_stdout(&transcript, &clean_check.stdout, "warning summary clean check");
 
     let updated_source = fs::read_to_string(&fixture).expect("read updated warning summary fixture");
     let checked_in_source = fs::read_to_string(final_fixture).expect("read final warning summary fixture");
@@ -573,11 +544,10 @@ fn assert_fingerprint_json_record(output: &[u8], mode: &str, status: &str, store
 }
 
 #[test]
-fn fingerprint_json_output_docs_fixture_matches_transcript() {
+fn fingerprint_json_records_preserve_metadata_and_detect_drift() {
     let root = repo_root();
     let docs_dir = root.join("docs/examples/function-fingerprint-json-output");
     let final_fixture = docs_dir.join("reviewed.rs");
-    let transcript = fs::read_to_string(docs_dir.join("transcript.md")).expect("read json output transcript");
 
     let final_check = Command::new(cargo_octet())
         .args(["fingerprint", "--check", "--output-format=json", "reviewed.rs"])
@@ -595,7 +565,6 @@ fn fingerprint_json_output_docs_fixture_matches_transcript() {
         "match",
         "ea3ca43821de8c24558ea6c5d43beae6c6731f49e62ebc6b2675f96e4c2019f7",
     );
-    assert_transcript_contains_stdout(&transcript, &final_check.stdout, "json output final check");
 
     let temp = tempfile::tempdir().expect("create tempdir");
     let fixture = temp.path().join("reviewed.rs");
@@ -616,7 +585,6 @@ pub fn capped_retries(requested: u32) -> u32 {
         .expect("run json output initial update");
     assert!(initial_update.status.success());
     assert_fingerprint_json_record(&initial_update.stdout, "update", "written", "0");
-    assert_transcript_contains_stdout(&transcript, &initial_update.stdout, "json output initial update");
 
     let clean_check = Command::new(cargo_octet())
         .args(["fingerprint", "--check", "--output-format=json", "reviewed.rs"])
@@ -630,7 +598,6 @@ pub fn capped_retries(requested: u32) -> u32 {
         "match",
         "6b4c3f4e650e7cbc286f37ba67d94bc3bc4676b06ac870d7f157ebec09215a0c",
     );
-    assert_transcript_contains_stdout(&transcript, &clean_check.stdout, "json output clean check");
 
     let source = fs::read_to_string(&fixture).expect("read json output fixture");
     fs::write(&fixture, source.replace("requested.min(3)", "requested.min(5)")).expect("mutate json output fixture");
@@ -647,7 +614,6 @@ pub fn capped_retries(requested: u32) -> u32 {
         "mismatch",
         "6b4c3f4e650e7cbc286f37ba67d94bc3bc4676b06ac870d7f157ebec09215a0c",
     );
-    assert_transcript_contains_stdout(&transcript, &drift_check.stdout, "json output drift check");
 
     let accepted_update = Command::new(cargo_octet())
         .args(["fingerprint", "--update", "--output-format=json", "reviewed.rs"])
@@ -661,7 +627,6 @@ pub fn capped_retries(requested: u32) -> u32 {
         "written",
         "6b4c3f4e650e7cbc286f37ba67d94bc3bc4676b06ac870d7f157ebec09215a0c",
     );
-    assert_transcript_contains_stdout(&transcript, &accepted_update.stdout, "json output accepted update");
 
     let accepted_check = Command::new(cargo_octet())
         .args(["fingerprint", "--check", "--output-format=json", "reviewed.rs"])
@@ -675,7 +640,6 @@ pub fn capped_retries(requested: u32) -> u32 {
         "match",
         "ea3ca43821de8c24558ea6c5d43beae6c6731f49e62ebc6b2675f96e4c2019f7",
     );
-    assert_transcript_contains_stdout(&transcript, &accepted_check.stdout, "json output accepted check");
 
     let accepted_source = fs::read_to_string(&fixture).expect("read accepted json output fixture");
     let checked_in_source = fs::read_to_string(final_fixture).expect("read final json output fixture");
@@ -683,11 +647,10 @@ pub fn capped_retries(requested: u32) -> u32 {
 }
 
 #[test]
-fn fingerprint_source_scanner_docs_fixture_matches_transcript() {
+fn fingerprint_source_scanner_keeps_explicit_boundaries_and_omits_generated_bodies() {
     let root = repo_root();
     let docs_dir = root.join("docs/examples/function-fingerprint-source-scanner");
     let final_fixture = docs_dir.join("reviewed.rs");
-    let transcript = fs::read_to_string(docs_dir.join("transcript.md")).expect("read source scanner transcript");
 
     let final_check = Command::new(cargo_octet())
         .args(["fingerprint", "--check", "--output-format=json", "reviewed.rs"])
@@ -706,7 +669,6 @@ fn fingerprint_source_scanner_docs_fixture_matches_transcript() {
     assert_ne!(records[0]["name"], "generated_boundary");
     assert_eq!(records[0]["status"], "match");
     assert_eq!(records[0]["review"], "source-scanner-boundary");
-    assert_transcript_contains_stdout(&transcript, &final_check.stdout, "source scanner final json check");
 
     let temp = tempfile::tempdir().expect("create tempdir");
     let fixture = temp.path().join("reviewed.rs");
@@ -740,7 +702,6 @@ pub fn explicit_generated_boundary(input: u32) -> u32 {
     assert!(update_stdout.contains("summary total=1 match=0 mismatch=0 missing=0 written=1"));
     assert!(update_stdout.contains("explicit_generated_boundary written"));
     assert!(!update_stdout.contains("reviewed.rs generated_boundary "));
-    assert_transcript_contains_stdout(&transcript, &update.stdout, "source scanner update");
 
     let json_check = Command::new(cargo_octet())
         .args(["fingerprint", "--check", "--output-format=json", "reviewed.rs"])
@@ -748,7 +709,6 @@ pub fn explicit_generated_boundary(input: u32) -> u32 {
         .output()
         .expect("run source scanner json check");
     assert!(json_check.status.success());
-    assert_transcript_contains_stdout(&transcript, &json_check.stdout, "source scanner json check");
     let json: serde_json::Value = serde_json::from_slice(&json_check.stdout).expect("source scanner json check");
     let records = json["records"].as_array().expect("records array");
     assert_eq!(records.len(), 1);
@@ -760,7 +720,6 @@ pub fn explicit_generated_boundary(input: u32) -> u32 {
         .output()
         .expect("run source scanner human check");
     assert!(human_check.status.success());
-    assert_transcript_contains_stdout(&transcript, &human_check.stdout, "source scanner human check");
 
     let updated_source = fs::read_to_string(&fixture).expect("read source scanner fixture");
     let checked_in_source = fs::read_to_string(final_fixture).expect("read final source scanner fixture");

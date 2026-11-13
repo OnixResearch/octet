@@ -1,14 +1,14 @@
 {
   "artifact_conflicts": [],
   "authority": {
-    "creator": "z6Mksf9UyKHypB1cGbW2PoHLdYnxLwFGgv1zphuQXxPZ1rAS",
+    "creator": "z6MkietqUfeiN1Hmz9eyDQi6jyXqnyNJ9LPzyq5GaQJb7CBQ",
     "delegates": [],
     "source": "signed_root_embedded_authority"
   },
   "backend": "radicle-cob.v1",
   "base_revision": {
     "kind": "git_oid",
-    "value": "5a8114f6689fde68978eb86526ef3302beefe09e"
+    "value": "bdc1821fc58f173cb1ad190a98774e1224b6ea13"
   },
   "blocked": false,
   "blockers": [],
@@ -32,15 +32,15 @@
     "an explicit lifecycle reset to open does not prove review, approval, evidence truth, source correctness, archive execution, or release eligibility",
     "local signed COB resolution does not prove node participation, publication, synchronization, peer convergence, availability, or remote trust"
   ],
-  "object_id": "3e35b2b00092bb3f6d4310b495d0eeec1a23e5e0",
-  "observed_policy_hash": "49562ab462bbd243839837783c8edfd3743ff34c83e7d788bc5db236b4f91d4c",
+  "object_id": "3025c793c23fe26fbf7d64ee2921a124e358c218",
+  "observed_policy_hash": "454b429ad8c48acf7144c1c42d810f0425f23867c2c83b8625af3d42a6895b4c",
   "policy": "octet-default",
   "policy_current": true,
-  "policy_hash": "49562ab462bbd243839837783c8edfd3743ff34c83e7d788bc5db236b4f91d4c",
-  "receipt_hash": "a455b56b855cf4040d060406bbf6f0ae809d537406e5c7ef1993d511ad7b01de",
-  "root": "/tmp/octet-cob-pilot-0l0fvcft/secondary",
+  "policy_hash": "454b429ad8c48acf7144c1c42d810f0425f23867c2c83b8625af3d42a6895b4c",
+  "receipt_hash": "ab66bb436275eec53b0999024c49ea1bbca4d903386b2a9c19f0a60b6a02a8e4",
+  "root": "/var/tmp/octet-public-builds-20261112/octet-cob-pilot-kfe_qbsk/secondary",
   "shown_head": null,
-  "state_hash": "2bcf85d31b3184a0a4ea8998c620296d41fe1b2140fc7895f587442680f745be",
+  "state_hash": "eb9565ff45691985c3f80308c05321c1056808865825aa807f3d2e9e756cf8bd",
   "valid": true,
   "verdict": "PASS",
   "workspace_id": "workspace:octet"

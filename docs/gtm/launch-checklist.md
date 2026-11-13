@@ -1,278 +1,128 @@
-# Launch checklist
+# Octet 0.1.1-rc.1 launch checklist
 
-Status values:
+This checklist is an owner worklist, **not a qualification receipt**. `[ ]`
+means pending/not established here. Mark `[x]` only with fresh evidence for the
+exact canonical candidate and a recorded reviewer decision. Historical results
+cannot close candidate gates. Do not publish a prerelease, announcement, or
+broad outreach until all required gates and approvals are complete.
 
-- `[x]` verified in the repository or observed directly;
-- `[ ]` open, not run, or owner action required;
-- `[~]` partially verified; the note names what remains.
+## 1. Source identity and legal review
 
-Do not publish the release, announcement, or broad outreach until every hard
-gate below is `[x]`. Soft or optional items are marked.
+- [ ] Bind candidate `0.1.1-rc.1` to the exact sanitized canonical source in
+      `standards/release/release-cohort.ncl` and its generated export; validate
+      contracts, fixtures, inventory, and manifest consistency.
+- [ ] Record the exact dependency/toolchain/provider identities and anonymous
+      public acquisition evidence, without private sibling paths, credentials,
+      operator caches, or SSH access as prerequisites.
+- [ ] Review every reachable object, nested Git bundle, archive, and fixture for
+      excluded standards prose, private material, operator settings, and secrets.
+      Preserve authorship, AGPL, `LICENSE`, `NOTICE`, `THIRD_PARTY_NOTICES.md`,
+      `LICENSES/`, and upstream license terms.
+- [ ] Record legal/maintainer distribution approval, including contribution and
+      employer permissions where applicable. A clean scan is not legal clearance.
+- [x] Record the owner's legacy-channel decision: `octet-public` remains unchanged
+      and unsupported; no rewrite or archive was authorized. Historical receipts
+      remain historical. Do not route installs/support there or import its history.
+- [ ] Preserve the existing `v0.1.0` tag unchanged. The only planned new candidate
+      tag is immutable `v0.1.1-rc.1`.
 
-## 1. Release identity and legal
+## 2. Candidate acquisition and required gates
 
-- [x] Version is `0.1.0` in the Cargo manifests.
-- [x] Project license is `AGPL-3.0-or-later`.
-- [x] `NOTICE`, `THIRD_PARTY_NOTICES.md`, and `LICENSES/` are required members of
-      the qualified public export.
-- [ ] Imported standards prose is absent from every reachable object, including
-      nested Git bundles, in the final public repository. The `becae962` export
-      failed this audit on 2026-11-12 despite omitting the top-level path.
-- [x] The public cohort manifest is `standards/release/release-cohort.ncl` and
-      its generated export is `standards/release/generated/release-cohort.json`.
-- [x] The manifest and generated export report `blocked` after the nested-history
-      audit; the public revision and 77-lint inventory remain recorded.
-- [ ] Legal/maintainer: keep the imported prose out of all public histories and
-      embedded bundles, or record the upstream license or written permission.
-      Both repositories are already public; a future visibility change is not
-      the boundary of this obligation.
-- [ ] Legal/maintainer: confirm the right to distribute original contributions,
-      including employer permissions where applicable.
-- [ ] Release owner: decide whether to publish source only or also publish
-      binaries. The current recommendation is source only.
+- [ ] Match Cargo versions, Nix wrappers, embedded source, notices, policy
+      inventory, cohort pins, and generated exports to the exact candidate.
+- [ ] Run the required repository/lifecycle gates, including strict gates, on
+      the integrated candidate. Record exact commands, revision, environment,
+      exit status, artifact paths, and failed/not-run gates. Do not disable
+      checks or widen a warning budget to close the checklist.
+- [ ] Run `release_cohort` validation and `release-candidate-smoke` on the final
+      candidate, not on historical export bytes.
+- [ ] Record the required `core` and full `nix flake check -L` outcomes. Partial
+      successful checks do not imply the entire gate passed. Any exception needs
+      explicit authorized acceptance; this checklist grants none.
+- [ ] From a clean `x86_64-linux` environment, build/run the canonical full source
+      revision anonymously. Confirm the actual runner version is
+      `cargo-octet 0.1.1-rc.1`; retain output rather than copying expected text.
+- [ ] Confirm distribution is source-only Nix. No crates.io publication,
+      prebuilt binaries, hosted service, custom website, or additional platform
+      qualification is included.
 
-## 2. Public channel
+## 3. Real consumer evidence
 
-- [x] `OnixResearch/octet-public` is publicly visible.
-- [x] `main` resolved to `becae9621fdf96803c7859e83d303cf535f20b15` during the
-      2026-11-11 audit.
-- [x] The reviewed cohort is `octet-public-becae962-2026-11-11`.
-- [x] The public channel is source-only; direct Cargo publication is not
-      supported.
-- [x] Export-transform pitfalls identified: `.envrc`, `.cairn/archive/**`,
-      `openspec/changes/**/evidence/**`, `docs/standards/source/**`,
-      `standards/release/**`, `tests/fixtures/release/**`,
-      `crates/valence-core/**`, and
-      `crates/octet-standards/src/release_cohort.rs` are withheld; private
-      Cargo/flake URLs become the public mirrors. The public tree also carries
-      selected later changes, so a plain archive copy is wrong.
-- [ ] Public export: regenerate the export from the development tree that
-      contains this launch kit and the corrected README/metadata links.
-- [ ] Public export: verify the README quick start uses only the pinned
-      `octet-public` revision and never `main` or `github:OnixResearch/octet`.
-- [x] The current public tree at `becae962` uses the HTTPS
-      `valence-public` and `bounded-exec-public` mirrors in
-      `cargo-octet/Cargo.toml` (observed 2026-11-11).
-- [ ] Public export: re-verify the HTTPS public mirrors after the new export is
-      generated.
-- [x] The current public tree at `becae962` carries `NOTICE`,
-      `THIRD_PARTY_NOTICES.md`, and `LICENSES/` (observed 2026-11-11).
-- [x] The `becae962` top-level tree has no `docs/standards/source/` path, but
-      the same prose remains recoverable from its fixture bundles.
-- [ ] Public export: re-verify notices and excluded prose recursively through
-      all Git histories and archives, not just the final source tree.
-- [ ] Release owner: re-pin the cohort to the new public revision and regenerate
-      `release-cohort.json`.
-- [ ] Release owner: run the fresh acceptance receipts for the new revision.
-- [ ] Release owner: create the `v0.1.0` tag and GitHub release only after the
-      go/no-go review.
-- [ ] Maintainer: enable branch protection. `main` was unprotected when observed
-      on 2026-11-11.
-- [ ] Maintainer: enable secret scanning and push protection. Both were disabled
-      when observed on 2026-11-11.
-- [ ] Maintainer: enable private vulnerability reporting. It was disabled when
-      observed on 2026-11-11, so the `SECURITY.md` link is not yet a working
-      private channel.
-- [ ] Maintainer: verify the public repository has no stale `github:OnixResearch/octet`
-      install or issue links after the export.
+- [ ] Run `tools/public-release-smoke.py` using a matching packaged producer or
+      `--flake` with the canonical full 40-hex revision and `#cargo-octet`.
+      The helper rejects tags and branches; `v0.1.1-rc.1` is not its proof input.
+- [ ] Retain standalone consumer setup and reviewed committed `Cargo.lock`.
+      Missing/new/changed lockfiles must remain integration failures (exit `2`).
+- [ ] Capture the deliberately denied `unchecked_division` result (exit `1`),
+      guarded fix under identical scope/config (exit `0`, zero selected
+      findings), JSON bundles, and real Rust artifact verification (exit `0`).
+- [ ] Capture tamper rejection on a copy of a real bundle (verify exit `1`).
+- [ ] Capture an independent downstream workspace with committed existing
+      policy/config and lockfile, bounded `-p PACKAGE -- --lib --locked` scope,
+      actual warnings, and artifact verification. No baseline, blanket disable,
+      invented zero-noise statement, or relabelled historical receipt.
+- [ ] Confirm first-patch instructions and thin CI/pre-commit integration agree
+      with actual setup, scope, lockfile, artifacts, and exit behavior.
+- [ ] A second person reproduces the first checked patch. Optional unless
+      required by the release approval contract.
 
-## 3. Install and evidence smoke
+## 4. GitHub hosting and support
 
-- [x] The development README now shows the pinned public channel instead of the
-      unsupported `github:OnixResearch/octet` selector.
-- [x] `CONTRIBUTING.md` and `SECURITY.md` now point at the public repository.
-- [x] The consumer pre-commit example and
-      `templates/pre-commit-config.yaml` now point at the public repository.
-- [x] The trust-boundary controlled-deployment text now names the public pin path.
-- [x] Cargo `repository` and `homepage` metadata now point at the public
-      repository.
-- [x] Run `cargo test -p octet-standards --lib release_cohort` after
-      regenerating the cohort export. All three tests passed in an isolated
-      target directory.
-- [x] Pre-commit template assertions passed for the public repository, revision
-      placeholder, hook id, and optional args.
-- [x] `nix flake metadata --json github:OnixResearch/octet-public/becae9621fdf96803c7859e83d303cf535f20b15`
-      resolved the pinned revision and nar hash from a clean environment.
-- [x] Run `nix build .#checks.x86_64-linux.release-candidate-smoke -L --no-link`.
-      Passed on 2026-11-11 after overriding the local Nix configuration:
-      `NIX_CONFIG=$'substituters = https://cache.nixos.org\nbuilders =\nmin-free = 0\nmax-free = 0'`.
-      A first attempt failed in the broken remote build hook before the check
-      ran; that was an environment failure, not a source failure.
-- [ ] Run `nix flake check -L` and record the result, including any known
-      non-blocking failures.
-- [~] Run the pinned public channel in a clean environment:
-      `nix run github:OnixResearch/octet-public/<pinned-revision>#cargo-octet -- --version`.
-      The full local build did not finish in this verification window; the
-      reviewed cohort's fresh `cargo-octet 0.1.0` receipt is recorded in
-      `docs/release-candidate.md`. Rerun before tagging.
-- [~] Run the first checked patch walkthrough on the pinned public channel and
-      save the transcript. The reviewed cohort's walkthrough receipt is
-      recorded; rerun before tagging.
-- [~] Run `cargo octet artifact verify --artifact-dir artifacts/octet` on the
-      walkthrough bundle. The reviewed cohort's `status=valid` receipt is
-      recorded; rerun before tagging.
-- [~] Run the tamper-rejection check on a rewritten sidecar and confirm
-      `status=invalid`, exit 1. The reviewed cohort's receipt is recorded; rerun
-      before tagging.
+- [ ] Verify <https://github.com/OnixResearch/octet> is the sole canonical source,
+      release, issue/support, and landing home, with no live old-public links.
+- [ ] Verify branch protection, required checks, secret scanning/push protection,
+      and pull-request credential boundaries on the canonical repository.
+- [ ] Enable and verify canonical GitHub private vulnerability reporting and the
+      `SECURITY.md` route. Its URL alone does not establish a working channel.
+      Do not submit a real exploit as a test report.
+- [ ] Verify native issue templates request revision, platform, exact command,
+      scope, expected/observed results, and redacted evidence. Markdown fields
+      request information; they are not server-enforced validation.
+- [ ] Publish best-effort support expectations without an SLA, backport, or
+      historical-pin LTS promise. Name triage, security, and rollback owners in
+      the owner approval record; do not expose private contacts in launch copy.
+- [ ] Review repository description/topics and canonical README links to the
+      consumer guide, walkthrough, trust boundary, security policy, and candidate
+      notes. A website/domain is outside this release.
 
-## 3a. Code quality gates
+## 5. Content, privacy, and owner approval
 
-- [x] `cargo clippy --workspace --all-targets -- -D warnings -W clippy::pedantic`.
-      The first `core` attempt exposed 72 `cargo-octet` pedantic warnings.
-      Mechanical fixes and scoped allows are applied, and the workspace recheck
-      passed. Re-run the Nix `clippy` check before tagging.
-- [x] `cargo fmt --all -- --check` from the final tree.
-- [x] `cargo test -p cargo-octet --lib`: 939 passed, 0 failed, 27 ignored.
-- [~] `cargo test --workspace` or the repository `nextest` rail from the final
-      tree. The `core` gate rerun covers this; record its result before tagging.
-- [x] `coverage-profiles` check. The first `core` rerun exposed a provider
-      version mismatch: the check expected `cargo-llvm-cov 0.9.0` while the
-      pinned nixpkgs provider and the profile registry are `0.8.3`. The check
-      now matches `0.8.3`, and the focused check passed.
-- [x] Full expected-green `core` gate passed on 2026-11-12:
-      `nix build .#checks.x86_64-linux.core -L --no-link` completed, including
-      workspace clippy, fmt, UI, compiler-architecture, profile, rail, smoke,
-      and `nextest` checks. `nextest` ran **1856 tests: 1856 passed, 0 failed,
-      48 skipped**. The gate also covers `release-candidate-smoke` and the
-      coverage-profile check. The wrapper was run with the local Nix
-      configuration overridden to avoid the broken remote builder/cache:
-      `NIX_CONFIG=$'substituters = https://cache.nixos.org\nbuilders =\nmin-free = 0\nmax-free = 0'`.
+- [ ] Update [release-notes-0.1.1-rc.1.md](release-notes-0.1.1-rc.1.md) with exact
+      qualified source identities and receipt/artifact paths, plus failed/not-run
+      checks and explicit non-claims. Pending status is not approval.
+- [ ] Approve announcement/outreach claim boundaries and maintainer disclosures.
+      Keep AGPL, source-only `x86_64-linux` Nix, nightly/Dylint, and scoped evidence
+      limits visible. Never present candidate output expectations as observations.
+- [ ] Record a redacting final history/tree/archive secret scan with tool
+      version, revision, command, and result. Review privacy and source rights
+      separately; rotate exposed credentials before resuming publication.
+- [ ] Obtain native Cairn lifecycle completion and all required independent
+      reviewer, legal/security, maintainer, and release-owner approvals. Record
+      approver identity, date, exact source/cohort, evidence, and go/no-go decision
+      in the authorized lifecycle/owner record, not in an untracked private plan.
 
-## 4. Public surfaces
+## 6. Owner-only publication sequence
 
-- [ ] The public landing surface is the repository README, or an owned custom
-      domain resolves. `octet.dev` is not owned and must not be referenced in
-      metadata, release notes, or outreach.
-- [ ] The landing surface follows the outline in
-      [positioning.md](positioning.md#landing-page-outline).
-- [ ] The landing surface links the pinned install command, first checked patch,
-      trust boundary, and security policy.
-- [ ] Public README has a working install command above the fold.
-- [ ] Public README links the release notes and consumer guide.
-- [ ] GitHub repository description and topics are set:
-      `rust`, `static-analysis`, `dylint`, `release-engineering`,
-      `software-supply-chain`, `evidence`. The repository had a description but
-      no topics when observed on 2026-11-11. The homepage field is optional; if
-      set, it must be an owned URL.
-- [ ] Social preview image and repository avatar are present. Optional.
-- [ ] Support expectations and issue template are published. Optional but
-      recommended.
-- [ ] Private vulnerability reporting is enabled on the public repository and
-      the `SECURITY.md` link resolves.
-- [ ] Issue templates request revision, platform, command, configured scope, and
-      expected/observed behavior.
+These are ordered responsibilities, not commands this document has executed:
 
-## 5. Launch assets
+1. Freeze the reviewed canonical source and matching cohort/receipt identities.
+   Stop on missing or failed gates; do not claim qualification from a draft.
+2. Obtain the explicit publication decision for that exact source and scope.
+3. Create `v0.1.1-rc.1` once on the approved source in `OnixResearch/octet` and
+   publish a GitHub **prerelease** using the approved candidate notes. Do not
+   recreate, force-update, or move `v0.1.0` or any published candidate tag.
+4. Resolve the published tag to the approved full revision, verify anonymous
+   acquisition, and record the post-publication observation. Tag discovery
+   commands may use `github:OnixResearch/octet/v0.1.1-rc.1`; reproducible helper
+   evidence continues to bind the full revision.
+5. Update candidate/current status only from those actual results. Publish
+   approved outreach only after the required consumer reproduction and approvals.
 
-- [x] Positioning and message brief drafted.
-- [x] Launch plan drafted.
-- [x] v0.1.0 release notes drafted.
-- [x] Announcement draft written.
-- [x] Outreach copy written.
-- [ ] Release notes updated with the final tag's receipts and exact artifact
-      paths.
-- [ ] Announcement reviewed by the maintainer for claim discipline.
-- [ ] A named approver signs off on the release notes and announcement.
-- [ ] Demo transcript or terminal recording prepared. Optional but recommended.
-- [ ] Landing page copy approved. Optional until the site is live.
-- [ ] All external copy discloses maintainer status where required.
+## 7. Correction and retirement
 
-## 6. Security and privacy
-
-- [ ] Run a redacting secret scan against the final public tree and reachable
-      history. Record the scanner version, command, revision, and result.
-- [ ] Review personal paths, consumer data, and historical evidence separately.
-      A clean secret scan is not privacy clearance.
-- [ ] Confirm no private settings, operator paths, or archival transcripts are in
-      the public export.
-- [ ] Confirm no credentials or private receipts are in release notes, demo
-      transcripts, or issue templates.
-- [ ] Confirm the public repository does not expose private deploy keys to
-      pull-request-controlled builds.
-- [ ] Rotate any credential that the scan or review finds before resuming.
-
-## 7. Community and support
-
-- [ ] Name a support owner for the first 30 days.
-- [ ] Create a launch feedback issue or discussion and pin it.
-- [ ] Prepare a triage label set: `launch`, `install`, `evidence`, `lint`,
-      `security`, `docs`.
-- [ ] Prepare a canned response for "does this prove correctness?" and "why
-      nightly?" that links the trust boundary.
-- [ ] Confirm the maintainer can reproduce the first checked patch on a clean
-      machine.
-- [ ] Decide the response time expectation and publish it in the issue template
-      or release notes.
-
-## 8. Owner-only publish sequence
-
-Run these only after the go/no-go review. Substitute the actual public worktree
-and revision. Stop on the first failure.
-
-```bash
-# 1. Resolve the new public pin.
-nix flake metadata --json github:OnixResearch/octet-public/<revision> \
-  | jq '{rev: .locked.rev, narHash: .locked.narHash}'
-
-# 2. Update the cohort manifest and fixtures, then validate.
-nickel export --format json standards/release/release-cohort.ncl \
-  > standards/release/generated/release-cohort.json
-cargo test -p octet-standards --lib release_cohort
-
-# 3. Run the release gates.
-nix build .#checks.x86_64-linux.release-candidate-smoke -L --no-link
-cargo octet check --artifact-dir artifacts/octet
-cargo octet artifact verify --artifact-dir artifacts/octet
-
-# 4. Update the release notes qualification block with this tag's receipts.
-# 5. Tag and publish from the public worktree.
-git -C <public-worktree> tag -a v0.1.0 -m "Octet 0.1.0"
-git -C <public-worktree> push origin v0.1.0
-gh release create v0.1.0 \
-  --repo OnixResearch/octet-public \
-  --title "Octet 0.1.0" \
-  --notes-file docs/gtm/release-notes-0.1.0.md
-
-# 6. Enable the repository security settings.
-gh api --method PATCH \
-  repos/OnixResearch/octet-public/private-vulnerability-reporting \
-  -f enabled=true
-gh repo edit OnixResearch/octet-public \
-  --add-topic rust \
-  --add-topic static-analysis \
-  --add-topic dylint \
-  --add-topic release-engineering \
-  --add-topic software-supply-chain \
-  --add-topic evidence
-```
-
-Configure branch protection and secret scanning/push protection in the
-repository settings; verify the `SECURITY.md` private-reporting link after
-enabling it.
-
-## 9. Go/no-go review
-
-Hard gates:
-
-- [ ] Public export is reviewed and pinned.
-- [ ] `release_cohort` validation passes.
-- [ ] `release-candidate-smoke` passes.
-- [ ] Install smoke returns `cargo-octet 0.1.0` from a clean environment.
-- [ ] Artifact verifier passes on the walkthrough bundle.
-- [ ] Tamper rejection fails closed.
-- [ ] Private vulnerability reporting is enabled and tested.
-- [ ] The public landing surface is the repository README, or an owned custom
-      domain resolves.
-- [ ] Release notes and announcement have a named approver.
-- [ ] Rollback owner and channel are named.
-
-Soft gates:
-
-- [ ] Full `nix flake check -L` passes. If not run, record that fact in the
-      release notes and do not claim it.
-- [ ] A second person reproduces the first checked patch.
-- [ ] Landing page is live.
-- [ ] Demo recording is ready.
-
-Record the final go/no-go decision, date, approver, and evidence links in the
-private launch tracker. Do not publish the tracker.
+If acquisition, evidence, or a claim is wrong, stop promotion and label the
+release status accurately. Correct README/notes with a dated explanation, follow
+`SECURITY.md` for exploit details, and publish a newly qualified version when
+needed. Never silently move tags, reuse historical acceptance, or route users
+back to the blocked `octet-public` channel. Retiring the old repository does not
+erase forks, caches, or prior disclosure; record those limits honestly.

@@ -90,6 +90,21 @@ fn rfd_import_status_update_publish_are_preview_first() -> Result<(), Box<dyn Er
         spec_s.clone(),
     ];
     import_args.extend(import_identity());
+    import_args.push("--workspace".to_string());
+    import_args.push("workspace:custom".to_string());
+    let mut invalid_policy_args = import_args.clone();
+    let policy_index = invalid_policy_args
+        .iter()
+        .position(|argument| argument == "--policy")
+        .map(|index| index + 1)
+        .ok_or("policy option")?;
+    invalid_policy_args[policy_index] = dir
+        .join("missing-policy.json")
+        .to_string_lossy()
+        .to_string();
+    let output = cairn().args(&invalid_policy_args).output()?;
+    assert!(!output.status.success());
+
     let arg_refs = import_args.iter().map(String::as_str).collect::<Vec<_>>();
     let imported = run_json(&arg_refs)?;
     assert_eq!(imported["dry_run"], true);
@@ -102,6 +117,9 @@ fn rfd_import_status_update_publish_are_preview_first() -> Result<(), Box<dyn Er
     let imported = run_json(&arg_refs)?;
     assert_eq!(imported["executed"], true);
     assert!(store.join("rfd-1.portable.json").exists());
+    let portable = fs::read_to_string(store.join("rfd-1.portable.json"))?;
+    let portable: Value = serde_json::from_str(&portable)?;
+    assert_eq!(portable["state"]["workspace_id"], "workspace:custom");
 
     // status
     let status = run_json(&[
@@ -129,9 +147,16 @@ fn rfd_import_status_update_publish_are_preview_first() -> Result<(), Box<dyn Er
         "artifact",
         "--text",
         "# Updated RFD\n",
+        "--operation-id",
+        "custom-op",
         "--execute",
     ])?;
     assert_eq!(update["executed"], true);
+    let portable = fs::read_to_string(store.join("rfd-1.portable.json"))?;
+    let portable: Value = serde_json::from_str(&portable)?;
+    assert!(portable["state"]["operations"]
+        .as_array()
+        .is_some_and(|operations| operations.iter().any(|operation| operation == "custom-op")));
 
     // publish plan succeeds conflict-free
     let out_dir = dir.join("publish");
@@ -173,6 +198,9 @@ fn rfd_number_plan_binds_registry_and_publisher() -> Result<(), Box<dyn Error>> 
     import_args.extend(import_identity());
     let arg_refs = import_args.iter().map(String::as_str).collect::<Vec<_>>();
     run_json(&arg_refs)?;
+    let portable = fs::read_to_string(store.join("rfd-2.portable.json"))?;
+    let portable: Value = serde_json::from_str(&portable)?;
+    assert_eq!(portable["state"]["workspace_id"], "workspace:rfd");
     let registry = "c".repeat(64);
     let number = run_json(&[
         "rfd",

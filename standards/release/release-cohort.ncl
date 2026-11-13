@@ -20,6 +20,9 @@
 # Historical build and walkthrough receipts remain bounded observations, not
 # publication clearance. Clean the separate public repository, publish a new
 # source pin, and rerun qualification before promoting the channel.
+# This is a historical, blocked record, not the canonical installation channel.
+# OnixResearch/octet owns the new candidate. Its qualification must replace this
+# record only after a frozen source and fresh acceptance, not by relabelling it.
 let contracts = import "./contracts.ncl" in
 let public_revision = "becae9621fdf96803c7859e83d303cf535f20b15" in
 let export_origin = "972b6a5a55093283e6fd3571f6f24a4da56f25ed" in
@@ -36,9 +39,9 @@ let cohort_evidence = "b3:60b3f2c65f7812669c768507d5c8804af6887e7e18611539e69925
     observed_branch_head = public_revision,
     head_observed_at = "2026-11-11",
     head_matches_reviewed_revision = true,
-    supported = true,
+    supported = false,
     direct_cargo_supported = false,
-    supported_install_command = "nix run github:OnixResearch/octet-public/becae9621fdf96803c7859e83d303cf535f20b15#cargo-octet -- check",
+    supported_install_command = "No supported installation: this historical cohort is blocked.",
     unsupported_selectors = [
       "github:OnixResearch/octet-public/main",
       "github:OnixResearch/octet",

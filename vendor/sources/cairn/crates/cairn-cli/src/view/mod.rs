@@ -79,18 +79,25 @@ pub(crate) fn run_view(args: Vec<String>) -> Result<(), Box<dyn Error>> {
 
 fn validate_view_args(args: &[String]) -> Result<(), Box<dyn Error>> {
     let mut index = 0usize;
+    let mut seen = std::collections::BTreeSet::new();
     while index < args.len() {
         match args[index].as_str() {
             "--interactive" => {
+                if !seen.insert("--interactive") {
+                    return Err("duplicate option: --interactive".into());
+                }
                 index = index.saturating_add(1);
             }
             "--root" | "--policy" | "--format" => {
                 let option = &args[index];
+                if !seen.insert(option.as_str()) {
+                    return Err(format!("duplicate option: {option}").into());
+                }
                 let value_index = index.saturating_add(1);
                 let Some(value) = args.get(value_index) else {
                     return Err(format!("{option} requires a value").into());
                 };
-                if value.starts_with("--") {
+                if value.is_empty() || value.starts_with("--") {
                     return Err(format!("{option} requires a value").into());
                 }
                 index = value_index.saturating_add(1);

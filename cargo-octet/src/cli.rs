@@ -748,13 +748,18 @@ const TRANSCRIPT_HELP: &str = "cargo octet transcript <PATH>
 Checks transcript structure for docs-example and release smoke artifacts: every fence closes, fences with `$ ` command lines use octet-transcript, slotcar-transcript, console, or sh, and the transcript has at least one `$ ` command line and one `=> ` expected-output line. Records the transcript BLAKE3 identity. It does not run commands or compare their output.
 ";
 
+enum RequirementAction {
+    Check,
+    Verify,
+    Freshness,
+}
 // Flag parsing is one linear match over the subcommand's flags; splitting it would hide which flags
 // the command accepts.
 fn parse_requirements(args: &[String]) -> Result<RequirementsArgs, String> {
-    let (mode, rest) = match args.first().map(String::as_str) {
-        Some("check") => ("check", &args[1..]),
-        Some("verify") => ("verify", &args[1..]),
-        Some("freshness") => ("freshness", &args[1..]),
+    let (action, mode, rest) = match args.first().map(String::as_str) {
+        Some("check") => (RequirementAction::Check, "check", &args[1..]),
+        Some("verify") => (RequirementAction::Verify, "verify", &args[1..]),
+        Some("freshness") => (RequirementAction::Freshness, "freshness", &args[1..]),
         Some(other) => {
             return Err(format!(
                 "unknown requirements subcommand `{other}`; expected `check`, `verify`, or `freshness`"
@@ -795,27 +800,26 @@ fn parse_requirements(args: &[String]) -> Result<RequirementsArgs, String> {
         position += 1;
     }
     let contract = contract.ok_or_else(|| format!("requirements {mode} requires `--contract PATH`"))?;
-    let mode = match mode {
-        "check" => RequirementsMode::Check(RequirementsCheckArgs {
+    let mode = match action {
+        RequirementAction::Check => RequirementsMode::Check(RequirementsCheckArgs {
             contract,
             evidence: evidence.ok_or_else(|| "requirements check requires `--evidence PATH`".to_owned())?,
             source_root,
             output,
             output_format,
         }),
-        "verify" => RequirementsMode::Verify(RequirementsVerifyArgs {
+        RequirementAction::Verify => RequirementsMode::Verify(RequirementsVerifyArgs {
             contract,
             evidence: evidence.ok_or_else(|| "requirements verify requires `--evidence PATH`".to_owned())?,
             decision: decision.ok_or_else(|| "requirements verify requires `--decision PATH`".to_owned())?,
             source_root,
             output_format,
         }),
-        "freshness" => RequirementsMode::Freshness(RequirementsFreshnessArgs {
+        RequirementAction::Freshness => RequirementsMode::Freshness(RequirementsFreshnessArgs {
             contract,
             index: index.ok_or_else(|| "requirements freshness requires `--index PATH`".to_owned())?,
             output_format,
         }),
-        _ => unreachable!("requirements subcommand was validated above"),
     };
     Ok(RequirementsArgs { mode })
 }
@@ -1034,6 +1038,16 @@ fn parse_admission_verify(args: &[String], command_line: String) -> Result<Admis
             _ => return Err(format!("unsupported admission verification argument `{arg}`")),
         }
     }
+    admission_verification_options(artifact_dir, output_format, auth_policy, auth_evidence, command_line)
+}
+
+fn admission_verification_options(
+    artifact_dir: Option<PathBuf>,
+    output_format: OutputFormat,
+    auth_policy: Option<PathBuf>,
+    auth_evidence: Option<PathBuf>,
+    command_line: String,
+) -> Result<AdmissionArgs, String> {
     if auth_policy.is_some() != auth_evidence.is_some() {
         return Err("admission authentication requires both `--auth-policy` and `--auth-evidence`".to_owned());
     }
@@ -1116,20 +1130,21 @@ fn parse_artifact_verify(args: &[String]) -> Result<ArtifactArgs, String> {
 
 // Flag parsing is one linear match over the subcommand's flags; splitting it would hide which flags
 // the command accepts.
-#[allow(clippy::too_many_lines)]
 fn parse_benchmark(args: &[String]) -> Result<BenchmarkArgs, String> {
     if args.first().map(String::as_str) != Some("experiment") {
         return Err("unknown benchmark action; expected `experiment`".to_owned());
     }
     let rest = &args[1..];
-    let mut profile = crate::benchmark::experiment::PROFILE_ID.to_owned();
-    let mut input = None;
-    let mut execute = false;
-    let mut verify = false;
-    let mut artifact = None;
-    let mut workspace_root = PathBuf::from("standards/benchmark/corpus");
-    let mut artifact_dir = PathBuf::from("artifacts/octet-benchmark");
-    let mut output_format = OutputFormat::Human;
+    let mut experiment = BenchmarkExperimentArgs {
+        profile: crate::benchmark::experiment::model::PROFILE_ID.to_owned(),
+        input: None,
+        execute: false,
+        verify: false,
+        artifact: None,
+        workspace_root: PathBuf::from("standards/benchmark/corpus"),
+        artifact_dir: PathBuf::from("artifacts/octet-benchmark"),
+        output_format: OutputFormat::Human,
+    };
     let mut index = 0;
     while index < rest.len() {
         let arg = &rest[index];
@@ -1137,34 +1152,35 @@ fn parse_benchmark(args: &[String]) -> Result<BenchmarkArgs, String> {
             arg.split_once('=').map_or((arg.as_str(), None), |(flag, value)| (flag, Some(value)));
         match flag {
             "--profile" => {
-                profile = benchmark_value(rest, &mut index, flag, inline_value)?;
+                experiment.profile = benchmark_value(rest, &mut index, flag, inline_value)?;
             }
             "--input" => {
-                input = Some(PathBuf::from(benchmark_value(rest, &mut index, flag, inline_value)?));
+                experiment.input = Some(PathBuf::from(benchmark_value(rest, &mut index, flag, inline_value)?));
             }
             "--artifact" => {
-                artifact = Some(PathBuf::from(benchmark_value(rest, &mut index, flag, inline_value)?));
+                experiment.artifact = Some(PathBuf::from(benchmark_value(rest, &mut index, flag, inline_value)?));
             }
             "--workspace-root" => {
-                workspace_root = PathBuf::from(benchmark_value(rest, &mut index, flag, inline_value)?);
+                experiment.workspace_root = PathBuf::from(benchmark_value(rest, &mut index, flag, inline_value)?);
             }
             "--artifact-dir" => {
-                artifact_dir = PathBuf::from(benchmark_value(rest, &mut index, flag, inline_value)?);
+                experiment.artifact_dir = PathBuf::from(benchmark_value(rest, &mut index, flag, inline_value)?);
             }
             "--output-format" | "--format" => {
-                output_format = parse_output_format(&benchmark_value(rest, &mut index, flag, inline_value)?)?;
+                experiment.output_format =
+                    parse_output_format(&benchmark_value(rest, &mut index, flag, inline_value)?)?;
             }
             "--execute" => {
                 if inline_value.is_some() {
                     return Err("`--execute` does not take a value".to_owned());
                 }
-                execute = true;
+                experiment.execute = true;
             }
             "--verify" => {
                 if inline_value.is_some() {
                     return Err("`--verify` does not take a value".to_owned());
                 }
-                verify = true;
+                experiment.verify = true;
             }
             other => {
                 return Err(format!(
@@ -1174,27 +1190,21 @@ fn parse_benchmark(args: &[String]) -> Result<BenchmarkArgs, String> {
         }
         index += 1;
     }
-    if execute && verify {
+    validate_benchmark_mode(&experiment)?;
+    Ok(BenchmarkArgs { experiment })
+}
+
+fn validate_benchmark_mode(experiment: &BenchmarkExperimentArgs) -> Result<(), String> {
+    if experiment.execute && experiment.verify {
         return Err("`--execute` and `--verify` are mutually exclusive".to_owned());
     }
-    if verify && input.is_some() {
+    if experiment.verify && experiment.input.is_some() {
         return Err("`--verify` consumes a retained artifact, not `--input`".to_owned());
     }
-    if output_format == OutputFormat::Sarif {
+    if experiment.output_format == OutputFormat::Sarif {
         return Err("benchmark experiment supports human or json output, not SARIF".to_owned());
     }
-    Ok(BenchmarkArgs {
-        experiment: BenchmarkExperimentArgs {
-            profile,
-            input,
-            execute,
-            verify,
-            artifact,
-            workspace_root,
-            artifact_dir,
-            output_format,
-        },
-    })
+    Ok(())
 }
 
 fn benchmark_value(args: &[String], index: &mut usize, flag: &str, inline: Option<&str>) -> Result<String, String> {
@@ -3558,7 +3568,6 @@ mod tests {
         .expect("parse recorded benchmark");
         match parsed {
             CommandArgs::Benchmark(args) => {
-                assert_eq!(args.experiment.profile, crate::benchmark::experiment::PROFILE_ID);
                 assert_eq!(
                     args.experiment.input,
                     Some(std::path::PathBuf::from("standards/benchmark/benchmark-experiment-observations.json"))

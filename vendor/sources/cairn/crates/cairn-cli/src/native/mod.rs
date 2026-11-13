@@ -30,6 +30,10 @@ pub(crate) fn run_status(
     read::run_status(args, invocation)
 }
 
+pub(crate) fn run_implementation_ready(args: Vec<String>) -> Result<(), Box<dyn Error>> {
+    read::run_implementation_ready(args)
+}
+
 pub(crate) fn run_doctor(
     args: Vec<String>,
     invocation: &crate::lifecycle_store_shell::RootLocalInvocation,
@@ -46,7 +50,7 @@ pub(crate) fn run_change(args: Vec<String>) -> Result<(), Box<dyn Error>> {
     };
     match subcommand.as_str() {
         "create" => {
-            let Some(change) = iter.next() else {
+            let Some(change) = iter.next().filter(|change| !change.is_empty()) else {
                 return Err("change create requires a change name".into());
             };
             authoring::run_change_create(iter.collect(), &change)
@@ -56,7 +60,7 @@ pub(crate) fn run_change(args: Vec<String>) -> Result<(), Box<dyn Error>> {
         "graph" => read::run_change_graph(iter.collect()),
         "next" => read::run_change_next(iter.collect()),
         "show" => {
-            let Some(change) = iter.next() else {
+            let Some(change) = iter.next().filter(|change| !change.is_empty()) else {
                 return Err("change show requires a change name".into());
             };
             read::run_change_show(iter.collect(), &change)
@@ -76,7 +80,7 @@ pub(crate) fn run_spec(
     match subcommand.as_str() {
         "list" => read::run_spec_list(iter.collect(), invocation),
         "show" => {
-            let Some(spec) = iter.next() else {
+            let Some(spec) = iter.next().filter(|spec| !spec.is_empty()) else {
                 return Err("spec show requires a spec id".into());
             };
             read::run_spec_show(iter.collect(), &spec, invocation)

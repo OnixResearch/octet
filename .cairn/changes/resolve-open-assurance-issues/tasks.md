@@ -85,5 +85,5 @@
 - `Scenario: CodeQL database drift fails` -> `stale_or_mismatched_codeql_database_fails`
 - `Scenario: Unsupported scope is neither clean nor a false negative` -> `architecture_and_assurance_metrics_stay_separate_and_do_not_upgrade_unsupported_scope`
 - `Scenario: Artifact verification recomputes derived fields` -> `checked_in_observations_artifact_and_report_verify`, `negative_controls_are_contained_and_tampering_is_rejected`
-- `Scenario: Public inventory and notices are checked` -> `release_cohort::tests::checked_in_cohort_validates_and_stays_blocked`, `release_cohort::tests::documented_claims_match_the_public_inventory`
+- `Scenario: Public inventory and notices are checked` -> `release_cohort::tests::blocked_cohort_cannot_be_admitted_with_valid_receipts`, `release_cohort::tests::negative_controls_are_rejected`
 - `Scenario: Development receipts are not public evidence` -> `release_cohort::tests::negative_controls_are_rejected`

@@ -16,8 +16,9 @@ use cairn_core::{
 use serde_json::{json, Value};
 
 use crate::support::{
-    path_string, print_json, read_option, read_string_option, with_portable_receipt_hash,
-    with_receipt_hash, CapabilityRoot, CapabilityRootKind,
+    path_string, print_json, read_option, read_string_option, reject_positional_arguments,
+    reject_unknown_options, with_portable_receipt_hash, with_receipt_hash, CapabilityRoot,
+    CapabilityRootKind,
 };
 
 const ACCEPTED_SPECIFICATIONS_DIRECTORY: &str = ".cairn/specs";
@@ -155,11 +156,13 @@ fn run_content_bound_verify(args: Vec<String>) -> Result<(), Box<dyn Error>> {
 fn run_legacy_requirement_registry_verify(args: Vec<String>) -> Result<(), Box<dyn Error>> {
     // r[impl cairn.requirement_id_registry.validation]
     // r[impl cairn.requirement_id_registry.validation.receipt]
+    reject_unknown_options(&args, &["--input"])?;
+    reject_positional_arguments(&args)?;
     let input = read_option(args, "--input", "");
     if input.as_os_str().is_empty() {
         return Err("requirement-registry verify requires --input <registry-input.json>".into());
     }
-    let value = read_unbounded_legacy_registry_input(&input)?;
+    let value = read_legacy_registry_input(&input)?;
     let report = validate_requirement_id_registry_value(&value);
     let receipt = json!({
         "command": "requirement-registry verify",
@@ -187,6 +190,18 @@ fn run_legacy_requirement_registry_verify(args: Vec<String>) -> Result<(), Box<d
 fn content_bound_export_options(
     args: &[String],
 ) -> Result<ContentBoundExportOptions, Box<dyn Error>> {
+    reject_unknown_options(
+        args,
+        &[
+            "--root",
+            "--repository-id",
+            "--revision-kind",
+            "--revision",
+            "--out",
+            "--policy",
+        ],
+    )?;
+    reject_positional_arguments(args)?;
     let root = read_option(args.to_vec(), "--root", ".");
     let repository_id = required_string_option(args, "--repository-id", "export")?;
     let revision_kind = required_string_option(args, "--revision-kind", "export")?;
@@ -211,6 +226,11 @@ fn content_bound_export_options(
 fn content_bound_verify_options(
     args: &[String],
 ) -> Result<ContentBoundVerifyOptions, Box<dyn Error>> {
+    reject_unknown_options(
+        args,
+        &["--root", "--repository-id", "--registry", "--policy"],
+    )?;
+    reject_positional_arguments(args)?;
     let root = read_option(args.to_vec(), "--root", ".");
     let repository_id = required_string_option(args, "--repository-id", "verify")?;
     let registry = PathBuf::from(required_string_option(args, "--registry", "verify")?);
@@ -236,7 +256,7 @@ fn required_string_option(
         .ok_or_else(|| format!("requirement-registry {command} requires {option} <VALUE>").into())
 }
 
-fn read_accepted_specifications(
+pub(crate) fn read_accepted_specifications(
     repository: &CapabilityRoot,
 ) -> Result<Vec<ContentBoundSpecificationInput>, Box<dyn Error>> {
     let accepted_root = PathBuf::from(ACCEPTED_SPECIFICATIONS_DIRECTORY);
@@ -401,7 +421,18 @@ fn legacy_policy_hash(value: &Value) -> String {
         .unwrap_or_else(|| canonical_json_hash(&Value::Null))
 }
 
-fn read_unbounded_legacy_registry_input(path: &Path) -> Result<Value, Box<dyn Error>> {
+fn read_legacy_registry_input(path: &Path) -> Result<Value, Box<dyn Error>> {
+    let metadata = std::fs::symlink_metadata(path)?;
+    if metadata.file_type().is_symlink() {
+        return Err(format!(
+            "requirement registry input {} must not be a symlink",
+            path.display()
+        )
+        .into());
+    }
+    if metadata.len() > MAX_REGISTRY_BYTES {
+        return Err("requirement registry input exceeds the reviewed byte bound".into());
+    }
     let text = std::fs::read_to_string(path).map_err(|source| {
         format!(
             "failed to read requirement registry input {}: {source}",

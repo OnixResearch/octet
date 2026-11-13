@@ -14,8 +14,8 @@ use cairn_core::{
 use serde_json::json;
 
 use crate::support::{
-    default_policy_path, load_policy_file, print_json, read_string_option, with_receipt_hash,
-    CapabilityRoot, CapabilityRootKind,
+    admit_arguments, default_policy_path, load_policy_file, print_json, read_string_option,
+    with_receipt_hash, CapabilityRoot, CapabilityRootKind,
 };
 
 const PORTABLE_MAX_BYTES: u64 = 4 * 1024 * 1024;
@@ -48,8 +48,11 @@ pub(crate) fn run_adr(args: Vec<String>) -> Result<(), Box<dyn Error>> {
     }
 }
 
-fn policy_hash() -> Result<String, Box<dyn Error>> {
-    let policy = load_policy_file(PathBuf::from(default_policy_path()))?;
+fn policy_hash(args: &[String]) -> Result<String, Box<dyn Error>> {
+    let path = PathBuf::from(
+        read_string_option(args, "--policy").unwrap_or_else(|| default_policy_path().to_string()),
+    );
+    let policy = load_policy_file(path)?;
     Ok(canonical_json_hash(&policy.raw))
 }
 
@@ -100,7 +103,23 @@ fn actor_set(value: Option<String>) -> BTreeSet<String> {
 // r[impl cairn.adr_cob.profile]
 // r[impl cairn.adr_cob.cli.preview]
 fn run_import(args: &[String]) -> Result<(), Box<dyn Error>> {
-    let policy_hash = policy_hash()?;
+    admit_arguments(
+        args,
+        &[
+            "--store",
+            "--document-id",
+            "--workspace",
+            "--base-revision",
+            "--authors",
+            "--reviewers",
+            "--approvers",
+            "--publishers",
+            "--decision",
+            "--policy",
+        ],
+        &["--execute"],
+    )?;
+    let policy_hash = policy_hash(args)?;
     let store = store_path(args)?;
     let id = doc_id(args)?;
     let workspace =
@@ -117,8 +136,11 @@ fn run_import(args: &[String]) -> Result<(), Box<dyn Error>> {
     let publishers = actor_set(read_string_option(args, "--publishers"));
     let decision =
         read_string_option(args, "--decision").ok_or("adr import requires --decision FILE")?;
-    let content = std::fs::read_to_string(&decision)
-        .map_err(|e| format!("failed to read {decision}: {e}"))?;
+    let content = crate::support::read_bounded_text_no_symlink(
+        &PathBuf::from(&decision),
+        PORTABLE_MAX_BYTES,
+        "ADR decision",
+    )?;
     let init = DocumentInit {
         schema: ADR_SCHEMA_V1.to_string(),
         kind: "adr".to_string(),
@@ -167,6 +189,7 @@ fn initialize_adr_state_inner(
 }
 
 fn run_status(args: &[String]) -> Result<(), Box<dyn Error>> {
+    admit_arguments(args, &["--store", "--document-id"], &[])?;
     let store = store_path(args)?;
     let id = doc_id(args)?;
     let state = read_portable(&store, &id)?;
@@ -186,6 +209,7 @@ fn run_status(args: &[String]) -> Result<(), Box<dyn Error>> {
 }
 
 fn run_conflict(args: &[String]) -> Result<(), Box<dyn Error>> {
+    admit_arguments(args, &["--store", "--document-id"], &[])?;
     let store = store_path(args)?;
     let id = doc_id(args)?;
     let state = read_portable(&store, &id)?;
@@ -237,6 +261,17 @@ fn apply(
 }
 
 fn run_update(args: &[String]) -> Result<(), Box<dyn Error>> {
+    admit_arguments(
+        args,
+        &[
+            "--store",
+            "--document-id",
+            "--actor",
+            "--text",
+            "--operation-id",
+        ],
+        &["--execute"],
+    )?;
     let actor = read_string_option(args, "--actor").ok_or("adr update requires --actor ACTOR")?;
     let text = read_string_option(args, "--text").ok_or("adr update requires --text")?;
     let store = store_path(args)?;
@@ -252,6 +287,11 @@ fn run_update(args: &[String]) -> Result<(), Box<dyn Error>> {
 }
 
 fn run_accept(args: &[String]) -> Result<(), Box<dyn Error>> {
+    admit_arguments(
+        args,
+        &["--store", "--document-id", "--actor", "--operation-id"],
+        &["--execute"],
+    )?;
     let actor =
         read_string_option(args, "--actor").ok_or("adr accept requires --actor APPROVER")?;
     let store = store_path(args)?;
@@ -271,6 +311,11 @@ fn run_accept(args: &[String]) -> Result<(), Box<dyn Error>> {
 }
 
 fn run_deprecate(args: &[String]) -> Result<(), Box<dyn Error>> {
+    admit_arguments(
+        args,
+        &["--store", "--document-id", "--actor", "--operation-id"],
+        &["--execute"],
+    )?;
     let actor = read_string_option(args, "--actor").ok_or("adr deprecate requires --actor")?;
     let store = store_path(args)?;
     let id = doc_id(args)?;
@@ -285,6 +330,17 @@ fn run_deprecate(args: &[String]) -> Result<(), Box<dyn Error>> {
 }
 
 fn run_supersede(args: &[String]) -> Result<(), Box<dyn Error>> {
+    admit_arguments(
+        args,
+        &[
+            "--store",
+            "--document-id",
+            "--actor",
+            "--replaces",
+            "--operation-id",
+        ],
+        &["--execute"],
+    )?;
     let actor = read_string_option(args, "--actor").ok_or("adr supersede requires --actor")?;
     let relation =
         read_string_option(args, "--replaces").ok_or("adr supersede requires --replaces ADR_ID")?;
@@ -314,6 +370,17 @@ fn run_supersede(args: &[String]) -> Result<(), Box<dyn Error>> {
 }
 
 fn run_resolve(args: &[String]) -> Result<(), Box<dyn Error>> {
+    admit_arguments(
+        args,
+        &[
+            "--store",
+            "--document-id",
+            "--actor",
+            "--text",
+            "--operation-id",
+        ],
+        &["--execute"],
+    )?;
     let actor = read_string_option(args, "--actor").ok_or("adr resolve requires --actor")?;
     let text = read_string_option(args, "--text").ok_or("adr resolve requires --text")?;
     let store = store_path(args)?;
@@ -332,6 +399,17 @@ fn run_resolve(args: &[String]) -> Result<(), Box<dyn Error>> {
 }
 
 fn run_number(args: &[String]) -> Result<(), Box<dyn Error>> {
+    admit_arguments(
+        args,
+        &[
+            "--store",
+            "--document-id",
+            "--number",
+            "--registry",
+            "--publisher",
+        ],
+        &[],
+    )?;
     let store = store_path(args)?;
     let id = doc_id(args)?;
     let state = read_portable(&store, &id)?;
@@ -355,6 +433,7 @@ fn run_number(args: &[String]) -> Result<(), Box<dyn Error>> {
 }
 
 fn run_publish(args: &[String]) -> Result<(), Box<dyn Error>> {
+    admit_arguments(args, &["--store", "--document-id", "--out"], &[])?;
     let store = store_path(args)?;
     let id = doc_id(args)?;
     let state = read_portable(&store, &id)?;

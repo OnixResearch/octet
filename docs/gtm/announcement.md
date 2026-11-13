@@ -1,9 +1,9 @@
-# Announcing Octet 0.1.0
+# Octet 0.1.1-rc.1: candidate announcement draft
 
-> Draft launch post. Publish only after
-> [launch-checklist.md](launch-checklist.md) is green. Keep the claim
-> boundaries; do not turn this into a whole-program verification or
-> AI-safety post.
+> Pending qualification and publication. Publish only after
+> [launch-checklist.md](launch-checklist.md) and required owner approvals are
+> complete. This is not a current qualified-release claim. The planned immutable
+> tag is `v0.1.1-rc.1`; never move or reuse the existing `v0.1.0` tag.
 
 Rust teams are accumulating more patches than they can review carefully. Some
 of those patches are written by people. Some are written by coding agents. Both
@@ -38,7 +38,8 @@ property. No tier is silently promoted into a stronger claim.
 
 ## What is in the box
 
-Octet 0.1.0 ships 77 Dylint lints across six domains:
+The candidate inventory contains 77 Dylint lints across six domains; validate
+the exact qualified source before publication:
 
 | Domain | Count | Focus |
 | --- | ---: | --- |
@@ -104,10 +105,12 @@ pub fn average_bytes(
 }
 ```
 
-The reviewed public walkthrough uses the guarded `if`/`else` form because that
-public source pin recognizes an enclosing zero guard. The newer development lint
-also accepts an early return, but the public bytes are intentionally pinned.
-This is the kind of distinction the evidence path is supposed to keep visible.
+This guarded example illustrates the intended functional-core fix; the
+[walkthrough](../examples/first-checked-rust-patch/README.md) owns the actual
+setup and capture contract. Generate, review, and commit the consumer's
+`Cargo.lock` first. Capture the deliberately denied finding (exit `1`), the
+same-scope/config guarded fix (exit `0`), valid bundles, and tamper rejection.
+Do not relabel the old public-export walkthrough as this candidate's evidence.
 
 The walkthrough then reruns the check and verifies the saved bundle:
 
@@ -125,31 +128,32 @@ It does not replace Clippy, Miri, Kani, Verus, or your dependency policy. It is 
 checked path that keeps those inputs reviewable and bounded.
 
 The Dylint and nightly-Rust tradeoff is real. Several checks need compiler
-internals that stable plugin APIs do not expose. The supported public channel
-pins Rust, Dylint, Nickel, and support tools through Nix so consumers do not
-assemble that matrix alone. Direct Cargo use is an advanced path that must
-reproduce the same pins.
+internals that stable plugin APIs do not expose. The canonical source-only Nix
+path pins Rust, Dylint, Nickel, and support tools for `x86_64-linux`. Direct
+Cargo use is an advanced developer path that must reproduce the same pins;
+stable-only and other platforms are not supported release configurations.
 
 Octet is licensed `AGPL-3.0-or-later`, and the public channel is source-only.
 Teams that cannot accept those obligations should not adopt it.
 
 ## Install
 
-The supported public channel is pinned to a reviewed source-only export:
+After qualification and publication of the planned immutable candidate tag,
+the evaluation command is:
 
 ```bash
-nix run github:OnixResearch/octet-public/becae9621fdf96803c7859e83d303cf535f20b15#cargo-octet -- --version
+nix run github:OnixResearch/octet/v0.1.1-rc.1#cargo-octet -- --version
 ```
 
-Expected:
+This draft does not claim that the tag exists, that the command ran, or that
+qualification passed. Record the actual version and resolved full revision in
+the release record. The smoke capture helper requires that full revision, not
+a tag. Then follow the consumer guide and walkthrough for lockfile preparation,
+bounded scope, findings, artifacts, verification, and tamper rejection.
 
-```text
-cargo-octet 0.1.0
-```
-
-Then copy `templates/dylint.toml` into a workspace, add the runner scope, and
-run the same pinned command with `check`. Pin the full revision; `main` is not a
-supported pin.
+`OnixResearch/octet` is the sole canonical source/release/support home. The
+old `octet-public` cohort remains blocked and unsupported, not a fallback route.
+There is no crates.io, binary, hosted-service, or custom-website release path.
 
 ## Who should try it
 
@@ -174,12 +178,15 @@ verify the bundle, and tell us where the path was unclear. Issues that name the
 revision, platform, command, configured scope, and expected/observed result are
 the ones we can act on.
 
-- Repository: <https://github.com/OnixResearch/octet-public>
+- Repository: <https://github.com/OnixResearch/octet>
 - First checked patch: `docs/examples/first-checked-rust-patch/`
 - Consumer guide: `docs/consumer-guide.md`
 - Trust boundary: `docs/trust-boundary-evidence.md`
 - Security policy: `SECURITY.md`
 
-If you want to evaluate Octet on a real workspace, bring one crate with a
-release gate and a bounded scope. We will start with warning-only evidence and
-keep the claim boundary visible.
+Evaluation should start with one owned crate and retain actual findings,
+without a baseline, blanket lint disable, or zero-noise promise in the first
+independent capture. Support is best-effort, with no response SLA or historical
+pin LTS promise. Report redacted issues at
+<https://github.com/OnixResearch/octet/issues>; use `SECURITY.md` for private
+vulnerability handling, conditional on verified GitHub reporting availability.

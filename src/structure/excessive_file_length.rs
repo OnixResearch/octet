@@ -73,23 +73,20 @@ fn line_count(source_file: &SourceFile) -> Option<usize> {
 }
 
 impl EarlyLintPass for ExcessiveFileLength {
-    fn check_crate(&mut self, cx: &EarlyContext<'_>, _krate: &Crate) {
+    fn check_crate(&mut self, cx: &EarlyContext<'_>, krate: &Crate) {
         let workspace_root = crate::source::workspace_root();
-        for source_file in cx.sess().source_map().files().iter() {
-            if !crate::source::is_local(source_file) {
-                continue;
-            }
+        crate::source::for_each_parsed_file(cx.sess().source_map(), krate, |source_file| {
             let path = crate::source::normalize_path(&crate::source::source_file_path(source_file));
             if !is_checked_source_path(&path, &workspace_root) {
-                continue;
+                return;
             }
 
             let Some(lines) = line_count(source_file) else {
-                continue;
+                return;
             };
             let max = self.max_lines;
             if lines <= max {
-                continue;
+                return;
             }
 
             emit_tiger_style_lint(
@@ -99,7 +96,7 @@ impl EarlyLintPass for ExcessiveFileLength {
                 format!("source file is {lines} lines (limit: {max})"),
                 "excessive_file_length",
             );
-        }
+        });
     }
 }
 

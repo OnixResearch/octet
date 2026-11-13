@@ -166,8 +166,8 @@
   },
   {
     "lint_name": "excessive_file_length",
-    "fixture": "lint_guardrail_common",
-    "category": "safe_shape"
+    "fixture": "file_source_admission_data",
+    "category": "macro_guardrail"
   },
   {
     "lint_name": "explicit_defaults",
@@ -251,8 +251,8 @@
   },
   {
     "lint_name": "module_file_count",
-    "fixture": "lint_guardrail_common",
-    "category": "safe_shape"
+    "fixture": "file_source_admission_data",
+    "category": "macro_guardrail"
   },
   {
     "lint_name": "multi_lock_ordering",
@@ -416,8 +416,8 @@
   },
   {
     "lint_name": "underscore_in_module_filename",
-    "fixture": "lint_guardrail_common",
-    "category": "safe_shape"
+    "fixture": "file_source_admission_data",
+    "category": "macro_guardrail"
   },
   {
     "lint_name": "unjustified_allow",

@@ -19,10 +19,11 @@ def copy_reviewed_inputs(source: Path, destination: Path) -> None:
     paths = {
         verifier.REVIEWED_PATH,
         verifier.CANDIDATE_PATH,
-        verifier.APPROVAL_ARCHIVE_PATH,
+        verifier.APPROVAL_PATH,
+        verifier.AUDIT_PATH,
+        verifier.SOURCE_BINDING_PATH,
         "cargo-octet/Cargo.toml",
         "Cargo.lock",
-        "flake.nix",
         "flake.lock",
         "standards/valence-core-cutover/generated-manifest.json",
     }
@@ -39,12 +40,6 @@ def mutate_json(path: Path, change) -> None:
     value = json.loads(path.read_text())
     change(value)
     path.write_text(json.dumps(value, indent=2) + "\n")
-
-
-def resurrect_historical_approval(repo: Path) -> None:
-    old_path = repo / verifier.APPROVAL_MANIFEST_PATH
-    old_path.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(repo / verifier.APPROVAL_ARCHIVE_PATH, old_path)
 
 
 def reject_after(source: Path, module: Path, description: str, mutate, expected: str) -> None:
@@ -91,15 +86,35 @@ def main() -> None:
     reject_after(source, module, "missing reference", lambda repo: (repo / receipt).unlink(), "missing path")
     reject_after(source, module, "reference byte edit", lambda repo: (repo / receipt).write_text((repo / receipt).read_text() + " "), "saved reference byte drift")
     reject_after(source, module, "false boundary", lambda repo: mutate_json(repo / receipt, lambda value: value["boundary"].update(claims_correctness=True)), "saved reference byte drift")
-    reject_after(source, module, "missing archived approval", lambda repo: (repo / verifier.APPROVAL_ARCHIVE_PATH).unlink(), "missing path")
-    reject_after(source, module, "altered archived approval", lambda repo: (repo / verifier.APPROVAL_ARCHIVE_PATH).write_text((repo / verifier.APPROVAL_ARCHIVE_PATH).read_text() + " "), "archived approval byte drift")
-    reject_after(source, module, "resurrected active approval", resurrect_historical_approval, "historical active approval path was resurrected")
-    reject_after(source, module, "PENDING reviewed status", lambda repo: mutate_json(repo / reviewed_path, lambda value: value.update(approval_status="PENDING")), "independently reviewed approval binding drift")
-    reject_after(source, module, "rebound candidate", lambda repo: mutate_json(repo / candidate_path, lambda value: value.update(status="REVIEWED")), "independently reviewed candidate snapshot drift")
-    reject_after(source, module, "unsorted reviewed selection", lambda repo: mutate_json(repo / reviewed_path, lambda value: value["source_selections"]["internal_corpus"].reverse()), "independently reviewed approval binding drift")
-    reject_after(source, module, "absolute selection", lambda repo: mutate_json(repo / reviewed_path, lambda value: value["source_selections"]["fixed_quoted_url"].__setitem__(0, "/etc/passwd")), "independently reviewed approval binding drift")
+    reject_after(source, module, "missing owner approval", lambda repo: (repo / verifier.APPROVAL_PATH).unlink(), "missing path")
+    reject_after(source, module, "altered owner approval", lambda repo: (repo / verifier.APPROVAL_PATH).write_text((repo / verifier.APPROVAL_PATH).read_text() + " "), "owner approval byte drift")
+    reject_after(source, module, "missing approved audit envelope", lambda repo: (repo / verifier.AUDIT_PATH).unlink(), "missing path")
+    reject_after(source, module, "altered approved audit envelope", lambda repo: (repo / verifier.AUDIT_PATH).write_text((repo / verifier.AUDIT_PATH).read_text() + " "), "approved audit envelope byte drift")
+    reject_after(source, module, "missing original producer source binding", lambda repo: (repo / verifier.SOURCE_BINDING_PATH).unlink(), "missing path")
+    reject_after(source, module, "altered producer source comparison", lambda repo: mutate_json(repo / verifier.SOURCE_BINDING_PATH, lambda value: value["source_comparisons"][0].update(matches_capture=False)), "original producer source-binding byte drift")
+    reject_after(source, module, "PENDING reviewed status", lambda repo: mutate_json(repo / reviewed_path, lambda value: value.update(approval_status="PENDING")), "owner-approved review binding drift")
+    reject_after(source, module, "rebound candidate", lambda repo: mutate_json(repo / candidate_path, lambda value: value.update(status="REVIEWED")), "owner-approved candidate snapshot drift")
+    reject_after(source, module, "unsorted reviewed selection", lambda repo: mutate_json(repo / reviewed_path, lambda value: value["source_selections"]["internal_corpus"].reverse()), "owner-approved review binding drift")
+    reject_after(source, module, "absolute selection", lambda repo: mutate_json(repo / reviewed_path, lambda value: value["source_selections"]["fixed_quoted_url"].__setitem__(0, "/etc/passwd")), "owner-approved review binding drift")
+    historical = "cargo-octet/tests/fixtures/object-corpus/source-token-v2/historical-0.1.0"
+    reject_after(source, module, "historical candidate cannot select current rails", lambda repo: shutil.copyfile(source / historical / "candidate-source-manifest.json", repo / candidate_path), "owner-approved candidate snapshot drift")
+    reject_after(source, module, "historical approval cannot replace RC approval", lambda repo: shutil.copyfile(source / "openspec/changes/archive/2026-10-02-source-token-v2-function-object-cutover/evidence/owner-source-bound-references.txt", repo / verifier.APPROVAL_PATH), "owner approval byte drift")
+    reject_after(source, module, "wrong current producer version", lambda repo: (repo / "cargo-octet/Cargo.toml").write_text((repo / "cargo-octet/Cargo.toml").read_text().replace(f'version = "{verifier.OCTET_VERSION}"', 'version = "0.0.0"', 1)), "current Octet version drift")
     reject_after(source, module, "wrong Cargo revision", lambda repo: (repo / "cargo-octet/Cargo.toml").write_text((repo / "cargo-octet/Cargo.toml").read_text().replace(verifier.REVISION, "0" * 40)), "selected Cargo dependency drift")
     reject_after(source, module, "wrong Nix lock revision", lambda repo: mutate_json(repo / "flake.lock", lambda value: value["nodes"]["valence"]["locked"].update(rev="0" * 40)), "Nix locked Valence revision")
+    reject_after(source, module, "wrong Nix locked source bytes", lambda repo: mutate_json(repo / "flake.lock", lambda value: value["nodes"]["valence"]["locked"].update(narHash="sha256-" + "A" * 43 + "=")), "Nix locked Valence revision or NAR drift")
+    reject_after(source, module, "wrong Nix transport", lambda repo: mutate_json(repo / "flake.lock", lambda value: value["nodes"]["valence"]["original"].update(url=verifier.CARGO_GIT_URL)), "Nix original Valence input drift")
+    reject_after(source, module, "upstream flake evaluation", lambda repo: mutate_json(repo / "flake.lock", lambda value: value["nodes"]["valence"].update(flake=True)), "Valence input must not evaluate")
+    with tempfile.TemporaryDirectory(prefix="octet-valence-source-probe-") as directory:
+        changed_module = Path(directory) / "function_object.rs"
+        changed_module.write_bytes(module.read_bytes() + b"\n// changed producer source\n")
+        try:
+            verifier.admit(source, changed_module)
+        except verifier.AdmissionError as error:
+            assert "selected upstream Valence module bytes drift" in str(error), str(error)
+        else:
+            raise AssertionError("changed upstream Valence module unexpectedly admitted")
+    print("reviewed-v2-source negative: changed upstream Valence module REJECTED")
     reject_after(source, module, "symlink escaping source", lambda repo: ((repo / source_file).unlink(), (repo / source_file).symlink_to("/etc/passwd")), "symlink path")
     print("reviewed-v2-source tamper matrix: PASS")
 

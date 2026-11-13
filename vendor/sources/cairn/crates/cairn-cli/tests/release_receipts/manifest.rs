@@ -132,9 +132,9 @@ fn signed_evidence_manifest_verifies_indexed_evidence_artifacts() -> Result<(), 
     let bundle_verify = run_json_strings(&[
         "agent-receipt".into(),
         "verify-bundle".into(),
-        bundle_path.display().to_string(),
+        "bundle.json".into(),
         "--root".into(),
-        ".".into(),
+        dir.display().to_string(),
     ])?;
     assert_eq!(bundle_verify["valid"], true);
     assert_eq!(
@@ -167,9 +167,9 @@ fn signed_evidence_manifest_verifies_indexed_evidence_artifacts() -> Result<(), 
     let verified = run_json_strings(&[
         "evidence-manifest".into(),
         "verify".into(),
-        manifest_path.display().to_string(),
+        "manifest.json".into(),
         "--root".into(),
-        ".".into(),
+        dir.display().to_string(),
     ])?;
     assert_eq!(verified["valid"], true);
     assert_eq!(verified["verdict"], "pass");
@@ -240,6 +240,13 @@ fn signed_evidence_manifest_verifies_indexed_evidence_artifacts() -> Result<(), 
     assert_hash_field(&generated, "manifest_hash")?;
     let generated_manifest: Value =
         serde_json::from_str(&fs::read_to_string(&generated_manifest_path)?)?;
+    assert!(generated_manifest["artifacts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|entry| entry["path"]
+            .as_str()
+            .is_some_and(|path| !std::path::Path::new(path).is_absolute())));
     let generated_roles = generated_manifest["artifacts"]
         .as_array()
         .unwrap()
@@ -403,5 +410,38 @@ fn signed_evidence_manifest_verifies_indexed_evidence_artifacts() -> Result<(), 
         "{failure_text}"
     );
     assert!(!failure_text.contains("SECRET"), "{failure_text}");
+    Ok(())
+}
+
+#[test]
+fn evidence_manifest_rejects_unsafe_relative_artifact_paths() -> Result<(), Box<dyn Error>> {
+    let dir = temp_project("manifest-unsafe-path")?;
+    let manifest_path = dir.join("manifest.json");
+    let outside = dir.join("..").join("outside.json");
+    fs::write(&outside, b"{}")?;
+    let manifest = json!({
+        "artifacts": [{
+            "role": "agent_receipt",
+            "path": "../outside.json",
+            "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "schema": "agent-receipt-v1"
+        }]
+    });
+    fs::write(
+        &manifest_path,
+        serde_json::to_string_pretty(&manifest)? + "\n",
+    )?;
+    let failure = run_json_failure_strings(&[
+        "evidence-manifest".into(),
+        "verify".into(),
+        manifest_path.display().to_string(),
+        "--root".into(),
+        dir.display().to_string(),
+    ])?;
+    assert_eq!(failure["valid"], false);
+    assert!(failure["issues"].as_array().is_some_and(|issues| issues
+        .iter()
+        .any(|issue| issue["code"] == "artifact.path_unsafe")));
+    let _ = fs::remove_file(outside);
     Ok(())
 }

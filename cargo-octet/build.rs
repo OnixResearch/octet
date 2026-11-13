@@ -7,11 +7,13 @@ use std::path::PathBuf;
 const HASH_INPUT_SEPARATOR: u8 = 0;
 const FILE_INPUT_SEPARATOR: u8 = 0xff;
 const EMBEDDED_DIRECTORIES: &[&str] = &[
+    ".cargo",
     "src",
     "cargo-octet",
     "crates/octet-architecture-ir",
     "crates/octet-lint-metadata",
     "crates/octet-standards",
+    "crates/octet-merge-rail",
     "LICENSES",
     "standards/clippy-restrictions/generated",
     "standards/compiler-architecture-ir/contracts",
@@ -19,6 +21,8 @@ const EMBEDDED_DIRECTORIES: &[&str] = &[
     "standards/nominal-domains/generated",
     "standards/proof-imports/generated",
     "standards/strict-profiles/generated",
+    "vendor/cargo",
+    "vendor/sources/artifact",
 ];
 
 fn main() {

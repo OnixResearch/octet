@@ -14,8 +14,8 @@ use cairn_core::{
 use serde_json::json;
 
 use crate::support::{
-    default_policy_path, load_policy_file, print_json, read_string_option, with_receipt_hash,
-    CapabilityRoot, CapabilityRootKind,
+    admit_arguments, default_policy_path, load_policy_file, print_json, read_string_option,
+    with_receipt_hash, CapabilityRoot, CapabilityRootKind,
 };
 
 const PORTABLE_MAX_BYTES: u64 = 4 * 1024 * 1024;
@@ -51,8 +51,11 @@ pub(crate) fn run_policy_exception(args: Vec<String>) -> Result<(), Box<dyn Erro
     }
 }
 
-fn policy_hash() -> Result<String, Box<dyn Error>> {
-    let policy = load_policy_file(PathBuf::from(default_policy_path()))?;
+fn policy_hash(args: &[String]) -> Result<String, Box<dyn Error>> {
+    let path = PathBuf::from(
+        read_string_option(args, "--policy").unwrap_or_else(|| default_policy_path().to_string()),
+    );
+    let policy = load_policy_file(path)?;
     Ok(canonical_json_hash(&policy.raw))
 }
 
@@ -106,14 +109,35 @@ fn has_flag(args: &[String], flag: &str) -> bool {
 
 // r[impl cairn.policy_exception_cob.cli.preview]
 fn run_request(args: &[String]) -> Result<(), Box<dyn Error>> {
-    let policy_identity = policy_hash()?;
+    admit_arguments(
+        args,
+        &[
+            "--store",
+            "--exception-id",
+            "--base-revision",
+            "--rules",
+            "--targets",
+            "--rationale",
+            "--controls",
+            "--requesters",
+            "--reviewers",
+            "--approvers",
+            "--revokers",
+            "--observers",
+            "--workspace",
+            "--policy",
+        ],
+        &["--execute"],
+    )?;
+    let policy_identity = policy_hash(args)?;
     let store = store_path(args)?;
     let exception_id = exc_id(args)?;
-    let workspace = read_string_option(args, "--base-revision")
+    let base = read_string_option(args, "--base-revision")
         .ok_or("requires --base-revision git_oid:OID")?;
-    if !workspace.starts_with("git_oid:") {
+    if !base.starts_with("git_oid:") {
         return Err("policy-exception COB requires a git_oid base revision".into());
     }
+    let workspace = read_string_option(args, "--workspace").unwrap_or(base);
     let rules = read_string_option(args, "--rules")
         .ok_or("requires --rules rule1,rule2")?
         .split(',')
@@ -192,6 +216,7 @@ fn run_request(args: &[String]) -> Result<(), Box<dyn Error>> {
 }
 
 fn run_status(args: &[String]) -> Result<(), Box<dyn Error>> {
+    admit_arguments(args, &["--store", "--exception-id"], &[])?;
     let store = store_path(args)?;
     let id = exc_id(args)?;
     let state = read_portable(&store, &id)?;
@@ -249,6 +274,18 @@ fn mutate(
 }
 
 fn run_decision(args: &[String], decision: &str) -> Result<(), Box<dyn Error>> {
+    admit_arguments(
+        args,
+        &[
+            "--store",
+            "--exception-id",
+            "--actor",
+            "--reason",
+            "--successor",
+            "--operation-id",
+        ],
+        &["--execute"],
+    )?;
     let actor = read_string_option(args, "--actor").ok_or("requires --actor")?;
     let reason =
         read_string_option(args, "--reason").unwrap_or_else(|| "bounded reason".to_string());
@@ -286,6 +323,19 @@ fn scope_root_arg(args: &[String]) -> Result<String, Box<dyn Error>> {
 }
 
 fn run_observe(args: &[String]) -> Result<(), Box<dyn Error>> {
+    admit_arguments(
+        args,
+        &[
+            "--store",
+            "--exception-id",
+            "--actor",
+            "--observed-epoch",
+            "--finite-valid-until",
+            "--observation-id",
+            "--operation-id",
+        ],
+        &["--execute"],
+    )?;
     let actor = read_string_option(args, "--actor").ok_or("requires --actor OBSERVER")?;
     let observed = read_string_option(args, "--observed-epoch")
         .ok_or("requires --observed-epoch")?
@@ -312,6 +362,7 @@ fn run_observe(args: &[String]) -> Result<(), Box<dyn Error>> {
 }
 
 fn run_conflict(args: &[String]) -> Result<(), Box<dyn Error>> {
+    admit_arguments(args, &["--store", "--exception-id"], &[])?;
     let store = store_path(args)?;
     let id = exc_id(args)?;
     let state = read_portable(&store, &id)?;
@@ -327,6 +378,7 @@ fn run_conflict(args: &[String]) -> Result<(), Box<dyn Error>> {
 }
 
 fn run_export(args: &[String]) -> Result<(), Box<dyn Error>> {
+    admit_arguments(args, &["--store", "--exception-id"], &[])?;
     let store = store_path(args)?;
     let id = exc_id(args)?;
     let state = read_portable(&store, &id)?;

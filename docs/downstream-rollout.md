@@ -30,20 +30,26 @@ cargo_check_args = ["--lib"]
 
 ### Nix workspaces
 
-Use the published flake app or helper instead of copying bash glue:
+Use the canonical source-only Nix path on `x86_64-linux`, not copied bash glue.
+Candidate `0.1.1-rc.1` is pending qualification. After the release owner
+publishes the qualified immutable tag, the candidate evaluation command is:
 
-- supported public channel (pinned cohort `octet-public-becae962-2026-11-11`):
+```bash
+nix run github:OnixResearch/octet/v0.1.1-rc.1#cargo-octet -- check
+```
 
-  ```bash
-  nix run github:OnixResearch/octet-public/becae9621fdf96803c7859e83d303cf535f20b15#cargo-octet -- check
-  ```
+Before publication, use a reviewed local checkout:
+`nix run path:/path/to/octet#cargo-octet -- check`. Consumer flake checks should
+call the same engine through `lib.mkConsumerCheck` with an immutable canonical
+input and committed lockfile. Record the full resolved source revision, not
+`main`. The old `octet-public` cohort remains blocked and unsupported; its receipts
+are historical, not qualification of this candidate.
 
-- local development checkout: `nix run path:/path/to/octet#cargo-octet -- check`
-- consumer flake checks should call the same `cargo-octet` engine through
-  `lib.mkConsumerCheck`
-
-Pin the full public revision, not `main`. The reviewed public cohort ships
-77 Dylint lints and is checked against the public source inventory.
+Octet includes 77 Dylint lints; qualification must check the exact candidate
+inventory and dependency/toolchain cohort. Create and review the consumer's
+`Cargo.lock` before running the locked check. Start with the
+[walkthrough](examples/first-checked-rust-patch/README.md), then promote scope
+only after reviewing actual findings and artifact-verifier results.
 
 Repo-local helpers like `just octet` should stay thin and delegate to the
 same command surface rather than reimplementing toolchain, lockfile, or Dylint

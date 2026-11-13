@@ -3,15 +3,15 @@
   "status": "PENDING",
   "selected_for_named_rails": false,
   "normalization_algorithm": "octet-source-token-v2",
-  "tested_octet_version": "0.1.0",
+  "tested_octet_version": "0.1.1-rc.1",
   "candidate_source": {
     "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/src/lib.rs",
     "blake3": "208621f8824deeccf145d9f4515187e035e81e1c0ce1033853458686bef514b6"
   },
   "candidate_receipt": {
     "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/positive-v2-receipt.json",
-    "blake3": "66557c8db7562520241f65748e81d8d1b838554d87628acdf427d5e0341a9519",
-    "provenance": "Byte-identical diagnostic replay from a disposable Octet checkout using an unselected local Valence v2 patch after shared source-token and marker lexical-boundary fixes; not independent review."
+    "blake3": "890ef71644eb7af0e9c6c3ff7b20fd0fb9630547c434490ed1096b765a7de8b8",
+    "provenance": "Actual unapproved pre-freeze capture from immutable wrapper /nix/store/0p0vf4p3q81yp2yfy0h349yi6j13h68l-cargo-octet-0.1.1-rc.1/bin/cargo-octet (BLAKE3 83b0232a2503e903db2a7a106ff8925f23f5cb171eb8a694c809622c1ecfcf57), inner Rust executable /nix/store/0p0vf4p3q81yp2yfy0h349yi6j13h68l-cargo-octet-0.1.1-rc.1/bin/.cargo-octet-wrapped (BLAKE3 469bd70a9f9230ddd1f486ecc5305b31a4246f828fdbed3927403db8d48314fa), reporting cargo-octet 0.1.1-rc.1. Fixed receipt uses fixture-relative src/lib.rs. The other selected references cover every earlier selected source plus all three modules extracted during the repair. Immutable Nix derivation/source comparisons bind all 42 unique selected-source/module/consumer-test paths and the reviewed compiled Valence module. This frozen draft and its four references are not selected or approved until a separate direct owner decision. Not final public-source qualification, correctness or release eligibility."
   },
   "source_selections": {
     "fixed_quoted_url": [
@@ -70,8 +70,11 @@
       "crates/octet-standards/src/proof.rs",
       "crates/octet-standards/src/receipt.rs",
       "crates/octet-standards/src/report.rs",
+      "crates/octet-standards/src/report/presentation.rs",
       "crates/octet-standards/src/resource.rs",
       "crates/octet-standards/src/runner.rs",
+      "crates/octet-standards/src/runner/planning.rs",
+      "crates/octet-standards/src/runner/tracking.rs",
       "crates/octet-standards/src/source.rs",
       "crates/octet-standards/src/suppression.rs"
     ]
@@ -91,7 +94,7 @@
     },
     {
       "path": "cargo-octet/src/cli.rs",
-      "blake3": "2f180af823c873cf8b0500abc7d77515a4ddff86ad73b91dda396256e6c8e7a1"
+      "blake3": "c5ffaef2934cc62002c01da52165015e935964d3a5df2aeb5e428a6defa49f68"
     },
     {
       "path": "cargo-octet/src/config.rs",
@@ -111,7 +114,7 @@
     },
     {
       "path": "cargo-octet/src/evidence_rails.rs",
-      "blake3": "11b8ef487333b111b64f641865fc473f882ddeb21d336c174758ff6dba19e29b"
+      "blake3": "6bc5ab9b55ca6f77c705a34eab5e325fd9e73131d4da5ad62a98ca31102ebb9d"
     },
     {
       "path": "cargo-octet/src/fingerprint.rs",
@@ -119,7 +122,7 @@
     },
     {
       "path": "cargo-octet/src/lib.rs",
-      "blake3": "b95e17830fd82a5f8c29abd3290556c2c84be18642af8b88af3848cafa63f5da"
+      "blake3": "b47ea307093a3720f32159687f350aa66f5841dff9d19b14a8f906adf6df38ef"
     },
     {
       "path": "cargo-octet/src/main.rs",
@@ -139,7 +142,7 @@
     },
     {
       "path": "cargo-octet/src/proof_ref.rs",
-      "blake3": "37418b996c288eac0ead7813dff3a60aaac5fbd4e68572e9e5aa0ed0f6bef338"
+      "blake3": "d18384c5aa50e47e4af4e12043be1e2974b4a206a783d5f2ec39949e71bda3af"
     },
     {
       "path": "cargo-octet/src/provider_manifest.rs",
@@ -147,7 +150,7 @@
     },
     {
       "path": "cargo-octet/src/roadmap.rs",
-      "blake3": "ba010f9a2ddd70915a950529f52e2dcf48d1324bf46c1f63b61638380b3ef1d6"
+      "blake3": "97b1e7ce68d647d03bb0cd56bbfed058b2a057808008a6782b1529b9559581cd"
     },
     {
       "path": "cargo-octet/src/transcript.rs",
@@ -159,7 +162,7 @@
     },
     {
       "path": "crates/octet-standards/src/architecture.rs",
-      "blake3": "ea45bf9e938cd230212260fec4d6a9720d00d3d9b8564593bc0baa008fa0c612"
+      "blake3": "385380b8ec14904f4a3046abd01693802e2b969c154d168d5894e93aa52c18ad"
     },
     {
       "path": "crates/octet-standards/src/artifacts.rs",
@@ -175,7 +178,7 @@
     },
     {
       "path": "crates/octet-standards/src/cli_shell.rs",
-      "blake3": "6dd736e528488f9fced88a17fd0177e60800728a7c284ad6be736f28dc64b01b"
+      "blake3": "f795ab10b9f8a734a3bffc4f32aa5914b42850df333d2668db33fc7a3a7b57c7"
     },
     {
       "path": "crates/octet-standards/src/diagnostic.rs",
@@ -187,7 +190,7 @@
     },
     {
       "path": "crates/octet-standards/src/lib.rs",
-      "blake3": "5288998465a2bd83fb723d173df049e12342d63a702bb2ac539f1a1e4bbc0070"
+      "blake3": "6aabbcc0d387e9b500379ac627c6c1252850be4ee819bf3f65292564749fddc1"
     },
     {
       "path": "crates/octet-standards/src/main.rs",
@@ -199,7 +202,7 @@
     },
     {
       "path": "crates/octet-standards/src/proof.rs",
-      "blake3": "03a8d07abe2759c642e2692ba28fd31cae022eaf596d8dae79ce716304b274e8"
+      "blake3": "f38b5af85391a469f58a0d00e1255eed6c6b92e2f83152adc251f134ce4cb96b"
     },
     {
       "path": "crates/octet-standards/src/receipt.rs",
@@ -207,7 +210,11 @@
     },
     {
       "path": "crates/octet-standards/src/report.rs",
-      "blake3": "621ff12d0f6f6923be71340b9994383bfc69e7b97d19a05c9608b8d555abc843"
+      "blake3": "c473f89d2c26663682d9e38715626d17aed659c3160a919bcdae7067af0c98fb"
+    },
+    {
+      "path": "crates/octet-standards/src/report/presentation.rs",
+      "blake3": "677e1556d4dd0a1919765906129371b92b73ad6ebc23b657d923a6eb98cd2a44"
     },
     {
       "path": "crates/octet-standards/src/resource.rs",
@@ -215,7 +222,15 @@
     },
     {
       "path": "crates/octet-standards/src/runner.rs",
-      "blake3": "34883d6f8ddb4a634e0286945def882f44748dd947c510eef3b250ce02d936b2"
+      "blake3": "640a9c9f969d7a60857ec1c38cbcf0d036e4d7404b6b3fedf1719b7e9fdd2b05"
+    },
+    {
+      "path": "crates/octet-standards/src/runner/planning.rs",
+      "blake3": "5ef60717ccd380a28381263abbc68d8e91a4e47d6cd1053c8a3b132ce4286ea4"
+    },
+    {
+      "path": "crates/octet-standards/src/runner/tracking.rs",
+      "blake3": "a9399af45dd061fb29853dc0a1983b1aa36e79bb558f888ff39389c18e891470"
     },
     {
       "path": "crates/octet-standards/src/source.rs",
@@ -229,22 +244,22 @@
   "reference_hashes": [
     {
       "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/expanded-internal-corpus-caveat-taxonomy.json",
-      "blake3": "850f8b9497e44ce2e92023e943ba85fbc6894ad2f0a29b8fd7fe49e30d1c24a2",
-      "object_count": 1579
+      "blake3": "49a2169054172094d5ad78da78506d0d4929bae38005969f1fedd08d4b67b773",
+      "object_count": 1764
     },
     {
       "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/expanded-internal-corpus-receipt.json",
-      "blake3": "bf205417685d396a9c965b53c8b5a1dddfe98721280d83f93469820b50d91387",
-      "object_count": 1579
+      "blake3": "567e15bbb0ea26394b838676c9c945fd7f2342d3e208bd15095e6315f77e4ee6",
+      "object_count": 1764
     },
     {
       "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/internal-corpus-receipt.json",
-      "blake3": "9eb77fb9514279dba903df797a6c884ce9a9f3795b82469afe5436b4ce5542d1",
-      "object_count": 1037
+      "blake3": "f191fb19df00871d9c7b68322a218fa827704429e04268733d9782c81abeac21",
+      "object_count": 1155
     },
     {
       "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/positive-v2-receipt.json",
-      "blake3": "66557c8db7562520241f65748e81d8d1b838554d87628acdf427d5e0341a9519",
+      "blake3": "890ef71644eb7af0e9c6c3ff7b20fd0fb9630547c434490ed1096b765a7de8b8",
       "object_count": 1
     }
   ],
@@ -264,14 +279,14 @@
   ],
   "candidate_consumer_test": {
     "path": "cargo-octet/tests/fingerprint_consumer.rs",
-    "blake3": "f77b5ea1b7e9006d978c7c7f23f5f437f4fe28c8456c6569f0f9291141df5414"
+    "blake3": "7e434d91e19cd454468c1f021e5353ba5c7cc183c2d84071d7cbcf1d4bf6aa00"
   },
   "tested_valence_module": {
     "repository_uri": "https://github.com/OnixResearch/valence.git",
     "path": "crates/valence-core/src/function_object.rs",
     "blake3": "11f0f4233aaf3153966f6aa37de570c2dcd0e75335591934461ae2b25ab3ecb1",
-    "reviewed_upstream_revision": null
+    "reviewed_upstream_revision": "7546a78b4eeef8686c6837e187aa12420f4f03bb"
   },
-  "currently_selected_valence_revision": "5f1c2ba5072c6f9622fa59b1af20502985f569fd",
+  "currently_selected_valence_revision": "7546a78b4eeef8686c6837e187aa12420f4f03bb",
   "independent_owner_approval": null
 }

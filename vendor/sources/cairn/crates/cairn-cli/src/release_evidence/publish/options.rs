@@ -1,6 +1,8 @@
 use std::{error::Error, path::PathBuf};
 
-use crate::support::{read_option, read_string_option};
+use crate::support::{
+    read_option, read_string_option, reject_positional_arguments, reject_unknown_options,
+};
 
 pub(super) struct ReleaseEvidencePublishOptions {
     pub(super) root: PathBuf,
@@ -15,6 +17,19 @@ pub(super) struct ReleaseEvidencePublishOptions {
 pub(super) fn release_evidence_publish_options(
     args: &[String],
 ) -> Result<ReleaseEvidencePublishOptions, Box<dyn Error>> {
+    reject_unknown_options(
+        args,
+        &[
+            "--root",
+            "--index",
+            "--artifact-dir",
+            "--publish-dir",
+            "--channel",
+            "--release",
+            "--retention",
+        ],
+    )?;
+    reject_positional_arguments(args)?;
     let root = read_option(args.to_vec(), "--root", ".");
     let Some(index) = read_string_option(args, "--index").map(PathBuf::from) else {
         return Err("release-evidence publish requires --index <file>".into());

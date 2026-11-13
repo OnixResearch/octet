@@ -1,5 +1,5 @@
 {
-  "actor": "z6MkksdCQEQdRwG6c747WuMbyFoLvLhxKYGio5JPBBYEvt6y",
+  "actor": "z6Mkqx4W5rXbHSAvzq8itoNc8UXBm4k2kxh4RujGfVZjr8x4",
   "artifact_count": 4,
   "artifacts": [
     {
@@ -34,9 +34,9 @@
   "change": "exercise-cairn-cob-conflict-recovery",
   "collaboration_command": "collaboration import",
   "command": "cob import",
-  "content_root": "7ef48662e44b8527239f0043ea56e8cf50690c4eb66410bbe4ed36c04e5c6928",
+  "content_root": "23bc3850a07556ec3656e2b10ac32f58d8433b8786bc1a8d44c0110760df618b",
   "delegates": [
-    "z6Mkehh68deeBD4NyGrgYNyCsPujeE1r8QHCs5Csn72SwBVz"
+    "z6MkufVcDTv8btEmwreomZFJwZXXk9HZh3eZTYiwXT4x28x9"
   ],
   "dry_run": false,
   "format_libraries": {
@@ -46,7 +46,7 @@
     "radicle-crypto": "0.17.0",
     "radicle-oid": "0.2.0"
   },
-  "input_hash": "02193736415ab2fb84e907416261abb8bb64483e38182b7c48f7ff61d0a33b90",
+  "input_hash": "698709dc5077d8565c3e4405a8e82853c3d0f8ab0545037cc7a7184269d79047",
   "mutated": true,
   "non_claims": [
     "signed COB creation proves bounded local Git object and reference observations only",
@@ -54,15 +54,15 @@
     "embedded creator and delegate keys are immutable object authority, not Radicle identity-document or future authorization proof",
     "local Git COB creation does not prove node participation, publication, synchronization, peer availability, convergence, or remote trust"
   ],
-  "object_id": "87027ed6c24b75036ea5d409e5eedb21a969f5b2",
-  "operation_id": "87027ed6c24b75036ea5d409e5eedb21a969f5b2",
-  "plan_hash": "3d7b4c0a3d0bf29f9fd8b3cfb3d51164953e8c83fd59131766c153ff41a27fb9",
+  "object_id": "693ca9b09bc87060358cdc22188f5a823adffa6b",
+  "operation_id": "693ca9b09bc87060358cdc22188f5a823adffa6b",
+  "plan_hash": "7902861e3afce0feda240a8f3d72f57c3e38700f1c843cd992e1cc4b6609e32c",
   "policy": "octet-default",
-  "policy_hash": "0d5e71092b45e2a8cfbaed4edffe6b01cd6cd0e4dc71f9c86fc1d0bf82cc70fc",
-  "receipt_hash": "a12fae03a9ee6b84455ac265c6bbc01ef15ce2021c52ee6a4f2de84edacdc4e2",
-  "repository_head_oid": "03c74d76cb153d88bce33a76b4c40fbf2a0fc365",
-  "root": "/tmp/octet-cob-conflict-5au8iuas/source-root",
-  "state_hash": "3ac815d4e5ad00121189115652e9fec2b234447fad71ab8b0d1b8873f4c7d45e",
+  "policy_hash": "454b429ad8c48acf7144c1c42d810f0425f23867c2c83b8625af3d42a6895b4c",
+  "receipt_hash": "94df53b66cc7bf51461517eba1143943c07be038e49dd9d9b456b163f8038071",
+  "repository_head_oid": "08dde030f4d6fe23314c03acdfd520b453b40ad9",
+  "root": "/var/tmp/octet-public-builds-20261112/octet-cob-conflict-9jyoirom/source-root",
+  "state_hash": "c6efe7ae5d7b1df823bb29829e1c8a5ef58476fa1419465e0efb6b7d6a8b562b",
   "type_name": "xyz.onixresearch.cairn-change",
   "valid": true,
   "verdict": "PASS",

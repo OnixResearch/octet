@@ -27,14 +27,17 @@
   ],
   "schema_version": "octet-nickel-export-cutover-manifest/v1",
   "standalone_source": {
+    "cargo_distribution": "vendor/cargo/nickel-export-core-0.1.0",
     "cargo_git_url": "https://github.com/OnixResearch/nickel-export",
     "cargo_source": "git+https://github.com/OnixResearch/nickel-export?rev=257fafc1c746f1faf156207043a4c826bfb16d49#257fafc1c746f1faf156207043a4c826bfb16d49",
     "coordinate": "github:OnixResearch/nickel-export",
     "crate_target": "nickel-export-core",
+    "distribution_manifest": "vendor/dependencies.ncl",
     "flake_source": "github:OnixResearch/nickel-export/257fafc1c746f1faf156207043a4c826bfb16d49",
     "local_override_policy": "local path overrides are diagnostic-only and MUST NOT replace the exact release dependency, flake input, or lock identity",
     "release_profile": "cairn/specs/deterministic-nickel-export/spec.md",
-    "revision": "257fafc1c746f1faf156207043a4c826bfb16d49"
+    "revision": "257fafc1c746f1faf156207043a4c826bfb16d49",
+    "source_archive_sha256": "77e14df0ca95624ae5d8e9fc9fe45aaa057fc7e698123cfadeb2d09e0600298b"
   },
   "supported_claim": "Octet delegates evaluator-neutral export identity and admission to one pinned standalone core while retaining product policy and a checked legacy projection"
 }

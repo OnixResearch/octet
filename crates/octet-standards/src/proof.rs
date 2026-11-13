@@ -1258,7 +1258,7 @@ pub fn policy_is_verified(policy: &PolicyEntry) -> bool {
 /// A verified policy with no declared rails still runs the metadata check and fails, so it is
 /// applicable. With declared rails, at least one rail must match the supplied source scope.
 #[must_use]
-pub fn proof_rail_checker_applies(policy: &PolicyEntry, sources: &[SourceFile]) -> bool {
+pub fn rail_checker_applies(policy: &PolicyEntry, sources: &[SourceFile]) -> bool {
     policy_is_verified(policy)
         && (policy.proof_rails.is_empty() || policy.proof_rails.iter().any(|rail| rail_is_relevant(rail, sources)))
 }

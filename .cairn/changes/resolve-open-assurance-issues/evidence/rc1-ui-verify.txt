@@ -1,0 +1,580 @@
+Public rendering of an actual retained UI command transcript.
+Repository, isolated-store/capture and Cargo-target paths are replaced with
+labelled variables; this rendering is not byte-identical raw stdout.
+Raw local transcript BLAKE3: db6777e2d1147445cf88a9ed479e87f245128d84f22409ec4433bdb8d7a2c84a
+No success is inferred from the rendering; EXIT below is the executed command result.
+
+$ nix --store 'local?root=$ISOLATED_STORE' develop /nix/store/nz8ixsk614n0lqk75pi7zm4i8fmdmc8h-nix-shell-env.drv --command env CARGO_TARGET_DIR=$CARGO_TARGET_DIR cargo test --test ui ui -- --ignored --nocapture
+building '/nix/store/q8wmq7j5fg1959c025casxv0kl4s3glr-nix-shell-env-env.drv'...
+these 8 paths will be fetched (13.5 MiB download, 47.9 MiB unpacked):
+  /nix/store/kwyi4bq5s2qgwbhz6cs4gjy57c2zdxws-bash-interactive-5.3p20
+  /nix/store/lgiispyin8621zdwxgl9x89cbnvdkxd6-bash-interactive-5.3p20-man
+  /nix/store/pqyiidz5mi73wv5f91d48s9plcqyj5bz-glibc-2.44-57
+  /nix/store/00fs4zz9c0jjcvs62wg39b91dydz7zqb-libidn2-2.3.8
+  /nix/store/bx7jdvkba26sy20ryr4l617qqmzj9hff-libunistring-1.4.2
+  /nix/store/r9nlzwasmr1hgcbrfzcp2b2cz33scij2-ncurses-6.6
+  /nix/store/j9436i4mh2hlhnlqlk59fq5dc2sprs4i-readline-8.3p3
+  /nix/store/pkkjnyk4z46n18fkyqwlg24p272apb69-xgcc-16.2.0-libgcc
+copying path '/nix/store/lgiispyin8621zdwxgl9x89cbnvdkxd6-bash-interactive-5.3p20-man' from 'https://cache.nixos.org'...
+copying path '/nix/store/pkkjnyk4z46n18fkyqwlg24p272apb69-xgcc-16.2.0-libgcc' from 'https://cache.nixos.org'...
+copying path '/nix/store/bx7jdvkba26sy20ryr4l617qqmzj9hff-libunistring-1.4.2' from 'https://cache.nixos.org'...
+copying path '/nix/store/00fs4zz9c0jjcvs62wg39b91dydz7zqb-libidn2-2.3.8' from 'https://cache.nixos.org'...
+copying path '/nix/store/pqyiidz5mi73wv5f91d48s9plcqyj5bz-glibc-2.44-57' from 'https://cache.nixos.org'...
+copying path '/nix/store/r9nlzwasmr1hgcbrfzcp2b2cz33scij2-ncurses-6.6' from 'https://cache.nixos.org'...
+copying path '/nix/store/j9436i4mh2hlhnlqlk59fq5dc2sprs4i-readline-8.3p3' from 'https://cache.nixos.org'...
+copying path '/nix/store/kwyi4bq5s2qgwbhz6cs4gjy57c2zdxws-bash-interactive-5.3p20' from 'https://cache.nixos.org'...
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.07s
+     Running tests/ui.rs ($CARGO_TARGET_DIR/debug/deps/ui-c6f6cb8458a451d6)
+
+running 1 test
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.05s
+[ui fixture] acronym_allowlist_custom/acronym_allowlist_custom
+[ui snapshot] $REPO/ui_tests/acronym_allowlist_custom.stderr
+[ui fixture] acronym_style
+[ui snapshot] $REPO/ui_tests/acronym_style.stderr
+[ui fixture] allocation_in_loop
+[ui snapshot] $REPO/ui_tests/allocation_in_loop.stderr
+[ui fixture] ambient_clock
+[ui snapshot] $REPO/ui_tests/ambient_clock.stderr
+[ui fixture] ambient_clock_cfg_not
+[ui snapshot] $REPO/ui_tests/ambient_clock_cfg_not.stderr
+[ui fixture] ambient_clock_test_harness
+[ui snapshot] $REPO/ui_tests/ambient_clock_test_harness.stderr
+[ui fixture] ambient_env
+[ui snapshot] $REPO/ui_tests/ambient_env.stderr
+[ui fixture] ambient_random
+[ui snapshot] $REPO/ui_tests/ambient_random.stderr
+[ui fixture] ambiguous_params
+[ui snapshot] $REPO/ui_tests/ambiguous_params.stderr
+[ui fixture] assertion_density
+[ui snapshot] $REPO/ui_tests/assertion_density.stderr
+[ui fixture] assertion_density_custom/assertion_density_custom
+[ui snapshot] $REPO/ui_tests/assertion_density_custom.stderr
+[ui fixture] bool_naming
+[ui snapshot] $REPO/ui_tests/bool_naming.stderr
+[ui fixture] bool_naming_local_rename
+[ui snapshot] $REPO/ui_tests/bool_naming_local_rename.stderr
+[ui fixture] bool_naming_macro_fallback
+[ui snapshot] $REPO/ui_tests/bool_naming_macro_fallback.stderr
+[ui fixture] borrowed_argument_types
+[ui snapshot] $REPO/ui_tests/borrowed_argument_types.stderr
+[ui fixture] catch_all_on_enum
+[ui snapshot] $REPO/ui_tests/catch_all_on_enum.stderr
+[ui fixture] clone_then_borrow
+[ui snapshot] $REPO/ui_tests/clone_then_borrow.stderr
+[ui fixture] compound_assertion
+[ui snapshot] $REPO/ui_tests/compound_assertion.stderr
+[ui fixture] compound_assertion_indented
+[ui snapshot] $REPO/ui_tests/compound_assertion_indented.stderr
+[ui fixture] compound_assertion_machine_applicable
+[ui snapshot] $REPO/ui_tests/compound_assertion_machine_applicable.stderr
+[ui fixture] compound_assertion_message_guardrail
+[ui snapshot] $REPO/ui_tests/compound_assertion_message_guardrail.stderr
+[ui fixture] compound_assertion_or_guardrail
+[ui snapshot] $REPO/ui_tests/compound_assertion_or_guardrail.stderr
+[ui fixture] compound_condition
+[ui snapshot] $REPO/ui_tests/compound_condition.stderr
+[ui fixture] concrete_construction_in_core/concrete_construction_in_core
+[ui snapshot] $REPO/ui_tests/concrete_construction_in_core.stderr
+warning: unknown lint: `explicit_defaults`
+  --> concrete_construction_in_core.rs:21:9
+   |
+21 | #[allow(explicit_defaults)]
+   |         ^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unknown_lints)]` on by default
+
+warning: struct `DomainValue` is never constructed
+ --> concrete_construction_in_core.rs:1:8
+  |
+1 | struct DomainValue;
+  |        ^^^^^^^^^^^
+  |
+  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: associated function `new` is never used
+ --> concrete_construction_in_core.rs:4:8
+  |
+3 | impl DomainValue {
+  | ---------------- associated function in this implementation
+4 |     fn new() -> Self {
+  |        ^^^
+
+warning: function `construct_local_domain_value` is never used
+ --> concrete_construction_in_core.rs:9:4
+  |
+9 | fn construct_local_domain_value() {
+  |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `construct_standard_value` is never used
+  --> concrete_construction_in_core.rs:13:4
+   |
+13 | fn construct_standard_value() {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `construct_nested_external_value` is never used
+  --> concrete_construction_in_core.rs:17:4
+   |
+17 | fn construct_nested_external_value() {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `construct_external_default_value` is never used
+  --> concrete_construction_in_core.rs:22:4
+   |
+22 | fn construct_external_default_value() {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `construct_fallible_external_value` is never used
+  --> concrete_construction_in_core.rs:26:4
+   |
+26 | fn construct_fallible_external_value() -> Option<()> {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `construct_fallible_standard_value` is never used
+  --> concrete_construction_in_core.rs:31:4
+   |
+31 | fn construct_fallible_standard_value() -> Option<()> {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `main` is never used
+  --> concrete_construction_in_core.rs:36:4
+   |
+36 | fn main() {
+   |    ^^^^
+
+[ui fixture] concrete_construction_in_core_custom/concrete_construction_in_core_custom
+[ui snapshot] $REPO/ui_tests/concrete_construction_in_core_custom.stderr
+warning: unknown lint: `non_trait_imports`
+ --> concrete_construction_in_core_custom.rs:1:10
+  |
+1 | #![allow(non_trait_imports, reason = "fixture targets alias resolution in the construction lint")]
+  |          ^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unknown_lints)]` on by default
+
+warning: function `construct_reviewed_value` is never used
+ --> concrete_construction_in_core_custom.rs:3:4
+  |
+3 | fn construct_reviewed_value() {
+  |    ^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `construct_aliased_reviewed_value` is never used
+ --> concrete_construction_in_core_custom.rs:7:4
+  |
+7 | fn construct_aliased_reviewed_value() {
+  |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `construct_unreviewed_sibling` is never used
+  --> concrete_construction_in_core_custom.rs:12:4
+   |
+12 | fn construct_unreviewed_sibling() {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `main` is never used
+  --> concrete_construction_in_core_custom.rs:16:4
+   |
+16 | fn main() {
+   |    ^^^^
+
+[ui fixture] concrete_construction_in_core_no_scope
+[ui snapshot] $REPO/ui_tests/concrete_construction_in_core_no_scope.stderr
+[ui fixture] contradictory_time
+[ui snapshot] $REPO/ui_tests/contradictory_time.stderr
+[ui fixture] core_scope_resolution_custom/core_scope_resolution_custom
+[ui snapshot] $REPO/ui_tests/core_scope_resolution_custom.stderr
+[ui fixture] defaulting_trait_method
+[ui snapshot] $REPO/ui_tests/defaulting_trait_method.stderr
+[ui fixture] defaulting_trait_method_required
+[ui snapshot] $REPO/ui_tests/defaulting_trait_method_required.stderr
+[ui fixture] deref_polymorphism
+[ui snapshot] $REPO/ui_tests/deref_polymorphism.stderr
+[ui fixture] drop_must_use
+[ui snapshot] $REPO/ui_tests/drop_must_use.stderr
+[ui fixture] durability_adapter/durability_adapter
+[ui snapshot] $REPO/ui_tests/durability_adapter.stderr
+[ui fixture] durability_discard/durability_discard
+[ui snapshot] $REPO/ui_tests/durability_discard.stderr
+[ui fixture] durability_flush_only/durability_flush_only
+[ui snapshot] $REPO/ui_tests/durability_flush_only.stderr
+[ui fixture] durability_handled/durability_handled
+[ui snapshot] $REPO/ui_tests/durability_handled.stderr
+[ui fixture] durability_recovery/durability_recovery
+[ui snapshot] $REPO/ui_tests/durability_recovery.stderr
+[ui fixture] durability_retry/durability_retry
+[ui snapshot] $REPO/ui_tests/durability_retry.stderr
+[ui fixture] excessive_file_length
+[ui snapshot] $REPO/ui_tests/excessive_file_length.stderr
+[ui fixture] excessive_file_length_within_limit
+[ui snapshot] $REPO/ui_tests/excessive_file_length_within_limit.stderr
+[ui fixture] explicit_defaults/explicit_defaults
+[ui snapshot] $REPO/ui_tests/explicit_defaults.stderr
+[ui fixture] fallible_int_fallback
+[ui snapshot] $REPO/ui_tests/fallible_int_fallback.stderr
+[ui fixture] fallible_int_fallback_no_std
+[ui snapshot] $REPO/ui_tests/fallible_int_fallback_no_std.stderr
+[ui fixture] fat_trait
+[ui snapshot] $REPO/ui_tests/fat_trait.stderr
+[ui fixture] fat_trait_within_limit
+[ui snapshot] $REPO/ui_tests/fat_trait_within_limit.stderr
+[ui fixture] file_source_admission_data
+[ui snapshot] $REPO/ui_tests/file_source_admission_data.stderr
+[ui fixture] file_source_admission_parsed
+[ui snapshot] $REPO/ui_tests/file_source_admission_parsed.stderr
+[ui fixture] float_for_currency
+[ui snapshot] $REPO/ui_tests/float_for_currency.stderr
+[ui fixture] foreign_enum_catch_all
+[ui snapshot] $REPO/ui_tests/foreign_enum_catch_all.stderr
+[ui fixture] foreign_enum_catch_all_macro
+[ui snapshot] $REPO/ui_tests/foreign_enum_catch_all_macro.stderr
+[ui fixture] foreign_enum_catch_all_own_enum
+[ui snapshot] $REPO/ui_tests/foreign_enum_catch_all_own_enum.stderr
+[ui fixture] fragile_exhaustive_enum_match
+[ui snapshot] $REPO/ui_tests/fragile_exhaustive_enum_match.stderr
+[ui fixture] fragile_exhaustive_enum_match_foreign
+[ui snapshot] $REPO/ui_tests/fragile_exhaustive_enum_match_foreign.stderr
+[ui fixture] fragile_exhaustive_enum_match_sealed
+[ui snapshot] $REPO/ui_tests/fragile_exhaustive_enum_match_sealed.stderr
+[ui fixture] fragile_exhaustive_enum_match_state_machine
+[ui snapshot] $REPO/ui_tests/fragile_exhaustive_enum_match_state_machine.stderr
+[ui fixture] function_length
+[ui snapshot] $REPO/ui_tests/function_length.stderr
+[ui fixture] function_length_custom/function_length_custom
+[ui snapshot] $REPO/ui_tests/function_length_custom.stderr
+[ui fixture] function_length_test_harness
+[ui snapshot] $REPO/ui_tests/function_length_test_harness.stderr
+[ui fixture] global_state_in_core/global_state_in_core
+[ui snapshot] $REPO/ui_tests/global_state_in_core.stderr
+[ui fixture] group_allow_safety
+[ui snapshot] $REPO/ui_tests/group_allow_safety.stderr
+[ui fixture] group_deny_naming
+[ui snapshot] $REPO/ui_tests/group_deny_naming.stderr
+[ui fixture] gui_tests/gui_tests
+[ui snapshot] $REPO/ui_tests/gui_tests.stderr
+[ui fixture] ignored_join_handle
+[ui snapshot] $REPO/ui_tests/ignored_join_handle.stderr
+[ui fixture] ignored_result
+[ui snapshot] $REPO/ui_tests/ignored_result.stderr
+[ui fixture] ignored_result_drop
+[ui snapshot] $REPO/ui_tests/ignored_result_drop.stderr
+[ui fixture] ignored_result_shutdown_send
+[ui snapshot] $REPO/ui_tests/ignored_result_shutdown_send.stderr
+[ui fixture] impure_call_in_core/impure_call_in_core
+[ui snapshot] $REPO/ui_tests/impure_call_in_core.stderr
+[ui fixture] impure_call_in_core_sibling_scope/impure_call_in_core_sibling_scope
+[ui snapshot] $REPO/ui_tests/impure_call_in_core_sibling_scope.stderr
+[ui fixture] interior_mutability_in_core/interior_mutability_in_core
+[ui snapshot] $REPO/ui_tests/interior_mutability_in_core.stderr
+[ui fixture] legacy_config_sections_custom/legacy_config_sections_custom
+[ui snapshot] $REPO/ui_tests/legacy_config_sections_custom.stderr
+[ui fixture] lint_guardrail_common
+[ui snapshot] $REPO/ui_tests/lint_guardrail_common.stderr
+[ui fixture] logging_in_core/logging_in_core
+[ui snapshot] $REPO/ui_tests/logging_in_core.stderr
+[ui fixture] macro_dependency_custom/macro_dependency_custom
+[ui snapshot] $REPO/ui_tests/macro_dependency_custom.stderr
+[ui fixture] magic_number
+[ui snapshot] $REPO/ui_tests/magic_number.stderr
+[ui fixture] max_parameters_custom/max_parameters_custom
+[ui snapshot] $REPO/ui_tests/max_parameters_custom.stderr
+[ui fixture] missing_const_fn
+[ui snapshot] $REPO/ui_tests/missing_const_fn.stderr
+[ui fixture] module_file_count
+[ui snapshot] $REPO/ui_tests/module_file_count.stderr
+[ui fixture] module_file_count_at_limit
+[ui snapshot] $REPO/ui_tests/module_file_count_at_limit.stderr
+[ui fixture] multi_lock_ordering
+[ui snapshot] $REPO/ui_tests/multi_lock_ordering.stderr
+[ui fixture] multi_lock_ordering_parking_lot/multi_lock_ordering_parking_lot
+[ui snapshot] $REPO/ui_tests/multi_lock_ordering_parking_lot.stderr
+warning: unknown lint: `multi_lock_ordering`
+ --> multi_lock_ordering_parking_lot.rs:1:9
+  |
+1 | #![warn(multi_lock_ordering)]
+  |         ^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unknown_lints)]` on by default
+
+warning: unknown lint: `non_trait_imports`
+ --> multi_lock_ordering_parking_lot.rs:2:10
+  |
+2 | #![allow(non_trait_imports, reason = "fixture targets another lint; the import and path-naming lints have their own fixtures")]
+  |          ^^^^^^^^^^^^^^^^^
+
+warning: struct `ParkingTracker` is never constructed
+ --> multi_lock_ordering_parking_lot.rs:7:8
+  |
+7 | struct ParkingTracker {
+  |        ^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: struct `SharedParkingTracker` is never constructed
+  --> multi_lock_ordering_parking_lot.rs:13:8
+   |
+13 | struct SharedParkingTracker {
+   |        ^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `OrderedParkingTracker` is never constructed
+  --> multi_lock_ordering_parking_lot.rs:19:8
+   |
+19 | struct OrderedParkingTracker {
+   |        ^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `SingleParkingLock` is never constructed
+  --> multi_lock_ordering_parking_lot.rs:26:8
+   |
+26 | struct SingleParkingLock {
+   |        ^^^^^^^^^^^^^^^^^
+
+warning: function `main` is never used
+  --> multi_lock_ordering_parking_lot.rs:30:4
+   |
+30 | fn main() {
+   |    ^^^^
+
+[ui fixture] mutating_input_in_pure
+[ui snapshot] $REPO/ui_tests/mutating_input_in_pure.stderr
+[ui fixture] namespace_bare_lint_deny
+[ui snapshot] $REPO/ui_tests/namespace_bare_lint_deny.stderr
+[ui fixture] namespace_canonical_group_allow
+[ui snapshot] $REPO/ui_tests/namespace_canonical_group_allow.stderr
+[ui fixture] namespace_canonical_lint_allow
+[ui snapshot] $REPO/ui_tests/namespace_canonical_lint_allow.stderr
+[ui fixture] namespace_unsupported_octet_attr
+[ui snapshot] $REPO/ui_tests/namespace_unsupported_octet_attr.stderr
+[ui fixture] negated_predicate
+[ui snapshot] $REPO/ui_tests/negated_predicate.stderr
+[ui fixture] negated_predicate_local_rename
+[ui snapshot] $REPO/ui_tests/negated_predicate_local_rename.stderr
+[ui fixture] nested_conditionals
+[ui snapshot] $REPO/ui_tests/nested_conditionals.stderr
+[ui fixture] nesting_custom/nesting_custom
+[ui snapshot] $REPO/ui_tests/nesting_custom.stderr
+[ui fixture] newtype_invariant_bypass
+[ui snapshot] $REPO/ui_tests/newtype_invariant_bypass.stderr
+[ui fixture] newtype_invariant_safe
+[ui snapshot] $REPO/ui_tests/newtype_invariant_safe.stderr
+[ui fixture] no_panic
+[ui snapshot] $REPO/ui_tests/no_panic.stderr
+[ui fixture] no_panic_cfg_not
+[ui snapshot] $REPO/ui_tests/no_panic_cfg_not.stderr
+[ui fixture] no_panic_exhaustive
+[ui snapshot] $REPO/ui_tests/no_panic_exhaustive.stderr
+[ui fixture] no_panic_exhaustive_external
+[ui snapshot] $REPO/ui_tests/no_panic_exhaustive_external.stderr
+[ui fixture] no_panic_exhaustive_indirect
+[ui snapshot] $REPO/ui_tests/no_panic_exhaustive_indirect.stderr
+[ui fixture] no_panic_exhaustive_non_exhaustive
+[ui snapshot] $REPO/ui_tests/no_panic_exhaustive_non_exhaustive.stderr
+[ui fixture] no_recursion
+[ui snapshot] $REPO/ui_tests/no_recursion.stderr
+[ui fixture] no_todo
+[ui snapshot] $REPO/ui_tests/no_todo.stderr
+[ui fixture] no_todo_allow
+[ui snapshot] $REPO/ui_tests/no_todo_allow.stderr
+[ui fixture] no_todo_crate_allow
+[ui snapshot] $REPO/ui_tests/no_todo_crate_allow.stderr
+[ui fixture] no_todo_crate_orphan_allow
+[ui snapshot] $REPO/ui_tests/no_todo_crate_orphan_allow.stderr
+[ui fixture] no_todo_crate_unjustified_allow
+[ui snapshot] $REPO/ui_tests/no_todo_crate_unjustified_allow.stderr
+[ui fixture] no_todo_legacy_no_panic_allow
+[ui snapshot] $REPO/ui_tests/no_todo_legacy_no_panic_allow.stderr
+[ui fixture] no_todo_orphan_allow
+[ui snapshot] $REPO/ui_tests/no_todo_orphan_allow.stderr
+[ui fixture] no_unwrap
+[ui snapshot] $REPO/ui_tests/no_unwrap.stderr
+[ui fixture] no_unwrap_allow_custom/no_unwrap_allow_custom
+[ui snapshot] $REPO/ui_tests/no_unwrap_allow_custom.stderr
+[ui fixture] no_unwrap_cfg_not
+[ui snapshot] $REPO/ui_tests/no_unwrap_cfg_not.stderr
+[ui fixture] no_unwrap_compile_time_known
+[ui snapshot] $REPO/ui_tests/no_unwrap_compile_time_known.stderr
+[ui fixture] no_unwrap_default_custom/no_unwrap_default_custom
+[ui snapshot] $REPO/ui_tests/no_unwrap_default_custom.stderr
+[ui fixture] no_unwrap_deny_custom/no_unwrap_deny_custom
+[ui snapshot] $REPO/ui_tests/no_unwrap_deny_custom.stderr
+[ui fixture] no_unwrap_disabled_custom/no_unwrap_disabled_custom
+[ui snapshot] $REPO/ui_tests/no_unwrap_disabled_custom.stderr
+[ui fixture] no_unwrap_disabled_deny_custom/no_unwrap_disabled_deny_custom
+[ui snapshot] $REPO/ui_tests/no_unwrap_disabled_deny_custom.stderr
+[ui fixture] no_unwrap_disabled_source_attr_custom/no_unwrap_disabled_source_attr_custom
+[ui snapshot] $REPO/ui_tests/no_unwrap_disabled_source_attr_custom.stderr
+[ui fixture] no_unwrap_guarded
+[ui snapshot] $REPO/ui_tests/no_unwrap_guarded.stderr
+[ui fixture] no_unwrap_test_harness
+[ui snapshot] $REPO/ui_tests/no_unwrap_test_harness.stderr
+[ui fixture] no_unwrap_tool_attr
+[ui snapshot] $REPO/ui_tests/no_unwrap_tool_attr.stderr
+[ui fixture] no_unwrap_warn_custom/no_unwrap_warn_custom
+[ui snapshot] $REPO/ui_tests/no_unwrap_warn_custom.stderr
+[ui fixture] nominal_domain_compile_fail
+[ui snapshot] $REPO/ui_tests/nominal_domain_compile_fail.stderr
+[ui fixture] nominal_domain_compile_pass
+[ui snapshot] $REPO/ui_tests/nominal_domain_compile_pass.stderr
+[ui fixture] nominal_inventory_cli_deny_custom/nominal_inventory_cli_deny_custom
+[ui snapshot] $REPO/ui_tests/nominal_inventory_cli_deny_custom.stderr
+[ui fixture] nominal_inventory_deny_custom/nominal_inventory_deny_custom
+[ui snapshot] $REPO/ui_tests/nominal_inventory_deny_custom.stderr
+[ui fixture] nominal_inventory_profile_custom/nominal_inventory_profile_custom
+[ui snapshot] $REPO/ui_tests/nominal_inventory_profile_custom.stderr
+[ui fixture] non_trait_imports
+[ui snapshot] $REPO/ui_tests/non_trait_imports.stderr
+[ui fixture] non_trait_imports_public_reexport
+[ui snapshot] $REPO/ui_tests/non_trait_imports_public_reexport.stderr
+[ui fixture] non_trait_imports_trait
+[ui snapshot] $REPO/ui_tests/non_trait_imports_trait.stderr
+[ui fixture] nondeterministic_output
+[ui snapshot] $REPO/ui_tests/nondeterministic_output.stderr
+[ui fixture] numeric_units
+[ui snapshot] $REPO/ui_tests/numeric_units.stderr
+[ui fixture] numeric_units_cli_deny_custom/numeric_units_cli_deny_custom
+[ui snapshot] $REPO/ui_tests/numeric_units_cli_deny_custom.stderr
+[ui fixture] path_segment_repetition
+[ui snapshot] $REPO/ui_tests/path_segment_repetition.stderr
+[ui fixture] path_segment_repetition_compat
+[ui snapshot] $REPO/ui_tests/path_segment_repetition_compat.stderr
+[ui fixture] path_segment_repetition_non_repeating
+[ui snapshot] $REPO/ui_tests/path_segment_repetition_non_repeating.stderr
+[ui fixture] platform_dependent_cast
+[ui snapshot] $REPO/ui_tests/platform_dependent_cast.stderr
+[ui fixture] platform_dependent_cast_len_bounded
+[ui snapshot] $REPO/ui_tests/platform_dependent_cast_len_bounded.stderr
+[ui fixture] platform_dependent_cast_machine_applicable
+[ui snapshot] $REPO/ui_tests/platform_dependent_cast_machine_applicable.stderr
+[ui fixture] primitive_domain_alias
+[ui snapshot] $REPO/ui_tests/primitive_domain_alias.stderr
+[ui fixture] primitive_domain_alias_compat
+[ui snapshot] $REPO/ui_tests/primitive_domain_alias_compat.stderr
+[ui fixture] primitive_domain_alias_exact
+[ui snapshot] $REPO/ui_tests/primitive_domain_alias_exact.stderr
+[ui fixture] public_unsafe_api
+[ui snapshot] $REPO/ui_tests/public_unsafe_api.stderr
+[ui fixture] pure_attr_contract/pure_attr_contract
+[ui snapshot] $REPO/ui_tests/pure_attr_contract.stderr
+[ui fixture] purity_effect_lints_guardrails
+[ui snapshot] $REPO/ui_tests/purity_effect_lints_guardrails.stderr
+[ui fixture] raw_arithmetic_overflow
+[ui snapshot] $REPO/ui_tests/raw_arithmetic_overflow.stderr
+[ui fixture] raw_arithmetic_overflow_const_expr
+[ui snapshot] $REPO/ui_tests/raw_arithmetic_overflow_const_expr.stderr
+[ui fixture] raw_bool_parameter
+[ui snapshot] $REPO/ui_tests/raw_bool_parameter.stderr
+[ui fixture] raw_bool_parameter_crate_suppression
+[ui snapshot] $REPO/ui_tests/raw_bool_parameter_crate_suppression.stderr
+[ui fixture] raw_bool_parameter_expectation
+[ui snapshot] $REPO/ui_tests/raw_bool_parameter_expectation.stderr
+[ui fixture] raw_bool_parameter_guard_strict/raw_bool_parameter_guard_strict
+[ui snapshot] $REPO/ui_tests/raw_bool_parameter_guard_strict.stderr
+[ui fixture] raw_bool_parameter_safe
+[ui snapshot] $REPO/ui_tests/raw_bool_parameter_safe.stderr
+[ui fixture] raw_bool_parameter_suppression
+[ui snapshot] $REPO/ui_tests/raw_bool_parameter_suppression.stderr
+[ui fixture] raw_domain_value
+[ui snapshot] $REPO/ui_tests/raw_domain_value.stderr
+[ui fixture] raw_domain_value_compat
+[ui snapshot] $REPO/ui_tests/raw_domain_value_compat.stderr
+[ui fixture] raw_domain_value_ffi
+[ui snapshot] $REPO/ui_tests/raw_domain_value_ffi.stderr
+[ui fixture] raw_domain_value_generated
+[ui snapshot] $REPO/ui_tests/raw_domain_value_generated.stderr
+[ui fixture] renamed_imports
+[ui snapshot] $REPO/ui_tests/renamed_imports.stderr
+[ui fixture] renamed_imports_compat
+[ui snapshot] $REPO/ui_tests/renamed_imports_compat.stderr
+[ui fixture] renamed_imports_trait
+[ui snapshot] $REPO/ui_tests/renamed_imports_trait.stderr
+[ui fixture] resource_return_from_core/resource_return_from_core
+[ui snapshot] $REPO/ui_tests/resource_return_from_core.stderr
+[ui fixture] sentinel_fallback
+[ui snapshot] $REPO/ui_tests/sentinel_fallback.stderr
+[ui fixture] spawn_in_core/spawn_in_core
+[ui snapshot] $REPO/ui_tests/spawn_in_core.stderr
+[ui fixture] state_machine_exhaustiveness
+[ui snapshot] $REPO/ui_tests/state_machine_exhaustiveness.stderr
+[ui fixture] state_machine_exhaustiveness_negative
+[ui snapshot] $REPO/ui_tests/state_machine_exhaustiveness_negative.stderr
+[ui fixture] strict_profile_force_warn_custom/strict_profile_force_warn_custom
+[ui snapshot] $REPO/ui_tests/strict_profile_force_warn_custom.stderr
+[ui fixture] strict_profile_governance_custom/strict_profile_governance_accept
+[ui snapshot] $REPO/ui_tests/strict_profile_governance_accept.stderr
+[ui fixture] strict_profile_governance_custom/strict_profile_governance_reject
+[ui snapshot] $REPO/ui_tests/strict_profile_governance_reject.stderr
+[ui fixture] strict_profile_governance_custom/strict_profile_governance_single_report
+[ui snapshot] $REPO/ui_tests/strict_profile_governance_single_report.stderr
+[ui fixture] strict_profile_governance_custom/strict_profile_warn_floor
+[ui snapshot] $REPO/ui_tests/strict_profile_warn_floor.stderr
+[ui fixture] strict_profile_governance_custom/strict_profile_warn_floor_unprofiled
+[ui snapshot] $REPO/ui_tests/strict_profile_warn_floor_unprofiled.stderr
+[ui fixture] tokio_async/ignored_result_shutdown_send_tokio
+[ui snapshot] $REPO/ui_tests/ignored_result_shutdown_send_tokio.stderr
+[ui fixture] tokio_async/ignored_result_try_send_tokio
+[ui snapshot] $REPO/ui_tests/ignored_result_try_send_tokio.stderr
+[ui fixture] tokio_async/tokio_entry_generated_code
+[ui snapshot] $REPO/ui_tests/tokio_entry_generated_code.stderr
+[ui fixture] tokio_async/unbounded_loop_bare_async
+[ui snapshot] $REPO/ui_tests/unbounded_loop_bare_async.stderr
+[ui fixture] tokio_async/unbounded_loop_bounded_receiver
+[ui snapshot] $REPO/ui_tests/unbounded_loop_bounded_receiver.stderr
+[ui fixture] tokio_async/unbounded_loop_imported_select
+[ui snapshot] $REPO/ui_tests/unbounded_loop_imported_select.stderr
+[ui fixture] tokio_async/unbounded_loop_non_tokio_select
+[ui snapshot] $REPO/ui_tests/unbounded_loop_non_tokio_select.stderr
+[ui fixture] tokio_async/unbounded_loop_plain_await
+[ui snapshot] $REPO/ui_tests/unbounded_loop_plain_await.stderr
+[ui fixture] tokio_async/unbounded_loop_tokio_select
+[ui snapshot] $REPO/ui_tests/unbounded_loop_tokio_select.stderr
+[ui fixture] tokio_async/unbounded_loop_unbounded_receiver
+[ui snapshot] $REPO/ui_tests/unbounded_loop_unbounded_receiver.stderr
+[ui fixture] tokio_async/unjustified_allow_tokio_main
+[ui snapshot] $REPO/ui_tests/unjustified_allow_tokio_main.stderr
+[ui fixture] tokio_async/verified_purity_harness
+[ui snapshot] $REPO/ui_tests/verified_purity_harness.stderr
+[ui fixture] too_many_parameters
+[ui snapshot] $REPO/ui_tests/too_many_parameters.stderr
+[ui fixture] type_accumulation
+[ui snapshot] $REPO/ui_tests/type_accumulation.stderr
+[ui fixture] type_accumulation_within_limit
+[ui snapshot] $REPO/ui_tests/type_accumulation_within_limit.stderr
+[ui fixture] unbounded_channel/unbounded_channel
+[ui snapshot] $REPO/ui_tests/unbounded_channel.stderr
+[ui fixture] unbounded_collection_growth
+[ui snapshot] $REPO/ui_tests/unbounded_collection_growth.stderr
+[ui fixture] unbounded_loop
+[ui snapshot] $REPO/ui_tests/unbounded_loop.stderr
+[ui fixture] unbounded_loop_iter_next
+[ui snapshot] $REPO/ui_tests/unbounded_loop_iter_next.stderr
+[ui fixture] unchecked_division
+[ui snapshot] $REPO/ui_tests/unchecked_division.stderr
+[ui fixture] unchecked_narrowing
+[ui snapshot] $REPO/ui_tests/unchecked_narrowing.stderr
+[ui fixture] unchecked_narrowing_min
+[ui snapshot] $REPO/ui_tests/unchecked_narrowing_min.stderr
+[ui fixture] unchecked_narrowing_same_block_assert
+[ui snapshot] $REPO/ui_tests/unchecked_narrowing_same_block_assert.stderr
+[ui fixture] unchecked_narrowing_try_from
+[ui snapshot] $REPO/ui_tests/unchecked_narrowing_try_from.stderr
+[ui fixture] underscore_in_module_filename
+[ui snapshot] $REPO/ui_tests/underscore_in_module_filename.stderr
+[ui fixture] underscore_in_module_filename_directory
+[ui snapshot] $REPO/ui_tests/underscore_in_module_filename_directory.stderr
+[ui fixture] unjustified_allow
+[ui snapshot] $REPO/ui_tests/unjustified_allow.stderr
+[ui fixture] usize_in_public_api
+[ui snapshot] $REPO/ui_tests/usize_in_public_api.stderr
+[ui fixture] verified/verified_purity
+[ui snapshot] $REPO/ui_tests/verified_purity.stderr
+[ui fixture] zero_alloc_attr_contract/zero_alloc_attr_contract
+[ui snapshot] $REPO/ui_tests/zero_alloc_attr_contract.stderr
+[ui fixture] zero_alloc_attr_contract_allow
+[ui snapshot] $REPO/ui_tests/zero_alloc_attr_contract_allow.stderr
+[ui fixture] zero_alloc_attr_contract_silent_allow
+[ui snapshot] $REPO/ui_tests/zero_alloc_attr_contract_silent_allow.stderr
+test ui ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out; finished in 41.51s
+
+
+EXIT: 0

@@ -3,13 +3,13 @@
     "authority_class": "signed_creator",
     "cryptographically_verified": false,
     "currently_authorized": true,
-    "id": "z6MkksdCQEQdRwG6c747WuMbyFoLvLhxKYGio5JPBBYEvt6y",
+    "id": "z6Mkqx4W5rXbHSAvzq8itoNc8UXBm4k2kxh4RujGfVZjr8x4",
     "source": "explicit_cob_keystore_and_embedded_authority"
   },
   "backend": "radicle-cob.v1",
   "base_revision": {
     "kind": "git_oid",
-    "value": "03c74d76cb153d88bce33a76b4c40fbf2a0fc365"
+    "value": "08dde030f4d6fe23314c03acdfd520b453b40ad9"
   },
   "blocked": false,
   "blockers": [],
@@ -20,10 +20,10 @@
   "command": "collaboration update",
   "compatibility_command": "cob update",
   "delegates": [
-    "z6Mkehh68deeBD4NyGrgYNyCsPujeE1r8QHCs5Csn72SwBVz"
+    "z6MkufVcDTv8btEmwreomZFJwZXXk9HZh3eZTYiwXT4x28x9"
   ],
   "dry_run": true,
-  "expected_content_root": "b84ed7b23ed8a6e11b4b6a601d1a91c424845177fedf18b89d77a3bf43933362",
+  "expected_content_root": "c270765accddc8873541fe348c68626d4e4f1740a198a006e0c3e89437f837c4",
   "format_libraries": {
     "git-ref-format-core": "0.6.0",
     "git2": "0.20.4",
@@ -31,9 +31,9 @@
     "radicle-crypto": "0.17.0",
     "radicle-oid": "0.2.0"
   },
-  "input_content_root": "7ef48662e44b8527239f0043ea56e8cf50690c4eb66410bbe4ed36c04e5c6928",
-  "input_hash": "3ac815d4e5ad00121189115652e9fec2b234447fad71ab8b0d1b8873f4c7d45e",
-  "input_state_hash": "3ac815d4e5ad00121189115652e9fec2b234447fad71ab8b0d1b8873f4c7d45e",
+  "input_content_root": "23bc3850a07556ec3656e2b10ac32f58d8433b8786bc1a8d44c0110760df618b",
+  "input_hash": "c6efe7ae5d7b1df823bb29829e1c8a5ef58476fa1419465e0efb6b7d6a8b562b",
+  "input_state_hash": "c6efe7ae5d7b1df823bb29829e1c8a5ef58476fa1419465e0efb6b7d6a8b562b",
   "mutated": false,
   "non_claims": [
     "embedded creator and delegate keys are immutable COB authority, not Radicle identity-document or future authorization proof",
@@ -42,23 +42,23 @@
     "ordinary collaboration update refuses conflicts and does not prove or perform conflict resolution"
   ],
   "noop": false,
-  "object_id": "87027ed6c24b75036ea5d409e5eedb21a969f5b2",
-  "observed_policy_hash": "0d5e71092b45e2a8cfbaed4edffe6b01cd6cd0e4dc71f9c86fc1d0bf82cc70fc",
-  "operation_plan_id": "6db1a01a7a9513b9f9dda2ed8419e97ee652b91ecff2f29ff9e5c07f522a2b6b",
-  "plan_hash": "64abe52aaaad2d5f4261de60279b9064e87c66c0400dbedd4ba172c313610b60",
+  "object_id": "693ca9b09bc87060358cdc22188f5a823adffa6b",
+  "observed_policy_hash": "454b429ad8c48acf7144c1c42d810f0425f23867c2c83b8625af3d42a6895b4c",
+  "operation_plan_id": "3b881d7a794572340a3ff2234d19f1251e9ecb7579933d6ce3f3eb10c4275fba",
+  "plan_hash": "0ad8d71d7c8eaac9c688d1ea5e9ff504e334274396839c2552642ace86b5990e",
   "policy": "octet-default",
   "policy_current": true,
-  "policy_hash": "0d5e71092b45e2a8cfbaed4edffe6b01cd6cd0e4dc71f9c86fc1d0bf82cc70fc",
-  "receipt_hash": "9989195bd4a548a1e2b58d191252223b38b6fe970851579afedb246c8cff347a",
+  "policy_hash": "454b429ad8c48acf7144c1c42d810f0425f23867c2c83b8625af3d42a6895b4c",
+  "receipt_hash": "4506e3fa14c77087e45f0366b51ac8d559eb7fd51422434851eedf16e2eb54f1",
   "result_content_root": null,
   "result_operation_id": null,
   "result_state_hash": null,
-  "root": "/tmp/octet-cob-conflict-5au8iuas/source-root",
+  "root": "/var/tmp/octet-public-builds-20261112/octet-cob-conflict-9jyoirom/source-root",
   "updates": [
     {
       "artifact": "tasks",
       "basis": [
-        "87027ed6c24b75036ea5d409e5eedb21a969f5b2"
+        "693ca9b09bc87060358cdc22188f5a823adffa6b"
       ],
       "content_blake3": "7f8eca743500d0d33ded2ec7f0a17e0d45821359630933250943fa2571d305bc",
       "content_bytes": 2200,

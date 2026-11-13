@@ -1,4 +1,5 @@
 use super::*;
+use crate::support::{reject_positional_arguments, reject_unknown_options};
 
 pub(crate) struct EvidenceExportOptions {
     pub(crate) root: PathBuf,
@@ -11,6 +12,17 @@ pub(crate) struct EvidenceExportOptions {
 pub(super) fn evidence_export_options(
     args: &[String],
 ) -> Result<EvidenceExportOptions, Box<dyn Error>> {
+    reject_unknown_options(
+        args,
+        &[
+            "--root",
+            "--out",
+            "--agent-receipt",
+            "--runtime-chain",
+            "--witness-checkpoint",
+        ],
+    )?;
+    reject_positional_arguments(args)?;
     let root = read_option(args.to_vec(), "--root", ".");
     let out = read_string_option(args, "--out").map(PathBuf::from);
     let agent_receipt = read_string_option(args, "--agent-receipt").map(PathBuf::from);

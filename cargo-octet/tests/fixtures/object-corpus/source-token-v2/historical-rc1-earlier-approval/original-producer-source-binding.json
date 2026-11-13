@@ -1,0 +1,575 @@
+{
+  "compiled_valence_module": {
+    "blake3": "11f0f4233aaf3153966f6aa37de570c2dcd0e75335591934461ae2b25ab3ecb1",
+    "path": "vendor/cargo/valence-core-0.1.0/src/function_object.rs"
+  },
+  "missing_sources": [],
+  "scope": "Original preflight producer build/source binding only; not final H3 or release qualification. Runtime corpus inputs are recorded separately from producer build inputs.",
+  "source": "/nix/store/ba8p7vkj3d4wzlny1005jfncs4h3c6i2-source",
+  "source_comparisons": [
+    {
+      "expected_capture_blake3": "5de4bd32eb9d742d8e56fe28278277e0212c133d7058a50ed1ba1ded8581b453",
+      "matches_capture": true,
+      "path": "cargo-octet/src/baseline.rs",
+      "producer_build_source_blake3": "5de4bd32eb9d742d8e56fe28278277e0212c133d7058a50ed1ba1ded8581b453"
+    },
+    {
+      "expected_capture_blake3": "2b816ae70bb996a51abf5d90cd928a8958f63d16b86095abf7c983732d958cc4",
+      "matches_capture": true,
+      "path": "cargo-octet/src/bin/cargo-slotcar.rs",
+      "producer_build_source_blake3": "2b816ae70bb996a51abf5d90cd928a8958f63d16b86095abf7c983732d958cc4"
+    },
+    {
+      "expected_capture_blake3": "2b816ae70bb996a51abf5d90cd928a8958f63d16b86095abf7c983732d958cc4",
+      "matches_capture": true,
+      "path": "cargo-octet/src/bin/cargo-tigerstyle.rs",
+      "producer_build_source_blake3": "2b816ae70bb996a51abf5d90cd928a8958f63d16b86095abf7c983732d958cc4"
+    },
+    {
+      "expected_capture_blake3": "3673d3dd367bcb8dced14a56e8bcee8e7cace464a32a97baa7cd13c4f759d6c8",
+      "matches_capture": true,
+      "path": "cargo-octet/src/cli.rs",
+      "producer_build_source_blake3": "3673d3dd367bcb8dced14a56e8bcee8e7cace464a32a97baa7cd13c4f759d6c8"
+    },
+    {
+      "expected_capture_blake3": "bbc4549349763c80c3c08ee5cff3971313fda595e73ce2c637fd1c9e95f1d830",
+      "matches_capture": true,
+      "path": "cargo-octet/src/config.rs",
+      "producer_build_source_blake3": "bbc4549349763c80c3c08ee5cff3971313fda595e73ce2c637fd1c9e95f1d830"
+    },
+    {
+      "expected_capture_blake3": "acb8af85dad11cf521e757d1858cbe3674f22b4b01b11a4e69ecbf7ce4bd7258",
+      "matches_capture": true,
+      "path": "cargo-octet/src/determinism.rs",
+      "producer_build_source_blake3": "acb8af85dad11cf521e757d1858cbe3674f22b4b01b11a4e69ecbf7ce4bd7258"
+    },
+    {
+      "expected_capture_blake3": "3889349e219fca5ea809a39d517c69c39eae9ccbdc2a50489de226eebaa31b7f",
+      "matches_capture": true,
+      "path": "cargo-octet/src/engine.rs",
+      "producer_build_source_blake3": "3889349e219fca5ea809a39d517c69c39eae9ccbdc2a50489de226eebaa31b7f"
+    },
+    {
+      "expected_capture_blake3": "8d155215d80791dc634f10af09efa45a6bd2ea3d37ba86153c0489986d57425b",
+      "matches_capture": true,
+      "path": "cargo-octet/src/evidence.rs",
+      "producer_build_source_blake3": "8d155215d80791dc634f10af09efa45a6bd2ea3d37ba86153c0489986d57425b"
+    },
+    {
+      "expected_capture_blake3": "c8709222099379020bacb58c7a53f0499a6cdd00c167c9ebf9b6af76842042b5",
+      "matches_capture": true,
+      "path": "cargo-octet/src/evidence_rails.rs",
+      "producer_build_source_blake3": "c8709222099379020bacb58c7a53f0499a6cdd00c167c9ebf9b6af76842042b5"
+    },
+    {
+      "expected_capture_blake3": "00416dd84fa95425a3ef2609560a4b916459f1a1e0cb48cb530fed53f23b2ee7",
+      "matches_capture": true,
+      "path": "cargo-octet/src/fingerprint.rs",
+      "producer_build_source_blake3": "00416dd84fa95425a3ef2609560a4b916459f1a1e0cb48cb530fed53f23b2ee7"
+    },
+    {
+      "expected_capture_blake3": "a08e5f28de9994b5cfb76596b37032c03f20a78b3d76412f50bda01d6ad55472",
+      "matches_capture": true,
+      "path": "cargo-octet/src/function_address.rs",
+      "producer_build_source_blake3": "a08e5f28de9994b5cfb76596b37032c03f20a78b3d76412f50bda01d6ad55472"
+    },
+    {
+      "expected_capture_blake3": "8f94382b9a1464e55777350c26224cf1e825dc1858f100b47ef4d75dab2c14b6",
+      "matches_capture": true,
+      "path": "cargo-octet/src/lib.rs",
+      "producer_build_source_blake3": "8f94382b9a1464e55777350c26224cf1e825dc1858f100b47ef4d75dab2c14b6"
+    },
+    {
+      "expected_capture_blake3": "2b816ae70bb996a51abf5d90cd928a8958f63d16b86095abf7c983732d958cc4",
+      "matches_capture": true,
+      "path": "cargo-octet/src/main.rs",
+      "producer_build_source_blake3": "2b816ae70bb996a51abf5d90cd928a8958f63d16b86095abf7c983732d958cc4"
+    },
+    {
+      "expected_capture_blake3": "d1cfccbd372841401fcac0bbc8134352a9947aabac543b0981bce514dbe3d63e",
+      "matches_capture": true,
+      "path": "cargo-octet/src/migrate.rs",
+      "producer_build_source_blake3": "d1cfccbd372841401fcac0bbc8134352a9947aabac543b0981bce514dbe3d63e"
+    },
+    {
+      "expected_capture_blake3": "847532ed443a647ff40452bacb8d41d2f80900c68b415de3af537dba55cab9eb",
+      "matches_capture": true,
+      "path": "cargo-octet/src/object.rs",
+      "producer_build_source_blake3": "847532ed443a647ff40452bacb8d41d2f80900c68b415de3af537dba55cab9eb"
+    },
+    {
+      "expected_capture_blake3": "0a9fc64e9cbdd4ca547e893f37fd7f72afba862610fa1f013f9091c21e403dc8",
+      "matches_capture": true,
+      "path": "cargo-octet/src/output.rs",
+      "producer_build_source_blake3": "0a9fc64e9cbdd4ca547e893f37fd7f72afba862610fa1f013f9091c21e403dc8"
+    },
+    {
+      "expected_capture_blake3": "4fb452453b944047b2c3eacdb352bd4c676c8f1072599770a64d059ac9b08b19",
+      "matches_capture": true,
+      "path": "cargo-octet/src/proof_ref.rs",
+      "producer_build_source_blake3": "4fb452453b944047b2c3eacdb352bd4c676c8f1072599770a64d059ac9b08b19"
+    },
+    {
+      "expected_capture_blake3": "e4d9a8305bd1085762a65693e50b0fefbbd1c80c275dc92b12254863f05dae0c",
+      "matches_capture": true,
+      "path": "cargo-octet/src/provider_manifest.rs",
+      "producer_build_source_blake3": "e4d9a8305bd1085762a65693e50b0fefbbd1c80c275dc92b12254863f05dae0c"
+    },
+    {
+      "expected_capture_blake3": "e1d75bd40f19051d422e84749858de1c95b520db5c3173f6c994a89db3b56b67",
+      "matches_capture": true,
+      "path": "cargo-octet/src/roadmap.rs",
+      "producer_build_source_blake3": "e1d75bd40f19051d422e84749858de1c95b520db5c3173f6c994a89db3b56b67"
+    },
+    {
+      "expected_capture_blake3": "1ea322c14e21dfde94daed5d09972c339e9a123206e7326bc959ab11c65f3cd9",
+      "matches_capture": true,
+      "path": "cargo-octet/src/transcript.rs",
+      "producer_build_source_blake3": "1ea322c14e21dfde94daed5d09972c339e9a123206e7326bc959ab11c65f3cd9"
+    },
+    {
+      "expected_capture_blake3": "7ee1b5e87139e1b9ea1dbf8a0004967de2591c842f2a8a5d00fc04df467e81ac",
+      "matches_capture": true,
+      "path": "cargo-octet/tests/fingerprint_consumer.rs",
+      "producer_build_source_blake3": "7ee1b5e87139e1b9ea1dbf8a0004967de2591c842f2a8a5d00fc04df467e81ac"
+    },
+    {
+      "expected_capture_blake3": "208621f8824deeccf145d9f4515187e035e81e1c0ce1033853458686bef514b6",
+      "matches_capture": true,
+      "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/src/lib.rs",
+      "producer_build_source_blake3": "208621f8824deeccf145d9f4515187e035e81e1c0ce1033853458686bef514b6"
+    },
+    {
+      "expected_capture_blake3": "2249c768a0120d91beefa33be71936d144588b813adb0b3c9b68ddab9c6e6bd4",
+      "matches_capture": true,
+      "path": "crates/octet-standards/src/architecture.rs",
+      "producer_build_source_blake3": "2249c768a0120d91beefa33be71936d144588b813adb0b3c9b68ddab9c6e6bd4"
+    },
+    {
+      "expected_capture_blake3": "0418b7a42f342740eef1dc863de1848094f457583ba387b992493cebcf0a8ef0",
+      "matches_capture": true,
+      "path": "crates/octet-standards/src/artifacts.rs",
+      "producer_build_source_blake3": "0418b7a42f342740eef1dc863de1848094f457583ba387b992493cebcf0a8ef0"
+    },
+    {
+      "expected_capture_blake3": "b11df67b21a0558d08905f6b0bb7da7a7ec279a671e910369bfd3e31326a5106",
+      "matches_capture": true,
+      "path": "crates/octet-standards/src/bin/slotcar-standards.rs",
+      "producer_build_source_blake3": "b11df67b21a0558d08905f6b0bb7da7a7ec279a671e910369bfd3e31326a5106"
+    },
+    {
+      "expected_capture_blake3": "fb8bdac9c61af094cde135a8c25647b713d055160b603e123956e0040609dc63",
+      "matches_capture": true,
+      "path": "crates/octet-standards/src/bin/tigerstyle-standards.rs",
+      "producer_build_source_blake3": "fb8bdac9c61af094cde135a8c25647b713d055160b603e123956e0040609dc63"
+    },
+    {
+      "expected_capture_blake3": "f795ab10b9f8a734a3bffc4f32aa5914b42850df333d2668db33fc7a3a7b57c7",
+      "matches_capture": true,
+      "path": "crates/octet-standards/src/cli_shell.rs",
+      "producer_build_source_blake3": "f795ab10b9f8a734a3bffc4f32aa5914b42850df333d2668db33fc7a3a7b57c7"
+    },
+    {
+      "expected_capture_blake3": "76da9353b979c91e2ae428c0a0aaf14ccb99dd7987689fdcc97751b8cce45919",
+      "matches_capture": true,
+      "path": "crates/octet-standards/src/diagnostic.rs",
+      "producer_build_source_blake3": "76da9353b979c91e2ae428c0a0aaf14ccb99dd7987689fdcc97751b8cce45919"
+    },
+    {
+      "expected_capture_blake3": "36557ac8b0063ec9b346194dfb6c9e32c01ffa5021b25e1f229684d14bad892e",
+      "matches_capture": true,
+      "path": "crates/octet-standards/src/fixture.rs",
+      "producer_build_source_blake3": "36557ac8b0063ec9b346194dfb6c9e32c01ffa5021b25e1f229684d14bad892e"
+    },
+    {
+      "expected_capture_blake3": "6aabbcc0d387e9b500379ac627c6c1252850be4ee819bf3f65292564749fddc1",
+      "matches_capture": true,
+      "path": "crates/octet-standards/src/lib.rs",
+      "producer_build_source_blake3": "6aabbcc0d387e9b500379ac627c6c1252850be4ee819bf3f65292564749fddc1"
+    },
+    {
+      "expected_capture_blake3": "3313ee618a615e742c56a3a5822d56146ed9f4369e95d237aba2f3eb3694ba56",
+      "matches_capture": true,
+      "path": "crates/octet-standards/src/main.rs",
+      "producer_build_source_blake3": "3313ee618a615e742c56a3a5822d56146ed9f4369e95d237aba2f3eb3694ba56"
+    },
+    {
+      "expected_capture_blake3": "9c9c45c783e8bc3c8ce11615d6ae50b7c5054c571fe29ae6066337f7f3077b9e",
+      "matches_capture": true,
+      "path": "crates/octet-standards/src/model.rs",
+      "producer_build_source_blake3": "9c9c45c783e8bc3c8ce11615d6ae50b7c5054c571fe29ae6066337f7f3077b9e"
+    },
+    {
+      "expected_capture_blake3": "5ca6d869d8b54c498eac194d39a5fd8f34ab4c5922f634ebf4013a06613ac27e",
+      "matches_capture": true,
+      "path": "crates/octet-standards/src/proof.rs",
+      "producer_build_source_blake3": "5ca6d869d8b54c498eac194d39a5fd8f34ab4c5922f634ebf4013a06613ac27e"
+    },
+    {
+      "expected_capture_blake3": "9519a07df5d3b12eb4cb2665991d1f3c79420a8053232c829d2ec9921b176332",
+      "matches_capture": true,
+      "path": "crates/octet-standards/src/receipt.rs",
+      "producer_build_source_blake3": "9519a07df5d3b12eb4cb2665991d1f3c79420a8053232c829d2ec9921b176332"
+    },
+    {
+      "expected_capture_blake3": "d8fc70fc40c236e3d04c15a2016382cef4d4621660834062561f919a3bd235a2",
+      "matches_capture": true,
+      "path": "crates/octet-standards/src/report.rs",
+      "producer_build_source_blake3": "d8fc70fc40c236e3d04c15a2016382cef4d4621660834062561f919a3bd235a2"
+    },
+    {
+      "expected_capture_blake3": "62829e1b9ad17af7ecca55aab823f980c6c671704d6a81cc39e5cce5ae65a19f",
+      "matches_capture": true,
+      "path": "crates/octet-standards/src/resource.rs",
+      "producer_build_source_blake3": "62829e1b9ad17af7ecca55aab823f980c6c671704d6a81cc39e5cce5ae65a19f"
+    },
+    {
+      "expected_capture_blake3": "b36c2a4a789ded506501291b7bb5c8778ded34d7734aec42838acf8346f1597f",
+      "matches_capture": true,
+      "path": "crates/octet-standards/src/runner.rs",
+      "producer_build_source_blake3": "b36c2a4a789ded506501291b7bb5c8778ded34d7734aec42838acf8346f1597f"
+    },
+    {
+      "expected_capture_blake3": "16238c90045bf824902f1477d602cef79e0357f0643b1942a7ba9c8a4eff911b",
+      "matches_capture": true,
+      "path": "crates/octet-standards/src/source.rs",
+      "producer_build_source_blake3": "16238c90045bf824902f1477d602cef79e0357f0643b1942a7ba9c8a4eff911b"
+    },
+    {
+      "expected_capture_blake3": "a5816ab15fe8f424fccac1097a199fd170d4f8a7c2d8bddc114dc29a4daaea09",
+      "matches_capture": true,
+      "path": "crates/octet-standards/src/suppression.rs",
+      "producer_build_source_blake3": "a5816ab15fe8f424fccac1097a199fd170d4f8a7c2d8bddc114dc29a4daaea09"
+    }
+  ],
+  "unwrapped_derivation": "/nix/store/i70zy62zmlfsv2r5nnm7sc1j4r1nqy5x-cargo-octet-0.1.1-rc.1.drv",
+  "unwrapped_derivation_document": {
+    "derivations": {
+      "i70zy62zmlfsv2r5nnm7sc1j4r1nqy5x-cargo-octet-0.1.1-rc.1.drv": {
+        "args": [
+          "-e",
+          "/nix/store/l622p70vy8k5sh7y5wizi5f2mic6ynpg-source-stdenv.sh",
+          "/nix/store/shkw4qm9qcw5sc5n1k5jznc83ny02r39-default-builder.sh"
+        ],
+        "builder": "/nix/store/2hjsch59amjs3nbgh7ahcfzm2bfwl8zi-bash-5.3p9/bin/bash",
+        "env": {
+          "__structuredAttrs": "",
+          "buildInputs": "/nix/store/1p14m1hrdkykyxs0l6wg7y29ahppcnsr-openssl-3.6.1-dev",
+          "buildPhase": "runHook preBuild\ncargo --version\ncargoBuildLog=$(mktemp cargoBuildLogXXXX.json)\ncargoWithProfile build --message-format json-render-diagnostics -p cargo-octet >\"$cargoBuildLog\"\n\nrunHook postBuild\n",
+          "builder": "/nix/store/2hjsch59amjs3nbgh7ahcfzm2bfwl8zi-bash-5.3p9/bin/bash",
+          "cargoArtifacts": "/nix/store/lzhavsaqn5wqz5h0l7j0jcyqb1br2v66-octet-deps-0.1.1-rc.1",
+          "cargoVendorDir": "/nix/store/wy1hfffalczvg049mmy5i44gya9c6i4m-vendor-cargo-deps",
+          "checkPhase": "runHook preCheck\ncargoWithProfile test -p cargo-octet \n\nrunHook postCheck\n",
+          "cmakeFlags": "",
+          "configureFlags": "",
+          "configurePhase": "runHook preConfigure\necho default configurePhase, nothing to do\nrunHook postConfigure\n",
+          "depsBuildBuild": "",
+          "depsBuildBuildPropagated": "",
+          "depsBuildTarget": "",
+          "depsBuildTargetPropagated": "",
+          "depsHostHost": "",
+          "depsHostHostPropagated": "",
+          "depsTargetTarget": "",
+          "depsTargetTargetPropagated": "",
+          "doCheck": "",
+          "doInstallCargoArtifacts": "",
+          "doInstallCheck": "",
+          "installPhase": "runHook preInstall\nif [ -n \"$postBuildInstallFromCargoBuildLogOut\" -a -d \"$postBuildInstallFromCargoBuildLogOut\" ]; then\n  echo \"actually installing contents of $postBuildInstallFromCargoBuildLogOut to $out\"\n  mkdir -p $out\n  find \"$postBuildInstallFromCargoBuildLogOut\" -mindepth 1 -maxdepth 1 | xargs -r mv -t $out\nelse\n  echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n$postBuildInstallFromCargoBuildLogOut is either undefined or does not point to a\nvalid location! By default `buildPackage` will expect that cargo'\\''s output was\ncaptured and the resulting binaries preinstalled in a temporary location to avoid\ninterference by the check phase.\n\nIf you are defining your own custom build step, you have two options:\n1. override `installPhaseCommand` with the appropriate installation steps\n2. ensure that cargo'\\''s build log is captured in a file and point\n   $postBuildInstallFromCargoBuildLogOut at it\n\nAt a minimum, the latter option can be achieved with a build phase that runs:\n     cargoBuildLog=$(mktemp cargoBuildLogXXXX.json)\n     cargo build --release --message-format json-render-diagnostics >\"$cargoBuildLog\"\n     postBuildInstallFromCargoBuildLogOut=$(mktemp -d cargoBuildTempOutXXXX)\n     installFromCargoBuildLog \"$postBuildInstallFromCargoBuildLogOut\" \"$cargoBuildLog\"\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n'\n\n  false\nfi\n\nrunHook postInstall\n",
+          "mesonFlags": "",
+          "name": "cargo-octet-0.1.1-rc.1",
+          "nativeBuildInputs": "/nix/store/y8xj70yyzsml4z3aa5gsn9pvpx4za1py-clang-wrapper-21.1.8 /nix/store/8x49w8i0vafv34rlc6h4a0f7z0z2qpb5-git-2.53.0 /nix/store/q2vpbpf8vqzizz6836vlw3n83cjr8bma-mold-unwrapped-wrapper-2.40.4 /nix/store/1nv3i8mpypy3d516f4pd95m0w72r73jy-pkg-config-wrapper-0.29.2 /nix/store/sv9bs3g5rla1r4xvdyfjlv81xcv4yd06-installFromCargoBuildLogHook /nix/store/flkai30mx3hk2pymx7nx69hx98v4yd3m-removeReferencesToRustToolchainHook /nix/store/hb0zvvb9cc6y30793fwgknrns1llkbdp-removeReferencesToVendoredSourcesHook /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21 /nix/store/7hbjid69agb2b8ag195psng3blw2aqw1-cargoHelperFunctionsHook /nix/store/2kswrg1v8yj0i59rh2gbn2lhi8kgc1mv-configureCargoCommonVarsHook /nix/store/da28q2w0f9vcr9v6a6ynxbiccqyc6vdg-configureCargoVendoredDepsHook /nix/store/advbrph7ga58996aygad2bzqcbmq0fcf-inheritCargoArtifactsHook /nix/store/kibqcrf74v3dl7yddwnigrrapqcwl3ma-installCargoArtifactsHook /nix/store/q9rw4y67flnkrq0pishvmlnib7k4babi-replaceCargoLockHook /nix/store/3x58811xjcgx11iagqhp8dsnn1qm1b03-rsync-3.4.1 /nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21 /nix/store/dszpfwzkz14xd19bwm2yhs3cbvkpw88s-zstd-1.5.7-dev",
+          "out": "/nix/store/pmgk8wl1vlsfhyjxv6zsxjdjfyypylkw-cargo-octet-0.1.1-rc.1",
+          "outputs": "out",
+          "patches": "",
+          "pname": "cargo-octet",
+          "propagatedBuildInputs": "",
+          "propagatedNativeBuildInputs": "",
+          "src": "/nix/store/ba8p7vkj3d4wzlny1005jfncs4h3c6i2-source",
+          "stdenv": "/nix/store/zkiy4zv8wz3v95bj6fdmkqwql8x1vnhb-stdenv-linux",
+          "strictDeps": "",
+          "system": "x86_64-linux",
+          "version": "0.1.1-rc.1"
+        },
+        "inputs": {
+          "drvs": {
+            "0p0mkxz1f3hsxv3sh6pnc1338nqbsrys-removeReferencesToVendoredSourcesHook.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "out"
+              ]
+            },
+            "35ni581m2mvvm3mi518haflgq9d9r4aa-mold-unwrapped-wrapper-2.40.4.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "out"
+              ]
+            },
+            "4arj38yvg3bhfc2z2s9669c7ks40l250-configureCargoVendoredDepsHook.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "out"
+              ]
+            },
+            "4sflgpi32p1q6znl8c320hncgs1sp9d5-pkg-config-wrapper-0.29.2.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "out"
+              ]
+            },
+            "71g65hf0w0jba5r7fc9786njjx1v5rr9-bash-5.3p9.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "out"
+              ]
+            },
+            "9gyr3c5c6k3fihgwpqaar1bg3bkqrz7c-configureCargoCommonVarsHook.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "out"
+              ]
+            },
+            "az7rjfxgyxd170v1b8p030kf16b63kzj-rsync-3.4.1.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "out"
+              ]
+            },
+            "blcaz0716y1nk9syz2fb9acwq6s1bd2h-zstd-1.5.7.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "dev"
+              ]
+            },
+            "cq6w9k1mcfrsj4bv5xkg2hwksvd7b51r-installCargoArtifactsHook.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "out"
+              ]
+            },
+            "dviq2hgv6jn6fr65shq1i3g5jamsxmzx-clang-wrapper-21.1.8.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "out"
+              ]
+            },
+            "f0z2d6m6gqj72zlc396g24imz8ilkb3w-vendor-cargo-deps.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "out"
+              ]
+            },
+            "fd80d0nmf72ipiw96xcj701naa78jjxf-installFromCargoBuildLogHook.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "out"
+              ]
+            },
+            "h26xg02j8r80y22hqa30f82r5jqbbqxm-octet-deps-0.1.1-rc.1.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "out"
+              ]
+            },
+            "hk6gd3pn96hbxk95adl9x0ajcs6giaf0-git-2.53.0.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "out"
+              ]
+            },
+            "nr1z19qwzyd7cmkfqwbyjpsld97la2a3-replaceCargoLockHook.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "out"
+              ]
+            },
+            "ra8g0vncd3slqc5cxizfjlh3dnrppcrk-cargoHelperFunctionsHook.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "out"
+              ]
+            },
+            "rxn5ig6g8yiwjbmdkvrlsnimhd733rzb-removeReferencesToRustToolchainHook.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "out"
+              ]
+            },
+            "s1xwskq8mmirknxqn30sa8bwbb902167-stdenv-linux.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "out"
+              ]
+            },
+            "vlibinkl01vk64a09qs0k997fwxvl3vg-inheritCargoArtifactsHook.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "out"
+              ]
+            },
+            "vmyc45g3rr38wpjsvzax2i489dvihc89-openssl-3.6.1.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "dev"
+              ]
+            },
+            "zxvqck0x496vcj2qn1r0wil6bb85zj7b-rust-default-1.96.0-nightly-2026-03-21.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "out"
+              ]
+            }
+          },
+          "srcs": [
+            "ba8p7vkj3d4wzlny1005jfncs4h3c6i2-source",
+            "l622p70vy8k5sh7y5wizi5f2mic6ynpg-source-stdenv.sh",
+            "shkw4qm9qcw5sc5n1k5jznc83ny02r39-default-builder.sh"
+          ]
+        },
+        "name": "cargo-octet-0.1.1-rc.1",
+        "outputs": {
+          "out": {
+            "path": "pmgk8wl1vlsfhyjxv6zsxjdjfyypylkw-cargo-octet-0.1.1-rc.1"
+          }
+        },
+        "system": "x86_64-linux",
+        "version": 4
+      }
+    },
+    "version": 4
+  },
+  "unwrapped_output": {
+    "path": "pmgk8wl1vlsfhyjxv6zsxjdjfyypylkw-cargo-octet-0.1.1-rc.1"
+  },
+  "wrapper_derivation": "/nix/store/abgidxb5410iddcmxwvqr52z4vh8hapv-cargo-octet-0.1.0.drv",
+  "wrapper_derivation_document": {
+    "derivations": {
+      "abgidxb5410iddcmxwvqr52z4vh8hapv-cargo-octet-0.1.0.drv": {
+        "args": [
+          "-e",
+          "/nix/store/l622p70vy8k5sh7y5wizi5f2mic6ynpg-source-stdenv.sh",
+          "/nix/store/shkw4qm9qcw5sc5n1k5jznc83ny02r39-default-builder.sh"
+        ],
+        "builder": "/nix/store/2hjsch59amjs3nbgh7ahcfzm2bfwl8zi-bash-5.3p9/bin/bash",
+        "env": {
+          "__structuredAttrs": "",
+          "allowSubstitutes": "",
+          "buildCommand": "mkdir -p $out\nfor i in $(cat $pathsPath); do\n  /nix/store/i1bhjxlrci4j824srcihrm95rxbhkf7w-lndir-1.0.5/bin/lndir -silent $i $out\ndone\nwrapProgram \"$out/bin/cargo-octet\" \\\n  --prefix PATH : \"/nix/store/c6mw8m0y78lwffywi382swrargz2v8fi-cargo-octet-runtime-path/bin\" \\\n  --prefix LD_LIBRARY_PATH : \"/nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21/lib\" \\\n  --set OCTET_TOOLCHAIN \"nightly-2026-03-21-x86_64-unknown-linux-gnu\" \\\n  --set OCTET_DRIVER_PATH \"/nix/store/8b0qpvqbcsmqqgk7nawvsfr71dclqfwk-dylint-driver-5.0.0/bin/dylint-driver\" \\\n  --set OCTET_LINT_LIB \"/nix/store/lpdp4gcxq8gj6qs4hdiznvv3gb3fcs5l-octet-ui-library/lib/liboctet@nightly-2026-03-21-x86_64-unknown-linux-gnu.so\" \\\n  --set OCTET_COVERAGE_CARGO \"/nix/store/psn0v6x3wj3h2vgyi2s2x7rjpzlb5zrr-cargo/bin/cargo\" \\\n  --set OCTET_COVERAGE_PATH \"/nix/store/c6mw8m0y78lwffywi382swrargz2v8fi-cargo-octet-runtime-path/bin\" \\\n  --set OCTET_COVERAGE_CARGO_CONFIG \"/nix/store/wy1hfffalczvg049mmy5i44gya9c6i4m-vendor-cargo-deps/config.toml\" \\\n  --set OCTET_COVERAGE_LD_LIBRARY_PATH \"/nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21/lib\" \\\n  --set OCTET_MUTATION_CARGO \"/nix/store/psn0v6x3wj3h2vgyi2s2x7rjpzlb5zrr-cargo/bin/cargo\" \\\n  --set OCTET_MUTATION_PATH \"/nix/store/c6mw8m0y78lwffywi382swrargz2v8fi-cargo-octet-runtime-path/bin\" \\\n  --set OCTET_MUTATION_CARGO_CONFIG \"/nix/store/wy1hfffalczvg049mmy5i44gya9c6i4m-vendor-cargo-deps/config.toml\" \\\n  --set OCTET_MUTATION_LD_LIBRARY_PATH \"/nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21/lib\" \\\n  --set OCTET_HEGEL_CARGO \"/nix/store/psn0v6x3wj3h2vgyi2s2x7rjpzlb5zrr-cargo/bin/cargo\" \\\n  --set OCTET_HEGEL_PATH \"/nix/store/c6mw8m0y78lwffywi382swrargz2v8fi-cargo-octet-runtime-path/bin\" \\\n  --set OCTET_HEGEL_CARGO_CONFIG \"/nix/store/wy1hfffalczvg049mmy5i44gya9c6i4m-vendor-cargo-deps/config.toml\" \\\n  --set OCTET_HEGEL_LD_LIBRARY_PATH \"/nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21/lib\"\nwrapProgram \"$out/bin/cargo-slotcar\" \\\n  --prefix PATH : \"/nix/store/c6mw8m0y78lwffywi382swrargz2v8fi-cargo-octet-runtime-path/bin\" \\\n  --prefix LD_LIBRARY_PATH : \"/nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21/lib\" \\\n  --set OCTET_TOOLCHAIN \"nightly-2026-03-21-x86_64-unknown-linux-gnu\" \\\n  --set OCTET_DRIVER_PATH \"/nix/store/8b0qpvqbcsmqqgk7nawvsfr71dclqfwk-dylint-driver-5.0.0/bin/dylint-driver\" \\\n  --set OCTET_LINT_LIB \"/nix/store/lpdp4gcxq8gj6qs4hdiznvv3gb3fcs5l-octet-ui-library/lib/liboctet@nightly-2026-03-21-x86_64-unknown-linux-gnu.so\" \\\n  --set OCTET_COVERAGE_CARGO \"/nix/store/psn0v6x3wj3h2vgyi2s2x7rjpzlb5zrr-cargo/bin/cargo\" \\\n  --set OCTET_COVERAGE_PATH \"/nix/store/c6mw8m0y78lwffywi382swrargz2v8fi-cargo-octet-runtime-path/bin\" \\\n  --set OCTET_COVERAGE_CARGO_CONFIG \"/nix/store/wy1hfffalczvg049mmy5i44gya9c6i4m-vendor-cargo-deps/config.toml\" \\\n  --set OCTET_COVERAGE_LD_LIBRARY_PATH \"/nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21/lib\" \\\n  --set OCTET_MUTATION_CARGO \"/nix/store/psn0v6x3wj3h2vgyi2s2x7rjpzlb5zrr-cargo/bin/cargo\" \\\n  --set OCTET_MUTATION_PATH \"/nix/store/c6mw8m0y78lwffywi382swrargz2v8fi-cargo-octet-runtime-path/bin\" \\\n  --set OCTET_MUTATION_CARGO_CONFIG \"/nix/store/wy1hfffalczvg049mmy5i44gya9c6i4m-vendor-cargo-deps/config.toml\" \\\n  --set OCTET_MUTATION_LD_LIBRARY_PATH \"/nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21/lib\" \\\n  --set OCTET_HEGEL_CARGO \"/nix/store/psn0v6x3wj3h2vgyi2s2x7rjpzlb5zrr-cargo/bin/cargo\" \\\n  --set OCTET_HEGEL_PATH \"/nix/store/c6mw8m0y78lwffywi382swrargz2v8fi-cargo-octet-runtime-path/bin\" \\\n  --set OCTET_HEGEL_CARGO_CONFIG \"/nix/store/wy1hfffalczvg049mmy5i44gya9c6i4m-vendor-cargo-deps/config.toml\" \\\n  --set OCTET_HEGEL_LD_LIBRARY_PATH \"/nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21/lib\"\nwrapProgram \"$out/bin/cargo-tigerstyle\" \\\n  --prefix PATH : \"/nix/store/c6mw8m0y78lwffywi382swrargz2v8fi-cargo-octet-runtime-path/bin\" \\\n  --prefix LD_LIBRARY_PATH : \"/nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21/lib\" \\\n  --set OCTET_TOOLCHAIN \"nightly-2026-03-21-x86_64-unknown-linux-gnu\" \\\n  --set OCTET_DRIVER_PATH \"/nix/store/8b0qpvqbcsmqqgk7nawvsfr71dclqfwk-dylint-driver-5.0.0/bin/dylint-driver\" \\\n  --set OCTET_LINT_LIB \"/nix/store/lpdp4gcxq8gj6qs4hdiznvv3gb3fcs5l-octet-ui-library/lib/liboctet@nightly-2026-03-21-x86_64-unknown-linux-gnu.so\" \\\n  --set OCTET_COVERAGE_CARGO \"/nix/store/psn0v6x3wj3h2vgyi2s2x7rjpzlb5zrr-cargo/bin/cargo\" \\\n  --set OCTET_COVERAGE_PATH \"/nix/store/c6mw8m0y78lwffywi382swrargz2v8fi-cargo-octet-runtime-path/bin\" \\\n  --set OCTET_COVERAGE_CARGO_CONFIG \"/nix/store/wy1hfffalczvg049mmy5i44gya9c6i4m-vendor-cargo-deps/config.toml\" \\\n  --set OCTET_COVERAGE_LD_LIBRARY_PATH \"/nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21/lib\" \\\n  --set OCTET_MUTATION_CARGO \"/nix/store/psn0v6x3wj3h2vgyi2s2x7rjpzlb5zrr-cargo/bin/cargo\" \\\n  --set OCTET_MUTATION_PATH \"/nix/store/c6mw8m0y78lwffywi382swrargz2v8fi-cargo-octet-runtime-path/bin\" \\\n  --set OCTET_MUTATION_CARGO_CONFIG \"/nix/store/wy1hfffalczvg049mmy5i44gya9c6i4m-vendor-cargo-deps/config.toml\" \\\n  --set OCTET_MUTATION_LD_LIBRARY_PATH \"/nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21/lib\" \\\n  --set OCTET_HEGEL_CARGO \"/nix/store/psn0v6x3wj3h2vgyi2s2x7rjpzlb5zrr-cargo/bin/cargo\" \\\n  --set OCTET_HEGEL_PATH \"/nix/store/c6mw8m0y78lwffywi382swrargz2v8fi-cargo-octet-runtime-path/bin\" \\\n  --set OCTET_HEGEL_CARGO_CONFIG \"/nix/store/wy1hfffalczvg049mmy5i44gya9c6i4m-vendor-cargo-deps/config.toml\" \\\n  --set OCTET_HEGEL_LD_LIBRARY_PATH \"/nix/store/1yvh3d6y3fj3xk2dgwczrp1dj5svd92c-rust-default-1.96.0-nightly-2026-03-21/lib\"\n\n",
+          "buildInputs": "",
+          "builder": "/nix/store/2hjsch59amjs3nbgh7ahcfzm2bfwl8zi-bash-5.3p9/bin/bash",
+          "cmakeFlags": "",
+          "configureFlags": "",
+          "depsBuildBuild": "",
+          "depsBuildBuildPropagated": "",
+          "depsBuildTarget": "",
+          "depsBuildTargetPropagated": "",
+          "depsHostHost": "",
+          "depsHostHostPropagated": "",
+          "depsTargetTarget": "",
+          "depsTargetTargetPropagated": "",
+          "doCheck": "",
+          "doInstallCheck": "",
+          "enableParallelBuilding": "1",
+          "enableParallelChecking": "1",
+          "enableParallelInstalling": "1",
+          "mesonFlags": "",
+          "name": "cargo-octet-0.1.0",
+          "nativeBuildInputs": "/nix/store/lhmsl7m09sq9b3xc5qyfi1cz924795n5-make-shell-wrapper-hook",
+          "out": "/nix/store/ssnpiwmsn5h631mrmyn3y7cpykx4x10j-cargo-octet-0.1.0",
+          "outputs": "out",
+          "passAsFile": "buildCommand paths",
+          "patches": "",
+          "paths": "/nix/store/pmgk8wl1vlsfhyjxv6zsxjdjfyypylkw-cargo-octet-0.1.1-rc.1",
+          "preferLocalBuild": "1",
+          "propagatedBuildInputs": "",
+          "propagatedNativeBuildInputs": "",
+          "stdenv": "/nix/store/q2014afk6bp02x3hfz2c94ai251mwzjj-stdenv-linux",
+          "strictDeps": "",
+          "system": "x86_64-linux"
+        },
+        "inputs": {
+          "drvs": {
+            "71g65hf0w0jba5r7fc9786njjx1v5rr9-bash-5.3p9.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "out"
+              ]
+            },
+            "94cskc2ravarj38m4yk1qi3vw9hx1gbd-octet-ui-library.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "out"
+              ]
+            },
+            "9gk1mx2szllm0nhjmrrqqb1ri8s935sw-dylint-driver-5.0.0.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "out"
+              ]
+            },
+            "cf06k5qi2shwgj6id2hab3bndvdq8a34-make-shell-wrapper-hook.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "out"
+              ]
+            },
+            "csay413w15ckmv4yx423i8000agaaz9s-stdenv-linux.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "out"
+              ]
+            },
+            "f0z2d6m6gqj72zlc396g24imz8ilkb3w-vendor-cargo-deps.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "out"
+              ]
+            },
+            "i70zy62zmlfsv2r5nnm7sc1j4r1nqy5x-cargo-octet-0.1.1-rc.1.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "out"
+              ]
+            },
+            "jb7kggisrsdm7an800mczdxkcaqvifgc-cargo-octet-runtime-path.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "out"
+              ]
+            },
+            "w3770qw8sbvss0ykn7imnjvg8m96j2gc-lndir-1.0.5.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "out"
+              ]
+            },
+            "zq37vhahaa8ncyg04gf7icj471h9fpc2-cargo.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "out"
+              ]
+            },
+            "zxvqck0x496vcj2qn1r0wil6bb85zj7b-rust-default-1.96.0-nightly-2026-03-21.drv": {
+              "dynamicOutputs": {},
+              "outputs": [
+                "out"
+              ]
+            }
+          },
+          "srcs": [
+            "l622p70vy8k5sh7y5wizi5f2mic6ynpg-source-stdenv.sh",
+            "shkw4qm9qcw5sc5n1k5jznc83ny02r39-default-builder.sh"
+          ]
+        },
+        "name": "cargo-octet-0.1.0",
+        "outputs": {
+          "out": {
+            "path": "ssnpiwmsn5h631mrmyn3y7cpykx4x10j-cargo-octet-0.1.0"
+          }
+        },
+        "system": "x86_64-linux",
+        "version": 4
+      }
+    },
+    "version": 4
+  }
+}

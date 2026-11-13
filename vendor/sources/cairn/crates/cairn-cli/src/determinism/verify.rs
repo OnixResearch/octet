@@ -4,6 +4,8 @@ use super::replay::{
 };
 use super::*;
 
+const MAX_REPLAY_RECEIPT_BYTES: u64 = 16 * 1024 * 1024;
+
 struct ReplayVerifyOptions {
     root: PathBuf,
     path: PathBuf,
@@ -24,14 +26,32 @@ pub(super) fn run_determinism_verify_receipt(args: Vec<String>) -> Result<(), Bo
 }
 
 fn replay_verify_options(args: &[String]) -> Result<ReplayVerifyOptions, Box<dyn Error>> {
-    let root = read_option(args.to_vec(), "--root", ".");
-    let path = args
-        .iter()
-        .find(|arg| !arg.starts_with("--") && *arg != &root)
-        .ok_or("determinism verify-receipt requires <receipt.json>")?;
+    let mut root = PathBuf::from(".");
+    let mut receipts = Vec::new();
+    let mut index = 0;
+    while index < args.len() {
+        let argument = &args[index];
+        if argument == "--root" {
+            let value = args
+                .get(index + 1)
+                .filter(|value| !value.starts_with("--"))
+                .ok_or("--root requires a value")?;
+            root = PathBuf::from(value);
+            index += 2;
+            continue;
+        }
+        if argument.starts_with("--") {
+            return Err(format!("unknown option: {argument}").into());
+        }
+        receipts.push(PathBuf::from(argument));
+        index += 1;
+    }
+    if receipts.len() != 1 {
+        return Err("determinism verify-receipt requires exactly one <receipt.json>".into());
+    }
     Ok(ReplayVerifyOptions {
         root,
-        path: PathBuf::from(path),
+        path: receipts.remove(0),
     })
 }
 
@@ -70,7 +90,11 @@ pub(crate) fn determinism_verify_replay_receipt(root: &Path, path: &Path) -> Val
     let expected_entropy_policy_hash = replay_entropy_policy_hash(&entropy_inventory);
     let expected_attestation_policy_hash = replay_attestation_policy_hash(&environment_facts);
 
-    let text = match fs::read_to_string(path) {
+    let text = match crate::support::read_bounded_text_no_symlink(
+        path,
+        MAX_REPLAY_RECEIPT_BYTES,
+        "replay receipt",
+    ) {
         Ok(text) => text,
         Err(error) => {
             return replay_verification_receipt(

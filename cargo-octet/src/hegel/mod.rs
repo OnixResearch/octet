@@ -4,7 +4,7 @@
 // r[impl octet.law_tested_deterministic_cores.hegel_catalog]
 pub const PROFILE_SCHEMA: &str = "octet-hegel-producer-profiles/v1";
 pub const PROFILE_ID: &str = "octet-pure-core-laws-v1";
-pub const PROFILE_IDENTITY: &str = "b3:8739e90ca0707af37eae8553c3b792ec747b0668cad8c4e7e6b0b7c7a5e00e17";
+pub const PROFILE_IDENTITY: &str = "b3:10e01458cca9ccc821a3adbf56afa70d21161c4bfdaf888525a5f61c64c913de";
 pub const LAW_CATALOG_SCHEMA: &str = "octet-hegel-law-catalog/v1";
 pub const LAW_CATALOG_IDENTITY: &str = "b3:33710ac60efb4a7edca25de746d9740d75233b372d0016f54a2e138ec1a038eb";
 pub const SUMMARY_SCHEMA: &str = "octet-hegel-producer-summary/v2";

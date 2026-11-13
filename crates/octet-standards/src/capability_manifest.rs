@@ -292,7 +292,7 @@ struct SourceScopeMatch {
 
 /// Returns true when the capability-manifest checker evaluates `policy`.
 #[must_use]
-pub fn capability_manifest_checker_applies(policy: &PolicyEntry) -> bool {
+pub fn checker_applies(policy: &PolicyEntry) -> bool {
     capability_mechanism(policy).is_some()
 }
 

@@ -34,7 +34,7 @@ mod receipts;
 #[cfg(test)]
 mod tests;
 
-use crate::support::read_string_option;
+use crate::support::{read_string_option, CapabilityRoot, CapabilityRootKind};
 use std::error::Error;
 
 use cases::case_report;
@@ -42,33 +42,57 @@ use rails::run_real_rail;
 use receipts::render_case_receipt;
 
 pub(crate) fn run_test_harness(args: Vec<String>) -> Result<(), Box<dyn Error>> {
+    crate::support::reject_unknown_options(
+        &args,
+        &[
+            "--root",
+            "--rail",
+            "--out",
+            "--case",
+            "--seed",
+            "--max-reruns",
+        ],
+    )?;
+    crate::support::reject_positional_arguments(&args)?;
     let root = crate::support::read_option(args.clone(), "--root", ".");
+    let out = read_string_option(&args, "--out");
+    if let Some(out) = &out {
+        validate_output_path(out)?;
+    }
     if let Some(rail) = read_string_option(&args, "--rail") {
-        return run_real_rail(&root, &rail, read_string_option(&args, "--out"));
+        if read_string_option(&args, "--case").is_some()
+            || read_string_option(&args, "--seed").is_some()
+            || read_string_option(&args, "--max-reruns").is_some()
+        {
+            return Err(
+                "test-harness --rail cannot be combined with --case, --seed, or --max-reruns"
+                    .into(),
+            );
+        }
+        return run_real_rail(&root, &rail, out);
     }
     let case = read_string_option(&args, "--case").unwrap_or_else(|| "pass".into());
     let seed = read_string_option(&args, "--seed").unwrap_or_else(|| "0".into());
-    let max = read_string_option(&args, "--max-reruns")
-        .and_then(|x| x.parse::<usize>().ok())
-        .unwrap_or(2);
-    let out = read_string_option(&args, "--out");
+    validate_path_component("--case", &case)?;
+    validate_path_component("--seed", &seed)?;
+    let max = match read_string_option(&args, "--max-reruns") {
+        Some(value) => value.parse::<usize>().map_err(|_| {
+            format!("test-harness --max-reruns must be a non-negative integer, got {value}")
+        })?,
+        None => 2,
+    };
     let artifact = root
         .join("target/cairn-test-harness")
         .join(format!("{case}-{seed}.json"));
     let report = case_report(&root, &case, &seed, max, &artifact)?;
     let rendered = render_case_receipt(&root, &case, &seed, max, &artifact, &report)?;
     if let Some(out) = out {
-        let p = root.join(out);
-        if let Some(parent) = p.parent() {
-            std::fs::create_dir_all(parent)?;
+        let capability = CapabilityRoot::open(CapabilityRootKind::Repository, &root)?;
+        let out = std::path::Path::new(&out);
+        if let Some(parent) = out.parent() {
+            capability.create_dir_all_path(parent)?;
         }
-        std::fs::write(
-            p,
-            format!(
-                "{rendered}
-"
-            ),
-        )?;
+        capability.write_path(out, format!("{rendered}\n").as_bytes())?;
     }
     println!("{rendered}");
     if report.outcome == model::Outcome::Passed {
@@ -76,4 +100,34 @@ pub(crate) fn run_test_harness(args: Vec<String>) -> Result<(), Box<dyn Error>> 
     } else {
         Err(format!("test harness case failed: {}", report.code).into())
     }
+}
+
+fn validate_output_path(value: &str) -> Result<(), Box<dyn Error>> {
+    let path = std::path::Path::new(value);
+    if path.is_absolute()
+        || path.components().any(|component| {
+            matches!(
+                component,
+                std::path::Component::ParentDir
+                    | std::path::Component::RootDir
+                    | std::path::Component::Prefix(_)
+            )
+        })
+    {
+        return Err("test-harness --out must be repository-relative without traversal".into());
+    }
+    Ok(())
+}
+
+fn validate_path_component(name: &str, value: &str) -> Result<(), Box<dyn Error>> {
+    if value.is_empty()
+        || value == "."
+        || value == ".."
+        || value.contains('/')
+        || value.contains('\\')
+        || value.chars().any(char::is_control)
+    {
+        return Err(format!("{name} must be a single safe path component").into());
+    }
+    Ok(())
 }

@@ -1,9 +1,10 @@
 # Copy to a consumer repository as `.pre-commit-config.yaml`.
-# Replace the sample `rev` with an Octet release tag or commit SHA that the
-# consumer has reviewed before installing the hook.
+# Candidate instructions only: install after the release owner publishes the
+# qualified immutable v0.1.1-rc.1 tag. No qualification is asserted here.
+# Requires Nix on x86_64-linux and a reviewed consumer Cargo.lock.
 repos:
-  - repo: https://github.com/OnixResearch/octet-public
-    rev: 0123456789abcdef0123456789abcdef01234567
+  - repo: https://github.com/OnixResearch/octet
+    rev: v0.1.1-rc.1
     hooks:
       - id: octet-deny-all
         # The hook ignores pre-commit's per-file list and runs once from the

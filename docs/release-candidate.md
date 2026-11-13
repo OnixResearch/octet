@@ -1,402 +1,267 @@
 # Octet release candidate checklist
 
-This document is the pre-tag release candidate receipt for Octet. It is intentionally a local verification checklist; it does not tag, publish, sign, or deploy artifacts.
+## Candidate and publication authority
 
-Public launch materials live with this checklist:
+The release target is **0.1.1-rc.1**, source-only Nix on **x86_64-linux**.
+<https://github.com/OnixResearch/octet> is the sole canonical source, release,
+support, and landing home. The planned immutable tag is `v0.1.1-rc.1`; a planned
+tag or copyable command is not evidence that it exists or is qualified. Do not
+move or reuse `v0.1.0`.
 
-- [positioning and message brief](gtm/positioning.md)
-- [launch plan](gtm/launch-plan.md)
-- [v0.1.0 release notes draft](gtm/release-notes-0.1.0.md)
-- [announcement draft](gtm/announcement.md)
-- [outreach copy](gtm/outreach.md)
-- [launch checklist](gtm/launch-checklist.md)
+The package is `cargo-octet`; `cargo-slotcar` and `cargo-tigerstyle` are existing
+compatibility binaries. The lint library is `octet`, with `slotcar` and
+`tigerstyle` compatibility outputs. Direct Cargo installation, crates.io,
+prebuilt downloads, other platforms, and a custom website are not release
+support claims.
 
-## Candidate identity
+The Octet maintainer owns candidate selection, distribution rights, gates,
+source-bound receipts, support, and publication. The immediate consumer is a
+Rust maintainer installing the checked path. The durable capability is the
+repeatable anonymous acquisition and fail/fix/verify/tamper path, not a one-off
+successful build or launch announcement.
 
-- Candidate version: `0.1.0`
-- Canonical Cargo package: `cargo-octet`
-- Compatibility Cargo binaries: `cargo-slotcar`, `cargo-tigerstyle`
-- Lint library package output: `octet` with compatibility aliases `slotcar` and `tigerstyle`
+Launch assets:
 
-## Public release cohort
+- [Positioning](gtm/positioning.md)
+- [Launch plan](gtm/launch-plan.md)
+- [Candidate release notes](gtm/release-notes-0.1.1-rc.1.md)
+- [Announcement draft](gtm/announcement.md)
+- [Outreach drafts](gtm/outreach.md)
+- [Launch checklist](gtm/launch-checklist.md)
 
-The supported public channel is the source-only export pinned at
-`github:OnixResearch/octet-public/becae9621fdf96803c7859e83d303cf535f20b15`.
-That was also the observed `main` head on 2026-11-11. `main` is a moving ref and
-is not a supported pin. The reviewed cohort is `octet-public-becae962-2026-11-11`.
+## Current evidence boundary
 
-`standards/release/release-cohort.ncl` is the reviewed manifest. It is exported
-to `standards/release/generated/release-cohort.json` and re-checked offline by
-`octet_standards::release_cohort` against `tests/fixtures/release/`. Regenerate
-the export and rerun the checker with:
+The RC is not qualified merely because implementation, static review, or an
+older cohort succeeded. Qualification requires the actual frozen candidate,
+matching producer, complete required gates, and owner decisions below.
 
-```bash
-nickel export --format json standards/release/release-cohort.ncl \
-  > standards/release/generated/release-cohort.json
-cargo test -p octet-standards --lib release_cohort
-```
+`standards/release/release-cohort.ncl` and its generated JSON name an exact
+cohort, not necessarily the current checkout. Until replaced by fresh RC
+qualification, their `octet-public-becae962-2026-11-11` record is historical and
+blocked. Its package/walkthrough receipts and the earlier full-core receipt do
+not qualify this RC. Do not relabel those receipts, manufacture output, or turn
+an expected command result into an observation.
 
-The manifest binds:
+The old `octet-public` repository remains unchanged by explicit owner decision.
+It is blocked and unsupported, not a fallback install or reporting route. Its
+reachable history and nested bundles still need separate cleanup; the owner
+did not authorize a rewrite or archive. Canonical history repair does not erase
+that repository, the `meta-introspector/octet` fork, Radicle replicas, GitHub
+caches, old clones, or prior disclosure.
 
-- source: public `becae9621fdf96803c7859e83d303cf535f20b15`
-  (`narHash sha256-5qsxu3ncbLCNYRLdryjVQDWPwTkIZ7dQ/F561lcmKCQ=`), an
-  independently rooted export derived from development
-  `972b6a5a55093283e6fd3571f6f24a4da56f25ed`.
-- export composition: independent git root, private settings and archival
-  transcripts withheld, operator paths in ordinary guidance illustrative.
-- toolchain: Rust `nightly-2026-03-21`, Nickel `1.17.0`
-  (`1320a983e6c3d1e2fb53dd2464b084b4903b1426`), Dylint baseline
-  `0e0a71eefe6f01563d11acc6e1d7af1d505934a9`.
-- dependencies: the exact pins in `tests/fixtures/release/public-flake.lock`,
-  including `cairn-public`, `valence-public`, `bounded-exec-public`,
-  `onix-artifact-public`, and the three Radicle inputs. Every pin was
-  retrievable anonymously at review with no private cache.
-- packages: `cargo-octet`, `cargo-slotcar`, `cargo-tigerstyle`, `octet`,
-  `slotcar`, `tigerstyle`, `dylint-driver`, `octet-standards`,
-  `slotcar-standards`, `tigerstyle-standards`, `octet-policy-artifacts`,
-  `octet-policy-export`, and `octet-assurance-profile-onixos-lifecycle`.
-- notices: `NOTICE`, `THIRD_PARTY_NOTICES.md`, and `LICENSES/` are required
-  members of a qualified public export.
-- acceptance: fresh receipts bound to one evidence digest.
+## Verified hosting settings
 
-### Capability inventory
+On 2026-11-12 the owner approved and the GitHub API confirmed, for
+`OnixResearch/octet`:
 
-The public cohort ships 77 Dylint lints. `tests/fixtures/release/public-lint-inventory-names.txt`
-is the reviewed public inventory and matches `tests/fixtures/lint_inventory_names.txt`
-at export origin `972b6a5a`. Capability claims are checked, not copied: the
-release-cohort test rejects a manifest whose inventory names differ from the
-fixture, whose source revision differs from the reviewed public revision, or
-whose documented count differs.
+- canonical description, repository homepage, and Rust/static-analysis topics;
+- private vulnerability reporting enabled;
+- secret scanning and secret-scanning push protection enabled;
+- dependency alerts enabled;
+- security-update PRs enabled and not paused.
 
-### Qualification status: blocked after nested-history audit
+No report was submitted and no paid security feature or legal terms were
+accepted. [SECURITY.md](../SECURITY.md) defines the private reporting route and
+safe fallback. API state is not a response-SLA or security guarantee.
 
-The reviewed source tree carries the notices and omits the top-level
-`docs/standards/source/` directory, but that is not sufficient exclusion. On
-2026-11-12 both `fixtures/cairn-cob-pilot/octet-cob.bundle` and
-`fixtures/cairn-cob-conflict-pilot/octet-cob-conflict.bundle` were unpacked and
-found to retain old development history containing the prose and local settings.
-The same bytes occur in `octet-public` at `becae962`; the manifest now records
-that blocker. Earlier build and walkthrough receipts remain bounded observations,
-not publication clearance. A new clean export and qualification are required.
+`main` protection is approved **after verified release integration**, not claimed
+already enabled: passing `core` and `verify`, an up-to-date branch, one approving
+review, stale-approval dismissal, enforcement for administrators, and no force
+push or deletion. Record the actual API result when applying it.
 
-### Re-pinning this cohort
+## Freeze source before acceptance
 
-A new public export invalidates the old pin. Do not edit only the flake ref.
+1. Finish admitted public dependency intake, the corrected Cairn provider, and
+   both genuine signed COB fixture drills. Preserve exact upstream revisions,
+   original manifests, licenses, notices, and Cargo checksums. Never patch a
+   vendored snapshot in place or give PR-controlled builds private keys.
+2. Finish implementation and native Cairn change inputs. Run Rust commands from
+   the repository's Nix devshell, not an ambient Cargo installation.
+3. Select an immutable candidate commit. Record its public repository, complete
+   revision, NAR hash, lockfiles, toolchain, package versions, policy identities,
+   and exact capability inventory. The inventory currently contains 77 Dylint
+   lints; compare actual candidate bytes rather than treating this count as
+   qualification.
+4. Capture against that source. A later qualification/documentation commit may
+   advance a branch without changing the selected source. Keep the source pin
+   and its matching receipts explicit; do not claim the later commit was built
+   or silently move the tag to it.
 
-1. Publish the new export, then resolve its revision and nar hash:
+A public source branch, tag, release, external message, or history rewrite needs
+its exact authorized target and values. A local gate, model review, or this
+checklist is not publication authority.
 
-   ```bash
-   nix flake metadata --json github:OnixResearch/octet-public/<revision> \
-     | jq '{rev: .locked.rev, narHash: .locked.narHash}'
-   ```
+## Anonymous acquisition
 
-2. Update `standards/release/release-cohort.ncl`: `cohort_id`,
-   `channel.flake_ref`, `channel.observed_branch_head`, `channel.head_observed_at`,
-   `source.development.revision`, `source.public.revision`,
-   `source.public.nar_hash`, `source.public.derived_from_revision`, and
-   `source.lag.summary`. Update `tests/fixtures/release/public-flake.lock` and
-   `tests/fixtures/release/public-lint-inventory-names.txt` when the export
-   changes those inputs.
+Prove the public path in an isolated home, XDG configuration/cache, Cargo home,
+and writable target directory, with no SSH agent, credentials, Git URL rewrite,
+sibling checkout, or private cache. Record allowed substituters and builders.
+Using an existing private store object is not proof of anonymous acquisition.
 
-3. Regenerate the JSON export and run the checker:
+The existing intake owner is `vendor/dependencies.ncl`; use
+`tools/import-public-dependencies.py` for its exact archive/checksum projection.
+Preserve historical Cargo source identities while resolving the admitted
+public source bytes. Valence's reviewed module/revision and its separate
+historical distribution snapshot are distinct inputs, not interchangeable
+fallbacks. The packaged Cairn source must be the corrected immutable provider,
+not known-broken `695124d459574ba7aeba6097310d237f393c243c`.
 
-   ```bash
-   nickel export --format json standards/release/release-cohort.ncl \
-     > standards/release/generated/release-cohort.json
-   cargo test -p octet-standards --lib release_cohort
-   ```
+Build all five primary outputs from the selected public source: `cargo-octet`,
+`octet`, `dylint-driver`, `octet-standards`, and `octet-policy-artifacts`. Retain
+actual output paths, commands, tool versions, exits, stdout/stderr, and source
+identity. A transport/acquisition failure is a blocker, not a clean check.
 
-   If the evidence digest changed, the test failure prints the digest computed
-   from the reviewed revision, inventory, flake lock, and toolchain bytes.
-   Update `cohort_evidence` and rerun.
+## Real consumer proof
 
-4. Rerun every acceptance receipt against the new pin. Move replaced receipts
-   to `acceptance.non_evidence`; do not relabel historical evidence as fresh.
-
-5. Update the candidate identity and public cohort text in this checklist.
-
-### Export-transform pitfall
-
-The current public tree is **not** a pure `git archive` of the development
-tree. It carries selected later dependency, toolchain, and documentation
-changes. Do not generate the next export by copying the development tree
-directly. Observed on 2026-11-12, the current public cohort withholds at least:
-
-- `.envrc`;
-- `.cairn/archive/**`;
-- `openspec/changes/**/evidence/**` and selected archival verification files;
-- `docs/standards/source/**`;
-- `standards/release/**`;
-- `tests/fixtures/release/**`;
-- `crates/valence-core/**` except the retained manifest surface;
-- `crates/octet-standards/src/release_cohort.rs`.
-
-It rewrites private Cargo/flake Git URLs to public mirrors and operator paths
-to illustrative paths. The earlier claim that signed collaboration fixture
-roots had been rewritten was false: their bundles retained development history.
-Rebuild those fixtures from clean roots using actual signed operations; never
-change signed payloads or relabel old receipts. Regenerate `Cargo.lock` and
-`flake.lock` after dependency rewrites and record their exact identities.
-The next export must also carry the `cargo-llvm-cov 0.8.3` coverage correction
-and launch kit; the old public pin does not.
-
-### Fresh acceptance receipts for this cohort
-
-These ran on 2026-11-11 in an isolated environment (`HOME`, `XDG_CACHE_HOME`,
-and `XDG_CONFIG_HOME` under a scratch directory, `substituters` limited to
-`cache.nixos.org`, empty `builders`, no credentials, no pre-populated private
-cache):
-
-| Receipt | Command | Outcome |
-| --- | --- | --- |
-| flake resolution | `nix flake metadata --json github:OnixResearch/octet-public/becae9621fdf96803c7859e83d303cf535f20b15` | resolved the pinned revision and nar hash |
-| package build | `nix build ...#cargo-octet ...#octet ...#dylint-driver ...#octet-standards ...#octet-policy-artifacts --no-link --json` | all five outputs built from public inputs |
-| runner version | `nix run <flake-ref>#cargo-octet -- --version` | `cargo-octet 0.1.0` |
-| policy artifacts | `octet-policy-artifacts <dir>` | five generated policy artifacts plus manifest |
-| walkthrough | `cargo octet check --artifact-dir artifacts/octet --output-format sarif` | finding, corrected fix, clean run |
-| artifact verification | `cargo octet artifact verify --artifact-dir artifacts/octet` | `status=valid` |
-| tamper rejection | same verifier on a rewritten `results.sarif` | `status=invalid`, exit 1 |
-
-The walkthrough observed `unchecked_division` at `src/lib.rs:2`. The reviewed
-public revision publishes the guarded
-`if completed_operations > 0` / `else` form, which produces a clean run: 0
-findings, exit 0. The public source pin predates the newer early-return
-recognition, so the walkthrough deliberately keeps the guarded form rather than
-an early `return Err(...)`. A consumer without a committed `Cargo.lock` also
-sees exit 2, because the runner restores the lock it generated; pre-generating
-the lock gives exit 0.
-
-Historical and development receipts are non-evidence for this cohort. The
-manifest lists them under `acceptance.non_evidence`; they cannot be relabelled.
-
-The full `nix flake check -L` gate for this cohort was **not** executed. Only
-the source-resolution, package-build, runner, policy-artifact, walkthrough, and
-artifact-verification receipts above ran, and only for
-`x86_64-linux`.
-
-## History cleanup and cutover
-
-The Octet maintainer owns this bounded one-time publication repair. The current
-consumer is the full `OnixResearch/octet` repository; its public branch and tag
-history must not redistribute the unlicensed prose or machine-local agent data.
-The recurrence trigger is a proposed reimport, old-history merge, or new export.
-
-Prepare a restricted recovery directory outside every published checkout.
-Back up all local refs and stash with `git bundle create "$RECOVERY/local.bundle"
---all`, verify the bundle, and preserve a separate remote mirror. Never put a
-backup branch, stash, bundle, or old-to-new ref map in the published repository.
-Work in a fresh, non-hardlinked mirror, not in the live repository with linked
-worktrees. The path filter for `git-filter-repo 2.47.0` removes:
-
-```text
-docs/standards/source/
-.agent/
-.pi/
-.claude/settings.local.json
-.envrc
-fixtures/cairn-cob-pilot/octet-cob.bundle
-fixtures/cairn-cob-conflict-pilot/octet-cob-conflict.bundle
-openspec/changes/archive/2026-05-15-rename-to-slotcar/evidence/name-classification.txt
-openspec/changes/archive/2026-05-18-rename-slotcar-to-octet/evidence/name-classification.txt
-openspec/changes/rename-slotcar-to-octet/evidence/name-classification.txt
-openspec/changes/rename-to-slotcar/evidence/name-classification.txt
-```
-
-Use `git-filter-repo --sensitive-data-removal --no-fetch --invert-paths
---paths-from-file "$RECOVERY/purge-paths.txt"` in the isolated mirror. Preserve
-authorship and all advertised branch/tag names. Old commit identities and
-signatures cannot be carried forward as valid signatures over rewritten commits.
-Rebuild the two COB bundles through real signed fixture runs on clean roots;
-keep their Nickel manifests, exported JSON, and BLAKE3 identities synchronized.
-Do not modify signed fixture bytes by global text substitution.
-The four name-classification logs contain copied narrative blocks; their
-removal is not a deletion of the executable policy, migration records, or
-canonical Aspen rollout evidence.
-
-
-Check every reachable path and original prohibited blob ID, recursively unpack
-all Git bundles, verify Git connectivity, and run a redacting history and tree
-scan. The initial Gitleaks 8.28.0 run inspected 1,325 commits and reported two
-`private-key` matches in `crates/octet-standards/src/customs.rs`; both were
-reviewed Rust test strings with no complete private key. Preserve the negative
-security tests rather than deleting them to obtain a zero-warning report.
-
-At cutover, verify the old remote ref OIDs again and use explicit per-ref
-`--force-with-lease` values with an atomic push; never `git push --mirror`,
-which could publish local recovery refs. Other clones must reclone or rebase
-onto rewritten history instead of merging old branches back in. Keep the local
-recovery store restricted until the maintainer's retention decision.
-
-The audit found no Git LFS pointers, submodules, pull requests, releases, or
-Actions artifacts, but did find a public fork, `meta-introspector/octet`.
-Those are observations, not deletion authority or future absence guarantees.
-Coordinate fork cleanup and ask GitHub Support about cached/dangling objects
-using the first changed commit `ac199e72622ffbbc26f4972ed5489243994950f6`.
-The separate `octet-public` repository and Radicle replica need their own
-approved cleanup. This operation is not a credential-rotation, privacy, legal,
-binary-release, or fresh-cohort qualification claim.
-
-## Public export and development-repository prerequisites
-
-Both the development repository and the separate source-only export are public.
-The `becae962` export is blocked after the nested-history audit above. Cleaning
-development history does not repair the export, a fork, a Radicle replica, or a
-hosting provider's retained objects. These checks do not authorize a visibility
-change, binary upload, or a force-push without the exact ref scope being approved.
-The existing grant remains `AGPL-3.0-or-later`, not a relicensing of imported work.
-
-For every new public export:
-
-- Keep `LICENSE`, `NOTICE`, `THIRD_PARTY_NOTICES.md`, and `LICENSES/` with the
-  source distribution.
-- Keep `docs/standards/source/` out of the export until the Adam Murray
-  standards-prose permission entry in
-  [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) is resolved. Do not publish
-  uncertain imported material on the assumption that the root AGPL notice
-  covers it. Check nested Git bundles and archives as well as ordinary paths;
-  the old export's top-level exclusion did not remove its embedded copies.
-  Keep the attribution and required notices.
-- Fetch every exact Cargo and flake input from a clean, credential-free
-  environment. On 2026-10-15 anonymous requests for the pinned Valence,
-  Bounded Exec, Cairn, and Cairn artifact sources returned HTTP 404. This does
-  not distinguish private, missing, or renamed sources. On 2026-11-11 the
-  public cohort's pins did resolve anonymously, so the check is a reproducible
-  pass for that cohort; rerun it for every new pin.
-- Review every branch/tag intended for publication and scan reachable history
-  and the final tracked tree with a redacting secret scanner. Rotate/revoke
-  any real credential before considering an approved history repair. Review
-  personal paths, consumer data, and historical evidence separately; a scanner
-  finding no credentials is not a privacy or publication clearance.
-- Enable GitHub private vulnerability reporting and verify the channel in
-  [SECURITY.md](../SECURITY.md); configure branch protection, review policy,
-  and available secret-scanning/push-protection settings. Do not supply private
-  deploy keys to pull-request-controlled builds.
-- Confirm the right to distribute original contributions, including employer
-  permissions where applicable. Git authorship is not a copyright assignment.
-
-The development history repair removes the prose rather than assuming
-permission. Reintroduction requires recorded rights. Historical source labels
-remain in registry comments, not in live policy source fields. All 72 live
-citations use policy-specific clauses in `docs/standards/policy-contract.md`;
-downstream suppression comments must use those new `source_anchor` values.
-Source files and headings remain mandatory; no missing-source check is bypassed.
-No previous publication or cached copy is erased merely by rewriting Git refs.
-
-The preparation scan used Gitleaks 8.30.1:
+Use the matching Nix-store runner and Cargo executable, and a new capture path:
 
 ```bash
-gitleaks git --redact=100 --no-banner --log-opts=--all .
-gitleaks git --staged --redact=100 --no-banner .
+python3 tools/public-release-smoke.py \
+  --runner "$OCTET_RUNNER" --cargo "$OCTET_CARGO" \
+  --output "$CAPTURE_DIR" --downstream valence
 ```
 
-At revision `4a540dff99aa2040e267e42bbafe09144f276572`, the history scan reported
-1,316 commits and no findings; the staged scan also reported no findings.
-`git rev-list --all --count` counted 1,362 reachable commits; scanner and Git
-counts differ, so do not substitute one for the other. Rerun against the final
-candidate. Unreachable objects, reflog-only history, external LFS/attachments,
-and repository hosting settings were not cleared by these scans.
+The helper also accepts `--flake` with a full immutable canonical commit and
+`#cargo-octet`. Record the resolved producer/source identity; a version string
+alone is insufficient. The capture must establish:
 
-### Local Nix verification limit
+- a fresh standalone Rust crate with consumer-owned policy and a committed,
+  Cargo-generated lockfile;
+- an actual `unchecked_division` finding and its intentional nonzero status;
+- a genuine guarded fix and the observed result for the selected lint scope;
+- valid original Rust-emitted evidence and rejection of a deliberately tampered
+  copy, without altering the retained originals;
+- anonymous dependency acquisition and a real warning-only inventory of public
+  Valence `e250f498a86ac1e62266b8df749ade021a4b4043`, using its owned
+  `valence-shared-identity-pilot` library scope and unchanged policy/lockfile.
 
-On 2026-10-16, `nix flake check --no-write-lock-file -L` timed out waiting
-for another Nix process to finish the pinned Bounded Exec fetch. A rerun
-with an isolated `XDG_CACHE_HOME`, Git credential prompts disabled, and
-empty Nix access tokens exited 1 while fetching
-`https://github.com/OnixResearch/bounded-exec.git` at revision
-`44eb74eb639194665ee820562d5b2ce2c3ff6a94`.
+Record downstream findings, including residuals. Do not cap or suppress policy,
+assert zero noise, substitute a fake workspace, or count an acquisition failure
+as a finding. [The walkthrough](examples/first-checked-rust-patch/README.md)
+explains lockfile and exit-code behavior. Raw logs are observations; the existing
+Rust artifacts/provenance remain the receipt authority.
 
-That isolated run also logged an `onix-artifact` fetch over SSH while
-evaluating Cairn. The root artifact flake input uses HTTPS, but that does not
-prove every transitive build source uses anonymous transport.
+## Reviewed gates that cannot be mechanically waived
 
-This note is historical. The 2026-11-11 cohort built five outputs from public
-inputs, but the full `nix flake check -L` gate was not executed for that
-cohort. Do not claim a passing full flake gate. If an isolated run reports a
-transport or source-availability limit, record it as a limit for the new pin
-rather than borrowing this result.
+- **Object corpus:** the RC's exact source/reference tuple has a recorded
+  [owner H2 decision](../.cairn/changes/resolve-open-assurance-issues/evidence/rc1-import-clean-owner-approval.txt)
+  and [reviewed manifest](../cargo-octet/tests/fixtures/object-corpus/source-token-v2/reviewed-source-manifest.json).
+  The selection preserves the earlier sources and adds the three extracted
+  modules: 40 selected sources, 42 unique source/module/test comparisons, and
+  four actual reference counts of 1, 1155, 1764, and 1764. Earlier RC and 0.1.0
+  approvals remain historical. The named admission and tamper-control rails
+  must pass for the integrated source; this decision does not approve future
+  consumer-test code, correctness, lifecycle closure, or release qualification.
+- **Fingerprint examples:** use actual RC output for version-bound identities
+  and transcripts. Preserve deliberate warning/missing-review negative cases;
+  do not hand-edit hashes or insert accepted markers to pass.
+- **Self-check:** the owner approved the exact Rust-emitted pre-freeze baseline
+  of 3,030 identities and lowered the occurrence expectation to 4,239, after
+  disclosure of 36 changed warning contexts. The two new import findings were
+  fixed rather than accepted. Configuration and complete collection scope are
+  unchanged; no lint was disabled or budget expanded. This is not a frozen-source
+  gate result: rerun the accepted-baseline and tamper controls after integration.
+- **Cairn:** both complete signed CLI drills passed with selected provider
+  `2747aa6eeb6e9eb9862f2bc4e11336e768e2e10b` and the current generated Octet
+  policy. The [pilot](../fixtures/cairn-cob-pilot/README.md) and
+  [conflict drill](../fixtures/cairn-cob-conflict-pilot/README.md) retain actual
+  signatures, creator/delegate authority, conflict refusal, and two-parent
+  resolution. The matching pre-freeze Octet consumer/Nix fixture checks passed.
+  This does not establish upstream main integration, lifecycle closure, or
+  release approval.
+- **Valence page:** the retained May-23 page describes its historical payload,
+  not the RC. Re-rendering it with a new date/HEAD does not execute its claims.
 
-### Binary and Nix distribution
+## Required verification
 
-Publish the exact matching corresponding source and build/install inputs,
-including lockfiles, manifests, generated-input sources, build scripts, and
-all required non-system dependency sources. Provide equivalent source access
-and directions beside downloadable binaries as required by AGPL section 6.
-An embedded lint-source subset is not the complete corresponding source for
-the runner and its dependencies. Modified network-interactive versions also
-need the source offer required by section 13.
-
-Inventory license/notice obligations for the actual locked Rust and native/Nix
-closure before uploading binaries. Octet packages install legal files under
-`share/licenses/octet/`; Dylint driver and UI-driver outputs carry their own
-license directories. These files are not an exhaustive closure audit. In
-particular, review notice inclusion for the separately packaged Lean/leantar
-tool outputs and any other redistributed tools before a binary release.
-
-The supported distribution paths are a full source checkout and the pinned
-Nix flake. The `0.1.0` launch recommendation is source-only. Crates.io
-publication is not prepared: workspace path dependencies, Git dependencies, and
-the runner's repository-wide embedded build inputs need a separate packaging
-decision. Do not treat `cargo package --list` as proof that a standalone crate
-can be built or published.
-
-## Required pre-tag gates
-
-Release operators should also review `docs/trust-boundary-evidence.md` for the
-controlled-deployment posture, provenance fields, evidence tiers, and explicit
-scope boundary behind release evidence claims.
-
-Run these from the repository root before tagging:
+After integration, run the narrow changed-surface checks and every required
+repository gate, retaining actual results. The final release rail includes:
 
 ```bash
-nix build .#checks.x86_64-linux.release-candidate-smoke -L --no-link
+nix build .#checks.x86_64-linux.release-candidate-smoke --no-link -L
 nix flake check -L
-cargo octet check --artifact-dir artifacts/octet
-cargo octet artifact verify --artifact-dir artifacts/octet
-cargo test -p octet-standards --lib release_cohort
+nix develop -c cargo test -p octet-standards --lib release_cohort
 ```
 
-The last gate revalidates the public release cohort and its negative controls;
-it fails on a source/inventory mismatch, an omitted notice, unresolved imported
-content presented as cleared, a warm-cache dependency, a copied or
-source-mismatched receipt, changed evidence, or an unsupported profile presented
-as verified.
+`release-candidate-smoke` runs the packaged commands through a fresh consumer
+with an empty Rustup home. It asserts the denied division, guarded fix,
+original Rust artifact verification, and tamper rejection, retaining command
+logs and native bundles under the check output's `consumer-onboarding/`.
+The driver uses the pinned Nix sysroot independently of the consumer home.
+This sandboxed smoke does not establish anonymous public-source acquisition,
+the separate downstream inventory, or full release qualification.
 
-## Install smoke commands
+The full flake rail includes core and owner-dependent checks; a green `core`
+job is not a passing full release. Follow repo-required formatting, Clippy,
+policy freshness, source/reference parity, signed fixture, and native Cairn
+validation/review/traceability gates. Do not remove an actual gate, change owner
+policy, or substitute an incidental prose grep for behavior. Pure wording tests
+are not release evidence.
 
-The release candidate smoke check verifies these installed binary surfaces from the current flake build:
+Update the cohort's inventory/toolchain/lock fixtures from the selected source,
+export the Nickel manifest, and recompute its evidence identity. Source,
+inventory, notice, anonymous-dependency, receipt freshness, evidence-digest,
+and unsupported-profile negative controls must still reject invalid inputs.
+A truthful blocked manifest can validate without being release-ready.
 
-```bash
-nix run .#cargo-octet -- --version
-nix run .#cargo-slotcar -- --version
-nix run .#cargo-tigerstyle -- --version
-nix build .#cargo-octet .#cargo-slotcar .#cargo-tigerstyle .#octet .#slotcar .#tigerstyle --no-link
-```
+### Observed local Cairn prechecks
 
-For the supported public cohort, install from the pinned channel rather than a
-local checkout. The command below is the copyable form; `main` is not a
-supported pin.
+The shipped H3 provider and generated Octet policy
+`728c4b47495c4469c2cdaa765908fd380732835f489f41a1270b60f36c4ae8e6`
+passed these local, pre-freeze checks:
 
-```bash
-nix run github:OnixResearch/octet-public/becae9621fdf96803c7859e83d303cf535f20b15#cargo-octet -- --version
-nix run github:OnixResearch/octet-public/becae9621fdf96803c7859e83d303cf535f20b15#cargo-octet -- check
-```
+| Command | Observed result | Boundary |
+| --- | --- | --- |
+| `cairn validate --strict` | `valid: true`, 93 specs, no issues | Lifecycle structure, not implementation correctness |
+| `cairn traceability coverage --profile octet-default --json` | `valid: true` | Selected declared traceability profile only |
+| `cairn gate proposal`, `design`, and `tasks` for `resolve-open-assurance-issues` | All three `valid: true`, no issues | Existing change gates; no lifecycle closure or publication authority |
 
-Expected version output:
+These observations do not qualify an immutable RC. Additional read-only
+readiness calls were not green: change readiness was `unavailable` without a
+completion observation, and the composite `cairn release-readiness` reported
+`valid: false` because this Octet checkout does not provide Cairn's
+`fixtures/agent-completion/contract.json` and `results.json`. No demonstration
+completion data was copied in to force acceptance, and no policy gate was
+disabled. Do not describe these broader readiness results as passing.
 
-```text
-cargo-octet 0.1.0
-```
+## Legal, history, and distribution limits
 
-## Release notes checklist
+The canonical history cutover at
+`49c0d3ec0c3cce50449dfad13800f5ed702e7ee1` preserved 47 advertised refs, removed
+98 original prohibited objects from reachability, rebuilt nested fixtures on
+clean roots, migrated 72 policy citations, and passed seven focused Rust tests
+and four Nix checks. That is a bounded history-repair observation, not a fresh
+RC core/full-flake result. Restricted backups/ref maps remain outside published
+source. Do not merge old history back in.
 
-Before tagging, update release notes or the GitHub release body with:
+Keep `LICENSE`, `NOTICE`, `THIRD_PARTY_NOTICES.md`, `LICENSES/`, and selected
+upstream notices. The removed Adam Murray standards prose has no recorded
+redistribution permission; attribution is retained, not permission inferred
+from Octet's AGPL grant. Reintroduction requires the original license or written
+permission. Confirm rights to original contributions, including employer
+permissions where applicable.
 
-- the candidate version (`0.1.0` for this candidate),
-- the package outputs that shipped (`cargo-octet`, `cargo-slotcar`, `cargo-tigerstyle`, `octet`, `slotcar`, `tigerstyle`),
-- the successful `release-candidate-smoke`, `nix flake check -L`, and local artifact verifier receipts,
-- any known compatibility aliases or non-goals,
-- the controlled-deployment and scope-boundary caveats for source/artifact locality and evidence claims.
+Review every final reachable object and nested archive/bundle, not only the
+working tree. Run a redacting secret scan and separately review privacy and
+source rights. Preserve reviewed negative-test markers; a zero-warning scan is
+not legal clearance. Real exposed credentials require rotation/revocation.
 
-## Acceptance signal
+No downloadable binary or registry release is authorized by this source-only
+qualification. Such a release needs its own corresponding-source, complete
+locked dependency/native closure, license/notice, and packaging review. An
+embedded lint-source subset is not the runner's complete corresponding source.
 
-The candidate is ready to tag only after `checks.x86_64-linux.release-candidate-smoke` and `nix flake check -L` pass from a clean checkout and the OpenSpec evidence bundle records the exact commands and outputs.
+## Publication and adoption acceptance
+
+Publish an approved immutable RC only after its exact source, complete gates,
+real consumer captures, independent review and owner decisions are recorded.
+The GitHub release body must link the actual qualification, list shipped
+outputs/support limits/known issues, and use the tested command. Do not invent
+an observed version output or mark an unrun gate passed.
+
+An external pilot is a separate human adoption requirement. Obtain approval for
+the exact participant/channel/message, collect actual installation and first
+patch feedback, and record failures, residual warnings, scope and disposition.
+Automated smoke or another model is not an external pilot. Stable `0.1.1` needs
+its own frozen source, fresh qualification and actual pilot acceptance; do not
+publish it by renaming the RC or reusing the RC's receipts for changed bytes.

@@ -1,0 +1,51 @@
+warning: source file is 302 lines (limit: 300)
+  --> $ROOT/ui_tests/../policy_inputs/underscore_module_filename/vendor/compute_vm.rs:1:1
+   |
+LL | / // A parsed module under an ordinary vendor directory remains source.
+...  |
+LL | | pub fn boot() {}
+   | |_________________^
+   |
+   = help: Tiger Style (File Length): split oversized source files along module or responsibility boundaries Example: mod parser; mod planner; mod executor;
+   = note: see Tiger Style guide: File Length
+   = note: `#[warn(tigerstyle::excessive_file_length)]` on by default
+
+warning: source file is 350 lines (limit: 300)
+  --> $ROOT/ui_tests/../policy_inputs/registry/oversized_registry_module.rs:1:1
+   |
+LL | / // oversized production-like policy input in an ordinary `registry` module directory
+LL | | pub fn registry_module_item_001() -> u64 { 1 }
+LL | | pub fn registry_module_item_002() -> u64 { 1 }
+LL | | pub fn registry_module_item_003() -> u64 { 1 }
+...  |
+LL | | pub fn registry_module_item_348() -> u64 { 1 }
+LL | | pub fn registry_module_item_349() -> u64 { 1 }
+   | |_______________________________________________^
+   |
+   = help: Tiger Style (File Length): split oversized source files along module or responsibility boundaries Example: mod parser; mod planner; mod executor;
+   = note: see Tiger Style guide: File Length
+
+warning: module directory `$ROOT/policy_inputs/underscore_module_filename/vendor` contains 9 Rust source files (limit: 7)
+  --> $ROOT/ui_tests/../policy_inputs/underscore_module_filename/vendor/alpha.rs:1:1
+   |
+LL | pub fn value() {}
+   | ^^^^^^^^^^^^^^^^^
+   |
+   = help: Tiger Style (Module Size): split crowded module directories into smaller responsibility-based submodules Example: mod parser; mod planner; mod executor;
+   = note: see Tiger Style guide: File Length
+   = note: `#[warn(tigerstyle::module_file_count)]` on by default
+
+warning: module filename `compute_vm.rs` contains an underscore; prefer `compute/vm.rs`
+  --> $ROOT/ui_tests/../policy_inputs/underscore_module_filename/vendor/compute_vm.rs:1:1
+   |
+LL | / // A parsed module under an ordinary vendor directory remains source.
+...  |
+LL | | pub fn boot() {}
+   | |_________________^
+   |
+   = help: Tiger Style (Searchable Module Paths): replace compound module filenames with responsibility-based directory paths Example: compute/vm.rs
+   = note: see Tiger Style guide: Naming
+   = note: `#[warn(tigerstyle::underscore_in_module_filename)]` on by default
+
+warning: 4 warnings emitted
+

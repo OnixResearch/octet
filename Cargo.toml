@@ -1,11 +1,11 @@
 [package]
 name = "octet"
-version = "0.1.0"
+version = "0.1.1-rc.1"
 edition = "2024"
 license = "AGPL-3.0-or-later"
 description = "Custom lints enforcing Tiger Style coding principles under Octet's closed-interface model"
-repository = "https://github.com/OnixResearch/octet-public"
-homepage = "https://github.com/OnixResearch/octet-public"
+repository = "https://github.com/OnixResearch/octet"
+homepage = "https://github.com/OnixResearch/octet"
 readme = "README.md"
 
 [lib]

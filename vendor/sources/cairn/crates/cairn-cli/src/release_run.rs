@@ -1,4 +1,4 @@
-use std::{error::Error, fs, path::Path};
+use std::error::Error;
 
 use cairn_core::{
     canonical_json_hash, release_run_explain, release_run_status, validate_release_run_ledger_value,
@@ -6,8 +6,8 @@ use cairn_core::{
 use serde_json::{json, Value};
 
 use crate::support::{
-    default_policy_path, load_policy_file, print_json, read_option, safe_relative_path,
-    with_receipt_hash,
+    default_policy_path, load_policy_file, print_json, read_option, reject_positional_arguments,
+    reject_unknown_options, safe_relative_path, with_receipt_hash,
 };
 
 const RELEASE_RUN_LEDGER_MAX_BYTES: usize = 2_097_152;
@@ -44,15 +44,28 @@ impl Projection {
 
 fn run_projection(args: Vec<String>, projection: Projection) -> Result<(), Box<dyn Error>> {
     // r[impl cairn.release_evidence.durable_run_ledger.shell]
+    reject_unknown_options(&args, &["--root", "--policy", "--input"])?;
+    reject_positional_arguments(&args)?;
     let root = read_option(args.clone(), "--root", ".");
     let policy_path = read_option(args.clone(), "--policy", default_policy_path());
     let input = read_option(args, "--input", "");
     if input.as_os_str().is_empty() {
         return Err(format!("{} requires --input <ledger.json>", projection.command()).into());
     }
+    let input_path = crate::support::resolve_under_root(&root, input);
     let policy = load_policy_file(policy_path)?;
     let expected_policy_hash = canonical_json_hash(&policy.raw);
-    let value = read_bounded_json(&input)?;
+    let value = crate::support::read_bounded_json_no_symlink(
+        &input_path,
+        RELEASE_RUN_LEDGER_MAX_BYTES as u64,
+        "release-run ledger",
+    )
+    .map_err(|error| {
+        format!(
+            "failed to read release-run input {}: {error}",
+            input_path.display()
+        )
+    })?;
     let report = validate_release_run_ledger_value(&value, &expected_policy_hash);
     let projection_value = match projection {
         Projection::Validate => serde_json::to_value(&report)?,
@@ -62,7 +75,7 @@ fn run_projection(args: Vec<String>, projection: Projection) -> Result<(), Box<d
     let receipt = with_receipt_hash(json!({
         "command": projection.command(),
         "root": ".",
-        "input": safe_relative_path(&root, &input),
+        "input": safe_relative_path(&root, &input_path),
         "policy_hash": expected_policy_hash,
         "valid": report.valid,
         "verdict": if report.valid { "pass" } else { "fail" },
@@ -77,12 +90,4 @@ fn run_projection(args: Vec<String>, projection: Projection) -> Result<(), Box<d
         std::process::exit(1);
     }
     Ok(())
-}
-
-fn read_bounded_json(path: &Path) -> Result<Value, Box<dyn Error>> {
-    let metadata = fs::metadata(path)?;
-    if metadata.len() > RELEASE_RUN_LEDGER_MAX_BYTES as u64 {
-        return Err("release-run ledger exceeds the reviewed byte bound".into());
-    }
-    Ok(serde_json::from_slice(&fs::read(path)?)?)
 }

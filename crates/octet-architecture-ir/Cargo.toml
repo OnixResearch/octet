@@ -1,12 +1,12 @@
 [package]
 name = "octet-architecture-ir"
-version = "0.1.0"
+version = "0.1.1-rc.1"
 edition = "2024"
 license = "AGPL-3.0-or-later"
 publish = false
 description = "Pure compiler architecture evidence model and normalizer for Octet"
-repository = "https://github.com/OnixResearch/octet-public"
-homepage = "https://github.com/OnixResearch/octet-public"
+repository = "https://github.com/OnixResearch/octet"
+homepage = "https://github.com/OnixResearch/octet"
 readme = "../../README.md"
 
 [lib]

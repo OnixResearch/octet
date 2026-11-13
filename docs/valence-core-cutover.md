@@ -14,31 +14,50 @@ The selected revision contains `cairn/archive/2026-07-12-harden-preserves-integr
 
 The old Octet-hosted source remains only at `crates/valence-core/` as the non-publishable, non-workspace package `octet-valence-legacy-fixture`. It is a bounded positive/negative compatibility corpus and cannot satisfy a canonical `valence-core` dependency.
 
-The selected module is the independently reviewed upstream `function_object.rs`
-at BLAKE3 `11f0f4233aaf3153966f6aa37de570c2dcd0e75335591934461ae2b25ab3ecb1`.
-The historical `source-token-v2/candidate-source-manifest.json` remains
-`PENDING`, including its earlier consumer-test hash. The separate
-`source-token-v2/reviewed-source-manifest.json` binds its independently audited
-candidate snapshot, exact 37 source-byte hashes, 18-path internal/36-path
-expanded selections, four saved receipt/taxonomy references, and immutable
-upstream revision/module. Owner H2 authorization and independent peer audit
-do not imply a cryptographic signature or owner review of later consumer-test
-code. The existing named object Nix rails now require a fail-closed admission
-of the frozen candidate/reviewed manifest, exact selected source and reference
-bytes, scoped approval evidence, and the Cargo/Nix Valence pin before running
-source-backed v2 tests. The fresh-build rail compares two independent binaries
-against both saved internal and expanded receipt bytes. Report a rail or the
-aggregate as PASS only after its derivation actually builds. A local Cargo
-`[patch]` is only a disposable diagnostic, never this selected dependency.
-The verifier and its expected manifest digests live in the same PR-controlled
-tree as the rails, so an in-repository PASS does not itself authenticate H2
-against adversarial edits: an out-of-PR reviewer must compare externally
-frozen candidate BLAKE3 `6d79a8b09c4e7dd20236f4a141c01d6c18b793df7aad93e8ee4ec1d7fb83b221`
-and reviewed BLAKE3 `2f420d0464e67a8b6ae518e7215eefd1ba8afc47d1849c07afedf284f196da29`.
-The compiled producer's `valence_core_shim.rs` and `object_core.rs` are not
-among the three H2-frozen Octet modules; the approved boundary covers
-selected sources/references and observed producer scenarios, not unreviewed
-future changes to every compiled producer module.
+The selected upstream `function_object.rs` remains at BLAKE3
+`11f0f4233aaf3153966f6aa37de570c2dcd0e75335591934461ae2b25ab3ecb1`.
+The active `source-token-v2/candidate-source-manifest.json` is the exact
+`0.1.1-rc.1` candidate, BLAKE3
+`5faf6b40b80b67146fad1188732ef14ab63b16d0960d68aa6ca4967bf67986fe`.
+Its frozen `PENDING`, unselected and null-approval fields are preserved. A
+separate reviewed manifest, BLAKE3
+`5a6502ba6d9266eb86e52de2e184c98be2d6b1e6fea215cdff929abb21c10de7`,
+selects it under the direct native
+[`RC owner decision`](../.cairn/changes/resolve-open-assurance-issues/evidence/rc1-source-owner-approval.txt).
+The owner approved that candidate and audit envelope
+`312c4b610f84ceae4fc9e61676466009200c40fa6f6f6c2c4ea9a450c1e20cc3`,
+including exact 37 source-byte hashes, 18/36-path selections, three producer
+modules, the captured consumer-test snapshot, immutable Valence identity and
+four references with object counts 1/1,114/1,717/1,717. The fixed receipt uses
+fixture-relative `src/lib.rs`.
+
+The active fixture directory retains the exact approved audit envelope and
+original producer source-binding document (BLAKE3
+`c70889274440c627f314d73db665a50bfa57e20281751bf1d7e805e67cef8d5a`).
+The latter binds the original immutable preflight producer to 39 unique matching
+source/module/test paths and the compiled Valence module. It resolves the
+candidate's preparation-time unknown source derivation for that original
+producer only; it does not establish final H3/release-source qualification.
+Neither candidate bytes nor earlier CLI captures are relabelled as a later build.
+
+The prior `0.1.0` candidate, reviewed manifest and four references remain
+byte-preserved and unselected in `source-token-v2/historical-0.1.0/`. The old
+archived OpenSpec approval is historical only. Existing named object rails
+select only the current tuple and reject missing/altered owner evidence,
+candidate/source/reference bytes, audit/source-binding artifacts, producer
+version or Cargo/Nix Valence identity. Two independent fresh-build binaries
+must each reproduce the saved internal and expanded references; matching one
+another is insufficient. Report PASS only after the actual derivation builds.
+
+The verifier checks exact hashes and scoped structured bindings, not approval
+prose phrases. Its code and expected digests remain co-located in the same
+PR-controlled tree: an in-repository PASS is not authentication against an
+adversarial simultaneous edit. Compare the exact candidate/audit identities
+with the actual owner decision outside that edit. Approval excludes future
+consumer-test code, other future edits, warning-budget changes, correctness,
+semantic equivalence and release eligibility. Re-review future producer/test
+changes; do not regenerate a current expected reference merely to obtain PASS.
+
 The shared scanner was corrected to balance
 outer-attribute brackets through literal/comment content and capture split
 visibility/modifiers. A rustc ABI repro showed that distinct multiline

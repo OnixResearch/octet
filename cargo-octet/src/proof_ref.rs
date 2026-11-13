@@ -105,19 +105,19 @@ pub(crate) struct ProofCardArtifactIdentity {
 pub(crate) struct ProofCard {
     pub(crate) proof_or_property_id: String,
     pub(crate) source_requirement_or_policy_id: String,
-    #[serde(default)]
+    #[serde(default = "String::new")]
     pub(crate) policy_id: String,
     pub(crate) checked_rust_source_scope: String,
-    #[serde(default)]
+    #[serde(default = "Vec::new")]
     pub(crate) source_paths: Vec<String>,
     pub(crate) evidence_tier: String,
     pub(crate) evidence_origin: String,
     pub(crate) status: String,
-    #[serde(default)]
+    #[serde(default = "String::new")]
     pub(crate) verifier_mode: String,
-    #[serde(default)]
+    #[serde(default = "String::new")]
     pub(crate) verifier_identity_summary: String,
-    #[serde(default)]
+    #[serde(default = "String::new")]
     pub(crate) toolchain_identity_summary: String,
     pub(crate) artifact_blake3_identities: Vec<ProofCardArtifactIdentity>,
     pub(crate) non_claims: Vec<String>,
@@ -146,9 +146,9 @@ pub(crate) struct ProofCardNegativeCheck {
     pub(crate) mutant_cards_blake3: String,
     pub(crate) non_claims: Vec<String>,
     pub(crate) diagnostics: Vec<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) evidence: Option<NegativeControlEvidence>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) measured: Option<NegativeControlMeasurement>,
 }
 
@@ -201,7 +201,7 @@ pub(crate) struct NegativeControlVerifierRun {
     pub(crate) source_blake3: String,
     pub(crate) deck_path: String,
     pub(crate) deck_blake3: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) raw_output: Option<NegativeControlRawOutput>,
 }
 
@@ -617,24 +617,30 @@ fn proof_card_deck_shape_diagnostics(deck: &ProofCardDeck) -> Vec<String> {
         ));
     }
     for (index, card) in deck.cards.iter().enumerate() {
-        if card.proof_or_property_id.trim().is_empty() {
-            diagnostics.push(format!("proof card deck card {index} is missing field `{FIELD_PROOF_OR_PROPERTY_ID}`"));
+        let property_problem = if card.proof_or_property_id.trim().is_empty() {
+            Some(format!("proof card deck card {index} is missing field `{FIELD_PROOF_OR_PROPERTY_ID}`"))
         } else if deck.cards.iter().take(index).any(|other| other.proof_or_property_id == card.proof_or_property_id) {
-            diagnostics.push(format!(
-                "proof card deck contains duplicate proof_or_property_id `{}`",
-                card.proof_or_property_id
-            ));
-        }
-        if let Some(record) = card.negative_check.as_ref()
+            Some(format!("proof card deck contains duplicate proof_or_property_id `{}`", card.proof_or_property_id))
+        } else {
+            None
+        };
+        let negative_check_problem = if let Some(record) = card.negative_check.as_ref()
             && !matches!(
                 record.schema_version.as_str(),
                 NEGATIVE_CHECK_SCHEMA_VERSION_V1 | NEGATIVE_CHECK_SCHEMA_VERSION_V2
-            )
-        {
-            diagnostics.push(format!(
+            ) {
+            Some(format!(
                 "proof card `{}` negative_check has unsupported schema `{}`",
                 card.proof_or_property_id, record.schema_version
-            ));
+            ))
+        } else {
+            None
+        };
+        if property_problem.is_some() || negative_check_problem.is_some() {
+            // At most two diagnostics per card; clean decks do not allocate diagnostic capacity.
+            diagnostics.reserve(2);
+            diagnostics.extend(property_problem);
+            diagnostics.extend(negative_check_problem);
         }
     }
     diagnostics
@@ -904,13 +910,18 @@ fn negative_outcome_supported(outcome: &str) -> bool {
     )
 }
 
-#[allow(clippy::too_many_lines)]
 fn negative_measurement_binding_problems(
     binding: &NegativeControlCardBinding,
     expected: &NegativeControlExpectation<'_>,
     evidence: &NegativeControlEvidence,
     problems: &mut Vec<String>,
 ) {
+    negative_card_pair_binding_problems(binding, problems);
+    negative_baseline_card_binding_problems(binding, expected, problems);
+    negative_source_locator_binding_problems(binding, expected, evidence, problems);
+}
+
+fn negative_card_pair_binding_problems(binding: &NegativeControlCardBinding, problems: &mut Vec<String>) {
     for (field, baseline, mutant) in [
         (
             "proof_or_property_id",
@@ -953,6 +964,13 @@ fn negative_measurement_binding_problems(
             ));
         }
     }
+}
+
+fn negative_baseline_card_binding_problems(
+    binding: &NegativeControlCardBinding,
+    expected: &NegativeControlExpectation<'_>,
+    problems: &mut Vec<String>,
+) {
     for (field, actual, expected_value) in [
         (
             "proof_or_property_id",
@@ -989,6 +1007,14 @@ fn negative_measurement_binding_problems(
             ));
         }
     }
+}
+
+fn negative_source_locator_binding_problems(
+    binding: &NegativeControlCardBinding,
+    expected: &NegativeControlExpectation<'_>,
+    evidence: &NegativeControlEvidence,
+    problems: &mut Vec<String>,
+) {
     if !negative_path_sets_match(&binding.baseline_source_paths, expected.baseline_source_paths) {
         problems.push(
             "negative control retained baseline source_paths do not match the proof card source locators".to_owned(),
@@ -1028,12 +1054,21 @@ fn negative_measurement_binding_problems(
     }
 }
 
-#[allow(clippy::too_many_lines)]
 fn negative_measurement_artifact_problems(
     record: &ProofCardNegativeCheck,
     evidence: &NegativeControlEvidence,
     measured: &NegativeControlMeasurement,
     expected: &NegativeControlExpectation<'_>,
+    problems: &mut Vec<String>,
+) {
+    negative_measured_identity_problems(measured, evidence, problems);
+    negative_mutation_artifact_problems(record, evidence, measured, problems);
+    negative_retained_artifact_problems(evidence, measured, expected, problems);
+}
+
+fn negative_measured_identity_problems(
+    measured: &NegativeControlMeasurement,
+    evidence: &NegativeControlEvidence,
     problems: &mut Vec<String>,
 ) {
     for (field, value) in [
@@ -1084,6 +1119,14 @@ fn negative_measurement_artifact_problems(
             ));
         }
     }
+}
+
+fn negative_mutation_artifact_problems(
+    record: &ProofCardNegativeCheck,
+    evidence: &NegativeControlEvidence,
+    measured: &NegativeControlMeasurement,
+    problems: &mut Vec<String>,
+) {
     if record.mutant_cards_blake3 != measured.mutant_deck_blake3 {
         problems.push(format!(
             "negative control mutant deck identity `{}` does not match measured mutant deck `{}`",
@@ -1099,22 +1142,23 @@ fn negative_measurement_artifact_problems(
             record.mutant_source, evidence.mutant.source_path
         ));
     }
-    let require_readable = expected.require_readable_artifacts;
-    for (label, path, expected_hash, measured_hash) in [
+}
+
+fn negative_retained_artifact_problems(
+    evidence: &NegativeControlEvidence,
+    measured: &NegativeControlMeasurement,
+    expected: &NegativeControlExpectation<'_>,
+    problems: &mut Vec<String>,
+) {
+    for (label, artifact, measured_hash) in [
         (
             "baseline source",
-            evidence.baseline.source_path.as_str(),
-            evidence.baseline.source_blake3.as_str(),
+            RetainedArtifact::Source(&evidence.baseline),
             measured.baseline_source_blake3.as_str(),
         ),
-        (
-            "mutant source",
-            evidence.mutant.source_path.as_str(),
-            evidence.mutant.source_blake3.as_str(),
-            measured.mutant_source_blake3.as_str(),
-        ),
+        ("mutant source", RetainedArtifact::Source(&evidence.mutant), measured.mutant_source_blake3.as_str()),
     ] {
-        if let Some(actual) = verify_retained_artifact(path, expected_hash, label, require_readable, false, problems)
+        if let Some(actual) = verify_retained_artifact(artifact, label, expected, problems)
             && actual != measured_hash
         {
             problems.push(format!(
@@ -1122,22 +1166,20 @@ fn negative_measurement_artifact_problems(
             ));
         }
     }
-    if require_readable {
-        for (label, path, expected_hash, measured_hash) in [
+    if expected.require_readable_artifacts {
+        for (label, artifact, measured_hash) in [
             (
                 "baseline proof-card deck",
-                evidence.baseline.deck_path.as_str(),
-                evidence.baseline.deck_blake3.as_str(),
+                RetainedArtifact::Deck(&evidence.baseline),
                 measured.baseline_deck_blake3.as_str(),
             ),
             (
                 "mutant proof-card deck",
-                evidence.mutant.deck_path.as_str(),
-                evidence.mutant.deck_blake3.as_str(),
+                RetainedArtifact::Deck(&evidence.mutant),
                 measured.mutant_deck_blake3.as_str(),
             ),
         ] {
-            if let Some(actual) = verify_retained_artifact(path, expected_hash, label, true, true, problems)
+            if let Some(actual) = verify_retained_artifact(artifact, label, expected, problems)
                 && actual != measured_hash
             {
                 problems.push(format!(
@@ -1149,27 +1191,38 @@ fn negative_measurement_artifact_problems(
     for (label, run) in [("baseline", &evidence.baseline), ("mutant", &evidence.mutant)] {
         if let Some(raw_output) = run.raw_output.as_ref() {
             verify_retained_artifact(
-                &raw_output.artifact,
-                &raw_output.blake3,
+                RetainedArtifact::VerifierOutput(raw_output),
                 &format!("{label} verifier output"),
-                true,
-                true,
+                expected,
                 problems,
             );
         }
     }
 }
 
+/// Artifact roles determine emptiness and readability requirements without positional flags.
+#[derive(Clone, Copy)]
+enum RetainedArtifact<'a> {
+    Source(&'a NegativeControlVerifierRun),
+    Deck(&'a NegativeControlVerifierRun),
+    VerifierOutput(&'a NegativeControlRawOutput),
+}
+
 /// Re-hashes a retained artifact when it is readable. A readable artifact must match the retained
 /// identity; the recorder additionally requires every declared artifact to be readable.
 fn verify_retained_artifact(
-    path: &str,
-    expected_blake3: &str,
+    artifact: RetainedArtifact<'_>,
     label: &str,
-    require_readable: bool,
-    require_non_empty: bool,
+    expected: &NegativeControlExpectation<'_>,
     problems: &mut Vec<String>,
 ) -> Option<String> {
+    let (path, expected_blake3, is_readability_required, is_non_empty_required) = match artifact {
+        RetainedArtifact::Source(run) => {
+            (run.source_path.as_str(), run.source_blake3.as_str(), expected.require_readable_artifacts, false)
+        }
+        RetainedArtifact::Deck(run) => (run.deck_path.as_str(), run.deck_blake3.as_str(), true, true),
+        RetainedArtifact::VerifierOutput(output) => (output.artifact.as_str(), output.blake3.as_str(), true, true),
+    };
     if path.trim().is_empty() {
         problems.push(format!("negative control {label} path is missing"));
         return None;
@@ -1177,13 +1230,13 @@ fn verify_retained_artifact(
     let bytes = match fs::read(path) {
         Ok(bytes) => bytes,
         Err(error) => {
-            if require_readable {
+            if is_readability_required {
                 problems.push(format!("negative control {label} `{path}` is not readable: {error}"));
             }
             return None;
         }
     };
-    if require_non_empty && bytes.is_empty() {
+    if is_non_empty_required && bytes.is_empty() {
         problems.push(format!("negative control {label} `{path}` is empty"));
     }
     let actual = blake3::hash(&bytes).to_hex().to_string();

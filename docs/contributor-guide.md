@@ -247,11 +247,10 @@ regression signal. The nextest check skips only the three reviewed-source
 comparisons in `fingerprint_consumer`, which the object-corpus rails run. Add a
 check to `core` in `flake.nix` once it passes.
 
-Useful doc-facing spot checks:
+Exercise the documented packaged-consumer path:
 
 ```bash
-nix develop -c bash -c 'cargo test --test consumer_integration downstream_rollout_docs_point_to_first_class_cli_path -- --nocapture'
-rg -n "cargo octet check|cargo-octet|tigerstyle::|\[octet\]|\[workspace.metadata.octet\]" README.md docs/*.md
+nix build .#checks.x86_64-linux.release-candidate-smoke --no-link -L
 ```
 
 For fingerprint docs/examples, use one review command:
@@ -287,36 +286,48 @@ proof. The
 [current-head evidence page](current-head-valence-evidence.md) attests an
 earlier payload, not the current v2 rail state.
 
-The historical source-token-v2 candidate snapshot remains `PENDING`; a local
-Cargo `[patch]` was only a disposable diagnostic and is not the selected pin.
-The `source-token-v2/positive-v2-receipt.json`, `internal-corpus-receipt.json`,
-`expanded-internal-corpus-receipt.json`, and
-`expanded-internal-corpus-caveat-taxonomy.json` have a separate
-`reviewed-source-manifest.json` binding their exact independently audited
-18-path/36-path selections, all 37 source-byte hashes, four reference hashes,
-and immutable Valence module/revision. H2 approval covers these frozen
-source/reference identities, not later changed consumer-test code and not a
-cryptographic signature. The checked-in admission verifier binds these bytes
-and explicitly cannot attest later consumer-test edits or owner signatures.
-Its expected manifest digests and verifier code live in the same PR-controlled
-repository as the rails: a named PASS alone cannot authenticate H2 against
-adversarial PR edits. An independent reviewer must compare the candidate and
-reviewed manifest BLAKE3 to externally frozen
-`6d79a8b09c4e7dd20236f4a141c01d6c18b793df7aad93e8ee4ec1d7fb83b221`
-and `2f420d0464e67a8b6ae518e7215eefd1ba8afc47d1849c07afedf284f196da29`.
-After OpenSpec archive, the frozen reviewed manifest retains its historical
-active-change approval locator. The verifier maps only that exact metadata
-value to the archived H2 note at
-`openspec/changes/archive/2026-10-02-source-token-v2-function-object-cutover/evidence/owner-source-bound-references.txt`,
-requires its BLAKE3 `a86d4c22740d4ea0427285d62133c8434dc77c3d144403902f276031836abcae`,
-and rejects a missing/altered note or any resurrected active approval path.
-That repository-owned hash detects drift; it is not an owner signature or an
-external substitute for review of the frozen manifest anchors.
-The compiled producer includes `cargo-octet/src/valence_core_shim.rs` and
-`cargo-octet/src/object_core.rs`, neither among the three H2-frozen Octet
-modules. H2 covers the selected 37 source bytes and four references, plus
-observed producer scenarios; it does not attest arbitrary future producer
-changes. Re-review changed producer code and tests separately.
+The current `source-token-v2/candidate-source-manifest.json` is the immutable
+Octet `0.1.1-rc.1` candidate. Its `PENDING`, unselected and null-approval fields
+remain unchanged: the separate `reviewed-source-manifest.json` records selection
+of that exact candidate after the owner's direct bounded decision in
+[`rc1-source-owner-approval.txt`](../.cairn/changes/resolve-open-assurance-issues/evidence/rc1-source-owner-approval.txt).
+The approval covers all 37 selected source-byte hashes, the 18-path internal and
+36-path expanded selections, three producer modules, the captured consumer-test
+snapshot, immutable Valence revision/module, and four exact reference artifacts.
+Their object counts are 1 (fixed fixture), 1,114 (internal), and 1,717 each
+(expanded receipt and expanded caveat taxonomy). The fixed receipt deliberately
+uses the fixture-relative `src/lib.rs` locator, not the root-relative diagnostic.
+
+The active admission inputs have these BLAKE3 identities:
+
+- Candidate: `5faf6b40b80b67146fad1188732ef14ab63b16d0960d68aa6ca4967bf67986fe`.
+- Reviewed manifest: `5a6502ba6d9266eb86e52de2e184c98be2d6b1e6fea215cdff929abb21c10de7`.
+- Native owner record: `0f45f8eecae40dd18cd0a43185fb43d127b7e18d319b4f16f24ebff58171764d`.
+- `source-token-v2/approved-audit-envelope.json`:
+  `312c4b610f84ceae4fc9e61676466009200c40fa6f6f6c2c4ea9a450c1e20cc3`.
+- `source-token-v2/original-producer-source-binding.json`:
+  `c70889274440c627f314d73db665a50bfa57e20281751bf1d7e805e67cef8d5a`.
+
+The original producer's retained Nix derivation/source evidence compares 39
+unique selected source/module/test paths and the compiled Valence module. This
+resolves the original preflight source binding, not the final H3/release-source
+binding. The candidate's preparation-time provenance is frozen; its later source
+resolution is recorded separately, not retroactively written into candidate bytes.
+Approval excludes future consumer-test code and every other future edit. It is
+not a signature, correctness proof, warning-budget acceptance, or release
+qualification. Re-review changed producer code and tests separately.
+
+The verifier requires the exact owner-record, audit and source-binding bytes;
+it does not infer approval from prose phrases. Its code and byte locks still
+live in the same PR-controlled repository. An independent reviewer must compare
+the exact candidate and audit identities with the actual owner decision; an
+in-repository PASS cannot authenticate an owner against simultaneous malicious
+edits to the verifier and its inputs.
+
+The prior `0.1.0` candidate, reviewed manifest and four reference files are
+byte-preserved under `source-token-v2/historical-0.1.0/`, explicitly unselected.
+Their embedded old locators and archived OpenSpec approval describe history
+only. Named rails have no fallback to that tuple or its approval.
 In particular, the source scanner hashes multiline outer attributes even when
 an `export_name` value occupies a literal-only line and comments/blank lines
 separate the attribute from `fn`. A changed export-name attribute changes the

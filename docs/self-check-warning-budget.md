@@ -13,7 +13,25 @@ Octet ratchets its canonical `--workspace --lib` self-check with the runner's ex
 <!-- r[verify octet.runner_self_check.failure_diagnostics] -->
 <!-- r[verify octet.runner_self_check.warning_budget.semantic_refresh] -->
 
-## Current budget
+## Stored budget and qualification status
+
+The checked-in baseline contains **3,160 unique stable identities**. Its
+semantic `baseline_hash` is
+`dc1b7b0a5a9379702268ff967e391d9595ceacb365032daf25387a232721c576`;
+the baseline file's BLAKE3 identity is
+`b3:e89881bb54c99c48a097f1622291d45a1a3511b4081518e7e19a52a36c95e1a0`.
+These describe stored data, not a fresh self-check observation or approval of
+new findings. The flake gate's **4,337 occurrence** budget is an expectation,
+not a measured current run. No budget is changed by this documentation repair.
+Candidate qualification must record actual results for the exact source,
+toolchain, config, scope, and stored baseline.
+
+## Historical inventory and reductions
+
+The counts, baseline identity, and tables below are historical observations
+from the earlier reduction work. They do not describe the current stored
+baseline or qualify the `0.1.1-rc.1` candidate. Do not use them as fresh run
+results; retain their original source/receipt bindings when replaying history.
 
 The initial inventory contained 2,671 warning occurrences. Before the first baseline capture, the local `has_no_todo` name was rewritten in positive form without changing behavior or adding a suppression, leaving 2,670 accepted occurrences and 1,820 unique stable identities.
 
@@ -29,7 +47,10 @@ The fifth monotonic reduction replaced the private `PolicyEvaluation` import wit
 
 The validation closure split oversized modules and qualified new imports. It mapped 13 changed identities and removed two stale identities. It also removed five warning occurrences without semantic occurrence growth.
 
-The current run contains 2,660 accepted warning occurrences and 1,813 unique stable identities. It contains 1,104 `non_trait_imports` occurrences. It has no `negated_predicate` finding or absolute artifact locator. Repeated stable IDs are stored once in the baseline.
+The historical validation run recorded 2,660 accepted warning occurrences and
+1,813 unique stable identities, including 1,104 `non_trait_imports` occurrences
+and no `negated_predicate` finding or absolute artifact locator. These are not
+current-run claims. Repeated stable IDs are stored once in the baseline.
 
 <!-- r[verify octet.runner_self_check.warning_budget.reduction.old_baseline] -->
 <!-- r[verify octet.runner_self_check.warning_budget.reduction.refresh] -->
@@ -42,7 +63,7 @@ The current run contains 2,660 accepted warning occurrences and 1,813 unique sta
 <!-- r[verify octet.runner_self_check.warning_budget.reduction.standards_policy_evaluation.old_baseline] -->
 <!-- r[verify octet.runner_self_check.warning_budget.reduction.standards_policy_evaluation.refresh] -->
 
-Baseline BLAKE3 identity: `b3:cb7cb5c359de18a3b6f05014edb6bee45989f236e8404f3e7633b7d25e89f057`.
+Historical baseline BLAKE3 identity: `b3:cb7cb5c359de18a3b6f05014edb6bee45989f236e8404f3e7633b7d25e89f057`.
 
 | Domain | Accepted warnings |
 | --- | ---: |
@@ -82,7 +103,16 @@ Baseline BLAKE3 identity: `b3:cb7cb5c359de18a3b6f05014edb6bee45989f236e8404f3e76
 
 ## Gate behavior
 
-The `cargo-octet-self-check` Nix derivation runs structured output against the checked-in baseline. The unchanged source must report 2,665 warning occurrences, 1,815 accepted stable identities, zero new IDs, zero stale IDs, a matching baseline hash, and repository-relative locators. A writable negative copy injects one behavior-preserving, intentionally negated predicate binding and must exit `1` with exactly one new ID. Malformed metadata and Cargo-child failures remain integration failures with exit `2`.
+The `cargo-octet-self-check` Nix derivation runs structured output against the
+checked-in baseline. Its current stored contract expects 4,337 warning
+occurrences and the accepted 3,160 stable identities, zero new IDs, zero stale
+IDs, a matching baseline hash, and repository-relative locators. These are gate
+expectations, not a claim that a candidate run passed. The previous prose's
+2,665 occurrences / 1,815 identities described an older gate expectation and is
+not the current baseline. A writable negative copy injects one
+behavior-preserving, intentionally negated predicate binding and must exit `1`
+with exactly one new ID. Malformed metadata and Cargo-child failures remain
+integration failures with exit `2`.
 
 <!-- r[verify octet.runner_self_check.warning_budget.regression] -->
 <!-- r[verify octet.runner_self_check.warning_budget.reduction.regression] -->
@@ -112,4 +142,10 @@ Review the stable-ID additions, removals, lint/domain counts, relative locators,
 <!-- r[verify octet.runner_self_check.warning_budget.reduction.standards_report.boundary] -->
 <!-- r[verify octet.runner_self_check.warning_budget.reduction.standards_policy_evaluation.boundary] -->
 
-The baseline proves only that current findings belong to one reviewed stable-ID set for the pinned local static-lint run. It does not prove that accepted warnings are correct, low-noise, harmless, or complete. It does not cover tests, binaries, examples, benches, dependencies, runtime behavior, whole-program correctness, lint completeness, or release eligibility.
+The baseline is an accepted stable-ID set, not proof that a current source run
+matches it. A successful source-bound comparison establishes only membership
+of the observed static-lint findings in that reviewed set under the pinned
+scope/config/toolchain. It does not prove accepted warnings are correct,
+low-noise, harmless, or complete. It does not cover tests, binaries, examples,
+benches, dependencies, runtime behavior, whole-program correctness, lint
+completeness, or release eligibility.

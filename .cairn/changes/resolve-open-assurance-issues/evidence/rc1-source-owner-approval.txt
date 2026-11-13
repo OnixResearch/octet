@@ -1,0 +1,26 @@
+Owner decision recorded from the direct interactive form on 2026-11-12.
+
+Exact submitted value: object_h2 = approve_exact_candidate_and_references.
+The repository owner approved canonical candidate BLAKE3
+5faf6b40b80b67146fad1188732ef14ab63b16d0960d68aa6ca4967bf67986fe
+and its four exact source-bound references, as indexed by audit envelope BLAKE3
+312c4b610f84ceae4fc9e61676466009200c40fa6f6f6c2c4ea9a450c1e20cc3.
+
+The approved tuple binds 37 selected source files, three producer modules,
+the measured current consumer-test bytes, Octet 0.1.1-rc.1, and the reviewed
+Valence7546 module. The four observed object counts are 1,1114,1717,1717.
+The fixed receipt uses source_paths=[src/lib.rs], not the root-relative diagnostic.
+The original immutable producer's Nix derivation/source binding has39 unique
+matching source/module/test comparisons and the matching compiled Valence module.
+
+This decision permits recording scoped owner approval and activating only
+those exact inputs for the named source-token-v2 object rails. It excludes
+future consumer-test code and all other future edits. Historical0.1.0 owner
+approval and reference bytes remain historical, not relabelled current evidence.
+
+This is NOT a claim of source correctness, semantic equivalence, proof,
+consumer-test correctness, complete architecture coverage, warning-budget
+acceptance, final release-source qualification, or release eligibility.
+No release, tag, push, external message, warning-budget expansion, or lifecycle
+closure was authorized by this form. This conversation record is not a
+cryptographic owner signature or independent source certification.

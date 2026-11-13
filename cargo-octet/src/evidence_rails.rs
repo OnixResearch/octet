@@ -826,11 +826,13 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
         };
     let identities = input_identities(
         args,
-        prepared_clippy_run.as_ref(),
-        prepared_ast_grep.as_ref(),
-        analyzed_wasm.as_ref(),
-        analyzed_binary_debug_map.as_deref(),
-        sarif_producer_run.as_ref(),
+        &PreparedInputs {
+            clippy: prepared_clippy_run.as_ref(),
+            ast_grep: prepared_ast_grep.as_ref(),
+            wasm: analyzed_wasm.as_ref(),
+            binary_debug_map: analyzed_binary_debug_map.as_deref(),
+            sarif_producer: sarif_producer_run.as_ref(),
+        },
         workspace_root,
         &import_text,
     )?;
@@ -918,13 +920,17 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
     Ok(exit_code_for_receipt(&receipt))
 }
 
+struct PreparedInputs<'a> {
+    clippy: Option<&'a PreparedClippyRun>,
+    ast_grep: Option<&'a PreparedAstGrep>,
+    wasm: Option<&'a AnalyzedWasmInput>,
+    binary_debug_map: Option<&'a str>,
+    sarif_producer: Option<&'a SarifProducerRun>,
+}
+
 fn input_identities(
     args: &EvidenceRailArgs,
-    prepared_clippy_run: Option<&PreparedClippyRun>,
-    prepared_ast_grep: Option<&PreparedAstGrep>,
-    analyzed_wasm: Option<&AnalyzedWasmInput>,
-    analyzed_binary_debug_map: Option<&str>,
-    sarif_producer_run: Option<&SarifProducerRun>,
+    prepared: &PreparedInputs<'_>,
     workspace_root: &Path,
     import_text: &str,
 ) -> Result<InputIdentities, String> {
@@ -944,20 +950,20 @@ fn input_identities(
         Some(crate::benchmark::PROFILE_IDENTITY.to_owned())
     } else if is_profiled_hegel {
         Some(crate::hegel::PROFILE_IDENTITY.to_owned())
-    } else if args.rail == EvidenceRailKind::SarifImport && sarif_producer_run.is_some() {
-        Some(crate::external::sarif::producer::profile_identity().to_owned())
+    } else if args.rail == EvidenceRailKind::SarifImport && prepared.sarif_producer.is_some() {
+        Some(crate::external::sarif::producer::admission::profile_identity().to_owned())
     } else if args.rail == EvidenceRailKind::SarifImport {
         // `analyze_sarif_input` already verified the workspace-root config bytes against this identity.
         Some(crate::external::sarif::PROFILE_IDENTITY.to_owned())
-    } else if let Some(prepared) = prepared_clippy_run {
+    } else if let Some(prepared) = prepared.clippy {
         Some(prepared.config_identity.clone())
-    } else if let Some(analyzed) = analyzed_wasm {
+    } else if let Some(analyzed) = prepared.wasm {
         // `analyze_wasm_input` bound these registry bytes into the envelope; never re-read `--config`.
         Some(analyzed.registry_identity.clone())
-    } else if let Some(registry_identity) = analyzed_binary_debug_map {
+    } else if let Some(registry_identity) = prepared.binary_debug_map {
         // `analyze_binary_debug_map_input` hashed the profile bytes it parsed.
         Some(registry_identity.to_owned())
-    } else if let Some(prepared) = prepared_ast_grep {
+    } else if let Some(prepared) = prepared.ast_grep {
         // `prepare_ast_grep` hashed the profile bytes it parsed; never re-read `--config`.
         Some(prepared.config_identity.clone())
     } else if args.rail == EvidenceRailKind::CharonSemantic {
@@ -1023,9 +1029,9 @@ fn normalized_run_command(
 
 #[derive(Debug)]
 struct SarifProducerRun {
-    profile: crate::external::sarif::producer::ProducerProfile,
+    profile: crate::external::sarif::producer::Profile,
     report: String,
-    execution: crate::external::sarif::producer::ProducerExecution,
+    execution: crate::external::sarif::producer::Execution,
     execution_identity: String,
     execution_bytes: Vec<u8>,
 }
@@ -1040,9 +1046,56 @@ fn prepare_sarif_producer_run(args: &EvidenceRailArgs) -> Result<Option<SarifPro
     let Some(profile_id) = args.profile.as_deref() else {
         return Ok(None);
     };
-    if !crate::external::sarif::producer::is_producer_profile(profile_id)? {
+    if !crate::external::sarif::producer::admission::contains_profile(profile_id)? {
         return Ok(None);
     }
+    validate_sarif_producer_request(args)?;
+    let profile = crate::external::sarif::producer::admission::selected_profile(profile_id)?;
+    let config = args
+        .config
+        .as_deref()
+        .ok_or_else(|| "SARIF producer execution requires `--config standards/sarif/producers.json`".to_owned())?;
+    let workspace = args.workspace_root.as_deref().unwrap_or_else(|| Path::new("."));
+    let canonical_workspace = fs::canonicalize(workspace)
+        .map_err(|error| format!("canonicalize SARIF producer workspace {}: {error}", workspace.display()))?;
+    let root = SourceRoot::open_existing(&canonical_workspace)?;
+    let config_bytes = root.read_bounded(&RootRelativePath::new(config)?, crate::external::sarif::MAX_REPORT_BYTES)?;
+    if crate::external::sarif::prefixed_identity(&config_bytes)
+        != crate::external::sarif::producer::admission::profile_identity()
+    {
+        return Err("SARIF producer profile bytes do not match the checked Nickel registry".to_owned());
+    }
+    let stage_dir = canonical_workspace.join(crate::external::sarif::producer::STAGE_ROOT).join(&profile.profile_id);
+    let executor = BoundedProducerExecutor;
+    let (mut execution, report) = crate::external::sarif::producer::process::execute(
+        &profile,
+        &crate::external::sarif::producer::process::ExecuteRequest {
+            workspace_root: &canonical_workspace,
+            stage_dir: &stage_dir,
+        },
+        &executor,
+    )?;
+    let validation = crate::external::sarif::producer::recording::validate_execution(&execution);
+    if !validation.is_empty() {
+        if execution.outcome == crate::external::sarif::producer::OUTCOME_COMPLETED {
+            execution.outcome = crate::external::sarif::producer::OUTCOME_FAILED.to_owned();
+        }
+        execution.diagnostics.extend(validation);
+        execution.diagnostics.sort();
+        execution.diagnostics.dedup();
+    }
+    let execution_bytes = crate::external::sarif::producer::recording::execution_bytes(&execution)?;
+    let execution_identity = crate::external::sarif::producer::recording::execution_identity(&execution)?;
+    Ok(Some(SarifProducerRun {
+        profile,
+        report,
+        execution,
+        execution_identity,
+        execution_bytes,
+    }))
+}
+
+fn validate_sarif_producer_request(args: &EvidenceRailArgs) -> Result<(), String> {
     if !args.run {
         return Err(
             "SARIF producer profiles require `--run`; use a `-local` intake profile with `--input PATH` to import a saved report"
@@ -1067,48 +1120,7 @@ fn prepare_sarif_producer_run(args: &EvidenceRailArgs) -> Result<Option<SarifPro
                 .to_owned(),
         );
     }
-    let profile = crate::external::sarif::producer::selected_profile(profile_id)?;
-    let config = args
-        .config
-        .as_deref()
-        .ok_or_else(|| "SARIF producer execution requires `--config standards/sarif/producers.json`".to_owned())?;
-    let workspace = args.workspace_root.as_deref().unwrap_or_else(|| Path::new("."));
-    let canonical_workspace = fs::canonicalize(workspace)
-        .map_err(|error| format!("canonicalize SARIF producer workspace {}: {error}", workspace.display()))?;
-    let root = SourceRoot::open_existing(&canonical_workspace)?;
-    let config_bytes = root.read_bounded(&RootRelativePath::new(config)?, crate::external::sarif::MAX_REPORT_BYTES)?;
-    if crate::external::sarif::prefixed_identity(&config_bytes) != crate::external::sarif::producer::profile_identity()
-    {
-        return Err("SARIF producer profile bytes do not match the checked Nickel registry".to_owned());
-    }
-    let stage_dir = canonical_workspace.join(crate::external::sarif::producer::STAGE_ROOT).join(&profile.profile_id);
-    let executor = BoundedProducerExecutor;
-    let (mut execution, report) = crate::external::sarif::producer::execute(
-        &profile,
-        &crate::external::sarif::producer::ExecuteRequest {
-            workspace_root: &canonical_workspace,
-            stage_dir: &stage_dir,
-        },
-        &executor,
-    )?;
-    let validation = crate::external::sarif::producer::validate_execution(&execution);
-    if !validation.is_empty() {
-        if execution.outcome == crate::external::sarif::producer::OUTCOME_COMPLETED {
-            execution.outcome = crate::external::sarif::producer::OUTCOME_FAILED.to_owned();
-        }
-        execution.diagnostics.extend(validation);
-        execution.diagnostics.sort();
-        execution.diagnostics.dedup();
-    }
-    let execution_bytes = crate::external::sarif::producer::execution_bytes(&execution)?;
-    let execution_identity = crate::external::sarif::producer::execution_identity(&execution)?;
-    Ok(Some(SarifProducerRun {
-        profile,
-        report,
-        execution,
-        execution_identity,
-        execution_bytes,
-    }))
+    Ok(())
 }
 
 fn attach_sarif_producer(receipt: &mut EvidenceRailReceipt, run: &SarifProducerRun) {
@@ -1134,12 +1146,12 @@ fn attach_sarif_producer(receipt: &mut EvidenceRailReceipt, run: &SarifProducerR
         }
     }
     if receipt.sarif_import.is_some() {
-        let report_matches = run.execution.report.as_ref().is_some_and(|report| {
+        let is_report_matching = run.execution.report.as_ref().is_some_and(|report| {
             receipt.sarif_import.as_ref().is_some_and(|details| details.raw_report_identity == report.identity)
         });
         if run.execution.outcome != crate::external::sarif::producer::OUTCOME_COMPLETED {
             receipt.sarif_import = None;
-        } else if !report_matches {
+        } else if !is_report_matching {
             receipt
                 .diagnostics
                 .push("SARIF producer report bytes do not match the execution receipt".to_owned());
@@ -1277,7 +1289,7 @@ fn fuzz_details(input: &EvaluationInput<'_>) -> Option<crate::cargo::fuzz::Recei
 fn sarif_details(input: &EvaluationInput<'_>) -> Option<crate::external::sarif::ReceiptDetails> {
     if input.rail == EvidenceRailKind::SarifImport {
         let profile = input.profile?;
-        let intake = crate::external::sarif::producer::intake_profile_id(profile).ok()?;
+        let intake = crate::external::sarif::producer::admission::intake_profile_id(profile).ok()?;
         crate::external::sarif::evaluate(input.import_text, &intake).details
     } else {
         None
@@ -1927,51 +1939,10 @@ fn sarif_diagnostics(rail: EvidenceRailKind, receipt: &EvidenceRailReceipt) -> V
         }
         return diagnostics;
     }
-    let executed = receipt.mode == MODE_RUN;
-    let profile_id = receipt.profile.as_deref().unwrap_or_default();
-    let producer_profile = if executed {
-        match crate::external::sarif::producer::selected_profile(profile_id) {
-            Ok(profile) => Some(profile),
-            Err(error) => {
-                diagnostics.push(error);
-                None
-            }
-        }
-    } else {
-        None
-    };
-    if executed {
-        if receipt.config_identity.as_deref() != Some(crate::external::sarif::producer::profile_identity()) {
-            diagnostics.push("executed SARIF receipt producer profile identity is stale".to_owned());
-        }
-        if !is_b3_identity(&receipt.bounded_log_identity) {
-            diagnostics.push("executed SARIF receipt is missing its execution receipt identity".to_owned());
-        }
-        if receipt.command_argv.is_empty() {
-            diagnostics.push("executed SARIF receipt is missing its fixed command argv".to_owned());
-        }
-        if receipt.non_claims.iter().any(|claim| claim == SARIF_IMPORT_DOES_NOT_EXECUTE_CLAIM) {
-            diagnostics.push("executed SARIF receipt still claims it did not execute the producer".to_owned());
-        }
-        if let Some(profile) = producer_profile.as_ref()
-            && profile.non_claims.iter().all(|claim| !receipt.non_claims.contains(claim))
-        {
-            diagnostics.push("executed SARIF receipt is missing its producer non-claims".to_owned());
-        }
-    } else {
-        if receipt.config_identity.as_deref() != Some(crate::external::sarif::PROFILE_IDENTITY) {
-            diagnostics.push("SARIF receipt config identity is stale".to_owned());
-        }
-        if crate::external::sarif::producer::is_producer_profile(profile_id).unwrap_or(false) {
-            diagnostics.push("import-only SARIF evidence cannot use a producer execution profile".to_owned());
-        }
-        if crate::external::sarif::selected_profile(profile_id).is_err() {
-            diagnostics.push("SARIF import receipt profile is not a checked intake profile".to_owned());
-        }
-    }
+    let (is_executed, producer_profile) = validate_sarif_receipt_mode(receipt, &mut diagnostics);
     match receipt.sarif_import.as_ref() {
         Some(details) => {
-            if receipt.profile.as_deref() != Some(details.profile_id.as_str()) && !executed {
+            if receipt.profile.as_deref() != Some(details.profile_id.as_str()) && !is_executed {
                 diagnostics.push("SARIF receipt profile does not match typed details".to_owned());
             }
             if let Some(profile) = producer_profile.as_ref()
@@ -1995,7 +1966,7 @@ fn sarif_diagnostics(rail: EvidenceRailKind, receipt: &EvidenceRailReceipt) -> V
             }
         }
         None => {
-            if !executed {
+            if !is_executed {
                 diagnostics.push("SARIF import receipt is missing typed details".to_owned());
             } else if receipt.status == STATUS_PASSED {
                 diagnostics.push("executed SARIF evidence without a validated report cannot pass".to_owned());
@@ -2003,6 +1974,55 @@ fn sarif_diagnostics(rail: EvidenceRailKind, receipt: &EvidenceRailReceipt) -> V
         }
     }
     diagnostics
+}
+
+fn validate_sarif_receipt_mode(
+    receipt: &EvidenceRailReceipt,
+    diagnostics: &mut Vec<String>,
+) -> (bool, Option<crate::external::sarif::producer::Profile>) {
+    let is_executed = receipt.mode == MODE_RUN;
+    let profile_id = receipt.profile.as_deref().unwrap_or_default();
+    let producer_profile = if is_executed {
+        match crate::external::sarif::producer::admission::selected_profile(profile_id) {
+            Ok(profile) => Some(profile),
+            Err(error) => {
+                diagnostics.push(error);
+                None
+            }
+        }
+    } else {
+        None
+    };
+    if is_executed {
+        if receipt.config_identity.as_deref() != Some(crate::external::sarif::producer::admission::profile_identity()) {
+            diagnostics.push("executed SARIF receipt producer profile identity is stale".to_owned());
+        }
+        if !is_b3_identity(&receipt.bounded_log_identity) {
+            diagnostics.push("executed SARIF receipt is missing its execution receipt identity".to_owned());
+        }
+        if receipt.command_argv.is_empty() {
+            diagnostics.push("executed SARIF receipt is missing its fixed command argv".to_owned());
+        }
+        if receipt.non_claims.iter().any(|claim| claim == SARIF_IMPORT_DOES_NOT_EXECUTE_CLAIM) {
+            diagnostics.push("executed SARIF receipt still claims it did not execute the producer".to_owned());
+        }
+        if let Some(profile) = producer_profile.as_ref()
+            && profile.non_claims.iter().all(|claim| !receipt.non_claims.contains(claim))
+        {
+            diagnostics.push("executed SARIF receipt is missing its producer non-claims".to_owned());
+        }
+    } else {
+        if receipt.config_identity.as_deref() != Some(crate::external::sarif::PROFILE_IDENTITY) {
+            diagnostics.push("SARIF receipt config identity is stale".to_owned());
+        }
+        if crate::external::sarif::producer::admission::contains_profile(profile_id).unwrap_or(false) {
+            diagnostics.push("import-only SARIF evidence cannot use a producer execution profile".to_owned());
+        }
+        if crate::external::sarif::selected_profile(profile_id).is_err() {
+            diagnostics.push("SARIF import receipt is not a checked intake profile".to_owned());
+        }
+    }
+    (is_executed, producer_profile)
 }
 
 fn coverage_diagnostics(rail: EvidenceRailKind, receipt: &EvidenceRailReceipt) -> Vec<String> {
@@ -3105,7 +3125,7 @@ fn parse_sarif_import(input: &EvaluationInput<'_>) -> RailParseOutput {
             verifier_fixtures: None,
         };
     };
-    let evaluation = crate::external::sarif::producer::intake_profile_id(profile).map_or_else(
+    let evaluation = crate::external::sarif::producer::admission::intake_profile_id(profile).map_or_else(
         |error| crate::external::sarif::Evaluation {
             details: None,
             diagnostics: vec![error],
@@ -4607,7 +4627,7 @@ fn analyze_sarif_input(args: &EvidenceRailArgs) -> Result<String, String> {
     let input = args.input.as_deref().ok_or_else(|| "SARIF import requires `--input PATH`".to_owned())?;
     let config = args.config.as_deref().ok_or_else(|| "SARIF import requires `--config PATH`".to_owned())?;
     let profile = args.profile.as_deref().ok_or_else(|| "SARIF import requires `--profile NAME`".to_owned())?;
-    if crate::external::sarif::producer::is_producer_profile(profile)? {
+    if crate::external::sarif::producer::admission::contains_profile(profile)? {
         return Err(
             "SARIF producer profiles require `--run`; a saved report must use a `-local` intake profile".to_owned()
         );
@@ -5014,7 +5034,7 @@ const RAIL_RUN_DEFAULT_LIMITS: RailRunLimits = RailRunLimits {
 };
 
 struct RailRunFailure {
-    kind: crate::external::sarif::producer::FailureKind,
+    kind: crate::external::sarif::producer::process::FailureKind,
     message: String,
 }
 
@@ -5039,24 +5059,22 @@ fn run_bounded_rail_command_with_limits(
     environment: &[(&str, &str)],
     limits: RailRunLimits,
 ) -> Result<RailRunOutput, RailRunFailure> {
-    use crate::external::sarif::producer::FailureKind;
-
     let command_line = argv.join(" ");
     let Some((program, rest)) = argv.split_first() else {
         return Err(RailRunFailure {
-            kind: FailureKind::Spawn,
+            kind: crate::external::sarif::producer::process::FailureKind::Spawn,
             message: "evidence rail command argv is empty".to_owned(),
         });
     };
     let current_dir =
         std::path::absolute(workspace_root.unwrap_or_else(|| Path::new("."))).map_err(|error| RailRunFailure {
-            kind: FailureKind::Spawn,
+            kind: crate::external::sarif::producer::process::FailureKind::Spawn,
             message: format!("resolve evidence rail command `{command_line}` working directory: {error}"),
         })?;
     let program =
         resolve_rail_program(program, &current_dir, std::env::var_os("PATH").as_deref()).ok_or_else(|| {
             RailRunFailure {
-                kind: FailureKind::NotFound,
+                kind: crate::external::sarif::producer::process::FailureKind::NotFound,
                 message: format!("run evidence rail command `{command_line}`: executable `{program}` was not found"),
             }
         })?;
@@ -5080,13 +5098,13 @@ fn run_bounded_rail_command_with_limits(
         termination_scope: bounded_exec::TerminationScope::ProcessGroup,
         outcome_policy: bounded_exec::OutcomePolicy::new(vec![EXIT_SUCCESS], true, true).map_err(|error| {
             RailRunFailure {
-                kind: FailureKind::Spawn,
+                kind: crate::external::sarif::producer::process::FailureKind::Spawn,
                 message: format!("construct evidence rail outcome policy: {error:?}"),
             }
         })?,
     })
     .map_err(|error| RailRunFailure {
-        kind: FailureKind::Spawn,
+        kind: crate::external::sarif::producer::process::FailureKind::Spawn,
         message: format!("run evidence rail command `{command_line}`: {error}"),
     })?;
     let exit_code = classify_rail_run(output.disposition, output.exit_code, &command_line, limits)?;
@@ -5126,14 +5144,12 @@ fn classify_rail_run(
     command_line: &str,
     limits: RailRunLimits,
 ) -> Result<i32, RailRunFailure> {
-    use crate::external::sarif::producer::FailureKind;
-
     let failure = |kind, message| RailRunFailure { kind, message };
     match disposition {
         bounded_exec::Disposition::Succeeded | bounded_exec::Disposition::ExitFailed => {
             exit_code.ok_or_else(|| {
                 failure(
-                    FailureKind::Terminated,
+                    crate::external::sarif::producer::process::FailureKind::Terminated,
                     format!(
                         "evidence rail command `{command_line}` ended without an exit code, so a signal killed it; its transcript is not evidence"
                     ),
@@ -5141,21 +5157,21 @@ fn classify_rail_run(
             })
         }
         bounded_exec::Disposition::OutputLimitExceeded(streams) => Err(failure(
-            FailureKind::OutputLimitExceeded,
+            crate::external::sarif::producer::process::FailureKind::OutputLimitExceeded,
             format!(
                 "evidence rail command `{command_line}` exceeded the {}-byte per-stream output cap on {streams:?}; truncated output is not evidence",
                 limits.stdout_max_bytes
             ),
         )),
         bounded_exec::Disposition::TimedOut => Err(failure(
-            FailureKind::TimedOut,
+            crate::external::sarif::producer::process::FailureKind::TimedOut,
             format!(
                 "evidence rail command `{command_line}` exceeded the {} ms run deadline",
                 limits.timeout_ms
             ),
         )),
         bounded_exec::Disposition::Cancelled => Err(failure(
-            FailureKind::Cancelled,
+            crate::external::sarif::producer::process::FailureKind::Cancelled,
             format!("evidence rail command `{command_line}` was cancelled"),
         )),
     }
@@ -5198,33 +5214,33 @@ impl crate::external::sarif::producer::Executor for BoundedProducerExecutor {
         &self,
         name: &str,
         current_dir: &Path,
-    ) -> Result<crate::external::sarif::producer::ExecutableObservation, crate::external::sarif::producer::StepFailure>
-    {
-        use crate::external::sarif::producer::FailureKind;
-        use crate::external::sarif::producer::StepFailure;
-
+    ) -> Result<
+        crate::external::sarif::producer::process::ExecutableObservation,
+        crate::external::sarif::producer::process::StepFailure,
+    > {
         let program =
             resolve_rail_program(name, current_dir, std::env::var_os("PATH").as_deref()).ok_or_else(|| {
-                StepFailure {
-                    kind: FailureKind::NotFound,
+                crate::external::sarif::producer::process::StepFailure {
+                    kind: crate::external::sarif::producer::process::FailureKind::NotFound,
                     message: format!("SARIF producer executable `{name}` was not found on PATH"),
                 }
             })?;
-        let metadata = fs::metadata(&program).map_err(|error| StepFailure {
-            kind: FailureKind::Spawn,
-            message: format!("inspect SARIF producer executable {}: {error}", program.display()),
-        })?;
+        let metadata =
+            fs::metadata(&program).map_err(|error| crate::external::sarif::producer::process::StepFailure {
+                kind: crate::external::sarif::producer::process::FailureKind::Spawn,
+                message: format!("inspect SARIF producer executable {}: {error}", program.display()),
+            })?;
         if !metadata.is_file() || metadata.len() > crate::external::sarif::producer::MAX_EXECUTABLE_BYTES {
-            return Err(StepFailure {
-                kind: FailureKind::Spawn,
+            return Err(crate::external::sarif::producer::process::StepFailure {
+                kind: crate::external::sarif::producer::process::FailureKind::Spawn,
                 message: format!("SARIF producer executable {} is not a bounded regular file", program.display()),
             });
         }
-        let bytes = fs::read(&program).map_err(|error| StepFailure {
-            kind: FailureKind::Spawn,
+        let bytes = fs::read(&program).map_err(|error| crate::external::sarif::producer::process::StepFailure {
+            kind: crate::external::sarif::producer::process::FailureKind::Spawn,
             message: format!("read SARIF producer executable {}: {error}", program.display()),
         })?;
-        Ok(crate::external::sarif::producer::ExecutableObservation {
+        Ok(crate::external::sarif::producer::process::ExecutableObservation {
             resolved_path: program.display().to_string(),
             identity: prefixed_identity(&bytes),
         })
@@ -5234,21 +5250,22 @@ impl crate::external::sarif::producer::Executor for BoundedProducerExecutor {
         &self,
         argv: &[String],
         current_dir: &Path,
-        limits: &crate::external::sarif::producer::ProducerLimits,
-    ) -> Result<crate::external::sarif::producer::StepOutput, crate::external::sarif::producer::StepFailure> {
-        use crate::external::sarif::producer::StepFailure;
-
+        limits: &crate::external::sarif::producer::Limits,
+    ) -> Result<
+        crate::external::sarif::producer::process::StepOutput,
+        crate::external::sarif::producer::process::StepFailure,
+    > {
         run_bounded_rail_command_with_limits(argv, Some(current_dir), &[], RailRunLimits {
             timeout_ms: limits.wall_clock_ms,
             stdout_max_bytes: limits.stdout_max_bytes,
             stderr_max_bytes: limits.stderr_max_bytes,
         })
-        .map(|output| crate::external::sarif::producer::StepOutput {
+        .map(|output| crate::external::sarif::producer::process::StepOutput {
             exit_code: output.exit_code,
             stdout: output.stdout,
             stderr: output.stderr,
         })
-        .map_err(|failure| StepFailure {
+        .map_err(|failure| crate::external::sarif::producer::process::StepFailure {
             kind: failure.kind,
             message: failure.message,
         })
@@ -7527,8 +7544,19 @@ mod tests {
             normalized_run_command(&args, None, Some(&prepared), false).expect("ast-grep run command"),
             Some(crate::ast_grep_rail::scan_command_argv(&prepared.profile).join(" "))
         );
-        let identities = input_identities(&args, None, Some(&prepared), None, None, None, Path::new("."), "")
-            .expect("ast-grep identities");
+        let identities = input_identities(
+            &args,
+            &PreparedInputs {
+                clippy: None,
+                ast_grep: Some(&prepared),
+                wasm: None,
+                binary_debug_map: None,
+                sarif_producer: None,
+            },
+            Path::new("."),
+            "",
+        )
+        .expect("ast-grep identities");
         assert_eq!(identities.config, Some(prefixed_identity(profile_bytes)));
 
         let commanded = crate::cli::EvidenceRailArgs {
@@ -8679,7 +8707,7 @@ mod tests {
             parent_artifacts: Vec::new(),
             tool_exit_code: Some(0),
         });
-        executed.config_identity = Some(crate::external::sarif::producer::profile_identity().to_owned());
+        executed.config_identity = Some(crate::external::sarif::producer::admission::profile_identity().to_owned());
         executed.command_argv = vec![
             "codeql".to_owned(),
             "database".to_owned(),
@@ -8688,7 +8716,7 @@ mod tests {
         ];
         executed.bounded_log_identity =
             "b3:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd".to_owned();
-        let producer = crate::external::sarif::producer::selected_profile("codeql-exec-local")
+        let producer = crate::external::sarif::producer::admission::selected_profile("codeql-exec-local")
             .expect("checked CodeQL producer profile");
         executed.non_claims.retain(|claim| claim != SARIF_IMPORT_DOES_NOT_EXECUTE_CLAIM);
         executed.non_claims.extend(producer.non_claims.iter().cloned());
@@ -8728,7 +8756,7 @@ mod tests {
             profile: Some("codeql-local"),
             ..sarif_input()
         });
-        mislabeled.config_identity = Some(crate::external::sarif::producer::profile_identity().to_owned());
+        mislabeled.config_identity = Some(crate::external::sarif::producer::admission::profile_identity().to_owned());
         mislabeled.command_argv = vec!["codeql".to_owned()];
         mislabeled.bounded_log_identity =
             "b3:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee".to_owned();
@@ -8757,11 +8785,11 @@ mod tests {
                 name: &str,
                 _current_dir: &Path,
             ) -> Result<
-                crate::external::sarif::producer::ExecutableObservation,
-                crate::external::sarif::producer::StepFailure,
+                crate::external::sarif::producer::process::ExecutableObservation,
+                crate::external::sarif::producer::process::StepFailure,
             > {
-                Err(crate::external::sarif::producer::StepFailure {
-                    kind: crate::external::sarif::producer::FailureKind::NotFound,
+                Err(crate::external::sarif::producer::process::StepFailure {
+                    kind: crate::external::sarif::producer::process::FailureKind::NotFound,
                     message: format!("test-only missing producer `{name}`"),
                 })
             }
@@ -8770,9 +8798,11 @@ mod tests {
                 &self,
                 _argv: &[String],
                 _current_dir: &Path,
-                _limits: &crate::external::sarif::producer::ProducerLimits,
-            ) -> Result<crate::external::sarif::producer::StepOutput, crate::external::sarif::producer::StepFailure>
-            {
+                _limits: &crate::external::sarif::producer::Limits,
+            ) -> Result<
+                crate::external::sarif::producer::process::StepOutput,
+                crate::external::sarif::producer::process::StepFailure,
+            > {
                 unreachable!("a missing producer never executes")
             }
         }
@@ -8781,16 +8811,16 @@ mod tests {
         fs::create_dir_all(directory.path().join("src")).expect("create source directory");
         fs::write(directory.path().join("src/lib.rs"), "pub fn f() {}\n").expect("write source file");
         fs::write(directory.path().join("producer-rules.yml"), "rules: []\n").expect("write rule fixture");
-        let mut profile =
-            crate::external::sarif::producer::selected_profile("semgrep-exec-local").expect("checked producer profile");
+        let mut profile = crate::external::sarif::producer::admission::selected_profile("semgrep-exec-local")
+            .expect("checked producer profile");
         profile.rules.path = "producer-rules.yml".to_owned();
         profile.rules.identity =
             prefixed_identity(&fs::read(directory.path().join("producer-rules.yml")).expect("read rule fixture"));
         profile.scope.paths = vec!["src".to_owned()];
         let stage = directory.path().join("stage");
-        let (execution, report) = crate::external::sarif::producer::execute(
+        let (execution, report) = crate::external::sarif::producer::process::execute(
             &profile,
-            &crate::external::sarif::producer::ExecuteRequest {
+            &crate::external::sarif::producer::process::ExecuteRequest {
                 workspace_root: directory.path(),
                 stage_dir: &stage,
             },
@@ -8798,9 +8828,10 @@ mod tests {
         )
         .expect("missing producer execution shell");
         assert_eq!(execution.outcome, crate::external::sarif::producer::OUTCOME_UNSUPPORTED);
-        let execution_bytes = crate::external::sarif::producer::execution_bytes(&execution).expect("execution bytes");
+        let execution_bytes =
+            crate::external::sarif::producer::recording::execution_bytes(&execution).expect("execution bytes");
         let execution_identity =
-            crate::external::sarif::producer::execution_identity(&execution).expect("execution identity");
+            crate::external::sarif::producer::recording::execution_identity(&execution).expect("execution identity");
         let mut receipt = evaluate(EvaluationInput {
             rail: EvidenceRailKind::SarifImport,
             mode: MODE_RUN,
@@ -8816,7 +8847,7 @@ mod tests {
             parent_artifacts: Vec::new(),
             tool_exit_code: None,
         });
-        receipt.config_identity = Some(crate::external::sarif::producer::profile_identity().to_owned());
+        receipt.config_identity = Some(crate::external::sarif::producer::admission::profile_identity().to_owned());
         attach_sarif_producer(&mut receipt, &SarifProducerRun {
             profile,
             report,
@@ -8849,8 +8880,19 @@ mod tests {
             ..sarif_import_args(directory.path().to_path_buf())
         };
 
-        let identities = input_identities(&args, None, None, None, None, None, directory.path(), "")
-            .expect("workspace-relative identities");
+        let identities = input_identities(
+            &args,
+            &PreparedInputs {
+                clippy: None,
+                ast_grep: None,
+                wasm: None,
+                binary_debug_map: None,
+                sarif_producer: None,
+            },
+            directory.path(),
+            "",
+        )
+        .expect("workspace-relative identities");
         assert_eq!(identities.config, Some(prefixed_identity(CONFIG_BYTES)));
         assert_eq!(identities.baseline, Some(prefixed_identity(BASELINE_BYTES)));
     }

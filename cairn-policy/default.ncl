@@ -37,6 +37,8 @@ let OctetTraceabilityProfile = {
     { root = "docs/trust-boundary-evidence.md", source_kind = "tool_source", extensions = ["md"] },
   ],
   marker_verbs = ["impl", "verify", "depends", "related"],
+  assurance_level = "declared",
+  anchor_kind = "exact_marker_bytes",
 } in
 let OctetReceiptSchema = {
   command = "cargo octet artifact verify --emit-valence-provenance",
@@ -49,6 +51,11 @@ Upstream & {
   name | force = "octet-default",
   policy_schema_compatibility | force = Upstream.policy_schema_compatibility & {
     refresh_command | force = "nix run path:$CAIRN_SOURCE#cairn -- policy export --source cairn-policy/default.ncl --output cairn-policy/generated/cairn-policy.json",
+  },
+  # Keep Octet's existing workflow rollout allowlist. The upstream registry
+  # includes every schema required by the selected Cairn, not a rollout grant.
+  workflow_profile_policy | force = Upstream.workflow_profile_policy & {
+    allowed_profiles | force = ["spec-driven", "assurance", "no-spec-delta"],
   },
   traceability_policy | force = {
     default_profile = "octet-default",

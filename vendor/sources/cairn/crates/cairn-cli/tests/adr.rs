@@ -71,17 +71,35 @@ fn adr_import_accept_and_immutability() -> Result<(), Box<dyn Error>> {
         "approver".to_string(),
         "--publishers".to_string(),
         "publisher".to_string(),
+        "--workspace".to_string(),
+        "workspace:custom".to_string(),
         "--decision".to_string(),
         decision_s,
         "--policy".to_string(),
         policy,
     ];
+    let mut invalid_policy = import.clone();
+    let policy_index = invalid_policy
+        .iter()
+        .position(|argument| argument == "--policy")
+        .map(|index| index + 1)
+        .ok_or("policy option")?;
+    invalid_policy[policy_index] = dir
+        .join("missing-policy.json")
+        .to_string_lossy()
+        .to_string();
+    let output = cairn().args(&invalid_policy).output()?;
+    assert!(!output.status.success());
+
     let refs = import.iter().map(String::as_str).collect::<Vec<_>>();
     run_json(&refs)?;
     // execute import
     import.push("--execute".to_string());
     let refs = import.iter().map(String::as_str).collect::<Vec<_>>();
     run_json(&refs)?;
+    let portable = fs::read_to_string(store.join("adr-1.portable.json"))?;
+    let portable: Value = serde_json::from_str(&portable)?;
+    assert_eq!(portable["state"]["workspace_id"], "workspace:custom");
 
     let status = run_json(&[
         "adr",
@@ -115,9 +133,18 @@ fn adr_import_accept_and_immutability() -> Result<(), Box<dyn Error>> {
         "adr-1",
         "--actor",
         "approver",
+        "--operation-id",
+        "custom-accept",
         "--execute",
     ])?;
     assert_eq!(accept["executed"], true);
+    let portable = fs::read_to_string(store.join("adr-1.portable.json"))?;
+    let value: Value = serde_json::from_str(&portable)?;
+    assert!(value["state"]["operations"]
+        .as_array()
+        .is_some_and(|operations| operations
+            .iter()
+            .any(|operation| operation == "custom-accept")));
 
     // status shows accepted
     let status = run_json(&[
@@ -152,5 +179,49 @@ fn adr_import_accept_and_immutability() -> Result<(), Box<dyn Error>> {
         "expected immutable error, got {}",
         String::from_utf8_lossy(&edit.stderr)
     );
+    Ok(())
+}
+
+#[test]
+fn adr_import_defaults_workspace() -> Result<(), Box<dyn Error>> {
+    let dir = test_dir("workspace-default")?;
+    let store = dir.join("store");
+    fs::create_dir_all(&store)?;
+    let decision = dir.join("decision.md");
+    fs::write(&decision, "# Decision\n")?;
+    let decision_s = decision.to_string_lossy().to_string();
+    let store_s = store.to_string_lossy().to_string();
+    let policy = worktree_root().join("cairn-policy/generated/cairn-policy.json");
+    let policy = policy.to_string_lossy().to_string();
+
+    run_json(&[
+        "adr",
+        "import",
+        "--store",
+        &store_s,
+        "--document-id",
+        "adr-default",
+        "--base-revision",
+        &base_arg(),
+        "--authors",
+        "author",
+        "--reviewers",
+        "reviewer",
+        "--approvers",
+        "approver",
+        "--publishers",
+        "publisher",
+        "--decision",
+        &decision_s,
+        "--policy",
+        &policy,
+        "--execute",
+    ])?;
+
+    let portable = fs::read_to_string(store.join("adr-default.portable.json"))?;
+    let value: Value = serde_json::from_str(&portable)?;
+    assert_eq!(value["state"]["workspace_id"], "workspace:adr");
+
+    fs::remove_dir_all(dir)?;
     Ok(())
 }

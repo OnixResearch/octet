@@ -235,8 +235,8 @@
     "id": "octet-public-source-only",
     "observed_branch_head": "becae9621fdf96803c7859e83d303cf535f20b15",
     "repository": "https://github.com/OnixResearch/octet-public",
-    "supported": true,
-    "supported_install_command": "nix run github:OnixResearch/octet-public/becae9621fdf96803c7859e83d303cf535f20b15#cargo-octet -- check",
+    "supported": false,
+    "supported_install_command": "No supported installation: this historical cohort is blocked.",
     "unsupported_selectors": [
       "github:OnixResearch/octet-public/main",
       "github:OnixResearch/octet"

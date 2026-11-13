@@ -15,8 +15,8 @@ use cairn_core::{
 use serde_json::json;
 
 use crate::support::{
-    default_policy_path, load_policy_file, print_json, read_string_option, with_receipt_hash,
-    CapabilityRoot, CapabilityRootKind,
+    admit_arguments, default_policy_path, load_policy_file, print_json, read_string_option,
+    with_receipt_hash, CapabilityRoot, CapabilityRootKind,
 };
 
 const PORTABLE_MAX_BYTES: u64 = 4 * 1024 * 1024;
@@ -55,8 +55,11 @@ pub(crate) fn run_vo(args: Vec<String>) -> Result<(), Box<dyn Error>> {
     }
 }
 
-fn policy_hash() -> Result<String, Box<dyn Error>> {
-    let policy = load_policy_file(PathBuf::from(default_policy_path()))?;
+fn policy_hash(args: &[String]) -> Result<String, Box<dyn Error>> {
+    let path = PathBuf::from(
+        read_string_option(args, "--policy").unwrap_or_else(|| default_policy_path().to_string()),
+    );
+    let policy = load_policy_file(path)?;
     Ok(canonical_json_hash(&policy.raw))
 }
 
@@ -111,11 +114,31 @@ fn has_flag(args: &[String], flag: &str) -> bool {
 
 // r[impl cairn.verification_obligation_cob.cli.preview]
 fn run_import(args: &[String]) -> Result<(), Box<dyn Error>> {
-    let policy_hash = policy_hash()?;
+    admit_arguments(
+        args,
+        &[
+            "--store",
+            "--obligation-id",
+            "--base-revision",
+            "--submitters",
+            "--contributors",
+            "--verifiers",
+            "--invalidators",
+            "--claim",
+            "--subject-root",
+            "--decision",
+            "--workspace",
+            "--policy",
+        ],
+        &["--execute"],
+    )?;
+    let policy_hash = policy_hash(args)?;
     let store = store_path(args)?;
     let obligation_id = obs_id(args)?;
     let claim = read_string_option(args, "--claim").ok_or("requires --claim CLAIM_ID")?;
     let subject = read_string_option(args, "--subject-root").unwrap_or_else(|| ".".to_string());
+    let workspace =
+        read_string_option(args, "--workspace").unwrap_or_else(|| "workspace:vo".to_string());
     let base =
         read_string_option(args, "--base-revision").ok_or("requires --base-revision KIND:VALUE")?;
     let decoded = decode_base_revision(&base).map_err(|e| e.to_string())?;
@@ -123,13 +146,16 @@ fn run_import(args: &[String]) -> Result<(), Box<dyn Error>> {
         return Err("COB requires a git_oid base revision".into());
     }
     let claim_body = read_string_option(args, "--decision").ok_or("requires --decision FILE")?;
-    let content = std::fs::read_to_string(&claim_body)
-        .map_err(|e| format!("failed to read {claim_body}: {e}"))?;
+    let content = crate::support::read_bounded_text_no_symlink(
+        &PathBuf::from(&claim_body),
+        PORTABLE_MAX_BYTES,
+        "verification obligation claim",
+    )?;
     let init = WorkflowInit {
         schema: VERIFICATION_OBLIGATION_SCHEMA_V1.to_string(),
         kind: "verification-obligation".to_string(),
         obligation_id,
-        workspace_id: "workspace:vo".to_string(),
+        workspace_id: workspace,
         base_revision: base,
         policy_hash,
         claim_root: cairn_core::ClaimRoot {
@@ -168,6 +194,7 @@ fn run_import(args: &[String]) -> Result<(), Box<dyn Error>> {
 }
 
 fn run_status(args: &[String]) -> Result<(), Box<dyn Error>> {
+    admit_arguments(args, &["--store", "--obligation-id"], &[])?;
     let store = store_path(args)?;
     let id = obs_id(args)?;
     let state = read_portable(&store, &id)?;
@@ -189,6 +216,7 @@ fn run_status(args: &[String]) -> Result<(), Box<dyn Error>> {
 }
 
 fn run_conflict(args: &[String]) -> Result<(), Box<dyn Error>> {
+    admit_arguments(args, &["--store", "--obligation-id"], &[])?;
     let store = store_path(args)?;
     let id = obs_id(args)?;
     let state = read_portable(&store, &id)?;
@@ -239,6 +267,17 @@ fn mutate(
 }
 
 fn run_update(args: &[String]) -> Result<(), Box<dyn Error>> {
+    admit_arguments(
+        args,
+        &[
+            "--store",
+            "--obligation-id",
+            "--actor",
+            "--text",
+            "--operation-id",
+        ],
+        &["--execute"],
+    )?;
     let actor = read_string_option(args, "--actor").ok_or("requires --actor CONTRIBUTOR")?;
     let text = read_string_option(args, "--text").ok_or("requires --text")?;
     let store = store_path(args)?;
@@ -254,6 +293,21 @@ fn run_update(args: &[String]) -> Result<(), Box<dyn Error>> {
 }
 
 fn run_evidence(args: &[String]) -> Result<(), Box<dyn Error>> {
+    admit_arguments(
+        args,
+        &[
+            "--store",
+            "--obligation-id",
+            "--actor",
+            "--evidence-id",
+            "--evidence-kind",
+            "--verification-role",
+            "--claim-scope",
+            "--external-identity",
+            "--operation-id",
+        ],
+        &["--execute"],
+    )?;
     let actor = read_string_option(args, "--actor").ok_or("requires --actor CONTRIBUTOR")?;
     let id = read_string_option(args, "--evidence-id").ok_or("requires --evidence-id")?;
     let kind = read_string_option(args, "--evidence-kind").ok_or("requires --evidence-kind")?;
@@ -275,6 +329,19 @@ fn run_evidence(args: &[String]) -> Result<(), Box<dyn Error>> {
 }
 
 fn run_finding(args: &[String]) -> Result<(), Box<dyn Error>> {
+    admit_arguments(
+        args,
+        &[
+            "--store",
+            "--obligation-id",
+            "--actor",
+            "--finding-id",
+            "--blocker-class",
+            "--source-span",
+            "--operation-id",
+        ],
+        &["--execute"],
+    )?;
     let actor = read_string_option(args, "--actor").ok_or("requires --actor")?;
     let finding_id = read_string_option(args, "--finding-id").ok_or("requires --finding-id")?;
     let blocker =
@@ -295,6 +362,18 @@ fn run_finding(args: &[String]) -> Result<(), Box<dyn Error>> {
 }
 
 fn run_response(args: &[String]) -> Result<(), Box<dyn Error>> {
+    admit_arguments(
+        args,
+        &[
+            "--store",
+            "--obligation-id",
+            "--actor",
+            "--finding-id",
+            "--response",
+            "--operation-id",
+        ],
+        &["--execute"],
+    )?;
     let actor = read_string_option(args, "--actor").ok_or("requires --actor VERIFIER")?;
     let finding_id = read_string_option(args, "--finding-id").ok_or("requires --finding-id")?;
     let response = read_string_option(args, "--response").ok_or("requires --response")?;
@@ -306,6 +385,17 @@ fn run_response(args: &[String]) -> Result<(), Box<dyn Error>> {
 }
 
 fn run_decision(args: &[String], decision: &str) -> Result<(), Box<dyn Error>> {
+    admit_arguments(
+        args,
+        &[
+            "--store",
+            "--obligation-id",
+            "--actor",
+            "--subject-root",
+            "--operation-id",
+        ],
+        &["--execute"],
+    )?;
     let actor = read_string_option(args, "--actor").ok_or("requires --actor VERIFIER")?;
     let subject_root =
         read_string_option(args, "--subject-root").unwrap_or_else(|| ".".to_string());
@@ -334,6 +424,17 @@ fn run_decision(args: &[String], decision: &str) -> Result<(), Box<dyn Error>> {
 }
 
 fn run_resolve(args: &[String]) -> Result<(), Box<dyn Error>> {
+    admit_arguments(
+        args,
+        &[
+            "--store",
+            "--obligation-id",
+            "--actor",
+            "--text",
+            "--operation-id",
+        ],
+        &["--execute"],
+    )?;
     let actor = read_string_option(args, "--actor").ok_or("requires --actor")?;
     let text = read_string_option(args, "--text").ok_or("requires --text")?;
     let store = store_path(args)?;
@@ -349,6 +450,7 @@ fn run_resolve(args: &[String]) -> Result<(), Box<dyn Error>> {
 }
 
 fn run_export(args: &[String]) -> Result<(), Box<dyn Error>> {
+    admit_arguments(args, &["--store", "--obligation-id"], &[])?;
     let store = store_path(args)?;
     let id = obs_id(args)?;
     let state = read_portable(&store, &id)?;

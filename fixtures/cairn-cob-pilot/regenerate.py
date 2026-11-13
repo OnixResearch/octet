@@ -12,7 +12,6 @@ import shutil
 import subprocess
 import tempfile
 
-PROVIDER = "70db8fe114910feb5d162fea5db8ad4ffdb6f176"
 CHANGE = "adopt-cairn-cob-collaboration"
 POLICY = "cairn-policy/generated/cairn-policy.json"
 FIXTURE = Path(__file__).resolve().parent
@@ -40,7 +39,7 @@ def nickel(value, indent=0):
 
 
 def write_artifacts(root, artifacts):
-    directory = root / "cairn/changes" / CHANGE
+    directory = root / ".cairn/changes" / CHANGE
     for artifact, content in artifacts.items():
         relative = Path("specs") / artifact[5:] / "spec.md" if artifact.startswith("spec:") else Path(artifact + ".md")
         if artifact == "metadata":
@@ -51,7 +50,7 @@ def write_artifacts(root, artifacts):
 
 
 def artifact_inventory(root):
-    directory = root / "cairn/changes" / CHANGE
+    directory = root / ".cairn/changes" / CHANGE
     return [
         {"path": str(path.relative_to(directory)), "bytes": path.stat().st_size, "blake3_hex": digest(path.read_bytes())}
         for path in sorted(directory.rglob("*")) if path.is_file()
@@ -72,12 +71,11 @@ def regenerate(args):
             return git(recovered, "show", spec)
         root_oid = old_manifest["import_operation_id"]
         update_oid = old_manifest["update_operation_id"]
-        base_oid = old_manifest["base_git_oid"]
         initial = json.loads(show(root_oid + ":0"))["state"]["artifacts"]
         update = json.loads(show(update_oid + ":0"))
         if update["type"] != "set_artifact" or update["artifact"] != "tasks":
             raise RuntimeError("expected a single tasks update")
-        policy_bytes = show(base_oid + ":" + POLICY)
+        policy_bytes = (FIXTURE.parents[1] / POLICY).read_bytes()
 
         source, secondary, reload_root = (scratch / name for name in ("source", "secondary", "reload"))
         git(scratch, "init", "--initial-branch=main", source)
@@ -130,7 +128,7 @@ def regenerate(args):
             "+refs/heads/main:refs/heads/main", "+refs/namespaces/*:refs/namespaces/*")
         git(secondary, "checkout", "main")
         receipt("checkout-missing-changes-negative.json", secondary, ["collaboration", "checkout"], execute=True)
-        (secondary / "cairn/changes").mkdir(parents=True)
+        (secondary / ".cairn/changes").mkdir(parents=True)
         receipt("status-secondary.json", secondary, ["collaboration", "status"])
         receipt("checkout-preview.json", secondary, ["collaboration", "checkout"])
         receipt("checkout-execute.json", secondary, ["collaboration", "checkout"], execute=True)
@@ -152,7 +150,7 @@ def regenerate(args):
         transport = {
             "schema": "octet.cairn-cob-transport.v1",
             "command": "git fetch --no-tags <source> +refs/heads/main:refs/heads/main +refs/namespaces/*:refs/namespaces/*",
-            "backend": "radicle-cob.v1", "change": CHANGE, "cairn_commit": PROVIDER,
+            "backend": "radicle-cob.v1", "change": CHANGE, "cairn_commit": args.cairn_source_revision,
             "base_git_oid": base, "actor": actor, "object_id": object_id, "namespace_ref": namespace,
             "source_ref_target": source_target, "destination_ref_target": destination_target,
             "source_branch_target": source_branch, "destination_branch_target": destination_branch,
@@ -172,12 +170,12 @@ def regenerate(args):
         git(reload_root, "fetch", "--no-tags", bundle,
             "+refs/heads/main:refs/heads/main", "+refs/namespaces/*:refs/namespaces/*")
         git(reload_root, "checkout", "main")
-        (reload_root / "cairn/changes").mkdir(parents=True)
+        (reload_root / ".cairn/changes").mkdir(parents=True)
         receipt("bundle-reload.json", reload_root, ["collaboration", "status"])
 
         manifest = {
             "schema": "octet.cairn-cob-pilot.v1", "change": CHANGE, "workspace_id": imported["workspace_id"],
-            "backend": imported["backend"], "cairn_commit": PROVIDER, "base_git_oid": base,
+            "backend": imported["backend"], "cairn_commit": args.cairn_source_revision, "base_git_oid": base,
             "actor": actor, "object_id": object_id, "import_operation_id": imported["operation_id"],
             "update_operation_id": updated["result_operation_id"], "final_content_root": updated["result_content_root"],
             "final_state_hash": updated["result_state_hash"], "namespace_ref": namespace,
@@ -199,12 +197,22 @@ def regenerate(args):
         shutil.copyfile(bundle, FIXTURE / "octet-cob.bundle")
         shutil.copyfile(generated_nickel, manifest_path)
         (FIXTURE / "manifest.json").write_bytes(generated_json)
+        provenance = {
+            "source_revision": args.cairn_source_revision,
+            "executable": str(args.cairn.resolve()),
+            "executable_blake3": digest(args.cairn.read_bytes()),
+            "observation_kind": "fresh signed CLI capture; not a historical receipt migration",
+            "base_has_parents": bool(git(source, "show", "-s", "--format=%P", base).strip()),
+            "base_paths": git(source, "ls-tree", "-r", "--name-only", base).decode().splitlines(),
+        }
+        (FIXTURE / "provider-provenance.json").write_text(json.dumps(provenance, indent=2) + "\n")
         print(json.dumps({"base_git_oid": base, "namespace_ref": namespace, "namespace_target": source_target,
-                          "cairn_commit": PROVIDER}, indent=2))
+                          "cairn_commit": args.cairn_source_revision}, indent=2))
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--cairn", type=Path, required=True, help="executable built from exact provider " + PROVIDER)
+    parser.add_argument("--cairn", type=Path, required=True, help="parent-qualified matching executable")
+    parser.add_argument("--cairn-source-revision", required=True, help="exact qualified provider source commit")
     arguments = parser.parse_args()
     regenerate(arguments)

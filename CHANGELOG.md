@@ -1,10 +1,103 @@
 # Changelog
 
-Notable changes that affect consumers. Organized by date since consumers pin to
-specific commits via `TIGERSTYLE_DYLINT_REV`.
+Notable changes that affect consumers. Consumers pin exact canonical Octet
+source revisions and the reviewed nightly/Dylint cohort.
 
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
+
+## 0.1.1-rc.1 — candidate, pending qualification (2026-11-12)
+
+`OnixResearch/octet` is now the sole canonical source, release, and support
+home. Live landing, consumer, trust-boundary, pre-commit, CI, support, and
+launch-draft surfaces target the planned immutable `v0.1.1-rc.1` tag, which
+must be published only after qualification. Final source-bound qualification
+and release publication are not claimed here. The existing `v0.1.0` tag must
+not move again.
+
+Initial support remains source-only Nix on `x86_64-linux`, with pinned nightly
+Rust and Dylint. There is no crates.io, binary, custom website, or hosted
+service release path. Consumers must prepare and review their `Cargo.lock`
+before running the locked check. Native GitHub issue templates collect revision,
+platform, command, scope, expected/observed results, and redacted evidence;
+support is explicitly best-effort. GitHub private vulnerability reporting is
+enabled on the canonical repository; no report was submitted as a test and no
+response SLA is implied.
+
+The old `octet-public` channel and its `becae962` cohort are blocked and
+unsupported; the owner left that repository unchanged.
+Historical receipts and the entries below describe their original source, not
+qualification of this candidate.
+See `docs/release-candidate.md` for the real cohort pins, gates, and approvals.
+
+The reviewed-object admission gate selects the exact newly owner-approved
+`0.1.1-rc.1` tuple: 40 selected source files, three producer modules, the current
+consumer-test snapshot, the reviewed Valence module, and four native references.
+All 42 unique source/module/test comparisons matched the immutable producer.
+The earlier RC data is retained under `historical-rc1-earlier-approval/` beside
+the unselected historical `0.1.0` evidence. Later source/reference changes still
+require a fresh scoped decision; admission is not release qualification or a
+correctness certificate.
+
+The owner separately approved the exact native warning-baseline migration from
+3,160 to 3,030 identities and lowered the occurrence expectation from 4,337 to
+4,239. Two genuinely introduced import findings were repaired rather than
+baselined. This does not disable lints, expand a budget, waive architecture
+observations, or accept future changes. Finite collection capacity remains
+separately bounded, and final-source gates remain required.
+
+Prose-only onboarding and hook source-string assertions were removed. The
+contributor guide points to the actual packaged-consumer smoke, which exercises
+the denied finding, guarded fix, artifact verification, and tamper rejection.
+
+The packaged Dylint driver now binds its compiler sysroot to the immutable Nix
+toolchain instead of the consumer's `RUSTUP_HOME`. A fresh empty Rustup home
+previously produced `E0463: can't find crate for std`. The release-candidate
+smoke now exercises the packaged runner's denied division, guarded fix,
+original artifact verification, and copied-artifact tamper rejection, rather
+than only probing versions. Independent downstream capture and final public
+source qualification remain separate requirements.
+
+File-length, module-count and module-filename lints now use parsed Rust source
+provenance rather than treating every local SourceMap file as code. Embedded
+`include_str!` and `include_bytes!` data no longer produces module findings;
+real parsed modules remain checked, including ordinary `vendor` and `registry`
+directories. Positive and negative UI fixtures pass the ordinary ignored UI
+rail after snapshot generation.
+
+Cairn package installation makes only its copied license output writable before
+Crane's post-processing, fixing a read-only-directory installation failure
+without editing the selected upstream snapshot.
+
+The existing dependency importer now projects the selected Cairn provider's
+four-file policy closure unchanged. Octet adds the provider-required declared
+traceability fields while retaining its three allowed workflow profiles,
+`spec-driven` default, gates, and review obligations. Both signed COB capture
+helpers completed genuine current-provider runs on parentless fixture roots;
+the retained results are not relabelled historical receipts. Final consumer
+and release qualification checks remain separate.
+
+The Nix Rust source closure now retains non-Rust `policy_inputs` fixture assets,
+including JSON and notice text used by source-admission UI cases. A misleading
+no-op-producer test that asserted an error filename was removed rather than
+weakening Hegel's fixed producer/profile admission contract.
+
+Admission-authentication scope framing now rejects lengths that cannot fit its
+bounded wire representation before modifying the running digest. The existing
+signature, authorization, currentness, and recomputation checks remain separate;
+an authentication result is not release approval.
+
+RC source repairs qualify owner paths and predicate names and separate
+negative-control measurement, verdict evaluation, and publication. SARIF
+request admission and receipt-mode validation have bounded helpers; prepared
+rail identities use borrowed inputs without adding heap allocation. Existing
+runner contracts and strict Clippy pass after these changes. Source-token
+references and the warning baseline still need exact-byte review.
+
+The obsolete `docs_positioning` prose-only tests are removed rather than
+repinned to rewritten marketing text. Onboarding acceptance remains the actual
+packaged denied-division, guarded-fix, original-artifact verification, and
+tampered-copy rejection path, not the presence of particular sentences.
 
 ## 2026-11-12: Public-history sanitization
 
@@ -12,8 +105,8 @@ The history cleanup removes imported Adam Murray standards prose, local agent
 notes and prompt logs, machine-local permissions, and `.envrc` across published
 branches and tags. Authorship, project and third-party notices, executable
 policies, and lifecycle records are preserved. Two signed COB fixture bundles
-also carried old Octet history; fresh real fixture runs replace those copies
-without relabelling historical receipts or retaining signing keys.
+also carried old Octet history; replacing those copies requires fresh real
+fixture runs without relabelling historical receipts or retaining signing keys.
 
 All 72 live policy source references now point at policy-specific clauses in
 the existing Octet-owned `docs/standards/policy-contract.md`; historical source
@@ -32,15 +125,13 @@ clearance.
 
 ## 2026-11-11: Public release channel and launch kit
 
-Consumer-facing documentation now names the supported source-only public
-channel, `github:OnixResearch/octet-public`, at the reviewed cohort revision.
-README quick starts, issue and security links, pre-commit examples, Cargo
-metadata, and the trust-boundary deployment posture no longer point at the
-development repository or the unsupported `main` selector. The project
-does not claim `octet.dev`; Cargo metadata points at the public repository, and
-the public repository README is the canonical public home until an owned domain
-exists. The release cohort manifest and its generated export were reconciled
-with the qualified cohort state.
+Historical entry, superseded by the canonical `0.1.1-rc.1` cutover above:
+consumer documentation at that time named `github:OnixResearch/octet-public`
+as its source-only channel. Its later nested-history audit blocked that cohort.
+The old channel is not a supported installation route, and its build receipts
+must not be reused as qualification of the canonical candidate. The repository
+README is the sole canonical public landing surface; no custom website is
+part of this release.
 
 The public launch kit adds positioning, a phased launch plan, v0.1.0 release
 notes, an announcement draft, outreach copy, and an operational checklist under

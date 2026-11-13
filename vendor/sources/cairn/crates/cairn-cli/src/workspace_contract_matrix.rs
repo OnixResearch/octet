@@ -1,8 +1,4 @@
-use std::{
-    error::Error,
-    fs,
-    path::{Path, PathBuf},
-};
+use std::{error::Error, path::Path};
 
 use cairn_core::{
     blake3_hex, canonical_json_hash, validate_workspace_contract_matrix_value,
@@ -10,7 +6,13 @@ use cairn_core::{
 };
 use serde_json::{json, Value};
 
-use crate::support::{path_string, print_json, read_option, safe_relative_path, with_receipt_hash};
+use crate::support::{
+    path_string, print_json, read_option, reject_positional_arguments, reject_unknown_options,
+    safe_relative_path, with_receipt_hash, CapabilityRoot, CapabilityRootKind,
+};
+
+const MAX_OBSERVED_ARTIFACT_BYTES: u64 = 1_048_576;
+const MAX_WORKSPACE_CONTRACT_INPUT_BYTES: u64 = 2_097_152;
 
 pub(crate) fn run_workspace_contract(args: Vec<String>) -> Result<(), Box<dyn Error>> {
     let Some(subcommand) = args.first().map(String::as_str) else {
@@ -26,18 +28,21 @@ fn run_workspace_contract_verify(args: Vec<String>) -> Result<(), Box<dyn Error>
     // r[impl cairn.workspace_contract_matrix.validation]
     // r[impl cairn.workspace_contract_matrix.validation.receipt]
     // r[impl cairn.workspace_contract_matrix.validation.privacy]
+    reject_unknown_options(&args, &["--root", "--input"])?;
+    reject_positional_arguments(&args)?;
     let root = read_option(args.clone(), "--root", ".");
     let input = read_option(args, "--input", "");
     if input.as_os_str().is_empty() {
         return Err("workspace-contract verify requires --input <matrix.json>".into());
     }
-    let value = read_workspace_contract_input(&input)?;
+    let input_path = crate::support::resolve_under_root(&root, input);
+    let value = read_workspace_contract_input(&input_path)?;
     let enriched = enrich_observed_artifacts(&root, value)?;
     let report = validate_workspace_contract_matrix_value(&enriched);
     let receipt = json!({
         "command": "workspace-contract verify",
         "schema": WORKSPACE_CONTRACT_MATRIX_RECEIPT_SCHEMA_V1,
-        "input": safe_relative_path(&root, &input),
+        "input": safe_relative_path(&root, &input_path),
         "root": path_string(&root),
         "input_hash": canonical_json_hash(&enriched),
         "matrix_hash": report.matrix_hash,
@@ -66,6 +71,7 @@ fn enrich_observed_artifacts(root: &Path, mut value: Value) -> Result<Value, Box
         .get("edges")
         .and_then(Value::as_array)
         .ok_or("workspace contract input matrix.edges must be an array")?;
+    let capability = CapabilityRoot::open_nofollow(CapabilityRootKind::Repository, root)?;
     let mut observations = Vec::new();
     for edge in edges {
         let edge_id = edge
@@ -77,13 +83,11 @@ fn enrich_observed_artifacts(root: &Path, mut value: Value) -> Result<Value, Box
             .and_then(Value::as_str)
             .unwrap_or_default();
         let artifact_identity = if is_cli_safe_relative_path(artifact_path) {
-            let full_path = root.join(artifact_path);
-            let bytes = fs::read(&full_path).map_err(|source| {
-                format!(
-                    "failed to read workspace contract artifact {}: {source}",
-                    full_path.display()
-                )
-            })?;
+            let bytes = capability
+                .read_bounded(Path::new(artifact_path), MAX_OBSERVED_ARTIFACT_BYTES)
+                .map_err(|source| {
+                    format!("failed to read workspace contract artifact {artifact_path}: {source}")
+                })?;
             blake3_hex(&bytes)
         } else {
             String::new()
@@ -115,18 +119,10 @@ fn policy_hash(value: &Value) -> String {
         .unwrap_or_else(|| canonical_json_hash(&Value::Null))
 }
 
-fn read_workspace_contract_input(path: &PathBuf) -> Result<Value, Box<dyn Error>> {
-    let text = fs::read_to_string(path).map_err(|source| {
-        format!(
-            "failed to read workspace contract matrix input {}: {source}",
-            path.display()
-        )
-    })?;
-    serde_json::from_str(&text).map_err(|source| {
-        format!(
-            "failed to parse workspace contract matrix input {}: {source}",
-            path.display()
-        )
-        .into()
-    })
+fn read_workspace_contract_input(path: &Path) -> Result<Value, Box<dyn Error>> {
+    crate::support::read_bounded_json_no_symlink(
+        path,
+        MAX_WORKSPACE_CONTRACT_INPUT_BYTES,
+        "workspace contract input",
+    )
 }

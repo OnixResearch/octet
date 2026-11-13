@@ -9,6 +9,14 @@ reviewable artifacts for a CI or release gate.
 Octet is not a new language, a Rust replacement, a hosted verification service,
 or a whole-program verifier.
 
+The release target is candidate `0.1.1-rc.1`, pending qualification and
+publication of immutable tag `v0.1.1-rc.1`. The sole canonical source, release,
+support, and landing home is <https://github.com/OnixResearch/octet>. Initial
+support is source-only Nix on `x86_64-linux` with pinned nightly Rust/Dylint.
+The blocked old `octet-public` cohort remains unchanged, not an alternate route.
+No website/domain, crates.io, prebuilt binary, or hosted service is part of
+this release. Copy is not evidence of completed gates or enabled settings.
+
 ## One-liners
 
 | Length | Copy |
@@ -64,7 +72,7 @@ Use these only with their bounds.
 | Artifact bundle plus `artifact verify` | Verifies saved sidecar identities; not a release decision by itself |
 | Nickel policy registry and generated bundles | Policy checks validate declared contracts; they do not validate business requirements |
 | Optional Verus, Lean/Aeneas, Kani, and external evidence rails | Each rail proves only its named property and receipt scope |
-| Public cohort `octet-public-becae962-2026-11-11` has source-bound build and walkthrough receipts | Release qualification is blocked: nested fixture bundles still contain excluded development history |
+| Historical `octet-public-becae962-2026-11-11` build and walkthrough receipts | Source-bound historical evidence only; the cohort remains blocked and cannot qualify canonical `0.1.1-rc.1` |
 | Aspen phase-1 starter rollout produced six `ambient_clock` findings on three starter packages | Historical archived evidence for that scope; not Aspen HEAD and not a noise guarantee |
 
 ## Differentiation
@@ -126,10 +134,10 @@ lower tier as proof.
 
 ### "Why is there no crates.io package?"
 
-The current distribution is a source-only public export and pinned Nix flake.
-Workspace path dependencies, Git dependencies, and the runner's embedded build
-inputs need a separate packaging decision. Do not treat `cargo package --list`
-as proof that a standalone crate can be built or published.
+This release supports source-only Nix on `x86_64-linux` from the canonical
+repository. Crates.io packaging and binary distribution are outside scope.
+Do not treat `cargo package --list` as proof that a standalone crate can be
+built or published.
 
 ## Message rules
 
@@ -162,7 +170,7 @@ Do not say:
 | Coding philosophy | Tiger Style |
 | Runner | `cargo-octet` / `cargo octet check` |
 | Canonical lint attributes | `tigerstyle::<lint>` |
-| Public repository | `github:OnixResearch/octet-public` |
+| Canonical repository | `github:OnixResearch/octet` |
 | Legacy compatibility names | `slotcar`, `tigerstyle`, `cargo-slotcar`, `cargo-tigerstyle` |
 
 Tiger Style is the philosophy and lint namespace, not a separate product.
@@ -170,7 +178,8 @@ Legacy names route to the same engine.
 
 ## Landing-page outline
 
-Use this structure for the public repository README or a future owned product page. Do not use an unowned domain as a call to action:
+Use this structure for the canonical repository README. No separate website
+or domain is part of this release:
 
 1. **Hero**: "Reviewable evidence for Rust, from source to gate."
    Subhead: "Octet checks existing Rust with pinned policy and writes artifacts

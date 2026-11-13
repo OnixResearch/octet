@@ -203,9 +203,7 @@ fn parse_options(args: &[String]) -> Result<ConfigExportOptions, Box<dyn Error>>
                 if kind.is_some() {
                     return Err("config export received --kind more than once".into());
                 }
-                let value = args
-                    .get(index + 1)
-                    .ok_or("config export --kind requires a value")?;
+                let value = option_value(args, index, "--kind", "a value")?;
                 kind = Some(ConfigKind::parse(value)?);
                 index += 2;
             }
@@ -213,17 +211,21 @@ fn parse_options(args: &[String]) -> Result<ConfigExportOptions, Box<dyn Error>>
                 if root.is_some() {
                     return Err("config export received --root more than once".into());
                 }
-                let value = args
-                    .get(index + 1)
-                    .ok_or("config export --root requires a path")?;
+                let value = option_value(args, index, "--root", "a path")?;
                 root = Some(PathBuf::from(value));
                 index += 2;
             }
             "--check" => {
+                if check {
+                    return Err("config export received --check more than once".into());
+                }
                 check = true;
                 index += 1;
             }
             "--execute" => {
+                if execute {
+                    return Err("config export received --execute more than once".into());
+                }
                 execute = true;
                 index += 1;
             }
@@ -239,6 +241,21 @@ fn parse_options(args: &[String]) -> Result<ConfigExportOptions, Box<dyn Error>>
         check,
         execute,
     })
+}
+
+fn option_value<'a>(
+    args: &'a [String],
+    index: usize,
+    flag: &str,
+    expectation: &str,
+) -> Result<&'a str, Box<dyn Error>> {
+    match args
+        .get(index + 1)
+        .filter(|value| !value.is_empty() && !value.starts_with("--"))
+    {
+        Some(value) => Ok(value),
+        None => Err(format!("config export {flag} requires {expectation}").into()),
+    }
 }
 
 fn build_export_plan(options: &ConfigExportOptions) -> Result<ExportPlan, Box<dyn Error>> {
@@ -586,6 +603,11 @@ fn read_optional_regular_file(path: &Path) -> Result<Option<Vec<u8>>, Box<dyn Er
             path.display()
         )
         .into()),
+        Ok(metadata) if metadata.len() > SOURCE_FILE_MAX_BYTES => Err(format!(
+            "configuration projection exceeds the reviewed byte bound: {}",
+            path.display()
+        )
+        .into()),
         Ok(_) => Ok(Some(fs::read(path)?)),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
         Err(error) => Err(error.into()),
@@ -704,6 +726,77 @@ mod tests {
         assert!(!root.join(".cairn-store/.store.json.cairn-lock").exists());
 
         fs::remove_dir_all(root)?;
+        Ok(())
+    }
+    #[test]
+    fn projection_reads_are_bounded() -> Result<(), Box<dyn Error>> {
+        let path = std::env::temp_dir().join(format!(
+            "cairn-config-export-oversized-{}",
+            std::process::id()
+        ));
+        let file = fs::File::create(&path)?;
+        file.set_len(SOURCE_FILE_MAX_BYTES + 1)?;
+        let error = read_optional_regular_file(&path).expect_err("oversized projection must fail");
+        assert!(error
+            .to_string()
+            .contains("configuration projection exceeds the reviewed byte bound"));
+        fs::remove_file(path)?;
+        Ok(())
+    }
+    #[cfg(unix)]
+    #[test]
+    fn projection_reads_reject_symlinks() -> Result<(), Box<dyn Error>> {
+        use std::os::unix::fs::symlink;
+
+        let outside = std::env::temp_dir().join(format!(
+            "cairn-config-export-outside-{}",
+            std::process::id()
+        ));
+        let link = std::env::temp_dir().join(format!(
+            "cairn-config-export-symlink-{}",
+            std::process::id()
+        ));
+        fs::write(&outside, b"{}\n")?;
+        symlink(&outside, &link)?;
+        let error = read_optional_regular_file(&link).expect_err("symlinked projection must fail");
+        assert!(error.to_string().contains("regular non-symlink file"));
+        fs::remove_file(link)?;
+        fs::remove_file(outside)?;
+        Ok(())
+    }
+    #[test]
+    fn source_reads_are_bounded() -> Result<(), Box<dyn Error>> {
+        let path =
+            std::env::temp_dir().join(format!("cairn-config-export-source-{}", std::process::id()));
+        let file = fs::File::create(&path)?;
+        file.set_len(SOURCE_FILE_MAX_BYTES + 1)?;
+        let error =
+            read_bounded(&path, SOURCE_FILE_MAX_BYTES).expect_err("oversized source must fail");
+        assert!(error.to_string().contains("exceeds the byte bound"));
+        fs::remove_file(path)?;
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn source_reads_reject_symlinks() -> Result<(), Box<dyn Error>> {
+        use std::os::unix::fs::symlink;
+
+        let outside = std::env::temp_dir().join(format!(
+            "cairn-config-export-source-outside-{}",
+            std::process::id()
+        ));
+        let link = std::env::temp_dir().join(format!(
+            "cairn-config-export-source-link-{}",
+            std::process::id()
+        ));
+        fs::write(&outside, b"{}\n")?;
+        symlink(&outside, &link)?;
+        let error =
+            read_bounded(&link, SOURCE_FILE_MAX_BYTES).expect_err("symlinked source must fail");
+        assert!(error.to_string().contains("regular non-symlink file"));
+        fs::remove_file(link)?;
+        fs::remove_file(outside)?;
         Ok(())
     }
 }

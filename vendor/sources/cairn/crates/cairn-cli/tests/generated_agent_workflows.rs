@@ -387,8 +387,10 @@ fn symlink_destination_is_blocked_without_outside_writes() -> Result<(), Box<dyn
 
 #[test]
 fn maintained_hermes_source_remains_byte_compatible() {
+    // The reviewed Octet rename changes the maintained source baseline.
+    // Generated workflow operations must still preserve those exact bytes.
     const EXPECTED_HERMES_BLAKE3: &str =
-        "70ea834d431ac63c269a9de4ad400299701c4220902fc007299b4c9c324631d8";
+        "079a6dabe0b1894058e1c16ad277ce15e83b0b55821cbe9f452bb413c48f5045";
     let bytes = include_bytes!("../../../docs/hermes/cairn-workflow-skill.md");
     assert_eq!(
         blake3::hash(bytes).to_hex().as_str(),

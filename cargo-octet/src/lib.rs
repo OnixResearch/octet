@@ -101,7 +101,24 @@ fn try_main() -> Result<i32, String> {
     match cli::parse(std::env::args_os())? {
         cli::CommandArgs::Admit(args) => admit::run(&args),
         cli::CommandArgs::Artifact(args) => artifact::run(&args),
-        cli::CommandArgs::Benchmark(args) => benchmark::experiment::run_cli(&args.experiment),
+        cli::CommandArgs::Benchmark(args) => {
+            let runtime = if args.experiment.execute && !args.experiment.verify {
+                let mut environment = Vec::with_capacity(benchmark::experiment::PRESERVED_ENVIRONMENT.len());
+                for name in benchmark::experiment::PRESERVED_ENVIRONMENT {
+                    if let Some(value) = std::env::var_os(name) {
+                        environment.push((std::ffi::OsString::from(name), value));
+                    }
+                }
+                Some(benchmark::experiment::Runtime {
+                    environment,
+                    scratch_root: std::env::temp_dir(),
+                    clock: cap_std::time::MonotonicClock::new(cap_std::ambient_authority()),
+                })
+            } else {
+                None
+            };
+            benchmark::experiment::run_cli(&args.experiment, runtime.as_ref())
+        }
         cli::CommandArgs::Check(check) => engine::run(&check),
         cli::CommandArgs::EvidenceIndex(args) => evidence_index::run(args),
         cli::CommandArgs::EvidenceRail(args) => evidence_rails::run(&args),

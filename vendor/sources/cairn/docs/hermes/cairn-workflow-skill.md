@@ -3,7 +3,7 @@ name: cairn-workflow
 description: >
   Work on the Cairn Rust/Nix lifecycle engine in /home/brittonr/git/cairn:
   native Cairn specs and archives, MCP tools, deterministic receipts,
-  release-readiness evidence, Cairn-owned traceability coverage, Slotcar FCIS checks, and Nix
+  release-readiness evidence, Cairn-owned traceability coverage, Octet FCIS checks, and Nix
   verification. Use for Cairn CLI/core/spec/test/flake/docs work.
 ---
 
@@ -24,7 +24,7 @@ Use this Hermes skill for work in `/home/brittonr/git/cairn`. Cairn is the canon
 - Native lifecycle content lives under `.cairn/`.
 - Legacy lifecycle content is an explicit import/migration source, not a runtime fallback layout.
 - Fixtures live under `fixtures/` and are part of the behavior contract.
-- Slotcar input MUST stay `github:OnixResearch/slotcar`.
+- Pin the Octet input to an immutable `github:OnixResearch/octet/<revision>` source.
 - Run the CLI through Nix as `nix run path:$PWD#cairn -- ...`.
 
 ## Operating mode
@@ -81,10 +81,12 @@ nix run path:$PWD#cairn -- gate tasks <slug> --root .
 
 Replace every generated `CAIRN_PLACEHOLDER` before gating. Requirement blocks need exactly one bare `r[...]` ID and normative requirement-body prose. Checkbox tasks need a substantive label plus a delta requirement reference or a structurally valid dependency marker; checked state does not override substance failures. Cross-spec refs to already-accepted IDs can fail the tasks gate.
 
+Use `[task:<id>]` and `[after:<task-id>]` when tasks need local ordering. If either marker appears, give every checkbox task exactly one identity. Start only tasks listed in the gate or drain receipt's `ready_tasks`. Existing `[depends:...]` markers remain lifecycle links and do not create local ordering edges.
+
 ## FCIS boundary
 
 - `cairn-core` is the functional core: pure deterministic transforms only.
-- Keep pure code under `crates/cairn-core/src/verified/` so Slotcar checks cover it.
+- Keep pure code under `crates/cairn-core/src/verified/` so Octet checks cover it.
 - Filesystem, environment, process execution, stdout/stderr, mutation, probe execution, and JSON presentation belong in `crates/cairn-cli`.
 - Structured lifecycle source uses Nickel contracts plus generated JSON bundles; Markdown is a render/import projection once structured source exists.
 - Default gates do not execute probe commands. Run `cairn probe run ... --out ...` first, then let gates verify saved probe receipts; `--run-probes` is explicit and denied by default until policy enables a bounded profile.
@@ -201,9 +203,11 @@ Expected result: no matches.
   - Default mutation denial is checked before argument validation for mutation-capable tools.
   - `cairn agent-receipt validate <path>` validates deterministic agent-run receipt fixtures.
   - `cairn agent-receipt verify-bundle <bundle.json> --root .` validates a persisted agent/CI evidence chain across an agent receipt, saved replay receipt, saved replay verification receipt, and optional release-readiness receipt.
-  - `cairn evidence-manifest generate --bundle <bundle.json> --agent-receipt <agent.json> --replay <replay.json> --replay-verification <verify.json> [--registry <registry.json>] [--registry-verification <verify.json>] [--registry-selection <select.json>] [--registry-fetch-plan <plan.json>] --out <manifest.json> --root .` generates canonical outer manifest JSON with stable roles and artifact hashes, including registry publish/consume evidence when provided.
+  - `cairn evidence-manifest generate --bundle <bundle.json> --agent-receipt <agent.json> --replay <replay.json> --replay-verification <verify.json> [--requirement-registry <registry.json>] [--trace-index <index.json>] [--trace-index-verification <verify.json>] [--registry <registry.json>] [--registry-verification <verify.json>] [--registry-selection <select.json>] [--registry-fetch-plan <plan.json>] --out <manifest.json> --root .` generates canonical outer manifest JSON with stable roles and artifact hashes.
+  - The manifest binds a trace index to its exact requirement-registry BLAKE3 and binds a trace verification receipt to its exact index BLAKE3.
   - `cairn evidence-manifest verify <manifest.json> --root .` validates the outer persisted evidence artifact index, declared hashes, supported roles, and optional public signer/anchor metadata without claiming cryptographic signature or remote-anchor validity.
-  - `cairn evidence export|verify|import|republish|index` builds the deterministic evidence chain from bundle materialization through publishable single-bundle indexes.
+  - `cairn evidence export|verify|import|republish|index` builds the deterministic evidence chain from bundle materialization through publishable single-bundle indexes. Normal exports require `requirement-registry.json`, `trace-index.json`, and `trace-index-verification.json`.
+  - Evidence verification compares the bundled trace index with the current root. Import, republish, index, registry, mirror, and local-fetch workflows preserve the trace artifacts through generic artifact handling.
   - `cairn evidence registry build --root . --index <index.json> --out <registry.json> [--channel stable] [--release YYYY-MM-DD] [--platform x86_64-linux] [--compatibility-class current]` and `cairn evidence registry verify --root . --registry <registry.json>` aggregate and verify deterministic multi-index release/channel catalogs with policy-validated stable labels.
   - `cairn evidence registry mirror-verify --root . --registry <registry.json> --mirror <dir>` verifies offline/mirrored registry indexes via safe `index_relative` refs, preserving labels/receipt chains and emitting portable mirror receipts without copying files or network I/O.
   - `cairn evidence registry select --root . --registry <registry.json> --channel stable --bundle-kind <kind> --out <selected-index.json>` copies exactly one selected index after registry verification; `cairn evidence registry fetch-plan --root . --registry <registry.json> --channel stable --out <fetch-plan.json>` emits metadata-only fetch/verify plans with safe label metadata; `cairn evidence registry fetch-execute --root . --plan <fetch-plan.json> --source <local-mirror-dir> --out <artifact-cache-dir>` locally materializes planned artifacts with safe relative paths and BLAKE3 verification before/after copying, without network transport, credential handling, or remote trust validation.
@@ -239,17 +243,24 @@ nix run "path:$PWD#cairn" -- validate --root .
 nix run "path:$PWD#cairn" -- release-readiness --root .
 nix build "path:$PWD#checks.x86_64-linux.self-dogfood" --no-link -L
 nix build "path:$PWD#checks.x86_64-linux.tracey-coverage" --no-link -L
-nix build "path:$PWD#checks.x86_64-linux.slotcar" --no-link -L
+nix build "path:$PWD#checks.x86_64-linux.octet" --no-link -L
+nix build "path:$PWD#checks.x86_64-linux.octet-integration" --no-link -L
 ```
 
 Remote builder warnings for `ssh-ng://root@10.10.10.1` are non-blocking if Nix continues locally and the requested checks pass.
 
 ## Traceability coverage rail
 
-- Requirement markers in accepted specs use `r[...]`; implementation and test comments should use `r[impl ...]` and `r[verify ...]`.
-- `cairn traceability coverage --root .` is the deterministic repo-owned rail used by `nix flake check`; it loads Nickel-authored scan profiles from generated policy and ensures every accepted requirement has at least one source-controlled implementation or verification reference.
-- `cairn tracey coverage --root .` remains a compatibility alias only. External `tracey query ...` commands are optional developer diagnostics and are not required by maintained gates, release-readiness evidence, or Nix checks.
-- Marker coverage does not prove behavioral correctness; cite executable tests, proofs, or stronger receipts for behavioral claims.
+- Requirement markers in accepted specs use `r[...]`. Implementation and test comments use `r[impl ...]` and `r[verify ...]`.
+- `cairn traceability coverage --root .` is the deterministic repo-owned rail used by `nix flake check`. It loads Nickel-authored scan profiles from generated policy.
+- `cairn traceability export --root . --registry FILE --out FILE` writes a canonical content-bound trace index from a current requirement registry.
+- `cairn traceability verify --root . --registry FILE --index FILE` compares the saved index with current inputs.
+- `cairn traceability show REQUIREMENT_ID --index FILE` returns one exact requirement row and its sorted declared links.
+- `cairn evidence export --root . --out DIR` includes the content-bound registry, trace index, and current-root verification receipt in the standard evidence bundle.
+- `cairn evidence verify --root . --bundle DIR` reruns trace-index freshness verification against the supplied root.
+- Each traceability profile declares its assurance level and anchor kind. The current marker adapter uses declared assurance and exact marker bytes.
+- `cairn tracey coverage --root .` remains a compatibility alias only. External `tracey query ...` commands are optional diagnostics.
+- Marker coverage and trace indexes do not prove behavioral correctness. Cite executable tests, proofs, or stronger receipts for behavioral claims.
 
 ## Known pitfalls
 
@@ -257,7 +268,7 @@ Remote builder warnings for `ssh-ng://root@10.10.10.1` are non-blocking if Nix c
 - Nix flakes snapshot tracked/staged files. Stage new source/doc files before `nix flake check` if the check needs them.
 - `cairn sync <change>` requires explicit `## ADDED Requirements`, `## MODIFIED Requirements`, or `## REMOVED Requirements` operations with one stable bare requirement ID per block. If `merge_preflight` reports blockers, repair the delta shape or identity conflict and rerun the dry-run; never substitute a manual post-sync accepted-spec patch for a blocked semantic plan. See `docs/sync-delta-merge.md`.
 - Historical archives and compatibility code may mention legacy lifecycle names; do not churn those unless the task is explicitly a migration/rename cleanup.
-- Slotcar Nix checks need a C compiler/linker; keep `pkgs.stdenv.cc` in check inputs.
+- Keep `pkgs.stdenv.cc` in Octet check inputs to supply the C compiler and linker.
 - The canonical repo uses `git@github.com:OnixResearch/cairn.git`. Complete verified slices through the required worktree, branch, and `main` integration workflow.
 
 ## Skill maintenance

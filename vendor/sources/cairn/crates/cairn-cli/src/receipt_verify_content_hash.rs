@@ -1,23 +1,28 @@
-use std::{error::Error, fs};
+use std::error::Error;
 
 use cairn_core::{canonical_json_hash, preserves_content_hash};
 use serde_json::{json, Value};
 
-use crate::support::{print_json, read_option, with_receipt_hash};
+use crate::support::{
+    print_json, read_option, reject_positional_arguments, reject_unknown_options, with_receipt_hash,
+};
+
+const MAX_RECEIPT_BYTES: u64 = 16 * 1024 * 1024;
 
 pub(crate) fn run_receipt_verify_content_hash(args: Vec<String>) -> Result<(), Box<dyn Error>> {
     // r[impl cairn.determinism.preserves_authoritative_content_hash.verification]
     // r[verify cairn.determinism.preserves_authoritative_content_hash.verification]
     // r[verify cairn.determinism.preserves_authoritative_content_hash.validation]
 
+    reject_unknown_options(&args, &["--path"])?;
+    reject_positional_arguments(&args)?;
     let path = read_option(args, "--path", "");
     if path.as_os_str().is_empty() {
-        return Err("receipt verify-content-hash requires --path <receipt.json>".into());
+        return Err("receipt-verify-content-hash requires --path <receipt.json>".into());
     }
 
-    let text = fs::read_to_string(&path).map_err(|e| format!("failed to read receipt: {e}"))?;
-    let receipt: Value =
-        serde_json::from_str(&text).map_err(|e| format!("receipt parse error: {e}"))?;
+    let receipt =
+        crate::support::read_bounded_json_no_symlink(&path, MAX_RECEIPT_BYTES, "receipt")?;
 
     let receipt_object = receipt.as_object().ok_or_else(|| {
         format!(
@@ -74,6 +79,17 @@ fn json_type_name(value: &Value) -> &'static str {
 mod tests {
     use cairn_core::preserves_content_hash;
     use serde_json::json;
+
+    #[test]
+    fn missing_path_names_the_dispatched_command() {
+        let error = super::run_receipt_verify_content_hash(Vec::new())
+            .expect_err("missing path must fail")
+            .to_string();
+        assert_eq!(
+            error,
+            "receipt-verify-content-hash requires --path <receipt.json>"
+        );
+    }
 
     #[test]
     fn verify_content_hash_positive() {

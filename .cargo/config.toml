@@ -14,3 +14,26 @@ rustflags = ["-C", "link-arg=-Wl,-multiply_defined,suppress"]
 
 [target.aarch64-apple-darwin]
 rustflags = ["-C", "link-arg=-Wl,-multiply_defined,suppress"]
+
+# Distribution replacements preserve Cargo's exact upstream Git identities.
+# These packages are imported with Cargo's own normalization and checksums;
+# they are not local path overrides of the reviewed source contracts.
+# Match Crane's URL-and-revision table names so layered Cargo configuration
+# merges each exact Git source rather than defining the same source twice.
+[source.octet-public-dependencies]
+directory = "vendor/cargo"
+
+[source."ssh://git@github.com/OnixResearch/valence.git?rev=7546a78b4eeef8686c6837e187aa12420f4f03bb"]
+git = "ssh://git@github.com/OnixResearch/valence.git"
+rev = "7546a78b4eeef8686c6837e187aa12420f4f03bb"
+replace-with = "octet-public-dependencies"
+
+[source."ssh://git@github.com/OnixResearch/bounded-exec.git?rev=44eb74eb639194665ee820562d5b2ce2c3ff6a94"]
+git = "ssh://git@github.com/OnixResearch/bounded-exec.git"
+rev = "44eb74eb639194665ee820562d5b2ce2c3ff6a94"
+replace-with = "octet-public-dependencies"
+
+[source."https://github.com/OnixResearch/nickel-export?rev=257fafc1c746f1faf156207043a4c826bfb16d49"]
+git = "https://github.com/OnixResearch/nickel-export"
+rev = "257fafc1c746f1faf156207043a4c826bfb16d49"
+replace-with = "octet-public-dependencies"

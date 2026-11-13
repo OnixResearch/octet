@@ -73,6 +73,19 @@ fn vo_import_status_discharge_and_unresolved_blocker() -> Result<(), Box<dyn Err
         "--policy".to_string(),
         policy,
     ];
+    let mut invalid_policy = import.clone();
+    let policy_index = invalid_policy
+        .iter()
+        .position(|argument| argument == "--policy")
+        .map(|index| index + 1)
+        .ok_or("policy option")?;
+    invalid_policy[policy_index] = dir
+        .join("missing-policy.json")
+        .to_string_lossy()
+        .to_string();
+    let output = cairn().args(&invalid_policy).output()?;
+    assert!(!output.status.success());
+
     import.push("--execute".to_string());
     let refs = import.iter().map(String::as_str).collect::<Vec<_>>();
     run_json(&refs)?;
@@ -100,8 +113,17 @@ fn vo_import_status_discharge_and_unresolved_blocker() -> Result<(), Box<dyn Err
         "contributor",
         "--finding-id",
         "f1",
+        "--operation-id",
+        "custom-finding",
         "--execute",
     ])?;
+    let portable = fs::read_to_string(store.join("vo-1.portable.json"))?;
+    let value: Value = serde_json::from_str(&portable)?;
+    assert!(value["state"]["operations"]
+        .as_array()
+        .is_some_and(|operations| operations
+            .iter()
+            .any(|operation| operation == "custom-finding")));
     // discharge fails because f1 is an unresolved blocker
     let discharge = cairn()
         .args([
@@ -181,5 +203,55 @@ fn vo_import_export_roundtrip_preserves_state() -> Result<(), Box<dyn Error>> {
     let portable: Value = serde_json::from_slice(&exported.stdout)?;
     assert_eq!(portable["backend"], "portable");
     assert_eq!(portable["state"]["obligation_id"], "vo-2");
+    assert_eq!(portable["state"]["workspace_id"], "workspace:vo");
+    Ok(())
+}
+
+#[test]
+fn vo_import_honors_explicit_workspace() -> Result<(), Box<dyn Error>> {
+    let dir = test_dir("workspace")?;
+    let store = dir.join("store");
+    fs::create_dir_all(&store)?;
+    let claim = dir.join("claim.md");
+    fs::write(&claim, "# Claim\n")?;
+    let claim_s = claim.to_string_lossy().to_string();
+    let store_s = store.to_string_lossy().to_string();
+    let policy = worktree_root().join("cairn-policy/generated/cairn-policy.json");
+    let policy = policy.to_string_lossy().to_string();
+    let base = format!("git_oid:{}{}", "b".repeat(40), "c".repeat(24));
+
+    run_json(&[
+        "verification-obligation",
+        "import",
+        "--store",
+        &store_s,
+        "--obligation-id",
+        "vo-workspace",
+        "--base-revision",
+        &base,
+        "--submitters",
+        "submitter",
+        "--contributors",
+        "contributor",
+        "--verifiers",
+        "verifier",
+        "--invalidators",
+        "invalidator",
+        "--claim",
+        "claim-1",
+        "--decision",
+        &claim_s,
+        "--workspace",
+        "workspace:custom",
+        "--policy",
+        &policy,
+        "--execute",
+    ])?;
+
+    let portable = fs::read_to_string(store.join("vo-workspace.portable.json"))?;
+    let value: Value = serde_json::from_str(&portable)?;
+    assert_eq!(value["state"]["workspace_id"], "workspace:custom");
+
+    fs::remove_dir_all(dir)?;
     Ok(())
 }

@@ -13,7 +13,9 @@ use cairn_core::{
 use serde_json::{json, Value};
 
 use crate::support::{
-    path_string, print_json, read_string_option, safe_relative_path, with_receipt_hash,
+    path_string, print_json, read_string_option, reject_positional_arguments,
+    reject_unknown_options, reject_unknown_options_with_repeats, safe_relative_path,
+    with_receipt_hash,
 };
 
 pub(crate) fn run_review(args: Vec<String>) -> Result<(), Box<dyn Error>> {
@@ -37,13 +39,12 @@ pub(crate) fn run_review(args: Vec<String>) -> Result<(), Box<dyn Error>> {
 }
 
 fn run_review_validate(args: Vec<String>) -> Result<(), Box<dyn Error>> {
+    reject_unknown_options(&args, &["--root"])?;
     // r[impl cairn.semantic_review.semantic_review_receipts.cli]
     // r[impl cairn.semantic_review.semantic_review_receipts.cli.cli.valid]
     // r[impl cairn.semantic_review.semantic_review_receipts.cli.cli.invalid]
     // r[impl cairn.semantic_review.semantic_review_boundary.fcis.fcis.cli_shell]
-    let Some(path) = args.first() else {
-        return Err("review validate requires a receipt path".into());
-    };
+    let path = review_receipt_path(&args, "review validate")?;
     let root = read_root(&args);
     let receipt_path = PathBuf::from(path);
     let value = read_json_file(&receipt_path)?;
@@ -69,6 +70,8 @@ fn run_review_validate(args: Vec<String>) -> Result<(), Box<dyn Error>> {
 }
 
 fn run_review_ledger(args: Vec<String>) -> Result<(), Box<dyn Error>> {
+    reject_unknown_options_with_repeats(&args, &["--root", "--include"], &[], &["--include"])?;
+    reject_positional_arguments(&args)?;
     // r[impl cairn.semantic_review.review_ledger_analytics.aggregate]
     // r[impl cairn.semantic_review.review_ledger_analytics.input_validation]
     // r[impl cairn.semantic_review.review_ledger_analytics.input_validation.input_validation.invalid_receipt]
@@ -114,9 +117,8 @@ fn run_review_revision(args: Vec<String>) -> Result<(), Box<dyn Error>> {
         return Err(format!("unknown review revision subcommand: {command}").into());
     }
     let rest = iter.collect::<Vec<_>>();
-    let Some(path) = rest.first() else {
-        return Err("review revision validate requires a receipt path".into());
-    };
+    reject_unknown_options(&rest, &["--root"])?;
+    let path = review_receipt_path(&rest, "review revision validate")?;
     let root = read_root(&rest);
     let receipt_path = PathBuf::from(path);
     let value = read_json_file(&receipt_path)?;
@@ -138,6 +140,8 @@ fn run_review_revision(args: Vec<String>) -> Result<(), Box<dyn Error>> {
 }
 
 fn run_review_completeness(args: Vec<String>) -> Result<(), Box<dyn Error>> {
+    reject_unknown_options(&args, &["--root", "--change"])?;
+    reject_positional_arguments(&args)?;
     let root = read_root(&args);
     let change = read_string_option(&args, "--change");
     let scope = if let Some(change) = change {
@@ -192,6 +196,17 @@ fn run_review_profiles(args: Vec<String>) -> Result<(), Box<dyn Error>> {
 }
 
 fn run_review_metrics_regression(args: Vec<String>) -> Result<(), Box<dyn Error>> {
+    reject_unknown_options(
+        &args,
+        &[
+            "--root",
+            "--registry",
+            "--fixtures",
+            "--guidance",
+            "--evidence",
+        ],
+    )?;
+    reject_positional_arguments(&args)?;
     // r[impl cairn.semantic_review.review_metrics_regression_rail.downstream_category_ownership]
     // r[impl cairn.semantic_review.review_metrics_regression_rail.registry_binds_surfaces]
     // r[impl cairn.semantic_review.review_metrics_regression_rail.fixture_pair_enforcement]
@@ -267,6 +282,25 @@ fn validation_receipt(
         }
     }
     with_receipt_hash(receipt)
+}
+
+fn review_receipt_path<'a>(args: &'a [String], command: &str) -> Result<&'a str, Box<dyn Error>> {
+    let mut path = None;
+    let mut index = 0;
+    while index < args.len() {
+        if args[index] == "--root" {
+            index += 2;
+            continue;
+        }
+        if args[index].is_empty() {
+            return Err(format!("{command} requires a receipt path").into());
+        }
+        if path.replace(args[index].as_str()).is_some() {
+            return Err(format!("{command} accepts exactly one receipt path").into());
+        }
+        index += 1;
+    }
+    path.ok_or_else(|| format!("{command} requires a receipt path").into())
 }
 
 fn read_root(args: &[String]) -> PathBuf {

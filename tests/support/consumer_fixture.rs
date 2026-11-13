@@ -631,7 +631,9 @@ pub(crate) fn build_standalone_cargo_octet() -> StandaloneCargoOctet {
         "crates/octet-merge-rail",
         "crates/octet-standards",
         "standards",
+        "vendor/cargo",
         "vendor/sources/artifact",
+        ".cargo/config.toml",
     ] {
         copy_path(&repo_root.join(relative), &source_root.join(relative));
     }
@@ -647,6 +649,7 @@ pub(crate) fn build_standalone_cargo_octet() -> StandaloneCargoOctet {
     let cargo = env::var("CARGO").expect("CARGO env var");
     let manifest_path = source_root.join("cargo-octet/Cargo.toml");
     let status = Command::new(cargo)
+        .current_dir(&source_root)
         .arg("build")
         .arg("-q")
         .arg("--locked")

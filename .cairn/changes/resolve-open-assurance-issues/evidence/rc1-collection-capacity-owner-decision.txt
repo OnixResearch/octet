@@ -1,0 +1,17 @@
+Direct interactive repository-owner decision, 2026-11-12.
+Exact submitted value: architecture_capacity = approve_exact_bounded_increase.
+
+Approved changes ONLY in the Octet self architecture collection policy:
+max_constructors:65536 ->131072
+max_configurations:8192 ->16384
+max_shard_bytes:134217728 ->268435456
+max_artifact_bytes:268435456 ->536870912
+
+The retained inventory saturated both fact-kind limits. Observed lower bounds
+are65665 constructors and8647 configurations; rejected shard size127680531bytes.
+Those lower bounds are not sufficient replacement requirements because later
+facts were discarded. Owner approved finite next-power-of-two capacity, with
+larger memory/output cost, not a promise of success. Full six-unit scope,
+complete coverage, all other limits and negative controls remain unchanged.
+Further exhaustion must still fail closed. No warning-budget increase or
+suppression was approved. No publication or lifecycle closure was authorized.

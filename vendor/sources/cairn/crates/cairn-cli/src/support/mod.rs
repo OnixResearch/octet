@@ -22,9 +22,11 @@ mod args;
 mod capability;
 mod layout;
 mod mutation;
+pub(crate) mod observation_budget;
 mod paths;
 mod receipts;
 mod scan;
+mod source;
 mod usage;
 
 pub(crate) fn validation_findings_json(issues: &[String]) -> Vec<Value> {
@@ -75,27 +77,36 @@ pub(crate) fn substance_inventory_json(inventories: &[ArtifactSubstanceInventory
         .collect()
 }
 
-pub(crate) use args::{has_flag, read_option, read_repeated_path_options, read_string_option};
-pub(crate) use capability::{CapabilityRoot, CapabilityRootKind};
+pub(crate) use args::{
+    admit_arguments, has_flag, read_option, read_repeated_path_options, read_string_option,
+    reject_positional_arguments, reject_unknown_options, reject_unknown_options_with_flags,
+    reject_unknown_options_with_repeats,
+};
+pub(crate) use capability::{CapabilityDirEntry, CapabilityRoot, CapabilityRootKind};
 pub(crate) use layout::{
-    default_policy_path, detect_layout, load_policy_file, reject_legacy_only_lifecycle_root,
+    default_policy_path, detect_layout, load_policy_file, load_policy_file_with_budget,
+    reject_legacy_only_lifecycle_root,
 };
 pub(crate) use mutation::{
     archive_mutation_manifest, execute_archive_plan, execute_sync_snapshots,
-    load_sync_merge_snapshots, sync_changed_paths, sync_merge_bindings, sync_merge_blockers,
-    sync_mutation_manifest,
+    load_sync_merge_snapshots, load_sync_merge_snapshots_with_budget, sync_changed_paths,
+    sync_merge_bindings, sync_merge_blockers, sync_mutation_manifest,
 };
 pub(crate) use paths::{
-    collect_files, file_content_manifest, path_string, portable_json_hash, portable_text,
-    safe_relative_path, tree_content_paths,
+    collect_files, file_content_manifest, is_safe_relative_reference, path_string,
+    portable_json_hash, portable_text, read_bounded_json_no_symlink, read_bounded_text_no_symlink,
+    read_existing_bounded_text_no_symlink, resolve_under_root, safe_relative_path,
+    tree_content_paths,
 };
 pub(crate) use receipts::{
     print_json, with_portable_content_hash_receipt, with_portable_receipt_hash, with_receipt_hash,
 };
 pub(crate) use scan::{
     collect_archived_change_ids, collect_spec_sources, collect_validation_spec_sources,
-    find_change, find_spec_source, mutation_gate_blockers, read_change_dependency_graph,
-    read_gate_snapshot, scan_repo,
+    find_change, find_spec_source, mutation_gate_blockers, mutation_gate_observation_with_budget,
+    read_change_dependency_graph, read_change_dependency_graph_with_budget, read_gate_snapshot,
+    read_gate_snapshot_with_budget, read_gate_stage_snapshot_with_budget,
+    read_selected_change_with_budget, read_selected_metadata_with_budget, scan_repo,
 };
 pub(crate) use usage::{print_usage, usage_text};
 

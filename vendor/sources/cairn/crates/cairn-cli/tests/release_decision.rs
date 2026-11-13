@@ -85,11 +85,17 @@ fn release_decision_create_status_and_approve() -> Result<(), Box<dyn Error>> {
         "withdrawer",
         "--invalidators",
         "invalidator",
+        "--workspace",
+        "workspace:custom",
         "--policy",
         policy.as_str(),
         "--execute",
     ]);
     run_json(&mut create)?;
+
+    let portable = fs::read_to_string(store.join("rd-1.portable.json"))?;
+    let value: Value = serde_json::from_str(&portable)?;
+    assert_eq!(value["state"]["workspace_id"], "workspace:custom");
 
     let mut status = cairn();
     status.args([
@@ -116,10 +122,19 @@ fn release_decision_create_status_and_approve() -> Result<(), Box<dyn Error>> {
         "approver",
         "--kind",
         "approve",
+        "--operation-id",
+        "custom-vote",
         "--execute",
     ]);
     let vote = run_json(&mut vote)?;
     assert_eq!(vote["verdict"], "approved");
+    let portable = fs::read_to_string(store.join("rd-1.portable.json"))?;
+    let value: Value = serde_json::from_str(&portable)?;
+    assert!(value["state"]["operations"]
+        .as_array()
+        .is_some_and(|operations| operations
+            .iter()
+            .any(|operation| operation == "custom-vote")));
 
     let mut reject = cairn();
     reject.args([
@@ -141,5 +156,58 @@ fn release_decision_create_status_and_approve() -> Result<(), Box<dyn Error>> {
         String::from_utf8_lossy(&out.stderr).contains("conflict")
             || String::from_utf8_lossy(&out.stderr).contains("stale")
     );
+    Ok(())
+}
+
+#[test]
+fn release_decision_default_workspace_is_base_revision() -> Result<(), Box<dyn Error>> {
+    let dir = test_dir("workspace-default")?;
+    let store = dir.join("store");
+    fs::create_dir_all(&store)?;
+    let store_s = store.to_string_lossy().to_string();
+    let base = base_arg();
+    let policy = policy_arg();
+
+    let mut create = cairn();
+    create.args([
+        "release-decision",
+        "create",
+        "--store",
+        store_s.as_str(),
+        "--decision-id",
+        "rd-default",
+        "--base-revision",
+        base.as_str(),
+        "--source-revision",
+        "src-1",
+        "--artifact-manifest",
+        "manifest-1",
+        "--artifact-identity",
+        "artifact-1",
+        "--target-label",
+        "x86_64-linux",
+        "--release-label",
+        "stable",
+        "--proposers",
+        "proposer",
+        "--reviewers",
+        "reviewer",
+        "--approvers",
+        "approver",
+        "--withdrawers",
+        "withdrawer",
+        "--invalidators",
+        "invalidator",
+        "--policy",
+        policy.as_str(),
+        "--execute",
+    ]);
+    run_json(&mut create)?;
+
+    let portable = fs::read_to_string(store.join("rd-default.portable.json"))?;
+    let value: Value = serde_json::from_str(&portable)?;
+    assert_eq!(value["state"]["workspace_id"], base);
+
+    fs::remove_dir_all(dir)?;
     Ok(())
 }

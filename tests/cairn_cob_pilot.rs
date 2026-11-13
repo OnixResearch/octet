@@ -27,7 +27,7 @@ const CONFLICTS_COMMAND: &str = "collaboration conflicts";
 const CHECKOUT_MISSING_CHANGES_NEGATIVE: &str = "checkout-missing-changes-negative.json";
 const PASS_VERDICT: &str = "PASS";
 const FAIL_VERDICT: &str = "FAIL";
-const MISSING_CHANGES_BLOCKER: &str = "native cairn/changes directory is missing, unsafe, or not a directory";
+const MISSING_CHANGES_BLOCKER: &str = "native .cairn/changes directory is missing, unsafe, or not a directory";
 const TAMPERED_OBJECT_ID: &str = "0000000000000000000000000000000000000000";
 
 // r[impl octet.cob_collaboration.pilot]

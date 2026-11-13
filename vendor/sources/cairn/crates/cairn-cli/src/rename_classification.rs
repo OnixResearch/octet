@@ -6,11 +6,16 @@ use std::{
 
 use serde_json::{json, Value};
 
-use crate::support::{collect_files, read_string_option, safe_relative_path};
+use crate::support::{
+    collect_files, read_string_option, reject_positional_arguments, reject_unknown_options,
+    safe_relative_path,
+};
 
 pub(crate) fn run_rename_classification(args: Vec<String>) -> Result<(), Box<dyn Error>> {
     // r[verify cairn.supersede.rename_cairn.classification]
     // r[impl cairn.supersede.rust_nickel_only_gates.rename_classification]
+    reject_unknown_options(&args, &["--output"])?;
+    reject_positional_arguments(&args)?;
     let output = read_string_option(&args, "--output").map(PathBuf::from);
     let root = PathBuf::from(".");
     let occurrences = rename_classification_occurrences(&root)?;
@@ -50,6 +55,12 @@ fn rename_classification_occurrences(root: &Path) -> Result<Vec<Value>, Box<dyn 
         if !rename_classification_is_text_file(&relative)
             || rename_classification_is_skipped(&relative)
         {
+            continue;
+        }
+        let Ok(metadata) = fs::symlink_metadata(&path) else {
+            continue;
+        };
+        if metadata.file_type().is_symlink() || !metadata.is_file() {
             continue;
         }
         let Ok(text) = fs::read_to_string(&path) else {
@@ -94,7 +105,7 @@ fn rename_classification_occurrences(root: &Path) -> Result<Vec<Value>, Box<dyn 
 fn rename_classification_is_skipped(relative: &str) -> bool {
     relative
         .split('/')
-        .any(|part| matches!(part, ".git" | "target" | "artifacts" | ".direnv"))
+        .any(|part| matches!(part, ".git" | ".pi" | "target" | "artifacts" | ".direnv"))
         || relative.ends_with("evidence/rename-classification.json")
 }
 
@@ -169,4 +180,57 @@ fn rename_classification_bucket(path: &str, line: &str) -> &'static str {
         return "compatibility-alias";
     }
     "needs-fix"
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn local_state_directories_are_skipped() {
+        for path in [
+            ".pi/worktrees/demo/crates/cairn-cli/src/rename_classification.rs",
+            "target/debug/copy.rs",
+            ".git/hooks/pre-commit",
+            "artifacts/octet-run/findings.json",
+            ".direnv/flake-inputs/copy.md",
+        ] {
+            assert!(rename_classification_is_skipped(path), "{path}");
+        }
+        assert!(!rename_classification_is_skipped("docs/design.md"));
+        assert!(!rename_classification_is_skipped(
+            ".cairn/specs/demo/spec.md"
+        ));
+    }
+}
+
+#[cfg(all(test, unix))]
+mod symlink_tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn symlinked_text_files_are_not_scanned() -> Result<(), Box<dyn Error>> {
+        let root =
+            std::env::temp_dir().join(format!("cairn-rename-symlink-{}", std::process::id()));
+        let outside = std::env::temp_dir().join(format!(
+            "cairn-rename-symlink-outside-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        let _ = fs::remove_dir_all(&outside);
+        fs::create_dir_all(&root)?;
+        fs::create_dir_all(&outside)?;
+        fs::write(root.join("real.md"), "ironspec\n")?;
+        let outside_file = outside.join("outside.md");
+        fs::write(&outside_file, "ironspec outside\n")?;
+        std::os::unix::fs::symlink(&outside_file, root.join("linked.md"))?;
+        let occurrences = rename_classification_occurrences(&root)?;
+        assert!(occurrences
+            .iter()
+            .all(|occurrence| occurrence["path"] != "linked.md"));
+        fs::remove_dir_all(&root)?;
+        fs::remove_dir_all(&outside)?;
+        Ok(())
+    }
 }

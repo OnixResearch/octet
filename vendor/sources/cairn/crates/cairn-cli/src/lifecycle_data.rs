@@ -34,9 +34,11 @@ use serde_json::{json, Value};
 use crate::nickel_export_boundary::export_json_dual_run;
 use crate::support::{
     collect_validation_spec_sources, detect_layout, has_flag, print_json, read_option,
-    read_string_option, with_receipt_hash,
+    read_string_option, reject_positional_arguments, reject_unknown_options,
+    reject_unknown_options_with_flags, with_receipt_hash,
 };
 
+const MAX_LIFECYCLE_BUNDLE_BYTES: u64 = 16 * 1024 * 1024;
 const STRUCTURED_LIFECYCLE_EXPORT_SCHEMA: &str = "cairn.structured-lifecycle.export-receipt.v1";
 const STRUCTURED_LIFECYCLE_RENDER_SCHEMA: &str = "cairn.structured-lifecycle.render-receipt.v1";
 const STRUCTURED_LIFECYCLE_IMPORT_SCHEMA: &str = "cairn.structured-lifecycle.import-receipt.v1";
@@ -62,6 +64,8 @@ pub(crate) fn run_lifecycle_data(args: Vec<String>) -> Result<(), Box<dyn Error>
 }
 
 fn run_lifecycle_check(args: Vec<String>) -> Result<(), Box<dyn Error>> {
+    reject_unknown_options(&args, &["--source"])?;
+    reject_positional_arguments(&args)?;
     let source =
         read_string_option(&args, "--source").ok_or("lifecycle check requires --source")?;
     let bundle = load_lifecycle_bundle(Path::new(&source))?;
@@ -74,6 +78,8 @@ fn run_lifecycle_check(args: Vec<String>) -> Result<(), Box<dyn Error>> {
 }
 
 fn run_lifecycle_export(args: Vec<String>) -> Result<(), Box<dyn Error>> {
+    reject_unknown_options_with_flags(&args, &["--source", "--output"], &["--check"])?;
+    reject_positional_arguments(&args)?;
     // r[impl cairn.structured_lifecycle.typed_authoring]
     // r[impl cairn.structured_lifecycle.typed_authoring.nickel_contracts]
     // r[impl cairn.structured_lifecycle.typed_authoring.rust_revalidation]
@@ -90,7 +96,11 @@ fn run_lifecycle_export(args: Vec<String>) -> Result<(), Box<dyn Error>> {
     let rendered = serde_json::to_string_pretty(&bundle)? + "\n";
     let mut export_issues = Vec::new();
     if is_check {
-        let existing = fs::read_to_string(&output).unwrap_or_default();
+        let existing = crate::support::read_existing_bounded_text_no_symlink(
+            Path::new(&output),
+            MAX_LIFECYCLE_BUNDLE_BYTES,
+            "generated lifecycle bundle",
+        )?;
         if existing != rendered {
             export_issues.push(json!({
                 "code": "structured_lifecycle.generated.stale",
@@ -117,6 +127,8 @@ fn run_lifecycle_export(args: Vec<String>) -> Result<(), Box<dyn Error>> {
 }
 
 fn run_lifecycle_render_markdown(args: Vec<String>) -> Result<(), Box<dyn Error>> {
+    reject_unknown_options(&args, &["--source", "--out-dir"])?;
+    reject_positional_arguments(&args)?;
     // r[impl cairn.structured_lifecycle.markdown_projection]
     // r[impl cairn.structured_lifecycle.markdown_projection.render_view]
     let source = read_string_option(&args, "--source")
@@ -153,6 +165,8 @@ fn run_lifecycle_render_markdown(args: Vec<String>) -> Result<(), Box<dyn Error>
 }
 
 fn run_lifecycle_import_markdown(args: Vec<String>) -> Result<(), Box<dyn Error>> {
+    reject_unknown_options_with_flags(&args, &["--root", "--out"], &["--execute"])?;
+    reject_positional_arguments(&args)?;
     // r[impl cairn.structured_lifecycle.markdown_projection.lossy_import]
     // r[impl cairn.structured_lifecycle.markdown_projection.compatibility]
     // r[impl cairn.structured_lifecycle.migration]
@@ -232,20 +246,23 @@ fn lifecycle_check_receipt(
 }
 
 fn load_lifecycle_bundle(source: &Path) -> Result<Value, Box<dyn Error>> {
-    let output = if source.extension().and_then(|value| value.to_str()) == Some("ncl") {
+    if source.extension().and_then(|value| value.to_str()) == Some("ncl") {
         // r[impl cairn.nickel_export_cutover.boundary]
         // r[impl cairn.nickel_export_cutover.dual_run]
-        export_json_dual_run(
+        let output = export_json_dual_run(
             "cairn.structured-lifecycle",
             source,
             Path::new("target/cairn-lifecycle-export.json"),
             false,
         )?
-        .bytes
-    } else {
-        fs::read(source)?
-    };
-    Ok(serde_json::from_slice(&output)?)
+        .bytes;
+        return Ok(serde_json::from_slice(&output)?);
+    }
+    crate::support::read_bounded_json_no_symlink(
+        source,
+        MAX_LIFECYCLE_BUNDLE_BYTES,
+        "lifecycle bundle",
+    )
 }
 
 fn source_format(source: &Path) -> &'static str {

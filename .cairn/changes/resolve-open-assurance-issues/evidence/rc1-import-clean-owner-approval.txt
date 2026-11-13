@@ -1,0 +1,39 @@
+Direct interactive repository-owner decision recorded 2026-11-13.
+Public approver identity submitted by the owner: b@robitzs.ch
+
+Exact submissions:
+object_h2 = approve_exact_candidate_and_references
+warning_migration = approve_exact_measured_baseline_and_lower_expectations
+
+Source/reference admission ONLY:
+Candidate BLAKE3: be3647f9c72a598defa192f4ff0cda440fef22eeb5e2bc7dd6c162abce43d862
+Audit-envelope BLAKE3: 5892eae1dfa1658381e95684243a252bc8757dad6e21ef14d3950bfadd0d49fc
+Producer/source binding BLAKE3: a3ab4aa9674aecd8ec9648dc436b285ebfff1288a78c94414d561c97acb8d2f4
+The admitted tuple contains 40 selected source files, three producer modules,
+the exact fingerprint_consumer.rs snapshot, and the reviewed Valence module.
+All 42 unique source/module/test comparisons matched the immutable producer.
+The four actual reference object counts are 1,1155,1764,1764.
+The approval excludes future consumer-test code and all other future edits.
+The earlier 5faf6b40 source approval remains historical, not relabelled current.
+Its prior canonical data is retained under historical-rc1-earlier-approval/.
+
+Warning-baseline migration ONLY:
+Exact Rust-emitted baseline file BLAKE3:
+dd19cc52737cc979b40e6ea432fc990912c9866dd6f4da2d8558e0eb5363e042
+Baseline identity: b3:97c195b6f296e9eb6b7ef38b237c8a45fb9738f2e657740d02b5d283b146c4cf
+Native findings BLAKE3: 209a213bd6f93e6df199fdb2b885194832959f6638c35f313cecce09f82741e1
+The complete scan reported 4239 warning occurrences, 3030 unique IDs, zero errors.
+2994 IDs matched after a counterfactual tool-version-only change; 36 had changed
+messages/source context. That classification does not prove semantic equivalence.
+The two genuinely added import findings were repaired, not baselined.
+The owner approved replacement with those exact baseline bytes and lowering only
+accepted_warning_total: 4337 -> 4239
+accepted_identity_total: 3160 -> 3030
+Lint configuration and complete collection scope remain unchanged. No lint was
+disabled; no warning-budget expansion, additional capacity, future finding,
+architecture observation, or other gate exception was approved.
+
+Neither decision proves source correctness, semantic equivalence, independent
+source certification, final-source qualification, or release eligibility.
+No push, tag, release, external message, or lifecycle closure was authorized.
+This direct conversation record is not a cryptographic owner signature.

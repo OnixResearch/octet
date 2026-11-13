@@ -24,6 +24,12 @@ Do not supply `--command`. Octet constructs the fixed Cargo arguments from the c
 
 The run uses a clear environment. Nix supplies the reviewed Cargo executable, vendor configuration, path, and library path.
 
+The current profile binds the `cargo-octet` package version `0.1.1-rc.1`, Hegel `0.14.27`, and the native backend. The producer package version must match the running Octet binary; a profile from another package version is rejected rather than upgraded during import.
+
+After a package-version change, regenerate `standards/hegel/profiles.json` from `standards/hegel/profiles.ncl` and update its checked BLAKE3 identity. Run the checked producer again against the final source tree to obtain new measured evidence. Do not relabel retained summaries or receipts: their producer version, profile identity, and measured inputs describe the original run.
+
+`standards/evidence/fixtures/valid/hegel_hardened_details_v1.ncl` is a synthetic shape-contract fixture with placeholder identities, not a producer observation. The legacy import fixtures and byte-substitution counterexample fixture are not current-profile execution evidence either.
+
 ## Producer output
 
 The producer writes `octet-hegel-producer-summary/v2` to one fixed output path. Octet does not parse stdout or stderr as evidence.

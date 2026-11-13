@@ -13,7 +13,8 @@ use serde_json::{json, Value};
 
 use crate::support::{
     collect_files, default_policy_path, has_flag, load_policy_file, path_string, print_json,
-    read_option, read_string_option, safe_relative_path, with_portable_receipt_hash,
+    read_option, read_string_option, reject_positional_arguments,
+    reject_unknown_options_with_flags, safe_relative_path, with_portable_receipt_hash,
 };
 
 pub(crate) fn traceability_coverage_receipt(
@@ -29,6 +30,7 @@ pub(crate) fn load_traceability_coverage_model(
     policy_path: &Path,
 ) -> Result<TraceabilityCoverageReport, Box<dyn Error>> {
     // r[impl cairn.lifecycle_views.knowledge_graph]
+    admit_traceability_root(root)?;
     let policy = load_policy_file(policy_path.to_path_buf())?;
     let selected_profile = selected_traceability_profile(&policy, None)?;
     let requirement_files =
@@ -41,17 +43,36 @@ pub(crate) fn load_traceability_coverage_model(
     ))
 }
 
-pub(crate) fn repository_gate_summary() -> Value {
+pub(crate) fn repository_gate_summary(policy: Option<&Value>) -> Value {
     // r[impl cairn.supersede.traceability_ownership.optional_tracey]
     // r[verify cairn.supersede.traceability_ownership.optional_tracey.gates]
     // r[verify cairn.supersede.traceability_ownership.optional_tracey.docs]
+    // r[impl cairn.octet_integration.guidance]
+    if let Some(commands) = policy
+        .and_then(|value| value.get("release_readiness_policy"))
+        .and_then(|value| value.get("required_external_commands"))
+        .and_then(Value::as_array)
+        .filter(|commands| !commands.is_empty())
+        .and_then(|commands| {
+            commands
+                .iter()
+                .map(Value::as_str)
+                .collect::<Option<Vec<_>>>()
+        })
+    {
+        return json!({
+            "policy": "consumer-selected-gates",
+            "required_commands": commands,
+            "note": "The selected consumer policy supplies the release gate list; this receipt records it without executing heavyweight repository gates."
+        });
+    }
     json!({
         "policy": "maintained-local-gates",
         "required_commands": [
             "cargo fmt --check",
             "cargo test --workspace",
             "cargo clippy --workspace --all-targets -- -D warnings",
-            "nix build .#checks.x86_64-linux.slotcar --no-link -L",
+            "nix build .#checks.x86_64-linux.octet --no-link -L",
             "nix flake check path:$PWD -L"
         ],
         "note": "The bundle records the maintained release gate policy; operators still run heavyweight repository gates outside this local receipt command. The maintained traceability gate is Cairn-owned and does not require the external Tracey binary."
@@ -61,7 +82,13 @@ pub(crate) fn repository_gate_summary() -> Value {
 pub(crate) fn run_traceability(args: Vec<String>) -> Result<(), Box<dyn Error>> {
     // r[impl cairn.supersede.traceability_ownership.command]
     // r[impl cairn.supersede.traceability_ownership.command.maintained]
-    run_coverage_command(args, "traceability")
+    let Some(command) = args.first().cloned() else {
+        return Err("traceability requires a command: coverage, export, verify, or show".into());
+    };
+    if command == "coverage" {
+        return run_coverage_command(args, "traceability");
+    }
+    crate::trace_index::run_trace_index(&command, args.into_iter().skip(1).collect())
 }
 
 pub(crate) fn run_tracey(args: Vec<String>) -> Result<(), Box<dyn Error>> {
@@ -79,6 +106,8 @@ fn run_coverage_command(args: Vec<String>, namespace: &str) -> Result<(), Box<dy
         return Err(format!("unknown {namespace} command: {command}").into());
     }
     let rest = args.into_iter().skip(1).collect::<Vec<_>>();
+    reject_unknown_options_with_flags(&rest, &["--root", "--policy", "--profile"], &["--json"])?;
+    reject_positional_arguments(&rest)?;
     let root = read_option(rest.clone(), "--root", ".");
     let policy_path = read_option(rest.clone(), "--policy", default_policy_path());
     let profile_id = read_string_option(&rest, "--profile");
@@ -106,6 +135,7 @@ fn traceability_coverage_report(
     policy_path: &Path,
     profile_id: Option<&str>,
 ) -> Result<Value, Box<dyn Error>> {
+    admit_traceability_root(root)?;
     let policy = load_policy_file(policy_path.to_path_buf())?;
     let selected_profile = selected_traceability_profile(&policy, profile_id)?;
     let requirement_files =
@@ -123,7 +153,20 @@ fn traceability_coverage_report(
     }))
 }
 
-fn selected_traceability_profile(
+fn admit_traceability_root(root: &Path) -> Result<(), Box<dyn Error>> {
+    let metadata = fs::metadata(root).map_err(|error| {
+        format!(
+            "traceability root is unavailable: {}: {error}",
+            root.display()
+        )
+    })?;
+    if !metadata.is_dir() {
+        return Err("traceability root must be a directory".into());
+    }
+    Ok(())
+}
+
+pub(crate) fn selected_traceability_profile(
     policy: &Policy,
     profile_id: Option<&str>,
 ) -> Result<TraceabilityProfile, Box<dyn Error>> {
@@ -137,7 +180,7 @@ fn selected_traceability_profile(
         .ok_or_else(|| format!("traceability profile not found: {selected_id}").into())
 }
 
-fn collect_traceability_files(
+pub(crate) fn collect_traceability_files(
     root: &Path,
     sources: &[TraceabilitySource],
 ) -> Result<Vec<TraceabilityFile>, Box<dyn Error>> {
@@ -150,6 +193,17 @@ fn collect_traceability_files(
                 continue;
             }
             let relative = safe_relative_path(root, &path);
+            let metadata = fs::symlink_metadata(&path).map_err(|source_error| {
+                format!("failed to inspect traceability source {relative}: {source_error}")
+            })?;
+            if metadata.file_type().is_symlink() {
+                return Err(
+                    format!("traceability source must not be a symlink: {relative}").into(),
+                );
+            }
+            if !metadata.is_file() {
+                continue;
+            }
             let text = fs::read_to_string(&path).map_err(|source_error| {
                 format!("failed to read traceability source {relative}: {source_error}")
             })?;
@@ -166,11 +220,27 @@ fn collect_traceability_files(
 }
 
 fn traceability_source_paths(source_root: &Path) -> Result<Vec<PathBuf>, Box<dyn Error>> {
-    if !source_root.exists() {
-        return Ok(Vec::new());
+    let metadata = match fs::symlink_metadata(source_root) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => return Err(error.into()),
+    };
+    if metadata.file_type().is_symlink() {
+        return Err(format!(
+            "traceability source root must not be a symlink: {}",
+            source_root.display()
+        )
+        .into());
     }
-    if source_root.is_file() {
+    if metadata.is_file() {
         return Ok(vec![source_root.to_path_buf()]);
+    }
+    if !metadata.is_dir() {
+        return Err(format!(
+            "traceability source root must be a file or directory: {}",
+            source_root.display()
+        )
+        .into());
     }
     Ok(collect_files(source_root)?)
 }
@@ -226,6 +296,8 @@ fn traceability_profile_json(profile: &TraceabilityProfile) -> Value {
         "requirement_sources": traceability_sources_json(&profile.requirement_sources),
         "evidence_sources": traceability_sources_json(&profile.evidence_sources),
         "marker_verbs": profile.marker_verbs.clone(),
+        "assurance_level": profile.assurance_level.clone(),
+        "anchor_kind": profile.anchor_kind.clone(),
     })
 }
 

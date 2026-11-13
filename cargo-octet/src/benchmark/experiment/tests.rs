@@ -1,29 +1,29 @@
 use std::path::PathBuf;
 
-use super::evaluate::evaluate;
+use super::evaluate::assess;
 use super::evaluate::verify;
 use super::execution;
-use super::execution::ExperimentMode;
+use super::execution::Mode;
 use super::fixtures;
 use super::model::ARTIFACT_NAME;
 use super::model::ARTIFACT_SCHEMA;
 use super::model::AdoptionPhase;
 use super::model::ApplicabilityStatus;
+use super::model::Artifact;
 use super::model::Availability;
 use super::model::Category;
 use super::model::CompileStatus;
 use super::model::ControlOutcome;
 use super::model::ExpectedOutcome;
-use super::model::ExperimentArtifact;
-use super::model::ExperimentObservations;
 use super::model::OBSERVATIONS_NAME;
+use super::model::ObservationSet;
 use super::model::ObservationStatus;
 use super::model::PROFILE_ID;
 use super::model::REPORT_NAME;
 use super::profile::embedded_profile_identity;
 use super::profile::profile_bytes_identity;
-use super::profile::selected_profile;
-use super::report::render_report;
+use super::profile::select;
+use super::report::render;
 use crate::benchmark::prefixed_identity;
 use crate::benchmark::pretty_bytes;
 
@@ -43,22 +43,33 @@ fn corpus_root() -> PathBuf {
     repository_root().join("standards/benchmark/corpus")
 }
 
-fn read_retained_observations() -> ExperimentObservations {
+fn runtime() -> execution::Runtime {
+    execution::Runtime {
+        environment: execution::PRESERVED_ENVIRONMENT
+            .into_iter()
+            .filter_map(|name| std::env::var_os(name).map(|value| (std::ffi::OsString::from(name), value)))
+            .collect(),
+        scratch_root: std::env::temp_dir(),
+        clock: cap_std::time::MonotonicClock::new(cap_std::ambient_authority()),
+    }
+}
+
+fn read_retained_observations() -> ObservationSet {
     let path = repository_root().join("standards/benchmark").join(OBSERVATIONS_NAME);
     let text = std::fs::read_to_string(&path).unwrap_or_else(|error| panic!("read {}: {error}", path.display()));
     serde_json::from_str(&text).unwrap_or_else(|error| panic!("parse {}: {error}", path.display()))
 }
 
-fn read_checked_in_artifact() -> ExperimentArtifact {
+fn read_checked_in_artifact() -> Artifact {
     let path = repository_root().join("standards/benchmark").join(ARTIFACT_NAME);
     let text = std::fs::read_to_string(&path).unwrap_or_else(|error| panic!("read {}: {error}", path.display()));
     serde_json::from_str(&text).unwrap_or_else(|error| panic!("parse {}: {error}", path.display()))
 }
 
-fn evaluated_checked_in() -> ExperimentArtifact {
-    let profile = selected_profile(PROFILE_ID).expect("profile");
+fn evaluated_checked_in() -> Artifact {
+    let profile = select(PROFILE_ID).expect("profile");
     let observations = read_retained_observations();
-    let evaluation = evaluate(PROFILE_ID, &observations);
+    let evaluation = assess(PROFILE_ID, &observations);
     assert!(evaluation.diagnostics.is_empty(), "{:?}", evaluation.diagnostics);
     let artifact = evaluation.artifact.expect("artifact");
     assert_eq!(artifact.profile, profile);
@@ -68,9 +79,9 @@ fn evaluated_checked_in() -> ExperimentArtifact {
 #[test]
 fn profile_identity_matrix_and_corpus_sources_are_frozen() {
     assert_eq!(embedded_profile_identity(), profile_bytes_identity());
-    assert_eq!(profile_bytes_identity(), super::PROFILE_IDENTITY);
-    let profile = selected_profile(PROFILE_ID).expect("profile");
-    assert!(selected_profile("ambient-experiment").is_err());
+    assert_eq!(profile_bytes_identity(), super::profile::PROFILE_IDENTITY);
+    let profile = select(PROFILE_ID).expect("profile");
+    assert!(select("ambient-experiment").is_err());
     assert_eq!(profile.corpus.len(), CORPUS_CASE_COUNT);
     assert_eq!(profile.tasks.len(), TASK_COUNT);
     assert_eq!(profile.tools.len(), TOOL_COUNT);
@@ -125,7 +136,7 @@ fn checked_in_observations_artifact_and_report_verify() {
     assert_eq!(checked_in.schema_version, ARTIFACT_SCHEMA);
     assert_eq!(artifact, checked_in);
     assert!(verify(PROFILE_ID, &checked_in).is_empty(), "{:?}", verify(PROFILE_ID, &checked_in));
-    let report = render_report(&checked_in);
+    let report = render(&checked_in).expect("render checked-in report");
     for needle in [
         "Cross-tool benchmark experiment report",
         "### Unsupported applicability cells",
@@ -138,7 +149,7 @@ fn checked_in_observations_artifact_and_report_verify() {
     }
     let report_path = repository_root().join("standards/benchmark").join(REPORT_NAME);
     let checked_in_report = std::fs::read_to_string(&report_path).expect("checked-in report");
-    assert_eq!(render_report(&checked_in), checked_in_report);
+    assert_eq!(report, checked_in_report);
     let observation_bytes = pretty_bytes(&observations, "observations").expect("observations bytes");
     assert_eq!(artifact.observations_identity, prefixed_identity(&observation_bytes));
     let artifact_bytes = pretty_bytes(&checked_in, "artifact").expect("artifact bytes");
@@ -206,12 +217,12 @@ fn negative_controls_are_contained_and_tampering_is_rejected() {
         assert!(!control.evidence.is_empty(), "{control:?}");
     }
 
-    let profile = selected_profile(PROFILE_ID).expect("profile");
+    let profile = select(PROFILE_ID).expect("profile");
     let observations = read_retained_observations();
 
     let mut stale = observations.clone();
     stale.observations[0].source_identity = prefixed_identity(b"renamed");
-    let diagnostics = evaluate(PROFILE_ID, &stale).diagnostics;
+    let diagnostics = assess(PROFILE_ID, &stale).diagnostics;
     assert!(diagnostics.iter().any(|value| value.contains("stale oracle")), "{diagnostics:?}");
 
     let mut dropped = observations.clone();
@@ -229,7 +240,7 @@ fn negative_controls_are_contained_and_tampering_is_rejected() {
             .expect("case observation");
         dropped.observations.remove(index);
     }
-    let diagnostics = evaluate(PROFILE_ID, &dropped).diagnostics;
+    let diagnostics = assess(PROFILE_ID, &dropped).diagnostics;
     assert!(diagnostics.iter().any(|value| value.contains("missing")), "{diagnostics:?}");
 
     let mut noncompiling = observations.clone();
@@ -242,7 +253,7 @@ fn negative_controls_are_contained_and_tampering_is_rejected() {
         })
         .expect("violating observation");
     violating.compile_status = CompileStatus::NotCompiled;
-    let diagnostics = evaluate(PROFILE_ID, &noncompiling).diagnostics;
+    let diagnostics = assess(PROFILE_ID, &noncompiling).diagnostics;
     assert!(diagnostics.iter().any(|value| value.contains("noncompiling")), "{diagnostics:?}");
 
     let mut changed_scope = artifact.clone();
@@ -278,14 +289,14 @@ fn negative_controls_are_contained_and_tampering_is_rejected() {
         .expect("clean observation");
     observation.status = ObservationStatus::Unsupported;
     observation.unavailable_reason = Some("negative-control unsupported scope".to_owned());
-    let evaluation = evaluate(PROFILE_ID, &unsupported);
+    let evaluation = assess(PROFILE_ID, &unsupported);
     assert!(evaluation.diagnostics.is_empty(), "{:?}", evaluation.diagnostics);
 }
 
 #[test]
 fn execute_mode_marks_missing_executables_unsupported_and_keeps_runs() {
-    let profile = selected_profile(PROFILE_ID).expect("profile");
-    let run = execution::run(ExperimentMode::Execute, PROFILE_ID, None, &corpus_root());
+    let profile = select(PROFILE_ID).expect("profile");
+    let run = execution::run(Mode::Execute(&runtime()), PROFILE_ID, None, &corpus_root());
     let Ok(run) = run else {
         panic!("execute mode failed: {:?}", run.err());
     };
@@ -325,35 +336,44 @@ fn execute_mode_marks_missing_executables_unsupported_and_keeps_runs() {
 
 #[test]
 fn local_clippy_probe_and_clean_consumer_measurement_when_available() {
-    let profile = selected_profile(PROFILE_ID).expect("profile");
+    let profile = select(PROFILE_ID).expect("profile");
     let clippy = profile.tools.iter().find(|tool| tool.tool_id == "clippy").expect("clippy pin");
-    let probe = execution::probe_tool(clippy);
+    let runtime = runtime();
+    let probe = execution::probe_tool(clippy, &runtime);
     if probe.status == Availability::Unavailable {
         assert!(probe.reason.as_deref().is_some_and(|reason| !reason.is_empty()));
         eprintln!("clippy probe unavailable in this environment: {:?}", probe.reason);
         return;
     }
     assert!(probe.version_output.contains("clippy"));
-    let outcome = execution::run_command(&corpus_root(), &[
-        "cargo".to_owned(),
-        "check".to_owned(),
-        "--workspace".to_owned(),
-        "--all-targets".to_owned(),
-        "--offline".to_owned(),
-    ])
+    let outcome = execution::run_command(
+        &corpus_root(),
+        &[
+            "cargo".to_owned(),
+            "check".to_owned(),
+            "--workspace".to_owned(),
+            "--all-targets".to_owned(),
+            "--offline".to_owned(),
+        ],
+        &runtime,
+    )
     .expect("local cargo check");
     assert!(outcome.succeeded, "{outcome:?}");
     assert!(outcome.duration_ns > 0);
-    let (initial, incremental) = execution::measure_target(
-        &profile,
-        clippy,
-        &corpus_root(),
-        &profile.adoption.clean_consumer.selection_id,
-        &clippy.run_argv,
-        &clippy.run_argv,
-        true,
-        true,
-    );
+    let plan = profile
+        .adoption
+        .tools
+        .iter()
+        .find(|plan| plan.tool_id == clippy.tool_id)
+        .expect("clippy adoption plan");
+    let measurement = execution::Measurement {
+        profile: &profile,
+        tool: clippy,
+        availability: &probe.status,
+        runtime: &runtime,
+    };
+    let (initial, incremental) =
+        execution::measure_target(&measurement, &corpus_root(), &profile.adoption.clean_consumer, plan);
     if initial.measured {
         assert!(initial.wall_duration_ns.is_some_and(|value| value > 0));
     }
@@ -372,7 +392,7 @@ fn repository_assurance_baseline_rejects_invalid_fixtures_when_available() {
         eprintln!("repository baseline script unavailable");
         return;
     }
-    if execution::run_command(&root, &["jq".to_owned(), "--version".to_owned()]).is_err() {
+    if execution::run_command(&root, &["jq".to_owned(), "--version".to_owned()], &runtime()).is_err() {
         eprintln!("jq unavailable for the repository baseline");
         return;
     }
@@ -385,7 +405,8 @@ fn repository_assurance_baseline_rejects_invalid_fixtures_when_available() {
     ];
     for (name, expected) in cases {
         let fixture = format!("standards/benchmark/assurance/{name}");
-        let outcome = execution::run_command(&root, &["bash".to_owned(), script.to_owned(), fixture.clone()]);
+        let outcome =
+            execution::run_command(&root, &["bash".to_owned(), script.to_owned(), fixture.clone()], &runtime());
         let Ok(outcome) = outcome else {
             eprintln!("repository baseline cannot run: {outcome:?}");
             return;
@@ -397,20 +418,25 @@ fn repository_assurance_baseline_rejects_invalid_fixtures_when_available() {
 #[test]
 #[ignore = "writes the checked experiment observations, artifact, and report"]
 fn regenerate_experiment_artifacts() {
-    let profile = selected_profile(PROFILE_ID).expect("profile");
+    let profile = select(PROFILE_ID).expect("profile");
     let mut observations = fixtures::recorded_observations(&profile);
     let clippy = profile.tools.iter().find(|tool| tool.tool_id == "clippy").expect("clippy pin");
     let clean = profile.adoption.clean_consumer.selection_id.clone();
-    let (initial, incremental) = execution::measure_target(
-        &profile,
-        clippy,
-        &corpus_root(),
-        &clean,
-        &clippy.run_argv,
-        &clippy.run_argv,
-        true,
-        !clippy.run_argv.is_empty(),
-    );
+    let runtime = runtime();
+    let plan = profile
+        .adoption
+        .tools
+        .iter()
+        .find(|plan| plan.tool_id == clippy.tool_id)
+        .expect("clippy adoption plan");
+    let measurement = execution::Measurement {
+        profile: &profile,
+        tool: clippy,
+        availability: &Availability::Local,
+        runtime: &runtime,
+    };
+    let (initial, incremental) =
+        execution::measure_target(&measurement, &corpus_root(), &profile.adoption.clean_consumer, plan);
     if initial.measured || incremental.measured {
         for observation in &mut observations.adoption {
             if observation.tool_id == "clippy" && observation.target_selection == clean {
@@ -420,7 +446,7 @@ fn regenerate_experiment_artifacts() {
                 }
             }
         }
-        let probe = execution::probe_tool(clippy);
+        let probe = execution::probe_tool(clippy, &runtime);
         if probe.status != Availability::Unavailable
             && let Some(record) = observations.tool_availability.iter_mut().find(|record| record.tool_id == "clippy")
         {
@@ -430,10 +456,10 @@ fn regenerate_experiment_artifacts() {
             record.reason = None;
         }
     }
-    let evaluation = evaluate(PROFILE_ID, &observations);
+    let evaluation = assess(PROFILE_ID, &observations);
     assert!(evaluation.diagnostics.is_empty(), "{:?}", evaluation.diagnostics);
     let artifact = evaluation.artifact.expect("artifact");
-    let report = render_report(&artifact);
+    let report = render(&artifact).expect("render experiment report");
     let directory = repository_root().join("standards/benchmark");
     std::fs::write(
         directory.join(OBSERVATIONS_NAME),
@@ -447,4 +473,39 @@ fn regenerate_experiment_artifacts() {
     .expect("write artifact");
     std::fs::write(directory.join(REPORT_NAME), report.as_bytes()).expect("write report");
     eprintln!("wrote {OBSERVATIONS_NAME} / {ARTIFACT_NAME} / {REPORT_NAME}");
+}
+
+#[test]
+fn recorded_and_verify_cli_modes_preserve_evidence_without_runtime_capabilities() {
+    let directory = tempfile::tempdir().expect("CLI artifact directory");
+    let mut args = crate::cli::BenchmarkExperimentArgs {
+        profile: PROFILE_ID.to_owned(),
+        input: Some(repository_root().join("standards/benchmark").join(OBSERVATIONS_NAME)),
+        execute: false,
+        verify: false,
+        artifact: None,
+        workspace_root: directory.path().join("unused-execution-root"),
+        artifact_dir: directory.path().join("recorded"),
+        output_format: crate::cli::OutputFormat::Human,
+    };
+    assert_eq!(super::run_cli(&args, None).expect("recorded CLI"), 0);
+    let artifact_bytes = std::fs::read(args.artifact_dir.join(ARTIFACT_NAME)).expect("recorded artifact");
+    let artifact: Artifact = serde_json::from_slice(&artifact_bytes).expect("parse recorded artifact");
+    assert_eq!(artifact, read_checked_in_artifact());
+    let report = std::fs::read(args.artifact_dir.join(REPORT_NAME)).expect("recorded report");
+    let checked_report =
+        std::fs::read(repository_root().join("standards/benchmark").join(REPORT_NAME)).expect("checked-in report");
+    assert_eq!(report, checked_report);
+
+    args.verify = true;
+    args.input = None;
+    assert_eq!(super::run_cli(&args, None).expect("verification CLI"), 0);
+
+    args.verify = false;
+    let error = super::run_cli(&args, None).expect_err("recorded mode still requires retained input");
+    assert!(error.contains("experiment recorded mode requires a retained observation input"), "{error}");
+
+    args.execute = true;
+    let error = super::run_cli(&args, None).expect_err("execute mode requires an actual runtime");
+    assert!(error.contains("experiment execute mode requires runtime capabilities"), "{error}");
 }

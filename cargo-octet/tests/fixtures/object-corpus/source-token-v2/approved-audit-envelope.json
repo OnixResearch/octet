@@ -1,0 +1,395 @@
+{
+  "schema": "octet.operator-review-attachment-index.v1",
+  "status": "PENDING",
+  "scope": "Bounded actual current pre-freeze source/reference capture for direct owner review only; not final-source qualification or owner acceptance.",
+  "hash_algorithm": "BLAKE3",
+  "inventory_rule": "Every regular file recursively below this directory, excluding audit-envelope.json itself; symlinks rejected; relative attachment paths sorted lexicographically.",
+  "attachment_count": 66,
+  "attachments": [
+    {
+      "path": "candidate-provenance.json",
+      "bytes": 2401,
+      "blake3": "284bdf0c66aa5cc38b25939af895532e15d4377147589c54d28f3bc5d3a61b0e"
+    },
+    {
+      "path": "candidate-source-manifest.json",
+      "bytes": 12244,
+      "blake3": "be3647f9c72a598defa192f4ff0cda440fef22eeb5e2bc7dd6c162abce43d862"
+    },
+    {
+      "path": "compiled-reviewed-valence-function-object.rs",
+      "bytes": 41419,
+      "blake3": "11f0f4233aaf3153966f6aa37de570c2dcd0e75335591934461ae2b25ab3ecb1"
+    },
+    {
+      "path": "expanded-internal-corpus-caveat-taxonomy.json",
+      "bytes": 32389,
+      "blake3": "49a2169054172094d5ad78da78506d0d4929bae38005969f1fedd08d4b67b773"
+    },
+    {
+      "path": "expanded-internal-corpus-receipt.json",
+      "bytes": 4557,
+      "blake3": "567e15bbb0ea26394b838676c9c945fd7f2342d3e208bd15095e6315f77e4ee6"
+    },
+    {
+      "path": "expanded_internal_corpus.command.json",
+      "bytes": 2391,
+      "blake3": "79d9fce6952c083c0efadfda5172fe3ecc9e5897b6d60ebe3ce7714dd19192bb"
+    },
+    {
+      "path": "expanded_internal_corpus.stderr",
+      "bytes": 0,
+      "blake3": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
+    },
+    {
+      "path": "expanded_internal_corpus.stdout",
+      "bytes": 157,
+      "blake3": "33a755db6312557eb8180ba6c0b747160db6682578056af1b02b48c75a41cbf7"
+    },
+    {
+      "path": "expanded_taxonomy.command.json",
+      "bytes": 2247,
+      "blake3": "3ff7a71441b154ba5ac01daf70eda7d351a22678325413afbd09f3fabf293bc4"
+    },
+    {
+      "path": "expanded_taxonomy.stderr",
+      "bytes": 0,
+      "blake3": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
+    },
+    {
+      "path": "expanded_taxonomy.stdout",
+      "bytes": 32389,
+      "blake3": "49a2169054172094d5ad78da78506d0d4929bae38005969f1fedd08d4b67b773"
+    },
+    {
+      "path": "fixed_quoted_url.command.json",
+      "bytes": 781,
+      "blake3": "fb2a9a34239f8b5d8b9cad3521c9a70dc3b29f891bc79ee33152cb22be9acbd8"
+    },
+    {
+      "path": "fixed_quoted_url.stderr",
+      "bytes": 0,
+      "blake3": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
+    },
+    {
+      "path": "fixed_quoted_url.stdout",
+      "bytes": 144,
+      "blake3": "f9fa0097be69340ac2a54f0047c6cab0a8219ddea3916cd12830ecbc7ba2f148"
+    },
+    {
+      "path": "internal-corpus-receipt.json",
+      "bytes": 2704,
+      "blake3": "f191fb19df00871d9c7b68322a218fa827704429e04268733d9782c81abeac21"
+    },
+    {
+      "path": "internal_corpus.command.json",
+      "bytes": 1357,
+      "blake3": "c0ad070b8eff14325bf67ab39ec7f75a0cc8e2f1e8051f0e1758b2d699858c52"
+    },
+    {
+      "path": "internal_corpus.stderr",
+      "bytes": 0,
+      "blake3": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
+    },
+    {
+      "path": "internal_corpus.stdout",
+      "bytes": 148,
+      "blake3": "8411ee29245a5db8402c5e62d440845a12bae02006b2c76c1f2ea076d44f0753"
+    },
+    {
+      "path": "original-producer-source-binding.json",
+      "bytes": 33816,
+      "blake3": "a3ab4aa9674aecd8ec9648dc436b285ebfff1288a78c94414d561c97acb8d2f4"
+    },
+    {
+      "path": "positive-v2-receipt.json",
+      "bytes": 1329,
+      "blake3": "890ef71644eb7af0e9c6c3ff7b20fd0fb9630547c434490ed1096b765a7de8b8"
+    },
+    {
+      "path": "producer-binary-identity.json",
+      "bytes": 15050,
+      "blake3": "4a3cf6b59ab48bc08ac9bc57dc737f93eb91526735ac172b2f22f7d6936ef9db"
+    },
+    {
+      "path": "source-snapshot/cargo-octet/src/baseline.rs",
+      "bytes": 5698,
+      "blake3": "5de4bd32eb9d742d8e56fe28278277e0212c133d7058a50ed1ba1ded8581b453"
+    },
+    {
+      "path": "source-snapshot/cargo-octet/src/bin/cargo-slotcar.rs",
+      "bytes": 91,
+      "blake3": "2b816ae70bb996a51abf5d90cd928a8958f63d16b86095abf7c983732d958cc4"
+    },
+    {
+      "path": "source-snapshot/cargo-octet/src/bin/cargo-tigerstyle.rs",
+      "bytes": 91,
+      "blake3": "2b816ae70bb996a51abf5d90cd928a8958f63d16b86095abf7c983732d958cc4"
+    },
+    {
+      "path": "source-snapshot/cargo-octet/src/cli.rs",
+      "bytes": 228238,
+      "blake3": "c5ffaef2934cc62002c01da52165015e935964d3a5df2aeb5e428a6defa49f68"
+    },
+    {
+      "path": "source-snapshot/cargo-octet/src/config.rs",
+      "bytes": 22311,
+      "blake3": "bbc4549349763c80c3c08ee5cff3971313fda595e73ce2c637fd1c9e95f1d830"
+    },
+    {
+      "path": "source-snapshot/cargo-octet/src/determinism.rs",
+      "bytes": 14676,
+      "blake3": "acb8af85dad11cf521e757d1858cbe3674f22b4b01b11a4e69ecbf7ce4bd7258"
+    },
+    {
+      "path": "source-snapshot/cargo-octet/src/engine.rs",
+      "bytes": 136985,
+      "blake3": "3889349e219fca5ea809a39d517c69c39eae9ccbdc2a50489de226eebaa31b7f"
+    },
+    {
+      "path": "source-snapshot/cargo-octet/src/evidence.rs",
+      "bytes": 30394,
+      "blake3": "8d155215d80791dc634f10af09efa45a6bd2ea3d37ba86153c0489986d57425b"
+    },
+    {
+      "path": "source-snapshot/cargo-octet/src/evidence_rails.rs",
+      "bytes": 467299,
+      "blake3": "6bc5ab9b55ca6f77c705a34eab5e325fd9e73131d4da5ad62a98ca31102ebb9d"
+    },
+    {
+      "path": "source-snapshot/cargo-octet/src/fingerprint.rs",
+      "bytes": 86742,
+      "blake3": "00416dd84fa95425a3ef2609560a4b916459f1a1e0cb48cb530fed53f23b2ee7"
+    },
+    {
+      "path": "source-snapshot/cargo-octet/src/function_address.rs",
+      "bytes": 110239,
+      "blake3": "a08e5f28de9994b5cfb76596b37032c03f20a78b3d76412f50bda01d6ad55472"
+    },
+    {
+      "path": "source-snapshot/cargo-octet/src/lib.rs",
+      "bytes": 4153,
+      "blake3": "b47ea307093a3720f32159687f350aa66f5841dff9d19b14a8f906adf6df38ef"
+    },
+    {
+      "path": "source-snapshot/cargo-octet/src/main.rs",
+      "bytes": 91,
+      "blake3": "2b816ae70bb996a51abf5d90cd928a8958f63d16b86095abf7c983732d958cc4"
+    },
+    {
+      "path": "source-snapshot/cargo-octet/src/migrate.rs",
+      "bytes": 12045,
+      "blake3": "d1cfccbd372841401fcac0bbc8134352a9947aabac543b0981bce514dbe3d63e"
+    },
+    {
+      "path": "source-snapshot/cargo-octet/src/object.rs",
+      "bytes": 125026,
+      "blake3": "847532ed443a647ff40452bacb8d41d2f80900c68b415de3af537dba55cab9eb"
+    },
+    {
+      "path": "source-snapshot/cargo-octet/src/output.rs",
+      "bytes": 48495,
+      "blake3": "0a9fc64e9cbdd4ca547e893f37fd7f72afba862610fa1f013f9091c21e403dc8"
+    },
+    {
+      "path": "source-snapshot/cargo-octet/src/proof_ref.rs",
+      "bytes": 91038,
+      "blake3": "d18384c5aa50e47e4af4e12043be1e2974b4a206a783d5f2ec39949e71bda3af"
+    },
+    {
+      "path": "source-snapshot/cargo-octet/src/provider_manifest.rs",
+      "bytes": 33432,
+      "blake3": "e4d9a8305bd1085762a65693e50b0fefbbd1c80c275dc92b12254863f05dae0c"
+    },
+    {
+      "path": "source-snapshot/cargo-octet/src/roadmap.rs",
+      "bytes": 180517,
+      "blake3": "97b1e7ce68d647d03bb0cd56bbfed058b2a057808008a6782b1529b9559581cd"
+    },
+    {
+      "path": "source-snapshot/cargo-octet/src/transcript.rs",
+      "bytes": 4524,
+      "blake3": "1ea322c14e21dfde94daed5d09972c339e9a123206e7326bc959ab11c65f3cd9"
+    },
+    {
+      "path": "source-snapshot/cargo-octet/tests/fingerprint_consumer.rs",
+      "bytes": 160539,
+      "blake3": "7e434d91e19cd454468c1f021e5353ba5c7cc183c2d84071d7cbcf1d4bf6aa00"
+    },
+    {
+      "path": "source-snapshot/cargo-octet/tests/fixtures/object-corpus/source-token-v2/src/lib.rs",
+      "bytes": 111,
+      "blake3": "208621f8824deeccf145d9f4515187e035e81e1c0ce1033853458686bef514b6"
+    },
+    {
+      "path": "source-snapshot/crates/octet-standards/src/architecture.rs",
+      "bytes": 55537,
+      "blake3": "385380b8ec14904f4a3046abd01693802e2b969c154d168d5894e93aa52c18ad"
+    },
+    {
+      "path": "source-snapshot/crates/octet-standards/src/artifacts.rs",
+      "bytes": 35614,
+      "blake3": "0418b7a42f342740eef1dc863de1848094f457583ba387b992493cebcf0a8ef0"
+    },
+    {
+      "path": "source-snapshot/crates/octet-standards/src/bin/slotcar-standards.rs",
+      "bytes": 335,
+      "blake3": "b11df67b21a0558d08905f6b0bb7da7a7ec279a671e910369bfd3e31326a5106"
+    },
+    {
+      "path": "source-snapshot/crates/octet-standards/src/bin/tigerstyle-standards.rs",
+      "bytes": 338,
+      "blake3": "fb8bdac9c61af094cde135a8c25647b713d055160b603e123956e0040609dc63"
+    },
+    {
+      "path": "source-snapshot/crates/octet-standards/src/cli_shell.rs",
+      "bytes": 54772,
+      "blake3": "f795ab10b9f8a734a3bffc4f32aa5914b42850df333d2668db33fc7a3a7b57c7"
+    },
+    {
+      "path": "source-snapshot/crates/octet-standards/src/diagnostic.rs",
+      "bytes": 1923,
+      "blake3": "76da9353b979c91e2ae428c0a0aaf14ccb99dd7987689fdcc97751b8cce45919"
+    },
+    {
+      "path": "source-snapshot/crates/octet-standards/src/fixture.rs",
+      "bytes": 3538,
+      "blake3": "36557ac8b0063ec9b346194dfb6c9e32c01ffa5021b25e1f229684d14bad892e"
+    },
+    {
+      "path": "source-snapshot/crates/octet-standards/src/lib.rs",
+      "bytes": 107182,
+      "blake3": "6aabbcc0d387e9b500379ac627c6c1252850be4ee819bf3f65292564749fddc1"
+    },
+    {
+      "path": "source-snapshot/crates/octet-standards/src/main.rs",
+      "bytes": 305,
+      "blake3": "3313ee618a615e742c56a3a5822d56146ed9f4369e95d237aba2f3eb3694ba56"
+    },
+    {
+      "path": "source-snapshot/crates/octet-standards/src/model.rs",
+      "bytes": 24272,
+      "blake3": "9c9c45c783e8bc3c8ce11615d6ae50b7c5054c571fe29ae6066337f7f3077b9e"
+    },
+    {
+      "path": "source-snapshot/crates/octet-standards/src/proof.rs",
+      "bytes": 113905,
+      "blake3": "f38b5af85391a469f58a0d00e1255eed6c6b92e2f83152adc251f134ce4cb96b"
+    },
+    {
+      "path": "source-snapshot/crates/octet-standards/src/receipt.rs",
+      "bytes": 8943,
+      "blake3": "9519a07df5d3b12eb4cb2665991d1f3c79420a8053232c829d2ec9921b176332"
+    },
+    {
+      "path": "source-snapshot/crates/octet-standards/src/report/presentation.rs",
+      "bytes": 9907,
+      "blake3": "677e1556d4dd0a1919765906129371b92b73ad6ebc23b657d923a6eb98cd2a44"
+    },
+    {
+      "path": "source-snapshot/crates/octet-standards/src/report.rs",
+      "bytes": 8072,
+      "blake3": "c473f89d2c26663682d9e38715626d17aed659c3160a919bcdae7067af0c98fb"
+    },
+    {
+      "path": "source-snapshot/crates/octet-standards/src/resource.rs",
+      "bytes": 7776,
+      "blake3": "62829e1b9ad17af7ecca55aab823f980c6c671704d6a81cc39e5cce5ae65a19f"
+    },
+    {
+      "path": "source-snapshot/crates/octet-standards/src/runner/planning.rs",
+      "bytes": 7621,
+      "blake3": "5ef60717ccd380a28381263abbc68d8e91a4e47d6cd1053c8a3b132ce4286ea4"
+    },
+    {
+      "path": "source-snapshot/crates/octet-standards/src/runner/tracking.rs",
+      "bytes": 8122,
+      "blake3": "a9399af45dd061fb29853dc0a1983b1aa36e79bb558f888ff39389c18e891470"
+    },
+    {
+      "path": "source-snapshot/crates/octet-standards/src/runner.rs",
+      "bytes": 6791,
+      "blake3": "640a9c9f969d7a60857ec1c38cbcf0d036e4d7404b6b3fedf1719b7e9fdd2b05"
+    },
+    {
+      "path": "source-snapshot/crates/octet-standards/src/source.rs",
+      "bytes": 518,
+      "blake3": "16238c90045bf824902f1477d602cef79e0357f0643b1942a7ba9c8a4eff911b"
+    },
+    {
+      "path": "source-snapshot/crates/octet-standards/src/suppression.rs",
+      "bytes": 15738,
+      "blake3": "a5816ab15fe8f424fccac1097a199fd170d4f8a7c2d8bddc114dc29a4daaea09"
+    },
+    {
+      "path": "version.command.json",
+      "bytes": 515,
+      "blake3": "d7d97a5ff96a713f83b3b249e77d0c9ab4234bb5ec9c3b7958fa278291ef5911"
+    },
+    {
+      "path": "version.stderr",
+      "bytes": 0,
+      "blake3": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
+    },
+    {
+      "path": "version.stdout",
+      "bytes": 23,
+      "blake3": "cc0c103bae01500bf068bd511626922c2b57d23e569322df061a832ae61823fd"
+    }
+  ],
+  "canonical_candidate": {
+    "path": "candidate-source-manifest.json",
+    "blake3": "be3647f9c72a598defa192f4ff0cda440fef22eeb5e2bc7dd6c162abce43d862",
+    "schema": "octet.function-object-v2-candidate-source-manifest.v1"
+  },
+  "canonical_candidate_provenance": {
+    "path": "candidate-provenance.json",
+    "blake3": "284bdf0c66aa5cc38b25939af895532e15d4377147589c54d28f3bc5d3a61b0e"
+  },
+  "original_producer_source_binding": {
+    "path": "original-producer-source-binding.json",
+    "blake3": "a3ab4aa9674aecd8ec9648dc436b285ebfff1288a78c94414d561c97acb8d2f4",
+    "scope": "original-current-pre-freeze-only"
+  },
+  "producer_identity_attachment": "producer-binary-identity.json",
+  "selected_references": [
+    {
+      "path": "expanded-internal-corpus-caveat-taxonomy.json",
+      "role": "expanded_internal_corpus_taxonomy",
+      "blake3": "49a2169054172094d5ad78da78506d0d4929bae38005969f1fedd08d4b67b773",
+      "intended_future_canonical_path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/expanded-internal-corpus-caveat-taxonomy.json"
+    },
+    {
+      "path": "expanded-internal-corpus-receipt.json",
+      "role": "expanded_internal_corpus",
+      "blake3": "567e15bbb0ea26394b838676c9c945fd7f2342d3e208bd15095e6315f77e4ee6",
+      "intended_future_canonical_path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/expanded-internal-corpus-receipt.json"
+    },
+    {
+      "path": "internal-corpus-receipt.json",
+      "role": "internal_corpus",
+      "blake3": "f191fb19df00871d9c7b68322a218fa827704429e04268733d9782c81abeac21",
+      "intended_future_canonical_path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/internal-corpus-receipt.json"
+    },
+    {
+      "path": "positive-v2-receipt.json",
+      "role": "fixed_quoted_url",
+      "blake3": "890ef71644eb7af0e9c6c3ff7b20fd0fb9630547c434490ed1096b765a7de8b8",
+      "intended_future_canonical_path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/positive-v2-receipt.json"
+    }
+  ],
+  "independent_owner_approval": null,
+  "selected_for_named_rails": false,
+  "source_input_refresh_required_before_final_qualification": false,
+  "source_snapshot_bounds": {
+    "source-snapshot/": "Exact selected source/module/consumer-test inputs matching this immutable producer build source, not the whole public release tree."
+  },
+  "non_claims": [
+    "no owner approval",
+    "no independent audit asserted",
+    "no approved reference promotion",
+    "no named-rail admission",
+    "no final public-source or release qualification",
+    "no correctness or semantic-equivalence proof"
+  ]
+}

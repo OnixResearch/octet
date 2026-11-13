@@ -3,13 +3,27 @@
 | Surface | License |
 |---|---|
 | `crates/cairn-core/**` | `MIT OR Apache-2.0` |
+| `crates/cairn-gate-contract/**` | `MIT OR Apache-2.0` |
+| `crates/cairn-radicle-cob/**` | `MIT OR Apache-2.0` |
 | `templates/**` and reusable lifecycle examples | `MIT OR Apache-2.0` |
+| Policy inputs and generated JSON named in [`cairn-policy/LICENSING.md`](../cairn-policy/LICENSING.md) | `AGPL-3.0-or-later OR MIT OR Apache-2.0`, including the specified historical revision |
 | `crates/cairn-cli/**` | `AGPL-3.0-or-later` |
+| `vendor/cap-root-core/**` | `AGPL-3.0-or-later` |
+| `vendor/durable-file-publication/**` | `MIT OR Apache-2.0` |
 | Repository documentation and lifecycle material not carrying another notice | `AGPL-3.0-or-later` |
 | Dependencies, generated artifacts containing upstream material, and vendored/reference code | Their stated upstream terms |
 
-The permissive core must not depend on `cairn-cli`. The CLI may depend on the core. Copying a reusable template does not by itself apply the CLI license to the generated project.
+The permissive core and gate contract must not depend on `cairn-cli`. The CLI may depend on the core. Copying a reusable template does not by itself apply the CLI license to the generated project.
 
 Complete texts are in `LICENSES/MIT.txt`, `LICENSES/Apache-2.0.txt`, and `LICENSES/AGPL-3.0-or-later.txt`. Each Cargo package directory carries the applicable text so package archives are self-contained.
+
+The repository-owned `tools/check-license-boundary.rs` checks the declared grant,
+its pinned revision, and each of the five covered policy paths and historical
+blob identities through `license-policy.tsv`. These inventory checks do not
+relicense other policy inputs, the exporter/toolchain or the CLI.
+
+The pure collaboration actor decoder uses `bs58` 0.5.1 (`MIT OR Apache-2.0`),
+with default features disabled and fixed-buffer decoding. This dependency does
+not change the core, CLI, policy or vendored-source license grants above.
 
 Prior grants remain valid. This map is distribution metadata; it does not establish contributor authority, legal compliance, source correctness, lifecycle acceptance, or release eligibility.

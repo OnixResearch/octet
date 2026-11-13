@@ -23,16 +23,24 @@ gates.
 
 ## Supported entry points
 
-Use the first-class Octet runner surface. Pick one of these paths:
+Use the first-class Octet runner. The sole canonical source, release, and
+support home is <https://github.com/OnixResearch/octet>. Initial support is
+source-only Nix on `x86_64-linux` with the pinned nightly Rust/Dylint cohort.
+No crates.io, prebuilt binary, or other-platform release path is offered.
 
-Supported public channel (pinned source-only export):
+Candidate `0.1.1-rc.1` is pending qualification. After the release owner
+publishes the qualified immutable tag, its evaluation command is:
 
 ```bash
-nix run github:OnixResearch/octet-public/becae9621fdf96803c7859e83d303cf535f20b15#cargo-octet -- check
+nix run github:OnixResearch/octet/v0.1.1-rc.1#cargo-octet -- check
 ```
 
-Pin the full public revision. `main` and `github:OnixResearch/octet` are not
-supported public selectors.
+This is a planned candidate instruction, not evidence that the tag exists or
+that it is a qualified/current release. Record the resolved full revision for
+reproducible evidence. Do not substitute `main`. The old `octet-public` cohort
+remains blocked and unsupported, not a second supported route. Its receipts are
+historical and cannot qualify the new source. See
+[release-candidate.md](release-candidate.md) for real identities and approvals.
 
 Local development checkout:
 
@@ -40,8 +48,9 @@ Local development checkout:
 nix run path:/path/to/octet#cargo-octet -- check
 ```
 
-Outside Nix, install the subcommand once, then export the bootstrap revision
-used by this repo before running it:
+Outside Nix is an advanced developer path, not a supported release install.
+It must reproduce the checkout's exact nightly/Dylint pins. Install the
+subcommand once, then export the bootstrap revision used by this repo:
 
 ```bash
 cargo install --path /path/to/octet/cargo-octet
@@ -128,7 +137,40 @@ Do not add `architecture_policy` until the project has complete roles, targets, 
 
 If the policy selects `admission`, `cargo octet check` runs strict lint, the architecture gate, and the explicitly bound effect-closure policy in that order.
 
-### 3. Run the check
+### 3. Prepare the lockfile and run the check
+
+Generate the consumer's `Cargo.lock` with Cargo in the reviewed environment,
+review it, and commit it before running Octet. The runner checks the lockfile
+rather than creating or updating it for you: a missing, newly created, or
+changed lockfile is an integration failure (exit `2`), not a clean lint result.
+Preserve the lockfile, selected crate scope, policy/config, and runner identity
+when comparing before/after evidence.
+
+For an executable first run, use the
+[first checked patch walkthrough](examples/first-checked-rust-patch/README.md).
+The capture helper accepts an absolute packaged runner path with `--runner`
+and a new capture directory with `--output`; `--cargo` selects Nix-store Cargo
+(otherwise it uses Nix-store Cargo on `PATH`). Its `--flake` acquisition mode
+requires the canonical full 40-hex source revision and `#cargo-octet`, not a tag
+or branch. The planned candidate tag is a discovery/evaluation reference, not
+the helper's immutable proof input. Do not invent a revision to run it.
+
+The standalone walkthrough deliberately denies `unchecked_division` (exit `1`),
+then applies a guarded fix under the same scope/config (exit `0` with zero
+selected findings). It verifies the saved JSON bundles (exit `0`) and rejects
+a tampered copy (exit `1`). Those are required observations, not results
+claimed by this guide. Only the selected lint is raised to `deny`; residual
+default warnings are retained and counted, not described as zero findings.
+
+An independent downstream capture retains the consumer's committed
+policy/config, uses bounded `-p PACKAGE -- --lib --locked` scope, and records
+actual warnings without a baseline, disabled lints, or a zero-noise claim.
+`--downstream valence` selects public Valence revision
+`e250f498a86ac1e62266b8df749ade021a4b4043` and owned package
+`valence-shared-identity-pilot`. The helper first runs anonymous
+`cargo fetch --locked` to distinguish complete-graph acquisition failure from
+an Octet result. See the helper and walkthrough for the complete invocation
+contract; these instructions do not claim that a capture has passed.
 
 Run one of the supported entry points above from the workspace root. If you
 installed `cargo-octet`, the common shape is:
@@ -400,6 +442,14 @@ writes local files. Regulated consumers should pin the Octet revision, check in
 `dylint.toml` and `[workspace.metadata.octet]`, choose a deterministic artifact
 directory, and optionally add the deny-all pre-commit gate below.
 
+Reports and support belong at <https://github.com/OnixResearch/octet/issues>.
+Use the native templates: include full revision, platform, command, configured
+scope, expected/observed results, and redacted evidence. Support is best-effort,
+without a response SLA or historical-pin support window. Use
+[SECURITY.md](../SECURITY.md) for private vulnerability reporting, whose GitHub
+availability must be verified by maintainers before launch.
+
+
 ### 3d. Add the deny-all pre-commit hook
 
 Copy `templates/pre-commit-config.yaml` to the consumer workspace as
@@ -419,9 +469,9 @@ same pinned hook checkout:
 
 ```yaml
 repos:
-  - repo: https://github.com/OnixResearch/octet-public
-    # Replace with a reviewed release tag or commit SHA.
-    rev: 0123456789abcdef0123456789abcdef01234567
+  - repo: https://github.com/OnixResearch/octet
+    # Candidate only: use after qualification and tag publication.
+    rev: v0.1.1-rc.1
     hooks:
       - id: octet-deny-all
 ```

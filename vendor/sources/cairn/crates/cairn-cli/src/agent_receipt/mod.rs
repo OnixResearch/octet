@@ -8,6 +8,7 @@ use std::{error::Error, path::PathBuf};
 
 use crate::support::{
     default_policy_path, load_policy_file, print_json, read_option, read_string_option,
+    reject_positional_arguments, reject_unknown_options,
 };
 
 mod bundle;
@@ -38,6 +39,12 @@ pub(crate) fn run_agent_receipt(args: Vec<String>) -> Result<(), Box<dyn Error>>
             let Some(path) = iter.next() else {
                 return Err("agent-receipt validate requires a JSON receipt path".into());
             };
+            if path.is_empty() {
+                return Err("agent-receipt validate requires a JSON receipt path".into());
+            }
+            if let Some(extra) = iter.next() {
+                return Err(format!("unexpected agent-receipt validate argument: {extra}").into());
+            }
             let path = PathBuf::from(path);
             let receipt = read_agent_receipt_file(&path)?;
             let policy = load_policy_file(default_policy_path().into())?;
@@ -51,6 +58,11 @@ pub(crate) fn run_agent_receipt(args: Vec<String>) -> Result<(), Box<dyn Error>>
         }
         "complete" => {
             let rest = iter.collect::<Vec<_>>();
+            reject_unknown_options(
+                &rest,
+                &["--contract", "--results", "--subject-hash", "--policy"],
+            )?;
+            reject_positional_arguments(&rest)?;
             let contract_path = read_string_option(&rest, "--contract")
                 .map(PathBuf::from)
                 .ok_or("agent-receipt complete requires --contract FILE")?;
@@ -82,6 +94,14 @@ pub(crate) fn run_agent_receipt(args: Vec<String>) -> Result<(), Box<dyn Error>>
             let Some(path) = iter.next() else {
                 return Err("agent-receipt preserves-hash requires a JSON receipt path".into());
             };
+            if path.is_empty() {
+                return Err("agent-receipt preserves-hash requires a JSON receipt path".into());
+            }
+            if let Some(extra) = iter.next() {
+                return Err(
+                    format!("unexpected agent-receipt preserves-hash argument: {extra}").into(),
+                );
+            }
             let path = PathBuf::from(path);
             let receipt = read_agent_receipt_file(&path)?;
             print_json(agent_preserves_hash_receipt(path, &receipt))
@@ -89,6 +109,8 @@ pub(crate) fn run_agent_receipt(args: Vec<String>) -> Result<(), Box<dyn Error>>
         "verify-bundle" => bundle::run_agent_receipt_verify_bundle(iter.collect()),
         "smoke-mcp" => {
             let rest = iter.collect::<Vec<_>>();
+            reject_unknown_options(&rest, &["--root"])?;
+            reject_positional_arguments(&rest)?;
             let root = read_option(rest, "--root", ".");
             print_json(crate::mcp::mcp_agent_smoke_receipt(root)?)
         }

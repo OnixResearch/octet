@@ -8,7 +8,8 @@ use cairn_core::canonical_json_hash;
 use serde_json::{json, Value};
 
 use crate::support::{
-    path_string, portable_json_hash, print_json, read_option, with_portable_receipt_hash,
+    path_string, portable_json_hash, print_json, read_option, reject_positional_arguments,
+    reject_unknown_options, with_portable_receipt_hash,
 };
 
 use super::artifact::{manifest_artifact_entry, read_manifest_artifact};
@@ -25,6 +26,8 @@ pub(crate) struct EvidenceManifestGenerateOptions {
     pub(crate) release_readiness: Option<PathBuf>,
     pub(crate) coverage_audit: Option<PathBuf>,
     pub(crate) requirement_registry: Option<PathBuf>,
+    pub(crate) trace_index: Option<PathBuf>,
+    pub(crate) trace_index_verification: Option<PathBuf>,
     pub(crate) registry: Option<PathBuf>,
     pub(crate) registry_verification: Option<PathBuf>,
     pub(crate) registry_selection: Option<PathBuf>,
@@ -45,6 +48,32 @@ pub(super) fn run_evidence_manifest_generate(args: Vec<String>) -> Result<(), Bo
     // r[impl cairn.supersede.registry_manifest_binding.generate]
     // r[impl cairn.supersede.registry_manifest_binding.failure]
     // r[impl cairn.supersede.registry_manifest_binding.policy]
+    reject_unknown_options(
+        &args,
+        &[
+            "--root",
+            "--bundle",
+            "--agent-receipt",
+            "--replay",
+            "--replay-verification",
+            "--release-readiness",
+            "--coverage-audit",
+            "--requirement-registry",
+            "--trace-index",
+            "--trace-index-verification",
+            "--registry",
+            "--registry-verification",
+            "--registry-selection",
+            "--registry-fetch-plan",
+            "--runtime-evidence",
+            "--runtime-chain",
+            "--witness-checkpoint",
+            "--signer-metadata",
+            "--anchor-metadata",
+            "--out",
+        ],
+    )?;
+    reject_positional_arguments(&args)?;
     let options = evidence_manifest_generate_options(&args);
     let (manifest, issues) = evidence_manifest_generate_manifest(&options);
     let valid = issues.is_empty();
@@ -83,6 +112,13 @@ pub(super) fn run_evidence_manifest_generate(args: Vec<String>) -> Result<(), Bo
     Ok(())
 }
 
+fn manifest_artifact_display_path(base: &Path, path: &Path) -> PathBuf {
+    match path.strip_prefix(base) {
+        Ok(relative) => relative.to_path_buf(),
+        Err(_) => std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf()),
+    }
+}
+
 fn evidence_manifest_generate_options(args: &[String]) -> EvidenceManifestGenerateOptions {
     let mut options = EvidenceManifestGenerateOptions {
         root: read_option(args.to_vec(), "--root", "."),
@@ -98,6 +134,8 @@ fn evidence_manifest_generate_options(args: &[String]) -> EvidenceManifestGenera
             | "--release-readiness"
             | "--coverage-audit"
             | "--requirement-registry"
+            | "--trace-index"
+            | "--trace-index-verification"
             | "--registry"
             | "--registry-verification"
             | "--registry-selection"
@@ -126,6 +164,12 @@ fn evidence_manifest_generate_options(args: &[String]) -> EvidenceManifestGenera
             }
             ("--requirement-registry", Some(value)) => {
                 options.requirement_registry = Some(PathBuf::from(value));
+            }
+            ("--trace-index", Some(value)) => {
+                options.trace_index = Some(PathBuf::from(value));
+            }
+            ("--trace-index-verification", Some(value)) => {
+                options.trace_index_verification = Some(PathBuf::from(value));
             }
             ("--registry", Some(value)) => {
                 options.registry = Some(PathBuf::from(value));
@@ -181,6 +225,11 @@ pub(crate) fn evidence_manifest_generate_manifest(
             "requirement_registry",
             options.requirement_registry.as_deref(),
         ),
+        ("trace_index", options.trace_index.as_deref()),
+        (
+            "trace_index_verification",
+            options.trace_index_verification.as_deref(),
+        ),
         ("evidence_registry", options.registry.as_deref()),
         (
             "evidence_registry_verification",
@@ -199,16 +248,26 @@ pub(crate) fn evidence_manifest_generate_manifest(
         ("witness_checkpoint", options.witness_checkpoint.as_deref()),
     ] {
         if let Some(path) = path {
+            let display_base = options
+                .out
+                .as_deref()
+                .filter(|out| *out != "-")
+                .map(Path::new)
+                .and_then(Path::parent)
+                .unwrap_or_else(|| Path::new("."));
+            let display_path = manifest_artifact_display_path(display_base, path);
             match read_manifest_artifact(&options.root, role, path) {
-                Ok((value, hash)) => match manifest_artifact_entry(role, path, &value, hash) {
-                    Ok(entry) => artifacts.push(entry),
-                    Err(_) => issues.push(evidence_manifest_issue(
-                        "generate.artifact_identity_failed",
-                        role,
-                        "hash-bound JSON artifact with required receipt identity",
-                        "invalid",
-                    )),
-                },
+                Ok((value, hash)) => {
+                    match manifest_artifact_entry(role, &display_path, &value, hash) {
+                        Ok(entry) => artifacts.push(entry),
+                        Err(_) => issues.push(evidence_manifest_issue(
+                            "generate.artifact_identity_failed",
+                            role,
+                            "hash-bound JSON artifact with required receipt identity",
+                            "invalid",
+                        )),
+                    }
+                }
                 Err(_) => issues.push(evidence_manifest_issue(
                     "generate.artifact_read_failed",
                     role,
@@ -220,6 +279,8 @@ pub(crate) fn evidence_manifest_generate_manifest(
             "release_readiness",
             "coverage_audit",
             "requirement_registry",
+            "trace_index",
+            "trace_index_verification",
             "evidence_registry",
             "evidence_registry_verification",
             "evidence_registry_selection",
@@ -276,4 +337,51 @@ fn evidence_manifest_generate_receipt(
             "output": output,
         }),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::evidence_manifest_generate_options;
+    use std::path::PathBuf;
+
+    #[test]
+    fn artifact_paths_are_manifest_relative_or_absolute() {
+        use super::manifest_artifact_display_path;
+        use std::path::Path;
+
+        assert_eq!(
+            manifest_artifact_display_path(
+                Path::new("/repo/target"),
+                Path::new("/repo/target/bundle.json")
+            ),
+            Path::new("bundle.json")
+        );
+        assert_eq!(
+            manifest_artifact_display_path(
+                Path::new("/repo/generated"),
+                Path::new("/repo/target/bundle.json")
+            ),
+            Path::new("/repo/target/bundle.json")
+        );
+        assert!(manifest_artifact_display_path(
+            Path::new("/repo/generated"),
+            Path::new("target/bundle.json")
+        )
+        .is_absolute());
+    }
+
+    #[test]
+    fn keeps_generate_paths_explicit() {
+        let options = evidence_manifest_generate_options(&[
+            "--root".to_string(),
+            "repo".to_string(),
+            "--bundle".to_string(),
+            "target/bundle.json".to_string(),
+            "--out".to_string(),
+            "target/manifest.json".to_string(),
+        ]);
+        assert_eq!(options.root, PathBuf::from("repo"));
+        assert_eq!(options.bundle, Some(PathBuf::from("target/bundle.json")));
+        assert_eq!(options.out.as_deref(), Some("target/manifest.json"));
+    }
 }

@@ -333,7 +333,7 @@ pub const ARCHITECTURE_CHECKED_POLICY_IDS: &[&str] = &[
 /// Returns a stable applicable-scope label when the architecture checker has source scope for
 /// `policy`, or `None` when it would inspect nothing.
 #[must_use]
-pub fn architecture_applicable_scope(
+pub fn applicable_scope(
     registry: &PolicyRegistry,
     sources: &[SourceFile],
     policy: &PolicyEntry,
@@ -376,9 +376,9 @@ pub fn architecture_applicable_scope(
         }
         HEXAGONAL_PORT_POLICY_ID => {
             let obligations = PortObligations::from_policy(policy)?;
-            let applicable =
+            let is_applicable =
                 !sources.is_empty() && (!obligations.legacy_core_owner_scope.is_empty() || obligations.enabled());
-            applicable.then_some("port-scopes")
+            is_applicable.then_some("port-scopes")
         }
         TYPE_STATE_POLICY_ID => {
             let obligations = TypeStateObligations::from_policy(policy);

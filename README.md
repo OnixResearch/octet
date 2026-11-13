@@ -22,7 +22,7 @@ Rust source → cargo octet check → standards and policy → evidence artifact
 
 | Property | Value |
 | --- | --- |
-| Install | Pinned source-only Nix channel: `github:OnixResearch/octet-public` |
+| Install | Source-only Nix on `x86_64-linux`; canonical source: `github:OnixResearch/octet` |
 | Checked path | `cargo octet check` -> policy -> local artifacts -> consumer gate |
 | Lint inventory | 77 Dylint lints across safety, naming, performance, structure, purity, and concurrency |
 | Evidence | `status.json`, `summary.txt`, SARIF or JSONL findings, `provenance.jsonl`, and `cargo octet artifact verify` |
@@ -50,20 +50,23 @@ Checked-path configuration uses the exact reviewed Nickel cohort. Read [`docs/ni
 
 ## Status and prerequisites
 
-Octet is under active development. Nix pins Rust, Dylint, Verus, solvers, and support tools.
+Octet is under active development. Initial support is source-only Nix on
+`x86_64-linux`. Nix pins nightly Rust, Dylint, Verus, solvers, and support
+tools. Stable-Rust-only, other platforms, crates.io packages, and binary
+distributions are not supported release paths. Direct Cargo use is an advanced
+developer path that must reproduce the same pins.
 
-Direct Cargo use is an advanced path. It must reproduce the same pins.
+<https://github.com/OnixResearch/octet> is the sole canonical source, release,
+and support home. The planned candidate is **0.1.1-rc.1**, with immutable tag
+`v0.1.1-rc.1`. It is not a qualified/current release: the tag is to be published
+only after qualification. See the [release checklist](docs/release-candidate.md)
+for exact source identities, required gates, and outstanding approvals, and the
+[candidate release-note draft](docs/gtm/release-notes-0.1.1-rc.1.md).
 
-Octet pins exact Valence and Bounded Exec revisions in Cargo and Nix. The
-supported public channel is the source-only export at
-`github:OnixResearch/octet-public`, pinned by the reviewed cohort
-`octet-public-becae962-2026-11-11`. Its recorded build and walkthrough receipts
-remain source-bound, but release qualification is blocked: two bundled COB
-fixtures embed old development history containing the excluded standards prose.
-Do not promote that pin as publication-cleared. The development repository is
-also public; its sanitized history is a separate cutover, not a new qualified
-install channel. The [release checklist](docs/release-candidate.md) records
-the cleanup boundary and the acceptance work required for a new cohort.
+The old `octet-public` repository and its `becae962` cohort remain blocked.
+The owner left that repository unchanged; it is not an alternate installation
+route. Historical build and walkthrough receipts do not qualify this candidate.
+The existing `v0.1.0` tag must not be moved or reused for this release.
 
 The [Mantle producer handoff](docs/aeneas-consumer-contract.md#mantle-producer-handoff)
 exports an immutable ordinary Nix job with an explicit legacy or Nix v4 wire
@@ -80,6 +83,12 @@ default_scope = ["-p", "your-core-crate"]
 cargo_check_args = ["--lib"]
 ```
 
+Create and review the consumer's `Cargo.lock` before checking; the runner's
+locked check does not bootstrap one. Run from the consumer workspace root.
+The [first checked patch walkthrough](docs/examples/first-checked-rust-patch/README.md)
+covers the complete setup, failing run, fix, artifact verification, and tamper
+rejection rather than treating a version command as onboarding evidence.
+
 3. Run Octet.
 
 Installed Cargo subcommand:
@@ -88,14 +97,16 @@ Installed Cargo subcommand:
 cargo octet check
 ```
 
-Supported public channel (pinned source-only export):
+Candidate evaluation command, **after the release owner publishes the qualified
+tag** (not a claim that this command is available or qualified today):
 
 ```bash
-nix run github:OnixResearch/octet-public/becae9621fdf96803c7859e83d303cf535f20b15#cargo-octet -- check
+nix run github:OnixResearch/octet/v0.1.1-rc.1#cargo-octet -- check
 ```
 
-Pin the full public revision. `github:OnixResearch/octet-public/main` and
-`github:OnixResearch/octet` are not supported public selectors.
+Use the immutable tag and record its resolved full revision. Do not substitute
+`main`, an unqualified branch, or the blocked legacy export. Before publication,
+evaluate a reviewed local checkout instead:
 
 Local checkout:
 
@@ -245,6 +256,20 @@ cargo install --path /path/to/octet/cargo-octet
 Then use [`docs/consumer-guide.md`](docs/consumer-guide.md) for the pinned `OCTET_DYLINT_REV` setup.
 
 Octet reports independent policy, manifest, and evidence-input errors in deterministic order. Invalid entries do not affect dependent evidence, and the command fails closed. `dylint.toml` is the exception: unknown keys, unknown lint names, and invalid levels print a warning and are ignored.
+
+## Support and reporting
+
+Use <https://github.com/OnixResearch/octet/issues> for redacted bug reports and
+proposals. Include the full Octet revision, platform, exact command, configured
+scope, expected/observed result, and redacted evidence. Support is best-effort:
+there is no promised response SLA, compatibility window, or long-term support
+for historical pins. A release candidate may change before a final release.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution expectations and
+[SECURITY.md](SECURITY.md) for private vulnerability reporting; never disclose
+exploitable details in a public issue.
+
+
+## Standards checks
 
 Run standards checks with:
 
@@ -414,7 +439,7 @@ Canonical attributes use `tigerstyle::<lint>`. Domain groups use `tigerstyle::<d
 |---|---|---|
 | Public site | Repository README is the canonical public home | No custom domain is claimed |
 | Project | `Octet` or `octet` | `slotcar` is legacy |
-| Repository | `github:OnixResearch/octet-public` is the reviewed install channel, currently blocked for release | `github:OnixResearch/octet` is the full public development repository; old repository names are obsolete |
+| Repository | `github:OnixResearch/octet` is the sole canonical source, release, and support home | The blocked `octet-public` export remains unchanged and unsupported |
 | Package | `octet` | `slotcar` and `tigerstyle` are aliases |
 | Runner binary | `cargo-octet` | `cargo-slotcar` and `cargo-tigerstyle` are aliases |
 | Runner command | `cargo octet check` | Legacy commands route to the same engine |

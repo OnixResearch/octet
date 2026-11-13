@@ -1,0 +1,34 @@
+Derived summary of actual local pre-freeze audit output; not a release qualification, legal clearance, owner signature, or new product receipt protocol.
+
+Scope: all advertised refs were explicitly fetched with +refs/*:refs/*; every stored Git object identity was enumerated; raw blob/commit/tag payloads and Git history were scanned. The private original prohibited-identity list is not published here.
+Gitleaks: 8.28.0, --redact=100, no gitleaks:allow suppression, no ignore-file baseline; raw payload decoding depth 3.
+Original confirmed prohibited identities compared: 98
+
+octet-cob
+  bundle BLAKE3: e4868b1667a02091fc27c68fa1232e252b01867989659d72460d04314a5103de
+  all advertised refs imported: true
+  stored objects: 12; commits: 3
+  original prohibited-object intersections: 0
+  forbidden paths: []
+  git scan exit: 0; findings: 0
+  all-payloads scan exit: 0; findings: 0
+
+octet-cob-conflict
+  bundle BLAKE3: aa84be5371d12ebf14ad274b3755cbb6fc0ffb9eeced03d5fbed1279fd79213a
+  all advertised refs imported: true
+  stored objects: 27; commits: 5
+  original prohibited-object intersections: 0
+  forbidden paths: []
+  git scan exit: 0; findings: 0
+  all-payloads scan exit: 0; findings: 0
+
+external-cairn-cob
+  bundle BLAKE3: 8274f326f3165f7b19ee69aaa0dcd7a9db02c75fc0c63ed3609150676ab3396d
+  all advertised refs imported: true
+  stored objects: 6; commits: 2
+  original prohibited-object intersections: 0
+  forbidden paths: []
+  git scan exit: 0; findings: 0
+  all-payloads scan exit: 0; findings: 0
+
+The first heads-only clone attempt was incomplete and is not acceptance evidence. This summary is from the corrected all-advertised-ref/all-object audit. A separate scan of admitted vendor source reported zero findings over approximately 10.99 MB. No claim is made about external forks, caches, deleted/unadvertised copies, unknown secrets, or distribution rights. Final source/reachability review still binds the eventual immutable candidate.

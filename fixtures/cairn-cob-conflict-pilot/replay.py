@@ -10,7 +10,6 @@ import struct
 import subprocess
 import tempfile
 
-CAIRN_COMMIT = "70db8fe114910feb5d162fea5db8ad4ffdb6f176"
 CHANGE = "exercise-cairn-cob-conflict-recovery"
 HERE = Path(__file__).resolve().parent
 
@@ -57,7 +56,7 @@ def nickel(value, depth=0):
     return json.dumps(value, ensure_ascii=False)
 
 
-def capture(cairn, scratch, output):
+def capture(cairn, source_revision, scratch, output):
     evidence = output / "evidence"
     evidence.mkdir(parents=True, exist_ok=True)
     (output / "heads").mkdir(exist_ok=True)
@@ -99,8 +98,9 @@ def capture(cairn, scratch, output):
     source = scratch / "source-root"
     init(source)
     shutil.copytree(HERE / "inputs", source, dirs_exist_ok=True)
-    (source / "cairn-policy/generated/cairn-policy.json").write_bytes(
-        run(["nickel", "export", "--format", "json", source / "cairn-policy/default.ncl"]))
+    policy = source / "cairn-policy/generated/cairn-policy.json"
+    policy.parent.mkdir(parents=True, exist_ok=True)
+    policy.write_bytes((HERE.parents[1] / "cairn-policy/generated/cairn-policy.json").read_bytes())
     git(source, "add", ".")
     env = os.environ.copy()
     env.update(GIT_AUTHOR_DATE="2026-11-12T00:00:00Z", GIT_COMMITTER_DATE="2026-11-12T00:00:00Z")
@@ -140,7 +140,7 @@ def capture(cairn, scratch, output):
     for label, root, store, key in [("creator", source, creator_store, creator_key),
                                     ("delegate", delegated, delegate_store, delegate_key)]:
         tasks = HERE / "heads" / f"{label}-tasks.md"
-        shutil.copyfile(tasks, root / "cairn/changes" / CHANGE / "tasks.md")
+        shutil.copyfile(tasks, root / ".cairn/changes" / CHANGE / "tasks.md")
         if tasks != output / "heads" / tasks.name:
             shutil.copyfile(tasks, output / "heads" / tasks.name)
         preview = cli(f"{label}-update-preview.json", "collaboration", "update", root, store, key)
@@ -188,7 +188,7 @@ def capture(cairn, scratch, output):
     git(convergence, "bundle", "create", bundle, "refs/heads/main", creator_ref, delegate_ref)
     transport(reload_store, bundle, "+refs/heads/main:refs/heads/main",
               "+refs/namespaces/*:refs/namespaces/*")
-    shutil.rmtree(third / "cairn/changes" / CHANGE)
+    shutil.rmtree(third / ".cairn/changes" / CHANGE)
     before = cli("status-third-before-checkout.json", "collaboration", "status", third, reload_store)
     assert before["local_destination"] == "absent"
     conflicts = cli("conflicts-resolved-third.json", "collaboration", "conflicts", third, reload_store)
@@ -199,12 +199,12 @@ def capture(cairn, scratch, output):
     assert checkout["post_checkout_destination"] == "current"
     after = cli("status-third-after-checkout.json", "collaboration", "status", third, reload_store)
     assert after["lifecycle"]["condition"] == "stale", after["lifecycle"]
-    assert (third / "cairn/changes" / CHANGE / "tasks.md").read_bytes() == (output / "heads/creator-tasks.md").read_bytes()
+    assert (third / ".cairn/changes" / CHANGE / "tasks.md").read_bytes() == (output / "heads/creator-tasks.md").read_bytes()
     remotes = [git(store, "remote").splitlines() for store in (creator_store, convergence, reload_store)]
     assert remotes == [[], [], []]
     transport_receipt = {
         "schema": "octet.cairn-cob-conflict-transport.v1", "commands": transport_commands,
-        "backend": "radicle-cob.v1", "change": CHANGE, "cairn_commit": CAIRN_COMMIT,
+        "backend": "radicle-cob.v1", "change": CHANGE, "cairn_commit": source_revision,
         "octet_base_git_oid": base, "object_id": obj,
         "creator": {"actor": creator_actor, "ref_name": creator_ref,
                     "conflict_target": creator_oid, "resolved_target": git(reload_store, "rev-parse", creator_ref)},
@@ -233,7 +233,7 @@ def capture(cairn, scratch, output):
              for target, ref in (line.split() for line in git(convergence, "bundle", "list-heads", bundle).splitlines())]
     manifest = {
         "schema": "octet.cairn-cob-conflict-pilot.v1", "change": CHANGE, "workspace_id": "workspace:octet",
-        "backend": "radicle-cob.v1", "cairn_commit": CAIRN_COMMIT, "octet_base_git_oid": base,
+        "backend": "radicle-cob.v1", "cairn_commit": source_revision, "octet_base_git_oid": base,
         "policy_hash": imported["policy_hash"], "object_id": obj,
         "root_operation_id": imported["operation_id"], "root_content_root": imported["content_root"],
         "root_state_hash": imported["state_hash"],
@@ -255,7 +255,7 @@ def capture(cairn, scratch, output):
     (output / "manifest.json").write_bytes(run(["nickel", "export", "--format", "json", output / "manifest.ncl"]))
     (output / "replay-commands.json").write_text(json.dumps(commands, indent=2) + "\n")
     provenance = {
-        "source_revision": CAIRN_COMMIT,
+        "source_revision": source_revision,
         "executable": str(Path(cairn).resolve()),
         "executable_blake3": digest(Path(cairn)),
         "observation_kind": "fresh signed CLI capture; not a historical receipt migration",
@@ -273,6 +273,7 @@ def capture(cairn, scratch, output):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cairn", required=True)
+    parser.add_argument("--cairn-source-revision", required=True)
     parser.add_argument("--output", type=Path, required=True)
     options = parser.parse_args()
     output = options.output.resolve()
@@ -282,7 +283,7 @@ def main():
         scratch = Path(directory)
         captured = scratch / "captured"
         captured.mkdir()
-        capture(options.cairn, scratch, captured)
+        capture(options.cairn, options.cairn_source_revision, scratch, captured)
         shutil.copytree(captured, output, dirs_exist_ok=True)
 
 

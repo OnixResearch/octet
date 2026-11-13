@@ -2,7 +2,7 @@
 
 Octet can place one native Cairn change in Cairn's local signed Git COB format without joining a Radicle network. This is an operator-selected collaboration backend, not an Octet runtime dependency.
 
-Use the sibling or packaged Cairn CLI that includes backend `radicle-cob.v1`. Every command must name the lifecycle root and Git COB repository explicitly. Mutation commands additionally require an explicit OpenSSH Ed25519 keystore directory containing `radicle` and `radicle.pub`.
+Use Octet's packaged Cairn CLI with backend `radicle-cob.v1`, built from the corrected source identity recorded by the release cohort and both fixture manifests. The provider must admit genuine canonical Ed25519 `z6Mk…` creator/delegate identities without relabelling them as portable `actor:` labels. An arbitrary sibling executable or historical fixture producer is not a qualified substitute. Every command must name the lifecycle root and Git COB repository explicitly. Mutation commands additionally require an explicit OpenSSH Ed25519 keystore directory containing `radicle` and `radicle.pub`.
 
 ## Boundaries
 
@@ -15,6 +15,27 @@ The provider:
 - reports conflicts without choosing a winner.
 
 The provider does **not** load Radicle profiles or identity documents, run a node, discover peers, seed, announce, connect, fetch, publish, synchronize, or prove convergence. Repository-local `user.name` and `user.email` supply Git display metadata only and grant no authority.
+
+## Provider qualification
+
+Build the source-only Nix provider from this checkout with `nix build .#cairn`.
+The two fixture manifests must name that same immutable source revision before
+their observations can support a release candidate. Their capture helpers accept
+an explicit matching executable and `--cairn-source-revision`; the integrating
+owner qualifies that pairing before capture. Neither a caller-supplied revision
+string nor a successful local package build is itself source qualification.
+
+Fresh capture uses temporary external Ed25519 keys, a new parentless minimal Git
+base, current generated Octet policy bytes and native `.cairn/changes/` paths.
+It does not import quarantined Octet ancestry, patch historical receipts or sample
+new keys to force a convenient head order. Provider regression controls must
+retain malformed-key and unauthorized-actor negatives, ordinary same-basis
+conflict refusal, signature verification and exact complete resolution parents.
+
+Pending upstream validation, native lifecycle gates, owner approval, immutable
+source integration and downstream fixture checks remain release blockers; local
+signed observations do not discharge them.
+
 
 ## Prepare explicit local state
 

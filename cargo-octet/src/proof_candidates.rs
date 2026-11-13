@@ -1005,10 +1005,6 @@ pub(crate) fn run_record_negative_check(args: &NegativeCheckArgs, output_format:
 /// Records a v2 negative-control record using the explicit typed verifier evidence at
 /// `verifier_evidence`. The recorder measures both source and deck bytes, binds both proof cards,
 /// and recomputes the decision from the retained artifacts.
-#[allow(
-    clippy::too_many_lines,
-    reason = "the negative-check path keeps deck loading, card binding, measurement, and report writing in one auditable sequence"
-)]
 pub(crate) fn run_record_negative_check_with_evidence(
     args: &NegativeCheckArgs,
     verifier_evidence: Option<&Path>,
@@ -1041,7 +1037,40 @@ pub(crate) fn run_record_negative_check_with_evidence(
     }
     let baseline_index = baseline_positions[0];
     let baseline_card = &baseline_deck.cards[baseline_index];
-    let mutant_positions = deck_card_positions(&mutant_deck, &args.proof_or_property_id);
+    let record = build_negative_record(
+        args,
+        verifier_evidence,
+        baseline_card,
+        &mutant_deck,
+        (baseline_deck_blake3, mutant_deck_blake3),
+    )?;
+
+    let output_path = write_negative_record(args, verifier_evidence, &mut baseline_value, baseline_index, &record)?;
+    let report = NegativeCheckReport {
+        schema_version: NEGATIVE_CHECK_SCHEMA_VERSION.to_owned(),
+        proof_or_property_id: args.proof_or_property_id.clone(),
+        status: record.status.clone(),
+        mutant_source: args.mutant_source.clone(),
+        mutant_cards: args.mutant_cards.display().to_string(),
+        deck: output_path.display().to_string(),
+        verifier_evidence: verifier_evidence.map(|path| path.display().to_string()),
+        measurement: record.measured.clone(),
+        diagnostics: record.diagnostics.clone(),
+        non_claims: vec![NEGATIVE_CHECK_NON_CLAIM.to_owned()],
+    };
+    print_negative_check_report(output_format, &report)?;
+    Ok(i32::from(record.status != NEGATIVE_STATUS_DEMONSTRATED))
+}
+
+fn build_negative_record(
+    args: &NegativeCheckArgs,
+    verifier_evidence: Option<&Path>,
+    baseline_card: &proof_ref::ProofCard,
+    mutant_deck: &proof_ref::ProofCardDeck,
+    deck_blake3: (String, String),
+) -> Result<proof_ref::ProofCardNegativeCheck, String> {
+    let (baseline_deck_blake3, mutant_deck_blake3) = deck_blake3;
+    let mutant_positions = deck_card_positions(mutant_deck, &args.proof_or_property_id);
     let mut diagnostics = Vec::new();
     let mutant_card = if let [index] = mutant_positions.as_slice() {
         Some(&mutant_deck.cards[*index])
@@ -1053,7 +1082,6 @@ pub(crate) fn run_record_negative_check_with_evidence(
         ));
         None
     };
-
     let evidence = match verifier_evidence {
         Some(path) => Some(proof_ref::read_negative_check_evidence(path)?),
         None => None,
@@ -1082,6 +1110,15 @@ pub(crate) fn run_record_negative_check_with_evidence(
         evidence,
         measured,
     };
+    apply_negative_verdict(&mut record, baseline_card, diagnostics);
+    Ok(record)
+}
+
+fn apply_negative_verdict(
+    record: &mut proof_ref::ProofCardNegativeCheck,
+    baseline_card: &proof_ref::ProofCard,
+    mut diagnostics: Vec<String>,
+) {
     let expected = proof_ref::NegativeControlExpectation {
         proof_or_property_id: &baseline_card.proof_or_property_id,
         source_requirement_or_policy_id: &baseline_card.source_requirement_or_policy_id,
@@ -1096,13 +1133,21 @@ pub(crate) fn run_record_negative_check_with_evidence(
         baseline_source_paths: &baseline_card.source_paths,
         require_readable_artifacts: true,
     };
-    let verdict = proof_ref::negative_control_verdict(&record, &expected);
+    let verdict = proof_ref::negative_control_verdict(record, &expected);
     record.status = verdict.status.to_owned();
     diagnostics.extend(verdict.problems);
     diagnostics.sort();
     diagnostics.dedup();
-    record.diagnostics = diagnostics.clone();
+    record.diagnostics = diagnostics;
+}
 
+fn write_negative_record<'a>(
+    args: &'a NegativeCheckArgs,
+    verifier_evidence: Option<&Path>,
+    baseline_value: &mut serde_json::Value,
+    baseline_index: usize,
+    record: &proof_ref::ProofCardNegativeCheck,
+) -> Result<&'a Path, String> {
     let Some(card) = baseline_value
         .get_mut("cards")
         .and_then(serde_json::Value::as_array_mut)
@@ -1113,7 +1158,7 @@ pub(crate) fn run_record_negative_check_with_evidence(
     };
     card.insert(
         "negative_check".to_owned(),
-        serde_json::to_value(&record).map_err(|error| format!("serialize negative check: {error}"))?,
+        serde_json::to_value(record).map_err(|error| format!("serialize negative check: {error}"))?,
     );
     let output_path = args.output.as_ref().unwrap_or(&args.proof_cards);
     if paths_alias(output_path, &args.mutant_cards) {
@@ -1124,24 +1169,10 @@ pub(crate) fn run_record_negative_check_with_evidence(
     {
         return Err("negative-check output must not overwrite the verifier evidence input".to_owned());
     }
-    let text = serde_json::to_string_pretty(&baseline_value)
-        .map_err(|error| format!("serialize proof cards: {error}"))?
-        + "\n";
+    let text =
+        serde_json::to_string_pretty(baseline_value).map_err(|error| format!("serialize proof cards: {error}"))? + "\n";
     fs::write(output_path, text).map_err(|error| format!("write {}: {error}", output_path.display()))?;
-    let report = NegativeCheckReport {
-        schema_version: NEGATIVE_CHECK_SCHEMA_VERSION.to_owned(),
-        proof_or_property_id: args.proof_or_property_id.clone(),
-        status: record.status.clone(),
-        mutant_source: args.mutant_source.clone(),
-        mutant_cards: args.mutant_cards.display().to_string(),
-        deck: output_path.display().to_string(),
-        verifier_evidence: verifier_evidence.map(|path| path.display().to_string()),
-        measurement: record.measured.clone(),
-        diagnostics,
-        non_claims: vec![NEGATIVE_CHECK_NON_CLAIM.to_owned()],
-    };
-    print_negative_check_report(output_format, &report)?;
-    Ok(i32::from(record.status != NEGATIVE_STATUS_DEMONSTRATED))
+    Ok(output_path)
 }
 
 fn check_negative_deck_schema(deck: &serde_json::Value, path: &Path) -> Result<(), String> {

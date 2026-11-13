@@ -49,7 +49,7 @@ in
       profile_id = "octet-pure-core-laws-v1",
       producer = {
         package = "cargo-octet",
-        package_version = "0.1.0",
+        package_version = "0.1.1-rc.1",
         binary_target = "lib-test",
         hegel_version = "0.14.27",
         backend = "native",

@@ -72,27 +72,24 @@ fn directory_display(path: &Path) -> String {
 }
 
 impl EarlyLintPass for ModuleFileCount {
-    fn check_crate(&mut self, cx: &EarlyContext<'_>, _krate: &Crate) {
+    fn check_crate(&mut self, cx: &EarlyContext<'_>, krate: &Crate) {
         let mut by_directory: BTreeMap<PathBuf, Vec<ModuleFile>> = BTreeMap::new();
         let workspace_root = crate::source::workspace_root();
 
-        for source_file in cx.sess().source_map().files().iter() {
-            if !crate::source::is_local(source_file) {
-                continue;
-            }
+        crate::source::for_each_parsed_file(cx.sess().source_map(), krate, |source_file| {
             let path = crate::source::normalize_path(&crate::source::source_file_path(source_file));
             if !is_countable_workspace_rust_source(&path, &workspace_root) {
-                continue;
+                return;
             }
             let Some(parent) = path.parent() else {
-                continue;
+                return;
             };
 
             by_directory.entry(parent.to_path_buf()).or_default().push(ModuleFile {
                 path,
                 span: Span::new(source_file.start_pos, source_file.end_position(), SyntaxContext::root(), None),
             });
-        }
+        });
 
         for (directory, mut files) in by_directory {
             let count = files.len();

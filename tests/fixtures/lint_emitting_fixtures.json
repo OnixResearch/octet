@@ -21,15 +21,15 @@
   },
   {
     "lint_name": "excessive_file_length",
-    "fixture": "excessive_file_length"
+    "fixture": "file_source_admission_parsed"
   },
   {
     "lint_name": "module_file_count",
-    "fixture": "module_file_count"
+    "fixture": "file_source_admission_parsed"
   },
   {
     "lint_name": "underscore_in_module_filename",
-    "fixture": "underscore_in_module_filename"
+    "fixture": "file_source_admission_parsed"
   },
   {
     "lint_name": "non_trait_imports",

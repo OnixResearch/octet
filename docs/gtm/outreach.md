@@ -1,76 +1,67 @@
-# Outreach copy
+# Octet 0.1.1-rc.1 outreach drafts
 
-Use these variants only after [launch-checklist.md](launch-checklist.md) is
-green. Disclose that you maintain Octet. Do not ask for votes, stars, or
-upvotes. Do not astroturf a channel or post the same text repeatedly.
+**Not approved for publication.** Use these variants only after the required
+[launch checklist](launch-checklist.md), lifecycle, and owner approvals. The
+planned immutable candidate tag is `v0.1.1-rc.1`; candidate qualification and
+publication are not established here. Do not move or reuse `v0.1.0`.
 
-Replace `<PINNED_URL>` with:
-
-```text
-https://github.com/OnixResearch/octet-public/blob/becae9621fdf96803c7859e83d303cf535f20b15
-```
-
-Replace `<SITE_URL>` with an owned live product site, or omit it while the
-repository README is canonical. Do not reference an unowned domain such as
-`octet.dev`.
+Disclose that you maintain Octet. Follow each channel's self-promotion rules;
+do not ask for votes, stars, or repeat-post the same announcement. All links
+use the sole canonical source/release/support home, `OnixResearch/octet`.
+The old `octet-public` cohort remains blocked and unsupported, not an alternate
+route. No custom website/domain is part of this release.
 
 ## Show HN
 
 **Title**
 
 ```text
-Show HN: Octet – evidence-backed checks for Rust systems code
+Show HN: Octet – reviewable evidence for Rust checks
 ```
 
 **Body**
 
 ```text
-I maintain Octet, a checked path for Rust systems code. It runs pinned Dylint
-lint families and checked-in policy, then writes local evidence that a CI or
-release gate can review.
+I maintain Octet, an evidence-backed checked path for agent-written and
+human-written Rust systems code. It runs pinned Dylint checks and checked-in
+policy, then writes local evidence a CI or release gate can review.
 
-The problem I kept running into: a green build and a wall of lint output do not
-tell a reviewer what was checked, against which policy, on which source scope,
-or whether the saved artifacts still verify.
+A check can write status.json, summary.txt, SARIF or JSONL findings, and
+provenance.jsonl. A separate artifact verifier checks saved identities; it does
+not turn lint cleanliness into proof of whole-program correctness.
 
-Octet runs on existing Rust without a rewrite. A check can write status.json,
-summary.txt, results.sarif or results.jsonl, and provenance.jsonl to a local
-artifact directory. `cargo octet artifact verify` recomputes the saved sidecar
-identities and fails closed on stale or malformed evidence.
+The 0.1.1-rc.1 candidate targets source-only Nix on x86_64-linux, with pinned
+nightly Rust/Dylint and AGPL-3.0-or-later licensing. There is no crates.io,
+prebuilt binary, custom website, or required hosted verification service.
+Optional proof rails remain scoped and separate from starter lint evidence.
 
-The public release is source-only and pinned through Nix:
-  nix run github:OnixResearch/octet-public/becae9621fdf96803c7859e83d303cf535f20b15#cargo-octet -- --version
+Start with one owned crate, a reviewed committed Cargo.lock, and the first
+checked patch walkthrough. Capture actual warnings and artifacts rather than
+assuming a warning-only exit means zero findings. I would value feedback on
+setup friction and whether the saved evidence helps your review.
 
-What it is not: a new language, a Rust replacement, a whole-program verifier, a
-certification, or a hosted service. It is `AGPL-3.0-or-later`, and it currently
-uses Dylint plus a pinned nightly toolchain. Direct Cargo use is an advanced
-path; Nix is the supported public install.
-
-I would value feedback from people who maintain a real Rust release gate:
-- Does the checked path match how you review patches?
-- Is the artifact bundle useful, or is it more evidence than you want?
-- Where does the install or setup break?
-
-Docs: <PINNED_URL>/README.md
-Trust boundary: <PINNED_URL>/docs/trust-boundary-evidence.md
+Canonical source, qualification status, and walkthrough:
+https://github.com/OnixResearch/octet
+Trust boundary:
+https://github.com/OnixResearch/octet/blob/v0.1.1-rc.1/docs/trust-boundary-evidence.md
 ```
 
 **First comment**
 
 ```text
-Maintainer here. A few boundaries up front so the discussion is useful:
+Maintainer here. The claim boundaries matter:
 
-- The default path is static lint and policy evidence, not proof of correctness.
-- Optional Verus/Lean/Kani rails exist, but they are scoped and opt-in.
-- The public cohort is source-only; there is no crates.io or binary release yet.
-- The full flake check was not claimed for the reviewed cohort; the release
-  checklist names exactly which receipts ran.
-- Starter noise is real. The archived Aspen phase-1 rollout produced six
-  ambient_clock findings on three starter packages. That is bounded historical
-  evidence, not a universal noise guarantee.
+- Static lint/policy evidence is not a correctness, security, or certification claim.
+- Optional proof receipts cover only their declared property and source/model.
+- Candidate evidence must bind the actual full source revision and toolchain;
+  old public-export receipts do not qualify this source.
+- Historical Aspen rollout results are scoped archive observations, not a
+  guarantee about current Aspen or another consumer's finding count.
+- Support is best-effort, with no response SLA or historical-pin LTS promise.
 
-Happy to answer questions about the evidence format, Dylint tradeoff, or the
-release boundaries.
+Please report redacted reproduction details at:
+https://github.com/OnixResearch/octet/issues
+For vulnerabilities, use SECURITY.md and do not disclose exploits publicly.
 ```
 
 ## r/rust
@@ -78,246 +69,135 @@ release boundaries.
 **Title**
 
 ```text
-Octet 0.1.0: an evidence-backed checked path for Rust systems code
+Octet 0.1.1-rc.1: a checked path from Rust source to reviewable evidence
 ```
 
 **Body**
 
 ```text
-I maintain Octet, a Rust-compatible checked path for teams that need a release
-gate to point at reviewable evidence.
+I maintain Octet, a Rust-compatible checked path for teams that want a CI gate
+to point at inspectable evidence rather than only a terminal log.
 
-It applies 77 Dylint lints across safety, naming, performance, structure,
-purity, and concurrency; reads checked-in `dylint.toml` and workspace policy;
-and writes local artifacts (`status.json`, SARIF or JSONL, provenance, and a
-summary). A separate command verifies the saved bundle and fails closed on
-stale or inconsistent evidence.
+It combines 77 Dylint lint checks across six domains with checked-in policy,
+local artifact bundles, and an artifact verifier. It is not a new language,
+a Rust replacement, or a whole-program verifier. Use Clippy, Miri, and scoped
+verifiers for their own questions; Octet does not replace them.
 
-It is not a new language or a whole-program verifier. It is also not a
-replacement for Clippy, Miri, Kani, or Verus. The claim is narrower: the
-selected checks ran, against the selected policy and scope, and the evidence can
-be reviewed.
+The 0.1.1-rc.1 candidate is source-only Nix on x86_64-linux, with pinned nightly
+Rust/Dylint and AGPL-3.0-or-later licensing. Direct Cargo is an advanced developer
+path, not the supported release install. Candidate qualification status and
+source-bound receipts live in the canonical repository.
 
-The supported public channel is source-only and pinned through Nix:
-  nix run github:OnixResearch/octet-public/becae9621fdf96803c7859e83d303cf535f20b15#cargo-octet -- --version
+Start with the walkthrough: commit the reviewed consumer lockfile, capture a
+deliberately denied unchecked division, apply the guarded fix under identical
+scope/config, verify the saved bundles, and reject a tampered copy. Then try one
+owned package in an independent workspace without hiding actual warnings.
 
-The project is `AGPL-3.0-or-later` and uses Dylint plus a pinned nightly
-toolchain. Direct Cargo use is documented as advanced.
-
-I am especially interested in feedback from people who maintain CI gates for
-Rust systems code: is the artifact model useful, and where does setup get in the
-way?
-
-Repository: <PINNED_URL>
-Trust boundary: <PINNED_URL>/docs/trust-boundary-evidence.md
+Repository and current qualification status:
+https://github.com/OnixResearch/octet
+Walkthrough after candidate tag publication:
+https://github.com/OnixResearch/octet/blob/v0.1.1-rc.1/docs/examples/first-checked-rust-patch/README.md
 ```
 
 ## This Week in Rust / Rust Weekly
 
-**Submission blurb**
-
 ```text
-Octet 0.1.0 is an evidence-backed checked path for Rust systems code. It runs
-77 Dylint lints across six domains plus checked-in policy, writes local SARIF or
-JSONL evidence with provenance, and verifies the saved artifact bundle before a
-CI or release gate uses it. The public channel is a pinned source-only export
-and the project is AGPL-3.0-or-later. Optional proof rails stay scoped; the
-default path does not claim whole-program correctness.
-<PINNED_URL>
+Octet 0.1.1-rc.1 is a candidate checked path for existing Rust systems code:
+pinned Dylint lint checks, checked-in policy, local findings/provenance, and
+artifact verification. It targets source-only Nix on x86_64-linux with pinned
+nightly Rust and AGPL-3.0-or-later licensing. Proof rails are optional/scoped;
+static cleanliness is not whole-program correctness. See the canonical
+repository for qualification status and the first checked patch:
+https://github.com/OnixResearch/octet
 ```
 
-## X / Twitter thread
-
-**Post 1**
+## Short social post
 
 ```text
-Rust review is the bottleneck.
-
-A green build does not tell a reviewer what ran, against which policy, or
-whether the evidence still verifies.
-
-Octet 0.1.0 is an evidence-backed checked path for existing Rust.
-<PINNED_URL>
+I maintain Octet. The 0.1.1-rc.1 candidate checks existing Rust with pinned lint
+and policy inputs, then writes local evidence your CI/reviewer can inspect.
+Source-only Nix, x86_64-linux, nightly/Dylint, AGPL-3.0-or-later. Bounded claims,
+not whole-program proof. Qualification status and walkthrough:
+https://github.com/OnixResearch/octet
 ```
 
-**Post 2**
+## Professional-network post
 
 ```text
-The path:
+I maintain Octet, a checked path for agent-written and human-written Rust.
+The review question is not only "did the build pass?" It is "which checks ran,
+against which policy and scope, and can we verify the saved evidence?"
 
-Rust source
--> cargo octet check
--> checked-in policy
--> evidence artifacts
--> artifact verification
--> CI or release gate
+The 0.1.1-rc.1 candidate combines pinned Dylint checks, checked-in policy, local
+SARIF/JSONL evidence and provenance, and an artifact verifier. Initial support
+is source-only Nix on x86_64-linux with pinned nightly Rust/Dylint and
+AGPL-3.0-or-later licensing. No hosted upload service is required.
 
-77 Dylint lints, six domains, three strict profiles.
+It does not establish whole-program correctness, certification, or release
+eligibility. I am interested in bounded evaluations on one owned crate, with
+actual findings and an inspectable artifact bundle—not a testimonial or a
+zero-noise promise. Support is best-effort.
+
+Canonical source, qualification status, and walkthrough:
+https://github.com/OnixResearch/octet
 ```
 
-**Post 3**
+## Design-partner invitation
+
+**Subject:** A bounded Rust release-evidence evaluation?
 
 ```text
-A run can write:
-
-- status.json
-- summary.txt
-- results.sarif or results.jsonl
-- provenance.jsonl
-
-Then `cargo octet artifact verify` recomputes the saved identities and fails
-closed on stale or malformed evidence.
-```
-
-**Post 4**
-
-```text
-What it is not:
-
-- not a new language
-- not a Rust replacement
-- not a whole-program verifier
-- not a certification
-- not a hosted service
-
-Optional proof rails are scoped and opt-in.
-```
-
-**Post 5**
-
-```text
-Public channel is source-only and pinned:
-
-nix run github:OnixResearch/octet-public/becae9621fdf96803c7859e83d303cf535f20b15#cargo-octet -- --version
-
-AGPL-3.0-or-later. Dylint plus a pinned nightly toolchain. Nix is the supported
-public install; direct Cargo is advanced.
-```
-
-## LinkedIn
-
-```text
-Rust teams are reviewing more patches than ever, including patches produced with
-coding agents. The hard question is not "did the build pass?" It is "what did we
-check, against which policy, on which scope, and can a reviewer verify the
-evidence?"
-
-Octet 0.1.0 is an evidence-backed checked path for existing Rust systems code.
-It runs 77 Dylint lints across six domains plus checked-in policy, writes local
-SARIF/JSONL evidence with provenance, and verifies the saved artifact bundle
-before a CI or release gate uses it.
-
-It is not a new language, a whole-program verifier, a certification, or a hosted
-service. The default path is static and policy evidence; optional proof rails
-stay scoped and opt-in.
-
-The public channel is a pinned source-only export and the project is
-AGPL-3.0-or-later.
-
-Repository: <PINNED_URL>
-```
-
-## Design-partner email
-
-**Subject**
-
-```text
-A bounded Rust release-evidence pilot?
-```
-
-**Body**
-
-```text
-Hi <name>,
-
 I maintain Octet, an evidence-backed checked path for Rust systems code. I am
-looking for a small number of teams with a real release gate to test it on one
-crate, warning-only, with a bounded scope.
+looking for teams willing to evaluate the 0.1.1-rc.1 candidate on one owned crate
+with an existing release gate, committed policy/config, and reviewed lockfile.
 
-The evaluation would be:
+The evaluation is bounded: run the pinned canonical source, retain actual
+findings, verify the saved bundle, and decide whether the evidence is useful.
+No migration commitment and no public case study or naming without permission.
+No baseline or blanket lint disable will be used to present a cleaner result.
 
-1. Run the pinned public channel against one crate.
-2. Save the artifact bundle and verify it.
-3. Review the findings with you and decide whether the evidence is useful.
-4. Stop there. No migration commitment and no public case study without your
-   approval.
+The supported candidate setup is source-only Nix on x86_64-linux, pinned
+nightly Rust/Dylint, and AGPL-3.0-or-later. If those constraints do not fit, this
+is not the right cohort. Review is best-effort, with no response SLA.
 
-What I need from you: a crate, its current CI command, and 30 minutes to review
-the first result. What you get: a bounded read on whether the checked path fits
-your release review, plus a direct channel for setup problems.
-
-The project is AGPL-3.0-or-later and currently uses Nix, Dylint, and a pinned
-nightly toolchain. If that is a hard blocker, tell me and I will not push it.
-
-<name>
-<PINNED_URL>
+Would a short review of one scoped result be useful? Please do not send private
+source or receipts through a public issue. Qualification status and setup:
+https://github.com/OnixResearch/octet
 ```
 
-## Warm-introduction note
+Personalize greetings and signatures outside the published draft; no private
+recipient or contact list belongs in this repository.
+
+## Meetup / conference abstract
+
+**Title:** From Green Build to Reviewable Evidence: A Checked Path for Rust
 
 ```text
-<name> suggested I reach out. I maintain Octet, a checked path that turns Rust
-lint and policy runs into reviewable local evidence for a release gate. I am
-looking for one or two teams willing to run it warning-only on a single crate.
-No migration commitment; the goal is a bounded read on whether the evidence is
-useful. Would that be worth 30 minutes?
+A green build is a weak release argument. Reviewers still need to know what
+ran, against which policy, on which source scope, and whether the saved
+artifacts retain their identity.
+
+This talk demonstrates a bounded checked path for existing Rust: pinned static
+checks, checked-in policy, local artifact bundles, provenance, and artifact
+verification. It distinguishes lint findings, policy validation, and optional
+scoped proof receipts. A real first-patch capture supplies the example; no
+historical export receipt is relabelled as a fresh candidate run.
+
+The goal is smaller, inspectable claims—not a whole-program verification pitch.
+The source-only x86_64-linux Nix setup, nightly/Dylint tradeoff, and AGPL license
+are explicit adoption constraints.
 ```
 
-## Meetup / conference talk abstract
-
-**Title**
+## GitHub feedback prompt
 
 ```text
-From Green Build to Reviewable Evidence: A Checked Path for Rust Releases
+What happened on your first bounded Octet check? Please use the canonical issue
+template and provide full revision, platform, command, configured scope,
+expected/observed result, and redacted evidence. State any incomplete run or
+lockfile failure rather than reporting it as lint cleanliness.
+
+https://github.com/OnixResearch/octet/issues
+
+Support is best-effort. For vulnerabilities, follow SECURITY.md; do not post
+exploit details or private artifacts publicly.
 ```
-
-**Abstract**
-
-```text
-A green build is a weak release argument. Reviewers still need to know what ran,
-against which policy, on which source scope, and whether the saved evidence
-still verifies.
-
-This talk walks through an evidence-backed checked path for existing Rust: pinned
-static checks, checked-in policy, local artifact bundles, provenance, and
-artifact verification. It shows a first checked patch, a clean and a failing
-run, and the boundary between static lint evidence, policy evidence, and scoped
-formal-proof receipts.
-
-The goal is not another linter pitch. It is a practical model for making release
-claims smaller, inspectable, and harder to overstate.
-```
-
-**Takeaways**
-
-- A release gate should point at an artifact, not a terminal memory.
-- Static lint evidence, policy evidence, and formal proof are different tiers.
-- Existing Rust can adopt a checked path without a language rewrite.
-- The Dylint/nightly tradeoff and the AGPL license are real adoption constraints;
-  name them early.
-
-## GitHub launch discussion prompt
-
-```text
-After the blocked cohort is replaced and re-qualified, invite users to try
-Octet 0.1.0 and include:
-
-- the pinned public revision;
-- platform and Nix version;
-- the exact command and configured scope;
-- expected and observed behavior;
-- whether `cargo octet artifact verify` passed.
-
-Please keep vulnerability details out of public issues and use the security
-policy instead.
-```
-
-## Follow-up sequence
-
-| Timing | Action |
-| --- | --- |
-| T+1 | Thank early testers and ask for the exact command, not a general impression |
-| T+3 | Fix or document the first reproducible onboarding blocker |
-| T+7 | Publish a short "what we learned" note only if it has measured evidence |
-| T+14 | Ask design partners whether a second session is useful; do not ask for a testimonial |
-| T+30 | Close the loop with every design partner, including a "not a fit" outcome |

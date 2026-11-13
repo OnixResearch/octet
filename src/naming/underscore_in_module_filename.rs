@@ -112,13 +112,10 @@ impl EarlyLintPass for UnderscoreInModuleFilename {
             &source_map.lookup_source_file(krate.spans.inner_span.lo()),
         ));
 
-        for source_file in source_map.files().iter() {
-            if !crate::source::is_local(source_file) {
-                continue;
-            }
+        crate::source::for_each_parsed_file(source_map, krate, |source_file| {
             let path = crate::source::normalize_path(&crate::source::source_file_path(source_file));
             let Some((stem, replacement)) = should_warn(&path, &crate_root, &workspace_root, self.exceptions) else {
-                continue;
+                return;
             };
 
             emit_tiger_style_lint(
@@ -128,7 +125,7 @@ impl EarlyLintPass for UnderscoreInModuleFilename {
                 format!("module filename `{stem}.rs` contains an underscore; prefer `{replacement}`"),
                 "underscore_in_module_filename",
             );
-        }
+        });
     }
 }
 

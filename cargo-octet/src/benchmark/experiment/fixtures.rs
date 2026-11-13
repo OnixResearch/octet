@@ -1,16 +1,16 @@
 use super::evaluate::scope_identity;
 use super::model::AdoptionObservation;
 use super::model::AdoptionPhase;
+use super::model::AnalysisProfile;
 use super::model::Availability;
 use super::model::CacheState;
 use super::model::CompileStatus;
-use super::model::ExperimentCase;
-use super::model::ExperimentObservations;
-use super::model::ExperimentProfile;
+use super::model::CorpusCase;
 use super::model::MeasurementOrigin;
 use super::model::OBSERVATIONS_SCHEMA;
 use super::model::ObservationEnvironment;
 use super::model::ObservationScope;
+use super::model::ObservationSet;
 use super::model::ObservationStatus;
 use super::model::ObservedFinding;
 use super::model::ObservedSuppression;
@@ -24,7 +24,7 @@ const TARGET: &str = "x86_64-unknown-linux-gnu";
 
 type RecordedOutcome = (ObservationStatus, CompileStatus, bool, bool, bool, Option<&'static str>);
 
-pub(super) fn recorded_observations(profile: &ExperimentProfile) -> ExperimentObservations {
+pub(super) fn recorded_observations(profile: &AnalysisProfile) -> ObservationSet {
     let tool_availability = profile.tools.iter().map(tool_availability).collect::<Vec<_>>();
     let mut observations = Vec::new();
     for tool in &profile.tools {
@@ -54,7 +54,7 @@ pub(super) fn recorded_observations(profile: &ExperimentProfile) -> ExperimentOb
             adoption.push(recorded_adoption(profile, tool, selection, phase));
         }
     }
-    ExperimentObservations {
+    ObservationSet {
         schema_version: OBSERVATIONS_SCHEMA.to_owned(),
         profile_id: profile.profile_id.clone(),
         tool_availability,
@@ -91,7 +91,7 @@ fn tool_availability(tool: &ToolPin) -> ToolAvailability {
     }
 }
 
-fn recorded_case(tool: &ToolPin, case: &ExperimentCase) -> Option<ToolObservation> {
+fn recorded_case(tool: &ToolPin, case: &CorpusCase) -> Option<ToolObservation> {
     let tool_availability = tool_availability(tool);
     if tool_availability.status == Availability::Unavailable {
         return Some(unavailable_observation(tool, case, &tool_availability));
@@ -146,7 +146,7 @@ fn recorded_case(tool: &ToolPin, case: &ExperimentCase) -> Option<ToolObservatio
     })
 }
 
-fn outcome_for(tool: &ToolPin, case: &ExperimentCase) -> Option<RecordedOutcome> {
+fn outcome_for(tool: &ToolPin, case: &CorpusCase) -> Option<RecordedOutcome> {
     let completed = |finding, suppressed, suppression| {
         Some((ObservationStatus::Completed, CompileStatus::Compiled, finding, suppressed, suppression, None))
     };
@@ -212,7 +212,7 @@ fn outcome_for(tool: &ToolPin, case: &ExperimentCase) -> Option<RecordedOutcome>
     }
 }
 
-fn unavailable_observation(tool: &ToolPin, case: &ExperimentCase, availability: &ToolAvailability) -> ToolObservation {
+fn unavailable_observation(tool: &ToolPin, case: &CorpusCase, availability: &ToolAvailability) -> ToolObservation {
     let stdout = String::new();
     ToolObservation {
         observation_id: format!("{}:{}:{}", tool.tool_id, case.task_id, case.case_id),
@@ -242,7 +242,7 @@ fn unavailable_observation(tool: &ToolPin, case: &ExperimentCase, availability: 
 }
 
 fn recorded_adoption(
-    profile: &ExperimentProfile,
+    profile: &AnalysisProfile,
     tool: &ToolPin,
     selection: &str,
     phase: AdoptionPhase,
@@ -300,7 +300,7 @@ fn recorded_environment_for(cache_state: CacheState) -> ObservationEnvironment {
     }
 }
 
-fn scope_for(case: &ExperimentCase) -> ObservationScope {
+fn scope_for(case: &CorpusCase) -> ObservationScope {
     let selected_sources = case.scope.selected_sources.clone();
     let analyzed_sources = if case.scope.empty {
         Vec::new()

@@ -45,6 +45,8 @@
     "fallible_int_fallback_no_std",
     "fat_trait",
     "fat_trait_within_limit",
+    "file_source_admission_data",
+    "file_source_admission_parsed",
     "float_for_currency",
     "foreign_enum_catch_all",
     "foreign_enum_catch_all_macro",

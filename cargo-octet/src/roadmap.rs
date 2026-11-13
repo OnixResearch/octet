@@ -258,7 +258,7 @@ fn parse_capsule(args: &[String]) -> Result<RoadmapCommand, String> {
                 &["--capsule", "--observed", "--inputs", "--receipt", "--output-format"],
                 &["--execute"],
             )?;
-            let execute = flags.switch("--execute");
+            let is_executed = flags.switch("--execute");
             let observed = flags.take_optional("--observed").map(PathBuf::from);
             let inputs = flags.take_optional("--inputs").map(PathBuf::from);
             let receipt = flags.take_optional("--receipt").map(PathBuf::from);
@@ -267,25 +267,25 @@ fn parse_capsule(args: &[String]) -> Result<RoadmapCommand, String> {
                 .map(|format| ReplayOutputFormat::parse(&format))
                 .transpose()?
                 .unwrap_or(ReplayOutputFormat::Json);
-            if execute && observed.is_some() {
+            if is_executed && observed.is_some() {
                 return Err(
                     "`--execute` and `--observed` are mutually exclusive; executed replay collects its own observations"
                         .to_owned(),
                 );
             }
-            if !execute && observed.is_none() {
+            if !is_executed && observed.is_none() {
                 return Err("missing `--observed`; pass `--observed PATH` to compare supplied observations or `--execute` to run the reviewed profile".to_owned());
             }
-            if !execute && inputs.is_some() {
+            if !is_executed && inputs.is_some() {
                 return Err("`--inputs` requires `--execute`".to_owned());
             }
-            if !execute && receipt.is_some() {
+            if !is_executed && receipt.is_some() {
                 return Err("`--receipt` requires `--execute`".to_owned());
             }
             Ok(RoadmapCommand::CapsuleReplay {
                 capsule: flags.take_path("--capsule")?,
                 observed,
-                execute,
+                execute: is_executed,
                 inputs,
                 receipt,
                 output_format,
@@ -840,6 +840,8 @@ struct ReviewedProfile {
     failure_contracts: &'static [FailureContract],
 }
 
+const EXECUTION_ENVIRONMENT_ALLOWLIST: &[&str] = &["PATH", "TMPDIR", "HOME", "LANG", "LC_ALL"];
+
 const FINGERPRINT_PRODUCTION_PROFILE: ReviewedProfile = ReviewedProfile {
     id: "fingerprint-production-v1",
     run_kind: "fingerprint",
@@ -848,7 +850,7 @@ const FINGERPRINT_PRODUCTION_PROFILE: ReviewedProfile = ReviewedProfile {
     argv0_aliases: &["octet", "cargo-octet", "cargo"],
     argv_prefix: &[ArgTemplate::Literal("fingerprint"), ArgTemplate::Literal("--check")],
     argv_per_input: &[ArgTemplate::InputPath],
-    environment_allowlist: &["PATH", "TMPDIR", "HOME", "LANG", "LC_ALL"],
+    environment_allowlist: EXECUTION_ENVIRONMENT_ALLOWLIST,
     fixed_environment: &[("NO_COLOR", "1"), ("RUST_BACKTRACE", "0")],
     capabilities: &[
         "process-execute:self-octet-binary",
@@ -878,7 +880,7 @@ const CHECK_PROFILE: ReviewedProfile = ReviewedProfile {
     argv0_aliases: &["octet-check-probe"],
     argv_prefix: &[ArgTemplate::Literal("--output-dir"), ArgTemplate::OutputDirectory],
     argv_per_input: &[ArgTemplate::Literal("--input"), ArgTemplate::InputBinding],
-    environment_allowlist: &["PATH", "TMPDIR", "HOME", "LANG", "LC_ALL"],
+    environment_allowlist: EXECUTION_ENVIRONMENT_ALLOWLIST,
     fixed_environment: &[("NO_COLOR", "1"), ("RUST_BACKTRACE", "0")],
     capabilities: &[
         "process-execute:declared-workspace-executable",
@@ -907,19 +909,14 @@ const REVIEWED_PROFILES: [&ReviewedProfile; 2] = [&CHECK_PROFILE, &FINGERPRINT_P
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ExecutionInputsDocument {
-    #[serde(default)]
     schema_version: Option<u64>,
-    #[serde(default)]
     profile: Option<String>,
-    #[serde(default)]
     executable: Option<String>,
-    #[serde(default)]
+    #[serde(default = "BTreeMap::new")]
     inputs: BTreeMap<String, String>,
-    #[serde(default)]
     config_hash: Option<String>,
-    #[serde(default)]
     nix_closure_identity: Option<String>,
-    #[serde(default)]
+    #[serde(default = "BTreeMap::new")]
     environment: BTreeMap<String, String>,
 }
 
@@ -966,9 +963,28 @@ struct PreparedExecution {
     pre_execution_drifts: Vec<Drift>,
 }
 
-enum Preparation {
-    Ready(Box<PreparedExecution>),
-    Failed { reason: &'static str, detail: String },
+enum PreparationError {
+    Unsupported { reason: &'static str, detail: String },
+    Invalid(String),
+}
+
+impl From<String> for PreparationError {
+    fn from(detail: String) -> Self {
+        Self::Invalid(detail)
+    }
+}
+
+fn unsupported(reason: &'static str, detail: impl Into<String>) -> PreparationError {
+    PreparationError::Unsupported {
+        reason,
+        detail: detail.into(),
+    }
+}
+
+struct ExecutionContext<'a> {
+    workspace: &'a Path,
+    local_roots: &'a LocalRoots,
+    environment: &'a [(OsString, OsString)],
 }
 
 enum DeclaredPath {
@@ -1078,15 +1094,13 @@ fn named_hash_map(value: Option<&Value>, field: &str) -> Result<BTreeMap<String,
             "capsule {field} must be a JSON object mapping names to `{BLAKE3_IDENTITY_PREFIX}` identities for executed replay"
         ));
     };
-    let mut identities = BTreeMap::new();
-    for (name, value) in map {
-        let Some(identity) = value.as_str() else {
-            return Err(format!("capsule {field}.{name} must be a string identity"));
-        };
-        validate_artifact_hash(identity).map_err(|error| format!("capsule {field}.{name}: {error}"))?;
-        identities.insert(name.clone(), identity.to_owned());
-    }
-    Ok(identities)
+    map.iter()
+        .map(|(name, value)| {
+            let identity = value.as_str().ok_or_else(|| format!("capsule {field}.{name} must be a string identity"))?;
+            validate_artifact_hash(identity).map_err(|error| format!("capsule {field}.{name}: {error}"))?;
+            Ok((name.clone(), identity.to_owned()))
+        })
+        .collect()
 }
 
 fn capsule_is_import_only(manifest: &Value) -> bool {
@@ -1156,7 +1170,11 @@ fn render_process_argument(
 }
 
 fn comparison_argv(profile: &ReviewedProfile, inputs: &[BoundInput]) -> Result<Vec<String>, String> {
-    let mut argv = vec![profile.executable_name.to_owned()];
+    let capacity = argument_count(profile, inputs.len())?
+        .checked_add(1)
+        .ok_or_else(|| "reviewed profile argv length overflows usize".to_owned())?;
+    let mut argv = Vec::with_capacity(capacity);
+    argv.push(profile.executable_name.to_owned());
     for template in profile.argv_prefix {
         argv.push(render_argv_template(*template, None)?);
     }
@@ -1173,7 +1191,7 @@ fn process_arguments(
     inputs: &[BoundInput],
     output_dir: &Path,
 ) -> Result<Vec<OsString>, String> {
-    let mut arguments = Vec::new();
+    let mut arguments = Vec::with_capacity(argument_count(profile, inputs.len())?);
     for template in profile.argv_prefix {
         arguments.push(OsString::from(render_process_argument(*template, None, output_dir)?));
     }
@@ -1183,6 +1201,13 @@ fn process_arguments(
         }
     }
     Ok(arguments)
+}
+
+fn argument_count(profile: &ReviewedProfile, input_count: usize) -> Result<usize, String> {
+    input_count
+        .checked_mul(profile.argv_per_input.len())
+        .and_then(|count| count.checked_add(profile.argv_prefix.len()))
+        .ok_or_else(|| "reviewed profile argv length overflows usize".to_owned())
 }
 
 fn default_inputs_path(capsule_path: &Path) -> PathBuf {
@@ -1203,12 +1228,8 @@ fn read_execution_inputs_document(path: &Path) -> Result<Option<ExecutionInputsD
         .map_err(|error| format!("parse execution inputs {}: {error}", path.display()))
 }
 
-/// Applies a capsule's optional `execution.resource_limits`, which can only tighten the reviewed
-/// profile limits and never loosen them.
-fn effective_limits(
-    execution: Option<&Value>,
-    profile: &ReviewedProfile,
-) -> Result<EffectiveLimits, (&'static str, String)> {
+/// Applies only capsule limits that tighten the reviewed profile limits.
+fn effective_limits(execution: Option<&Value>, profile: &ReviewedProfile) -> Result<EffectiveLimits, PreparationError> {
     let mut limits = EffectiveLimits {
         timeout_ms: profile.timeout_ms,
         stdout_max_bytes: profile.stdout_max_bytes,
@@ -1218,61 +1239,35 @@ fn effective_limits(
         return Ok(limits);
     };
     let Value::Object(declared) = declared else {
-        return Err((
+        return Err(unsupported(
             "unsupported-resource-limits",
-            "capsule execution.resource_limits must be a JSON object".to_owned(),
+            "capsule execution.resource_limits must be a JSON object",
         ));
     };
     for (name, value) in declared {
-        let Some(value) = value.as_u64() else {
-            return Err((
+        let value = value.as_u64().ok_or_else(|| {
+            unsupported(
                 "unsupported-resource-limits",
                 format!("capsule execution.resource_limits.{name} must be a positive integer"),
-            ));
-        };
+            )
+        })?;
         match name.as_str() {
             "timeout_ms" => {
                 if value == 0 || value > profile.timeout_ms {
-                    return Err((
+                    return Err(unsupported(
                         "unsupported-resource-limits",
                         format!(
                             "capsule execution.resource_limits.timeout_ms {value} must be in 1..={}",
-                            profile.timeout_ms
+                            profile.timeout_ms,
                         ),
                     ));
                 }
                 limits.timeout_ms = value;
             }
-            "stdout_max_bytes" => {
-                let value = usize::try_from(value)
-                    .map_err(|_| ("unsupported-resource-limits", "stdout_max_bytes is too large".to_owned()))?;
-                if value == 0 || value > profile.stdout_max_bytes {
-                    return Err((
-                        "unsupported-resource-limits",
-                        format!(
-                            "capsule execution.resource_limits.stdout_max_bytes must be in 1..={}",
-                            profile.stdout_max_bytes
-                        ),
-                    ));
-                }
-                limits.stdout_max_bytes = value;
-            }
-            "stderr_max_bytes" => {
-                let value = usize::try_from(value)
-                    .map_err(|_| ("unsupported-resource-limits", "stderr_max_bytes is too large".to_owned()))?;
-                if value == 0 || value > profile.stderr_max_bytes {
-                    return Err((
-                        "unsupported-resource-limits",
-                        format!(
-                            "capsule execution.resource_limits.stderr_max_bytes must be in 1..={}",
-                            profile.stderr_max_bytes
-                        ),
-                    ));
-                }
-                limits.stderr_max_bytes = value;
-            }
+            "stdout_max_bytes" => limits.stdout_max_bytes = stream_limit(name, value, profile.stdout_max_bytes)?,
+            "stderr_max_bytes" => limits.stderr_max_bytes = stream_limit(name, value, profile.stderr_max_bytes)?,
             other => {
-                return Err((
+                return Err(unsupported(
                     "unsupported-resource-limits",
                     format!("capsule execution.resource_limits.{other} is not a reviewed limit"),
                 ));
@@ -1282,341 +1277,355 @@ fn effective_limits(
     Ok(limits)
 }
 
-#[allow(clippy::too_many_lines)]
-fn prepare_execution(
-    profile: &'static ReviewedProfile,
-    manifest: &Value,
-    inputs_path: &Path,
-    workspace: &Path,
-    local_roots: &LocalRoots,
-) -> Result<Preparation, String> {
-    let Some(document) = read_execution_inputs_document(inputs_path)? else {
-        return Ok(Preparation::Failed {
-            reason: "missing-inputs",
-            detail: format!("execution inputs document {} does not exist", inputs_path.display()),
-        });
-    };
+fn stream_limit(name: &str, value: u64, maximum: usize) -> Result<usize, PreparationError> {
+    let value = usize::try_from(value)
+        .map_err(|_| unsupported("unsupported-resource-limits", format!("{name} is too large")))?;
+    if value == 0 || value > maximum {
+        return Err(unsupported(
+            "unsupported-resource-limits",
+            format!("capsule execution.resource_limits.{name} must be in 1..={maximum}"),
+        ));
+    }
+    Ok(value)
+}
+
+struct CapsuleBindings<'a> {
+    execution: Option<&'a Value>,
+    config_hash: &'a str,
+    octet_identity: &'a str,
+    local_config_hash: String,
+    inputs: BTreeMap<String, String>,
+    outputs: BTreeMap<String, String>,
+    expected_exit_code: i32,
+}
+
+fn execution_binding(manifest: &Value) -> Result<Option<&Value>, PreparationError> {
+    match manifest.get("execution") {
+        None => Ok(None),
+        Some(value) if value.is_object() => Ok(Some(value)),
+        Some(_) => Err(unsupported("unsupported-execution-binding", "capsule execution must be a JSON object")),
+    }
+}
+
+fn capsule_bindings<'a>(
+    manifest: &'a Value,
+    document: &mut ExecutionInputsDocument,
+) -> Result<CapsuleBindings<'a>, PreparationError> {
+    let expected_exit = manifest.get("expected_exit_code").and_then(Value::as_i64).unwrap_or_default();
+    let expected_exit_code =
+        i32::try_from(expected_exit).ok().filter(|code| (0..=255).contains(code)).ok_or_else(|| {
+            unsupported(
+                "unsupported-exit-code",
+                format!("capsule expected_exit_code {expected_exit} is not a portable exit code"),
+            )
+        })?;
+    let execution = execution_binding(manifest)?;
+    let config_hash = manifest.get("config_hash").and_then(Value::as_str).ok_or_else(|| {
+        unsupported("unsupported-config-binding", "capsule config_hash must be a string for executed replay")
+    })?;
+    let octet_identity = manifest.get("octet_binary_identity").and_then(Value::as_str).ok_or_else(|| {
+        unsupported(
+            "unsupported-toolchain-binding",
+            "capsule octet_binary_identity must be a string for executed replay",
+        )
+    })?;
+    let local_config_hash = document
+        .config_hash
+        .take()
+        .ok_or_else(|| unsupported("missing-config", "execution inputs must bind config_hash"))?;
+    let outputs = named_hash_map(manifest.get("output_hashes"), "output_hashes")
+        .map_err(|detail| unsupported("unsupported-output-binding", detail))?;
+    let inputs = named_hash_map(manifest.get("input_hashes"), "input_hashes")
+        .map_err(|detail| unsupported("unsupported-input-binding", detail))?;
+    Ok(CapsuleBindings {
+        execution,
+        config_hash,
+        octet_identity,
+        local_config_hash,
+        inputs,
+        outputs,
+        expected_exit_code,
+    })
+}
+
+fn validate_inputs_document(
+    document: &ExecutionInputsDocument,
+    profile: &ReviewedProfile,
+) -> Result<(), PreparationError> {
     if let Some(schema_version) = document.schema_version
         && schema_version != u64::from(SCHEMA_VERSION)
     {
-        return Ok(Preparation::Failed {
-            reason: "unsupported-inputs-schema",
-            detail: format!("execution inputs schema_version {schema_version} is unsupported"),
-        });
+        return Err(unsupported(
+            "unsupported-inputs-schema",
+            format!("execution inputs schema_version {schema_version} is unsupported"),
+        ));
     }
     if let Some(declared_profile) = document.profile.as_deref()
         && declared_profile != profile.id
     {
-        return Ok(Preparation::Failed {
-            reason: "profile-mismatch",
-            detail: format!(
-                "execution inputs name profile `{declared_profile}` but the capsule selects `{}`",
-                profile.id
-            ),
-        });
+        return Err(unsupported(
+            "profile-mismatch",
+            format!("execution inputs name profile `{declared_profile}` but the capsule selects `{}`", profile.id),
+        ));
     }
-    let expected_exit = manifest.get("expected_exit_code").and_then(Value::as_i64).unwrap_or_default();
-    let Ok(expected_exit_code) = i32::try_from(expected_exit) else {
-        return Ok(Preparation::Failed {
-            reason: "unsupported-exit-code",
-            detail: format!("capsule expected_exit_code {expected_exit} is not a portable exit code"),
-        });
-    };
-    if !(0..=255).contains(&expected_exit) {
-        return Ok(Preparation::Failed {
-            reason: "unsupported-exit-code",
-            detail: format!("capsule expected_exit_code {expected_exit} is not a portable exit code"),
-        });
-    }
-    let execution = match manifest.get("execution") {
-        None => None,
-        Some(value) if value.is_object() => Some(value),
-        Some(_) => {
-            return Ok(Preparation::Failed {
-                reason: "unsupported-execution-binding",
-                detail: "capsule execution must be a JSON object".to_owned(),
-            });
-        }
-    };
-    let Some(capsule_config) = manifest.get("config_hash").and_then(Value::as_str) else {
-        return Ok(Preparation::Failed {
-            reason: "unsupported-config-binding",
-            detail: "capsule config_hash must be a string for executed replay".to_owned(),
-        });
-    };
-    let Some(capsule_identity) = manifest.get("octet_binary_identity").and_then(Value::as_str) else {
-        return Ok(Preparation::Failed {
-            reason: "unsupported-toolchain-binding",
-            detail: "capsule octet_binary_identity must be a string for executed replay".to_owned(),
-        });
-    };
-    let Some(config_hash) = document.config_hash.clone() else {
-        return Ok(Preparation::Failed {
-            reason: "missing-config",
-            detail: "execution inputs must bind config_hash".to_owned(),
-        });
-    };
-    let expected_outputs = match named_hash_map(manifest.get("output_hashes"), "output_hashes") {
-        Ok(outputs) => outputs,
-        Err(detail) => {
-            return Ok(Preparation::Failed {
-                reason: "unsupported-output-binding",
-                detail,
-            });
-        }
-    };
-    let capsule_inputs = match named_hash_map(manifest.get("input_hashes"), "input_hashes") {
-        Ok(inputs) => inputs,
-        Err(detail) => {
-            return Ok(Preparation::Failed {
-                reason: "unsupported-input-binding",
-                detail,
-            });
-        }
-    };
+    Ok(())
+}
 
-    let current_exe =
-        std::env::current_exe().map_err(|error| format!("resolve the running Octet executable: {error}"))?;
-    let octet_identity = file_identity(&current_exe)?;
-    let executable = match profile.executable {
-        ProfileExecutable::SelfOctet => {
-            if document.executable.is_some() {
-                return Ok(Preparation::Failed {
-                    reason: "unexpected-executable",
-                    detail: format!(
-                        "profile `{}` runs the Octet binary itself and does not accept a declared executable",
-                        profile.id
-                    ),
-                });
-            }
-            current_exe.clone()
-        }
-        ProfileExecutable::DeclaredWorkspaceExecutable => {
-            let Some(declared) = document.executable.as_deref() else {
-                return Ok(Preparation::Failed {
-                    reason: "missing-executable",
-                    detail: format!("profile `{}` requires `executable` in the execution inputs", profile.id),
-                });
-            };
-            match bind_declared_path(declared, workspace, "executable", true)? {
-                DeclaredPath::Missing(path) => {
-                    return Ok(Preparation::Failed {
-                        reason: "missing-executable",
-                        detail: format!("declared executable {} does not exist", path.display()),
-                    });
-                }
-                DeclaredPath::Present(path) => {
-                    let name = path.file_name().and_then(|name| name.to_str()).unwrap_or_default();
-                    if name != profile.executable_name {
-                        return Err(format!(
-                            "imported executable `{declared}` does not have the reviewed name `{}`",
-                            profile.executable_name
-                        ));
-                    }
-                    if !is_executable_file(&path) {
-                        return Err(format!("declared executable {} is not an executable file", path.display()));
-                    }
-                    path
-                }
-            }
-        }
-    };
-    let executable_hash = if profile.executable == ProfileExecutable::SelfOctet {
-        octet_identity.clone()
-    } else {
-        file_identity(&executable)?
-    };
-
-    let missing_inputs: Vec<String> =
-        capsule_inputs.keys().filter(|name| !document.inputs.contains_key(*name)).cloned().collect();
-    if !missing_inputs.is_empty() {
-        return Ok(Preparation::Failed {
-            reason: "missing-input",
-            detail: format!("execution inputs do not bind capsule inputs {missing_inputs:?}"),
-        });
-    }
-    let undeclared_inputs: Vec<String> =
-        document.inputs.keys().filter(|name| !capsule_inputs.contains_key(*name)).cloned().collect();
-    if !undeclared_inputs.is_empty() {
-        return Ok(Preparation::Failed {
-            reason: "undeclared-input",
-            detail: format!("execution inputs declare inputs the capsule does not record: {undeclared_inputs:?}"),
-        });
-    }
-
-    let mut pre_execution_drifts = Vec::new();
-    let mut inputs = Vec::with_capacity(capsule_inputs.len());
-    for (name, expected_hash) in &capsule_inputs {
-        let declared = document.inputs.get(name).map(String::as_str).unwrap_or_default();
-        let path = match bind_declared_path(declared, workspace, "input", false)? {
-            DeclaredPath::Missing(path) => {
-                return Ok(Preparation::Failed {
-                    reason: "missing-input",
-                    detail: format!("input `{name}` at {} does not exist", path.display()),
-                });
-            }
-            DeclaredPath::Present(path) => path,
-        };
-        if !path.is_file() {
-            return Ok(Preparation::Failed {
-                reason: "unsupported-input",
-                detail: format!("input `{name}` at {} is not a regular file", path.display()),
-            });
-        }
-        let size = fs::metadata(&path).map_err(|error| format!("stat {}: {error}", path.display()))?.len();
-        if size > EXECUTION_INPUT_FILE_MAX_BYTES {
-            return Ok(Preparation::Failed {
-                reason: "unsupported-input",
-                detail: format!(
-                    "input `{name}` is {size} bytes, above the {EXECUTION_INPUT_FILE_MAX_BYTES} byte limit"
+fn bind_executable(
+    profile: &ReviewedProfile,
+    document: &ExecutionInputsDocument,
+    workspace: &Path,
+    current_exe: PathBuf,
+) -> Result<PathBuf, PreparationError> {
+    if profile.executable == ProfileExecutable::SelfOctet {
+        if document.executable.is_some() {
+            return Err(unsupported(
+                "unexpected-executable",
+                format!(
+                    "profile `{}` runs the Octet binary itself and does not accept a declared executable",
+                    profile.id,
                 ),
-            });
+            ));
         }
-        let hash = file_identity(&path)?;
-        if &hash != expected_hash {
-            pre_execution_drifts.push(Drift {
+        return Ok(current_exe);
+    }
+    let declared = document.executable.as_deref().ok_or_else(|| {
+        unsupported(
+            "missing-executable",
+            format!("profile `{}` requires `executable` in the execution inputs", profile.id),
+        )
+    })?;
+    let path = match bind_declared_path(declared, workspace, "executable", true)? {
+        DeclaredPath::Missing(path) => {
+            return Err(unsupported(
+                "missing-executable",
+                format!("declared executable {} does not exist", path.display()),
+            ));
+        }
+        DeclaredPath::Present(path) => path,
+    };
+    let name = path.file_name().and_then(|name| name.to_str()).unwrap_or_default();
+    if name != profile.executable_name {
+        return Err(format!(
+            "imported executable `{declared}` does not have the reviewed name `{}`",
+            profile.executable_name,
+        )
+        .into());
+    }
+    if !is_executable_file(&path) {
+        return Err(format!("declared executable {} is not an executable file", path.display()).into());
+    }
+    Ok(path)
+}
+
+fn validate_input_names(
+    document: &ExecutionInputsDocument,
+    capsule_inputs: &BTreeMap<String, String>,
+) -> Result<(), PreparationError> {
+    let missing: Vec<&str> = capsule_inputs
+        .keys()
+        .filter(|name| !document.inputs.contains_key(*name))
+        .map(String::as_str)
+        .collect();
+    if !missing.is_empty() {
+        return Err(unsupported("missing-input", format!("execution inputs do not bind capsule inputs {missing:?}")));
+    }
+    let undeclared: Vec<&str> = document
+        .inputs
+        .keys()
+        .filter(|name| !capsule_inputs.contains_key(*name))
+        .map(String::as_str)
+        .collect();
+    if !undeclared.is_empty() {
+        return Err(unsupported(
+            "undeclared-input",
+            format!("execution inputs declare inputs the capsule does not record: {undeclared:?}"),
+        ));
+    }
+    Ok(())
+}
+
+fn bind_input(name: &str, declared: &str, context: &ExecutionContext<'_>) -> Result<BoundInput, PreparationError> {
+    let path = match bind_declared_path(declared, context.workspace, "input", false)? {
+        DeclaredPath::Missing(path) => {
+            return Err(unsupported("missing-input", format!("input `{name}` at {} does not exist", path.display())));
+        }
+        DeclaredPath::Present(path) => path,
+    };
+    if !path.is_file() {
+        return Err(unsupported(
+            "unsupported-input",
+            format!("input `{name}` at {} is not a regular file", path.display()),
+        ));
+    }
+    let size = fs::metadata(&path).map_err(|error| format!("stat {}: {error}", path.display()))?.len();
+    if size > EXECUTION_INPUT_FILE_MAX_BYTES {
+        return Err(unsupported(
+            "unsupported-input",
+            format!("input `{name}` is {size} bytes, above the {EXECUTION_INPUT_FILE_MAX_BYTES} byte limit"),
+        ));
+    }
+    let hash = file_identity(&path)?;
+    Ok(BoundInput {
+        name: name.to_owned(),
+        normalized_path: normalize_bound_path(&path, context.workspace, context.local_roots),
+        path,
+        hash,
+    })
+}
+
+fn bind_inputs(
+    document: &ExecutionInputsDocument,
+    capsule_inputs: &BTreeMap<String, String>,
+    context: &ExecutionContext<'_>,
+    drifts: &mut Vec<Drift>,
+) -> Result<Vec<BoundInput>, PreparationError> {
+    validate_input_names(document, capsule_inputs)?;
+    let mut inputs = Vec::with_capacity(capsule_inputs.len());
+    let drift_capacity = capsule_inputs
+        .len()
+        .checked_add(5)
+        .ok_or_else(|| "execution binding drift count overflows usize".to_owned())?;
+    // One drift per input, plus config, binary, executable, closure and argv drift.
+    drifts.reserve(drift_capacity);
+    for (name, expected_hash) in capsule_inputs {
+        let declared = document.inputs.get(name).ok_or_else(|| format!("execution input `{name}` lost its binding"))?;
+        let input = bind_input(name, declared, context)?;
+        if &input.hash != expected_hash {
+            drifts.push(Drift {
                 kind: "source",
                 field: name.clone(),
                 expected: expected_hash.clone(),
-                actual: hash.clone(),
+                actual: input.hash.clone(),
             });
         }
-        inputs.push(BoundInput {
-            name: name.clone(),
-            normalized_path: normalize_bound_path(&path, workspace, local_roots),
-            path,
-            hash,
-        });
+        inputs.push(input);
     }
+    Ok(inputs)
+}
 
-    if capsule_config != config_hash {
-        pre_execution_drifts.push(Drift {
-            kind: "config",
-            field: "config_hash".to_owned(),
-            expected: capsule_config.to_owned(),
-            actual: config_hash.clone(),
-        });
-    }
-    if capsule_identity != octet_identity {
-        pre_execution_drifts.push(Drift {
-            kind: "toolchain",
-            field: "octet_binary_identity".to_owned(),
-            expected: capsule_identity.to_owned(),
-            actual: octet_identity.clone(),
-        });
-    }
-    if let Some(toolchain) = execution.and_then(|execution| execution.get("toolchain")) {
-        if !toolchain.is_object() {
-            return Ok(Preparation::Failed {
-                reason: "unsupported-toolchain-binding",
-                detail: "capsule execution.toolchain must be a JSON object".to_owned(),
-            });
-        }
-        if let Some(declared_hash) = toolchain.get("executable_hash") {
-            let Some(declared_hash) = declared_hash.as_str() else {
-                return Ok(Preparation::Failed {
-                    reason: "unsupported-toolchain-binding",
-                    detail: "capsule execution.toolchain.executable_hash must be a string".to_owned(),
-                });
-            };
-            if declared_hash != executable_hash {
-                pre_execution_drifts.push(Drift {
-                    kind: "toolchain",
-                    field: "executable_hash".to_owned(),
-                    expected: declared_hash.to_owned(),
-                    actual: executable_hash.clone(),
-                });
-            }
-        }
-        if let Some(declared_closure) = toolchain.get("nix_closure_identity") {
-            let Some(declared_closure) = declared_closure.as_str() else {
-                return Ok(Preparation::Failed {
-                    reason: "unsupported-toolchain-binding",
-                    detail: "capsule execution.toolchain.nix_closure_identity must be a string".to_owned(),
-                });
-            };
-            let Some(actual_closure) = document.nix_closure_identity.as_deref() else {
-                return Ok(Preparation::Failed {
-                    reason: "missing-tool-closure",
-                    detail: format!(
-                        "capsule binds Nix closure `{declared_closure}` but the execution inputs provide no nix_closure_identity"
-                    ),
-                });
-            };
-            if declared_closure != actual_closure {
-                pre_execution_drifts.push(Drift {
-                    kind: "toolchain",
-                    field: "nix_closure_identity".to_owned(),
-                    expected: declared_closure.to_owned(),
-                    actual: actual_closure.to_owned(),
-                });
-            }
-        }
-    }
+fn toolchain_identity<'a>(toolchain: &'a Value, field: &str) -> Result<Option<&'a str>, PreparationError> {
+    toolchain
+        .get(field)
+        .map(|value| {
+            value.as_str().ok_or_else(|| {
+                unsupported(
+                    "unsupported-toolchain-binding",
+                    format!("capsule execution.toolchain.{field} must be a string"),
+                )
+            })
+        })
+        .transpose()
+}
 
-    let recorded_argv = match manifest.get("command_argv") {
-        Some(Value::Array(items)) => {
-            let mut argv = Vec::with_capacity(items.len());
-            for (index, item) in items.iter().enumerate() {
-                let Some(argument) = item.as_str() else {
-                    return Err(format!("capsule manifest command_argv[{index}] must be a string"));
-                };
-                argv.push(argument.to_owned());
-            }
-            argv
-        }
-        _ => return Err("capsule manifest command_argv must be an array of strings".to_owned()),
+fn compare_toolchain(
+    execution: Option<&Value>,
+    document: &ExecutionInputsDocument,
+    executable_hash: &str,
+    drifts: &mut Vec<Drift>,
+) -> Result<(), PreparationError> {
+    let Some(toolchain) = execution.and_then(|execution| execution.get("toolchain")) else {
+        return Ok(());
     };
-    validate_capsule_command_argv(profile, &recorded_argv)?;
-    let comparison_argv = comparison_argv(profile, &inputs)?;
-    let mut recorded_argv = recorded_argv;
-    if let Some(program) = recorded_argv.first_mut() {
+    if !toolchain.is_object() {
+        return Err(unsupported("unsupported-toolchain-binding", "capsule execution.toolchain must be a JSON object"));
+    }
+    if let Some(declared_hash) = toolchain_identity(toolchain, "executable_hash")?
+        && declared_hash != executable_hash
+    {
+        drifts.push(Drift {
+            kind: "toolchain",
+            field: "executable_hash".to_owned(),
+            expected: declared_hash.to_owned(),
+            actual: executable_hash.to_owned(),
+        });
+    }
+    let Some(declared_closure) = toolchain_identity(toolchain, "nix_closure_identity")? else {
+        return Ok(());
+    };
+    let actual_closure = document.nix_closure_identity.as_deref().ok_or_else(|| unsupported(
+        "missing-tool-closure",
+        format!("capsule binds Nix closure `{declared_closure}` but the execution inputs provide no nix_closure_identity"),
+    ))?;
+    if declared_closure != actual_closure {
+        drifts.push(Drift {
+            kind: "toolchain",
+            field: "nix_closure_identity".to_owned(),
+            expected: declared_closure.to_owned(),
+            actual: actual_closure.to_owned(),
+        });
+    }
+    Ok(())
+}
+
+fn compare_argv(
+    profile: &ReviewedProfile,
+    manifest: &Value,
+    inputs: &[BoundInput],
+    drifts: &mut Vec<Drift>,
+) -> Result<Vec<String>, String> {
+    let Some(Value::Array(items)) = manifest.get("command_argv") else {
+        return Err("capsule manifest command_argv must be an array of strings".to_owned());
+    };
+    let mut recorded = Vec::with_capacity(items.len());
+    for (index, item) in items.iter().enumerate() {
+        let argument =
+            item.as_str().ok_or_else(|| format!("capsule manifest command_argv[{index}] must be a string"))?;
+        recorded.push(argument.to_owned());
+    }
+    validate_capsule_command_argv(profile, &recorded)?;
+    let comparison = comparison_argv(profile, inputs)?;
+    if let Some(program) = recorded.first_mut() {
         *program = profile.executable_name.to_owned();
     }
-    if recorded_argv != comparison_argv {
-        pre_execution_drifts.push(Drift {
+    if recorded != comparison {
+        drifts.push(Drift {
             kind: "argv",
             field: "command_argv".to_owned(),
-            expected: recorded_argv.join(" "),
-            actual: comparison_argv.join(" "),
+            expected: recorded.join(" "),
+            actual: comparison.join(" "),
         });
     }
+    Ok(comparison)
+}
 
-    let declared_contract = execution.and_then(|execution| execution.get("failure_contract"));
-    let failure_contract = if expected_exit != 0 {
-        let Some(name) = declared_contract.and_then(Value::as_str) else {
-            return Ok(Preparation::Failed {
-                reason: "missing-failure-contract",
-                detail: format!(
-                    "expected exit {expected_exit} requires a named failure contract reviewed for profile `{}`",
-                    profile.id
-                ),
-            });
-        };
-        match profile.failure_contracts.iter().find(|contract| contract.name == name) {
-            Some(contract) => Some(contract),
-            None => {
-                return Ok(Preparation::Failed {
-                    reason: "unsupported-failure-contract",
-                    detail: format!("failure contract `{name}` is not reviewed for profile `{}`", profile.id),
-                });
-            }
+fn select_failure_contract(
+    profile: &'static ReviewedProfile,
+    execution: Option<&Value>,
+    expected_exit: i32,
+) -> Result<Option<&'static FailureContract>, PreparationError> {
+    let declared = execution.and_then(|execution| execution.get("failure_contract"));
+    if expected_exit == 0 {
+        if declared.is_some() {
+            return Err(unsupported(
+                "unexpected-failure-contract",
+                "a capsule failure contract requires a non-zero expected_exit_code",
+            ));
         }
-    } else {
-        if declared_contract.is_some() {
-            return Ok(Preparation::Failed {
-                reason: "unexpected-failure-contract",
-                detail: "a capsule failure contract requires a non-zero expected_exit_code".to_owned(),
-            });
-        }
-        None
-    };
-    let limits = match effective_limits(execution, profile) {
-        Ok(limits) => limits,
-        Err((reason, detail)) => return Ok(Preparation::Failed { reason, detail }),
-    };
+        return Ok(None);
+    }
+    let name = declared.and_then(Value::as_str).ok_or_else(|| {
+        unsupported(
+            "missing-failure-contract",
+            format!(
+                "expected exit {expected_exit} requires a named failure contract reviewed for profile `{}`",
+                profile.id,
+            ),
+        )
+    })?;
+    profile.failure_contracts.iter().find(|contract| contract.name == name).map(Some).ok_or_else(|| {
+        unsupported(
+            "unsupported-failure-contract",
+            format!("failure contract `{name}` is not reviewed for profile `{}`", profile.id),
+        )
+    })
+}
 
-    let fixed_names: BTreeSet<&str> = profile.fixed_environment.iter().map(|(name, _)| *name).collect();
+fn execution_environment(
+    profile: &ReviewedProfile,
+    document: &ExecutionInputsDocument,
+    inherited: &[(OsString, OsString)],
+) -> Result<Vec<(OsString, OsString)>, String> {
     for name in document.environment.keys() {
         if !profile.environment_allowlist.contains(&name.as_str()) {
             return Err(format!(
@@ -1624,36 +1633,115 @@ fn prepare_execution(
                 profile.id, profile.environment_allowlist
             ));
         }
-        if fixed_names.contains(name.as_str()) {
+        if profile.fixed_environment.iter().any(|(fixed, _)| *fixed == name) {
             return Err(format!("environment `{name}` is fixed by profile `{}` and cannot be overridden", profile.id));
         }
     }
-    let mut environment: BTreeMap<OsString, OsString> = BTreeMap::new();
+    // Every key comes from one of these two reviewed, disjoint tables. Overrides replace values.
+    let mut environment = Vec::with_capacity(profile.environment_allowlist.len() + profile.fixed_environment.len());
     for name in profile.environment_allowlist {
-        if let Some(value) = std::env::var_os(name) {
-            environment.insert(OsString::from(*name), value);
+        let value = document
+            .environment
+            .get(*name)
+            .map(OsString::from)
+            .or_else(|| inherited.iter().find(|(key, _)| key == name).map(|(_, value)| value.clone()));
+        if let Some(value) = value {
+            environment.push((OsString::from(*name), value));
         }
     }
-    for (name, value) in profile.fixed_environment {
-        environment.insert(OsString::from(*name), OsString::from(*value));
-    }
-    for (name, value) in &document.environment {
-        environment.insert(OsString::from(name), OsString::from(value));
-    }
-    let environment: Vec<(OsString, OsString)> = environment.into_iter().collect();
-    let environment_names: Vec<String> =
-        environment.iter().filter_map(|(name, _)| name.to_str().map(str::to_owned)).collect();
-    let environment_overrides: Vec<String> = document.environment.keys().cloned().collect();
+    environment.extend(
+        profile
+            .fixed_environment
+            .iter()
+            .map(|(name, value)| (OsString::from(*name), OsString::from(*value))),
+    );
+    environment.sort_by(|left, right| left.0.cmp(&right.0));
+    Ok(environment)
+}
 
-    let output_dir = workspace.join(EXECUTION_OUTPUT_DIRECTORY).join(capsule_hash_file_name(manifest, profile)?);
+struct BoundExecutable {
+    path: PathBuf,
+    hash: String,
+    octet_identity: String,
+}
 
-    Ok(Preparation::Ready(Box::new(PreparedExecution {
-        profile,
-        executable,
-        executable_hash,
+fn prepare_executable(
+    profile: &ReviewedProfile,
+    document: &ExecutionInputsDocument,
+    workspace: &Path,
+) -> Result<BoundExecutable, PreparationError> {
+    let current_exe =
+        std::env::current_exe().map_err(|error| format!("resolve the running Octet executable: {error}"))?;
+    let octet_identity = file_identity(&current_exe)?;
+    let path = bind_executable(profile, document, workspace, current_exe)?;
+    let hash = if profile.executable == ProfileExecutable::SelfOctet {
+        octet_identity.clone()
+    } else {
+        file_identity(&path)?
+    };
+    Ok(BoundExecutable {
+        path,
+        hash,
         octet_identity,
+    })
+}
+
+fn compare_policy_and_binary(
+    bindings: &CapsuleBindings<'_>,
+    config_hash: &str,
+    octet_identity: &str,
+    drifts: &mut Vec<Drift>,
+) {
+    if bindings.config_hash != config_hash {
+        drifts.push(Drift {
+            kind: "config",
+            field: "config_hash".to_owned(),
+            expected: bindings.config_hash.to_owned(),
+            actual: config_hash.to_owned(),
+        });
+    }
+    if bindings.octet_identity != octet_identity {
+        drifts.push(Drift {
+            kind: "toolchain",
+            field: "octet_binary_identity".to_owned(),
+            expected: bindings.octet_identity.to_owned(),
+            actual: octet_identity.to_owned(),
+        });
+    }
+}
+
+fn prepare_bound_execution(
+    profile: &'static ReviewedProfile,
+    manifest: &Value,
+    document: ExecutionInputsDocument,
+    bindings: CapsuleBindings<'_>,
+    context: &ExecutionContext<'_>,
+) -> Result<PreparedExecution, PreparationError> {
+    let executable = prepare_executable(profile, &document, context.workspace)?;
+    let mut pre_execution_drifts = Vec::new();
+    let inputs = bind_inputs(&document, &bindings.inputs, context, &mut pre_execution_drifts)?;
+    compare_policy_and_binary(
+        &bindings,
+        &bindings.local_config_hash,
+        &executable.octet_identity,
+        &mut pre_execution_drifts,
+    );
+    compare_toolchain(bindings.execution, &document, &executable.hash, &mut pre_execution_drifts)?;
+    let comparison_argv = compare_argv(profile, manifest, &inputs, &mut pre_execution_drifts)?;
+    let failure_contract = select_failure_contract(profile, bindings.execution, bindings.expected_exit_code)?;
+    let limits = effective_limits(bindings.execution, profile)?;
+    let environment = execution_environment(profile, &document, context.environment)?;
+    let environment_names = environment.iter().filter_map(|(name, _)| name.to_str().map(str::to_owned)).collect();
+    let environment_overrides = document.environment.keys().cloned().collect();
+    let output_dir =
+        context.workspace.join(EXECUTION_OUTPUT_DIRECTORY).join(capsule_hash_file_name(manifest, profile)?);
+    Ok(PreparedExecution {
+        profile,
+        executable: executable.path,
+        executable_hash: executable.hash,
+        octet_identity: executable.octet_identity,
         inputs,
-        config_hash,
+        config_hash: bindings.local_config_hash,
         nix_closure: document.nix_closure_identity,
         environment,
         environment_names,
@@ -1661,11 +1749,25 @@ fn prepare_execution(
         limits,
         failure_contract,
         comparison_argv,
-        expected_outputs,
-        expected_exit_code,
+        expected_outputs: bindings.outputs,
+        expected_exit_code: bindings.expected_exit_code,
         output_dir,
         pre_execution_drifts,
-    })))
+    })
+}
+
+fn prepare_execution(
+    profile: &'static ReviewedProfile,
+    manifest: &Value,
+    inputs_path: &Path,
+    context: &ExecutionContext<'_>,
+) -> Result<PreparedExecution, PreparationError> {
+    let mut document = read_execution_inputs_document(inputs_path)?.ok_or_else(|| {
+        unsupported("missing-inputs", format!("execution inputs document {} does not exist", inputs_path.display()))
+    })?;
+    validate_inputs_document(&document, profile)?;
+    let bindings = capsule_bindings(manifest, &mut document)?;
+    prepare_bound_execution(profile, manifest, document, bindings, context)
 }
 
 /// The isolated output directory name is derived from the verified capsule manifest, so a stale
@@ -1734,9 +1836,28 @@ fn read_output_file(output_dir: &Path, name: &str) -> Result<OutputFile, String>
     if metadata.len() > EXECUTION_OUTPUT_FILE_MAX_BYTES {
         return Ok(OutputFile::Oversized(metadata.len()));
     }
-    fs::read(&path)
-        .map(OutputFile::Present)
-        .map_err(|error| format!("read output {}: {error}", path.display()))
+    let file = fs::File::open(&path).map_err(|error| format!("open output {}: {error}", path.display()))?;
+    read_output_bytes(file, metadata.len()).map_err(|error| format!("read output {}: {error}", path.display()))
+}
+
+/// The metadata snapshot sizes the initial allocation, not the read authority: the file may grow
+/// after stat, including when a child leaves a writer behind. Read at most one byte past the cap.
+fn read_output_bytes(reader: impl std::io::Read, initial_size: u64) -> Result<OutputFile, String> {
+    use std::io::Read as _;
+
+    let capacity = usize::try_from(initial_size.min(EXECUTION_OUTPUT_FILE_MAX_BYTES))
+        .map_err(|error| format!("output length cannot be represented: {error}"))?;
+    let mut bytes = Vec::with_capacity(capacity);
+    reader
+        .take(EXECUTION_OUTPUT_FILE_MAX_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| format!("read bounded output: {error}"))?;
+    let size =
+        u64::try_from(bytes.len()).map_err(|error| format!("output byte count cannot be represented: {error}"))?;
+    if size > EXECUTION_OUTPUT_FILE_MAX_BYTES {
+        return Ok(OutputFile::Oversized(size));
+    }
+    Ok(OutputFile::Present(bytes))
 }
 
 fn completion_name(completion: bounded_exec::Completion) -> &'static str {
@@ -2052,334 +2173,283 @@ fn capsule_replay_executed(
     output_format: ReplayOutputFormat,
 ) -> Result<i32, String> {
     let workspace = std::env::current_dir().map_err(|error| format!("resolve the workspace root: {error}"))?;
-    let (code, report) =
-        capsule_replay_executed_report(capsule_path, inputs_path, receipt_path, &workspace, local_roots)?;
+    // This existing CLI shell captures only the reviewed inherited names; preparation receives
+    // explicit values and clears the child's ambient environment through bounded-exec.
+    let environment: Vec<_> = EXECUTION_ENVIRONMENT_ALLOWLIST
+        .iter()
+        .filter_map(|name| std::env::var_os(name).map(|value| (OsString::from(*name), value)))
+        .collect();
+    let context = ExecutionContext {
+        workspace: &workspace,
+        local_roots,
+        environment: &environment,
+    };
+    let (code, report) = capsule_replay_executed_report(capsule_path, inputs_path, receipt_path, &context)?;
     emit_replay(&report, output_format, &executed_human_lines(&report))?;
     Ok(code)
 }
 
-#[allow(clippy::too_many_lines)]
+fn select_execution_profile(
+    manifest: &Value,
+    report: &mut ExecutedReport<'_>,
+) -> Result<&'static ReviewedProfile, PreparationError> {
+    if capsule_is_import_only(manifest) {
+        return Err(unsupported("import-only-capsule", "an imported capsule has no reviewed execution profile"));
+    }
+    let execution = execution_binding(manifest)?;
+    let declared = execution.and_then(|execution| execution.get("profile")).and_then(Value::as_str);
+    let profile = match declared {
+        Some(id) => REVIEWED_PROFILES.iter().copied().find(|profile| profile.id == id),
+        None => REVIEWED_PROFILES.iter().copied().find(|profile| profile.run_kind == report.run_kind),
+    };
+    let Some(profile) = profile else {
+        report.profile_id = "unsupported";
+        return Err(match declared {
+            Some(id) => unsupported(
+                "unsupported-profile",
+                format!("declared execution profile `{id}` is not reviewed for executed replay"),
+            ),
+            None => unsupported(
+                "unsupported-run-kind",
+                format!("no reviewed execution profile covers run_kind `{}`", report.run_kind),
+            ),
+        });
+    };
+    report.profile_id = profile.id;
+    if profile.run_kind != report.run_kind {
+        return Err(unsupported(
+            "profile-run-kind-mismatch",
+            format!("profile `{}` covers run_kind `{}`, not `{}`", profile.id, profile.run_kind, report.run_kind),
+        ));
+    }
+    Ok(profile)
+}
+
+fn preparation_report(report: &ExecutedReport<'_>, error: PreparationError) -> Result<(i32, Value), String> {
+    match error {
+        PreparationError::Invalid(detail) => Err(detail),
+        PreparationError::Unsupported { reason, detail } => {
+            let report = ExecutedReport {
+                reason: Some(reason),
+                detail: Some(&detail),
+                ..*report
+            };
+            Ok((1, executed_report(&report)))
+        }
+    }
+}
+
 fn capsule_replay_executed_report(
     capsule_path: &Path,
     inputs_path: Option<&Path>,
     receipt_path: Option<&Path>,
-    workspace: &Path,
-    local_roots: &LocalRoots,
+    context: &ExecutionContext<'_>,
 ) -> Result<(i32, Value), String> {
     let (capsule, manifest) = load_capsule(capsule_path)?;
-    let capsule_hash = capsule.get("capsule_hash").and_then(Value::as_str).unwrap_or_default().to_owned();
-    let run_kind = manifest.get("run_kind").and_then(Value::as_str).unwrap_or_default().to_owned();
-    let expected_exit = manifest.get("expected_exit_code").and_then(Value::as_i64).unwrap_or_default();
-    if capsule_is_import_only(&manifest) {
-        let report = executed_report(&ExecutedReport {
-            capsule_hash: &capsule_hash,
-            profile_id: "",
-            run_kind: &run_kind,
-            status: "failed-closed",
-            reason: Some("import-only-capsule"),
-            detail: Some("an imported capsule has no reviewed execution profile"),
-            expected_exit,
-            observed_exit: None,
-            drifts: &[],
-            failure_contract: None,
-            limits: None,
-            executed: false,
-            receipt: None,
-        });
-        return Ok((1, report));
-    }
-    let execution = match manifest.get("execution") {
-        None => None,
-        Some(value) if value.is_object() => Some(value),
-        Some(_) => {
-            let report = executed_report(&ExecutedReport {
-                capsule_hash: &capsule_hash,
-                profile_id: "",
-                run_kind: &run_kind,
-                status: "failed-closed",
-                reason: Some("unsupported-execution-binding"),
-                detail: Some("capsule execution must be a JSON object"),
-                expected_exit,
-                observed_exit: None,
-                drifts: &[],
-                failure_contract: None,
-                limits: None,
-                executed: false,
-                receipt: None,
-            });
-            return Ok((1, report));
-        }
+    let mut report = ExecutedReport {
+        capsule_hash: capsule.get("capsule_hash").and_then(Value::as_str).unwrap_or_default(),
+        profile_id: "",
+        run_kind: manifest.get("run_kind").and_then(Value::as_str).unwrap_or_default(),
+        status: "failed-closed",
+        reason: None,
+        detail: None,
+        expected_exit: manifest.get("expected_exit_code").and_then(Value::as_i64).unwrap_or_default(),
+        observed_exit: None,
+        drifts: &[],
+        failure_contract: None,
+        limits: None,
+        executed: false,
+        receipt: None,
     };
-    let declared_profile = execution.and_then(|execution| execution.get("profile")).and_then(Value::as_str);
-    let profile = match declared_profile {
-        Some(id) => REVIEWED_PROFILES.iter().copied().find(|profile| profile.id == id),
-        None => REVIEWED_PROFILES.iter().copied().find(|profile| profile.run_kind == run_kind),
+    let profile = match select_execution_profile(&manifest, &mut report) {
+        Ok(profile) => profile,
+        Err(error) => return preparation_report(&report, error),
     };
-    let Some(profile) = profile else {
-        let (reason, detail) = match declared_profile {
-            Some(id) => (
-                "unsupported-profile",
-                format!("declared execution profile `{id}` is not reviewed for executed replay"),
-            ),
-            None => ("unsupported-run-kind", format!("no reviewed execution profile covers run_kind `{run_kind}`")),
-        };
-        let report = executed_report(&ExecutedReport {
-            capsule_hash: &capsule_hash,
-            profile_id: "unsupported",
-            run_kind: &run_kind,
-            status: "failed-closed",
-            reason: Some(reason),
-            detail: Some(detail.as_str()),
-            expected_exit,
-            observed_exit: None,
-            drifts: &[],
-            failure_contract: None,
-            limits: None,
-            executed: false,
-            receipt: None,
-        });
-        return Ok((1, report));
+    let default_path;
+    let inputs_path = if let Some(path) = inputs_path {
+        path
+    } else {
+        default_path = default_inputs_path(capsule_path);
+        &default_path
     };
-    if profile.run_kind != run_kind {
-        let detail = format!("profile `{}` covers run_kind `{}`, not `{run_kind}`", profile.id, profile.run_kind);
-        let report = executed_report(&ExecutedReport {
-            capsule_hash: &capsule_hash,
-            profile_id: profile.id,
-            run_kind: &run_kind,
-            status: "failed-closed",
-            reason: Some("profile-run-kind-mismatch"),
-            detail: Some(detail.as_str()),
-            expected_exit,
-            observed_exit: None,
-            drifts: &[],
-            failure_contract: None,
-            limits: None,
-            executed: false,
-            receipt: None,
-        });
-        return Ok((1, report));
-    }
+    let prepared = match prepare_execution(profile, &manifest, inputs_path, context) {
+        Ok(prepared) => prepared,
+        Err(error) => return preparation_report(&report, error),
+    };
+    replay_prepared(&report, &prepared, receipt_path, context)
+}
 
-    let inputs_path = inputs_path.map_or_else(|| default_inputs_path(capsule_path), Path::to_path_buf);
-    let prepared = match prepare_execution(profile, &manifest, &inputs_path, workspace, local_roots)? {
-        Preparation::Ready(prepared) => prepared,
-        Preparation::Failed { reason, detail } => {
-            let report = executed_report(&ExecutedReport {
-                capsule_hash: &capsule_hash,
-                profile_id: profile.id,
-                run_kind: &run_kind,
-                status: "failed-closed",
-                reason: Some(reason),
-                detail: Some(detail.as_str()),
-                expected_exit,
-                observed_exit: None,
-                drifts: &[],
-                failure_contract: None,
-                limits: None,
-                executed: false,
-                receipt: None,
-            });
-            return Ok((1, report));
-        }
-    };
+struct EvaluatedExecution {
+    outcome: ReceiptOutcome,
+    drifts: Vec<Drift>,
+    failure: Option<(&'static str, String)>,
+    contract_result: Option<(&'static str, bool)>,
+}
 
-    if !prepared.pre_execution_drifts.is_empty() {
-        let report = executed_report(&ExecutedReport {
-            capsule_hash: &capsule_hash,
-            profile_id: profile.id,
-            run_kind: &run_kind,
-            status: "drifted",
-            reason: None,
-            detail: Some("bindings changed before execution, so the reviewed profile was not launched"),
-            expected_exit,
-            observed_exit: None,
-            drifts: &prepared.pre_execution_drifts,
-            failure_contract: None,
-            limits: Some(&prepared.limits),
-            executed: false,
-            receipt: None,
-        });
-        return Ok((1, report));
-    }
+fn receipt_stream(name: &str, capture: &bounded_exec::CapturedOutput) -> Result<ReceiptStream, String> {
+    let bytes = u64::try_from(capture.observed_bytes)
+        .map_err(|error| format!("executed {name} byte count cannot be represented in a receipt: {error}"))?;
+    Ok(ReceiptStream {
+        hash: byte_identity(&capture.bytes),
+        bytes,
+        truncated: capture.truncated,
+    })
+}
 
-    let existing_receipt = match receipt_path {
-        Some(path) if path.exists() => Some(verify_execution_receipt(path, &capsule_hash)?),
-        _ => None,
-    };
-
-    let output = run_prepared_execution(&prepared, workspace)?;
-    let stdout = ReceiptStream {
-        hash: byte_identity(&output.stdout.bytes),
-        bytes: u64::try_from(output.stdout.observed_bytes).unwrap_or(u64::MAX),
-        truncated: output.stdout.truncated,
-    };
-    let stderr = ReceiptStream {
-        hash: byte_identity(&output.stderr.bytes),
-        bytes: u64::try_from(output.stderr.observed_bytes).unwrap_or(u64::MAX),
-        truncated: output.stderr.truncated,
-    };
-
-    let mut drifts = Vec::new();
-    let mut failure: Option<(&'static str, String)> = None;
-    let mut contract_result: Option<(&'static str, bool)> = None;
-    let mut produced = BTreeMap::new();
-    let mut produced_hashes = BTreeMap::new();
+fn execution_failure(
+    output: &bounded_exec::ExecutionOutput,
+    limits: &EffectiveLimits,
+) -> Option<(&'static str, String)> {
     if output.completion == bounded_exec::Completion::TimedOut {
-        failure = Some(("timeout", format!("profile execution exceeded {} ms", prepared.limits.timeout_ms)));
-    } else if output.completion == bounded_exec::Completion::Cancelled {
-        failure = Some(("cancelled", "profile execution was cancelled".to_owned()));
-    } else if output.stdout.truncated || output.stderr.truncated {
-        failure = Some((
+        return Some(("timeout", format!("profile execution exceeded {} ms", limits.timeout_ms)));
+    }
+    if output.completion == bounded_exec::Completion::Cancelled {
+        return Some(("cancelled", "profile execution was cancelled".to_owned()));
+    }
+    if output.stdout.truncated || output.stderr.truncated {
+        return Some((
             "output-overflow",
             format!(
                 "captured output exceeded the {} / {} byte limits",
-                prepared.limits.stdout_max_bytes, prepared.limits.stderr_max_bytes
+                limits.stdout_max_bytes, limits.stderr_max_bytes,
             ),
         ));
     }
-    for declared in profile.outputs {
-        if failure.is_some() {
-            break;
-        }
-        match declared {
-            ProfileOutput::Stdout => {
-                produced.insert("stdout".to_owned(), ReceiptOutput {
-                    hash: stdout.hash.clone(),
-                    bytes: stdout.bytes,
-                });
-                produced_hashes.insert("stdout".to_owned(), stdout.hash.clone());
+    None
+}
+
+fn profile_output(
+    declared: ProfileOutput,
+    output_dir: &Path,
+    stdout: &ReceiptStream,
+    stderr: &ReceiptStream,
+) -> Result<(String, ReceiptOutput), PreparationError> {
+    let (name, hash, bytes) = match declared {
+        ProfileOutput::Stdout => ("stdout", stdout.hash.clone(), stdout.bytes),
+        ProfileOutput::Stderr => ("stderr", stderr.hash.clone(), stderr.bytes),
+        ProfileOutput::File(name) => match read_output_file(output_dir, name)? {
+            OutputFile::Present(bytes) => {
+                let size = u64::try_from(bytes.len()).map_err(|error| {
+                    format!("executed output `{name}` byte count cannot be represented in a receipt: {error}")
+                })?;
+                (name, byte_identity(&bytes), size)
             }
-            ProfileOutput::Stderr => {
-                produced.insert("stderr".to_owned(), ReceiptOutput {
-                    hash: stderr.hash.clone(),
-                    bytes: stderr.bytes,
-                });
-                produced_hashes.insert("stderr".to_owned(), stderr.hash.clone());
+            OutputFile::Missing => {
+                return Err(unsupported(
+                    "missing-output",
+                    format!("reviewed profile output `{name}` was not produced"),
+                ));
             }
-            ProfileOutput::File(name) => match read_output_file(&prepared.output_dir, name)? {
-                OutputFile::Present(bytes) => {
-                    let hash = byte_identity(&bytes);
-                    produced.insert((*name).to_owned(), ReceiptOutput {
-                        hash: hash.clone(),
-                        bytes: u64::try_from(bytes.len()).unwrap_or(u64::MAX),
-                    });
-                    produced_hashes.insert((*name).to_owned(), hash);
-                }
-                OutputFile::Missing => {
-                    failure = Some(("missing-output", format!("reviewed profile output `{name}` was not produced")));
-                }
-                OutputFile::Oversized(size) => {
-                    failure = Some((
-                        "output-overflow",
-                        format!(
-                            "reviewed profile output `{name}` is {size} bytes, above the {EXECUTION_OUTPUT_FILE_MAX_BYTES} byte limit"
-                        ),
-                    ));
-                }
-            },
+            OutputFile::Oversized(size) => {
+                return Err(unsupported(
+                    "output-overflow",
+                    format!(
+                        "reviewed profile output `{name}` is {size} bytes, above the {EXECUTION_OUTPUT_FILE_MAX_BYTES} byte limit",
+                    ),
+                ));
+            }
+        },
+    };
+    Ok((name.to_owned(), ReceiptOutput { hash, bytes }))
+}
+
+fn compare_outputs(
+    expected: &BTreeMap<String, String>,
+    produced: &BTreeMap<String, ReceiptOutput>,
+    drifts: &mut Vec<Drift>,
+) -> Result<(), String> {
+    // Borrow keys and identities; no second copy of every produced hash is needed.
+    let names: BTreeSet<&String> = expected.keys().chain(produced.keys()).collect();
+    let capacity = names
+        .len()
+        .checked_add(2)
+        .ok_or_else(|| "execution output drift count overflows usize".to_owned())?;
+    // At most one exit-or-contract drift and one retained-receipt drift follow output comparison.
+    drifts.reserve(capacity);
+    for name in names {
+        let expected = expected.get(name).map(String::as_str);
+        let actual = produced.get(name).map(|output| output.hash.as_str());
+        if expected != actual {
+            drifts.push(Drift {
+                kind: "output",
+                field: name.clone(),
+                expected: expected.unwrap_or("<absent>").to_owned(),
+                actual: actual.unwrap_or("<absent>").to_owned(),
+            });
         }
     }
+    Ok(())
+}
 
-    if failure.is_none() {
-        let names: BTreeSet<String> = produced_hashes.keys().chain(prepared.expected_outputs.keys()).cloned().collect();
-        for name in &names {
-            match (prepared.expected_outputs.get(name), produced_hashes.get(name)) {
-                (Some(expected), Some(actual)) if expected == actual => {}
-                (expected, actual) => drifts.push(Drift {
-                    kind: "output",
-                    field: name.clone(),
-                    expected: expected.cloned().unwrap_or_else(|| "<absent>".to_owned()),
-                    actual: actual.cloned().unwrap_or_else(|| "<absent>".to_owned()),
-                }),
-            }
-        }
-        match output.exit_code {
-            None => {
-                failure = Some(("missing-exit-status", "the child produced no portable exit code".to_owned()));
-            }
-            Some(exit_code) => {
-                if i64::from(exit_code) != expected_exit {
-                    drifts.push(Drift {
-                        kind: "exit",
-                        field: "expected_exit_code".to_owned(),
-                        expected: expected_exit.to_string(),
-                        actual: exit_code.to_string(),
-                    });
-                } else if expected_exit != 0
-                    && let Some(contract) = prepared.failure_contract
-                {
-                    let satisfied = contract_satisfied(contract, &output);
-                    contract_result = Some((contract.name, satisfied));
-                    if !satisfied {
-                        drifts.push(Drift {
-                            kind: "failure_contract",
-                            field: contract.name.to_owned(),
-                            expected: format!("named failure contract `{}` was satisfied", contract.name),
-                            actual: "contract marker missing from the executed run".to_owned(),
-                        });
-                    }
-                }
-            }
-        }
+fn compare_exit(
+    prepared: &PreparedExecution,
+    output: &bounded_exec::ExecutionOutput,
+    evaluation: &mut EvaluatedExecution,
+) {
+    let Some(exit_code) = output.exit_code else {
+        evaluation.failure = Some(("missing-exit-status", "the child produced no portable exit code".to_owned()));
+        return;
+    };
+    if exit_code != prepared.expected_exit_code {
+        evaluation.drifts.push(Drift {
+            kind: "exit",
+            field: "expected_exit_code".to_owned(),
+            expected: prepared.expected_exit_code.to_string(),
+            actual: exit_code.to_string(),
+        });
+        return;
     }
+    let Some(contract) = prepared.failure_contract else {
+        return;
+    };
+    let is_satisfied = contract_satisfied(contract, output);
+    evaluation.contract_result = Some((contract.name, is_satisfied));
+    if !is_satisfied {
+        evaluation.drifts.push(Drift {
+            kind: "failure_contract",
+            field: contract.name.to_owned(),
+            expected: format!("named failure contract `{}` was satisfied", contract.name),
+            actual: "contract marker missing from the executed run".to_owned(),
+        });
+    }
+}
 
-    let mut body = ExecutionReceiptBody {
-        schema_version: SCHEMA_VERSION,
-        receipt_kind: EXECUTION_RECEIPT_KIND.to_owned(),
-        capsule_hash: capsule_hash.clone(),
-        evidence_mode: EXECUTED_EVIDENCE_MODE.to_owned(),
-        profile: ReceiptProfile {
-            id: profile.id.to_owned(),
-            run_kind: profile.run_kind.to_owned(),
-            executable_name: profile.executable_name.to_owned(),
-            executable_source: match profile.executable {
-                ProfileExecutable::SelfOctet => "self-octet".to_owned(),
-                ProfileExecutable::DeclaredWorkspaceExecutable => "declared-workspace".to_owned(),
-            },
-            executable_hash: prepared.executable_hash.clone(),
-            argv: prepared.comparison_argv.clone(),
-        },
-        source: ReceiptSource {
-            inputs: prepared
-                .inputs
-                .iter()
-                .map(|input| {
-                    (input.name.clone(), ReceiptInput {
-                        path: input.normalized_path.clone(),
-                        hash: input.hash.clone(),
-                    })
-                })
-                .collect(),
-        },
-        policy: ReceiptPolicy {
-            config_hash: prepared.config_hash.clone(),
-        },
-        toolchain: ReceiptToolchain {
-            octet_binary_identity: prepared.octet_identity.clone(),
-            executable_hash: prepared.executable_hash.clone(),
-            nix_closure_identity: prepared.nix_closure.clone(),
-        },
-        capabilities: profile.capabilities.iter().map(|capability| (*capability).to_owned()).collect(),
-        environment: ReceiptEnvironment {
-            allowlist: profile.environment_allowlist.iter().map(|name| (*name).to_owned()).collect(),
-            fixed: profile
-                .fixed_environment
-                .iter()
-                .map(|(name, value)| ((*name).to_owned(), (*value).to_owned()))
-                .collect(),
-            present: prepared.environment_names.clone(),
-            overrides: prepared.environment_overrides.clone(),
-        },
-        limits: ReceiptLimits {
-            timeout_ms: prepared.limits.timeout_ms,
-            stdout_max_bytes: prepared.limits.stdout_max_bytes,
-            stderr_max_bytes: prepared.limits.stderr_max_bytes,
-        },
-        expected: ReceiptExpected {
-            exit_code: expected_exit,
-            outputs: prepared.expected_outputs.clone(),
-            failure_contract: prepared.failure_contract.map(|contract| contract.name.to_owned()),
-        },
+fn collect_profile_outputs(
+    prepared: &PreparedExecution,
+    stdout: &ReceiptStream,
+    stderr: &ReceiptStream,
+    failure: &mut Option<(&'static str, String)>,
+) -> Result<BTreeMap<String, ReceiptOutput>, String> {
+    if failure.is_some() {
+        return Ok(BTreeMap::new());
+    }
+    // This closed profile table bounds the collection. Stop at the first missing/oversized file,
+    // preserving identities already observed without allocating a second output/hash collection.
+    prepared
+        .profile
+        .outputs
+        .iter()
+        .map_while(|declared| match profile_output(*declared, &prepared.output_dir, stdout, stderr) {
+            Ok(output) => Some(Ok(output)),
+            Err(PreparationError::Invalid(detail)) => Some(Err(detail)),
+            Err(PreparationError::Unsupported { reason, detail }) => {
+                *failure = Some((reason, detail));
+                None
+            }
+        })
+        .collect()
+}
+
+fn evaluate_execution(
+    prepared: &PreparedExecution,
+    output: &bounded_exec::ExecutionOutput,
+    context: &ExecutionContext<'_>,
+) -> Result<EvaluatedExecution, String> {
+    let stdout = receipt_stream("stdout", &output.stdout)?;
+    let stderr = receipt_stream("stderr", &output.stderr)?;
+    let mut failure = execution_failure(output, &prepared.limits);
+    let produced = collect_profile_outputs(prepared, &stdout, &stderr, &mut failure)?;
+    let mut evaluation = EvaluatedExecution {
         outcome: ReceiptOutcome {
             completion: completion_name(output.completion).to_owned(),
             exit_code: output.exit_code,
@@ -2388,65 +2458,181 @@ fn capsule_replay_executed_report(
             stdout,
             stderr,
             outputs: produced,
-            output_directory: normalize_bound_path(&prepared.output_dir, workspace, local_roots),
+            output_directory: normalize_bound_path(&prepared.output_dir, context.workspace, context.local_roots),
         },
-        status: String::new(),
+        drifts: Vec::with_capacity(2),
+        failure,
+        contract_result: None,
     };
+    if evaluation.failure.is_none() {
+        compare_outputs(&prepared.expected_outputs, &evaluation.outcome.outputs, &mut evaluation.drifts)?;
+        compare_exit(prepared, output, &mut evaluation);
+    }
+    Ok(evaluation)
+}
 
-    if let Some(existing) = &existing_receipt {
-        let mut comparable_existing = existing.body.clone();
-        comparable_existing.status = String::new();
-        if comparable_existing != body {
-            drifts.push(Drift {
-                kind: "receipt",
-                field: existing.receipt_hash.clone(),
-                expected: "execution receipt matching the recomputed outcome".to_owned(),
-                actual: "recomputed outcome differs from the retained receipt".to_owned(),
-            });
+impl PreparedExecution {
+    fn receipt_profile(&self) -> ReceiptProfile {
+        ReceiptProfile {
+            id: self.profile.id.to_owned(),
+            run_kind: self.profile.run_kind.to_owned(),
+            executable_name: self.profile.executable_name.to_owned(),
+            executable_source: match self.profile.executable {
+                ProfileExecutable::SelfOctet => "self-octet".to_owned(),
+                ProfileExecutable::DeclaredWorkspaceExecutable => "declared-workspace".to_owned(),
+            },
+            executable_hash: self.executable_hash.clone(),
+            argv: self.comparison_argv.clone(),
         }
     }
 
-    let status = if failure.is_some() {
-        "failed-closed"
-    } else if drifts.is_empty() {
-        if expected_exit == 0 {
-            "replayed"
-        } else {
-            "expected-failure-replayed"
+    fn receipt_environment(&self) -> ReceiptEnvironment {
+        ReceiptEnvironment {
+            allowlist: self.profile.environment_allowlist.iter().map(|name| (*name).to_owned()).collect(),
+            fixed: self
+                .profile
+                .fixed_environment
+                .iter()
+                .map(|(name, value)| ((*name).to_owned(), (*value).to_owned()))
+                .collect(),
+            present: self.environment_names.clone(),
+            overrides: self.environment_overrides.clone(),
         }
+    }
+
+    fn receipt_body(&self, capsule_hash: &str, outcome: ReceiptOutcome) -> ExecutionReceiptBody {
+        ExecutionReceiptBody {
+            schema_version: SCHEMA_VERSION,
+            receipt_kind: EXECUTION_RECEIPT_KIND.to_owned(),
+            capsule_hash: capsule_hash.to_owned(),
+            evidence_mode: EXECUTED_EVIDENCE_MODE.to_owned(),
+            profile: self.receipt_profile(),
+            source: ReceiptSource {
+                inputs: self
+                    .inputs
+                    .iter()
+                    .map(|input| {
+                        (input.name.clone(), ReceiptInput {
+                            path: input.normalized_path.clone(),
+                            hash: input.hash.clone(),
+                        })
+                    })
+                    .collect(),
+            },
+            policy: ReceiptPolicy {
+                config_hash: self.config_hash.clone(),
+            },
+            toolchain: ReceiptToolchain {
+                octet_binary_identity: self.octet_identity.clone(),
+                executable_hash: self.executable_hash.clone(),
+                nix_closure_identity: self.nix_closure.clone(),
+            },
+            capabilities: self.profile.capabilities.iter().map(|capability| (*capability).to_owned()).collect(),
+            environment: self.receipt_environment(),
+            limits: ReceiptLimits {
+                timeout_ms: self.limits.timeout_ms,
+                stdout_max_bytes: self.limits.stdout_max_bytes,
+                stderr_max_bytes: self.limits.stderr_max_bytes,
+            },
+            expected: ReceiptExpected {
+                exit_code: i64::from(self.expected_exit_code),
+                outputs: self.expected_outputs.clone(),
+                failure_contract: self.failure_contract.map(|contract| contract.name.to_owned()),
+            },
+            outcome,
+            status: String::new(),
+        }
+    }
+}
+
+fn compare_retained_receipt(body: &ExecutionReceiptBody, existing: Option<ExecutionReceipt>, drifts: &mut Vec<Drift>) {
+    let Some(mut existing) = existing else {
+        return;
+    };
+    existing.body.status.clear();
+    if existing.body != *body {
+        drifts.push(Drift {
+            kind: "receipt",
+            field: existing.receipt_hash,
+            expected: "execution receipt matching the recomputed outcome".to_owned(),
+            actual: "recomputed outcome differs from the retained receipt".to_owned(),
+        });
+    }
+}
+
+fn execution_status(expected_exit: i64, failure: Option<&(&'static str, String)>, drifts: &[Drift]) -> &'static str {
+    if failure.is_some() {
+        return "failed-closed";
+    }
+    if !drifts.is_empty() {
+        return "drifted";
+    }
+    if expected_exit == 0 {
+        "replayed"
     } else {
-        "drifted"
-    };
-    body.status = status.to_owned();
-    let receipt_hash = {
-        let body_value =
-            serde_json::to_value(&body).map_err(|error| format!("serialize execution receipt body: {error}"))?;
-        determinism::full_hash(&canonical_json(&body_value)?)
-    };
+        "expected-failure-replayed"
+    }
+}
+
+fn retain_execution_receipt(body: ExecutionReceiptBody, path: Option<&Path>) -> Result<ExecutionReceipt, String> {
+    let value = serde_json::to_value(&body).map_err(|error| format!("serialize execution receipt body: {error}"))?;
+    let receipt_hash = determinism::full_hash(&canonical_json(&value)?);
     let receipt = ExecutionReceipt { body, receipt_hash };
-    if let Some(path) = receipt_path {
+    if let Some(path) = path {
         write_json(path, &receipt)?;
     }
+    Ok(receipt)
+}
 
-    let failure_contract = contract_result
-        .or_else(|| prepared.failure_contract.map(|contract| (contract.name, status == "expected-failure-replayed")));
-    let report = executed_report(&ExecutedReport {
-        capsule_hash: &capsule_hash,
-        profile_id: profile.id,
-        run_kind: &run_kind,
+fn replay_prepared(
+    report: &ExecutedReport<'_>,
+    prepared: &PreparedExecution,
+    receipt_path: Option<&Path>,
+    context: &ExecutionContext<'_>,
+) -> Result<(i32, Value), String> {
+    let report = ExecutedReport {
+        limits: Some(&prepared.limits),
+        ..*report
+    };
+    if !prepared.pre_execution_drifts.is_empty() {
+        let report = ExecutedReport {
+            status: "drifted",
+            detail: Some("bindings changed before execution, so the reviewed profile was not launched"),
+            drifts: &prepared.pre_execution_drifts,
+            ..report
+        };
+        return Ok((1, executed_report(&report)));
+    }
+    let existing = match receipt_path {
+        Some(path) if path.exists() => Some(verify_execution_receipt(path, report.capsule_hash)?),
+        _ => None,
+    };
+    let output = run_prepared_execution(prepared, context.workspace)?;
+    let EvaluatedExecution {
+        outcome,
+        mut drifts,
+        failure,
+        contract_result,
+    } = evaluate_execution(prepared, &output, context)?;
+    let mut body = prepared.receipt_body(report.capsule_hash, outcome);
+    compare_retained_receipt(&body, existing, &mut drifts);
+    let status = execution_status(report.expected_exit, failure.as_ref(), &drifts);
+    body.status = status.to_owned();
+    let receipt = retain_execution_receipt(body, receipt_path)?;
+    let report = ExecutedReport {
         status,
         reason: failure.as_ref().map(|(reason, _)| *reason),
         detail: failure.as_ref().map(|(_, detail)| detail.as_str()),
-        expected_exit,
         observed_exit: output.exit_code.map(i64::from),
         drifts: &drifts,
-        failure_contract,
-        limits: Some(&prepared.limits),
+        failure_contract: contract_result.or_else(|| {
+            prepared.failure_contract.map(|contract| (contract.name, status == "expected-failure-replayed"))
+        }),
         executed: true,
         receipt: receipt_path.map(|path| (path, receipt.receipt_hash.as_str())),
-    });
-    let code = i32::from(status == "drifted" || status == "failed-closed");
-    Ok((code, report))
+        ..report
+    };
+    Ok((i32::from(status == "drifted" || status == "failed-closed"), executed_report(&report)))
 }
 
 const CAPSULE_COMPARED_FIELDS: [&str; 6] = [
@@ -3986,7 +4172,12 @@ mod tests {
         write_test_json(&capsule_path, &executed_capsule(manifest));
         write_test_json(&inputs_path, inputs);
         let roots = test_local_roots(workspace);
-        capsule_replay_executed_report(&capsule_path, Some(&inputs_path), receipt, workspace, &roots)
+        let context = ExecutionContext {
+            workspace,
+            local_roots: &roots,
+            environment: &[],
+        };
+        capsule_replay_executed_report(&capsule_path, Some(&inputs_path), receipt, &context)
     }
 
     fn run_executed(workspace: &Path, manifest: &Value, inputs: &Value, receipt: Option<&Path>) -> (i32, Value) {
@@ -4025,8 +4216,11 @@ mod tests {
             &capsule_path,
             Some(&workspace.join("missing-execution-inputs.json")),
             None,
-            &workspace,
-            &roots,
+            &ExecutionContext {
+                workspace: &workspace,
+                local_roots: &roots,
+                environment: &[],
+            },
         )
         .expect("executed replay report");
         assert_eq!(code, 1, "{report}");
@@ -4180,6 +4374,28 @@ mod tests {
         assert_eq!(report["observed_exit_code"], serde_json::json!(4));
         assert_eq!(drift_kinds(&report), vec!["exit".to_owned()]);
         assert_eq!(report["mismatches"], serde_json::json!(["expected_exit_code"]));
+    }
+
+    #[test]
+    fn executed_output_read_enforces_the_cap_after_a_stale_size_snapshot() {
+        let limit = usize::try_from(EXECUTION_OUTPUT_FILE_MAX_BYTES).expect("output limit fits usize");
+        let mut exact = std::io::Cursor::new(vec![b'x'; limit]);
+        let output = read_output_bytes(&mut exact, 1).expect("read at limit");
+        let OutputFile::Present(bytes) = output else {
+            panic!("an exact-limit output must be retained");
+        };
+        assert_eq!(bytes.len(), limit);
+        assert!(bytes.iter().all(|byte| *byte == b'x'));
+        assert_eq!(exact.position(), EXECUTION_OUTPUT_FILE_MAX_BYTES);
+
+        let mut grown = std::io::Cursor::new(vec![b'x'; limit + 2]);
+        let output = read_output_bytes(&mut grown, 1).expect("read grown output");
+        assert!(matches!(output, OutputFile::Oversized(size) if size == EXECUTION_OUTPUT_FILE_MAX_BYTES + 1));
+        assert_eq!(
+            grown.position(),
+            EXECUTION_OUTPUT_FILE_MAX_BYTES + 1,
+            "the extra byte beyond detection is never read"
+        );
     }
 
     #[test]

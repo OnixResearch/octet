@@ -1,10 +1,13 @@
-use std::{collections::HashMap, error::Error, fs, path::PathBuf};
+use std::{collections::HashMap, error::Error, path::PathBuf};
 
 use cairn_core::{canonical_json_hash, receipt_field_drift, DriftReport};
 use serde_json::{json, Value};
 
+const MAX_RECEIPT_BYTES: u64 = 16 * 1024 * 1024;
+
 use crate::support::{
-    default_policy_path, load_policy_file, path_string, print_json, read_option, with_receipt_hash,
+    default_policy_path, load_policy_file, path_string, print_json, read_option,
+    reject_positional_arguments, reject_unknown_options, with_receipt_hash,
 };
 
 pub(crate) fn run_receipt_preserves_diff(args: Vec<String>) -> Result<(), Box<dyn Error>> {
@@ -13,6 +16,8 @@ pub(crate) fn run_receipt_preserves_diff(args: Vec<String>) -> Result<(), Box<dy
     // r[verify cairn.determinism.preserves_receipt_field_drift.command]
     // r[verify cairn.determinism.preserves_receipt_field_drift.read_only]
 
+    reject_unknown_options(&args, &["--baseline", "--candidate", "--policy"])?;
+    reject_positional_arguments(&args)?;
     let baseline_path = read_option(args.clone(), "--baseline", "");
     let candidate_path = read_option(args.clone(), "--candidate", "");
 
@@ -20,17 +25,20 @@ pub(crate) fn run_receipt_preserves_diff(args: Vec<String>) -> Result<(), Box<dy
         return Err("receipt-preserves-diff requires --baseline <path> --candidate <path>".into());
     }
 
-    let baseline_text =
-        fs::read_to_string(&baseline_path).map_err(|e| format!("failed to read baseline: {e}"))?;
-    let candidate_text = fs::read_to_string(&candidate_path)
-        .map_err(|e| format!("failed to read candidate: {e}"))?;
+    let policy_path = read_option(args, "--policy", default_policy_path());
+    let policy = load_policy_file(policy_path)?;
 
-    let baseline: Value =
-        serde_json::from_str(&baseline_text).map_err(|e| format!("baseline parse error: {e}"))?;
-    let candidate: Value =
-        serde_json::from_str(&candidate_text).map_err(|e| format!("candidate parse error: {e}"))?;
+    let baseline = crate::support::read_bounded_json_no_symlink(
+        &baseline_path,
+        MAX_RECEIPT_BYTES,
+        "baseline receipt",
+    )?;
+    let candidate = crate::support::read_bounded_json_no_symlink(
+        &candidate_path,
+        MAX_RECEIPT_BYTES,
+        "candidate receipt",
+    )?;
 
-    let policy = load_policy_file(default_policy_path().into())?;
     let source_map = parse_source_id_map(&policy);
 
     let report = receipt_field_drift(&baseline, &candidate, &source_map);

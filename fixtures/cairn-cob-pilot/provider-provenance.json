@@ -1,0 +1,10 @@
+{
+  "source_revision": "2747aa6eeb6e9eb9862f2bc4e11336e768e2e10b",
+  "executable": "/nix/store/srgd4wpm2ad3hz72iwlbv9h1wny6gibg-cairn-0.2.0/bin/cairn",
+  "executable_blake3": "fc0e74108e3dd38c5dc4c14b902971a711eaa21d8a508cd8e54185bd4b356b3a",
+  "observation_kind": "fresh signed CLI capture; not a historical receipt migration",
+  "base_has_parents": false,
+  "base_paths": [
+    "cairn-policy/generated/cairn-policy.json"
+  ]
+}

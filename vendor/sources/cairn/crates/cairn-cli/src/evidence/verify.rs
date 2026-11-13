@@ -38,6 +38,17 @@ pub(super) fn run_evidence_verify(args: Vec<String>) -> Result<(), Box<dyn Error
 }
 
 fn evidence_verify_options(args: &[String]) -> Result<EvidenceVerifyOptions, Box<dyn Error>> {
+    crate::support::reject_unknown_options(
+        args,
+        &[
+            "--root",
+            "--policy",
+            "--bundle",
+            "--stack-provenance",
+            "--stack-provenance-graph",
+        ],
+    )?;
+    crate::support::reject_positional_arguments(args)?;
     let root = read_option(args.to_vec(), "--root", ".");
     let policy = read_option(args.to_vec(), "--policy", default_policy_path());
     let bundle = read_string_option(args, "--bundle").map(PathBuf::from);
@@ -225,6 +236,13 @@ pub(crate) fn evidence_verify_receipt(options: &EvidenceVerifyOptions) -> Value 
         "evidence_verify.manifest_verification_invalid",
         &mut issues,
     );
+    verify_saved_receipt_valid(
+        &bundle_root,
+        "trace_index_verification",
+        "trace-index-verification.json",
+        "evidence_verify.trace_index_verification_invalid",
+        &mut issues,
+    );
 
     let rerun_bundle = agent_evidence_bundle_verification_receipt(
         &root,
@@ -247,6 +265,38 @@ pub(crate) fn evidence_verify_receipt(options: &EvidenceVerifyOptions) -> Value 
             "valid rerun manifest verification",
             "invalid",
         ));
+    }
+    // r[impl cairn.trace_index.evidence_bundle.freshness]
+    match crate::trace_index::current_root_trace_index_verification_receipt(
+        &root,
+        &options.policy,
+        None,
+        &bundle_dir.join("requirement-registry.json"),
+        &bundle_dir.join("trace-index.json"),
+        Path::new("trace-index.json"),
+    ) {
+        Ok(receipt) if receipt.get("valid").and_then(Value::as_bool) == Some(true) => {}
+        Ok(receipt) => {
+            let actual = receipt
+                .get("issues")
+                .and_then(Value::as_array)
+                .and_then(|issues| issues.first())
+                .and_then(|issue| issue.get("code"))
+                .and_then(Value::as_str)
+                .unwrap_or("invalid");
+            issues.push(evidence_verify_issue(
+                "evidence_verify.trace_index_stale",
+                "trace_index",
+                "trace index matches the current repository root",
+                actual,
+            ));
+        }
+        Err(_) => issues.push(evidence_verify_issue(
+            "evidence_verify.trace_index_rerun_failed",
+            "trace_index",
+            "runnable current-root trace-index verification",
+            "failed",
+        )),
     }
 
     let stack_provenance = crate::stack_provenance::stack_provenance_receipt_value(
@@ -297,6 +347,9 @@ const EVIDENCE_EXPORT_REQUIRED_ROLES: &[&str] = &[
     "release_readiness",
     "replay_receipt",
     "replay_verification",
+    "requirement_registry",
+    "trace_index",
+    "trace_index_verification",
 ];
 
 fn read_json_artifact_from_root(

@@ -1,4 +1,4 @@
-use std::{error::Error, fs, io::Write, path::Path};
+use std::{error::Error, io::Write, path::Path};
 
 use cairn_core::{
     canonical_json_hash, validate_circuit_primitive_receipt, validate_downstream_pilot_receipt,
@@ -25,6 +25,12 @@ pub(crate) fn run_evidence_circuit_primitive(args: Vec<String>) -> Result<(), Bo
                     "evidence circuit-primitive validate requires a JSON receipt path".into(),
                 );
             };
+            if path.is_empty() {
+                return Err("evidence validate requires a JSON receipt path".into());
+            }
+            if let Some(extra) = iter.next() {
+                return Err(format!("unexpected evidence argument: {extra}").into());
+            }
             let receipt = read_json_artifact(Path::new(&path), CIRCUIT_PRIMITIVE_MAX_BYTES)?;
             let report = validate_circuit_primitive_receipt(&receipt);
             let issues = report
@@ -71,6 +77,12 @@ pub(crate) fn run_evidence_downstream_pilot(args: Vec<String>) -> Result<(), Box
                     "evidence downstream-pilot validate requires a JSON receipt path".into(),
                 );
             };
+            if path.is_empty() {
+                return Err("evidence validate requires a JSON receipt path".into());
+            }
+            if let Some(extra) = iter.next() {
+                return Err(format!("unexpected evidence argument: {extra}").into());
+            }
             let receipt = read_json_artifact(Path::new(&path), DOWNSTREAM_PILOT_MAX_BYTES)?;
             let report = validate_downstream_pilot_receipt(&receipt);
             let issues = report
@@ -115,6 +127,12 @@ pub(crate) fn run_evidence_export_bundle_receipt(args: Vec<String>) -> Result<()
             let Some(path) = iter.next() else {
                 return Err("evidence export-bundle validate requires a JSON receipt path".into());
             };
+            if path.is_empty() {
+                return Err("evidence validate requires a JSON receipt path".into());
+            }
+            if let Some(extra) = iter.next() {
+                return Err(format!("unexpected evidence argument: {extra}").into());
+            }
             let receipt = read_json_artifact(Path::new(&path), EXPORT_BUNDLE_MAX_BYTES)?;
             let report = validate_export_bundle_receipt(&receipt);
             let issues = report
@@ -159,6 +177,12 @@ pub(crate) fn run_evidence_name_pointer(args: Vec<String>) -> Result<(), Box<dyn
             let Some(path) = iter.next() else {
                 return Err("evidence name-pointer validate requires a JSON receipt path".into());
             };
+            if path.is_empty() {
+                return Err("evidence validate requires a JSON receipt path".into());
+            }
+            if let Some(extra) = iter.next() {
+                return Err(format!("unexpected evidence argument: {extra}").into());
+            }
             let receipt = read_json_artifact(Path::new(&path), NAME_POINTER_MAX_BYTES)?;
             let report = validate_name_pointer_receipt(&receipt);
             let issues = report
@@ -205,6 +229,12 @@ pub(crate) fn run_evidence_function_object(args: Vec<String>) -> Result<(), Box<
                     "evidence function-object validate requires a JSON receipt path".into(),
                 );
             };
+            if path.is_empty() {
+                return Err("evidence validate requires a JSON receipt path".into());
+            }
+            if let Some(extra) = iter.next() {
+                return Err(format!("unexpected evidence argument: {extra}").into());
+            }
             let receipt = read_json_artifact(Path::new(&path), FUNCTION_OBJECT_MAX_BYTES)?;
             let report = validate_function_object_receipt(&receipt);
             let issues = report
@@ -240,11 +270,7 @@ pub(crate) fn run_evidence_function_object(args: Vec<String>) -> Result<(), Box<
 }
 
 fn read_json_artifact(path: &Path, max_bytes: u64) -> Result<Value, Box<dyn Error>> {
-    let metadata = fs::metadata(path)?;
-    if metadata.len() > max_bytes {
-        return Err(format!("artifact too large: {} bytes", metadata.len()).into());
-    }
-    Ok(serde_json::from_slice(&fs::read(path)?)?)
+    crate::support::read_bounded_json_no_symlink(path, max_bytes, "evidence artifact")
 }
 
 fn print_json(value: Value) -> Result<(), Box<dyn Error>> {

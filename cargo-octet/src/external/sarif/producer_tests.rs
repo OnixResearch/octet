@@ -66,18 +66,18 @@ fn workspace() -> tempfile::TempDir {
     directory
 }
 
-fn semgrep_profile(workspace: &Path) -> ProducerProfile {
-    let mut profile = selected_profile("semgrep-exec-local").expect("checked Semgrep producer profile");
+fn semgrep_profile(workspace: &Path) -> Profile {
+    let mut profile = admission::selected_profile("semgrep-exec-local").expect("checked Semgrep producer profile");
     let rules = b"rules:\n  - id: octet.rust.unsafe-block\n";
     std::fs::write(workspace.join("producer-rules.yml"), rules).expect("write test rule bundle");
     profile.rules.path = "producer-rules.yml".to_owned();
-    profile.rules.identity = prefixed_identity(rules);
+    profile.rules.identity = super::super::prefixed_identity(rules);
     profile.scope.paths = vec!["src".to_owned()];
     profile
 }
 
-fn codeql_profile(workspace: &Path) -> ProducerProfile {
-    let mut profile = selected_profile("codeql-exec-local").expect("checked CodeQL producer profile");
+fn codeql_profile(workspace: &Path) -> Profile {
+    let mut profile = admission::selected_profile("codeql-exec-local").expect("checked CodeQL producer profile");
     profile.scope.paths = vec!["src".to_owned()];
     let _ = workspace;
     profile
@@ -113,29 +113,29 @@ impl FixtureExecutor {
 }
 
 impl Executor for FixtureExecutor {
-    fn resolve(&self, name: &str, _current_dir: &Path) -> Result<ExecutableObservation, StepFailure> {
+    fn resolve(&self, name: &str, _current_dir: &Path) -> Result<process::ExecutableObservation, process::StepFailure> {
         if self.behavior == Behavior::Missing {
-            return Err(StepFailure::new(
-                FailureKind::NotFound,
+            return Err(process::StepFailure::new(
+                process::FailureKind::NotFound,
                 format!("test-only fixture marks `{name}` as not installed"),
             ));
         }
         let bytes =
-            std::fs::read(&self.program).map_err(|error| StepFailure::new(FailureKind::Spawn, error.to_string()))?;
-        Ok(ExecutableObservation {
+            std::fs::read(&self.program).map_err(|error| process::StepFailure::new(process::FailureKind::Spawn, error.to_string()))?;
+        Ok(process::ExecutableObservation {
             resolved_path: self.program.display().to_string(),
-            identity: prefixed_identity(&bytes),
+            identity: super::super::prefixed_identity(&bytes),
         })
     }
 
-    fn run(&self, argv: &[String], current_dir: &Path, _limits: &ProducerLimits) -> Result<StepOutput, StepFailure> {
+    fn run(&self, argv: &[String], current_dir: &Path, _limits: &Limits) -> Result<process::StepOutput, process::StepFailure> {
         match self.behavior {
             Behavior::TimedOut => {
-                return Err(StepFailure::new(FailureKind::TimedOut, "test-only fixture reports a wall-clock timeout"));
+                return Err(process::StepFailure::new(process::FailureKind::TimedOut, "test-only fixture reports a wall-clock timeout"));
             }
             Behavior::Overflow => {
-                return Err(StepFailure::new(
-                    FailureKind::OutputLimitExceeded,
+                return Err(process::StepFailure::new(
+                    process::FailureKind::OutputLimitExceeded,
                     "test-only fixture reports a per-stream output overflow",
                 ));
             }
@@ -146,8 +146,8 @@ impl Executor for FixtureExecutor {
         for (name, value) in &self.environment {
             command.env(name, value);
         }
-        let output = command.output().map_err(|error| StepFailure::new(FailureKind::Spawn, error.to_string()))?;
-        Ok(StepOutput {
+        let output = command.output().map_err(|error| process::StepFailure::new(process::FailureKind::Spawn, error.to_string()))?;
+        Ok(process::StepOutput {
             exit_code: output.status.code().unwrap_or(-1),
             stdout: output.stdout,
             stderr: output.stderr,
@@ -157,12 +157,12 @@ impl Executor for FixtureExecutor {
 
 fn run_semgrep(
     directory: &Path,
-    profile: &ProducerProfile,
+    profile: &Profile,
     report: &str,
     mode: &str,
     stage_name: &str,
     extra_environment: &[(&str, &str)],
-) -> (ProducerExecution, String) {
+) -> (Execution, String) {
     let program = fixture_executable(directory, "semgrep");
     let mut executor = FixtureExecutor::new(program, Behavior::Run).with_environment(&[
         ("SARIF_FIXTURE_VERSION", SEMGREP_VERSION),
@@ -173,9 +173,9 @@ fn run_semgrep(
         .environment
         .extend(extra_environment.iter().map(|(name, value)| ((*name).to_owned(), (*value).to_owned())));
     let stage = directory.join(stage_name);
-    execute(
+    process::execute(
         profile,
-        &ExecuteRequest {
+        &process::ExecuteRequest {
             workspace_root: directory,
             stage_dir: &stage,
         },
@@ -184,7 +184,7 @@ fn run_semgrep(
     .expect("producer execution shell")
 }
 
-fn run_codeql(directory: &Path, profile: &ProducerProfile, mode: &str) -> (ProducerExecution, String) {
+fn run_codeql(directory: &Path, profile: &Profile, mode: &str) -> (Execution, String) {
     let program = fixture_executable(directory, "codeql");
     let executor = FixtureExecutor::new(program, Behavior::Run).with_environment(&[
         ("SARIF_FIXTURE_VERSION", CODEQL_VERSION),
@@ -192,9 +192,9 @@ fn run_codeql(directory: &Path, profile: &ProducerProfile, mode: &str) -> (Produ
         ("SARIF_FIXTURE_REPORT", CODEQL_CLEAN_REPORT),
     ]);
     let stage = directory.join("stage-codeql");
-    execute(
+    process::execute(
         profile,
-        &ExecuteRequest {
+        &process::ExecuteRequest {
             workspace_root: directory,
             stage_dir: &stage,
         },
@@ -220,19 +220,19 @@ fn successful_clean_execution_binds_tool_rules_scope_and_report() {
     assert_eq!(execution.source_files.len(), 1);
     assert_eq!(
         execution.source_snapshot_identity,
-        source_snapshot_identity(&execution.source_files).expect("snapshot identity")
+        recording::source_snapshot_identity(&execution.source_files).expect("snapshot identity")
     );
     assert_eq!(execution.steps.last().expect("analyze step").exit_code, Some(0));
-    assert!(validate_execution(&execution).is_empty(), "{:?}", validate_execution(&execution));
+    assert!(recording::validate_execution(&execution).is_empty(), "{:?}", recording::validate_execution(&execution));
 
-    let evaluation = evaluate_executed(&report, &execution);
+    let evaluation = recording::evaluate_executed(&report, &execution);
     assert!(evaluation.diagnostics.is_empty(), "{:?}", evaluation.diagnostics);
     let details = evaluation.details.expect("clean executed details");
     assert!(details.findings.is_empty());
     assert_eq!(details.raw_report_identity, execution.report.as_ref().expect("report receipt").identity);
     assert_eq!(
-        execution_identity(&execution).expect("execution identity"),
-        prefixed_identity(&execution_bytes(&execution).expect("execution bytes"))
+        recording::execution_identity(&execution).expect("execution identity"),
+        super::super::prefixed_identity(&recording::execution_bytes(&execution).expect("execution bytes"))
     );
 }
 
@@ -244,7 +244,7 @@ fn violation_findings_keep_external_rule_severity_and_scope() {
         run_semgrep(directory.path(), &profile, SEMGREP_VIOLATION_REPORT, "violation", "stage-violation", &[]);
     assert_eq!(execution.outcome, OUTCOME_COMPLETED);
 
-    let details = evaluate_executed(&report, &execution).details.expect("violation details");
+    let details = recording::evaluate_executed(&report, &execution).details.expect("violation details");
     assert_eq!(details.findings.len(), 1);
     let finding = &details.findings[0];
     assert_eq!(finding.source_driver, "Semgrep");
@@ -262,9 +262,9 @@ fn missing_and_mis_versioned_tools_never_produce_clean_evidence() {
 
     let program = fixture_executable(directory.path(), "semgrep");
     let stage = directory.path().join("stage-missing");
-    let (missing, report) = execute(
+    let (missing, report) = process::execute(
         &profile,
-        &ExecuteRequest {
+        &process::ExecuteRequest {
             workspace_root: directory.path(),
             stage_dir: &stage,
         },
@@ -273,7 +273,7 @@ fn missing_and_mis_versioned_tools_never_produce_clean_evidence() {
     .expect("missing-tool execution shell");
     assert_eq!(missing.outcome, OUTCOME_UNSUPPORTED);
     assert!(report.is_empty());
-    assert!(evaluate_executed(&report, &missing).details.is_none());
+    assert!(recording::evaluate_executed(&report, &missing).details.is_none());
 
     let (wrong, report) =
         run_semgrep(directory.path(), &profile, SEMGREP_CLEAN_REPORT, "clean", "stage-wrong-version", &[(
@@ -282,7 +282,7 @@ fn missing_and_mis_versioned_tools_never_produce_clean_evidence() {
         )]);
     assert_eq!(wrong.outcome, OUTCOME_TOOL_ERROR);
     assert!(wrong.diagnostics.iter().any(|diagnostic| diagnostic.contains("pinned")));
-    assert!(evaluate_executed(&report, &wrong).details.is_none());
+    assert!(recording::evaluate_executed(&report, &wrong).details.is_none());
 
     let _ = program;
 }
@@ -318,7 +318,7 @@ fn source_mutation_during_scan_fails_closed() {
         )]);
     assert_eq!(execution.outcome, OUTCOME_FAILED);
     assert!(execution.diagnostics.iter().any(|diagnostic| diagnostic.contains("source changed")));
-    assert!(evaluate_executed(&report, &execution).details.is_none());
+    assert!(recording::evaluate_executed(&report, &execution).details.is_none());
 }
 
 #[test]
@@ -332,7 +332,7 @@ fn stale_or_mismatched_codeql_database_fails() {
         source_snapshot_identity: "b3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned(),
         language: "rust".to_owned(),
         build_mode: "none".to_owned(),
-        query_packs: profile.query_packs.iter().map(query_pack_receipt).collect(),
+        query_packs: profile.query_packs.iter().map(recording::query_pack_receipt).collect(),
         executable_identity: "b3:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_owned(),
     };
     let program = fixture_executable(directory.path(), "codeql");
@@ -361,9 +361,9 @@ fn stale_or_mismatched_codeql_database_fails() {
             ("SARIF_FIXTURE_MODE", "clean"),
             ("SARIF_FIXTURE_REPORT", CODEQL_CLEAN_REPORT),
         ]);
-        let (execution, report) = execute(
+        let (execution, report) = process::execute(
             &profile,
-            &ExecuteRequest {
+            &process::ExecuteRequest {
                 workspace_root: directory.path(),
                 stage_dir: &stage,
             },
@@ -466,9 +466,9 @@ fn timeout_and_output_overflow_are_not_clean() {
         (Behavior::Overflow, OUTCOME_INCOMPLETE),
     ] {
         let stage = directory.path().join(format!("stage-{outcome}"));
-        let (execution, report) = execute(
+        let (execution, report) = process::execute(
             &profile,
-            &ExecuteRequest {
+            &process::ExecuteRequest {
                 workspace_root: directory.path(),
                 stage_dir: &stage,
             },
@@ -488,12 +488,12 @@ fn changed_exclusions_change_the_bound_snapshot() {
         .expect("write excluded source");
     let mut excluded = semgrep_profile(directory.path());
     excluded.scope.exclude_globs = vec!["**/tests/fixtures/**".to_owned()];
-    let excluded_snapshot = snapshot_sources(&excluded, directory.path()).expect("excluded snapshot");
+    let excluded_snapshot = selection::snapshot_sources(&excluded, directory.path()).expect("excluded snapshot");
     assert!(!excluded_snapshot.files.iter().any(|file| file.path.ends_with("ignored.rs")));
 
     let mut included = excluded.clone();
     included.scope.exclude_globs = Vec::new();
-    let included_snapshot = snapshot_sources(&included, directory.path()).expect("included snapshot");
+    let included_snapshot = selection::snapshot_sources(&included, directory.path()).expect("included snapshot");
     assert!(included_snapshot.files.iter().any(|file| file.path.ends_with("ignored.rs")));
     assert_ne!(excluded_snapshot.identity, included_snapshot.identity);
 }
@@ -506,7 +506,7 @@ fn malformed_sarif_fails_closed() {
         run_semgrep(directory.path(), &profile, SEMGREP_CLEAN_REPORT, "malformed", "stage-malformed", &[]);
     assert_eq!(execution.outcome, OUTCOME_FAILED);
     assert!(execution.diagnostics.iter().any(|diagnostic| diagnostic.contains("malformed")));
-    assert!(evaluate_executed(&report, &execution).details.is_none());
+    assert!(recording::evaluate_executed(&report, &execution).details.is_none());
 }
 
 #[test]
@@ -538,7 +538,7 @@ fn report_replacement_after_execution_is_rejected() {
     std::fs::create_dir_all(&stage).expect("create replacement stage");
     let path = stage.join(REPORT_FILE_NAME);
     std::fs::write(&path, &report).expect("write first report");
-    let replaced = read_stable_report_with(&path, profile.limits.max_report_bytes, || {
+    let replaced = selection::read_stable_report_with(&path, profile.limits.max_report_bytes, || {
         std::fs::write(&path, SEMGREP_VIOLATION_REPORT).expect("replace report");
     });
     assert!(replaced.is_err());
@@ -546,7 +546,7 @@ fn report_replacement_after_execution_is_rejected() {
     let mut tampered = execution;
     tampered.report.as_mut().expect("report receipt").identity =
         "b3:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".to_owned();
-    let evaluation = evaluate_executed(&report, &tampered);
+    let evaluation = recording::evaluate_executed(&report, &tampered);
     assert!(evaluation.details.is_none());
     assert!(evaluation.diagnostics.iter().any(|diagnostic| diagnostic.contains("do not match")));
 }
@@ -558,7 +558,7 @@ fn import_origin_cannot_be_relabeled_as_executed() {
     let (execution, _) = run_semgrep(directory.path(), &profile, SEMGREP_CLEAN_REPORT, "clean", "stage-clean", &[]);
     let mut mislabeled = execution;
     mislabeled.evidence_origin = "imported".to_owned();
-    let diagnostics = validate_execution(&mislabeled);
+    let diagnostics = recording::validate_execution(&mislabeled);
     assert!(diagnostics.iter().any(|diagnostic| diagnostic.contains("octet_executed")));
 }
 
@@ -573,31 +573,68 @@ fn codeql_database_creation_and_analysis_are_recorded_separately() {
     assert_eq!(database.creation.as_ref().expect("creation step").exit_code, Some(0));
     assert_eq!(database.analysis.as_ref().expect("analysis step").exit_code, Some(0));
     assert_eq!(database.binding.source_snapshot_identity, execution.source_snapshot_identity);
-    assert_eq!(database.binding.query_packs, profile.query_packs.iter().map(query_pack_receipt).collect::<Vec<_>>());
+    assert_eq!(database.binding.query_packs, profile.query_packs.iter().map(recording::query_pack_receipt).collect::<Vec<_>>());
     assert_eq!(database.binding.executable_identity, execution.executable.as_ref().expect("executable").identity);
     assert!(execution.steps.iter().any(|step| step.step == "analyze"));
-    assert!(validate_execution(&execution).is_empty(), "{:?}", validate_execution(&execution));
-    let details = evaluate_executed(&report, &execution).details.expect("CodeQL details");
+    assert!(recording::validate_execution(&execution).is_empty(), "{:?}", recording::validate_execution(&execution));
+    let details = recording::evaluate_executed(&report, &execution).details.expect("CodeQL details");
     assert!(details.findings.is_empty());
 }
 
 #[test]
 fn checked_profile_and_query_pack_identities_are_fresh() {
-    assert_eq!(prefixed_identity(PROFILE_JSON.as_bytes()), PROFILE_IDENTITY_VALUE);
-    let semgrep = selected_profile("semgrep-exec-local").expect("Semgrep profile");
+    assert_eq!(super::super::prefixed_identity(PROFILE_JSON.as_bytes()), PROFILE_IDENTITY_VALUE);
+    let semgrep = admission::selected_profile("semgrep-exec-local").expect("Semgrep profile");
     assert_eq!(
         semgrep.rules.identity,
-        prefixed_identity(include_bytes!("../../../../standards/sarif/semgrep-rust-rules.yml"))
+        super::super::prefixed_identity(include_bytes!("../../../../standards/sarif/semgrep-rust-rules.yml"))
     );
     assert_eq!(
-        query_pack_identity("codeql/rust-queries", "0.1.46"),
+        recording::query_pack_identity("codeql/rust-queries", "0.1.46").expect("query pack identity"),
         "b3:fd1e7991fbb379fa5cfb0180fda5fcfd0db9d35d47ae9fe4238430657945c8d5"
     );
-    let codeql = selected_profile("codeql-exec-local").expect("CodeQL profile");
-    assert_eq!(codeql.rules.identity, query_pack_set_identity(&codeql.query_packs));
-    assert_eq!(intake_profile_id("semgrep-exec-local").expect("intake id"), "semgrep-local");
-    assert_eq!(intake_profile_id("codeql-local").expect("intake id"), "codeql-local");
-    assert!(glob_matches("**/target/**", "src/target/generated.rs"));
-    assert!(glob_matches("**/tests/fixtures/**", "a/b/tests/fixtures/x.rs"));
-    assert!(!glob_matches("**/tests/fixtures/**", "a/b/tests/other/x.rs"));
+    let codeql = admission::selected_profile("codeql-exec-local").expect("CodeQL profile");
+    assert_eq!(codeql.rules.identity, recording::query_pack_set_identity(&codeql.query_packs).expect("query pack set identity"));
+    assert_eq!(admission::intake_profile_id("semgrep-exec-local").expect("intake id"), "semgrep-local");
+    assert_eq!(admission::intake_profile_id("codeql-local").expect("intake id"), "codeql-local");
+    assert!(selection::glob_matches("**/target/**", "src/target/generated.rs"));
+    assert!(selection::glob_matches("**/tests/fixtures/**", "a/b/tests/fixtures/x.rs"));
+    assert!(!selection::glob_matches("**/tests/fixtures/**", "a/b/tests/other/x.rs"));
+}
+
+#[test]
+fn source_snapshot_limits_apply_to_declared_files_and_directory_contents() {
+    let directory = workspace();
+    let source = directory.path().join("src/lib.rs");
+    let bytes = std::fs::read(&source).expect("read selected source");
+    let mut profile = semgrep_profile(directory.path());
+    profile.scope.max_files = 1;
+    profile.scope.max_bytes = u64::try_from(bytes.len()).expect("fixture byte count");
+    let exact = selection::snapshot_sources(&profile, directory.path()).expect("exact source limits");
+    assert_eq!(exact.files.len(), 1);
+    assert_eq!(exact.files[0].path, "src/lib.rs");
+    profile.scope.max_bytes -= 1;
+    assert!(selection::snapshot_sources(&profile, directory.path()).expect_err("directory byte overflow").contains("byte limit"));
+    profile.scope.paths = vec!["src/lib.rs".to_owned()];
+    assert!(selection::snapshot_sources(&profile, directory.path()).expect_err("declared file byte overflow").contains("byte limit"));
+    profile.scope.max_bytes = 1_024;
+    std::fs::write(directory.path().join("src/other.rs"), "pub fn other() {}\n").expect("write second source");
+    profile.scope.paths = vec!["src".to_owned()];
+    assert!(selection::snapshot_sources(&profile, directory.path()).expect_err("directory file overflow").contains("file limit"));
+    profile.scope.paths = vec!["src/lib.rs".to_owned(), "src/other.rs".to_owned()];
+    assert!(selection::snapshot_sources(&profile, directory.path()).expect_err("declared file overflow").contains("file limit"));
+}
+
+#[test]
+fn report_limit_rejects_growth_between_stable_ingestion_reads() {
+    let directory = tempfile::tempdir().expect("create report directory");
+    let path = directory.path().join(REPORT_FILE_NAME);
+    let original = b"1234";
+    std::fs::write(&path, original).expect("write bounded report");
+    assert_eq!(selection::read_stable_report(&path, 4).expect("report at exact limit"), original.as_slice());
+    let failure = selection::read_stable_report_with(&path, 4, || {
+        std::fs::write(&path, b"12345").expect("grow report past limit");
+    }).expect_err("second read must reject oversized report");
+    assert_eq!(failure.kind, process::FailureKind::Spawn);
+    assert!(failure.message.contains("byte limit"));
 }

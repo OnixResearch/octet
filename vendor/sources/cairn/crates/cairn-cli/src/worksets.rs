@@ -260,7 +260,7 @@ fn required_id(args: Vec<String>, command: &str) -> Result<(String, Vec<String>)
     let Some(id) = args.first() else {
         return Err(format!("{command} requires an ID").into());
     };
-    if id.starts_with("--") {
+    if id.is_empty() || id.starts_with("--") {
         return Err(format!("{command} requires an ID before options").into());
     }
     Ok((id.clone(), args.into_iter().skip(1).collect()))
@@ -343,6 +343,7 @@ fn option_value<'a>(
 ) -> Result<&'a str, Box<dyn Error>> {
     args.get(index + 1)
         .map(String::as_str)
+        .filter(|value| !value.is_empty() && !value.starts_with("--"))
         .ok_or_else(|| format!("{option} requires a value").into())
 }
 

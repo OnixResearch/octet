@@ -1,16 +1,16 @@
 {
   "artifact_conflicts": [],
   "authority": {
-    "creator": "z6MkksdCQEQdRwG6c747WuMbyFoLvLhxKYGio5JPBBYEvt6y",
+    "creator": "z6Mkqx4W5rXbHSAvzq8itoNc8UXBm4k2kxh4RujGfVZjr8x4",
     "delegates": [
-      "z6Mkehh68deeBD4NyGrgYNyCsPujeE1r8QHCs5Csn72SwBVz"
+      "z6MkufVcDTv8btEmwreomZFJwZXXk9HZh3eZTYiwXT4x28x9"
     ],
     "source": "signed_root_embedded_authority"
   },
   "backend": "radicle-cob.v1",
   "base_revision": {
     "kind": "git_oid",
-    "value": "03c74d76cb153d88bce33a76b4c40fbf2a0fc365"
+    "value": "08dde030f4d6fe23314c03acdfd520b453b40ad9"
   },
   "blocked": false,
   "blockers": [],
@@ -34,15 +34,15 @@
     "an explicit lifecycle reset to open does not prove review, approval, evidence truth, source correctness, archive execution, or release eligibility",
     "local signed COB resolution does not prove node participation, publication, synchronization, peer convergence, availability, or remote trust"
   ],
-  "object_id": "87027ed6c24b75036ea5d409e5eedb21a969f5b2",
-  "observed_policy_hash": "0d5e71092b45e2a8cfbaed4edffe6b01cd6cd0e4dc71f9c86fc1d0bf82cc70fc",
+  "object_id": "693ca9b09bc87060358cdc22188f5a823adffa6b",
+  "observed_policy_hash": "454b429ad8c48acf7144c1c42d810f0425f23867c2c83b8625af3d42a6895b4c",
   "policy": "octet-default",
   "policy_current": true,
-  "policy_hash": "0d5e71092b45e2a8cfbaed4edffe6b01cd6cd0e4dc71f9c86fc1d0bf82cc70fc",
-  "receipt_hash": "648670d07afba9029cf91945bbcfdcc1c98d051e236079bdc5360a678a1bd506",
-  "root": "/tmp/octet-cob-conflict-5au8iuas/third-root",
+  "policy_hash": "454b429ad8c48acf7144c1c42d810f0425f23867c2c83b8625af3d42a6895b4c",
+  "receipt_hash": "a00004049b11d7e2a06890e6feaf30498d18f6a5f5e489bca7cd09128c361ff4",
+  "root": "/var/tmp/octet-public-builds-20261112/octet-cob-conflict-9jyoirom/third-root",
   "shown_head": null,
-  "state_hash": "a74ce26af58b38b1df77cf3308efca555dafb8546c986bb90c21a48765c035f6",
+  "state_hash": "35a182105ff84889da2581a6362dc18b3e320e3c9dfd09138b82c3840febcf38",
   "valid": true,
   "verdict": "PASS",
   "workspace_id": "workspace:octet"

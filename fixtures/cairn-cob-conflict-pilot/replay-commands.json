@@ -1,6 +1,6 @@
 [
   [
-    "/nix/store/09nvvq1mz46vsa9kgxx126zl93ypq6dv-cairn-0.1.0/bin/cairn",
+    "/nix/store/srgd4wpm2ad3hz72iwlbv9h1wny6gibg-cairn-0.2.0/bin/cairn",
     "cob",
     "import",
     "exercise-cairn-cob-conflict-recovery",
@@ -15,10 +15,10 @@
     "--workspace",
     "workspace:octet",
     "--delegate",
-    "z6Mkehh68deeBD4NyGrgYNyCsPujeE1r8QHCs5Csn72SwBVz"
+    "z6MkufVcDTv8btEmwreomZFJwZXXk9HZh3eZTYiwXT4x28x9"
   ],
   [
-    "/nix/store/09nvvq1mz46vsa9kgxx126zl93ypq6dv-cairn-0.1.0/bin/cairn",
+    "/nix/store/srgd4wpm2ad3hz72iwlbv9h1wny6gibg-cairn-0.2.0/bin/cairn",
     "cob",
     "import",
     "exercise-cairn-cob-conflict-recovery",
@@ -33,11 +33,11 @@
     "--workspace",
     "workspace:octet",
     "--delegate",
-    "z6Mkehh68deeBD4NyGrgYNyCsPujeE1r8QHCs5Csn72SwBVz",
+    "z6MkufVcDTv8btEmwreomZFJwZXXk9HZh3eZTYiwXT4x28x9",
     "--execute"
   ],
   [
-    "/nix/store/09nvvq1mz46vsa9kgxx126zl93ypq6dv-cairn-0.1.0/bin/cairn",
+    "/nix/store/srgd4wpm2ad3hz72iwlbv9h1wny6gibg-cairn-0.2.0/bin/cairn",
     "collaboration",
     "update",
     "exercise-cairn-cob-conflict-recovery",
@@ -53,7 +53,7 @@
     "<scratch>/creator-keys"
   ],
   [
-    "/nix/store/09nvvq1mz46vsa9kgxx126zl93ypq6dv-cairn-0.1.0/bin/cairn",
+    "/nix/store/srgd4wpm2ad3hz72iwlbv9h1wny6gibg-cairn-0.2.0/bin/cairn",
     "collaboration",
     "update",
     "exercise-cairn-cob-conflict-recovery",
@@ -70,7 +70,7 @@
     "--execute"
   ],
   [
-    "/nix/store/09nvvq1mz46vsa9kgxx126zl93ypq6dv-cairn-0.1.0/bin/cairn",
+    "/nix/store/srgd4wpm2ad3hz72iwlbv9h1wny6gibg-cairn-0.2.0/bin/cairn",
     "collaboration",
     "update",
     "exercise-cairn-cob-conflict-recovery",
@@ -86,7 +86,7 @@
     "<scratch>/delegate-keys"
   ],
   [
-    "/nix/store/09nvvq1mz46vsa9kgxx126zl93ypq6dv-cairn-0.1.0/bin/cairn",
+    "/nix/store/srgd4wpm2ad3hz72iwlbv9h1wny6gibg-cairn-0.2.0/bin/cairn",
     "collaboration",
     "update",
     "exercise-cairn-cob-conflict-recovery",
@@ -103,7 +103,7 @@
     "--execute"
   ],
   [
-    "/nix/store/09nvvq1mz46vsa9kgxx126zl93ypq6dv-cairn-0.1.0/bin/cairn",
+    "/nix/store/srgd4wpm2ad3hz72iwlbv9h1wny6gibg-cairn-0.2.0/bin/cairn",
     "collaboration",
     "conflicts",
     "exercise-cairn-cob-conflict-recovery",
@@ -117,7 +117,7 @@
     "radicle-cob.v1"
   ],
   [
-    "/nix/store/09nvvq1mz46vsa9kgxx126zl93ypq6dv-cairn-0.1.0/bin/cairn",
+    "/nix/store/srgd4wpm2ad3hz72iwlbv9h1wny6gibg-cairn-0.2.0/bin/cairn",
     "collaboration",
     "conflicts",
     "exercise-cairn-cob-conflict-recovery",
@@ -130,10 +130,10 @@
     "--backend",
     "radicle-cob.v1",
     "--show-head",
-    "tasks=59b694a4d9aa1b78f4509402e49d3f3ff595a5db"
+    "tasks=877a35b38801d7bc0eb1cd5cdb54afef8440e61b"
   ],
   [
-    "/nix/store/09nvvq1mz46vsa9kgxx126zl93ypq6dv-cairn-0.1.0/bin/cairn",
+    "/nix/store/srgd4wpm2ad3hz72iwlbv9h1wny6gibg-cairn-0.2.0/bin/cairn",
     "collaboration",
     "conflicts",
     "exercise-cairn-cob-conflict-recovery",
@@ -146,10 +146,10 @@
     "--backend",
     "radicle-cob.v1",
     "--show-head",
-    "tasks=7d65fb53fe6232fd0cdcf0424f064f3329b5bdc5"
+    "tasks=d3f1f36aaf39e5f400c8e724d15863815e2946cd"
   ],
   [
-    "/nix/store/09nvvq1mz46vsa9kgxx126zl93ypq6dv-cairn-0.1.0/bin/cairn",
+    "/nix/store/srgd4wpm2ad3hz72iwlbv9h1wny6gibg-cairn-0.2.0/bin/cairn",
     "collaboration",
     "update",
     "exercise-cairn-cob-conflict-recovery",
@@ -165,7 +165,7 @@
     "<scratch>/creator-keys"
   ],
   [
-    "/nix/store/09nvvq1mz46vsa9kgxx126zl93ypq6dv-cairn-0.1.0/bin/cairn",
+    "/nix/store/srgd4wpm2ad3hz72iwlbv9h1wny6gibg-cairn-0.2.0/bin/cairn",
     "collaboration",
     "resolve",
     "exercise-cairn-cob-conflict-recovery",
@@ -180,10 +180,10 @@
     "--keystore",
     "<scratch>/creator-keys",
     "--choose-head",
-    "tasks=59b694a4d9aa1b78f4509402e49d3f3ff595a5db"
+    "tasks=877a35b38801d7bc0eb1cd5cdb54afef8440e61b"
   ],
   [
-    "/nix/store/09nvvq1mz46vsa9kgxx126zl93ypq6dv-cairn-0.1.0/bin/cairn",
+    "/nix/store/srgd4wpm2ad3hz72iwlbv9h1wny6gibg-cairn-0.2.0/bin/cairn",
     "collaboration",
     "resolve",
     "exercise-cairn-cob-conflict-recovery",
@@ -198,11 +198,11 @@
     "--keystore",
     "<scratch>/creator-keys",
     "--choose-head",
-    "tasks=59b694a4d9aa1b78f4509402e49d3f3ff595a5db",
+    "tasks=877a35b38801d7bc0eb1cd5cdb54afef8440e61b",
     "--execute"
   ],
   [
-    "/nix/store/09nvvq1mz46vsa9kgxx126zl93ypq6dv-cairn-0.1.0/bin/cairn",
+    "/nix/store/srgd4wpm2ad3hz72iwlbv9h1wny6gibg-cairn-0.2.0/bin/cairn",
     "collaboration",
     "status",
     "exercise-cairn-cob-conflict-recovery",
@@ -216,7 +216,7 @@
     "radicle-cob.v1"
   ],
   [
-    "/nix/store/09nvvq1mz46vsa9kgxx126zl93ypq6dv-cairn-0.1.0/bin/cairn",
+    "/nix/store/srgd4wpm2ad3hz72iwlbv9h1wny6gibg-cairn-0.2.0/bin/cairn",
     "collaboration",
     "conflicts",
     "exercise-cairn-cob-conflict-recovery",
@@ -230,7 +230,7 @@
     "radicle-cob.v1"
   ],
   [
-    "/nix/store/09nvvq1mz46vsa9kgxx126zl93ypq6dv-cairn-0.1.0/bin/cairn",
+    "/nix/store/srgd4wpm2ad3hz72iwlbv9h1wny6gibg-cairn-0.2.0/bin/cairn",
     "collaboration",
     "checkout",
     "exercise-cairn-cob-conflict-recovery",
@@ -244,7 +244,7 @@
     "radicle-cob.v1"
   ],
   [
-    "/nix/store/09nvvq1mz46vsa9kgxx126zl93ypq6dv-cairn-0.1.0/bin/cairn",
+    "/nix/store/srgd4wpm2ad3hz72iwlbv9h1wny6gibg-cairn-0.2.0/bin/cairn",
     "collaboration",
     "checkout",
     "exercise-cairn-cob-conflict-recovery",
@@ -259,7 +259,7 @@
     "--execute"
   ],
   [
-    "/nix/store/09nvvq1mz46vsa9kgxx126zl93ypq6dv-cairn-0.1.0/bin/cairn",
+    "/nix/store/srgd4wpm2ad3hz72iwlbv9h1wny6gibg-cairn-0.2.0/bin/cairn",
     "collaboration",
     "status",
     "exercise-cairn-cob-conflict-recovery",

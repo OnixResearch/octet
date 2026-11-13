@@ -30,6 +30,13 @@ def inventory(directory):
             for p in sorted(directory.rglob("*")) if p.is_file()}
 
 
+def projected_sources(policy):
+    for source in policy["sources"]:
+        for projection in source["projections"]:
+            yield (ROOT / source["destination"] / projection["source_path"],
+                   ROOT / projection["destination"])
+
+
 def check_sources(policy):
     expected = dict(line.rstrip("\n").split("  ", 1)[::-1]
                     for line in SUMS.read_text().splitlines())
@@ -37,6 +44,10 @@ def check_sources(policy):
     for source in policy["sources"]:
         actual.update(inventory(ROOT / source["destination"]))
     actual.update(inventory(ROOT / "vendor/cargo"))
+    for original, destination in projected_sources(policy):
+        if destination.read_bytes() != original.read_bytes():
+            raise ValueError("upstream source projection drift: " + destination.relative_to(ROOT).as_posix())
+        actual[destination.relative_to(ROOT).as_posix()] = sha256(destination.read_bytes())
     if actual != expected:
         changed = sorted(path for path in actual.keys() | expected.keys()
                          if actual.get(path) != expected.get(path))
@@ -75,10 +86,19 @@ def sync(policy, source_paths, cargo):
                    GIT_TERMINAL_PROMPT="0", GIT_ASKPASS="false", SSH_ASKPASS="false",
                    CARGO_HOME=str(temporary / "cargo-home"))
         # Rewrites are process-scoped intake inputs, never product configuration.
-        env["GIT_CONFIG_COUNT"] = str(len(policy["sources"]))
-        for index, source in enumerate(policy["sources"]):
-            env[f"GIT_CONFIG_KEY_{index}"] = "url." + source_paths[source["name"]].as_uri() + ".insteadOf"
-            env[f"GIT_CONFIG_VALUE_{index}"] = source["repository"]
+        # Cargo's historical source identity remains exact, including SSH URLs;
+        # intake accepts both transports without requiring global Git settings.
+        rewrites = {}
+        for source in policy["sources"]:
+            repository = source["repository"]
+            checkout = source_paths[source["name"]].as_uri()
+            rewrites[repository] = checkout
+            if repository.startswith("https://github.com/"):
+                rewrites["ssh://git@github.com/" + repository.removeprefix("https://github.com/")] = checkout
+        env["GIT_CONFIG_COUNT"] = str(len(rewrites))
+        for index, (repository, checkout) in enumerate(rewrites.items()):
+            env[f"GIT_CONFIG_KEY_{index}"] = "url." + checkout + ".insteadOf"
+            env[f"GIT_CONFIG_VALUE_{index}"] = repository
         cargo_output = temporary / "cargo-vendor"
         run([cargo, "vendor", "--locked", "--versioned-dirs", str(cargo_output)], cwd=ROOT, env=env)
         selected = temporary / "selected"
@@ -90,7 +110,6 @@ def sync(policy, source_paths, cargo):
                     raise ValueError("Cargo did not vendor the admitted package: " + package)
                 shutil.copytree(package_source, selected / package)
                 # Upstream workspace licenses are not always inside Cargo's package list.
-                upstream = ROOT / source["destination"]
                 with tarfile.open(fileobj=io.BytesIO(archives[source["name"]])) as archive:
                     notices = [m for m in archive.getmembers() if m.isfile()
                                and (m.name.startswith("LICENSES/") or "/" not in m.name)
@@ -117,10 +136,15 @@ def sync(policy, source_paths, cargo):
         if destination.exists():
             shutil.rmtree(destination)
         shutil.copytree(selected, destination)
+    for original, destination in projected_sources(policy):
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(original, destination)
     hashes = {}
     for source in policy["sources"]:
         hashes.update(inventory(ROOT / source["destination"]))
     hashes.update(inventory(ROOT / "vendor/cargo"))
+    for _, destination in projected_sources(policy):
+        hashes[destination.relative_to(ROOT).as_posix()] = sha256(destination.read_bytes())
     SUMS.write_text("".join(digest + "  " + path + "\n" for path, digest in sorted(hashes.items())))
 
 

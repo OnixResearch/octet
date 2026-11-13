@@ -8,8 +8,8 @@
       "output_format": "json",
       "source": {
         "path": "standards/project-architecture/octet-self-architecture.ncl",
-        "blake3": "642327c1a5b8a8be95ffb526ded8f55d9afc9e6d724cef3a31091ab810e28037",
-        "bytes": 9499
+        "blake3": "1dfb5915a3c96a810dc04a70dec0f9fa68cacaf30b4c9d19475060d530b9ea64",
+        "bytes": 9501
       },
       "dependencies": [
         {
@@ -20,8 +20,8 @@
       ],
       "output": {
         "path": "standards/project-architecture/octet-self-architecture.json",
-        "blake3": "8094be5d66db0b81cbe6c041cfb7832f608cb99af458465a60b49c3ad5434ffb",
-        "bytes": 10150
+        "blake3": "16c614a3a40b207ae6bc9da7f2fd8c1baea60b333c893bb09f92f6dbaede104d",
+        "bytes": 10152
       },
       "selector": "",
       "contract": "ProjectArchitecturePolicy and ProjectArchitecturePolicyRules",

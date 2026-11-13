@@ -5,6 +5,67 @@ pub(crate) fn is_local(file: &rustc_span::SourceFile) -> bool {
     !file.is_imported()
 }
 
+/// Visits each local file represented by parsed Rust syntax, once. The source
+/// map also owns `include_str!` and `include_bytes!` payloads, so locality alone
+/// does not establish that a file is source code.
+pub(crate) fn for_each_parsed_file(
+    source_map: &rustc_span::source_map::SourceMap,
+    krate: &rustc_ast::Crate,
+    visit: impl FnMut(&rustc_span::SourceFile),
+) {
+    struct Files<'a, F> {
+        source_map: &'a rustc_span::source_map::SourceMap,
+        seen: std::collections::BTreeSet<rustc_span::BytePos>,
+        last_file: Option<(rustc_span::BytePos, rustc_span::BytePos)>,
+        visit: F,
+    }
+
+    impl<F: FnMut(&rustc_span::SourceFile)> Files<'_, F> {
+        fn record(&mut self, span: rustc_span::Span) {
+            let pos = span.lo();
+            if self.last_file.is_some_and(|(start, end)| start <= pos && pos <= end) {
+                return;
+            }
+            let file = self.source_map.lookup_source_file(pos);
+            self.last_file = Some((file.start_pos, file.end_position()));
+            if is_local(&file) && self.seen.insert(file.start_pos) {
+                (self.visit)(&file);
+            }
+        }
+    }
+
+    impl<'ast, F: FnMut(&rustc_span::SourceFile)> rustc_ast::visit::Visitor<'ast> for Files<'_, F> {
+        fn visit_item(&mut self, item: &'ast rustc_ast::Item) {
+            // Item spans retain parsed `include!` input, while an out-of-line
+            // module's own item span is its declaration in the parent file.
+            self.record(item.span);
+            if let rustc_ast::ItemKind::Mod(_, _, rustc_ast::ModKind::Loaded(_, _, spans)) = &item.kind {
+                self.record(spans.inner_span);
+            }
+            rustc_ast::visit::walk_item(self, item);
+        }
+
+        fn visit_expr(&mut self, expr: &'ast rustc_ast::Expr) {
+            // Parsed expression-position `include!` input has source spans.
+            // In contrast, `include_str!` manufactures an expanded literal
+            // whose span points into the data file, not parsed Rust syntax.
+            if !expr.span.from_expansion() {
+                self.record(expr.span);
+            }
+            rustc_ast::visit::walk_expr(self, expr);
+        }
+    }
+
+    let mut files = Files {
+        source_map,
+        seen: std::collections::BTreeSet::new(),
+        last_file: None,
+        visit,
+    };
+    files.record(krate.spans.inner_span);
+    rustc_ast::visit::walk_crate(&mut files, krate);
+}
+
 pub(crate) fn source_file_path(file: &rustc_span::SourceFile) -> std::path::PathBuf {
     std::path::PathBuf::from(file.name.prefer_local_unconditionally().to_string_lossy().into_owned())
 }
@@ -175,125 +236,4 @@ pub(crate) fn any_leading_comment_line(
 }
 
 #[cfg(test)]
-mod tests {
-    fn fixture() -> rustc_span::SourceFile {
-        rustc_span::SourceFile::new(
-            rustc_span::FileName::Real(rustc_span::RealFileName::from_virtual_path(std::path::Path::new(
-                "/workspace/patches/example/bad_file.rs",
-            ))),
-            "pub struct Example;".to_owned(),
-            rustc_span::SourceFileHashAlgorithm::Blake3,
-            None,
-        )
-        .expect("small fixture source fits the compiler offset range")
-    }
-
-    // r[verify octet.lint_signal_quality.source_ownership]
-    #[test]
-    fn local_source_is_admitted_even_under_a_patch_directory() {
-        rustc_span::create_default_session_globals_then(|| {
-            let file = fixture();
-            assert!(super::is_local(&file));
-        });
-    }
-
-    #[test]
-    fn imported_source_is_rejected_without_changing_its_path() {
-        rustc_span::create_default_session_globals_then(|| {
-            let mut file = fixture();
-            assert!(super::is_local(&file));
-            // Rustc records imported source separately and leaves `src` absent.
-            file.src = None;
-            assert!(!super::is_local(&file));
-        });
-    }
-
-    #[test]
-    fn scopes_normalize_like_the_runner() {
-        for raw in [
-            "crates/domain/src",
-            "./crates/domain/src",
-            " crates/domain/src/ ",
-            "././crates/domain/src//",
-        ] {
-            assert_eq!(super::normalize_scope(raw), "crates/domain/src", "{raw:?}");
-        }
-        assert_eq!(super::normalize_scope(" ./ "), "");
-    }
-
-    #[test]
-    fn scopes_match_whole_path_components() {
-        let scopes = vec![
-            super::normalize_scope("./crates/core/"),
-            super::normalize_scope("src/lib.rs"),
-        ];
-        let inside = ["crates/core/src/lib.rs", "crates/core", "src/lib.rs"];
-        let outside = [
-            "crates/core-shell/src/lib.rs",
-            "vendor/crates/core/src/lib.rs",
-            "src/lib.rs.bak",
-            "src/main.rs",
-        ];
-
-        for path in inside {
-            assert!(super::path_in_scopes(std::path::Path::new(path), &scopes), "{path} is in scope");
-        }
-        for path in outside {
-            assert!(!super::path_in_scopes(std::path::Path::new(path), &scopes), "{path} is out of scope");
-        }
-        assert!(!super::path_in_scopes(std::path::Path::new("src/lib.rs"), &[String::new()]));
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn scopes_resolve_through_symlinks_and_parent_components() {
-        use super::ScopeResolution;
-
-        let unique = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("system time after the epoch")
-            .as_nanos();
-        let scratch = std::env::temp_dir().join(format!("octet-scope-resolution-{}-{unique}", std::process::id()));
-        let root = scratch.join("workspace");
-        std::fs::create_dir_all(root.join("src")).expect("source directory");
-        std::fs::create_dir_all(root.join("crates/shell")).expect("crate directory");
-        std::fs::create_dir_all(scratch.join("outside")).expect("outside directory");
-        std::fs::write(root.join("src/lib.rs"), "").expect("source file");
-        std::os::unix::fs::symlink(root.join("src"), root.join("linked")).expect("in-root symlink");
-        std::os::unix::fs::symlink(scratch.join("outside"), root.join("escape")).expect("escaping symlink");
-        let root = root.canonicalize().expect("canonical root");
-
-        let cases = [
-            ("src", ScopeResolution::Inside("src".to_owned())),
-            ("src/lib.rs", ScopeResolution::Inside("src/lib.rs".to_owned())),
-            ("linked", ScopeResolution::Inside("src".to_owned())),
-            ("crates/shell/../../src", ScopeResolution::Inside("src".to_owned())),
-            ("../outside", ScopeResolution::Outside),
-            ("escape", ScopeResolution::Outside),
-            ("crates/..", ScopeResolution::Root),
-            ("missing/src", ScopeResolution::Missing),
-        ];
-        let resolved = cases.iter().map(|(scope, _expected)| super::resolve_scope(&root, scope)).collect::<Vec<_>>();
-        std::fs::remove_dir_all(&scratch).expect("remove scratch directory");
-
-        for ((scope, expected), actual) in cases.iter().zip(resolved) {
-            assert_eq!(&actual, expected, "{scope}");
-        }
-    }
-
-    #[test]
-    fn leading_comment_lines_cross_attributes_and_stop_at_gaps() {
-        let prefix = "struct Before;\n\n// detached\n\n// first\n/// second\n#[inline]\n// between\n#[cfg_attr(\n    test,\n    derive(Debug)\n)]\n\n#[doc(hidden)]\n    ";
-        let lines = super::leading_comment_lines(prefix).collect::<Vec<_>>();
-        assert_eq!(lines, ["// between", "/// second", "// first"]);
-    }
-
-    #[test]
-    fn leading_comment_lines_stop_at_code_and_inner_attributes() {
-        assert_eq!(super::leading_comment_lines("const A: [u8; 1] = [0];\n").count(), 0);
-        assert_eq!(super::leading_comment_lines("#![allow(dead_code)]\n").count(), 0);
-        assert_eq!(super::leading_comment_lines("// note\n\nfn f() {}\n").count(), 0);
-        assert_eq!(super::leading_comment_lines("mod m { ").count(), 0);
-        assert_eq!(super::leading_comment_lines("// note\n").collect::<Vec<_>>(), ["// note"]);
-    }
-}
+mod tests;

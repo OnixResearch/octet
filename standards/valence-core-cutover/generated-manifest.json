@@ -83,13 +83,17 @@
   ],
   "schema_version": "octet-valence-core-cutover-manifest/v2",
   "standalone_source": {
+    "cargo_distribution": "vendor/cargo/valence-core-0.1.0",
     "cargo_git_url": "ssh://git@github.com/OnixResearch/valence.git",
     "cargo_source": "git+ssh://git@github.com/OnixResearch/valence.git?rev=7546a78b4eeef8686c6837e187aa12420f4f03bb#7546a78b4eeef8686c6837e187aa12420f4f03bb",
     "coordinate": "github:OnixResearch/valence?dir=crates/valence-core",
     "crate_target": "valence-core",
+    "distribution_manifest": "vendor/dependencies.ncl",
+    "flake_source": "git+https://github.com/OnixResearch/valence.git?ref=review/source-token-v2-7546a78b&rev=7546a78b4eeef8686c6837e187aa12420f4f03bb",
     "hardened_profile_archive": "cairn/archive/2026-07-12-harden-preserves-integrity-boundaries",
     "local_override_policy": "local path overrides are development-only diagnostics and MUST NOT replace the exact release dependency or lock identity",
-    "revision": "7546a78b4eeef8686c6837e187aa12420f4f03bb"
+    "revision": "7546a78b4eeef8686c6837e187aa12420f4f03bb",
+    "source_archive_sha256": "ad52e40be1b503c390dad3e8016cb0ded9df079bff5df691072302cdf89e85d0"
   },
   "supported_claim": "cutover validation proves dependency/source ownership and DTO compatibility only; it does not prove behavioral correctness, semantic equivalence, pure-cache eligibility, external consumer compatibility, cross-toolchain determinism, or release eligibility"
 }

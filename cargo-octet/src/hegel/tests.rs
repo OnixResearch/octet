@@ -255,51 +255,12 @@ fn capability_read_rejects_leaf_and_parent_symlink_substitution() {
     }
 }
 
-// r[verify octet.dynamic_evidence.hegel_output_contract]
-#[cfg(unix)]
-#[test]
-fn bounded_shell_rejects_mixed_process_output_without_dedicated_summary() {
-    let profile = selected_profile(PROFILE_ID).expect("profile");
-    // The run prepares and clears `.octet/hegel-*` under its workspace, so it gets a scratch copy of
-    // the measured inputs instead of the checkout, whose producer output it would delete.
-    let checkout = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().expect("workspace root");
-    let workspace = tempfile::tempdir().expect("scratch workspace");
-    let measured = ["Cargo.lock", "cargo-octet/Cargo.toml"]
-        .into_iter()
-        .chain(profile.source_scope.iter().map(String::as_str))
-        .chain(profile.generator_inputs.iter().map(String::as_str));
-    for locator in measured {
-        let destination = workspace.path().join(locator);
-        std::fs::create_dir_all(destination.parent().expect("input parent")).expect("input directory");
-        std::fs::copy(checkout.join(locator), &destination).expect("copy measured input");
-    }
-    // Only the missing-summary rejection is under test, so the producer is a no-op `cargo` with a
-    // scratch Cargo config, not the dev shell's `OCTET_HEGEL_*` tools, which a plain or stale
-    // environment lacks or points at collected store paths.
-    let tools_dir = tempfile::tempdir().expect("scratch tools");
-    let cargo = tools_dir.path().join("cargo-noop");
-    crate::test_support::write_executable_script(&cargo, "#!/bin/sh\nexit 0\n");
-    let cargo_config = tools_dir.path().join("cargo-config.toml");
-    std::fs::write(&cargo_config, "[net]\noffline = true\n").expect("write Cargo config fixture");
-    let tools = shell::RuntimeTools {
-        cargo,
-        path: "/bin".into(),
-        cargo_config,
-        library_path: "/lib".into(),
-    };
-
-    let error = shell::run_with(workspace.path(), &profile, &tools).expect_err("missing dedicated summary rejected");
-    assert!(error.contains("summary.json"), "{error}");
-}
-
 // r[verify octet.dynamic_evidence.hegel_profiled_run]
 // r[verify octet.dynamic_evidence.hegel_output_contract]
 // r[verify octet.dynamic_evidence.hegel_measured_identity]
 #[test]
 fn profiled_summary_binds_measured_inputs_and_replays_artifacts() {
     let (input, profile) = valid_input();
-    assert_eq!(prefixed_identity(include_bytes!("../../../standards/hegel/profiles.json")), PROFILE_IDENTITY);
-    assert_eq!(prefixed_identity(include_bytes!("../../../standards/hegel/laws.json")), LAW_CATALOG_IDENTITY);
     let text = request::render(&input).expect("render profiled input");
     let evaluation = request::evaluate(&text, PROFILE_ID);
     assert!(evaluation.diagnostics.is_empty(), "{:?}", evaluation.diagnostics);

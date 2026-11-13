@@ -22,7 +22,10 @@ const JSON_FORMAT: &str = "json";
 
 const KNOWN_COMMANDS: &[&str] = &[
     "init",
+    "setup",
     "change",
+    "check-evidence",
+    "source-review",
     "compact",
     "template",
     "scaffold",
@@ -36,6 +39,9 @@ const KNOWN_COMMANDS: &[&str] = &[
     "validate",
     "view",
     "workflow",
+    "readiness",
+    "implementation-ready",
+    "adoption",
     "workset",
     "release-readiness",
     "release-decision",
@@ -66,6 +72,7 @@ const KNOWN_COMMANDS: &[&str] = &[
     "state-machine-receipt",
     "traceability",
     "tracey",
+    "verification-impact",
     "review",
     "steel-orchestration",
     "test-harness",
@@ -80,6 +87,7 @@ const KNOWN_COMMANDS: &[&str] = &[
     "archive",
     "receipt-preserves-diff",
     "receipt-verify-content-hash",
+    "mcp",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -195,10 +203,15 @@ fn has_incompatible_presentation(command: &str, args: &[String]) -> bool {
     {
         return true;
     }
+    if command == "source-review" && args.iter().any(|arg| arg == "--raw") {
+        return true;
+    }
     if command == "policy" && args.first().map(String::as_str) == Some("export") {
         return true;
     }
-    matches!(command, "traceability" | "tracey") && !args.iter().any(|arg| arg == "--json")
+    (command == "tracey"
+        || (command == "traceability" && args.first().map(String::as_str) == Some("coverage")))
+        && !args.iter().any(|arg| arg == "--json")
 }
 
 fn execute_machine_invocation(
@@ -444,6 +457,17 @@ mod tests {
     const TEST_CAPTURE_BOUND: usize = 4;
 
     #[test]
+    fn every_admitted_command_is_documented_in_usage() {
+        let usage = crate::support::usage_text();
+        for command in KNOWN_COMMANDS {
+            assert!(
+                usage.contains(&format!("  {command}")),
+                "machine-admitted command is missing from usage text: {command}"
+            );
+        }
+    }
+
+    #[test]
     fn admits_known_json_command() {
         let args = vec!["status".to_string(), "--root".to_string(), ".".to_string()];
         assert_eq!(
@@ -535,6 +559,17 @@ mod tests {
                 "graph".to_string(),
                 "--format".to_string(),
                 "mermaid".to_string(),
+            ]),
+            InvocationAdmission::Failure {
+                kind: MachineFailureKind::IncompatibleOption,
+                ..
+            }
+        ));
+        assert!(matches!(
+            admit_invocation(&[
+                "source-review".to_string(),
+                "signing-request".to_string(),
+                "--raw".to_string(),
             ]),
             InvocationAdmission::Failure {
                 kind: MachineFailureKind::IncompatibleOption,

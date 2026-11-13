@@ -7,8 +7,10 @@ Nix environment, and focused verification commands. Read the
 ## Changes
 
 - Open an issue for a bug or proposal at
-  <https://github.com/OnixResearch/octet-public/issues>. Include the pinned Octet
-  revision, platform, exact command, and a small reproducible example.
+  <https://github.com/OnixResearch/octet/issues>. Use the issue template and
+  include the full pinned Octet revision, platform, exact command, configured
+  scope, expected and observed result, and a small reproducible example with
+  redacted evidence.
 - Keep pull requests focused. Explain the consumer-visible behavior, the
   exercised checks, and any remaining limits. Update affected docs and the
   changelog; preserve generated-file and lifecycle conventions in the guide.
@@ -17,6 +19,21 @@ Nix environment, and focused verification commands. Read the
 - Do not include credentials, proprietary consumer source, raw private
   receipts, or machine-specific permissions. Use [SECURITY.md](SECURITY.md)
   rather than a public issue for exploitable security details.
+
+## Support expectations
+
+`OnixResearch/octet` is the sole canonical source, release, and support home.
+The old `octet-public` channel remains blocked and unsupported, not an alternate
+support route. Initial release support is source-only Nix on `x86_64-linux`,
+with the pinned nightly Rust/Dylint cohort. Direct Cargo use and other platforms
+are developer experiments, not supported release installations.
+
+Support and contribution review are best-effort, with no promised response SLA,
+backport policy, or long-term support window for historical pins. Candidate
+`0.1.1-rc.1` is pending qualification; do not describe candidate commands or
+historical receipts as a qualified release. Review the
+[release checklist](docs/release-candidate.md) before making release claims.
+
 
 ## Contribution license
 

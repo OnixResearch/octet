@@ -345,9 +345,9 @@ Octet is designed for local or consumer-CI execution:
   CI boundary;
 - no required hosted service: Octet does not require uploading source or
   artifacts to an Octet-operated service;
-- pin-capable runner path: consumers can pin
-  `github:OnixResearch/octet-public` to a reviewed revision, or use
-  `path:/path/to/octet#cargo-octet`;
+- pin-capable runner path: consumers can pin canonical
+  `github:OnixResearch/octet` to a qualified immutable tag/revision, or use a
+  reviewed local `path:/path/to/octet#cargo-octet` checkout;
 - source-visible toolchain: this repository contains the runner, lint library,
   standards checker, policy registry, and generated artifact seam;
 - local artifact directory: `cargo octet check --artifact-dir artifacts/octet`
@@ -358,6 +358,16 @@ Octet is designed for local or consumer-CI execution:
 Boundary caveat: Octet itself does not require uploading source, logs, or
 artifacts. Consumers still own what their CI provider, log collector, artifact
 store, or downstream integrations do after Octet writes local files.
+
+Initial support is source-only Nix on `x86_64-linux`, using the pinned nightly
+Rust/Dylint cohort. Candidate `0.1.1-rc.1` and planned tag `v0.1.1-rc.1` are
+pending qualification and publication; this posture is not evidence of a
+successful candidate build or release. `OnixResearch/octet` is the sole
+canonical source/release/support home. The old `octet-public` cohort is blocked
+and remains unchanged. Historical receipts stay bound to their original bytes and
+must not be promoted into candidate qualification. See
+[release-candidate.md](release-candidate.md) for real pins, gates, and approvals.
+
 
 ### Regulated-consumer checklist
 

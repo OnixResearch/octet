@@ -1,10 +1,3 @@
-use std::collections::{BTreeMap, BTreeSet};
-
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-
-use crate::verified::evidence::{blake3_hex, canonical_json};
-
 pub const CONTENT_BOUND_REQUIREMENT_REGISTRY_SCHEMA_V1: &str =
     "cairn.content-bound-requirement-registry.v1";
 pub const CONTENT_BOUND_REQUIREMENT_REGISTRY_RECEIPT_SCHEMA_V1: &str =
@@ -88,21 +81,21 @@ pub struct ContentBoundSpecificationInput {
     pub markdown: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ContentBoundRevision {
     pub kind: String,
     pub value: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ContentBoundSpecificationIdentity {
     pub path: String,
     pub content_blake3: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ContentBoundSourceSpan {
     pub start_byte: u64,
@@ -111,7 +104,7 @@ pub struct ContentBoundSourceSpan {
     pub end_line: u64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ContentBoundRequirementRow {
     pub requirement_id: String,
@@ -122,7 +115,7 @@ pub struct ContentBoundRequirementRow {
     pub row_blake3: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ContentBoundRequirementRegistryReceipt {
     pub schema_version: String,
@@ -137,7 +130,7 @@ pub struct ContentBoundRequirementRegistryReceipt {
     pub receipt_blake3: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ContentBoundRequirementRegistry {
     pub schema_version: String,
@@ -153,7 +146,7 @@ pub struct ContentBoundRequirementRegistry {
     pub receipt: ContentBoundRequirementRegistryReceipt,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ContentBoundRequirementRegistryIssue {
     pub code: String,
@@ -181,7 +174,7 @@ pub struct ContentBoundRequirementRegistryVerification {
     pub boundary: String,
 }
 
-#[derive(Serialize)]
+#[derive(serde::Serialize)]
 struct RequirementRowHashMaterial<'a> {
     requirement_id: &'a str,
     specification_path: &'a str,
@@ -190,7 +183,7 @@ struct RequirementRowHashMaterial<'a> {
     requirement_body_blake3: &'a str,
 }
 
-#[derive(Serialize)]
+#[derive(serde::Serialize)]
 struct RegistryHashMaterial<'a> {
     schema_version: &'a str,
     boundary: &'a str,
@@ -203,7 +196,7 @@ struct RegistryHashMaterial<'a> {
     non_claims: &'a [String],
 }
 
-#[derive(Serialize)]
+#[derive(serde::Serialize)]
 struct ReceiptHashMaterial<'a> {
     schema_version: &'a str,
     registry_blake3: &'a str,
@@ -237,7 +230,7 @@ pub fn evaluate_content_bound_requirement_registry(
     validate_revision(&revision, "revision", &mut issues);
     specifications.sort_by(|left, right| left.path.cmp(&right.path));
 
-    let mut seen_specification_paths = BTreeSet::new();
+    let mut seen_specification_paths = std::collections::BTreeSet::new();
     let mut identities = Vec::with_capacity(specifications.len());
     let mut rows = Vec::new();
     for (index, specification) in specifications.iter().enumerate() {
@@ -439,7 +432,7 @@ pub fn validate_content_bound_requirement_registry(
 }
 
 pub fn parse_content_bound_requirement_registry_value(
-    value: &Value,
+    value: &serde_json::Value,
 ) -> Result<ContentBoundRequirementRegistry, ContentBoundRequirementRegistryIssue> {
     serde_json::from_value(value.clone()).map_err(|error| {
         issue(
@@ -453,7 +446,7 @@ pub fn parse_content_bound_requirement_registry_value(
 #[must_use]
 pub fn content_bound_requirement_registry_issues_json(
     issues: &[ContentBoundRequirementRegistryIssue],
-) -> Vec<Value> {
+) -> Vec<serde_json::Value> {
     issues
         .iter()
         .map(|issue| {
@@ -527,32 +520,44 @@ fn parse_requirement_row(
         );
         return None;
     }
-    let heading_markers = bare_markers(lines[heading_index].text);
-    let mut markers = heading_markers;
-    for line in body_lines {
-        markers.extend(bare_markers(line.text));
+    // r[impl cairn.trace_index.live_proof.declaration_marker]
+    let mut identity_markers = declaration_markers(lines[heading_index].text)
+        .into_iter()
+        .filter(|marker| valid_requirement_id(marker))
+        .collect::<Vec<_>>();
+    if identity_markers.is_empty() {
+        identity_markers = body_lines
+            .iter()
+            .find_map(|line| {
+                let markers = declaration_markers(line.text)
+                    .into_iter()
+                    .filter(|marker| valid_requirement_id(marker))
+                    .collect::<Vec<_>>();
+                (!markers.is_empty()).then_some(markers)
+            })
+            .unwrap_or_default();
     }
-    markers.sort();
-    markers.dedup();
-    if markers.is_empty() {
+    identity_markers.sort();
+    identity_markers.dedup();
+    if identity_markers.is_empty() {
         push_issue(
             issues,
             ISSUE_REQUIREMENT_MARKER_MISSING,
             &format!("{row_path}.requirement_id"),
-            "requirement body must contain exactly one bare requirement marker",
+            "requirement declaration must contain exactly one bare requirement marker",
         );
         return None;
     }
-    if markers.len() != 1 {
+    if identity_markers.len() != 1 {
         push_issue(
             issues,
             ISSUE_REQUIREMENT_MARKER_DUPLICATE,
             &format!("{row_path}.requirement_id"),
-            "requirement body must not contain several distinct bare requirement markers",
+            "requirement declaration must not contain distinct bare requirement markers",
         );
         return None;
     }
-    let requirement_id = markers.remove(0);
+    let requirement_id = identity_markers.remove(0);
     if !valid_requirement_id(&requirement_id) {
         push_issue(
             issues,
@@ -562,15 +567,33 @@ fn parse_requirement_row(
         );
         return None;
     }
-    let first_line = body_lines.first()?;
-    let last_line = body_lines.last()?;
+    content_bound_requirement_row(
+        specification,
+        specification_blake3,
+        &requirement_id,
+        body_lines.first()?,
+        body_lines.last()?,
+        &row_path,
+        issues,
+    )
+}
+
+fn content_bound_requirement_row(
+    specification: &ContentBoundSpecificationInput,
+    specification_blake3: &str,
+    requirement_id: &str,
+    first_line: &MarkdownLine<'_>,
+    last_line: &MarkdownLine<'_>,
+    row_path: &str,
+    issues: &mut Vec<ContentBoundRequirementRegistryIssue>,
+) -> Option<ContentBoundRequirementRow> {
     let body = specification
         .markdown
         .get(first_line.start_byte..last_line.end_byte)?;
-    let source_span = source_span(first_line, last_line, &row_path, issues)?;
+    let source_span = source_span(first_line, last_line, row_path, issues)?;
     let requirement_body_blake3 = domain_hash_bytes(REQUIREMENT_BODY_DOMAIN, body.as_bytes());
     let material = RequirementRowHashMaterial {
-        requirement_id: &requirement_id,
+        requirement_id,
         specification_path: &specification.path,
         specification_blake3,
         source_span: &source_span,
@@ -584,7 +607,7 @@ fn parse_requirement_row(
         }
     };
     Some(ContentBoundRequirementRow {
-        requirement_id,
+        requirement_id: requirement_id.to_string(),
         specification_path: specification.path.clone(),
         specification_blake3: specification_blake3.to_string(),
         source_span,
@@ -701,13 +724,24 @@ fn next_heading_at_or_above(lines: &[MarkdownLine<'_>], start: usize, level: usi
         .unwrap_or(lines.len())
 }
 
-fn bare_markers(text: &str) -> Vec<String> {
+fn declaration_markers(text: &str) -> Vec<String> {
     let bytes = text.as_bytes();
     let mut markers = Vec::new();
     let mut index: usize = 0;
+    let mut code_delimiter: Option<u8> = None;
     while index.saturating_add(MARKER_PREFIX.len()) <= bytes.len() {
-        if bytes.get(index..index.saturating_add(MARKER_PREFIX.len()))
-            == Some(MARKER_PREFIX.as_bytes())
+        if bytes[index] == b'`' {
+            code_delimiter = match code_delimiter {
+                Some(delimiter) if delimiter == bytes[index] => None,
+                None => Some(bytes[index]),
+                current => current,
+            };
+            index = index.saturating_add(1);
+            continue;
+        }
+        if code_delimiter.is_none()
+            && bytes.get(index..index.saturating_add(MARKER_PREFIX.len()))
+                == Some(MARKER_PREFIX.as_bytes())
         {
             let content_start = index.saturating_add(MARKER_PREFIX.len());
             let Some(relative_end) = bytes[content_start..]
@@ -743,7 +777,7 @@ fn reject_duplicate_requirement_ids(
     rows: &[ContentBoundRequirementRow],
     issues: &mut Vec<ContentBoundRequirementRegistryIssue>,
 ) {
-    let mut seen = BTreeSet::new();
+    let mut seen = std::collections::BTreeSet::new();
     for (index, row) in rows.iter().enumerate() {
         if !seen.insert(row.requirement_id.as_str()) {
             push_issue(
@@ -830,7 +864,7 @@ fn validate_specification_identities(
             "specification identities must use canonical path order",
         );
     }
-    let mut seen = BTreeSet::new();
+    let mut seen = std::collections::BTreeSet::new();
     for (index, specification) in registry.specifications.iter().enumerate() {
         validate_specification_path(
             &specification.path,
@@ -899,8 +933,8 @@ fn validate_rows(
                 specification.content_blake3.as_str(),
             )
         })
-        .collect::<BTreeMap<_, _>>();
-    let mut seen = BTreeSet::new();
+        .collect::<std::collections::BTreeMap<_, _>>();
+    let mut seen = std::collections::BTreeSet::new();
     for (index, row) in registry.rows.iter().enumerate() {
         let row_path = format!("rows[{index}]");
         if !valid_requirement_id(&row.requirement_id) {
@@ -1095,12 +1129,12 @@ fn compare_registry_freshness(
         .specifications
         .iter()
         .map(|row| (row.path.as_str(), row.content_blake3.as_str()))
-        .collect::<BTreeMap<_, _>>();
+        .collect::<std::collections::BTreeMap<_, _>>();
     let expected_specs = expected
         .specifications
         .iter()
         .map(|row| (row.path.as_str(), row.content_blake3.as_str()))
-        .collect::<BTreeMap<_, _>>();
+        .collect::<std::collections::BTreeMap<_, _>>();
     for (path, expected_hash) in &expected_specs {
         match actual_specs.get(path) {
             Some(actual_hash) if actual_hash == expected_hash => {}
@@ -1132,12 +1166,12 @@ fn compare_registry_freshness(
         .rows
         .iter()
         .map(|row| (row.requirement_id.as_str(), row))
-        .collect::<BTreeMap<_, _>>();
+        .collect::<std::collections::BTreeMap<_, _>>();
     let expected_rows = expected
         .rows
         .iter()
         .map(|row| (row.requirement_id.as_str(), row))
-        .collect::<BTreeMap<_, _>>();
+        .collect::<std::collections::BTreeMap<_, _>>();
     for (requirement_id, expected_row) in &expected_rows {
         match actual_rows.get(requirement_id) {
             Some(actual_row) if *actual_row == *expected_row => {}
@@ -1322,10 +1356,10 @@ fn domain_hash_bytes(domain: &str, bytes: &[u8]) -> String {
     material.extend_from_slice(domain.as_bytes());
     material.push(DOMAIN_SEPARATOR);
     material.extend_from_slice(bytes);
-    blake3_hex(&material)
+    crate::verified::evidence::blake3_hex(&material)
 }
 
-fn domain_hash_json<T: Serialize>(
+fn domain_hash_json<T: serde::Serialize>(
     domain: &str,
     value: &T,
 ) -> Result<String, ContentBoundRequirementRegistryIssue> {
@@ -1336,7 +1370,10 @@ fn domain_hash_json<T: Serialize>(
             "canonical registry hash material could not be serialized",
         )
     })?;
-    Ok(domain_hash_bytes(domain, canonical_json(&value).as_bytes()))
+    Ok(domain_hash_bytes(
+        domain,
+        crate::verified::evidence::canonical_json(&value).as_bytes(),
+    ))
 }
 
 fn issue(code: &str, field_path: &str, message: &str) -> ContentBoundRequirementRegistryIssue {
@@ -1671,5 +1708,112 @@ mod tests {
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0].requirement_id, REQUIREMENT_ID);
         assert_eq!(rows[1].requirement_id, SECOND_REQUIREMENT_ID);
+    }
+
+    #[test]
+    fn declaration_marker_owns_identity_when_later_prose_contains_markers() {
+        let input = ContentBoundSpecificationInput {
+            path: SPEC_PATH.to_string(),
+            markdown: format!(
+                "# Example\n\n## Requirements\n\n### Requirement: Declaration identity\nr[{REQUIREMENT_ID}] The registry MUST use this declaration.\n\nLater prose can discuss r[{SECOND_REQUIREMENT_ID}] without granting identity authority.\n\n#### Scenario: Current\n- GIVEN a current source\n- WHEN validation runs\n- THEN the result MUST pass\n"
+            ),
+        };
+        let evaluation = evaluate_content_bound_requirement_registry(
+            vec![input],
+            POLICY_BYTES,
+            REPOSITORY_ID,
+            revision(),
+        );
+        assert!(
+            evaluation.issues.is_empty(),
+            "issues: {:?}",
+            evaluation.issues
+        );
+        let row = &evaluation.registry.expect("registry").rows[0];
+        assert_eq!(row.requirement_id, REQUIREMENT_ID);
+    }
+
+    #[test]
+    fn declaration_line_ignores_marker_syntax_inside_inline_code() {
+        let input = ContentBoundSpecificationInput {
+            path: SPEC_PATH.to_string(),
+            markdown: format!(
+                "# Example\n\n## Requirements\n\n### Requirement: Marker syntax\nr[{REQUIREMENT_ID}] The registry MUST validate `r[...]` references relative to the declaration.\n\n#### Scenario: Current\n- GIVEN a current source\n- WHEN validation runs\n- THEN the result MUST pass\n"
+            ),
+        };
+        let evaluation = evaluate_content_bound_requirement_registry(
+            vec![input],
+            POLICY_BYTES,
+            REPOSITORY_ID,
+            revision(),
+        );
+        assert!(
+            evaluation.issues.is_empty(),
+            "issues: {:?}",
+            evaluation.issues
+        );
+        let row = &evaluation.registry.expect("registry").rows[0];
+        assert_eq!(row.requirement_id, REQUIREMENT_ID);
+    }
+
+    #[test]
+    fn declaration_marker_can_follow_normative_text_or_appear_in_the_heading() {
+        let input = ContentBoundSpecificationInput {
+            path: SPEC_PATH.to_string(),
+            markdown: format!(
+                "# Example\n\n## Requirements\n\n### Requirement: Trailing declaration\nThe registry MUST accept a trailing declaration. r[{SECOND_REQUIREMENT_ID}]\n\n#### Scenario: Current\n- GIVEN a current source\n- WHEN validation runs\n- THEN the result MUST pass\n\n### Requirement: Heading declaration r[{REQUIREMENT_ID}]\nThe registry MUST accept a heading declaration.\n\n#### Scenario: Current\n- GIVEN a current source\n- WHEN validation runs\n- THEN the result MUST pass\n"
+            ),
+        };
+        let evaluation = evaluate_content_bound_requirement_registry(
+            vec![input],
+            POLICY_BYTES,
+            REPOSITORY_ID,
+            revision(),
+        );
+        assert!(
+            evaluation.issues.is_empty(),
+            "issues: {:?}",
+            evaluation.issues
+        );
+        let rows = evaluation.registry.expect("registry").rows;
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].requirement_id, REQUIREMENT_ID);
+        assert_eq!(rows[1].requirement_id, SECOND_REQUIREMENT_ID);
+    }
+
+    #[test]
+    fn distinct_declaration_markers_and_late_only_markers_fail_closed() {
+        // r[verify cairn.trace_index.live_proof.declaration_marker]
+        // r[verify cairn.trace_index.live_proof.repository_check]
+        // r[verify cairn.trace_index.live_proof.receipts]
+        // r[verify cairn.trace_index.live_proof.validation]
+        // r[verify cairn.trace_index.live_proof.docs]
+        let conflicting = ContentBoundSpecificationInput {
+            path: SPEC_PATH.to_string(),
+            markdown: format!(
+                "# Example\n\n## Requirements\n\n### Requirement: Conflict\nr[{REQUIREMENT_ID}] r[{SECOND_REQUIREMENT_ID}] The registry MUST reject distinct declarations.\n\n#### Scenario: Current\n- GIVEN a current source\n- WHEN validation runs\n- THEN the result MUST fail\n"
+            ),
+        };
+        let conflict = evaluate_content_bound_requirement_registry(
+            vec![conflicting],
+            POLICY_BYTES,
+            REPOSITORY_ID,
+            revision(),
+        );
+        assert!(conflict.registry.is_none());
+        assert!(issue_codes(&conflict.issues).contains(&ISSUE_REQUIREMENT_MARKER_DUPLICATE));
+
+        let late_only = ContentBoundSpecificationInput {
+            path: SPEC_PATH.to_string(),
+            markdown: "# Example\n\n## Requirements\n\n### Requirement: Missing declaration\nThe registry MUST reject a missing declaration marker.\n\nLater prose has no marker.\n\n#### Scenario: Current\n- GIVEN a current source\n- WHEN validation runs\n- THEN the result MUST fail\n".to_string(),
+        };
+        let missing = evaluate_content_bound_requirement_registry(
+            vec![late_only],
+            POLICY_BYTES,
+            REPOSITORY_ID,
+            revision(),
+        );
+        assert!(missing.registry.is_none());
+        assert!(issue_codes(&missing.issues).contains(&ISSUE_REQUIREMENT_MARKER_MISSING));
     }
 }

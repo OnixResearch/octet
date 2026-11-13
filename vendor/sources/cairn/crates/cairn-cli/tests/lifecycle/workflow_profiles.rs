@@ -154,6 +154,24 @@ fn assurance_profile_requires_current_reviewed_obligations() -> Result<(), Box<d
         .all(|artifact| artifact["state"] == "done"));
     let gate = run_json(&["gate", "tasks", "assurance-demo", "--root", root_text])?;
     assert_eq!(gate["verdict"], "PASS");
+    let observe = || -> Result<serde_json::Value, Box<dyn Error>> {
+        let report = run_json(&["readiness", "assurance-demo", "--root", root_text])?;
+        let mcp = run_json(&[
+            "mcp",
+            "--call",
+            "cairn_readiness",
+            &json!({"root": root_text, "change": "assurance-demo"}).to_string(),
+        ])?;
+        assert_eq!(mcp["structuredContent"], report);
+        Ok(report)
+    };
+    let current = observe()?;
+    assert_eq!(current["stages"][3]["decision"]["verdict"], gate["verdict"]);
+    assert!(!current["actions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|a| a["kind"] == "evidence_refresh"));
 
     fs::write(
         change.join("risk.md"),
@@ -164,6 +182,21 @@ fn assurance_profile_requires_current_reviewed_obligations() -> Result<(), Box<d
     assert!(stale["issues"]
         .to_string()
         .contains("cairn.workflow.profile.review"));
+    let report = observe()?;
+    assert_eq!(report["stages"][3]["decision"]["verdict"], stale["verdict"]);
+    assert!(report["actions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|a| a["kind"] == "evidence_refresh"
+            && a["target"] == ".cairn/changes/assurance-demo/risk.md"));
+    let current_hash = cairn_core::blake3_hex(&fs::read(change.join("risk.md"))?);
+    assert!(report["blockers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|b| b["target"] == ".cairn/changes/assurance-demo/risk.md"
+            && b["message"].as_str().unwrap().contains(&current_hash)));
     fs::remove_dir_all(root)?;
     Ok(())
 }
@@ -289,15 +322,19 @@ fn workflow_profile_guide_names_authority_and_non_claims() -> Result<(), Box<dyn
     // r[verify cairn.lifecycle_workflow_profiles.docs]
     // r[verify cairn.lifecycle_workflow_profiles.docs.selection]
     // r[verify cairn.lifecycle_workflow_profiles.boundary.nonclaim]
+    // r[verify cairn.outcome_machine_profile.docs]
     let guide = fs::read_to_string(
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs/workflow-profiles.md"),
     )?;
     assert!(guide.contains("spec-driven"));
     assert!(guide.contains("assurance"));
+    assert!(guide.contains("outcome-machine"));
     assert!(guide.contains("no-spec-delta"));
     assert!(guide
         .contains("user-global files, environment variables, agent prompts, or remote packages"));
     assert!(guide.contains("does not prove zero behavior effect"));
+    assert!(guide.contains("Completion authority must remain `repository`"));
+    assert!(guide.contains("64-character BLAKE3 identity"));
     assert!(guide.contains("release eligibility"));
     Ok(())
 }

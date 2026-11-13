@@ -1,0 +1,102 @@
+$ env -i PATH=/run/current-system/sw/bin:/usr/bin:/bin USER=brittonr LOGNAME=brittonr LANG=en_US.UTF-8 HOME=/tmp/octet-public-qualification-20261112/home XDG_CONFIG_HOME=/tmp/octet-public-qualification-20261112/config XDG_CACHE_HOME=/tmp/octet-public-qualification-20261112/cache CARGO_HOME=/tmp/octet-public-qualification-20261112/cargo TMPDIR=/var/tmp/octet-public-builds-20261112 GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_SYSTEM=/dev/null GIT_CONFIG_GLOBAL=/dev/null GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND=false GIT_ASKPASS=/run/current-system/sw/bin/false 'NIX_CONFIG=experimental-features = nix-command flakes cgroups
+substituters = https://cache.nixos.org
+extra-substituters =
+builders =
+access-tokens =
+netrc-file = /dev/null
+sandbox = true
+build-users-group =
+max-jobs = 2
+cores = 4
+min-free = 0
+max-free = 0
+secret-key-files =
+post-build-hook =
+build-dir = /var/tmp/octet-public-builds-20261112
+' nix --store 'local?root=/tmp/octet-public-qualification-20261112/store' shell --inputs-from . /nix/store/q479gvxkh1h5fkranp3gzkws51jik2fy-cargo-octet-0.1.1-rc.1 /nix/store/psn0v6x3wj3h2vgyi2s2x7rjpzlb5zrr-cargo 'nixpkgs#python3' 'nixpkgs#git' 'nixpkgs#b3sum' /nix/store/c6mw8m0y78lwffywi382swrargz2v8fi-cargo-octet-runtime-path /nix/store/srgd4wpm2ad3hz72iwlbv9h1wny6gibg-cairn-0.2.0 /nix/store/ck3a4k9az87z5rjwgy8nmpcs34xp9cc5-nickel-lang-rev-fixup-1.17.0 'nixpkgs#openssh' --command python3 fixtures/cairn-cob-pilot/regenerate.py --cairn /nix/store/srgd4wpm2ad3hz72iwlbv9h1wny6gibg-cairn-0.2.0/bin/cairn --cairn-source-revision 2747aa6eeb6e9eb9862f2bc4e11336e768e2e10b
+these 13 paths will be fetched (3.7 MiB download, 20.1 MiB unpacked):
+  /nix/store/pxb0lxw6w0d4c6npsg5828lam07q9m8n-audit-4.1.2-unstable-2025-09-06-lib
+  /nix/store/4mk08faw9x5wkxsq72irj2zzhwsiih5l-db-4.8.30
+  /nix/store/syz32lyi9809acw1hzyy909j7nig7x56-dns-root-data-2025-04-14
+  /nix/store/3vf14k4jycrak4zqci53jlm9rpjq3q65-ldns-1.8.4
+  /nix/store/g1ppa090n8pkakfrf1311qx0n7vh888b-libcap-ng-0.9
+  /nix/store/r3lf4fbifapdxgq71g3qxi58rgwggi0z-libcbor-0.13.0
+  /nix/store/dlxzpkdqindmppzsnf8kdmycycg6504v-libfido2-1.16.0
+  /nix/store/2hp2kc85zapzjaj9y22jf9xgwqmlsk6m-linux-pam-1.7.1
+  /nix/store/vlhrk50xg0lmivk049q8yygbsm86l6m0-openssh-10.2p1
+  /nix/store/xv8qlypb39zd2lqcs5fmqzvby029ra7c-openssh-10.2p1-man
+  /nix/store/p0h4f4gq2ap9l4dlx0xi33j8m51msrkr-pcsclite-2.4.1-lib
+  /nix/store/1mv4y8dsjsb0bw2rs7c2xpaxp5sdz282-systemd-minimal-libs-259
+  /nix/store/5cm706bg0pjq35bfpxr5qgx0qg94lpmi-util-linux-minimal-2.41.3-login
+copying path '/nix/store/xv8qlypb39zd2lqcs5fmqzvby029ra7c-openssh-10.2p1-man' from 'https://cache.nixos.org'...
+copying path '/nix/store/syz32lyi9809acw1hzyy909j7nig7x56-dns-root-data-2025-04-14' from 'https://cache.nixos.org'...
+copying path '/nix/store/4mk08faw9x5wkxsq72irj2zzhwsiih5l-db-4.8.30' from 'https://cache.nixos.org'...
+copying path '/nix/store/p0h4f4gq2ap9l4dlx0xi33j8m51msrkr-pcsclite-2.4.1-lib' from 'https://cache.nixos.org'...
+copying path '/nix/store/g1ppa090n8pkakfrf1311qx0n7vh888b-libcap-ng-0.9' from 'https://cache.nixos.org'...
+copying path '/nix/store/r3lf4fbifapdxgq71g3qxi58rgwggi0z-libcbor-0.13.0' from 'https://cache.nixos.org'...
+copying path '/nix/store/5cm706bg0pjq35bfpxr5qgx0qg94lpmi-util-linux-minimal-2.41.3-login' from 'https://cache.nixos.org'...
+copying path '/nix/store/3vf14k4jycrak4zqci53jlm9rpjq3q65-ldns-1.8.4' from 'https://cache.nixos.org'...
+copying path '/nix/store/pxb0lxw6w0d4c6npsg5828lam07q9m8n-audit-4.1.2-unstable-2025-09-06-lib' from 'https://cache.nixos.org'...
+copying path '/nix/store/1mv4y8dsjsb0bw2rs7c2xpaxp5sdz282-systemd-minimal-libs-259' from 'https://cache.nixos.org'...
+copying path '/nix/store/dlxzpkdqindmppzsnf8kdmycycg6504v-libfido2-1.16.0' from 'https://cache.nixos.org'...
+copying path '/nix/store/2hp2kc85zapzjaj9y22jf9xgwqmlsk6m-linux-pam-1.7.1' from 'https://cache.nixos.org'...
+copying path '/nix/store/vlhrk50xg0lmivk049q8yygbsm86l6m0-openssh-10.2p1' from 'https://cache.nixos.org'...
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+From /home/brittonr/git/OnixResearch/octet/fixtures/cairn-cob-pilot/octet-cob.bundle
+ * [new branch]      main       -> main
+ * [new ref]         refs/namespaces/z6Mksf9UyKHypB1cGbW2PoHLdYnxLwFGgv1zphuQXxPZ1rAS/refs/cobs/xyz.onixresearch.cairn-change/3e35b2b00092bb3f6d4310b495d0eeec1a23e5e0 -> refs/namespaces/z6Mksf9UyKHypB1cGbW2PoHLdYnxLwFGgv1zphuQXxPZ1rAS/refs/cobs/xyz.onixresearch.cairn-change/3e35b2b00092bb3f6d4310b495d0eeec1a23e5e0
+error: failed to parse policy /var/tmp/octet-public-builds-20261112/octet-cob-pilot-b5vp9ibr/source/cairn-policy/generated/cairn-policy.json: cairn.workflow.profile.registry at workflow_profile_policy.schemas: initial workflow profile is missing: outcome-machine
+Traceback (most recent call last):
+  File "/home/brittonr/git/OnixResearch/octet/fixtures/cairn-cob-pilot/regenerate.py", line 218, in <module>
+    regenerate(arguments)
+    ~~~~~~~~~~^^^^^^^^^^^
+  File "/home/brittonr/git/OnixResearch/octet/fixtures/cairn-cob-pilot/regenerate.py", line 118, in regenerate
+    receipt("import-preview.json", source, ["cob", "import"], signing=True)
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/brittonr/git/OnixResearch/octet/fixtures/cairn-cob-pilot/regenerate.py", line 108, in receipt
+    data = run(argv)
+  File "/home/brittonr/git/OnixResearch/octet/fixtures/cairn-cob-pilot/regenerate.py", line 21, in run
+    return subprocess.check_output([str(arg) for arg in args], cwd=cwd, env=env)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/nix/store/m1fw8l8y9ycxh5dzispbb7cwl6rra14l-python3-3.13.12/lib/python3.13/subprocess.py", line 472, in check_output
+    return run(*popenargs, stdout=PIPE, timeout=timeout, check=True,
+           ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+               **kwargs).stdout
+               ^^^^^^^^^
+  File "/nix/store/m1fw8l8y9ycxh5dzispbb7cwl6rra14l-python3-3.13.12/lib/python3.13/subprocess.py", line 577, in run
+    raise CalledProcessError(retcode, process.args,
+                             output=stdout, stderr=stderr)
+subprocess.CalledProcessError: Command '['/nix/store/srgd4wpm2ad3hz72iwlbv9h1wny6gibg-cairn-0.2.0/bin/cairn', 'cob', 'import', 'adopt-cairn-cob-collaboration', '--root', '/var/tmp/octet-public-builds-20261112/octet-cob-pilot-b5vp9ibr/source', '--git-repository', '/var/tmp/octet-public-builds-20261112/octet-cob-pilot-b5vp9ibr/source', '--policy', '/var/tmp/octet-public-builds-20261112/octet-cob-pilot-b5vp9ibr/source/cairn-policy/generated/cairn-policy.json', '--keystore', '/var/tmp/octet-public-builds-20261112/octet-cob-pilot-b5vp9ibr/keys', '--workspace', 'workspace:octet']' returned non-zero exit status 1.
+
+exit_code=1
+
+$ env -i PATH=/run/current-system/sw/bin:/usr/bin:/bin USER=brittonr LOGNAME=brittonr LANG=en_US.UTF-8 HOME=/tmp/octet-public-qualification-20261112/home XDG_CONFIG_HOME=/tmp/octet-public-qualification-20261112/config XDG_CACHE_HOME=/tmp/octet-public-qualification-20261112/cache CARGO_HOME=/tmp/octet-public-qualification-20261112/cargo TMPDIR=/var/tmp/octet-public-builds-20261112 GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_SYSTEM=/dev/null GIT_CONFIG_GLOBAL=/dev/null GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND=false GIT_ASKPASS=/run/current-system/sw/bin/false 'NIX_CONFIG=experimental-features = nix-command flakes cgroups
+substituters = https://cache.nixos.org
+extra-substituters =
+builders =
+access-tokens =
+netrc-file = /dev/null
+sandbox = true
+build-users-group =
+max-jobs = 2
+cores = 4
+min-free = 0
+max-free = 0
+secret-key-files =
+post-build-hook =
+build-dir = /var/tmp/octet-public-builds-20261112
+' nix --store 'local?root=/tmp/octet-public-qualification-20261112/store' shell --inputs-from . /nix/store/q479gvxkh1h5fkranp3gzkws51jik2fy-cargo-octet-0.1.1-rc.1 /nix/store/psn0v6x3wj3h2vgyi2s2x7rjpzlb5zrr-cargo 'nixpkgs#python3' 'nixpkgs#git' 'nixpkgs#b3sum' /nix/store/c6mw8m0y78lwffywi382swrargz2v8fi-cargo-octet-runtime-path /nix/store/srgd4wpm2ad3hz72iwlbv9h1wny6gibg-cairn-0.2.0 /nix/store/ck3a4k9az87z5rjwgy8nmpcs34xp9cc5-nickel-lang-rev-fixup-1.17.0 'nixpkgs#openssh' --command b3sum --no-names /nix/store/srgd4wpm2ad3hz72iwlbv9h1wny6gibg-cairn-0.2.0/bin/cairn
+fc0e74108e3dd38c5dc4c14b902971a711eaa21d8a508cd8e54185bd4b356b3a
+exit_code=0
