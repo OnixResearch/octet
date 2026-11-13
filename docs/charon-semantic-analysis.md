@@ -53,6 +53,21 @@ A valid bundle contains distinct BLAKE3-bound roles:
 
 The artifact verifier recomputes every file hash, checks exact provenance coverage, checks transcript-only tiers, and binds receipt roles back to artifact bytes.
 
+The checked-in `standards/charon-semantic/generated/valence-handoff.json` is a
+current-verifier projection of the retained fixture, not a new Charon execution.
+After changing the Octet producer version, regenerate it with the matching
+packaged runner:
+
+```sh
+cargo octet artifact verify \
+  --artifact-dir standards/charon-semantic/fixtures/valid/artifacts \
+  --format json \
+  --emit-valence-provenance standards/charon-semantic/generated/valence-handoff.json
+```
+
+The `charon-semantic-analysis` Nix check reproduces this projection and requires
+byte equality while preserving the evidence tiers and `recorded_only` roles.
+
 ## Source/token comparison
 
 `standards/charon-semantic/comparison/legacy-source-token-receipt.ncl` models an independent legacy source-token analysis receipt. Its generated receipt identity is configured into `comparison-parent.ncl`; the Nix check recomputes that parent identity before accepting the adapter. Comparison requires the same source identity and records `agree`, `disagree`, `charon-only`, `source-token-only`, or `unknown` per fact. It never overwrites either parent and always sets `authority_merged` to `false`.

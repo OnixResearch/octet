@@ -42,6 +42,17 @@ blocked. Its package/walkthrough receipts and the earlier full-core receipt do
 not qualify this RC. Do not relabel those receipts, manufacture output, or turn
 an expected command result into an observation.
 
+The unqualified staging commit
+`d96557fe8bea68174dc408df293d5d6aa3cda2da` passed anonymous acquisition on
+2026-11-13 from a new empty store, using only `cache.nixos.org` substitutes and
+no credentials, SSH, private builders/cache, or sibling checkouts. Its source
+NAR identity was `sha256-hdCrd5g2SnQ/HsFMZHgZ1uy3TBeDZufKksKhz2piv0w=`.
+All five primary outputs built; the matching `0.1.1-rc.1` runner completed the
+fresh-crate and pinned Valence fail/fix/verify/tamper capture. This is not a
+qualified release: the complete flake rail rejected stale reviewed-object
+admission locks and a `0.1.0` Charon handoff projection. Replacement source
+must pass those gates and receive its own source-bound qualification.
+
 The old `octet-public` repository remains unchanged by explicit owner decision.
 It is blocked and unsupported, not a fallback install or reporting route. Its
 reachable history and nested bundles still need separate cleanup; the owner

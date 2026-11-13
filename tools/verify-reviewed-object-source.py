@@ -15,15 +15,15 @@ from pathlib import Path, PurePosixPath
 
 CANDIDATE_PATH = "cargo-octet/tests/fixtures/object-corpus/source-token-v2/candidate-source-manifest.json"
 REVIEWED_PATH = "cargo-octet/tests/fixtures/object-corpus/source-token-v2/reviewed-source-manifest.json"
-APPROVAL_PATH = ".cairn/changes/resolve-open-assurance-issues/evidence/rc1-source-owner-approval.txt"
+APPROVAL_PATH = ".cairn/changes/resolve-open-assurance-issues/evidence/rc1-import-clean-owner-approval.txt"
 # These in-repository byte locks detect drift; they are not an owner signature.
-APPROVAL_B3 = "0f45f8eecae40dd18cd0a43185fb43d127b7e18d319b4f16f24ebff58171764d"
-CANDIDATE_B3 = "5faf6b40b80b67146fad1188732ef14ab63b16d0960d68aa6ca4967bf67986fe"
-REVIEWED_B3 = "5a6502ba6d9266eb86e52de2e184c98be2d6b1e6fea215cdff929abb21c10de7"
+APPROVAL_B3 = "3f7b40b37e9eb0d5d58de205fd1d18b1da4733e929982d52ed7b27959399b4f7"
+CANDIDATE_B3 = "be3647f9c72a598defa192f4ff0cda440fef22eeb5e2bc7dd6c162abce43d862"
+REVIEWED_B3 = "63a4cc8c1e5dbdda1e74182ebb13f830d33772dc97636143b82cc400dcf94961"
 AUDIT_PATH = "cargo-octet/tests/fixtures/object-corpus/source-token-v2/approved-audit-envelope.json"
-AUDIT_B3 = "312c4b610f84ceae4fc9e61676466009200c40fa6f6f6c2c4ea9a450c1e20cc3"
+AUDIT_B3 = "5892eae1dfa1658381e95684243a252bc8757dad6e21ef14d3950bfadd0d49fc"
 SOURCE_BINDING_PATH = "cargo-octet/tests/fixtures/object-corpus/source-token-v2/original-producer-source-binding.json"
-SOURCE_BINDING_B3 = "c70889274440c627f314d73db665a50bfa57e20281751bf1d7e805e67cef8d5a"
+SOURCE_BINDING_B3 = "a3ab4aa9674aecd8ec9648dc436b285ebfff1288a78c94414d561c97acb8d2f4"
 OCTET_VERSION = "0.1.1-rc.1"
 REVISION = "7546a78b4eeef8686c6837e187aa12420f4f03bb"
 MODULE_B3 = "11f0f4233aaf3153966f6aa37de570c2dcd0e75335591934461ae2b25ab3ecb1"
@@ -33,7 +33,7 @@ NIX_GIT_URL = "https://github.com/OnixResearch/valence.git"
 REVIEW_REF = "review/source-token-v2-7546a78b"
 CARGO_SOURCE = f"git+{CARGO_GIT_URL}?rev={REVISION}#{REVISION}"
 MODULE_PATH = "crates/valence-core/src/function_object.rs"
-REFERENCE_COUNTS = [1, 1114, 1717, 1717]
+REFERENCE_COUNTS = [1, 1155, 1764, 1764]
 REFERENCE_FILES = {
     "positive-v2-receipt.json": "fixed_quoted_url",
     "internal-corpus-receipt.json": "internal_corpus",
@@ -159,10 +159,10 @@ def admit(repo: Path, valence_module: Path) -> None:
     require(set(selections) == {"fixed_quoted_url", "internal_corpus", "expanded_internal_corpus"}, "unexpected selection role")
     fixed = checked_paths(selections["fixed_quoted_url"], 1, "fixed")
     internal = checked_paths(selections["internal_corpus"], 18, "internal")
-    expanded = checked_paths(selections["expanded_internal_corpus"], 36, "expanded")
+    expanded = checked_paths(selections["expanded_internal_corpus"], 39, "expanded")
     require(set(internal).issubset(expanded), "expanded selection lost internal sources")
     union = sorted(set(fixed + internal + expanded))
-    require(len(union) == 37, "selected source union must contain exactly 37 paths")
+    require(len(union) == 40, "selected source union must contain exactly 40 paths")
     hashes = reviewed["source_file_hashes"]
     require(isinstance(hashes, list) and [row.get("path") for row in hashes] == union, "source hash paths do not match selected union")
     for row in hashes:
@@ -175,8 +175,8 @@ def admit(repo: Path, valence_module: Path) -> None:
         require(row["path"] not in expected_producer_sources or expected_producer_sources[row["path"]] == row["blake3"], "conflicting producer source binding")
         expected_producer_sources[row["path"]] = row["blake3"]
     comparisons = source_binding.get("source_comparisons")
-    require(isinstance(comparisons, list) and len(comparisons) == len(expected_producer_sources) == 39, "original producer requires exactly 39 source/module/test bindings")
-    require(len({row["path"] for row in comparisons}) == 39 and {row["path"] for row in comparisons} == set(expected_producer_sources), "original producer source selection drift")
+    require(isinstance(comparisons, list) and len(comparisons) == len(expected_producer_sources) == 42, "original producer requires exactly 42 source/module/test bindings")
+    require(len({row["path"] for row in comparisons}) == 42 and {row["path"] for row in comparisons} == set(expected_producer_sources), "original producer source selection drift")
     require(source_binding.get("missing_sources") == [], "original producer has missing sources")
     for row in comparisons:
         expected = expected_producer_sources[row["path"]]

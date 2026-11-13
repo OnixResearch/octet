@@ -40,8 +40,8 @@
         "schema_version": "octet-valence-replayable-receipt/v1",
         "producer_id": "octet.charon_semantic.analysis",
         "checker_id": "cargo-octet",
-        "tool_identity": "cargo-octet@0.1.0",
-        "policy_or_checker_version": "cargo-octet@0.1.0",
+        "tool_identity": "cargo-octet@0.1.1-rc.1",
+        "policy_or_checker_version": "cargo-octet@0.1.1-rc.1",
         "normalized_invocation": [
           "cargo-octet"
         ],
@@ -94,8 +94,8 @@
         "schema_version": "octet-valence-replayable-receipt/v1",
         "producer_id": "octet.charon_semantic.comparison",
         "checker_id": "cargo-octet",
-        "tool_identity": "cargo-octet@0.1.0",
-        "policy_or_checker_version": "cargo-octet@0.1.0",
+        "tool_identity": "cargo-octet@0.1.1-rc.1",
+        "policy_or_checker_version": "cargo-octet@0.1.1-rc.1",
         "normalized_invocation": [
           "cargo-octet"
         ],
@@ -148,8 +148,8 @@
         "schema_version": "octet-valence-replayable-receipt/v1",
         "producer_id": "octet.charon_semantic.projection",
         "checker_id": "cargo-octet",
-        "tool_identity": "cargo-octet@0.1.0",
-        "policy_or_checker_version": "cargo-octet@0.1.0",
+        "tool_identity": "cargo-octet@0.1.1-rc.1",
+        "policy_or_checker_version": "cargo-octet@0.1.1-rc.1",
         "normalized_invocation": [
           "cargo-octet"
         ],
@@ -202,8 +202,8 @@
         "schema_version": "octet-valence-replayable-receipt/v1",
         "producer_id": "octet.charon_semantic.snapshot",
         "checker_id": "cargo-octet",
-        "tool_identity": "cargo-octet@0.1.0",
-        "policy_or_checker_version": "cargo-octet@0.1.0",
+        "tool_identity": "cargo-octet@0.1.1-rc.1",
+        "policy_or_checker_version": "cargo-octet@0.1.1-rc.1",
         "normalized_invocation": [
           "cargo-octet"
         ],
@@ -241,8 +241,8 @@
         "schema_version": "octet-valence-replayable-receipt/v1",
         "producer_id": "octet.charon_semantic_analysis.recorded-snapshot",
         "checker_id": "cargo-octet",
-        "tool_identity": "cargo-octet@0.1.0",
-        "policy_or_checker_version": "cargo-octet@0.1.0",
+        "tool_identity": "cargo-octet@0.1.1-rc.1",
+        "policy_or_checker_version": "cargo-octet@0.1.1-rc.1",
         "normalized_invocation": [
           "charon",
           "cargo",
@@ -499,8 +499,8 @@
         "schema_version": "octet-valence-replayable-receipt/v1",
         "producer_id": "octet.runner.artifact-bundle",
         "checker_id": "cargo-octet",
-        "tool_identity": "cargo-octet@0.1.0",
-        "policy_or_checker_version": "cargo-octet@0.1.0",
+        "tool_identity": "cargo-octet@0.1.1-rc.1",
+        "policy_or_checker_version": "cargo-octet@0.1.1-rc.1",
         "normalized_invocation": [
           "cargo-octet"
         ],
