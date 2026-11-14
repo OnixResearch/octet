@@ -229,6 +229,12 @@ Loading this profile changes only the disposable GitHub runner, not consumer
 machines. A local full-flake pass does not establish that GitHub's host setup
 has passed.
 
+The cold `mantle-aeneas-consumer-job` builds first with `--max-jobs 1 --cores 0`
+so its selected Mathlib compilation does not compete with unrelated derivations
+on the runner. The complete flake check follows, reusing that exact source-bound
+output. Its reviewed 45-minute producer deadline and all proof obligations are
+unchanged; a timeout remains a failed gate.
+
 Update the cohort's inventory/toolchain/lock fixtures from the selected source,
 export the Nickel manifest, and recompute its evidence identity. Source,
 inventory, notice, anonymous-dependency, receipt freshness, evidence-digest,

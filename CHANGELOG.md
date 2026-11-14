@@ -52,6 +52,11 @@ before building. This addresses Ubuntu's unprofiled namespace denial without
 disabling the host restriction, sharing the producer's network, running the
 producer as root, or omitting the live Aeneas/Charon checks.
 
+The cold Mantle Aeneas producer builds first with one active Nix derivation
+and all available runner cores. The full flake check still follows and reuses
+that exact output. This avoids competing Mathlib compilation during its
+unchanged 45-minute deadline; no timeout, theorem, or admission rule is relaxed.
+
 The owner separately approved the exact native warning-baseline migration from
 3,160 to 3,030 identities and lowered the occurrence expectation from 4,337 to
 4,239. Two genuinely introduced import findings were repaired rather than

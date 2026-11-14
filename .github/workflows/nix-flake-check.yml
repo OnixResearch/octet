@@ -48,4 +48,10 @@ jobs:
           "$bwrap" --unshare-user --unshare-net --unshare-pid \
             --die-with-parent --new-session --ro-bind / / \
             --proc /proc --dev /dev /bin/true
-      - run: nix flake check
+      - name: Build cold Lean producer without competing derivations
+        # Its reviewed deadline includes compiling the selected Mathlib closure.
+        # Reserve the runner CPUs rather than weakening the producer timeout.
+        run: >-
+          nix build .#checks.x86_64-linux.mantle-aeneas-consumer-job
+          --no-link --max-jobs 1 --cores 0 --print-build-logs
+      - run: nix flake check --print-build-logs
