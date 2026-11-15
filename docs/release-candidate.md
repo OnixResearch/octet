@@ -35,12 +35,13 @@ The RC is not qualified merely because implementation, static review, or an
 older cohort succeeded. Qualification requires the actual frozen candidate,
 matching producer, complete required gates, and owner decisions below.
 
-`standards/release/release-cohort.ncl` and its generated JSON name an exact
-cohort, not necessarily the current checkout. Until replaced by fresh RC
-qualification, their `octet-public-becae962-2026-11-11` record is historical and
-blocked. Its package/walkthrough receipts and the earlier full-core receipt do
-not qualify this RC. Do not relabel those receipts, manufacture output, or turn
-an expected command result into an observation.
+`standards/release/release-cohort.ncl` and its generated JSON record the exact
+canonical staging cohort `octet-canonical-bcd3cb52-2026-11-14-blocked`, not
+necessarily the current checkout. The source, 77-lint inventory, locked inputs,
+anonymous build, native gates, and real consumer captures are bound to
+`bcd3cb52f418f613fda51ad3073b619b857d0243`. Qualification remains blocked by
+the complete release gates and required owner/lifecycle decisions. Historical
+cohort receipts are explicit non-evidence, not copied current acceptance.
 
 The unqualified staging commit
 `d96557fe8bea68174dc408df293d5d6aa3cda2da` passed anonymous acquisition on
@@ -61,7 +62,16 @@ The pinned Valence scope reported 44 warnings and no errors, with policy,
 lockfile, and sources unchanged. All 32 flake inputs were also archived
 anonymously. GitHub run `43483770888` passed `core` but failed `verify` when
 Bubblewrap could not configure loopback (`RTM_NEWADDR: Operation not permitted`).
-That host admission failure still blocks publication of a qualified RC.
+That earlier source is historical; its local pass does not qualify later commits.
+
+Staging commit `bcd3cb52f418f613fda51ad3073b619b857d0243` passed fresh
+anonymous acquisition, all five primary builds, the real consumer capture,
+and anonymous archival of all 32 flake inputs. Source NAR:
+`sha256-xH4AwGjb3iIDgPtrqJUqtQzlIy3J8cZ+FpkwQ1i/0yk=`.
+GitHub run `43556996482` passed `core` and the reserved Mantle producer, but
+the live compatibility check still timed out during the competing full build.
+The updated workflow reserves that check through its exported compatibility
+matrix as well; a passing current-source full rail is still required.
 
 The old `octet-public` repository remains unchanged by explicit owner decision.
 It is blocked and unsupported, not a fallback install or reporting route. Its
@@ -229,11 +239,12 @@ Loading this profile changes only the disposable GitHub runner, not consumer
 machines. A local full-flake pass does not establish that GitHub's host setup
 has passed.
 
-The cold `mantle-aeneas-consumer-job` builds first with `--max-jobs 1 --cores 0`
-so its selected Mathlib compilation does not compete with unrelated derivations
-on the runner. The complete flake check follows, reusing that exact source-bound
-output. Its reviewed 45-minute producer deadline and all proof obligations are
-unchanged; a timeout remains a failed gate.
+The cold Mantle producer and Aeneas/Lean compatibility matrix build first with
+`--max-jobs 1 --cores 0` so their selected Mathlib compilation does not compete
+with unrelated derivations on the runner. The matrix depends on the complete
+live compatibility check. The full flake check follows, reusing those exact
+source-bound outputs. The reviewed 45-minute producer deadlines and all proof
+obligations are unchanged; a timeout remains a failed gate.
 
 Update the cohort's inventory/toolchain/lock fixtures from the selected source,
 export the Nickel manifest, and recompute its evidence identity. Source,
@@ -244,12 +255,12 @@ A truthful blocked manifest can validate without being release-ready.
 ### Observed local Cairn prechecks
 
 The shipped H3 provider and generated Octet policy
-`728c4b47495c4469c2cdaa765908fd380732835f489f41a1270b60f36c4ae8e6`
-passed these local, pre-freeze checks:
+`454b429ad8c48acf7144c1c42d810f0425f23867c2c83b8625af3d42a6895b4c`
+passed these read-only checks on frozen canonical source `bcd3cb52`:
 
 | Command | Observed result | Boundary |
 | --- | --- | --- |
-| `cairn validate --strict` | `valid: true`, 93 specs, no issues | Lifecycle structure, not implementation correctness |
+| `cairn validate --strict` | `valid: true`, no issues | Lifecycle structure, not implementation correctness |
 | `cairn traceability coverage --profile octet-default --json` | `valid: true` | Selected declared traceability profile only |
 | `cairn gate proposal`, `design`, and `tasks` for `resolve-open-assurance-issues` | All three `valid: true`, no issues | Existing change gates; no lifecycle closure or publication authority |
 

@@ -97,8 +97,9 @@ licensing, behavior, and claim authority. Admission is not release approval.
 The selected sources include distinct Valence reviewed/historical snapshots,
 Bounded Exec snapshots for Octet and Cairn, Nickel Export, Artifact, Kiln,
 Mantle Build Contract, Cairn, and Subwayrat. Preserve the notices shipped with
-each selection. The copied Cairn policy family above remains bound to `695124`;
-it is not relabelled as the separate current provider candidate.
+each selection. The copied Cairn policy family above is bound to the same
+`2747aa6eeb6e9eb9862f2bc4e11336e768e2e10b` source as the selected provider;
+the local Octet policy overlay remains a separate downstream input.
 
 Subwayrat `rat-canvas` and `rat-nodegraph` at
 `9d68c69f13ad5c4385e8c96ff727bd6a7a1f8dd2` inherit the original workspace's

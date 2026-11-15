@@ -52,10 +52,19 @@ before building. This addresses Ubuntu's unprofiled namespace denial without
 disabling the host restriction, sharing the producer's network, running the
 producer as root, or omitting the live Aeneas/Charon checks.
 
-The cold Mantle Aeneas producer builds first with one active Nix derivation
-and all available runner cores. The full flake check still follows and reuses
-that exact output. This avoids competing Mathlib compilation during its
-unchanged 45-minute deadline; no timeout, theorem, or admission rule is relaxed.
+The cold Mantle Aeneas producer and live Aeneas/Lean compatibility gate build
+first with one active Nix derivation and all available runner cores. The full
+flake check still follows and reuses those exact outputs. This avoids competing
+Mathlib compilation during the unchanged 45-minute producer deadlines; no
+timeout, theorem, or admission rule is relaxed.
+
+The release-cohort manifest now binds canonical staging source `bcd3cb52`, its
+77-lint inventory, 32 locked inputs, actual anonymous consumer captures, and
+native structural-gate receipts. It remains blocked by the complete release
+gates and final owner/lifecycle decisions. Legacy export receipts are explicit
+non-evidence; the source-binding test and all nine negative controls pass.
+The third-party notice inventory also consistently names the selected Cairn
+`2747aa6e` policy projection instead of the superseded snapshot.
 
 The owner separately approved the exact native warning-baseline migration from
 3,160 to 3,030 identities and lowered the occurrence expectation from 4,337 to
