@@ -6,14 +6,19 @@ source revisions and the reviewed nightly/Dylint cohort.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
-## 0.1.1-rc.1 — candidate, pending qualification (2026-11-12)
+## 0.1.1-rc.1 — published immutable prerelease
 
-`OnixResearch/octet` is now the sole canonical source, release, and support
-home. Live landing, consumer, trust-boundary, pre-commit, CI, support, and
-launch-draft surfaces target the planned immutable `v0.1.1-rc.1` tag, which
-must be published only after qualification. Final source-bound qualification
-and release publication are not claimed here. The existing `v0.1.0` tag must
-not move again.
+`OnixResearch/octet` is the sole canonical source, release and support home.
+Frozen source `4aba4019f77f95cb9c3e25ff27964898d708cef0` passed the complete
+local flake rail and GitHub `core`/`verify` run `43665436695`, anonymous public
+acquisition, the real first-patch/tamper path, and pinned Valence capture
+(44 warnings, zero errors). Native sync/archive completed under the owner's
+separate conditional authorization. The owner approved the exact source, tag,
+body, public assets and bounded main integration. GitHub published immutable
+`v0.1.1-rc.1`; anonymous tag acquisition, packaged version and all four public
+asset downloads matched the reviewed identities. These later documentation,
+lifecycle and receipt bytes are not the tested package source. Existing
+`v0.1.0` stays unchanged; stable `0.1.1` and outreach are not authorized.
 
 Initial support remains source-only Nix on `x86_64-linux`, with pinned nightly
 Rust and Dylint. There is no crates.io, binary, custom website, or hosted
@@ -58,11 +63,11 @@ flake check still follows and reuses those exact outputs. This avoids competing
 Mathlib compilation during the unchanged 45-minute producer deadlines; no
 timeout, theorem, or admission rule is relaxed.
 
-The release-cohort manifest now binds canonical staging source `bcd3cb52`, its
-77-lint inventory, 32 locked inputs, actual anonymous consumer captures, and
-native structural-gate receipts. It remains blocked by the complete release
-gates and final owner/lifecycle decisions. Legacy export receipts are explicit
-non-evidence; the source-binding test and all nine negative controls pass.
+The release-cohort manifest binds the exact `4aba4019` source NAR, 77-lint
+inventory, 32 locked inputs, actual anonymous consumer captures, native gates,
+local/GitHub full rails and authorized lifecycle closure. Legacy export and
+earlier staging receipts remain explicit non-evidence. Exact final owner
+publication approval is recorded separately from those technical results.
 The third-party notice inventory also consistently names the selected Cairn
 `2747aa6e` policy projection instead of the superseded snapshot.
 

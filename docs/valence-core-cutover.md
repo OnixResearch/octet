@@ -18,27 +18,32 @@ The selected upstream `function_object.rs` remains at BLAKE3
 `11f0f4233aaf3153966f6aa37de570c2dcd0e75335591934461ae2b25ab3ecb1`.
 The active `source-token-v2/candidate-source-manifest.json` is the exact
 `0.1.1-rc.1` candidate, BLAKE3
-`5faf6b40b80b67146fad1188732ef14ab63b16d0960d68aa6ca4967bf67986fe`.
+`be3647f9c72a598defa192f4ff0cda440fef22eeb5e2bc7dd6c162abce43d862`.
 Its frozen `PENDING`, unselected and null-approval fields are preserved. A
 separate reviewed manifest, BLAKE3
-`5a6502ba6d9266eb86e52de2e184c98be2d6b1e6fea215cdff929abb21c10de7`,
+`63a4cc8c1e5dbdda1e74182ebb13f830d33772dc97636143b82cc400dcf94961`,
 selects it under the direct native
-[`RC owner decision`](../.cairn/changes/resolve-open-assurance-issues/evidence/rc1-source-owner-approval.txt).
+[`RC owner decision`](../.cairn/archive/1970-01-01-resolve-open-assurance-issues/evidence/rc1-import-clean-owner-approval.txt).
 The owner approved that candidate and audit envelope
-`312c4b610f84ceae4fc9e61676466009200c40fa6f6f6c2c4ea9a450c1e20cc3`,
-including exact 37 source-byte hashes, 18/36-path selections, three producer
+`5892eae1dfa1658381e95684243a252bc8757dad6e21ef14d3950bfadd0d49fc`,
+including exact 40 source-byte hashes, 18/39-path selections, three producer
 modules, the captured consumer-test snapshot, immutable Valence identity and
-four references with object counts 1/1,114/1,717/1,717. The fixed receipt uses
+four references with object counts 1/1,155/1,764/1,764. The fixed receipt uses
 fixture-relative `src/lib.rs`.
 
 The active fixture directory retains the exact approved audit envelope and
 original producer source-binding document (BLAKE3
-`c70889274440c627f314d73db665a50bfa57e20281751bf1d7e805e67cef8d5a`).
-The latter binds the original immutable preflight producer to 39 unique matching
+`a3ab4aa9674aecd8ec9648dc436b285ebfff1288a78c94414d561c97acb8d2f4`).
+The latter binds the original immutable preflight producer to 42 unique matching
 source/module/test paths and the compiled Valence module. It resolves the
 candidate's preparation-time unknown source derivation for that original
 producer only; it does not establish final H3/release-source qualification.
 Neither candidate bytes nor earlier CLI captures are relabelled as a later build.
+
+Native lifecycle closure moved the owner record to the archive without changing
+its bytes or the sealed candidate/review/reference records. The reviewed
+manifest retains its original pre-archive `evidence_path`; admission reads only
+the archived owner record and enforces its unchanged BLAKE3 identity.
 
 The prior `0.1.0` candidate, reviewed manifest and four references remain
 byte-preserved and unselected in `source-token-v2/historical-0.1.0/`. The old

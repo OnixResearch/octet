@@ -31,19 +31,20 @@ cargo_check_args = ["--lib"]
 ### Nix workspaces
 
 Use the canonical source-only Nix path on `x86_64-linux`, not copied bash glue.
-Candidate `0.1.1-rc.1` is pending qualification. After the release owner
-publishes the qualified immutable tag, the candidate evaluation command is:
+Candidate `0.1.1-rc.1` is published at qualified immutable tag `v0.1.1-rc.1`.
+The candidate evaluation command is:
 
 ```bash
 nix run github:OnixResearch/octet/v0.1.1-rc.1#cargo-octet -- check
 ```
 
-Before publication, use a reviewed local checkout:
+For development, use a reviewed local checkout:
 `nix run path:/path/to/octet#cargo-octet -- check`. Consumer flake checks should
 call the same engine through `lib.mkConsumerCheck` with an immutable canonical
-input and committed lockfile. Record the full resolved source revision, not
-`main`. The old `octet-public` cohort remains blocked and unsupported; its receipts
-are historical, not qualification of this candidate.
+input and committed lockfile. The published tag resolves to
+`4aba4019f77f95cb9c3e25ff27964898d708cef0`, not `main`.
+The old `octet-public` cohort remains blocked and unsupported; its receipts are
+historical, not qualification of this candidate.
 
 Octet includes 77 Dylint lints; qualification must check the exact candidate
 inventory and dependency/toolchain cohort. Create and review the consumer's

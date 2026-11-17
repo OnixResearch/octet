@@ -15,7 +15,7 @@ from pathlib import Path, PurePosixPath
 
 CANDIDATE_PATH = "cargo-octet/tests/fixtures/object-corpus/source-token-v2/candidate-source-manifest.json"
 REVIEWED_PATH = "cargo-octet/tests/fixtures/object-corpus/source-token-v2/reviewed-source-manifest.json"
-APPROVAL_PATH = ".cairn/changes/resolve-open-assurance-issues/evidence/rc1-import-clean-owner-approval.txt"
+APPROVAL_PATH = ".cairn/archive/1970-01-01-resolve-open-assurance-issues/evidence/rc1-import-clean-owner-approval.txt"
 # These in-repository byte locks detect drift; they are not an owner signature.
 APPROVAL_B3 = "3f7b40b37e9eb0d5d58de205fd1d18b1da4733e929982d52ed7b27959399b4f7"
 CANDIDATE_B3 = "be3647f9c72a598defa192f4ff0cda440fef22eeb5e2bc7dd6c162abce43d862"
@@ -107,9 +107,11 @@ def admit(repo: Path, valence_module: Path) -> None:
     require(reviewed.get("schema") == "octet.function-object-v2-reviewed-source-manifest.v1", "unsupported reviewed schema")
     require(reviewed.get("approval_status") == "REVIEWED_SOURCE_AND_REFERENCES", "missing reviewed approval status")
     require(reviewed.get("candidate_manifest") == {"path": CANDIDATE_PATH, "blake3": CANDIDATE_B3}, "wrong candidate binding")
+    # The sealed review record keeps its pre-archive locator and exact digest.
+    # Admission opens only archived APPROVAL_PATH below; no active-path fallback.
     require(reviewed.get("approval") == {
         "owner_reply": "approve_exact_candidate_and_references",
-        "evidence_path": APPROVAL_PATH,
+        "evidence_path": ".cairn/changes/resolve-open-assurance-issues/evidence/rc1-import-clean-owner-approval.txt",
         "evidence_blake3": APPROVAL_B3,
         "scope": "selected-source-and-reference-identities-only",
         "excludes_future_consumer_test_code": True,

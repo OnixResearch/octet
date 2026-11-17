@@ -1,131 +1,131 @@
-# Octet 0.1.1-rc.1 — candidate draft
-
-**Pending qualification and publication.** This is the planned GitHub
-prerelease body for immutable tag `v0.1.1-rc.1`, not a current qualified release
-announcement. Do not publish until the required gates, exact source-bound
-receipts, lifecycle decisions, and owner approvals are recorded in
-[release-candidate.md](../release-candidate.md) and the
-[launch checklist](launch-checklist.md). Do not move the existing `v0.1.0` tag.
+# Octet 0.1.1-rc.1 — release candidate
 
 Octet is the evidence-backed checked path for agent-written and human-written
 Rust systems code. Existing Rust runs through pinned static checks, checked-in
-policy, and optional scoped proof rails, then produces local evidence a CI or
-release gate can review. <https://github.com/OnixResearch/octet> is the sole
-canonical source, release, support, and landing home.
-
-## Candidate acquisition
+policy and optional scoped proof rails, producing local evidence for consumer
+CI and release gates. <https://github.com/OnixResearch/octet> is the sole
+canonical source, release, support and landing home.
 
 Initial support is **source-only Nix on `x86_64-linux`**, with pinned nightly
-Rust and Dylint. After the release owner qualifies and publishes the planned
-immutable candidate tag, the evaluation commands are:
+Rust and Dylint. This is a release candidate, not stable `0.1.1`, a binary
+release, a hosted service or a correctness certificate.
+
+## Install and first checked patch
+
+The immutable candidate tag is `v0.1.1-rc.1`, selecting full source revision
+`4aba4019f77f95cb9c3e25ff27964898d708cef0`. Do not substitute `main` or the
+blocked historical `octet-public` export.
 
 ```bash
 nix run github:OnixResearch/octet/v0.1.1-rc.1#cargo-octet -- --version
 nix run github:OnixResearch/octet/v0.1.1-rc.1#cargo-octet -- check
 ```
 
-The version must actually report `0.1.1-rc.1`; no observed version output is
-claimed in this draft. Record the tag's resolved full revision. The reproducible
-capture helper requires the canonical full 40-hex source revision rather than
-a tag or branch. Before publication, use a reviewed local checkout and a
-matching packaged producer; do not invent source identities or receipts.
+Recorded packaged stdout from the **full source pin** was:
 
-The old `octet-public` repository and `becae962` cohort remain blocked and publicly
-unchanged. They are not an alternate installation/support route. Historical
-package, walkthrough, and pre-sanitization `core` receipts remain tied to their
-original source and do not qualify this candidate.
+```text
+cargo-octet 0.1.1-rc.1
+```
 
-## First checked patch
-
-Follow the [complete walkthrough](../examples/first-checked-rust-patch/README.md)
-and [consumer guide](../consumer-guide.md), rather than treating a successful
-version command as onboarding evidence:
+Before checking, follow the
+[first checked patch](https://github.com/OnixResearch/octet/blob/4aba4019f77f95cb9c3e25ff27964898d708cef0/docs/examples/first-checked-rust-patch/README.md)
+and [consumer guide](https://github.com/OnixResearch/octet/blob/4aba4019f77f95cb9c3e25ff27964898d708cef0/docs/consumer-guide.md):
 
 1. Copy the consumer-owned `dylint.toml` and configure
    `[workspace.metadata.octet]` for a bounded owned package scope and `--lib`.
-2. Generate, review, and commit the consumer's `Cargo.lock` before checking.
-   Missing/new/changed lockfiles remain integration failures (exit `2`).
-3. Retain the deliberately denied `unchecked_division` run (exit `1`), apply the
-   guarded fix with identical scope/config, and capture a clean selected run
-   (exit `0`). These are required observations, not results claimed here.
-4. Retain and verify the real JSON bundles, then reject a tampered copy with
-   the Rust artifact verifier. Capture an independent consumer's actual
-   warnings without broad disables, a baseline, or a zero-noise claim.
+2. Generate, review and commit the consumer's `Cargo.lock` before checking.
+   Missing/new/changed lockfiles remain integration failures, not bootstrap.
+3. Retain the denied `unchecked_division` run, apply the guarded fix under the
+   same scope/config, verify the real bundles, and reject a tampered copy.
+4. Inventory a real downstream's actual warnings before promoting policy;
+   warning-only exit `0` does not mean zero findings.
 
-Runner exit codes are `0` for clean/warning-only, `1` for error-level findings
-or unaccepted baseline IDs, and `2` for integration/configuration/Cargo failures.
-A warning-only exit `0` is not a claim of zero findings.
+Runner exits are `0` for clean/warning-only, `1` for error-level findings or
+unaccepted baseline IDs, and `2` for integration/configuration/Cargo failures.
+The capture helper requires the full immutable source revision, not a tag.
 
-## Highlights
+## What is included
 
-- 77 Dylint lints across safety, naming, performance, structure, purity, and
-  concurrency; qualification must confirm the exact candidate inventory.
-- Rust-compatible checked path with no language rewrite or new syntax.
+- 77 Dylint lints across safety, naming, performance, structure, purity and
+  concurrency; Rust-compatible checks without a new language or syntax.
+- Consumer-owned lint/workspace policy and Nickel-authored standards.
 - Local `status.json`, `summary.txt`, SARIF or JSONL findings, and
   `provenance.jsonl`; `cargo octet artifact verify` checks saved identities.
-- Reviewed strict profiles: `robust`, `bounded-systems`, `deterministic-core`.
-- Consumer-owned lint and workspace policy plus Nickel-authored standards.
+- Strict-profile controls `robust`, `bounded-systems` and `deterministic-core`;
+  selecting one is not evidence that its complete assurance contract passed.
 - Optional scoped proof/evidence rails, separate from the starter lint path.
-- Local or consumer-CI execution; no Octet-operated upload service required.
-- Canonical source/support cutover, honest best-effort support expectations,
-  and native issue templates requesting reproducible, redacted reports.
+- `cargo-octet`, lint library `octet`, `dylint-driver`, `octet-standards` and
+  `octet-policy-artifacts` Nix outputs. Existing `cargo-slotcar`,
+  `cargo-tigerstyle`, `slotcar` and `tigerstyle` remain compatibility outputs.
 
-## Qualification status
+## Exact-source evidence
 
-No candidate acceptance is established by this draft. The release owner must
-bind the actual full source revision, dependency and toolchain identities,
-notice/source inventory, and artifacts in the cohort and qualification record.
-Required open evidence includes:
+The data-only [evidence archive](https://github.com/OnixResearch/octet/releases/download/v0.1.1-rc.1/octet-0.1.1-rc.1-evidence.tar.gz)
+contains the approved public captures and their explicitly preapproval manifest.
+The separate [final cohort](https://github.com/OnixResearch/octet/releases/download/v0.1.1-rc.1/octet-0.1.1-rc.1-cohort.json)
+and [owner decision](https://github.com/OnixResearch/octet/releases/download/v0.1.1-rc.1/octet-0.1.1-rc.1-owner-decision.txt)
+record final qualification and publication authority. The
+[BLAKE3 checksums](https://github.com/OnixResearch/octet/releases/download/v0.1.1-rc.1/octet-0.1.1-rc.1-assets.b3)
+bind those asset bytes, not execution truth or a cryptographic owner signature.
+The tagged source retains its frozen prepublication documentation and historical
+cohort; these attachments distinguish it from later qualification metadata.
+Publication requires a separate owner decision, not an inference from checks.
 
-- anonymous acquisition and actual packaged runner version;
-- exact integrated repository gates, including strict gates and explicit
-  failed/not-run results rather than inherited historical checkmarks;
-- fresh standalone and independent consumer captures, artifact verification,
-  and tamper rejection;
-- final reachable-history/nested-bundle, privacy, secret, and rights review;
-- verified canonical GitHub security settings/private reporting route;
-- native lifecycle completion and required owner/reviewer publication approval.
+- Source NAR: `sha256-vII/3vYmz19lbQ2ZSwj9c3d5tc9moLXrYp74uOAyYWQ=`.
+- Cohort evidence identity:
+  `b3:eb490acfd4404d2894630505250c54f1ce43f1ab5aa0dd6b13df06201289de4b`.
+- [GitHub run 43665436695](https://github.com/OnixResearch/octet/actions/runs/43665436695)
+  passed `core` and complete `verify` on the exact source above.
 
-Keep this section pending until those real records exist. Then record their
-exact source/artifact paths and outcomes; do not substitute expected output or
-an older cohort's receipts. This document grants no qualification authority.
+| Observation | Actual result and scope |
+| --- | --- |
+| Anonymous acquisition from a new empty Nix store | Five primary outputs built; all 32 locked inputs archived; only public substitutes, no credentials/SSH/private builders or sibling checkout |
+| First checked patch and artifact checks | Denied division, guarded fix, original bundle verification and copied-bundle tamper rejection observed under unchanged scope/config |
+| Independent public Valence workspace | `e250f498a86ac1e62266b8df749ade021a4b4043`, `valence-shared-identity-pilot --lib --locked`: 44 warnings, zero errors; artifacts verified and tracked inputs unchanged |
+| Complete local repository rail | Reserved cold Mantle producer and complete Aeneas/Lean compatibility matrix, then full flake check, all passed; no deadline, theorem, warning-budget or gate waiver |
+| Native lifecycle | Selected structural/traceability/change gates passed; separately authorized sync/archive executed after exact-source GitHub success |
 
-## Requirements and limits
+The Valence capture is automated downstream evidence, **not a human external
+pilot**, strict-profile admission or a universal noise guarantee. Earlier export
+and staging receipts are historical, not current-source acceptance.
 
-- No crates.io publication, binary distribution, custom website, hosted
-  verification service, or additional supported platform is included.
-- Dylint depends on pinned nightly compiler internals; stable-Rust-only is not
-  a supported setup. Direct Cargo is an advanced developer path, not the
-  supported release installation.
-- Preserve AGPL, project/third-party notices, upstream terms, and exact source
-  provenance. Running Octet does not relicense the code checked.
-- Static lint cleanliness and artifact integrity are not whole-program
-  correctness, certification, security scores, or release eligibility.
-- Proof receipts cover only their declared property/model, verifier, source,
-  assumptions, and artifact; lint/policy evidence is not formal proof.
-- Aspen phase-1 evidence is historical and scoped to its archive, not current
-  HEAD or a finding/noise guarantee for other consumers.
-- Support is best-effort, with no response SLA, backport commitment, or LTS
-  window for historical pins. A release candidate may change before final.
+## Limits and known gaps
 
-## Links and reporting
+- Only source-only Nix on `x86_64-linux` is supported here. Stable-Rust-only,
+  crates.io, prebuilt binaries, other platforms, a custom website and an
+  Octet-operated upload service are not release paths.
+- Dylint depends on pinned nightly compiler internals. Direct Cargo is an
+  advanced developer path that must reproduce the same cohort.
+- Lint cleanliness and artifact integrity do not prove whole-program
+  correctness, certification, security scores or a consumer's release eligibility.
+  Proof receipts cover only their declared property/model, source, assumptions,
+  verifier and artifacts.
+- The separate composite Onix `release-readiness` check was not established:
+  this checkout lacks that tool's agent-completion fixture pair. Native Cairn
+  closure is not a substitute or a claim that the composite passed.
+- The old `octet-public` channel remains unchanged and unsupported. Canonical
+  history repair does not erase forks, caches, prior clones or disclosure.
+- An actual human pilot and its feedback remain outstanding. Stable `0.1.1`
+  needs its own frozen source, qualification and pilot acceptance; this RC must
+  not be renamed or its receipts reused for changed source.
 
-- Canonical repository: <https://github.com/OnixResearch/octet>
-- [First checked patch](../examples/first-checked-rust-patch/README.md)
-- [Consumer guide](../consumer-guide.md)
-- [Trust boundary and evidence tiers](../trust-boundary-evidence.md)
-- [Release qualification record](../release-candidate.md)
-- Bugs/proposals: <https://github.com/OnixResearch/octet/issues>; include full
-  revision, platform, exact command, scope, expected/observed result, and
-  redacted evidence. Markdown templates request fields but do not enforce them.
-- [Security policy](../../SECURITY.md): canonical private vulnerability reporting
-  was enabled and API-verified on 2026-11-12; see the
-  [hosting observation](../release-candidate.md#verified-hosting-settings).
-  If that route is unavailable, follow the policy's private fallback; never
-  disclose exploit details through public issues.
+## Support, security and license
 
-## License
+Use <https://github.com/OnixResearch/octet/issues> for bugs and proposals.
+Include full revision, platform, exact command, scope, expected/observed result,
+and redacted evidence. Support is best-effort, without a response SLA, backport
+commitment or historical-pin LTS promise.
 
-Octet's original material is `AGPL-3.0-or-later`. See `LICENSE`, `NOTICE`,
-`THIRD_PARTY_NOTICES.md`, and `LICENSES/`. Dependencies and imported material
-retain their own terms.
+For vulnerabilities use the canonical repository's private reporting route and
+[security policy](https://github.com/OnixResearch/octet/blob/4aba4019f77f95cb9c3e25ff27964898d708cef0/SECURITY.md).
+Private reporting, secret scanning/push protection, dependency alerts and
+security-update PRs were API-verified; no exploit report was submitted as a test.
+Never disclose exploit details in a public issue. If private reporting is
+unavailable, use the policy's private fallback.
+
+Octet's original material is `AGPL-3.0-or-later`. Preserve
+[LICENSE](https://github.com/OnixResearch/octet/blob/4aba4019f77f95cb9c3e25ff27964898d708cef0/LICENSE),
+[NOTICE](https://github.com/OnixResearch/octet/blob/4aba4019f77f95cb9c3e25ff27964898d708cef0/NOTICE),
+[THIRD_PARTY_NOTICES.md](https://github.com/OnixResearch/octet/blob/4aba4019f77f95cb9c3e25ff27964898d708cef0/THIRD_PARTY_NOTICES.md)
+and `LICENSES/`. Dependencies and imported material retain their own terms.
+Running Octet does not relicense the code checked.

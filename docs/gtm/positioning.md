@@ -9,10 +9,10 @@ reviewable artifacts for a CI or release gate.
 Octet is not a new language, a Rust replacement, a hosted verification service,
 or a whole-program verifier.
 
-The release target is candidate `0.1.1-rc.1`, pending qualification and
-publication of immutable tag `v0.1.1-rc.1`. The sole canonical source, release,
-support, and landing home is <https://github.com/OnixResearch/octet>. Initial
-support is source-only Nix on `x86_64-linux` with pinned nightly Rust/Dylint.
+Candidate `0.1.1-rc.1` is published at qualified immutable tag `v0.1.1-rc.1`.
+The sole canonical source, release, support and landing home is
+<https://github.com/OnixResearch/octet>. Initial support is source-only Nix on
+`x86_64-linux` with pinned nightly Rust/Dylint. Stable `0.1.1` is not qualified.
 The blocked old `octet-public` cohort remains unchanged, not an alternate route.
 No website/domain, crates.io, prebuilt binary, or hosted service is part of
 this release. Copy is not evidence of completed gates or enabled settings.

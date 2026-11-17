@@ -1,9 +1,10 @@
 # Octet 0.1.1-rc.1 outreach drafts
 
-**Not approved for publication.** Use these variants only after the required
-[launch checklist](launch-checklist.md), lifecycle, and owner approvals. The
-planned immutable candidate tag is `v0.1.1-rc.1`; candidate qualification and
-publication are not established here. Do not move or reuse `v0.1.0`.
+**Not approved for sending.** The qualified immutable candidate
+[`v0.1.1-rc.1`](https://github.com/OnixResearch/octet/releases/tag/v0.1.1-rc.1)
+is published, but its scoped approval does not authorize outreach. Approve each
+exact message and participant/channel separately. Do not move or reuse either
+the candidate tag or `v0.1.0`.
 
 Disclose that you maintain Octet. Follow each channel's self-promotion rules;
 do not ask for votes, stars, or repeat-post the same announcement. All links

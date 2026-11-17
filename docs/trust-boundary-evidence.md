@@ -360,13 +360,14 @@ artifacts. Consumers still own what their CI provider, log collector, artifact
 store, or downstream integrations do after Octet writes local files.
 
 Initial support is source-only Nix on `x86_64-linux`, using the pinned nightly
-Rust/Dylint cohort. Candidate `0.1.1-rc.1` and planned tag `v0.1.1-rc.1` are
-pending qualification and publication; this posture is not evidence of a
-successful candidate build or release. `OnixResearch/octet` is the sole
+Rust/Dylint cohort. Candidate `0.1.1-rc.1` is published at immutable tag
+`v0.1.1-rc.1`, selecting qualified source
+`4aba4019f77f95cb9c3e25ff27964898d708cef0`. `OnixResearch/octet` is the sole
 canonical source/release/support home. The old `octet-public` cohort is blocked
-and remains unchanged. Historical receipts stay bound to their original bytes and
-must not be promoted into candidate qualification. See
-[release-candidate.md](release-candidate.md) for real pins, gates, and approvals.
+and remains unchanged. Historical receipts stay bound to their original bytes
+and must not be promoted into candidate qualification. See
+[release-candidate.md](release-candidate.md) for actual pins, gates, owner approval
+and post-publication observations. Publication does not expand proof claims.
 
 
 ### Regulated-consumer checklist

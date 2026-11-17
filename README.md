@@ -57,11 +57,13 @@ distributions are not supported release paths. Direct Cargo use is an advanced
 developer path that must reproduce the same pins.
 
 <https://github.com/OnixResearch/octet> is the sole canonical source, release,
-and support home. The planned candidate is **0.1.1-rc.1**, with immutable tag
-`v0.1.1-rc.1`. It is not a qualified/current release: the tag is to be published
-only after qualification. See the [release checklist](docs/release-candidate.md)
-for exact source identities, required gates, and outstanding approvals, and the
-[candidate release-note draft](docs/gtm/release-notes-0.1.1-rc.1.md).
+and support home. **[0.1.1-rc.1 is published](https://github.com/OnixResearch/octet/releases/tag/v0.1.1-rc.1)**
+as an immutable prerelease at source
+`4aba4019f77f95cb9c3e25ff27964898d708cef0`. The complete local/GitHub gates,
+anonymous acquisition and real consumer captures passed on that exact source;
+the owner approved publication separately. See the
+[source-bound release record](docs/release-candidate.md) and
+[release notes](docs/gtm/release-notes-0.1.1-rc.1.md). This is not stable `0.1.1`.
 
 The old `octet-public` repository and its `becae962` cohort remain blocked.
 The owner left that repository unchanged; it is not an alternate installation
@@ -97,15 +99,14 @@ Installed Cargo subcommand:
 cargo octet check
 ```
 
-Candidate evaluation command, **after the release owner publishes the qualified
-tag** (not a claim that this command is available or qualified today):
+Published immutable release-candidate command:
 
 ```bash
 nix run github:OnixResearch/octet/v0.1.1-rc.1#cargo-octet -- check
 ```
 
 Use the immutable tag and record its resolved full revision. Do not substitute
-`main`, an unqualified branch, or the blocked legacy export. Before publication,
+`main`, an unqualified branch, or the blocked legacy export. For development,
 evaluate a reviewed local checkout instead:
 
 Local checkout:

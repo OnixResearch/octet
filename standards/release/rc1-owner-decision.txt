@@ -1,0 +1,81 @@
+Octet 0.1.1-rc.1 exact-source publication owner decision
+
+Recorded UTC: 2026-11-17T02:59:12.356036+00:00
+Authority: direct interactive user decision, not model inference or a repository self-signature.
+Exact submitted choice: publication = approve_exact_rc_and_main
+Owner-confirmed public triage/security/rollback roles: OnixResearch / brittonr.
+Authenticated prospective GitHub publisher: brittonr.
+Support: best effort; no response SLA, backport promise or historical-pin LTS.
+
+Approved target:
+Repository: https://github.com/OnixResearch/octet
+New immutable tag: v0.1.1-rc.1
+GitHub title: Octet 0.1.1-rc.1
+Kind: prerelease, not latest/stable.
+Frozen package source: 4aba4019f77f95cb9c3e25ff27964898d708cef0
+Source NAR: sha256-vII/3vYmz19lbQ2ZSwj9c3d5tc9moLXrYp74uOAyYWQ=
+Cohort evidence identity: b3:eb490acfd4404d2894630505250c54f1ce43f1ab5aa0dd6b13df06201289de4b
+
+Exact preapproved public capture archive:
+Name: octet-0.1.1-rc.1-evidence.tar.gz
+Size: 555291 bytes; 198 regular members, plus directories.
+BLAKE3: 2c786d70e4fdb57711ce8f53bc82cf5d31203eafc656f98f84f9f5fe86116209
+Data-only original acquisition/consumer/gate/lifecycle observations, scoped reviews,
+license/notice texts, and explicitly preapproval cohort/checker records.
+Final licensed public evidence tree scan: gitleaks exit 0, finding_count 0.
+Copied Rust bundles reverified: three originals valid, tampered copy invalid.
+These observations do not promise exhaustive detection, correctness or legal clearance.
+No raw private owner records, prohibited-object identities or private full CI logs.
+
+Exact approved release body:
+Path in integrated documentation: docs/gtm/release-notes-0.1.1-rc.1.md
+BLAKE3: 0ec7f0cc36f55defc68a4be664e6c6538d15bbfe531f016c4660f5f8c2b9e0c3
+The body bytes are also preserved inside the capture archive under
+reviews/release-body-for-approval.md. Do not silently change them before publication.
+
+Additional approved assets:
+- octet-0.1.1-rc.1-cohort.json: export from the reviewed Nickel manifest,
+  clear the sole final-owner blocker, set qualified/support status and immutable
+  candidate install command, replace pending-publication wording. Preserve exact
+  source/NAR, 77-name inventory, 32 inputs, toolchain, evidence identity and all
+  18 execution receipts. Validate through the existing Rust release_cohort API.
+- octet-0.1.1-rc.1-owner-decision.txt: this bounded projection of the actual decision.
+- octet-0.1.1-rc.1-assets.b3: BLAKE3 checksums for those three data assets.
+Checksums bind bytes; this text is not a cryptographic owner signature.
+
+Approved sequence and integration:
+Create the absent tag once at the approved source. Create a draft prerelease,
+upload and verify the exact approved assets, then publish with the exact body.
+Repository release immutability was enabled and disclosed before the decision:
+publication locks the associated tag/assets; corrections need a new qualified
+version. Titles/notes remain editable.
+
+Fast-forward main only from 49c0d3ec0c3cce50449dfad13800f5ed702e7ee1 to the tested
+source and its bounded follow-up: native archive/spec metadata, current cohort,
+owner/publication records, current-status documentation/GTM drafts, and the two
+already-tested archived-approval path locator updates. No post-test Rust, Cargo,
+Nix, policy, toolchain or lockfile changes. Stop if main changed or not fast-forward.
+After verified integration apply main protection: up-to-date core/verify checks,
+one approving review, dismiss stale approvals, enforce administrators, no force
+push or deletion. Preserve security features; accept no paid feature/legal terms.
+Existing v0.1.0 tag object fcf740614d33acb16850c64733a98d908692e821 stays untouched.
+
+Distribution authority explicitly confirmed for this exact source and public asset
+set, including original-contribution/employer permissions where applicable,
+retained AGPL and third-party terms. Root AGPL is not permission to reintroduce
+excluded Adam Murray prose or relicense consumer/third-party material.
+
+Technical evidence: complete exact-source local rail, GitHub run 43665436695
+core/verify, anonymous public acquisition and all locked inputs, real standalone
+fail/fix/verify/tamper, public Valence e250f498 owned-package capture (44 warnings,
+zero errors), cohort consistency/negative controls, and separately authorized
+native lifecycle sync/archive. Later metadata is not rebuilt package source.
+The separate composite Onix agent-completion/readiness check is not claimed passed.
+
+Not authorized: stable 0.1.1, announcements, invitations/outreach, website,
+binary/registry upload, history rewrite, old-export/fork/cache cleanup or erasure.
+An actual human pilot and its feedback remain outstanding. Stable 0.1.1 needs
+its own frozen source, qualification and pilot acceptance; do not rename the RC.
+Original storage-full checkout remains untouched; work stays in the private
+recovery checkout. Publication/integration execution requires separate actual
+API/readback records; this approval is not a claim those actions have occurred.

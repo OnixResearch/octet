@@ -2,11 +2,12 @@
 
 ## Candidate and publication authority
 
-The release target is **0.1.1-rc.1**, source-only Nix on **x86_64-linux**.
+**0.1.1-rc.1 is published**, source-only Nix on **x86_64-linux**.
 <https://github.com/OnixResearch/octet> is the sole canonical source, release,
-support, and landing home. The planned immutable tag is `v0.1.1-rc.1`; a planned
-tag or copyable command is not evidence that it exists or is qualified. Do not
-move or reuse `v0.1.0`.
+support and landing home. The immutable
+[prerelease](https://github.com/OnixResearch/octet/releases/tag/v0.1.1-rc.1)
+selects `4aba4019f77f95cb9c3e25ff27964898d708cef0`. Do not move or reuse
+`v0.1.0` or the published candidate tag. Stable `0.1.1` is not qualified here.
 
 The package is `cargo-octet`; `cargo-slotcar` and `cargo-tigerstyle` are existing
 compatibility binaries. The lint library is `octet`, with `slotcar` and
@@ -35,43 +36,48 @@ The RC is not qualified merely because implementation, static review, or an
 older cohort succeeded. Qualification requires the actual frozen candidate,
 matching producer, complete required gates, and owner decisions below.
 
-`standards/release/release-cohort.ncl` and its generated JSON record the exact
-canonical staging cohort `octet-canonical-bcd3cb52-2026-11-14-blocked`, not
-necessarily the current checkout. The source, 77-lint inventory, locked inputs,
-anonymous build, native gates, and real consumer captures are bound to
-`bcd3cb52f418f613fda51ad3073b619b857d0243`. Qualification remains blocked by
-the complete release gates and required owner/lifecycle decisions. Historical
-cohort receipts are explicit non-evidence, not copied current acceptance.
+`standards/release/release-cohort.ncl` and its generated JSON record reviewed
+cohort `octet-canonical-4aba4019-2026-11-15-review`. The tested package source is
+**`4aba4019f77f95cb9c3e25ff27964898d708cef0`**, with source NAR
+**`sha256-vII/3vYmz19lbQ2ZSwj9c3d5tc9moLXrYp74uOAyYWQ=`**. Its 77-name
+inventory, Rust toolchain and locked dependency graph bind that same revision.
+The evidence identity is
+`b3:eb490acfd4404d2894630505250c54f1ce43f1ab5aa0dd6b13df06201289de4b`.
 
-The unqualified staging commit
-`d96557fe8bea68174dc408df293d5d6aa3cda2da` passed anonymous acquisition on
-2026-11-13 from a new empty store, using only `cache.nixos.org` substitutes and
-no credentials, SSH, private builders/cache, or sibling checkouts. Its source
-NAR identity was `sha256-hdCrd5g2SnQ/HsFMZHgZ1uy3TBeDZufKksKhz2piv0w=`.
-All five primary outputs built; the matching `0.1.1-rc.1` runner completed the
-fresh-crate and pinned Valence fail/fix/verify/tamper capture. This is not a
-qualified release: the complete flake rail rejected stale reviewed-object
-admission locks and a `0.1.0` Charon handoff projection. Replacement source
-must pass those gates and receive its own source-bound qualification.
+| Exact-source observation | Result | Retained evidence |
+| --- | --- | --- |
+| New anonymous store, public substitutes only, no credentials/SSH/private builders or sibling checkouts | All five primary outputs built; actual runner reported `cargo-octet 0.1.1-rc.1` | `acquisition/` |
+| Complete locked Nix input archive | All 32 inputs acquired anonymously | `acquisition/all-inputs-archive.stdout.json` |
+| Fresh crate denied division, guarded fix, real bundle verification and copied-bundle tamper rejection | Required exit sequence observed; unchanged scope/config | `consumer/` |
+| Public Valence `e250f498a86ac1e62266b8df749ade021a4b4043`, `valence-shared-identity-pilot --lib --locked` | 44 warnings, zero errors; artifact verification passed; tracked inputs unchanged | `consumer/bundles/valence-warning-inventory` |
+| Reserved cold Mantle producer and complete Aeneas/Lean compatibility matrix, followed by the complete local flake rail | All stages exit `0`, including release-candidate smoke; no gate, deadline, theorem or warning-budget waiver | `local/full-flake.log` |
+| [GitHub run 43665436695](https://github.com/OnixResearch/octet/actions/runs/43665436695) on this exact source | `core` and `verify` both successful | `github/run-43665436695.json` |
+| Native structural/traceability/proposal/design/tasks gates, followed by explicitly authorized sync/archive after GitHub success | Passed; actual native lifecycle mutation receipts retained | `native-cairn/`, `native-lifecycle/` |
 
-Later staging commit `24b1768d8ad990eab6a65dba179d64dd3f0fa14b` passed
-the complete local flake rail and the anonymous five-output build. Its real
-consumer capture passed after moving the capture directory outside an ambient
-ancestor Cargo configuration; that initial refusal is retained, not bypassed.
-The pinned Valence scope reported 44 warnings and no errors, with policy,
-lockfile, and sources unchanged. All 32 flake inputs were also archived
-anonymously. GitHub run `43483770888` passed `core` but failed `verify` when
-Bubblewrap could not configure loopback (`RTM_NEWADDR: Operation not permitted`).
-That earlier source is historical; its local pass does not qualify later commits.
+These paths name the source-bound public
+[evidence archive](https://github.com/OnixResearch/octet/releases/download/v0.1.1-rc.1/octet-0.1.1-rc.1-evidence.tar.gz),
+not files implicitly present in every checkout. Its preapproval manifest remains
+intentionally blocked. The separate final
+[cohort](https://github.com/OnixResearch/octet/releases/download/v0.1.1-rc.1/octet-0.1.1-rc.1-cohort.json)
+is `qualified`, with all 18 original execution receipts unchanged. The
+[owner decision](../standards/release/rc1-owner-decision.txt) records the actual
+scoped interactive approval, not a model inference or cryptographic signature.
 
-Staging commit `bcd3cb52f418f613fda51ad3073b619b857d0243` passed fresh
-anonymous acquisition, all five primary builds, the real consumer capture,
-and anonymous archival of all 32 flake inputs. Source NAR:
-`sha256-xH4AwGjb3iIDgPtrqJUqtQzlIy3J8cZ+FpkwQ1i/0yk=`.
-GitHub run `43556996482` passed `core` and the reserved Mantle producer, but
-the live compatibility check still timed out during the competing full build.
-The updated workflow reserves that check through its exported compatibility
-matrix as well; a passing current-source full rail is still required.
+GitHub release `448037904` was published at `2026-11-17T03:00:59Z`; the API
+reports `draft: false`, `prerelease: true`, `immutable: true`. All four uploaded
+assets matched local bytes before publication. A subsequent credential-free
+check resolved the published tag to the exact full source and NAR above,
+ran its packaged command with actual `cargo-octet 0.1.1-rc.1` stdout, and
+downloaded all four public assets with identical bytes. That check reused the
+recorded public-only store; it is not another new-empty-store acquisition.
+
+The archive has 198 regular files, 555291 compressed bytes, and BLAKE3
+`2c786d70e4fdb57711ce8f53bc82cf5d31203eafc656f98f84f9f5fe86116209`.
+See the [asset checksums](https://github.com/OnixResearch/octet/releases/download/v0.1.1-rc.1/octet-0.1.1-rc.1-assets.b3).
+The tagged source deliberately retains its tested prepublication docs and older
+cohort; these later lifecycle, documentation and qualification bytes are not
+relabeled as rebuilt package source. Earlier staging/export observations remain
+historical. No announcement, outreach or stable release was approved.
 
 The old `octet-public` repository remains unchanged by explicit owner decision.
 It is blocked and unsupported, not a fallback install or reporting route. Its
@@ -95,10 +101,19 @@ No report was submitted and no paid security feature or legal terms were
 accepted. [SECURITY.md](../SECURITY.md) defines the private reporting route and
 safe fallback. API state is not a response-SLA or security guarantee.
 
-`main` protection is approved **after verified release integration**, not claimed
-already enabled: passing `core` and `verify`, an up-to-date branch, one approving
-review, stale-approval dismissal, enforcement for administrators, and no force
-push or deletion. Record the actual API result when applying it.
+The owner separately approved repository-local
+[release immutability](https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases),
+and the GitHub API confirmed `enabled: true`, `enforced_by_owner: false`.
+The published RC API reports `immutable: true`: its assets and associated tag
+are locked, and its tag name cannot be reused after release deletion. Titles
+and release notes remain editable. Existing `v0.1.0` is unchanged; changing
+immutable bytes requires a newly qualified version.
+
+The approved `main` protection is a separate post-integration operation:
+up-to-date `core` and `verify` checks, one approving review, stale-approval
+dismissal, enforcement for administrators, and no force push or deletion.
+Retain the actual GitHub API readback when applying it; this static source
+paragraph alone does not establish live hosting settings.
 
 ## Freeze source before acceptance
 
@@ -175,7 +190,7 @@ Rust artifacts/provenance remain the receipt authority.
 ## Reviewed gates that cannot be mechanically waived
 
 - **Object corpus:** the RC's exact source/reference tuple has a recorded
-  [owner H2 decision](../.cairn/changes/resolve-open-assurance-issues/evidence/rc1-import-clean-owner-approval.txt)
+  [owner H2 decision](../.cairn/archive/1970-01-01-resolve-open-assurance-issues/evidence/rc1-import-clean-owner-approval.txt)
   and [reviewed manifest](../cargo-octet/tests/fixtures/object-corpus/source-token-v2/reviewed-source-manifest.json).
   The selection preserves the earlier sources and adds the three extracted
   modules: 40 selected sources, 42 unique source/module/test comparisons, and
@@ -252,25 +267,30 @@ inventory, notice, anonymous-dependency, receipt freshness, evidence-digest,
 and unsupported-profile negative controls must still reject invalid inputs.
 A truthful blocked manifest can validate without being release-ready.
 
-### Observed local Cairn prechecks
+### Observed native Cairn gates and closure
 
 The shipped H3 provider and generated Octet policy
 `454b429ad8c48acf7144c1c42d810f0425f23867c2c83b8625af3d42a6895b4c`
-passed these read-only checks on frozen canonical source `bcd3cb52`:
+passed `cairn validate --strict`, selected `octet-default` traceability, and
+the proposal/design/tasks gates for `resolve-open-assurance-issues` on frozen
+source `4aba4019`. These remain bounded lifecycle/declared-profile observations,
+not implementation-correctness or publication authority.
 
-| Command | Observed result | Boundary |
-| --- | --- | --- |
-| `cairn validate --strict` | `valid: true`, no issues | Lifecycle structure, not implementation correctness |
-| `cairn traceability coverage --profile octet-default --json` | `valid: true` | Selected declared traceability profile only |
-| `cairn gate proposal`, `design`, and `tasks` for `resolve-open-assurance-issues` | All three `valid: true`, no issues | Existing change gates; no lifecycle closure or publication authority |
+After exact-source GitHub success, the owner's conditional authorization allowed
+native `sync --execute` and `archive --execute` for that change. Both reported
+`blocked: false`, `dry_run: false`, `mutated: true`. The nine requirements were
+synced and the change moved to
+`.cairn/archive/1970-01-01-resolve-open-assurance-issues/`; that directory label
+is the provider's output, not the execution date. Native receipt identities:
 
-These observations do not qualify an immutable RC. Additional read-only
-readiness calls were not green: change readiness was `unavailable` without a
-completion observation, and the composite `cairn release-readiness` reported
-`valid: false` because this Octet checkout does not provide Cairn's
-`fixtures/agent-completion/contract.json` and `results.json`. No demonstration
-completion data was copied in to force acceptance, and no policy gate was
-disabled. Do not describe these broader readiness results as passing.
+- Sync: `d669b57b23fbf81d6a994f0341282e3dc5bb45958257201f5af2e5316aad70ca`.
+- Archive: `b7e2175400750ff3a8eb2a72af60ffdca348055182508e78e6753637f8a5279b`.
+
+This is metadata closure after testing, not a rebuilt later package source.
+It does not change the earlier separate composite Onix `release-readiness`
+failure caused by absent `fixtures/agent-completion/contract.json` and
+`results.json`. No demonstration completion data was supplied to force that
+check green, and this record does not claim it passed.
 
 ## Legal, history, and distribution limits
 

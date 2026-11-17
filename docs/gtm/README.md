@@ -1,8 +1,8 @@
 # Octet launch kit
 
-This is the public-safe working set for candidate **0.1.1-rc.1**, not an
-announcement that a release is qualified or published. It contains no private
-contacts, customer names, or unverified activation/performance metrics.
+This is the public-safe working set for published candidate **0.1.1-rc.1**.
+Announcement and outreach drafts still require their own exact approval. The kit
+contains no private contacts, customer names or unverified activation metrics.
 
 ## Release state
 
@@ -10,8 +10,8 @@ contacts, customer names, or unverified activation/performance metrics.
 | --- | --- |
 | Canonical source, release, support, and landing home | <https://github.com/OnixResearch/octet> |
 | Candidate version | `0.1.1-rc.1` |
-| Planned immutable tag | `v0.1.1-rc.1`; publish only after qualification |
-| Qualification | Pending; real source identities, receipts, and approvals belong in [release-candidate.md](../release-candidate.md) |
+| Published immutable tag | [`v0.1.1-rc.1`](https://github.com/OnixResearch/octet/releases/tag/v0.1.1-rc.1), source `4aba4019f77f95cb9c3e25ff27964898d708cef0` |
+| Qualification | Required technical rails, native lifecycle closure and exact owner publication approval recorded. See [release-candidate.md](../release-candidate.md). |
 | Distribution | Source-only Nix on `x86_64-linux`; no crates.io or binary release |
 | Toolchain | Pinned nightly Rust/Dylint; direct Cargo is an advanced developer path |
 | License | `AGPL-3.0-or-later`; preserve project and third-party notices |
@@ -24,12 +24,20 @@ installation route. Do not move or reuse the existing `v0.1.0` tag.
 
 ## Evidence and open launch gates
 
-The earlier public-export package/walkthrough receipts and pre-sanitization
-`core` observations are historical/source-bound only. They are not acceptance
-of this candidate. Hosting observations about the old repository are not facts
-about canonical repository settings. Private vulnerability reporting, branch
-protection, secret scanning, and push protection must be verified by the owner;
-this kit does not assert that they are enabled.
+Frozen canonical source `4aba4019f77f95cb9c3e25ff27964898d708cef0` passed
+anonymous acquisition, real consumer captures, the complete local rail and
+GitHub `core`/`verify` run `43665436695`. Native lifecycle closure is recorded.
+The owner approved the exact source/tag/body/public-assets and bounded main
+integration. The immutable prerelease is published; anonymous tag/version and
+all four public asset downloads were verified. Earlier export/staging receipts
+remain historical, not substituted acceptance for this source.
+
+The canonical [hosting observation](../release-candidate.md#verified-hosting-settings)
+records owner-approved, API-confirmed private vulnerability reporting, secret
+scanning/push protection, dependency alerts, and security-update PRs on
+2026-11-12, with a prepublication API readback on 2026-11-15. Approved branch
+protection is a separate operation after verified main integration; retain its
+actual readback. A dated observation is not a response SLA or security guarantee.
 
 Follow [launch-checklist.md](launch-checklist.md). Before publication, bind the
 candidate source and dependencies, qualify clean anonymous acquisition, run the
@@ -44,7 +52,7 @@ gate into a checkmark based only on this documentation.
 | --- | --- |
 | [positioning.md](positioning.md) | Message hierarchy, audience, differentiation, and non-claims |
 | [launch-plan.md](launch-plan.md) | Phases, proposed metrics, responsibilities, and go/no-go criteria |
-| [release-notes-0.1.1-rc.1.md](release-notes-0.1.1-rc.1.md) | Candidate GitHub prerelease body; qualification remains pending |
+| [release-notes-0.1.1-rc.1.md](release-notes-0.1.1-rc.1.md) | Exact approved, published GitHub prerelease body; do not silently rewrite its source or evidence |
 | [announcement.md](announcement.md) | Long-form draft; publication requires approval |
 | [outreach.md](outreach.md) | Channel-specific drafts with canonical candidate references |
 | [launch-checklist.md](launch-checklist.md) | Operational release gates and owner-only sequence |
@@ -77,12 +85,12 @@ qualification record, correct the copy rather than relabelling the evidence.
   performance, or whole-program correctness claim is authorized.
 - Historical Aspen evidence remains bound to its archived source and scope,
   never current HEAD or a universal noise guarantee.
-- Candidate commands describe the planned tag after qualification/publication.
-  The capture helper requires a full immutable source revision, not a tag.
+- Candidate commands select the published immutable tag. The capture helper
+  requires the full qualified source revision, not a tag or moving branch.
 
 ## Use and approval
 
-Read positioning first, then update the release-note draft with real candidate
-receipts and exact artifact paths. Review the announcement and relevant outreach
-variant. Finish the checklist and record named owner approvals before publishing.
-A new version or changed cohort needs new evidence; do not silently move a tag.
+Read positioning and the published release body first. The scoped RC approval
+does not authorize announcement or outreach: review the exact message and
+recipient/channel separately. A new version or changed cohort needs new
+evidence and authority; never silently move a tag.

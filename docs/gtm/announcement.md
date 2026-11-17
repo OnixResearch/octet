@@ -1,9 +1,9 @@
 # Octet 0.1.1-rc.1: candidate announcement draft
 
-> Pending qualification and publication. Publish only after
-> [launch-checklist.md](launch-checklist.md) and required owner approvals are
-> complete. This is not a current qualified-release claim. The planned immutable
-> tag is `v0.1.1-rc.1`; never move or reuse the existing `v0.1.0` tag.
+> **Announcement draft — not approved for sending.** The qualified immutable
+> [`v0.1.1-rc.1` prerelease](https://github.com/OnixResearch/octet/releases/tag/v0.1.1-rc.1)
+> is published; approve this exact announcement and its channel separately.
+> Never move or reuse the candidate tag or `v0.1.0`.
 
 Rust teams are accumulating more patches than they can review carefully. Some
 of those patches are written by people. Some are written by coding agents. Both
@@ -138,18 +138,17 @@ Teams that cannot accept those obligations should not adopt it.
 
 ## Install
 
-After qualification and publication of the planned immutable candidate tag,
-the evaluation command is:
+The published immutable candidate evaluation command is:
 
 ```bash
 nix run github:OnixResearch/octet/v0.1.1-rc.1#cargo-octet -- --version
 ```
 
-This draft does not claim that the tag exists, that the command ran, or that
-qualification passed. Record the actual version and resolved full revision in
-the release record. The smoke capture helper requires that full revision, not
-a tag. Then follow the consumer guide and walkthrough for lockfile preparation,
-bounded scope, findings, artifacts, verification, and tamper rejection.
+The [release record](../release-candidate.md) retains the actual version,
+resolved full revision, qualification and post-publication observations. The
+smoke capture helper requires that full revision, not a tag. Follow the consumer
+guide and walkthrough for lockfile preparation, bounded scope, findings,
+artifacts, verification and tamper rejection. This draft grants no outreach authority.
 
 `OnixResearch/octet` is the sole canonical source/release/support home. The
 old `octet-public` cohort remains blocked and unsupported, not a fallback route.

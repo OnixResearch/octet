@@ -28,19 +28,19 @@ support home is <https://github.com/OnixResearch/octet>. Initial support is
 source-only Nix on `x86_64-linux` with the pinned nightly Rust/Dylint cohort.
 No crates.io, prebuilt binary, or other-platform release path is offered.
 
-Candidate `0.1.1-rc.1` is pending qualification. After the release owner
-publishes the qualified immutable tag, its evaluation command is:
+Candidate `0.1.1-rc.1` is published at immutable tag `v0.1.1-rc.1`.
+Its supported source-only Nix evaluation command is:
 
 ```bash
 nix run github:OnixResearch/octet/v0.1.1-rc.1#cargo-octet -- check
 ```
 
-This is a planned candidate instruction, not evidence that the tag exists or
-that it is a qualified/current release. Record the resolved full revision for
-reproducible evidence. Do not substitute `main`. The old `octet-public` cohort
+The tag resolves to qualified source
+`4aba4019f77f95cb9c3e25ff27964898d708cef0`. Record that full revision for
+reproducible evidence; do not substitute `main`. The old `octet-public` cohort
 remains blocked and unsupported, not a second supported route. Its receipts are
 historical and cannot qualify the new source. See
-[release-candidate.md](release-candidate.md) for real identities and approvals.
+[release-candidate.md](release-candidate.md) for exact identities and approvals.
 
 Local development checkout:
 
@@ -152,8 +152,8 @@ The capture helper accepts an absolute packaged runner path with `--runner`
 and a new capture directory with `--output`; `--cargo` selects Nix-store Cargo
 (otherwise it uses Nix-store Cargo on `PATH`). Its `--flake` acquisition mode
 requires the canonical full 40-hex source revision and `#cargo-octet`, not a tag
-or branch. The planned candidate tag is a discovery/evaluation reference, not
-the helper's immutable proof input. Do not invent a revision to run it.
+or branch. The published candidate tag is a discovery/evaluation reference, not
+the helper's full-revision proof input. Use the qualified source revision above.
 
 The standalone walkthrough deliberately denies `unchecked_division` (exit `1`),
 then applies a guarded fix under the same scope/config (exit `0` with zero

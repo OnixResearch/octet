@@ -4,8 +4,8 @@
 #
 # Requires cargo-octet from the reviewed canonical OnixResearch/octet Nix
 # environment on x86_64-linux and an existing reviewed consumer Cargo.lock.
-# The planned v0.1.1-rc.1 tag is candidate-only until qualified and published;
-# this wrapper does not install or qualify it. See docs/consumer-guide.md.
+# Immutable v0.1.1-rc.1 is the published candidate; this wrapper does not
+# install or qualify it. See docs/consumer-guide.md for its exact source pin.
 # This is a thin gate-first convenience wrapper, not a replacement runner.
 # It obeys the consumer's lint policy; it does not enable deny-all by itself.
 #

@@ -290,25 +290,25 @@ The current `source-token-v2/candidate-source-manifest.json` is the immutable
 Octet `0.1.1-rc.1` candidate. Its `PENDING`, unselected and null-approval fields
 remain unchanged: the separate `reviewed-source-manifest.json` records selection
 of that exact candidate after the owner's direct bounded decision in
-[`rc1-source-owner-approval.txt`](../.cairn/changes/resolve-open-assurance-issues/evidence/rc1-source-owner-approval.txt).
-The approval covers all 37 selected source-byte hashes, the 18-path internal and
-36-path expanded selections, three producer modules, the captured consumer-test
+[`rc1-import-clean-owner-approval.txt`](../.cairn/archive/1970-01-01-resolve-open-assurance-issues/evidence/rc1-import-clean-owner-approval.txt).
+The approval covers all 40 selected source-byte hashes, the 18-path internal and
+39-path expanded selections, three producer modules, the captured consumer-test
 snapshot, immutable Valence revision/module, and four exact reference artifacts.
-Their object counts are 1 (fixed fixture), 1,114 (internal), and 1,717 each
+Their object counts are 1 (fixed fixture), 1,155 (internal), and 1,764 each
 (expanded receipt and expanded caveat taxonomy). The fixed receipt deliberately
 uses the fixture-relative `src/lib.rs` locator, not the root-relative diagnostic.
 
 The active admission inputs have these BLAKE3 identities:
 
-- Candidate: `5faf6b40b80b67146fad1188732ef14ab63b16d0960d68aa6ca4967bf67986fe`.
-- Reviewed manifest: `5a6502ba6d9266eb86e52de2e184c98be2d6b1e6fea215cdff929abb21c10de7`.
-- Native owner record: `0f45f8eecae40dd18cd0a43185fb43d127b7e18d319b4f16f24ebff58171764d`.
+- Candidate: `be3647f9c72a598defa192f4ff0cda440fef22eeb5e2bc7dd6c162abce43d862`.
+- Reviewed manifest: `63a4cc8c1e5dbdda1e74182ebb13f830d33772dc97636143b82cc400dcf94961`.
+- Native owner record: `3f7b40b37e9eb0d5d58de205fd1d18b1da4733e929982d52ed7b27959399b4f7`.
 - `source-token-v2/approved-audit-envelope.json`:
-  `312c4b610f84ceae4fc9e61676466009200c40fa6f6f6c2c4ea9a450c1e20cc3`.
+  `5892eae1dfa1658381e95684243a252bc8757dad6e21ef14d3950bfadd0d49fc`.
 - `source-token-v2/original-producer-source-binding.json`:
-  `c70889274440c627f314d73db665a50bfa57e20281751bf1d7e805e67cef8d5a`.
+  `a3ab4aa9674aecd8ec9648dc436b285ebfff1288a78c94414d561c97acb8d2f4`.
 
-The original producer's retained Nix derivation/source evidence compares 39
+The original producer's retained Nix derivation/source evidence compares 42
 unique selected source/module/test paths and the compiled Valence module. This
 resolves the original preflight source binding, not the final H3/release-source
 binding. The candidate's preparation-time provenance is frozen; its later source
@@ -316,6 +316,10 @@ resolution is recorded separately, not retroactively written into candidate byte
 Approval excludes future consumer-test code and every other future edit. It is
 not a signature, correctness proof, warning-budget acceptance, or release
 qualification. Re-review changed producer code and tests separately.
+
+Lifecycle closure relocates only the owner-record file. The sealed reviewed
+manifest keeps its pre-archive locator and digest; the admission verifier opens
+only the archived owner record and checks the same approved bytes.
 
 The verifier requires the exact owner-record, audit and source-binding bytes;
 it does not infer approval from prose phrases. Its code and byte locks still

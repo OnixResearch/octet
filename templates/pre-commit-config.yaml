@@ -1,6 +1,6 @@
 # Copy to a consumer repository as `.pre-commit-config.yaml`.
-# Candidate instructions only: install after the release owner publishes the
-# qualified immutable v0.1.1-rc.1 tag. No qualification is asserted here.
+# Immutable v0.1.1-rc.1 is the published release candidate. See
+# docs/release-candidate.md for its exact qualified source and support limits.
 # Requires Nix on x86_64-linux and a reviewed consumer Cargo.lock.
 repos:
   - repo: https://github.com/OnixResearch/octet

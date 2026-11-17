@@ -6,12 +6,13 @@ Publish one qualified source-only Octet release, make the first check easy to
 run, and start a design-partner pipeline with teams that need reviewable Rust
 release evidence.
 
-This is a plan, not evidence of qualification or completed publication.
+This plan is not completion evidence. The qualified source-only RC is now
+[published](https://github.com/OnixResearch/octet/releases/tag/v0.1.1-rc.1);
+human pilot feedback and separately approved outreach remain outstanding.
 `OnixResearch/octet` is the sole canonical source/release/support/landing home.
-The planned immutable tag is `v0.1.1-rc.1`, published only after qualification;
-never move or reuse the existing `v0.1.0` tag. The old `octet-public` cohort is
-blocked and unsupported. Initial support is source-only Nix on
-`x86_64-linux`, pinned nightly Rust/Dylint, and `AGPL-3.0-or-later`.
+Never move `v0.1.1-rc.1` or `v0.1.0`. The old `octet-public` cohort is blocked
+and unsupported. Support remains source-only `x86_64-linux` Nix, pinned nightly
+Rust/Dylint and `AGPL-3.0-or-later`.
 
 Success is not a star count. Success is:
 
