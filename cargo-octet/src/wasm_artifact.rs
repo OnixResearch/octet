@@ -2247,6 +2247,63 @@ mod tests {
         );
     }
 
+    const WRPC_TELEMETRY_PROFILE_ID: &str = "wrpc-telemetry-reference";
+    const WRPC_TELEMETRY_EMITTER: &[u8] =
+        include_bytes!("../../standards/wasm-artifact/fixtures/positive/wrpc-telemetry-emitter-component.wasm");
+    const WRPC_TELEMETRY_IMPORTS: [&str; 3] = [
+        "component::wasi:clocks/wall-clock@0.2.3::Instance(1)",
+        "component::wasi:otel/tracing@0.2.0-rc.2::Instance(5)",
+        "component::wasi:otel/types@0.2.0-rc.2::Instance(0)",
+    ];
+
+    #[test]
+    fn wrpc_telemetry_profile_admits_the_exact_emitter_and_other_profiles_stay_closed() {
+        let registry = valid_registry();
+        let report = analyze_profile(WRPC_TELEMETRY_EMITTER, &registry, WRPC_TELEMETRY_PROFILE_ID, &[]);
+        assert!(report.details.findings.is_empty(), "{:?}", report.details.findings);
+        assert_eq!(report.details.verification_role, RECORDED_ONLY_ROLE);
+        let reference = analyze_profile(WRPC_TELEMETRY_EMITTER, &registry, WRPC_PROFILE_ID, &[]);
+        for import in WRPC_TELEMETRY_IMPORTS {
+            assert!(
+                reference
+                    .details
+                    .findings
+                    .iter()
+                    .any(|finding| finding.issue_code == DISALLOWED_IMPORT_ISSUE && finding.message.contains(import)),
+                "{import}: {:?}",
+                reference.details.findings
+            );
+        }
+        assert!(
+            reference.details.findings.iter().any(|finding| finding.issue_code == RESOURCE_LIMIT_ISSUE),
+            "{:?}",
+            reference.details.findings
+        );
+        let baseline = analyze(WRPC_TELEMETRY_EMITTER, &registry, &[]);
+        assert!(
+            baseline.details.findings.iter().any(|finding| finding.issue_code == DISALLOWED_IMPORT_ISSUE),
+            "{:?}",
+            baseline.details.findings
+        );
+    }
+
+    #[test]
+    fn wrpc_telemetry_profile_refuses_a_component_without_its_required_imports() {
+        let registry = valid_registry();
+        let report = analyze_profile(WRPC_HELLO_SERVER, &registry, WRPC_TELEMETRY_PROFILE_ID, &[]);
+        for import in WRPC_TELEMETRY_IMPORTS {
+            assert!(
+                report
+                    .details
+                    .findings
+                    .iter()
+                    .any(|finding| finding.issue_code == ABI_MISMATCH_ISSUE && finding.message.contains(import)),
+                "{import}: {:?}",
+                report.details.findings
+            );
+        }
+    }
+
     #[test]
     fn unresolved_exports_retain_authority_of_every_definition() {
         let registry = valid_registry();

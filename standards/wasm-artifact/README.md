@@ -39,6 +39,27 @@ and client artifacts from the wrpc reference bundle at revision
 parser scope ordinal and admits no other import or proposal. Runtime, authority,
 provenance, and release claims remain outside this profile.
 
+## wrpc telemetry emitter artifact
+
+`wrpc-telemetry-reference` is an additive recorded-only profile for the
+normalized wasi-otel telemetry emitter that Mantle materializes. It allows and
+requires exactly three instance imports:
+`component::wasi:clocks/wall-clock@0.2.3::Instance(1)`,
+`component::wasi:otel/tracing@0.2.0-rc.2::Instance(5)` and
+`component::wasi:otel/types@0.2.0-rc.2::Instance(0)`, with `wasm1`,
+`component-model`, `bulk-memory` and `call-indirect-overlong`, three import
+slots, two tables, and the same remaining resource maxima,
+severity map and metadata policy as the portable baseline. `wrpc-reference` and
+the portable baseline both stay closed against the same bytes. The fixture
+`fixtures/positive/wrpc-telemetry-emitter-component.wasm` is the pipeline's final
+normalized emitter from Mantle `994bf6537` and wasi-otel
+`e5262a84044aff064c9599eebc05013bb3432795` (BLAKE3
+`0a701cfe9279b6e72bbcace7a1987c5030cfb1e7f25844a55b14dd51efd84f6f`). Octet
+records each import's identity and instance type index, not the instance's
+contents, so the profile does not establish that the types and wall-clock
+imports are type-only. Runtime, telemetry export, clock, authority, provenance
+and release claims remain outside this profile.
+
 ## Molten effect surface
 
 `molten-component-effects-v1` is separate from both unchanged baseline policies.
