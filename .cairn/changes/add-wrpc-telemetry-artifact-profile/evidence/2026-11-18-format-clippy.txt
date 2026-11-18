@@ -1,0 +1,5 @@
+$ rustfmt --edition 2024 --check cargo-octet/src/wasm_artifact.rs
+exit 0
+
+$ cargo clippy -p cargo-octet --lib -- -D warnings
+exit 0

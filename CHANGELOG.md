@@ -6,6 +6,31 @@ source revisions and the reviewed nightly/Dylint cohort.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## Unreleased: Exact wrpc telemetry emitter artifact profile
+
+The additive `wrpc-telemetry-reference` Wasm artifact profile admits the
+normalized wasi-otel telemetry emitter that Mantle materializes. It allows and
+requires exactly the emitter's `wasi:otel/tracing`, `wasi:otel/types` and
+`wasi:clocks/wall-clock@0.2.3` instance imports, at their observed type indices,
+with the same proposals as `wrpc-reference`, three import slots and two tables.
+`wrpc-reference` and the portable
+baseline stay closed against the same artifact. A positive fixture, an
+admission test and denial tests accompany the profile. It does not establish
+that the types and wall-clock imports are type-only, and makes no runtime,
+telemetry, authority, provenance, or release claim.
+
+## Unreleased: Exact wrpc reference artifact profile
+
+The additive `wrpc-reference` Wasm artifact profile admits the normalized wrpc
+reference hello pair: the server's exact hello host import
+(`component@3::import-func-hello::Func(0)`) and the client's exact handler
+instance import (`component::wrpc-examples:hello/handler::Instance(0)`), bulk
+memory and padded indirect calls, with two import slots. The portable baseline
+remains closed against both artifacts, and the profile makes no runtime,
+authority, provenance, or release claim. Positive fixtures and a
+baseline-denial test accompany the profile. It ports the profile first
+recorded on Octet's pre-rewrite history at `f081ed96`, which Mantle pins.
+
 ## 0.1.1-rc.1 — published immutable prerelease
 
 `OnixResearch/octet` is the sole canonical source, release and support home.
