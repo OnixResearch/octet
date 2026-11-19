@@ -1,0 +1,18 @@
+{
+  "boundary": "content-bound requirement registry validation proves canonical identity, current-root freshness, and declared linkage only; it does not prove revision authenticity, requirement satisfaction, source correctness, implementation correctness, or release eligibility",
+  "command": "requirement-registry verify",
+  "issues": [],
+  "receipt_hash": "d8bb1473897d2d1254f8a26dce6c22bfc9907273bdbf4fd9562e19cfd88f817a",
+  "registry": "standards/requirements/fixtures/cairn-pilot/requirement-registry.json",
+  "registry_blake3": "767d86b6507419fbe79bbaee43f156645f081d242ae0b142fdeb8b6dd80ea472",
+  "registry_receipt_blake3": "e6fd1f12f96929880cfb6e183d410737f93b14b2f05b6cb9d53066c8d31240a2",
+  "repository_id": "onixresearch/octet",
+  "revision": "d5b34c2d64b1227417a46df8ed8427f2d10ed3c8",
+  "revision_kind": "git",
+  "root": "/home/brittonr/wt/octet-rev",
+  "row_count": 740,
+  "schema": "cairn.requirement-registry.current-root-verify-receipt.v1",
+  "specification_count": 93,
+  "valid": true,
+  "verdict": "pass"
+}

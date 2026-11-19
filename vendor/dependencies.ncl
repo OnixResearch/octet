@@ -79,6 +79,20 @@ let Source = {
       admission_status = "Local immutable validation candidate only. Provider build/tests, lifecycle approvals, publication, and release qualification remain pending; this commit is not claimed anonymously available.",
     },
     {
+      name = "cairn-assurance-targets",
+      repository = "https://github.com/OnixResearch/cairn",
+      revision = "585f50d90be646742167c862a8c7d5d08f41e152",
+      license = "MIT OR Apache-2.0 (core and reusable material); AGPL-3.0-or-later (CLI and documentation); vendored components retain their notices",
+      archive_sha256 = "a30090a5589c1f41eaac584e7bb5e2184a3dd418fba6bc14836d948da8721b28",
+      destination = "vendor/sources/cairn-assurance-targets",
+      paths = ["LICENSE-MIT", "LICENSE-APACHE", "contracts/assurance-targets.ncl"],
+      cargo_packages = [],
+      projections = [
+        { source_path = "contracts/assurance-targets.ncl", destination = "cairn-policy/assurance-targets.ncl" },
+      ],
+      admission_status = "Exact source intake of Cairn's consumer-facing assurance-targets contract only; local validation candidate, not build, lifecycle, publication, or release qualification.",
+    },
+    {
       name = "artifact",
       repository = "https://github.com/OnixResearch/onix-artifact.git",
       revision = "e41340bec587b6d049b5cc518ec7db925dde84be",

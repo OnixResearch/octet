@@ -1,0 +1,23 @@
+# Pilot registry row
+
+Source: `cairn requirement-registry export --root /home/brittonr/wt/octet-rev
+--repository-id onixresearch/octet --revision-kind git
+--revision d5b34c2d64b1227417a46df8ed8427f2d10ed3c8
+--out standards/requirements/fixtures/cairn-pilot/requirement-registry.json`
+(exit 0, `registry_blake3` 767d86b6507419fbe79bbaee43f156645f081d242ae0b142fdeb8b6dd80ea472),
+cross-checked with `cairn requirement-registry verify --root /home/brittonr/wt/octet-rev
+--repository-id onixresearch/octet --registry standards/requirements/fixtures/cairn-pilot/requirement-registry.json`
+(exit 0, verdict pass, receipt in `registry-verify.json`).
+
+Row `octet.aeneas_consumer_contract.compatibility`:
+
+- requirement_id: octet.aeneas_consumer_contract.compatibility
+- specification_path: .cairn/specs/aeneas-consumer-contract/spec.md
+- specification_blake3: 7529c7f593f623287586913699a20fdf6953aebe66ecf00f9406454bb255df5c
+- source_span: start_byte 6359, end_byte 6545, start_line 132, end_line 132
+- requirement_body_blake3: 540084ce4a3001fff37b73da1ade5e2e331f3b7ece8b6e790505adae462fb2a2
+- row_blake3: e5cec911e1ae56b466ceb039b564196674554dc6323c684bd838a6b41a410a8d
+
+Specification file bytes at REV (`b3sum .cairn/specs/aeneas-consumer-contract/spec.md`
+in the detached worktree /home/brittonr/wt/octet-rev):
+7b6bbfdae779ada85f40f563c5d4db8c9afec9c00581f07794b4d907ec6f15c9
