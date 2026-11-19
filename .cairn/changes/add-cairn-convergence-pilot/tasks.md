@@ -14,7 +14,7 @@
 
 ## Phase 3: Generated record and contract
 
-- [ ] [serial] Build `standards/requirements/cairn-pilot/generated.ncl` from the owner-produced envelope's `source_bindings` with all four `required_bindings` lists empty, and export `generated.json`. r[octet.cairn_convergence_pilot.contract]
+- [ ] [serial] Build `standards/requirements/cairn-pilot/generated.ncl` from the owner-produced envelope's `source_bindings` with all four `required_bindings` lists empty, add one `specifications` entry holding the plain BLAKE3 of `.cairn/specs/aeneas-consumer-contract/spec.md` at the pilot revision, and export `generated.json`. r[octet.cairn_convergence_pilot.contract]
 - [ ] [serial] Apply the vendored `project` to the targets contract and the generated record, export `targets.json` and `contract.json`, and copy the realized `external-receipt.json` into `standards/requirements/fixtures/cairn-pilot/` with its path and BLAKE3 in a README. r[octet.cairn_convergence_pilot.contract]
 
 ## Phase 4: Judgment

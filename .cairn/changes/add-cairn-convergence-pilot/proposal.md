@@ -18,7 +18,7 @@ the rest of the prose visible as an informal remainder.
 
 - Import Cairn's `contracts/assurance-targets.ncl` as new exact vendored source
   `cairn-assurance-targets` at Cairn revision
-  `585f50d90be646742167c862a8c7d5d08f41e152`, projected to
+  `3dc654d38404d595ff07ca994925789f45941ffe`, projected to
   `cairn-policy/assurance-targets.ncl` by the repo-owned import tool only.
 - Export Octet's requirement registry at the frozen pilot revision
   `d5b34c2d64b1227417a46df8ed8427f2d10ed3c8` with Cairn's

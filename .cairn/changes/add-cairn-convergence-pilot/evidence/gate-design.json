@@ -10,7 +10,7 @@
     "probe": 0,
     "property": 0
   },
-  "input_hash": "7a080bfd2947dc620eb1baf6e58fd6d6e09ba7052a190e546c03be90a9cd26a9",
+  "input_hash": "df85d94699aeb16c263bbfe7d886da3af8216fa6d9a1a953fd035713e63d2540",
   "issues": [],
   "layout": "cairn",
   "non_claims": [
@@ -28,8 +28,8 @@
     "source": "legacy_default"
   },
   "probe_evidence": null,
-  "profile_identity_hash": "16b1a8438304571bfaaa0c64b23911477e9acfb66dabbbb074296666b7d1e95b",
-  "receipt_hash": "7b853f95b1bc0478466ca347cef07bf3c305b3c9bdf4664b4f686a6a7c409599",
+  "profile_identity_hash": "81399be9398789d81010ff29dbf17f366bfb33ce661d1fa495db274f50a909b8",
+  "receipt_hash": "c94244e6440cd2d2370659b487e248f16f60c1e38bb50b05e9ed91fba1f71d6c",
   "review_receipt_hashes": [],
   "spec_effect": "delta",
   "stage": "design",
@@ -41,7 +41,7 @@
       "path": "./.cairn/changes/add-cairn-convergence-pilot/design.md",
       "requirement_blocks": 0,
       "scenario_blocks": 0,
-      "substantive_lines": 41,
+      "substantive_lines": 49,
       "substantive_requirement_blocks": 0,
       "substantive_tasks": 0,
       "task_done": 0,

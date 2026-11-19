@@ -14,7 +14,7 @@
     "source": "legacy_default"
   },
   "profile_issues": [],
-  "receipt_hash": "562d36eaf740aaee3204b042debbabdba3ed212bad4aff078522d9405f63cb38",
+  "receipt_hash": "cccadaf16edf0671984c9ba1ebf697144f41e39d21f81d28d817cd4ed16d7e06",
   "resolution": {
     "diagnostics": [],
     "locator_consulted": false,
@@ -605,7 +605,7 @@
       "path": "./.cairn/changes/add-cairn-convergence-pilot/design.md",
       "requirement_blocks": 0,
       "scenario_blocks": 0,
-      "substantive_lines": 41,
+      "substantive_lines": 49,
       "substantive_requirement_blocks": 0,
       "substantive_tasks": 0,
       "task_done": 0,
@@ -667,7 +667,7 @@
         "workflow state does not satisfy proposal, design, tasks, sync, archive, evidence, or release gates",
         "workflow commands are read-only and do not create, edit, delete, or approve lifecycle artifacts"
       ],
-      "profile_identity_hash": "16b1a8438304571bfaaa0c64b23911477e9acfb66dabbbb074296666b7d1e95b",
+      "profile_identity_hash": "81399be9398789d81010ff29dbf17f366bfb33ce661d1fa495db274f50a909b8",
       "review_receipt_hashes": [],
       "spec_effect": "delta",
       "workflow_profile": "spec-driven",

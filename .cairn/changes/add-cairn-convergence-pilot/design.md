@@ -16,11 +16,11 @@ available before the producer output exists.
 ### Decision: Import the contract as a separate exact source
 
 **Choice:** Add `cairn-assurance-targets` at revision
-`585f50d90be646742167c862a8c7d5d08f41e152` selecting `LICENSE-MIT`,
+`3dc654d38404d595ff07ca994925789f45941ffe` selecting `LICENSE-MIT`,
 `LICENSE-APACHE`, and `contracts/assurance-targets.ncl`, projected to
 `cairn-policy/assurance-targets.ncl`, with archive SHA256
-`a30090a5589c1f41eaac584e7bb5e2184a3dd418fba6bc14836d948da8721b28` and file
-BLAKE3 `f1f7117fe8bcbeed64df4bd7665ba73f5abb4a2d1efa92347580fd5fa0a0b8ef`.
+`a39ebb184e8fc94db83604d14b227fd1a1b0d7985d29a6ac5dd1902c96578f74` and file
+BLAKE3 `747ae43ec2fe64351dbe2c8e012550f1f8ae12c4a686d59dedb1b41ae3f0d35a`.
 
 **Rationale:** The projection is one byte-identical file, so the contract is
 refreshed by the repo-owned tool and bound by `vendor/SHA256SUMS` instead of by
@@ -37,6 +37,18 @@ receipts with the change.
 **Rationale:** A target binds one content-bound row, including the row's
 `row_blake3` and the specification identity. Exporting at the worktree's own
 HEAD would silently rebind the row on every later commit.
+
+### Decision: Take the reviewed specification digest from the generated record
+
+**Choice:** The generated source record carries `specifications: [{ path,
+blake3 }]` holding the plain BLAKE3 of the reviewed specification file, and
+`project` reads `reviewed_specification` from that entry instead of from the
+target's contract.
+
+**Rationale:** Octet verifies the plain BLAKE3 of the specification bytes,
+while Cairn's registry stores a domain-separated specification hash. Taking the
+digest from the tool-produced record keeps the two identities from being
+conflated and keeps the plain digest out of hand-authored target text.
 
 ### Decision: Keep the pilot steps separate from this package
 
