@@ -1,0 +1,23 @@
+$ nix --option min-free 0 --option builders '' run .#octet-policy-artifacts -- /tmp/octet-policy-artifacts
+exit 0
+
+$ jq -r '.config_receipt_families[] | select(.family_id=="octet.cairn-pilot-requirement-contract") | .family_id + " " + .ownership + " " + .artifact_path' /tmp/octet-policy-artifacts/octet-config-receipt-families.json
+octet.cairn-pilot-requirement-contract nickel-authored standards/requirements/cairn-pilot/contract.json
+jq exit 0
+
+$ jq -r '.artifacts[] | .path + " " + .blake3' /tmp/octet-policy-artifacts/octet-artifact-manifest.json
+octet-check-config.toml 7460c8f7357fa723e629e6fa976cf56605f3a4c9df5502c3c7f652ff4d3dfa81
+octet-config-receipt-families.json d587f642a213e324ea05dd48827b64312341ee3c108584ba4a6f80c943600512
+octet-policies.json 1f764fa7ef8dd42da7ce0e50afb1db003e448e0fccc4b8c17bed5733c6e0c2e1
+octet-proof-bundles.json 97a03ce8f4afda4e02b7f1c17d3c8db0ac2093b56c41dc864e757a4b3121b9ce
+octet-seed-manifests.json 89b9ad689ab9d5ac5a9ec3dca4ea1cc0cd9eca3a67aca8ef563e5606b59d336e
+jq exit 0
+
+$ ls -1 /tmp/octet-policy-artifacts
+octet-artifact-manifest.json
+octet-check-config.toml
+octet-config-receipt-families.json
+octet-policies.json
+octet-proof-bundles.json
+octet-seed-manifests.json
+exit 0

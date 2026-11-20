@@ -40,3 +40,22 @@ BLAKE3 `7b6bbfdae779ada85f40f563c5d4db8c9afec9c00581f07794b4d907ec6f15c9` of
 `specification_blake3` `7529c7f5…` is Cairn's domain-separated identity and is
 carried only on `targets.ncl`'s `specification`, where the projection checks it
 against the row.
+
+## External receipt
+
+`standards/requirements/fixtures/cairn-pilot/external-receipt.json` is a
+byte-copy of the realized output's external-consumer receipt:
+
+- Source: `/datapool/mantle-store/convergence-pilot-20261119/store/zjq6whhf2c641vkz89kgwwpbajjq5cbq-octet-mantle-aeneas-consumer-job-v1/external-receipt.json`
+- Plain BLAKE3: `84d2e77717013a203a4daf6ce649de8e501c7386f142b7abc66f32d08c33420e`
+
+That digest equals the value the realized output's proof card records for
+`proofs/octet.aeneas_consumer_contract.external-fixture-rail-0.receipt` in
+`cards[0].artifact_blake3_identities` (and the matching provenance record). It
+is a digest of the receipt file bytes, not the receipt's own
+`consumer.receipt_identity`: that field, `b3:56284e96388b9ae3ca50f8afa0bffe91192662f5a4204d31b27d94d91ff1c139`,
+is Octet's domain-separated identity over the receipt projection with its
+identity field cleared. Verify the copy with
+`b3sum standards/requirements/fixtures/cairn-pilot/external-receipt.json`;
+`cargo octet requirements check` does not read this file, because it judges the
+contract and evidence bundle only.

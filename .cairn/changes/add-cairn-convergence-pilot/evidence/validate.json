@@ -14,7 +14,7 @@
     "source": "legacy_default"
   },
   "profile_issues": [],
-  "receipt_hash": "cccadaf16edf0671984c9ba1ebf697144f41e39d21f81d28d817cd4ed16d7e06",
+  "receipt_hash": "ef6ea5a3394bd295b6b813cb4820a6592591031f8b8adb9309ee382f3bf382c6",
   "resolution": {
     "diagnostics": [],
     "locator_consulted": false,
@@ -650,9 +650,9 @@
       "substantive_lines": 18,
       "substantive_requirement_blocks": 0,
       "substantive_tasks": 12,
-      "task_done": 4,
+      "task_done": 12,
       "task_in_progress": 0,
-      "task_todo": 8
+      "task_todo": 0
     }
   ],
   "substance_findings": [],
@@ -667,7 +667,7 @@
         "workflow state does not satisfy proposal, design, tasks, sync, archive, evidence, or release gates",
         "workflow commands are read-only and do not create, edit, delete, or approve lifecycle artifacts"
       ],
-      "profile_identity_hash": "81399be9398789d81010ff29dbf17f366bfb33ce661d1fa495db274f50a909b8",
+      "profile_identity_hash": "89bd39aaca3b0a0ee6ee05b00b1b4999b2a0c79532786cb55d85445b9fcd65ed",
       "review_receipt_hashes": [],
       "spec_effect": "delta",
       "workflow_profile": "spec-driven",

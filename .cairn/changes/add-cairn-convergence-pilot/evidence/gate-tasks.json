@@ -10,7 +10,7 @@
     "probe": 0,
     "property": 0
   },
-  "input_hash": "b81b633a03d637a9cd11ea0848b08c98b7caf3ad73331ef04dfe9be7e0595a01",
+  "input_hash": "06fa46cb2acefd543603e1525fc2bee02993aa9bc824c5a89b4daed8e7a306ac",
   "issues": [],
   "layout": "cairn",
   "non_claims": [
@@ -31,8 +31,8 @@
     "declarations_present": false,
     "probes": []
   },
-  "profile_identity_hash": "81399be9398789d81010ff29dbf17f366bfb33ce661d1fa495db274f50a909b8",
-  "receipt_hash": "d5019eca79db2642c90e18cabaf90b834ff0eb51425788d5cda3f1586d8abe80",
+  "profile_identity_hash": "89bd39aaca3b0a0ee6ee05b00b1b4999b2a0c79532786cb55d85445b9fcd65ed",
+  "receipt_hash": "62615bc34a95d1ba0a48cce8a793c8a4a4a01072ebdb17fffdeb99103970de0a",
   "review_receipt_hashes": [],
   "spec_effect": "delta",
   "stage": "tasks",
@@ -89,9 +89,9 @@
       "substantive_lines": 18,
       "substantive_requirement_blocks": 0,
       "substantive_tasks": 12,
-      "task_done": 4,
+      "task_done": 12,
       "task_in_progress": 0,
-      "task_todo": 8
+      "task_todo": 0
     }
   ],
   "task_ordering": {
