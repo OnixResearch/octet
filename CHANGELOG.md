@@ -137,6 +137,18 @@ repinned to rewritten marketing text. Onboarding acceptance remains the actual
 packaged denied-division, guarded-fix, original-artifact verification, and
 tampered-copy rejection path, not the presence of particular sentences.
 
+## 2026-11-20: CI reuses unchanged builds
+
+The `Nix flake check` workflow now substitutes from the public `onixresearch`
+Cachix cache. Push events, which need write access to the repository, push what
+they build once the `CACHIX_AUTH_TOKEN` secret is set. Pull requests only read
+the cache, and forks never see the token. A pull request and the branch push it
+comes from now share one concurrency group, so a pull request commit is checked
+once; branch pushes without a pull request, release branches and tags still
+run. A cache hit reuses the output that an earlier run built for the identical
+derivation. It is not fresh proof work, and no gate, deadline or theorem policy
+changes.
+
 ## 2026-11-20: Cairn convergence pilot contract
 
 Octet now carries a first Cairn convergence pilot package in
