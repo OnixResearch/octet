@@ -51,7 +51,10 @@ byte-copy of the realized output's external-consumer receipt:
 
 That digest equals the value the realized output's proof card records for
 `proofs/octet.aeneas_consumer_contract.external-fixture-rail-0.receipt` in
-`cards[0].artifact_blake3_identities` (and the matching provenance record). It
+`cards[0].artifact_blake3_identities` (and the matching provenance record), and
+it equals `receipt_identity` (`b3:84d2e777…`) in the observation that Mantle's
+verification bridge wrote for this output; Cairn's convergence check binds the
+proof card to the observation through that equality. It
 is a digest of the receipt file bytes, not the receipt's own
 `consumer.receipt_identity`: that field, `b3:56284e96388b9ae3ca50f8afa0bffe91192662f5a4204d31b27d94d91ff1c139`,
 is Octet's domain-separated identity over the receipt projection with its
