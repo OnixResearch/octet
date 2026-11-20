@@ -261,6 +261,15 @@ live compatibility check. The full flake check follows, reusing those exact
 source-bound outputs. The reviewed 45-minute producer deadlines and all proof
 obligations are unchanged; a timeout remains a failed gate.
 
+GitHub CI substitutes unchanged derivations from the public `onixresearch`
+Cachix cache (`onixresearch.cachix.org-1:IwO1kM4gBpVXfBmRkQM2mm2o22YoGSy6jQ/DaZWnLDM=`).
+Only push events receive `CACHIX_AUTH_TOKEN` and write to it; pull requests only
+read it. An unchanged gate derivation is substituted rather than rebuilt: that
+preserves the earlier result for the identical derivation and is not fresh
+proof work. A changed gate derivation still builds under its unchanged deadline.
+Qualification evidence that needs fresh execution must cite the run's build
+logs for the gates that actually ran, not only the job's conclusion.
+
 Update the cohort's inventory/toolchain/lock fixtures from the selected source,
 export the Nickel manifest, and recompute its evidence identity. Source,
 inventory, notice, anonymous-dependency, receipt freshness, evidence-digest,
