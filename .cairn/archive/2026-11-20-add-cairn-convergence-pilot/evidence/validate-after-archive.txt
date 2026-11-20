@@ -1,6 +1,7 @@
+$ nix --option min-free 0 --option builders '' run .#cairn -- validate --root .
 {
   "change_issues": [],
-  "changes": 1,
+  "changes": 0,
   "cross_repo_dependencies": [],
   "cross_repo_evidence_issues": [],
   "findings": [],
@@ -13,8 +14,7 @@
     "locator": "/nix/store/srgd4wpm2ad3hz72iwlbv9h1wny6gibg-cairn-0.2.0/share/cairn/cairn-policy.json",
     "source": "legacy_default"
   },
-  "profile_issues": [],
-  "receipt_hash": "ef6ea5a3394bd295b6b813cb4820a6592591031f8b8adb9309ee382f3bf382c6",
+  "receipt_hash": "a0920b814766e4a08ea192138aaa3802cf230c8512ce73735cc8a9f7cf5e90f3",
   "resolution": {
     "diagnostics": [],
     "locator_consulted": false,
@@ -31,12 +31,6 @@
   "spec_findings": [],
   "spec_issues": [],
   "spec_substance": [
-    {
-      "path": "./.cairn/changes/add-cairn-convergence-pilot/specs/cairn-convergence-pilot/spec.md",
-      "requirement_blocks": 3,
-      "scenario_blocks": 6,
-      "substantive_requirement_blocks": 3
-    },
     {
       "path": "./.cairn/specs/accumulating-validation/spec.md",
       "requirement_blocks": 4,
@@ -108,6 +102,12 @@
       "requirement_blocks": 7,
       "scenario_blocks": 12,
       "substantive_requirement_blocks": 7
+    },
+    {
+      "path": "./.cairn/specs/cairn-convergence-pilot/spec.md",
+      "requirement_blocks": 3,
+      "scenario_blocks": 6,
+      "substantive_requirement_blocks": 3
     },
     {
       "path": "./.cairn/specs/capability-manifest-checker/spec.md",
@@ -597,83 +597,9 @@
     }
   ],
   "specs_validated": 94,
-  "substance": [
-    {
-      "checkbox_tasks": 0,
-      "kind": "design",
-      "malformed_dependency_markers": 0,
-      "path": "./.cairn/changes/add-cairn-convergence-pilot/design.md",
-      "requirement_blocks": 0,
-      "scenario_blocks": 0,
-      "substantive_lines": 49,
-      "substantive_requirement_blocks": 0,
-      "substantive_tasks": 0,
-      "task_done": 0,
-      "task_in_progress": 0,
-      "task_todo": 0
-    },
-    {
-      "checkbox_tasks": 0,
-      "kind": "proposal",
-      "malformed_dependency_markers": 0,
-      "path": "./.cairn/changes/add-cairn-convergence-pilot/proposal.md",
-      "requirement_blocks": 0,
-      "scenario_blocks": 0,
-      "substantive_lines": 38,
-      "substantive_requirement_blocks": 0,
-      "substantive_tasks": 0,
-      "task_done": 0,
-      "task_in_progress": 0,
-      "task_todo": 0
-    },
-    {
-      "checkbox_tasks": 0,
-      "kind": "delta_spec",
-      "malformed_dependency_markers": 0,
-      "path": "./.cairn/changes/add-cairn-convergence-pilot/specs/cairn-convergence-pilot/spec.md",
-      "requirement_blocks": 3,
-      "scenario_blocks": 6,
-      "substantive_lines": 45,
-      "substantive_requirement_blocks": 3,
-      "substantive_tasks": 0,
-      "task_done": 0,
-      "task_in_progress": 0,
-      "task_todo": 0
-    },
-    {
-      "checkbox_tasks": 12,
-      "kind": "tasks",
-      "malformed_dependency_markers": 0,
-      "path": "./.cairn/changes/add-cairn-convergence-pilot/tasks.md",
-      "requirement_blocks": 0,
-      "scenario_blocks": 0,
-      "substantive_lines": 18,
-      "substantive_requirement_blocks": 0,
-      "substantive_tasks": 12,
-      "task_done": 12,
-      "task_in_progress": 0,
-      "task_todo": 0
-    }
-  ],
+  "substance": [],
   "substance_findings": [],
   "substance_issues": [],
-  "valid": true,
-  "workflow_profiles": [
-    {
-      "acceptance_ids": [],
-      "non_claims": [
-        "workflow state proves only the selected policy graph and observed structural artifact facts",
-        "workflow instructions do not prove artifact truth, review quality, or implementation correctness",
-        "workflow state does not satisfy proposal, design, tasks, sync, archive, evidence, or release gates",
-        "workflow commands are read-only and do not create, edit, delete, or approve lifecycle artifacts"
-      ],
-      "profile_identity_hash": "89bd39aaca3b0a0ee6ee05b00b1b4999b2a0c79532786cb55d85445b9fcd65ed",
-      "review_receipt_hashes": [],
-      "spec_effect": "delta",
-      "workflow_profile": "spec-driven",
-      "workflow_profile_compatibility_fallback": false,
-      "workflow_profile_source": "change_create",
-      "workflow_profile_version": 1
-    }
-  ]
+  "valid": true
 }
+exit 0; valid=true; issues=0
