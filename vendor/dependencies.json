@@ -150,6 +150,28 @@
       "workspace_members": []
     },
     {
+      "admission_status": "Exact source intake of Cairn's consumer-facing assurance-targets contract only; local validation candidate, not build, lifecycle, publication, or release qualification.",
+      "archive_sha256": "a39ebb184e8fc94db83604d14b227fd1a1b0d7985d29a6ac5dd1902c96578f74",
+      "cargo_packages": [],
+      "destination": "vendor/sources/cairn-assurance-targets",
+      "license": "MIT OR Apache-2.0 (core and reusable material); AGPL-3.0-or-later (CLI and documentation); vendored components retain their notices",
+      "name": "cairn-assurance-targets",
+      "paths": [
+        "LICENSE-MIT",
+        "LICENSE-APACHE",
+        "contracts/assurance-targets.ncl"
+      ],
+      "projections": [
+        {
+          "destination": "cairn-policy/assurance-targets.ncl",
+          "source_path": "contracts/assurance-targets.ncl"
+        }
+      ],
+      "repository": "https://github.com/OnixResearch/cairn",
+      "revision": "3dc654d38404d595ff07ca994925789f45941ffe",
+      "workspace_members": []
+    },
+    {
       "admission_status": "Exact source intake only; not build, lifecycle, publication, or release qualification.",
       "archive_sha256": "3dcff961426360f2bcd7ae7bef5dfe7bf100ef7dcd16b5d9621c75590c2bc620",
       "cargo_packages": [],

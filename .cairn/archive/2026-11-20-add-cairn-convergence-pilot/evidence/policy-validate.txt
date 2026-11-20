@@ -1,0 +1,2 @@
+$ nix --option min-free 0 --option builders '' run .#octet-policy-validate
+exit 0

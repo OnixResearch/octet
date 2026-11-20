@@ -137,6 +137,25 @@ repinned to rewritten marketing text. Onboarding acceptance remains the actual
 packaged denied-division, guarded-fix, original-artifact verification, and
 tampered-copy rejection path, not the presence of particular sentences.
 
+## 2026-11-20: Cairn convergence pilot contract
+
+Octet now carries a first Cairn convergence pilot package in
+`standards/requirements/cairn-pilot/`. It declares one `checked_proof` target
+for `octet.aeneas_consumer_contract.compatibility` over the external-consumer
+fixture and judges it with Octet's own `requirements check`/`verify` against the
+realized Mantle producer output, whose decision is copied to
+`standards/requirements/fixtures/cairn-pilot/decision.json` together with the
+evidence bundle and the producer's external receipt. The pilot also registers
+the `octet.cairn-pilot-requirement-contract` config/receipt family in the policy
+registry; its artifacts stay build-time generated, not checked in.
+
+Non-claims: the target covers the fixture theorem only, not the whole
+requirement prose or any production theorem. The proof itself ran under Nix as
+the producer job's recorded run, so this package replays and judges that
+evidence rather than re-executing the prover. Mantle preserved the producer
+output unchanged; Octet evaluates the preserved bytes and does not authenticate
+the producer.
+
 ## 2026-11-12: Public-history sanitization
 
 The history cleanup removes imported Adam Murray standards prose, local agent

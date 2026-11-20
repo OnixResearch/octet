@@ -78,6 +78,28 @@ files, documentation, or independently licensed third-party material.
 The revision records observed local source identity, not anonymous remote
 availability, lifecycle approval, or release qualification.
 
+### Cairn assurance-targets contract
+
+The convergence pilot imports Cairn's consumer-facing assurance-targets
+contract as a second exact source selection at Cairn revision
+`3dc654d38404d595ff07ca994925789f45941ffe`:
+
+- `cairn-policy/assurance-targets.ncl` (upstream `contracts/assurance-targets.ncl`,
+  BLAKE3 `747ae43ec2fe64351dbe2c8e012550f1f8ae12c4a686d59dedb1b41ae3f0d35a`)
+
+Upstream identity: <https://github.com/OnixResearch/cairn/tree/3dc654d38404d595ff07ca994925789f45941ffe>.
+The `cairn-assurance-targets` source selection, its single projection mapping,
+and archive SHA256
+`a39ebb184e8fc94db83604d14b227fd1a1b0d7985d29a6ac5dd1902c96578f74`
+are recorded in [`vendor/dependencies.ncl`](vendor/dependencies.ncl); the
+vendored licenses are preserved at
+[`vendor/sources/cairn-assurance-targets/LICENSE-MIT`](vendor/sources/cairn-assurance-targets/LICENSE-MIT)
+and [`vendor/sources/cairn-assurance-targets/LICENSE-APACHE`](vendor/sources/cairn-assurance-targets/LICENSE-APACHE).
+`tools/import-public-dependencies.py --sync` refresh and check bind the copy to
+that source and `vendor/SHA256SUMS`. The file is a typed contract, not proof
+evidence, and this intake claims no Cairn lifecycle approval or release
+qualification.
+
 ## Fetched dependencies and references
 
 Fetched dependencies retain their own licenses. For each binary release,
