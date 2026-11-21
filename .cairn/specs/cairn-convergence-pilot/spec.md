@@ -35,8 +35,10 @@ projection stays byte-identical to the admitted Git archive selection.
 r[octet.cairn_convergence_pilot.evidence] The pilot MUST export Octet's
 requirement registry at the frozen pilot revision with Cairn's
 `requirement-registry export`, retain the export and verify receipts with the
-change, and copy the six row fields of the targeted requirement from that
-verified export instead of authoring them.
+change, and MUST derive the six row fields and the contract specification of
+the targeted requirement from that export with Cairn's
+`requirement_from_registry` and `specification_from_registry` helpers instead
+of authoring them.
 
 #### Scenario: Registry export is verified at the frozen revision
 
@@ -52,6 +54,23 @@ verified export instead of authoring them.
   HEAD moved
 - WHEN the receipt is compared with the frozen pilot revision
 - THEN the receipt MUST NOT be accepted as pilot evidence.
+
+#### Scenario: Derived row reproduces the exported row
+
+- GIVEN the retained pilot export and the vendored Cairn contract helpers
+- WHEN the pilot targets and contract are exported
+- THEN the derived row and specification MUST equal the values the export holds
+  for the targeted requirement id
+- AND the regenerated targets, contract, and generated record MUST be
+  byte-identical to the committed files.
+
+#### Scenario: Missing or duplicated export row is rejected
+
+- GIVEN a targets file naming a requirement id the export does not contain, or
+  an export that holds the targeted row twice
+- WHEN the targets file is exported
+- THEN the export MUST fail with the helper's
+  "must contain exactly one row" message.
 
 ### Requirement: Octet judgment is the acceptance authority
 

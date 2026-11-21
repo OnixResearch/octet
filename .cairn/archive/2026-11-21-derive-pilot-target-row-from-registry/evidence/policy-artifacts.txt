@@ -1,0 +1,9 @@
+$ nix --option min-free 0 --option builders '' run .#octet-policy-artifacts -- /tmp/octet-policy-artifacts
+this derivation will be built:
+  /nix/store/0yccmr1zw4hw6d8vgy2g1czfjwjzysfj-octet-policy-artifacts.drv
+building '/nix/store/0yccmr1zw4hw6d8vgy2g1czfjwjzysfj-octet-policy-artifacts.drv'...
+exit 0
+
+$ jq -r '.config_receipt_families[] | select(.family_id=="octet.cairn-pilot-requirement-contract") | .family_id + " " + .ownership + " " + .artifact_path' /tmp/octet-policy-artifacts/octet-config-receipt-families.json
+octet.cairn-pilot-requirement-contract nickel-authored standards/requirements/cairn-pilot/contract.json
+jq exit 0

@@ -1,0 +1,133 @@
+$ nix run .#cairn -- sync derive-pilot-target-row-from-registry --root . --execute
+{
+  "acceptance_ids": [],
+  "actions": [
+    {
+      "description": "merge delta spec into main specs: ./.cairn/changes/derive-pilot-target-row-from-registry/specs/cairn-convergence-pilot/spec.md",
+      "kind": "sync_delta_spec",
+      "path": "./.cairn/changes/derive-pilot-target-row-from-registry/specs/cairn-convergence-pilot/spec.md"
+    }
+  ],
+  "blocked": false,
+  "change": "derive-pilot-target-row-from-registry",
+  "cross_repo_dependencies": {
+    "blocked_count": 0,
+    "dependency_count": 0,
+    "input_hash": "db590aa05b790925fdf986f022250368d1d39b2a83586461571de4946c808d37",
+    "non_claims": [
+      "dependency satisfaction proves presented receipt linkage only",
+      "dependency satisfaction does not prove upstream correctness or remote trust",
+      "dependency satisfaction does not prove downstream integration correctness or release eligibility"
+    ],
+    "policy_hash": "c8276321e0e82c524e09ad9357fa48a9d38ac8590263ee6f79c51a328dc6037d",
+    "receipt_hash": "a904c2e684f22844da630261b04dcd4f165f82816b2d7612b88f0099fedec311",
+    "rows": [],
+    "satisfied_count": 0,
+    "schema": "cairn.cross-repo-dependency-receipt.v1",
+    "valid": true,
+    "verdict": "PASS"
+  },
+  "cross_repo_evidence_issues": [],
+  "delta_specs": [
+    "./.cairn/changes/derive-pilot-target-row-from-registry/specs/cairn-convergence-pilot/spec.md"
+  ],
+  "dry_run": false,
+  "input_hash": "59b29635dbb3155183181c5af841f76b10eaad5371ca973a75f84cfaabc4fa50",
+  "layout": "cairn",
+  "merge_preflight": {
+    "documents": [
+      {
+        "accepted_before_exists": true,
+        "accepted_before_hash": "6b4188581f73ba2559abf8e3ba9814d0f42967b4374deb0406578d16b81d6a75",
+        "blocked": false,
+        "changed": true,
+        "delta_hash": "8dd2a071fa9d77a30923528de2c25edb9f6f86a38995c916ac9371bbf99b4892",
+        "destination": ".cairn/specs/cairn-convergence-pilot/spec.md",
+        "diagnostics": [],
+        "expected_after_hash": "e95e76a8a3e61a6160f8d94577f913eefc94947862643fd4be13807e6110275e",
+        "operations": [
+          {
+            "block_hash": "c4df24f5a1b3500e8bc2ff0109c2ff33eb58e83ef95d4759e4bfd1f048bfdd01",
+            "heading": "### Requirement: Exact assurance-targets intake",
+            "kind": "modified",
+            "requirement_id": "octet.cairn_convergence_pilot.contract"
+          },
+          {
+            "block_hash": "79b1f92dfe69d90a51430cd1f64103c11c4316a2110fe8e3fb6069dc311c2eda",
+            "heading": "### Requirement: Content-bound registry evidence",
+            "kind": "modified",
+            "requirement_id": "octet.cairn_convergence_pilot.evidence"
+          },
+          {
+            "block_hash": "6ed31c6f43e4ffdf0fb0ebee5aaa3e900f2960f2f1033fe794ec098bdb11b6f2",
+            "heading": "### Requirement: Octet judgment is the acceptance authority",
+            "kind": "modified",
+            "requirement_id": "octet.cairn_convergence_pilot.judgment"
+          }
+        ],
+        "outcomes": [
+          {
+            "kind": "modified",
+            "requirement_id": "octet.cairn_convergence_pilot.contract",
+            "state": "already_applied"
+          },
+          {
+            "kind": "modified",
+            "requirement_id": "octet.cairn_convergence_pilot.evidence",
+            "state": "applied"
+          },
+          {
+            "kind": "modified",
+            "requirement_id": "octet.cairn_convergence_pilot.judgment",
+            "state": "already_applied"
+          }
+        ],
+        "source": ".cairn/changes/derive-pilot-target-row-from-registry/specs/cairn-convergence-pilot/spec.md"
+      }
+    ]
+  },
+  "mutated": true,
+  "mutation_manifest": {
+    "after": {
+      "entries": [
+        {
+          "content_hash": "e95e76a8a3e61a6160f8d94577f913eefc94947862643fd4be13807e6110275e",
+          "exists": true,
+          "path": "./.cairn/specs/cairn-convergence-pilot/spec.md"
+        }
+      ],
+      "manifest_hash": "35c34fa737f85e1216bb3783f6feed45cde5a585401e555ca08b1a404347890b"
+    },
+    "before": {
+      "entries": [
+        {
+          "content_hash": "6b4188581f73ba2559abf8e3ba9814d0f42967b4374deb0406578d16b81d6a75",
+          "exists": true,
+          "path": "./.cairn/specs/cairn-convergence-pilot/spec.md"
+        }
+      ],
+      "manifest_hash": "8ab2d842db19517cb10096e75e54140a014811fb3ef859fef22a1ac808eb92fa"
+    },
+    "kind": "sync",
+    "manifest_hash": "307b1830d3f91bf094ba55db828fdb838234ce3a458b7d4dd8f9f2ed33498a3f"
+  },
+  "non_claims": [
+    "workflow state proves only the selected policy graph and observed structural artifact facts",
+    "workflow instructions do not prove artifact truth, review quality, or implementation correctness",
+    "workflow state does not satisfy proposal, design, tasks, sync, archive, evidence, or release gates",
+    "workflow commands are read-only and do not create, edit, delete, or approve lifecycle artifacts"
+  ],
+  "plan_hash": "06a2571fc0c2bbd4e96be5db805bca4d41644205de8d08367a9a532d019f65bb",
+  "policy": "cairn-default",
+  "policy_hash": "c8276321e0e82c524e09ad9357fa48a9d38ac8590263ee6f79c51a328dc6037d",
+  "profile_identity_hash": "b6d571c2c8b6271021ecc915205bb97c035f134ed744179568426db1805eb0b8",
+  "reasons": [],
+  "receipt_hash": "618084d2f81334a2b10fa29a03ca7123fde7922b67830e9062eed545dd56227e",
+  "review_receipt_hashes": [],
+  "spec_effect": "delta",
+  "workflow_profile": "spec-driven",
+  "workflow_profile_compatibility_fallback": false,
+  "workflow_profile_source": "change_create",
+  "workflow_profile_version": 1
+}
+exit=0
