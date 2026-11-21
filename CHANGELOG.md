@@ -137,6 +137,19 @@ repinned to rewritten marketing text. Onboarding acceptance remains the actual
 packaged denied-division, guarded-fix, original-artifact verification, and
 tampered-copy rejection path, not the presence of particular sentences.
 
+## 2026-11-21: Same-repository pull requests fill the CI cache
+
+Both `Nix flake check` jobs now write to the `onixresearch` Cachix cache for
+pull request events whose head repository is this repository, not only for push
+events. A same-repository pull request author already has write access and
+their branch pushes already write to this cache, so the writer set is unchanged;
+fork pull requests still never receive `CACHIX_AUTH_TOKEN`, and their checkout
+stays read-only. Pull request runs were rebuilding the source-sensitive Lean
+gates cold for hours because no pull request run filled the cache; a pull
+request run now fills it for later runs of the same derivations. No gate,
+deadline or theorem policy changes, and a cache hit remains reused work rather
+than fresh proof.
+
 ## 2026-11-20: Registry-derived pilot assurance target row
 
 The `octet.cairn-pilot.aeneas-consumer` target now derives its requirement row
