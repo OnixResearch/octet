@@ -1,0 +1,350 @@
+error (ignored): SQLite database '/home/brittonr/.cache/nix/eval-cache-v6/42497e5e5e5bf0ca2ce001ec5b814e0de7a93fe0d4f6a0919bc75d0c924b7466.sqlite' is busy
+building '/nix/store/xlvbvfj43j5zn6h1kchil1q86jslkyxl-octet-standards-0.1.1-rc.1.drv'...
+building '/nix/store/sfrqbfj6h3vhfiw1dis02liv64ngycm0-nix-shell-env.drv'...
+    Updating crates.io index
+    Updating git repository `ssh://git@github.com/OnixResearch/bounded-exec.git`
+From file:///home/brittonr/git/OnixResearch/bounded-exec
+ * [new ref]         44eb74eb639194665ee820562d5b2ce2c3ff6a94 -> refs/commit/44eb74eb639194665ee820562d5b2ce2c3ff6a94
+    Updating git repository `ssh://git@github.com/OnixResearch/valence.git`
+From file:///home/brittonr/git/OnixResearch/valence
+ * [new ref]         7546a78b4eeef8686c6837e187aa12420f4f03bb -> refs/commit/7546a78b4eeef8686c6837e187aa12420f4f03bb
+    Updating git repository `https://github.com/OnixResearch/nickel-export`
+From file:///home/brittonr/git/OnixResearch/nickel-export
+ * [new ref]         257fafc1c746f1faf156207043a4c826bfb16d49 -> refs/commit/257fafc1c746f1faf156207043a4c826bfb16d49
+    Updating git repository `https://github.com/trailofbits/dylint`
+From https://github.com/trailofbits/dylint
+ * [new ref]           0e0a71eefe6f01563d11acc6e1d7af1d505934a9 -> refs/commit/0e0a71eefe6f01563d11acc6e1d7af1d505934a9
+ Downloading crates ...
+  Downloaded anstyle-query v1.1.5
+  Downloaded itoa v1.0.18
+  Downloaded smallvec v1.15.2
+  Downloaded parking_lot_core v0.9.12
+  Downloaded rustc-hash v2.1.3
+  Downloaded windows-targets v0.52.6
+  Downloaded ed25519 v2.2.3
+  Downloaded rand_core v0.10.1
+  Downloaded crossbeam-queue v0.3.13
+  Downloaded gimli v0.34.0
+  Downloaded winx v0.36.4
+  Downloaded wat v1.253.0
+  Downloaded version_check v0.9.5
+  Downloaded zmij v1.0.21
+  Downloaded yansi v1.0.1
+  Downloaded zerocopy-derive v0.8.54
+  Downloaded wasm-encoder v0.253.0
+  Downloaded serde_core v1.0.228
+  Downloaded wast v253.0.0
+  Downloaded serde v1.0.228
+  Downloaded typenum v1.20.1
+  Downloaded serde_json v1.0.150
+  Downloaded libc v0.2.186
+  Downloaded hegeltest-macros v0.14.27
+  Downloaded zerocopy v0.8.54
+  Downloaded hashbrown v0.16.1
+  Downloaded unicode-width v0.2.2
+  Downloaded indexmap v2.14.0
+  Downloaded wasmparser v0.253.0
+  Downloaded iddqd v0.4.5
+  Downloaded syn v2.0.118
+  Downloaded cap-primitives v3.4.5
+  Downloaded serde_derive v1.0.228
+  Downloaded object v0.37.3
+  Downloaded windows_x86_64_gnullvm v0.52.6
+  Downloaded nix v0.30.1
+  Downloaded rustix v1.1.4
+  Downloaded windows_aarch64_gnullvm v0.52.6
+  Downloaded windows_i686_gnullvm v0.52.6
+  Downloaded unicode-ident v1.0.24
+  Downloaded toml v1.1.2+spec-1.1.0
+  Downloaded semver v1.0.28
+  Downloaded cfg_aliases v0.2.2
+  Downloaded cargo_metadata v0.23.1
+  Downloaded toml_writer v1.1.1+spec-1.1.0
+  Downloaded toml_parser v1.1.2+spec-1.1.0
+  Downloaded regex-automata v0.4.15
+  Downloaded toml_datetime v1.1.1+spec-1.1.0
+  Downloaded tokio v1.54.1
+  Downloaded tokio-macros v2.7.0
+  Downloaded thiserror-impl v2.0.18
+  Downloaded thiserror v2.0.18
+  Downloaded curve25519-dalek v4.1.3
+  Downloaded windows_x86_64_msvc v0.52.6
+  Downloaded tempfile v3.27.0
+  Downloaded windows_x86_64_gnu v0.52.6
+  Downloaded windows_aarch64_msvc v0.52.6
+  Downloaded linux-raw-sys v0.12.1
+  Downloaded static_assertions v1.1.0
+  Downloaded windows_i686_gnu v0.52.6
+  Downloaded sha2 v0.10.9
+  Downloaded windows_i686_msvc v0.52.6
+  Downloaded rustix-linux-procfs v0.1.1
+  Downloaded rustc_version v0.4.1
+  Downloaded rustc-demangle v0.1.28
+  Downloaded num-modular v0.6.4
+  Downloaded dashu-int v0.4.3
+  Downloaded stable_deref_trait v1.2.1
+  Downloaded hegeltest v0.14.27
+  Downloaded serde_spanned v1.1.1
+  Downloaded hashbrown v0.15.5
+  Downloaded fiat-crypto v0.2.9
+  Downloaded utf8parse v0.2.2
+  Downloaded subtle v2.6.1
+  Downloaded hashbrown v0.17.1
+  Downloaded strsim v0.11.1
+  Downloaded signature v2.2.0
+  Downloaded shlex v2.0.1
+  Downloaded scopeguard v1.2.0
+  Downloaded regex-syntax v0.8.11
+  Downloaded regex v1.13.0
+  Downloaded pretty_assertions v1.4.1
+  Downloaded clap v4.6.1
+  Downloaded winnow v1.0.3
+  Downloaded windows-link v0.2.1
+  Downloaded proc-macro2 v1.0.106
+  Downloaded io-extras v0.18.4
+  Downloaded getrandom v0.4.3
+  Downloaded crossbeam-epoch v0.9.20
+  Downloaded blake3 v1.8.5
+  Downloaded crossbeam-deque v0.8.7
+  Downloaded crc32fast v1.5.0
+  Downloaded constant_time_eq v0.4.2
+  Downloaded clap_derive v4.6.1
+  Downloaded ciborium v0.2.2
+  Downloaded chacha20 v0.10.2
+  Downloaded camino v1.2.4
+  Downloaded r-efi v6.0.0
+  Downloaded pin-project-lite v0.2.17
+  Downloaded paste v1.0.15
+  Downloaded parking_lot v0.12.5
+  Downloaded ipnet v2.12.0
+  Downloaded half v2.7.1
+  Downloaded foldhash v0.2.0
+  Downloaded find-msvc-tools v0.1.9
+  Downloaded dashu-base v0.4.3
+  Downloaded clap_lex v1.1.0
+  Downloaded crossbeam-utils v0.8.22
+  Downloaded crossbeam v0.8.4
+  Downloaded cpufeatures v0.2.17
+  Downloaded maybe-owned v0.3.4
+  Downloaded heck v0.5.0
+  Downloaded foldhash v0.1.5
+  Downloaded fnv v1.0.7
+  Downloaded fastrand v2.4.1
+  Downloaded equivalent v1.0.2
+  Downloaded digest v0.10.7
+  Downloaded diff v0.1.13
+  Downloaded clap_builder v4.6.0
+  Downloaded ciborium-ll v0.2.2
+  Downloaded cfg-if v1.0.4
+  Downloaded cargo-platform v0.3.3
+  Downloaded aho-corasick v1.1.4
+  Downloaded redox_syscall v0.5.18
+  Downloaded rand v0.10.2
+  Downloaded once_cell_polyfill v1.70.2
+  Downloaded memchr v2.8.3
+  Downloaded lock_api v0.4.14
+  Downloaded leb128fmt v0.1.0
+  Downloaded windows-sys v0.59.0
+  Downloaded is_terminal_polyfill v1.70.2
+  Downloaded generic-array v0.14.7
+  Downloaded ed25519-dalek v2.2.0
+  Downloaded crypto-common v0.1.7
+  Downloaded cc v1.2.67
+  Downloaded bumpalo v3.20.3
+  Downloaded log v0.4.33
+  Downloaded crossbeam-channel v0.5.16
+  Downloaded cap-std v3.4.5
+  Downloaded bitflags v2.13.0
+  Downloaded arrayvec v0.7.8
+  Downloaded anyhow v1.0.103
+  Downloaded allocator-api2 v0.2.21
+  Downloaded rustversion v1.0.23
+  Downloaded quote v1.0.46
+  Downloaded once_cell v1.21.4
+  Downloaded io-lifetimes v2.0.4
+  Downloaded colorchoice v1.0.5
+  Downloaded anstyle-parse v1.0.0
+  Downloaded anstyle v1.0.14
+  Downloaded anstream v1.0.0
+  Downloaded ambient-authority v0.0.2
+  Downloaded fs-set-times v0.20.3
+  Downloaded errno v0.3.14
+  Downloaded curve25519-dalek-derive v0.1.1
+  Downloaded crunchy v0.2.4
+  Downloaded windows-sys v0.61.2
+  Downloaded cpufeatures v0.3.0
+  Downloaded ciborium-io v0.2.2
+  Downloaded block-buffer v0.10.4
+  Downloaded arrayref v0.3.9
+  Downloaded anstyle-wincon v3.0.11
+   Vendoring aho-corasick v1.1.4 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/aho-corasick-1.1.4) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/aho-corasick-1.1.4
+   Vendoring allocator-api2 v0.2.21 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/allocator-api2-0.2.21) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/allocator-api2-0.2.21
+   Vendoring ambient-authority v0.0.2 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/ambient-authority-0.0.2) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/ambient-authority-0.0.2
+   Vendoring anstream v1.0.0 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/anstream-1.0.0) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/anstream-1.0.0
+   Vendoring anstyle v1.0.14 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/anstyle-1.0.14) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/anstyle-1.0.14
+   Vendoring anstyle-parse v1.0.0 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/anstyle-parse-1.0.0) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/anstyle-parse-1.0.0
+   Vendoring anstyle-query v1.1.5 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/anstyle-query-1.1.5) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/anstyle-query-1.1.5
+   Vendoring anstyle-wincon v3.0.11 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/anstyle-wincon-3.0.11) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/anstyle-wincon-3.0.11
+   Vendoring anyhow v1.0.103 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/anyhow-1.0.103) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/anyhow-1.0.103
+   Vendoring arrayref v0.3.9 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/arrayref-0.3.9) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/arrayref-0.3.9
+   Vendoring arrayvec v0.7.8 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/arrayvec-0.7.8) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/arrayvec-0.7.8
+   Vendoring bitflags v2.13.0 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/bitflags-2.13.0) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/bitflags-2.13.0
+   Vendoring blake3 v1.8.5 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/blake3-1.8.5) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/blake3-1.8.5
+   Vendoring block-buffer v0.10.4 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/block-buffer-0.10.4) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/block-buffer-0.10.4
+   Vendoring bounded-exec v0.1.0 (ssh://git@github.com/OnixResearch/bounded-exec.git?rev=44eb74eb639194665ee820562d5b2ce2c3ff6a94#44eb74eb) (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/git/checkouts/bounded-exec-0086f3564b8a1199/44eb74e/crates/bounded-exec) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/bounded-exec-0.1.0
+   Vendoring bounded-exec-core v0.1.0 (ssh://git@github.com/OnixResearch/bounded-exec.git?rev=44eb74eb639194665ee820562d5b2ce2c3ff6a94#44eb74eb) (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/git/checkouts/bounded-exec-0086f3564b8a1199/44eb74e/crates/bounded-exec-core) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/bounded-exec-core-0.1.0
+   Vendoring bumpalo v3.20.3 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/bumpalo-3.20.3) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/bumpalo-3.20.3
+   Vendoring camino v1.2.4 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/camino-1.2.4) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/camino-1.2.4
+   Vendoring cap-primitives v3.4.5 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/cap-primitives-3.4.5) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/cap-primitives-3.4.5
+   Vendoring cap-std v3.4.5 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/cap-std-3.4.5) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/cap-std-3.4.5
+   Vendoring cargo-platform v0.3.3 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/cargo-platform-0.3.3) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/cargo-platform-0.3.3
+   Vendoring cargo_metadata v0.23.1 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/cargo_metadata-0.23.1) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/cargo_metadata-0.23.1
+   Vendoring cc v1.2.67 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/cc-1.2.67) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/cc-1.2.67
+   Vendoring cfg-if v1.0.4 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/cfg-if-1.0.4) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/cfg-if-1.0.4
+   Vendoring cfg_aliases v0.2.2 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/cfg_aliases-0.2.2) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/cfg_aliases-0.2.2
+   Vendoring chacha20 v0.10.2 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/chacha20-0.10.2) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/chacha20-0.10.2
+   Vendoring ciborium v0.2.2 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/ciborium-0.2.2) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/ciborium-0.2.2
+   Vendoring ciborium-io v0.2.2 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/ciborium-io-0.2.2) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/ciborium-io-0.2.2
+   Vendoring ciborium-ll v0.2.2 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/ciborium-ll-0.2.2) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/ciborium-ll-0.2.2
+   Vendoring clap v4.6.1 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/clap-4.6.1) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/clap-4.6.1
+   Vendoring clap_builder v4.6.0 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/clap_builder-4.6.0) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/clap_builder-4.6.0
+   Vendoring clap_derive v4.6.1 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/clap_derive-4.6.1) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/clap_derive-4.6.1
+   Vendoring clap_lex v1.1.0 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/clap_lex-1.1.0) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/clap_lex-1.1.0
+   Vendoring colorchoice v1.0.5 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/colorchoice-1.0.5) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/colorchoice-1.0.5
+   Vendoring constant_time_eq v0.4.2 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/constant_time_eq-0.4.2) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/constant_time_eq-0.4.2
+   Vendoring cpufeatures v0.2.17 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.2.17) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/cpufeatures-0.2.17
+   Vendoring cpufeatures v0.3.0 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/cpufeatures-0.3.0
+   Vendoring crc32fast v1.5.0 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/crc32fast-1.5.0) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/crc32fast-1.5.0
+   Vendoring crossbeam v0.8.4 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/crossbeam-0.8.4) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/crossbeam-0.8.4
+   Vendoring crossbeam-channel v0.5.16 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/crossbeam-channel-0.5.16) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/crossbeam-channel-0.5.16
+   Vendoring crossbeam-deque v0.8.7 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/crossbeam-deque-0.8.7) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/crossbeam-deque-0.8.7
+   Vendoring crossbeam-epoch v0.9.20 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/crossbeam-epoch-0.9.20) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/crossbeam-epoch-0.9.20
+   Vendoring crossbeam-queue v0.3.13 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/crossbeam-queue-0.3.13) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/crossbeam-queue-0.3.13
+   Vendoring crossbeam-utils v0.8.22 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/crossbeam-utils-0.8.22) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/crossbeam-utils-0.8.22
+   Vendoring crunchy v0.2.4 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/crunchy-0.2.4) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/crunchy-0.2.4
+   Vendoring crypto-common v0.1.7 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/crypto-common-0.1.7) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/crypto-common-0.1.7
+   Vendoring curve25519-dalek v4.1.3 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/curve25519-dalek-4.1.3) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/curve25519-dalek-4.1.3
+   Vendoring curve25519-dalek-derive v0.1.1 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/curve25519-dalek-derive-0.1.1) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/curve25519-dalek-derive-0.1.1
+   Vendoring dashu-base v0.4.3 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/dashu-base-0.4.3) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/dashu-base-0.4.3
+   Vendoring dashu-int v0.4.3 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/dashu-int-0.4.3) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/dashu-int-0.4.3
+   Vendoring diff v0.1.13 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/diff-0.1.13) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/diff-0.1.13
+   Vendoring digest v0.10.7 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.10.7) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/digest-0.10.7
+   Vendoring dylint_internal v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee) (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/git/checkouts/dylint-0d4e9aef0421407c/0e0a71e/internal) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/dylint_internal-5.0.0
+   Vendoring dylint_linting v5.0.0 (https://github.com/trailofbits/dylint?rev=0e0a71eefe6f01563d11acc6e1d7af1d505934a9#0e0a71ee) (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/git/checkouts/dylint-0d4e9aef0421407c/0e0a71e/utils/linting) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/dylint_linting-5.0.0
+   Vendoring ed25519 v2.2.3 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/ed25519-2.2.3) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/ed25519-2.2.3
+   Vendoring ed25519-dalek v2.2.0 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/ed25519-dalek-2.2.0) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/ed25519-dalek-2.2.0
+   Vendoring equivalent v1.0.2 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/equivalent-1.0.2) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/equivalent-1.0.2
+   Vendoring errno v0.3.14 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/errno-0.3.14) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/errno-0.3.14
+   Vendoring fastrand v2.4.1 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/fastrand-2.4.1) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/fastrand-2.4.1
+   Vendoring fiat-crypto v0.2.9 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/fiat-crypto-0.2.9) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/fiat-crypto-0.2.9
+   Vendoring find-msvc-tools v0.1.9 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/find-msvc-tools-0.1.9) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/find-msvc-tools-0.1.9
+   Vendoring fnv v1.0.7 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/fnv-1.0.7) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/fnv-1.0.7
+   Vendoring foldhash v0.1.5 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/foldhash-0.1.5) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/foldhash-0.1.5
+   Vendoring foldhash v0.2.0 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/foldhash-0.2.0) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/foldhash-0.2.0
+   Vendoring fs-set-times v0.20.3 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/fs-set-times-0.20.3) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/fs-set-times-0.20.3
+   Vendoring generic-array v0.14.7 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/generic-array-0.14.7) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/generic-array-0.14.7
+   Vendoring getrandom v0.4.3 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/getrandom-0.4.3) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/getrandom-0.4.3
+   Vendoring gimli v0.34.0 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/gimli-0.34.0) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/gimli-0.34.0
+   Vendoring half v2.7.1 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/half-2.7.1) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/half-2.7.1
+   Vendoring hashbrown v0.15.5 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/hashbrown-0.15.5) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/hashbrown-0.15.5
+   Vendoring hashbrown v0.16.1 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/hashbrown-0.16.1) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/hashbrown-0.16.1
+   Vendoring hashbrown v0.17.1 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/hashbrown-0.17.1) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/hashbrown-0.17.1
+   Vendoring heck v0.5.0 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/heck-0.5.0) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/heck-0.5.0
+   Vendoring hegeltest v0.14.27 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/hegeltest-0.14.27) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/hegeltest-0.14.27
+   Vendoring hegeltest-macros v0.14.27 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/hegeltest-macros-0.14.27) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/hegeltest-macros-0.14.27
+   Vendoring iddqd v0.4.5 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/iddqd-0.4.5) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/iddqd-0.4.5
+   Vendoring indexmap v2.14.0 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/indexmap-2.14.0) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/indexmap-2.14.0
+   Vendoring io-extras v0.18.4 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/io-extras-0.18.4) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/io-extras-0.18.4
+   Vendoring io-lifetimes v2.0.4 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/io-lifetimes-2.0.4) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/io-lifetimes-2.0.4
+   Vendoring ipnet v2.12.0 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.12.0) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/ipnet-2.12.0
+   Vendoring is_terminal_polyfill v1.70.2 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/is_terminal_polyfill-1.70.2) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/is_terminal_polyfill-1.70.2
+   Vendoring itoa v1.0.18 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/itoa-1.0.18) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/itoa-1.0.18
+   Vendoring leb128fmt v0.1.0 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/leb128fmt-0.1.0) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/leb128fmt-0.1.0
+   Vendoring libc v0.2.186 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/libc-0.2.186) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/libc-0.2.186
+   Vendoring linux-raw-sys v0.12.1 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/linux-raw-sys-0.12.1) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/linux-raw-sys-0.12.1
+   Vendoring lock_api v0.4.14 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/lock_api-0.4.14) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/lock_api-0.4.14
+   Vendoring log v0.4.33 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/log-0.4.33) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/log-0.4.33
+   Vendoring maybe-owned v0.3.4 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/maybe-owned-0.3.4) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/maybe-owned-0.3.4
+   Vendoring memchr v2.8.3 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/memchr-2.8.3
+   Vendoring nickel-export-core v0.1.0 (https://github.com/OnixResearch/nickel-export?rev=257fafc1c746f1faf156207043a4c826bfb16d49#257fafc1) (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/git/checkouts/nickel-export-5a0fec87a6b48848/257fafc/crates/nickel-export-core) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/nickel-export-core-0.1.0
+   Vendoring nix v0.30.1 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/nix-0.30.1) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/nix-0.30.1
+   Vendoring num-modular v0.6.4 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/num-modular-0.6.4) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/num-modular-0.6.4
+   Vendoring object v0.37.3 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/object-0.37.3) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/object-0.37.3
+   Vendoring once_cell v1.21.4 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/once_cell-1.21.4) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/once_cell-1.21.4
+   Vendoring once_cell_polyfill v1.70.2 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/once_cell_polyfill-1.70.2) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/once_cell_polyfill-1.70.2
+   Vendoring parking_lot v0.12.5 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/parking_lot-0.12.5) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/parking_lot-0.12.5
+   Vendoring parking_lot_core v0.9.12 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/parking_lot_core-0.9.12) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/parking_lot_core-0.9.12
+   Vendoring paste v1.0.15 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/paste-1.0.15) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/paste-1.0.15
+   Vendoring pin-project-lite v0.2.17 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.17) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/pin-project-lite-0.2.17
+   Vendoring pretty_assertions v1.4.1 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/pretty_assertions-1.4.1) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/pretty_assertions-1.4.1
+   Vendoring proc-macro2 v1.0.106 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/proc-macro2-1.0.106) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/proc-macro2-1.0.106
+   Vendoring quote v1.0.46 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.46) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/quote-1.0.46
+   Vendoring r-efi v6.0.0 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/r-efi-6.0.0) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/r-efi-6.0.0
+   Vendoring rand v0.10.2 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/rand-0.10.2) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/rand-0.10.2
+   Vendoring rand_core v0.10.1 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/rand_core-0.10.1) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/rand_core-0.10.1
+   Vendoring redox_syscall v0.5.18 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/redox_syscall-0.5.18) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/redox_syscall-0.5.18
+   Vendoring regex v1.13.0 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/regex-1.13.0) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/regex-1.13.0
+   Vendoring regex-automata v0.4.15 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/regex-automata-0.4.15) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/regex-automata-0.4.15
+   Vendoring regex-syntax v0.8.11 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/regex-syntax-0.8.11) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/regex-syntax-0.8.11
+   Vendoring rustc-demangle v0.1.28 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/rustc-demangle-0.1.28) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/rustc-demangle-0.1.28
+   Vendoring rustc-hash v2.1.3 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/rustc-hash-2.1.3) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/rustc-hash-2.1.3
+   Vendoring rustc_version v0.4.1 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/rustc_version-0.4.1) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/rustc_version-0.4.1
+   Vendoring rustix v1.1.4 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/rustix-1.1.4) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/rustix-1.1.4
+   Vendoring rustix-linux-procfs v0.1.1 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/rustix-linux-procfs-0.1.1) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/rustix-linux-procfs-0.1.1
+   Vendoring rustversion v1.0.23 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/rustversion-1.0.23) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/rustversion-1.0.23
+   Vendoring scopeguard v1.2.0 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/scopeguard-1.2.0) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/scopeguard-1.2.0
+   Vendoring semver v1.0.28 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/semver-1.0.28) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/semver-1.0.28
+   Vendoring serde v1.0.228 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/serde-1.0.228
+   Vendoring serde_core v1.0.228 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.228) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/serde_core-1.0.228
+   Vendoring serde_derive v1.0.228 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/serde_derive-1.0.228) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/serde_derive-1.0.228
+   Vendoring serde_json v1.0.150 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.150) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/serde_json-1.0.150
+   Vendoring serde_spanned v1.1.1 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/serde_spanned-1.1.1) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/serde_spanned-1.1.1
+   Vendoring sha2 v0.10.9 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.10.9) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/sha2-0.10.9
+   Vendoring shlex v2.0.1 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/shlex-2.0.1) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/shlex-2.0.1
+   Vendoring signature v2.2.0 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/signature-2.2.0) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/signature-2.2.0
+   Vendoring smallvec v1.15.2 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/smallvec-1.15.2) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/smallvec-1.15.2
+   Vendoring stable_deref_trait v1.2.1 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/stable_deref_trait-1.2.1) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/stable_deref_trait-1.2.1
+   Vendoring static_assertions v1.1.0 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/static_assertions-1.1.0) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/static_assertions-1.1.0
+   Vendoring strsim v0.11.1 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/strsim-0.11.1) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/strsim-0.11.1
+   Vendoring subtle v2.6.1 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/subtle-2.6.1) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/subtle-2.6.1
+   Vendoring syn v2.0.118 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/syn-2.0.118) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/syn-2.0.118
+   Vendoring tempfile v3.27.0 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/tempfile-3.27.0) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/tempfile-3.27.0
+   Vendoring thiserror v2.0.18 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/thiserror-2.0.18
+   Vendoring thiserror-impl v2.0.18 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-impl-2.0.18) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/thiserror-impl-2.0.18
+   Vendoring tokio v1.54.1 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-1.54.1) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/tokio-1.54.1
+   Vendoring tokio-macros v2.7.0 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/tokio-macros-2.7.0) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/tokio-macros-2.7.0
+   Vendoring toml v1.1.2+spec-1.1.0 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/toml-1.1.2+spec-1.1.0) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/toml-1.1.2+spec-1.1.0
+   Vendoring toml_datetime v1.1.1+spec-1.1.0 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/toml_datetime-1.1.1+spec-1.1.0) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/toml_datetime-1.1.1+spec-1.1.0
+   Vendoring toml_parser v1.1.2+spec-1.1.0 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/toml_parser-1.1.2+spec-1.1.0) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/toml_parser-1.1.2+spec-1.1.0
+   Vendoring toml_writer v1.1.1+spec-1.1.0 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/toml_writer-1.1.1+spec-1.1.0) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/toml_writer-1.1.1+spec-1.1.0
+   Vendoring typenum v1.20.1 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/typenum-1.20.1) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/typenum-1.20.1
+   Vendoring unicode-ident v1.0.24 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-ident-1.0.24) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/unicode-ident-1.0.24
+   Vendoring unicode-width v0.2.2 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-width-0.2.2) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/unicode-width-0.2.2
+   Vendoring utf8parse v0.2.2 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/utf8parse-0.2.2) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/utf8parse-0.2.2
+   Vendoring valence-core v0.1.0 (ssh://git@github.com/OnixResearch/valence.git?rev=7546a78b4eeef8686c6837e187aa12420f4f03bb#7546a78b) (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/git/checkouts/valence-1e87201f92c68379/7546a78/crates/valence-core) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/valence-core-0.1.0
+   Vendoring version_check v0.9.5 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/version_check-0.9.5) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/version_check-0.9.5
+   Vendoring wasm-encoder v0.253.0 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-encoder-0.253.0) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/wasm-encoder-0.253.0
+   Vendoring wasmparser v0.253.0 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/wasmparser-0.253.0) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/wasmparser-0.253.0
+   Vendoring wast v253.0.0 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/wast-253.0.0) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/wast-253.0.0
+   Vendoring wat v1.253.0 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/wat-1.253.0) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/wat-1.253.0
+   Vendoring windows-link v0.2.1 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/windows-link-0.2.1) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/windows-link-0.2.1
+   Vendoring windows-sys v0.59.0 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/windows-sys-0.59.0) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/windows-sys-0.59.0
+   Vendoring windows-sys v0.61.2 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/windows-sys-0.61.2) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/windows-sys-0.61.2
+   Vendoring windows-targets v0.52.6 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/windows-targets-0.52.6) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/windows-targets-0.52.6
+   Vendoring windows_aarch64_gnullvm v0.52.6 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/windows_aarch64_gnullvm-0.52.6) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/windows_aarch64_gnullvm-0.52.6
+   Vendoring windows_aarch64_msvc v0.52.6 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/windows_aarch64_msvc-0.52.6) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/windows_aarch64_msvc-0.52.6
+   Vendoring windows_i686_gnu v0.52.6 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/windows_i686_gnu-0.52.6) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/windows_i686_gnu-0.52.6
+   Vendoring windows_i686_gnullvm v0.52.6 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/windows_i686_gnullvm-0.52.6) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/windows_i686_gnullvm-0.52.6
+   Vendoring windows_i686_msvc v0.52.6 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/windows_i686_msvc-0.52.6) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/windows_i686_msvc-0.52.6
+   Vendoring windows_x86_64_gnu v0.52.6 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/windows_x86_64_gnu-0.52.6) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/windows_x86_64_gnu-0.52.6
+   Vendoring windows_x86_64_gnullvm v0.52.6 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/windows_x86_64_gnullvm-0.52.6) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/windows_x86_64_gnullvm-0.52.6
+   Vendoring windows_x86_64_msvc v0.52.6 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/windows_x86_64_msvc-0.52.6) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/windows_x86_64_msvc-0.52.6
+   Vendoring winnow v1.0.3 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/winnow-1.0.3) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/winnow-1.0.3
+   Vendoring winx v0.36.4 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/winx-0.36.4) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/winx-0.36.4
+   Vendoring yansi v1.0.1 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/yansi-1.0.1) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/yansi-1.0.1
+   Vendoring zerocopy v0.8.54 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/zerocopy-0.8.54) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/zerocopy-0.8.54
+   Vendoring zerocopy-derive v0.8.54 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/zerocopy-derive-0.8.54) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/zerocopy-derive-0.8.54
+   Vendoring zmij v1.0.21 (/tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-home/registry/src/index.crates.io-1949cf8c6b5b557f/zmij-1.0.21) to /tmp/nix-shell.thdp6o/octet-dependency-import-jnk3wunn/cargo-vendor/zmij-1.0.21
+To use vendored sources, add this to your .cargo/config.toml for this project:
+
+dependency distributions: exact recorded files and Cargo checksums verified

@@ -1,0 +1,59 @@
+{
+  "acceptance_ids": [],
+  "change": "derive-pilot-target-row-from-registry",
+  "evidence_summary": {
+    "docs_only": 0,
+    "fixture": 0,
+    "formal": 0,
+    "mode": "advisory",
+    "model": 0,
+    "probe": 0,
+    "property": 0
+  },
+  "input_hash": "4dbf9391e395ace75fe58e5511cec2441d7e45f5d19242eb583ecfbae99425a0",
+  "issues": [],
+  "layout": "cairn",
+  "non_claims": [
+    "workflow state proves only the selected policy graph and observed structural artifact facts",
+    "workflow instructions do not prove artifact truth, review quality, or implementation correctness",
+    "workflow state does not satisfy proposal, design, tasks, sync, archive, evidence, or release gates",
+    "workflow commands are read-only and do not create, edit, delete, or approve lifecycle artifacts"
+  ],
+  "policy": "cairn-default",
+  "policy_hash": "c8276321e0e82c524e09ad9357fa48a9d38ac8590263ee6f79c51a328dc6037d",
+  "policy_selection": {
+    "blake3": "7a67802377005c18ebded42899e7f564f5d87087b6c14ca70464b35886f340a9",
+    "installation_receipt": false,
+    "locator": "/nix/store/srgd4wpm2ad3hz72iwlbv9h1wny6gibg-cairn-0.2.0/share/cairn/cairn-policy.json",
+    "source": "legacy_default"
+  },
+  "probe_evidence": null,
+  "profile_identity_hash": "1d81f80b7ad66b9fb4983b4c98905559a61030f3464e79066be328c11d5e4221",
+  "receipt_hash": "de6e2b1005c048c00d19f4c085194e011ff1cf72b403e551323f656b8c144172",
+  "review_receipt_hashes": [],
+  "spec_effect": "delta",
+  "stage": "proposal",
+  "substance": [
+    {
+      "checkbox_tasks": 0,
+      "kind": "proposal",
+      "malformed_dependency_markers": 0,
+      "path": "./.cairn/changes/derive-pilot-target-row-from-registry/proposal.md",
+      "requirement_blocks": 0,
+      "scenario_blocks": 0,
+      "substantive_lines": 26,
+      "substantive_requirement_blocks": 0,
+      "substantive_tasks": 0,
+      "task_done": 0,
+      "task_in_progress": 0,
+      "task_todo": 0
+    }
+  ],
+  "task_ordering": null,
+  "valid": true,
+  "verdict": "PASS",
+  "workflow_profile": "spec-driven",
+  "workflow_profile_compatibility_fallback": false,
+  "workflow_profile_source": "change_create",
+  "workflow_profile_version": 1
+}

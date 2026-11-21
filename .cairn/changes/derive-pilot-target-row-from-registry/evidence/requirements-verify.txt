@@ -1,0 +1,10 @@
+$ /home/brittonr/.cargo-target/debug/cargo-octet octet requirements verify --contract standards/requirements/cairn-pilot/contract.json --evidence standards/requirements/fixtures/cairn-pilot/evidence.json --decision standards/requirements/fixtures/cairn-pilot/decision.json --source-root /home/brittonr/wt/octet-rev
+octet requirements verify contract=octet.cairn-pilot.aeneas-consumer status=passed aggregate=passed recorded=906cc950af8318c420b9c8188f325aede254fe2c54360b4881c5c87f2d4f9a45 recomputed=906cc950af8318c420b9c8188f325aede254fe2c54360b4881c5c87f2d4f9a45 diagnostics=0
+non-claim: does not establish release eligibility
+non-claim: does not prove Aeneas or Charon translation soundness
+non-claim: does not prove Lean or verifier soundness
+non-claim: does not prove rustc compiler correctness
+non-claim: does not prove semantic equivalence
+non-claim: evaluates supplied reviewed contracts and evidence only; does not authenticate reviewers or producers, prove verifier soundness, or establish whole-program correctness
+non-claim: phase-1 pilot non-claim: the evidence is a fixture theorem over a fixture rail; it is not a production theorem, not whole-program correctness, and not release eligibility
+exit 0

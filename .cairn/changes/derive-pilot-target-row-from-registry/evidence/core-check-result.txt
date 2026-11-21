@@ -1,0 +1,12 @@
+The flake `core` check ran once:
+
+  nix --option min-free 0 --option builders '' build .#checks.x86_64-linux.core -L
+
+It exited 1 because `octet-nextest` failed one test,
+`octet-merge-rail::lean_backend lean_backend_verifies_checked_overflow_when_available`,
+with `Lean evaluation: BackendError { message: "Lean exceeded the 10000 ms
+bounded timeout" }`. 1459 of 1460 executed tests passed (375 were not run
+after the failure). That test exercises the Lean backend timeout, not the
+Cairn contract, the registry export, the pilot targets, or their generated
+artifacts, so it is recorded as an environment/timeout failure and not as a
+regression from this change. Full transcript: `evidence/core-check.txt`.
