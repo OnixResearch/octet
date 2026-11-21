@@ -263,8 +263,12 @@ obligations are unchanged; a timeout remains a failed gate.
 
 GitHub CI substitutes unchanged derivations from the public `onixresearch`
 Cachix cache (`onixresearch.cachix.org-1:IwO1kM4gBpVXfBmRkQM2mm2o22YoGSy6jQ/DaZWnLDM=`).
-Only push events receive `CACHIX_AUTH_TOKEN` and write to it; pull requests only
-read it. An unchanged gate derivation is substituted rather than rebuilt: that
+A run receives `CACHIX_AUTH_TOKEN` and writes to it only when its author can
+already write to this repository: push events and pull requests whose head
+repository is this repository. Same-repository pull request authors already
+have write access, and their branch pushes already write to this cache, so the
+writer set is unchanged; fork pull requests only read it and never receive the
+secret. An unchanged gate derivation is substituted rather than rebuilt: that
 preserves the earlier result for the identical derivation and is not fresh
 proof work. A changed gate derivation still builds under its unchanged deadline.
 Qualification evidence that needs fresh execution must cite the run's build

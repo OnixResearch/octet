@@ -28,14 +28,18 @@ jobs:
           persist-credentials: false
       - uses: cachix/install-nix-action@v31
       # Substitute unchanged derivations from the onixresearch Cachix cache.
-      # Only push events, which require write access to this repository,
-      # receive the token and write to it. Pull requests, including forks, only
-      # read it. Without the secret, pushing stays disabled.
+      # A run writes to it only when its author can already write to this
+      # repository: `push` events, and `pull_request` events whose head
+      # repository is this repository. Same-repository pull request authors
+      # already have write access, and every push to their branch writes to
+      # this cache, so this admits no new writer. Fork pull requests never
+      # receive the token, and their checkout stays read-only. Without the
+      # secret, pushing stays disabled for every run.
       - uses: cachix/cachix-action@v17
         with:
           name: onixresearch
-          authToken: ${{ github.event_name == 'push' && secrets.CACHIX_AUTH_TOKEN || '' }}
-          skipPush: ${{ github.event_name != 'push' }}
+          authToken: ${{ (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)) && secrets.CACHIX_AUTH_TOKEN || '' }}
+          skipPush: ${{ github.event_name != 'push' && !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) }}
       - run: nix build .#checks.x86_64-linux.core --print-build-logs
 
   verify:
@@ -47,9 +51,12 @@ jobs:
       - uses: cachix/install-nix-action@v31
       - uses: cachix/cachix-action@v17
         with:
+          # Same writer rule as the `core` job: push events and same-repository
+          # pull requests write; fork pull requests only read and never get the
+          # secret.
           name: onixresearch
-          authToken: ${{ github.event_name == 'push' && secrets.CACHIX_AUTH_TOKEN || '' }}
-          skipPush: ${{ github.event_name != 'push' }}
+          authToken: ${{ (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)) && secrets.CACHIX_AUTH_TOKEN || '' }}
+          skipPush: ${{ github.event_name != 'push' && !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) }}
       - name: Admit pinned Bubblewrap user namespaces
         # Ubuntu restricts unprofiled user namespaces. Admit only the locked
         # Nix executable; keep the global restriction and network denial intact.
