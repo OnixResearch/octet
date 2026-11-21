@@ -137,6 +137,21 @@ repinned to rewritten marketing text. Onboarding acceptance remains the actual
 packaged denied-division, guarded-fix, original-artifact verification, and
 tampered-copy rejection path, not the presence of particular sentences.
 
+## 2026-11-20: Registry-derived pilot assurance target row
+
+The `octet.cairn-pilot.aeneas-consumer` target now derives its requirement row
+and contract specification from the checked-in registry export
+`standards/requirements/fixtures/cairn-pilot/requirement-registry.json` with
+Cairn's `requirement_from_registry` and `specification_from_registry` helpers,
+instead of hand-copying the six row fields and the specification digest. The
+vendored `cairn-assurance-targets` contract moves to Cairn
+`f20bcb4aa00268fdaa630cbce07633250f18a681` (archive SHA-256
+`7fda0d723d5d29434330b8018b36c36dca220744883924bb005f25a929326e5b`).
+Derivation selects exactly one row by requirement id and fails closed on a
+missing or duplicated row. `targets.json`, `contract.json`, `generated.json`,
+and the pilot decision stay byte-identical, so no consumer-visible identity
+changes.
+
 ## 2026-11-20: CI reuses unchanged builds
 
 The `Nix flake check` workflow now substitutes from the public `onixresearch`
