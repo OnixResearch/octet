@@ -81,9 +81,9 @@ let Source = {
     {
       name = "cairn-assurance-targets",
       repository = "https://github.com/OnixResearch/cairn",
-      revision = "3dc654d38404d595ff07ca994925789f45941ffe",
+      revision = "f20bcb4aa00268fdaa630cbce07633250f18a681",
       license = "MIT OR Apache-2.0 (core and reusable material); AGPL-3.0-or-later (CLI and documentation); vendored components retain their notices",
-      archive_sha256 = "a39ebb184e8fc94db83604d14b227fd1a1b0d7985d29a6ac5dd1902c96578f74",
+      archive_sha256 = "7fda0d723d5d29434330b8018b36c36dca220744883924bb005f25a929326e5b",
       destination = "vendor/sources/cairn-assurance-targets",
       paths = ["LICENSE-MIT", "LICENSE-APACHE", "contracts/assurance-targets.ncl"],
       cargo_packages = [],

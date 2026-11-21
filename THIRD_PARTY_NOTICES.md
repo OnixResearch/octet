@@ -82,15 +82,15 @@ availability, lifecycle approval, or release qualification.
 
 The convergence pilot imports Cairn's consumer-facing assurance-targets
 contract as a second exact source selection at Cairn revision
-`3dc654d38404d595ff07ca994925789f45941ffe`:
+`f20bcb4aa00268fdaa630cbce07633250f18a681`:
 
 - `cairn-policy/assurance-targets.ncl` (upstream `contracts/assurance-targets.ncl`,
-  BLAKE3 `747ae43ec2fe64351dbe2c8e012550f1f8ae12c4a686d59dedb1b41ae3f0d35a`)
+  BLAKE3 `6157871aa6d2b533c5f1c66e689f1718e18a1ffc5a502695529dea6165b245b2`)
 
 Upstream identity: <https://github.com/OnixResearch/cairn/tree/3dc654d38404d595ff07ca994925789f45941ffe>.
 The `cairn-assurance-targets` source selection, its single projection mapping,
 and archive SHA256
-`a39ebb184e8fc94db83604d14b227fd1a1b0d7985d29a6ac5dd1902c96578f74`
+`7fda0d723d5d29434330b8018b36c36dca220744883924bb005f25a929326e5b`
 are recorded in [`vendor/dependencies.ncl`](vendor/dependencies.ncl); the
 vendored licenses are preserved at
 [`vendor/sources/cairn-assurance-targets/LICENSE-MIT`](vendor/sources/cairn-assurance-targets/LICENSE-MIT)
