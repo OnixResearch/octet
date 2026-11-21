@@ -1,0 +1,323 @@
+$ CAIRN_ARCHIVE_DATE=2026-11-21 nix run .#cairn -- archive derive-pilot-target-row-from-registry --root . --execute
+{
+  "acceptance_ids": [],
+  "actions": [
+    {
+      "description": "move active change to archive: derive-pilot-target-row-from-registry",
+      "kind": "archive_change",
+      "path": "./.cairn/archive/2026-11-21-derive-pilot-target-row-from-registry"
+    }
+  ],
+  "blocked": false,
+  "change": "derive-pilot-target-row-from-registry",
+  "cross_repo_dependencies": {
+    "blocked_count": 0,
+    "dependency_count": 0,
+    "input_hash": "db590aa05b790925fdf986f022250368d1d39b2a83586461571de4946c808d37",
+    "non_claims": [
+      "dependency satisfaction proves presented receipt linkage only",
+      "dependency satisfaction does not prove upstream correctness or remote trust",
+      "dependency satisfaction does not prove downstream integration correctness or release eligibility"
+    ],
+    "policy_hash": "c8276321e0e82c524e09ad9357fa48a9d38ac8590263ee6f79c51a328dc6037d",
+    "receipt_hash": "a904c2e684f22844da630261b04dcd4f165f82816b2d7612b88f0099fedec311",
+    "rows": [],
+    "satisfied_count": 0,
+    "schema": "cairn.cross-repo-dependency-receipt.v1",
+    "valid": true,
+    "verdict": "PASS"
+  },
+  "cross_repo_evidence_issues": [],
+  "dry_run": false,
+  "input_hash": "5aafb46346e7b8b8f8394a610db9a626b09c5e396643bd115178c63d622ade79",
+  "layout": "cairn",
+  "mutated": true,
+  "mutation_manifest": {
+    "after": {
+      "entries": [
+        {
+          "content_hash": "b38fbf60d3f4678f2593b77262e4e630961be3fa620331e407ef18c6c5083d75",
+          "exists": true,
+          "path": "./.cairn/archive/2026-11-21-derive-pilot-target-row-from-registry/design.md"
+        },
+        {
+          "content_hash": "0bbe859c880b113feefe8ba40dd067a53e47cc792be334f45bb89934a5002bdf",
+          "exists": true,
+          "path": "./.cairn/archive/2026-11-21-derive-pilot-target-row-from-registry/evidence/core-check-result.txt"
+        },
+        {
+          "content_hash": "5b1b459dea1fdd97d09144f7df293e5cb70da72eceaf83fbbe8d8616ceab4991",
+          "exists": true,
+          "path": "./.cairn/archive/2026-11-21-derive-pilot-target-row-from-registry/evidence/core-check.txt"
+        },
+        {
+          "content_hash": "ccd5cebd5125f93953f1435abc86cd42f00569e8d6f7510e8c2fe852aa527cdb",
+          "exists": true,
+          "path": "./.cairn/archive/2026-11-21-derive-pilot-target-row-from-registry/evidence/gate-design.json"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/2026-11-21-derive-pilot-target-row-from-registry/evidence/gate-design.stderr"
+        },
+        {
+          "content_hash": "7e7767d195b22bdccc822fa451f9ab99be1edff7bd9c8e7fa9ec76fd416d7587",
+          "exists": true,
+          "path": "./.cairn/archive/2026-11-21-derive-pilot-target-row-from-registry/evidence/gate-proposal.json"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/2026-11-21-derive-pilot-target-row-from-registry/evidence/gate-proposal.stderr"
+        },
+        {
+          "content_hash": "64dd03f09f5a7099c190de13d8f9e80050c27ea83dede9b1999f7ade8bcd2e33",
+          "exists": true,
+          "path": "./.cairn/archive/2026-11-21-derive-pilot-target-row-from-registry/evidence/gate-tasks.json"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/2026-11-21-derive-pilot-target-row-from-registry/evidence/gate-tasks.stderr"
+        },
+        {
+          "content_hash": "a131a41d5631969fa0a3c9383f760429b3936f8aab2f377803df14a0a294e1bd",
+          "exists": true,
+          "path": "./.cairn/archive/2026-11-21-derive-pilot-target-row-from-registry/evidence/import-check.txt"
+        },
+        {
+          "content_hash": "13828c2798b11796cffc9266cf7a1f070d9d2f508d57dfb57a814025586c71ec",
+          "exists": true,
+          "path": "./.cairn/archive/2026-11-21-derive-pilot-target-row-from-registry/evidence/import-sync.log"
+        },
+        {
+          "content_hash": "313747d32a46709c27ce8cdff5409a2d6802c491173edc3ec7715aa2ccf1c634",
+          "exists": true,
+          "path": "./.cairn/archive/2026-11-21-derive-pilot-target-row-from-registry/evidence/negative-duplicate-row.txt"
+        },
+        {
+          "content_hash": "2a61870545174aeaa247474eb5e926d852d8e5a43bb8a61c13e267c87b8c4d8f",
+          "exists": true,
+          "path": "./.cairn/archive/2026-11-21-derive-pilot-target-row-from-registry/evidence/negative-unknown-id.txt"
+        },
+        {
+          "content_hash": "9b4152261952cede9663241d20322d0489a77ce56da2b0019281e3bd1cadb3e0",
+          "exists": true,
+          "path": "./.cairn/archive/2026-11-21-derive-pilot-target-row-from-registry/evidence/policy-artifacts.txt"
+        },
+        {
+          "content_hash": "56edbf2d1a6226db49fd86dc922c34981ac6e2aa28f4b809a95530a709835bd1",
+          "exists": true,
+          "path": "./.cairn/archive/2026-11-21-derive-pilot-target-row-from-registry/evidence/policy-validate.txt"
+        },
+        {
+          "content_hash": "98ef4deb02220a99e52bec0dcdd0820a530018cdd5782c628837537c7b49dde0",
+          "exists": true,
+          "path": "./.cairn/archive/2026-11-21-derive-pilot-target-row-from-registry/evidence/requirements-check.txt"
+        },
+        {
+          "content_hash": "d8566d040f97e29beedbcdf1d9f4501e5d89afa0952309c87c571b0f84072a8d",
+          "exists": true,
+          "path": "./.cairn/archive/2026-11-21-derive-pilot-target-row-from-registry/evidence/requirements-verify.txt"
+        },
+        {
+          "content_hash": "ea110cf9d50feb3c248443c79c69b92029fb7fd8b900dda2974f30746bfa0f65",
+          "exists": true,
+          "path": "./.cairn/archive/2026-11-21-derive-pilot-target-row-from-registry/evidence/standards-checks.txt"
+        },
+        {
+          "content_hash": "3abd34ec57ed0859ea96ba400d9d49bcda729c7629fe0abcb06f5004ad339949",
+          "exists": true,
+          "path": "./.cairn/archive/2026-11-21-derive-pilot-target-row-from-registry/evidence/sync.txt"
+        },
+        {
+          "content_hash": "1bcb0f34afe629978e2a493115a28da6e7ee97dff6602ff003875845acac5bae",
+          "exists": true,
+          "path": "./.cairn/archive/2026-11-21-derive-pilot-target-row-from-registry/evidence/validate.json"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/archive/2026-11-21-derive-pilot-target-row-from-registry/evidence/validate.stderr"
+        },
+        {
+          "content_hash": "df8b71bae570eb5accd702e7370a816b8ea9f2e4521254c5d75ea82a9cfcf4db",
+          "exists": true,
+          "path": "./.cairn/archive/2026-11-21-derive-pilot-target-row-from-registry/metadata.json"
+        },
+        {
+          "content_hash": "cc3c248b376fa6580b1be814f1460dc3f9187140da176b1ae6ab579a0db54cfe",
+          "exists": true,
+          "path": "./.cairn/archive/2026-11-21-derive-pilot-target-row-from-registry/proposal.md"
+        },
+        {
+          "content_hash": "8dd2a071fa9d77a30923528de2c25edb9f6f86a38995c916ac9371bbf99b4892",
+          "exists": true,
+          "path": "./.cairn/archive/2026-11-21-derive-pilot-target-row-from-registry/specs/cairn-convergence-pilot/spec.md"
+        },
+        {
+          "content_hash": "67298abafbf27476b3990540ba2fed1dfd1081696816d6dbe855009968cc3516",
+          "exists": true,
+          "path": "./.cairn/archive/2026-11-21-derive-pilot-target-row-from-registry/tasks.md"
+        },
+        {
+          "content_hash": null,
+          "exists": false,
+          "path": "./.cairn/changes/derive-pilot-target-row-from-registry"
+        }
+      ],
+      "manifest_hash": "c24a90161239b485a5c04872e1a33180d5d0c7f5ab953e783e695272ac18e53e"
+    },
+    "before": {
+      "entries": [
+        {
+          "content_hash": "b38fbf60d3f4678f2593b77262e4e630961be3fa620331e407ef18c6c5083d75",
+          "exists": true,
+          "path": "./.cairn/changes/derive-pilot-target-row-from-registry/design.md"
+        },
+        {
+          "content_hash": "0bbe859c880b113feefe8ba40dd067a53e47cc792be334f45bb89934a5002bdf",
+          "exists": true,
+          "path": "./.cairn/changes/derive-pilot-target-row-from-registry/evidence/core-check-result.txt"
+        },
+        {
+          "content_hash": "5b1b459dea1fdd97d09144f7df293e5cb70da72eceaf83fbbe8d8616ceab4991",
+          "exists": true,
+          "path": "./.cairn/changes/derive-pilot-target-row-from-registry/evidence/core-check.txt"
+        },
+        {
+          "content_hash": "ccd5cebd5125f93953f1435abc86cd42f00569e8d6f7510e8c2fe852aa527cdb",
+          "exists": true,
+          "path": "./.cairn/changes/derive-pilot-target-row-from-registry/evidence/gate-design.json"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/derive-pilot-target-row-from-registry/evidence/gate-design.stderr"
+        },
+        {
+          "content_hash": "7e7767d195b22bdccc822fa451f9ab99be1edff7bd9c8e7fa9ec76fd416d7587",
+          "exists": true,
+          "path": "./.cairn/changes/derive-pilot-target-row-from-registry/evidence/gate-proposal.json"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/derive-pilot-target-row-from-registry/evidence/gate-proposal.stderr"
+        },
+        {
+          "content_hash": "64dd03f09f5a7099c190de13d8f9e80050c27ea83dede9b1999f7ade8bcd2e33",
+          "exists": true,
+          "path": "./.cairn/changes/derive-pilot-target-row-from-registry/evidence/gate-tasks.json"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/derive-pilot-target-row-from-registry/evidence/gate-tasks.stderr"
+        },
+        {
+          "content_hash": "a131a41d5631969fa0a3c9383f760429b3936f8aab2f377803df14a0a294e1bd",
+          "exists": true,
+          "path": "./.cairn/changes/derive-pilot-target-row-from-registry/evidence/import-check.txt"
+        },
+        {
+          "content_hash": "13828c2798b11796cffc9266cf7a1f070d9d2f508d57dfb57a814025586c71ec",
+          "exists": true,
+          "path": "./.cairn/changes/derive-pilot-target-row-from-registry/evidence/import-sync.log"
+        },
+        {
+          "content_hash": "313747d32a46709c27ce8cdff5409a2d6802c491173edc3ec7715aa2ccf1c634",
+          "exists": true,
+          "path": "./.cairn/changes/derive-pilot-target-row-from-registry/evidence/negative-duplicate-row.txt"
+        },
+        {
+          "content_hash": "2a61870545174aeaa247474eb5e926d852d8e5a43bb8a61c13e267c87b8c4d8f",
+          "exists": true,
+          "path": "./.cairn/changes/derive-pilot-target-row-from-registry/evidence/negative-unknown-id.txt"
+        },
+        {
+          "content_hash": "9b4152261952cede9663241d20322d0489a77ce56da2b0019281e3bd1cadb3e0",
+          "exists": true,
+          "path": "./.cairn/changes/derive-pilot-target-row-from-registry/evidence/policy-artifacts.txt"
+        },
+        {
+          "content_hash": "56edbf2d1a6226db49fd86dc922c34981ac6e2aa28f4b809a95530a709835bd1",
+          "exists": true,
+          "path": "./.cairn/changes/derive-pilot-target-row-from-registry/evidence/policy-validate.txt"
+        },
+        {
+          "content_hash": "98ef4deb02220a99e52bec0dcdd0820a530018cdd5782c628837537c7b49dde0",
+          "exists": true,
+          "path": "./.cairn/changes/derive-pilot-target-row-from-registry/evidence/requirements-check.txt"
+        },
+        {
+          "content_hash": "d8566d040f97e29beedbcdf1d9f4501e5d89afa0952309c87c571b0f84072a8d",
+          "exists": true,
+          "path": "./.cairn/changes/derive-pilot-target-row-from-registry/evidence/requirements-verify.txt"
+        },
+        {
+          "content_hash": "ea110cf9d50feb3c248443c79c69b92029fb7fd8b900dda2974f30746bfa0f65",
+          "exists": true,
+          "path": "./.cairn/changes/derive-pilot-target-row-from-registry/evidence/standards-checks.txt"
+        },
+        {
+          "content_hash": "3abd34ec57ed0859ea96ba400d9d49bcda729c7629fe0abcb06f5004ad339949",
+          "exists": true,
+          "path": "./.cairn/changes/derive-pilot-target-row-from-registry/evidence/sync.txt"
+        },
+        {
+          "content_hash": "1bcb0f34afe629978e2a493115a28da6e7ee97dff6602ff003875845acac5bae",
+          "exists": true,
+          "path": "./.cairn/changes/derive-pilot-target-row-from-registry/evidence/validate.json"
+        },
+        {
+          "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "exists": true,
+          "path": "./.cairn/changes/derive-pilot-target-row-from-registry/evidence/validate.stderr"
+        },
+        {
+          "content_hash": "df8b71bae570eb5accd702e7370a816b8ea9f2e4521254c5d75ea82a9cfcf4db",
+          "exists": true,
+          "path": "./.cairn/changes/derive-pilot-target-row-from-registry/metadata.json"
+        },
+        {
+          "content_hash": "cc3c248b376fa6580b1be814f1460dc3f9187140da176b1ae6ab579a0db54cfe",
+          "exists": true,
+          "path": "./.cairn/changes/derive-pilot-target-row-from-registry/proposal.md"
+        },
+        {
+          "content_hash": "8dd2a071fa9d77a30923528de2c25edb9f6f86a38995c916ac9371bbf99b4892",
+          "exists": true,
+          "path": "./.cairn/changes/derive-pilot-target-row-from-registry/specs/cairn-convergence-pilot/spec.md"
+        },
+        {
+          "content_hash": "67298abafbf27476b3990540ba2fed1dfd1081696816d6dbe855009968cc3516",
+          "exists": true,
+          "path": "./.cairn/changes/derive-pilot-target-row-from-registry/tasks.md"
+        }
+      ],
+      "manifest_hash": "c69da3cdfd84e94c358918773c3f4256a079ce21149a51e449734598f659926e"
+    },
+    "kind": "archive",
+    "manifest_hash": "11f3b0680cc0c7121e931e69b227615aa79b2ae5499747718f2bda71e00bbba5"
+  },
+  "non_claims": [
+    "workflow state proves only the selected policy graph and observed structural artifact facts",
+    "workflow instructions do not prove artifact truth, review quality, or implementation correctness",
+    "workflow state does not satisfy proposal, design, tasks, sync, archive, evidence, or release gates",
+    "workflow commands are read-only and do not create, edit, delete, or approve lifecycle artifacts"
+  ],
+  "plan_hash": "c913ada29f675525104d071a0c48df7ca30941c4b528b855bea07c2a18520d2d",
+  "policy": "cairn-default",
+  "policy_hash": "c8276321e0e82c524e09ad9357fa48a9d38ac8590263ee6f79c51a328dc6037d",
+  "profile_identity_hash": "b6d571c2c8b6271021ecc915205bb97c035f134ed744179568426db1805eb0b8",
+  "reasons": [],
+  "receipt_hash": "c4d81b8ca5cbe1d3bfd747dbe19adcf0c8f5980c96bcba44326b7458ffcbfea5",
+  "review_receipt_hashes": [],
+  "spec_effect": "delta",
+  "workflow_profile": "spec-driven",
+  "workflow_profile_compatibility_fallback": false,
+  "workflow_profile_source": "change_create",
+  "workflow_profile_version": 1
+}
+exit=0
