@@ -1,0 +1,10 @@
+$ cargo-octet octet requirements check ... --evidence /tmp/octet-escape-deck-evidence.json --artifact-base /tmp/octet-artifact-base-a
+  "aggregate_result": "failed",
+        "proof deck locator `../proof-cards.json` escapes the artifact base: only relative paths inside the base are allowed",
+    "clause `octet.aeneas_consumer_contract.compatibility`: proof deck locator `../proof-cards.json` escapes the artifact base: only relative paths inside the base are allowed",
+check exit 1
+$ cargo-octet octet requirements check ... --evidence /tmp/octet-escape-root-evidence.json --artifact-base /tmp/octet-artifact-base-a
+  "aggregate_result": "failed",
+        "artifact root locator `..` escapes the artifact base: only relative paths inside the base are allowed",
+    "clause `octet.aeneas_consumer_contract.compatibility`: artifact root locator `..` escapes the artifact base: only relative paths inside the base are allowed",
+check exit 1

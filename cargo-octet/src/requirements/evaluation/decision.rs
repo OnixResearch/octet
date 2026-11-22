@@ -49,6 +49,7 @@ pub(in crate::requirements) fn evaluate_contract(
     contract_bytes: &[u8],
     evidence_bytes: &[u8],
     source_root: &std::path::Path,
+    artifact_base: Option<&std::path::Path>,
 ) -> Result<Outcome, String> {
     let contract_blake3 = super::super::hash_bytes(contract_bytes);
     let evidence_blake3 = super::super::hash_bytes(evidence_bytes);
@@ -62,6 +63,7 @@ pub(in crate::requirements) fn evaluate_contract(
         contract,
         evidence,
         source_root,
+        artifact_base,
         assumptions: &assumptions,
     };
     for clause in &contract.clauses {

@@ -20,6 +20,15 @@ cargo octet requirements verify \
   --decision artifacts/requirements/decision.json \
   --source-root .
 
+# Judging evidence retained by a realized producer job:
+cargo octet requirements check \
+  --contract standards/requirements/cairn-pilot/contract.json \
+  --evidence standards/requirements/fixtures/cairn-pilot/evidence.json \
+  --source-root /path/to/reviewed-checkout \
+  --artifact-base /path/to/realized-producer-output \
+  --output artifacts/requirements/pilot-decision.json \
+  --output-format json
+
 cargo octet requirements freshness \
   --contract standards/requirements/example-contract.json \
   --index artifacts/evidence-index.json \
@@ -28,6 +37,20 @@ cargo octet requirements freshness \
 
 Use `cargo octet evidence-index codebase build` to build the index consumed by `freshness`. The
 freshness operation is read-only: it never executes a provider.
+
+### Proof-deck locators and `--artifact-base`
+
+`--source-root` names the reviewed checkout. A proof deck's `deck` and `artifact_root` resolve
+under it by default. When the evidence was retained by a realized producer job, pass
+`--artifact-base PATH` to resolve relative deck locators inside that producer output instead, for
+example `artifact_root: "."` and `deck: "artifacts/proof-cards.json"`.
+
+A relative locator must stay inside the artifact base. Empty locators and root, prefix, and `..`
+components are refused with a diagnostic that names the locator. Absolute locators keep resolving
+exactly as before, with or without the flag. Absolute paths that name a location inside the base
+are held to the same containment rule after the base prefix is stripped, so `<base>/../x` is
+refused. The base path is never recorded in the decision: identical producer-output bytes stored in
+two directories produce byte-identical decisions and the same `decision_blake3`.
 
 ## Contract shape
 

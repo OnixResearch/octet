@@ -366,6 +366,9 @@ scope, rejects empirical evidence for formal-proof requirements, and records the
 decision. `requirements verify` recomputes that decision from the contract, evidence, and source
 bytes. `requirements freshness` compares the same contract with an evidence codebase index and
 reports `current`, `stale_binding`, `missing`, `failed`, `unsupported`, and `incomplete` outcomes.
+Evidence retained by a realized producer job can name its deck and artifact root relative to
+`--artifact-base PATH`; escaping locators are refused and absolute locators keep their previous
+resolution. See [`docs/requirements-contracts.md`](docs/requirements-contracts.md).
 
 ```bash
 cargo octet requirements check \

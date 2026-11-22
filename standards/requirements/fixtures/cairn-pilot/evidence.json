@@ -5,13 +5,13 @@
   "proof_decks": [
     {
       "evidence_id": "aeneas.consumer.increment-matches-model",
-      "deck": "/datapool/mantle-store/convergence-pilot-20261119/store/zjq6whhf2c641vkz89kgwwpbajjq5cbq-octet-mantle-aeneas-consumer-job-v1/artifacts/proof-cards.json",
-      "artifact_root": "/datapool/mantle-store/convergence-pilot-20261119/store/zjq6whhf2c641vkz89kgwwpbajjq5cbq-octet-mantle-aeneas-consumer-job-v1"
+      "deck": "artifacts/proof-cards.json",
+      "artifact_root": "."
     }
   ],
   "non_claims": [
     "the deck is the producer job's own proof-card record, read in place from the preserved output; Octet evaluates it and does not authenticate the producer",
-    "deck and artifact paths are absolute inside the realized output, not repository paths at the reviewed revision",
+    "deck and artifact paths are relative to the artifact base (the realized output), not repository paths at the reviewed revision",
     "the pilot's realization preserved a prebuilt closure signed with the pilot key; this evidence file makes no claim about Mantle's proof acceptance"
   ]
 }

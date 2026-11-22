@@ -2,6 +2,7 @@ pub(in crate::requirements) struct Context<'a> {
     pub(in crate::requirements) contract: &'a super::super::contract::Definition,
     pub(in crate::requirements) evidence: &'a super::super::evidence::Bundle,
     pub(in crate::requirements) source_root: &'a std::path::Path,
+    pub(in crate::requirements) artifact_base: Option<&'a std::path::Path>,
     pub(in crate::requirements) assumptions: &'a std::collections::BTreeMap<String, super::decision::AssumptionOutcome>,
 }
 
@@ -112,9 +113,13 @@ pub(in crate::requirements) fn evaluate_disposition(
             diagnostics.push("required clause remains unresolved".to_owned());
             (super::super::STATUS_UNRESOLVED.to_owned(), Vec::new())
         }
-        super::super::DISPOSITION_FORMAL_PROOF => {
-            super::formal::evaluate(evaluator.evidence, clause, evaluator.source_root, diagnostics)
-        }
+        super::super::DISPOSITION_FORMAL_PROOF => super::formal::evaluate(
+            evaluator.evidence,
+            clause,
+            evaluator.source_root,
+            evaluator.artifact_base,
+            diagnostics,
+        ),
         super::super::DISPOSITION_EMPIRICAL_CHECK => {
             empirical(evaluator.evidence, clause, evaluator.source_root, diagnostics)
         }

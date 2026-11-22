@@ -26,7 +26,7 @@ The realized producer output `P` (the directory
 `/datapool/mantle-store/convergence-pilot-20261119/store/<root basename>`)
 declares the same files twice: as the copied source tree `source/…` and as the
 proof card's bound artifacts. Each plain `b3sum` above equals the value Octet's
-proof card in `P/proof-cards.json` lists for the copied file:
+proof card in `P/artifacts/proof-cards.json` lists for the copied file:
 
 | repo-relative locator at REV | plain BLAKE3 | proof card entry |
 | --- | --- | --- |
@@ -40,6 +40,19 @@ BLAKE3 `7b6bbfdae779ada85f40f563c5d4db8c9afec9c00581f07794b4d907ec6f15c9` of
 `specification_blake3` `7529c7f5…` is Cairn's domain-separated identity and is
 carried only on `targets.ncl`'s `specification`, where the projection checks it
 against the row.
+
+## Evidence locators
+
+`fixtures/cairn-pilot/evidence.json` names the deck and its artifact root
+relative to the producer output (`artifact_root: "."`,
+`deck: "artifacts/proof-cards.json"`). Judge it with
+`cargo octet requirements check --artifact-base P …` (and the same flag on
+`requirements verify`) instead of pinning a store path in the evidence. The
+flag resolves relative locators inside `P`; an escaping locator is refused.
+Because the decision binds the evidence bytes and not the base path, the
+committed `decision.json` is identical wherever an identical `P` is stored.
+The committed decision was produced by this change, so its
+`decision_blake3` supersedes the earlier absolute-locator decision once.
 
 ## External receipt
 

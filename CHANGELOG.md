@@ -137,6 +137,24 @@ repinned to rewritten marketing text. Onboarding acceptance remains the actual
 packaged denied-division, guarded-fix, original-artifact verification, and
 tampered-copy rejection path, not the presence of particular sentences.
 
+## 2026-11-22: Location-independent proof-deck evidence
+
+`cargo octet requirements check` and `requirements verify` accept
+`--artifact-base PATH`. Relative `proof_decks[].artifact_root` and `deck`
+locators resolve inside that base — a realized producer output — instead of
+under `--source-root`. A relative locator must stay inside the base: empty,
+root, prefix, and `..` components are refused, and an absolute locator that
+names a location inside the base is refused if its stripped remainder escapes.
+Absolute locators keep their previous resolution with or without the flag. The
+base path is never recorded in the decision, so identical producer outputs in
+different directories now produce byte-identical decisions and the same
+`decision_blake3`.
+
+The Cairn pilot evidence now uses `artifact_root: "."` and
+`deck: "artifacts/proof-cards.json"`, which changes its `evidence_blake3` and
+therefore the committed pilot `decision.json` once. The proof cards, contract,
+reviewed sources, and specification bytes are unchanged.
+
 ## 2026-11-21: Same-repository pull requests fill the CI cache
 
 Both `Nix flake check` jobs now write to the `onixresearch` Cachix cache for

@@ -374,6 +374,7 @@ pub struct RequirementsCheckArgs {
     pub contract: PathBuf,
     pub evidence: PathBuf,
     pub source_root: PathBuf,
+    pub artifact_base: Option<PathBuf>,
     pub output: Option<PathBuf>,
     pub output_format: OutputFormat,
 }
@@ -384,6 +385,7 @@ pub struct RequirementsVerifyArgs {
     pub evidence: PathBuf,
     pub decision: PathBuf,
     pub source_root: PathBuf,
+    pub artifact_base: Option<PathBuf>,
     pub output_format: OutputFormat,
 }
 
@@ -560,8 +562,8 @@ Usage:
   cargo octet prove --record-negative-check --proof-cards PATH --mutant-cards PATH --proof-or-property-id ID --mutant-source PATH --verifier-evidence PATH [--output PATH]
   cargo octet proof-ref validate --proof-cards PATH --ref PATH [--output-format human|json]
   cargo octet proof-ref scaffold --proof-cards PATH --proof-or-property-id ID --reference-id ID --consumer-context TEXT --consumer-source PATH --anchor TEXT [--output PATH]
-  cargo octet requirements check --contract PATH --evidence PATH [--source-root PATH] [--output PATH] [--output-format human|json]
-  cargo octet requirements verify --contract PATH --evidence PATH --decision PATH [--source-root PATH] [--output-format human|json]
+  cargo octet requirements check --contract PATH --evidence PATH [--source-root PATH] [--artifact-base PATH] [--output PATH] [--output-format human|json]
+  cargo octet requirements verify --contract PATH --evidence PATH --decision PATH [--source-root PATH] [--artifact-base PATH] [--output-format human|json]
   cargo octet requirements freshness --contract PATH --index PATH [--output-format human|json]
   cargo octet roadmap <artifact|capsule|ability|pointer|session|pure-cache> ...
   cargo octet transcript <PATH>
@@ -721,11 +723,13 @@ Validates a Rust-owned ProofEvidenceRef JSON record against a saved proof-cards.
 const REQUIREMENTS_HELP: &str = "cargo octet requirements
 
 Commands:
-  check --contract PATH --evidence PATH [--source-root PATH] [--output PATH] [--output-format human|json]
-  verify --contract PATH --evidence PATH --decision PATH [--source-root PATH] [--output-format human|json]
+  check --contract PATH --evidence PATH [--source-root PATH] [--artifact-base PATH] [--output PATH] [--output-format human|json]
+  verify --contract PATH --evidence PATH --decision PATH [--source-root PATH] [--artifact-base PATH] [--output-format human|json]
   freshness --contract PATH --index PATH [--output-format human|json]
 
 Evaluates a reviewed, Nickel-authored requirement contract against retained evidence. Each clause carries a stable ID, reviewed specification identity, implementation scope, disposition, allowed evidence, required negative controls, and explicit exclusions. Formal-proof clauses require a passing proof card with matching scope, source identities, retained artifact hashes, and provider evidence; empirical checks cannot satisfy a formal-proof requirement. Assumptions are bound to an identity, trusted boundary, and required empirical evidence. A decision is recomputable from the same contract and evidence without an AI model or hosted provider.
+
+--source-root names the reviewed checkout. Proof decks and their artifact roots resolve under it by default; --artifact-base names the realized producer output instead, so retained evidence can use relative locators (for example deck `artifacts/proof-cards.json` and artifact root `.`). A relative locator must stay inside that base: empty, root, prefix, and `..` components are refused. Absolute locators keep resolving exactly as before, with or without the flag, and the base path is never recorded in the decision, so identical producer outputs in different directories yield the same decision bytes.
 
 Freshness consumes the same contract as its required-obligation inventory and compares it with an evidence codebase index. It reports current, stale_binding, missing, failed, unsupported, and incomplete outcomes, shows old/new bindings, and uses bounded typed traversal for related records. Shared labels and content identity establish relatedness only; they never establish causal dependency or proof support. This command never executes providers.
 ";
@@ -772,6 +776,7 @@ fn parse_requirements(args: &[String]) -> Result<RequirementsArgs, String> {
     let mut decision = None;
     let mut index = None;
     let mut source_root = PathBuf::from(".");
+    let mut artifact_base = None;
     let mut output = None;
     let mut output_format = OutputFormat::Human;
     let mut position = 0;
@@ -787,13 +792,16 @@ fn parse_requirements(args: &[String]) -> Result<RequirementsArgs, String> {
             "--source-root" => {
                 source_root = PathBuf::from(requirement_value(rest, &mut position, flag, inline_value)?);
             }
+            "--artifact-base" => {
+                artifact_base = Some(PathBuf::from(requirement_value(rest, &mut position, flag, inline_value)?));
+            }
             "--output" => output = Some(PathBuf::from(requirement_value(rest, &mut position, flag, inline_value)?)),
             "--output-format" | "--format" => {
                 output_format = parse_output_format(&requirement_value(rest, &mut position, flag, inline_value)?)?;
             }
             other => {
                 return Err(format!(
-                    "unsupported requirements {mode} argument `{other}`; expected --contract, --evidence, --decision, --index, --source-root, --output, or --output-format"
+                    "unsupported requirements {mode} argument `{other}`; expected --contract, --evidence, --decision, --index, --source-root, --artifact-base, --output, or --output-format"
                 ));
             }
         }
@@ -804,7 +812,8 @@ fn parse_requirements(args: &[String]) -> Result<RequirementsArgs, String> {
         RequirementAction::Check => RequirementsMode::Check(RequirementsCheckArgs {
             contract,
             evidence: evidence.ok_or_else(|| "requirements check requires `--evidence PATH`".to_owned())?,
-            source_root,
+            source_root: source_root.clone(),
+            artifact_base: artifact_base.clone(),
             output,
             output_format,
         }),
@@ -812,7 +821,8 @@ fn parse_requirements(args: &[String]) -> Result<RequirementsArgs, String> {
             contract,
             evidence: evidence.ok_or_else(|| "requirements verify requires `--evidence PATH`".to_owned())?,
             decision: decision.ok_or_else(|| "requirements verify requires `--decision PATH`".to_owned())?,
-            source_root,
+            source_root: source_root.clone(),
+            artifact_base,
             output_format,
         }),
         RequirementAction::Freshness => RequirementsMode::Freshness(RequirementsFreshnessArgs {
@@ -5474,6 +5484,8 @@ mod tests {
                 "--evidence=standards/requirements/fixtures/example/evidence.json",
                 "--source-root",
                 ".",
+                "--artifact-base",
+                "producer-output",
                 "--output",
                 "artifacts/requirements/decision.json",
                 "--output-format",
@@ -5494,6 +5506,7 @@ mod tests {
                         std::path::PathBuf::from("standards/requirements/fixtures/example/evidence.json")
                     );
                     assert_eq!(check.source_root, std::path::PathBuf::from("."));
+                    assert_eq!(check.artifact_base, Some(std::path::PathBuf::from("producer-output")));
                     assert_eq!(check.output, Some(std::path::PathBuf::from("artifacts/requirements/decision.json")));
                     assert_eq!(check.output_format, OutputFormat::Json);
                 }
@@ -5514,14 +5527,18 @@ mod tests {
                 "evidence.json",
                 "--decision",
                 "decision.json",
+                "--artifact-base=producer-output",
             ]
             .map(OsString::from),
         )
         .expect("parse requirements verify");
         match parsed {
-            CommandArgs::Requirements(args) => {
-                assert!(matches!(args.mode, RequirementsMode::Verify(_)));
-            }
+            CommandArgs::Requirements(args) => match args.mode {
+                RequirementsMode::Verify(verify) => {
+                    assert_eq!(verify.artifact_base, Some(std::path::PathBuf::from("producer-output")));
+                }
+                other => panic!("expected requirements verify, got {other:?}"),
+            },
             other => panic!("expected requirements args, got {other:?}"),
         }
 
