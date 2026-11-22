@@ -1,0 +1,3 @@
+$ cargo clippy -p cargo-octet --all-targets -- -D warnings
+   Compiling cargo-octet v0.1.1-rc.1 (/home/brittonr/wt/octet-reproducible-job/cargo-octet)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 01s

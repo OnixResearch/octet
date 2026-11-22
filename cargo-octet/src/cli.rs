@@ -310,6 +310,34 @@ pub struct ProviderManifestArgs {
     pub mode: ProviderManifestMode,
 }
 
+/// Where `cargo octet prove` retains the raw stage stdout/stderr it captures.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum RawLogRetention {
+    /// Write the raw capture into the bundle as `proofs/*.stdout|stderr` and manifest it.
+    #[default]
+    Bundle,
+    /// Write the raw capture to the cargo-octet build log and keep it out of the bundle.
+    BuildLog,
+}
+
+impl RawLogRetention {
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Bundle => "bundle",
+            Self::BuildLog => "build-log",
+        }
+    }
+
+    fn parse(value: &str) -> Result<Self, String> {
+        match value {
+            "bundle" => Ok(Self::Bundle),
+            "build-log" => Ok(Self::BuildLog),
+            _ => Err(format!("unsupported --raw-log-retention `{value}`; expected `bundle` or `build-log`")),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct ProveArgs {
     pub registry: Option<PathBuf>,
@@ -327,6 +355,7 @@ pub struct ProveArgs {
     pub proof_refs: Vec<PathBuf>,
     pub trust_boundary: Option<PathBuf>,
     pub negative_check: Option<NegativeCheckArgs>,
+    pub raw_log_retention: RawLogRetention,
 }
 
 #[derive(Debug)]
@@ -706,9 +735,11 @@ Modes:
       from the evidence baseline run. Retained artifacts are recomputed during `proof-ref`
       validation rather than trusting the annotated status.
 
-Run options: --registry PATH or --policy-artifacts-dir PATH, --source PATH (repeatable), --family NAME, --rail POLICY[#rail-N], --artifact-dir PATH (default artifacts/octet-proofs), --list, --explain, --output-format human|json.
+Run options: --registry PATH or --policy-artifacts-dir PATH, --source PATH (repeatable), --family NAME, --rail POLICY[#rail-N], --artifact-dir PATH (default artifacts/octet-proofs), --raw-log-retention bundle|build-log, --list, --explain, --output-format human|json.
 
 Runs selected standards proof rails through argv-based commands, writes structured proof receipts under the artifact directory, emits formal_proof provenance only for validated receipts with verifier identity and proof artifact identity, and keeps ordinary cargo octet check behavior unchanged. Use --rail to narrow selection to one policy or property ID, --list to show selected rails without executing them, and --explain to prefix failure diagnostics with remediation context.
+
+--raw-log-retention bundle (default) writes each rail's captured stdout/stderr to proofs/*.stdout|stderr, lists them in evidence-log-manifest.json and hashes them in the bundle. --raw-log-retention build-log instead streams the same raw capture to cargo-octet's stderr, framed per rail, stage and stream, and keeps it out of the bundle: no log files, no evidence-log-manifest.json, and nothing in the bundle hashes the raw text. status.json and summary.txt then record raw_log_retention: build-log and a non-claim that the raw logs are in the build log and are not bound by the bundle identity. Checks that consume the capture (pass signals, truncation flags, exit statuses, the Aeneas sorry scan and axiom check) still run on the in-memory capture and their verdicts stay in the receipt.
 ";
 
 const PROOF_REF_HELP: &str = "cargo octet proof-ref
@@ -2640,6 +2671,7 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
     let mut mutant_source = None;
     let mut verifier_evidence = None;
     let mut output = None;
+    let mut raw_log_retention = None;
     let mut index = 0;
     while index < args.len() {
         let arg = &args[index];
@@ -2724,6 +2756,10 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
                 output = Some(PathBuf::from(required_arg_at(args, index, arg)?));
                 index += 2;
             }
+            "--raw-log-retention" => {
+                raw_log_retention = Some(RawLogRetention::parse(&required_arg_at(args, index, arg)?)?);
+                index += 2;
+            }
             _ if arg.starts_with("--registry=") => {
                 registry = Some(PathBuf::from(arg.trim_start_matches("--registry=")));
                 index += 1;
@@ -2780,6 +2816,10 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
                 output = Some(PathBuf::from(arg.trim_start_matches("--output=")));
                 index += 1;
             }
+            _ if arg.starts_with("--raw-log-retention=") => {
+                raw_log_retention = Some(RawLogRetention::parse(arg.trim_start_matches("--raw-log-retention="))?);
+                index += 1;
+            }
             _ if arg.starts_with("--output-format=") => {
                 output_format = parse_output_format(arg.trim_start_matches("--output-format="))?;
                 index += 1;
@@ -2795,6 +2835,10 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
     if output_format == OutputFormat::Sarif {
         return Err("prove does not support SARIF output; use human or json".to_owned());
     }
+    if (candidates || record_negative_check) && raw_log_retention.is_some() {
+        return Err("`--raw-log-retention` applies only when running proof rails".to_owned());
+    }
+    let raw_log_retention = raw_log_retention.unwrap_or_default();
 
     if record_negative_check {
         if candidates || list || explain {
@@ -2833,6 +2877,7 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
                 verifier_evidence,
                 output,
             }),
+            raw_log_retention,
         });
     }
 
@@ -2867,6 +2912,7 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
             proof_refs,
             trust_boundary,
             negative_check: None,
+            raw_log_retention,
         });
     }
 
@@ -2893,6 +2939,7 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
         proof_refs,
         trust_boundary,
         negative_check: None,
+        raw_log_retention,
     })
 }
 

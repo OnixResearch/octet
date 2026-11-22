@@ -6,6 +6,19 @@ source revisions and the reviewed nightly/Dylint cohort.
 For the full lint catalog, see `docs/lint-reference.md`.
 For rollout profiles, see `docs/downstream-rollout.md`.
 
+## Unreleased
+
+`cargo octet prove --raw-log-retention bundle|build-log` now selects where raw
+tool stdout/stderr is retained. `bundle` is unchanged: the capture is written
+under `proofs/` and listed in `evidence-log-manifest.json`. `build-log` streams
+the same capture to cargo-octet's stderr, framed by rail, stage and stream, and
+keeps it out of the bundle; `status.json` and `summary.txt` record
+`raw_log_retention: build-log` and the non-claim that the raw logs are not bound
+by the bundle identity. `cargo octet artifact verify` accepts that bundle shape
+and rejects a `build-log` bundle that still contains raw logs or a manifest. The
+Mantle Aeneas consumer job uses `build-log`, making its output byte-reproducible
+while keeping the `sorry` scan and axiom check in force.
+
 ## 0.1.1-rc.1 — published immutable prerelease
 
 `OnixResearch/octet` is the sole canonical source, release and support home.
