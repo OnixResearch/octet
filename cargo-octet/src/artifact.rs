@@ -1697,27 +1697,26 @@ fn validate_benchmark_artifact_binding(
     diagnostics.extend(crate::benchmark::validate_bundle(details, file_map));
 }
 
+/// A rejected status artifact names the check bundle's defaults; the caller adds the diagnostic.
+fn rejected_status(diagnostics: Vec<String>) -> BundleStatus {
+    BundleStatus {
+        output_format: None,
+        bundle_kind: BundleKind::Check,
+        raw_log_retention: RawLogRetention::Bundle,
+        checked_scope: None,
+        diagnostics,
+    }
+}
+
 fn inspect_status(file_map: &BTreeMap<String, Vec<u8>>) -> BundleStatus {
     let Some(status_bytes) = file_map.get(STATUS_ARTIFACT_NAME) else {
-        return BundleStatus {
-            output_format: None,
-            bundle_kind: BundleKind::Check,
-            raw_log_retention: RawLogRetention::Bundle,
-            checked_scope: None,
-            diagnostics: vec![format!("missing expected artifact `{STATUS_ARTIFACT_NAME}`")],
-        };
+        return rejected_status(vec![format!("missing expected artifact `{STATUS_ARTIFACT_NAME}`")]);
     };
 
     let status_json: serde_json::Value = match serde_json::from_slice(status_bytes) {
         Ok(value) => value,
         Err(error) => {
-            return BundleStatus {
-                output_format: None,
-                bundle_kind: BundleKind::Check,
-                raw_log_retention: RawLogRetention::Bundle,
-                checked_scope: None,
-                diagnostics: vec![format!("malformed {STATUS_ARTIFACT_NAME}: {error}")],
-            };
+            return rejected_status(vec![format!("malformed {STATUS_ARTIFACT_NAME}: {error}")]);
         }
     };
 
@@ -1726,22 +1725,10 @@ fn inspect_status(file_map: &BTreeMap<String, Vec<u8>>) -> BundleStatus {
         Some("json") => Some(OutputFormat::Json),
         Some("sarif") => Some(OutputFormat::Sarif),
         Some(other) => {
-            return BundleStatus {
-                output_format: None,
-                bundle_kind: BundleKind::Check,
-                raw_log_retention: RawLogRetention::Bundle,
-                checked_scope: None,
-                diagnostics: vec![format!("unsupported {STATUS_ARTIFACT_NAME} output_format `{other}`")],
-            };
+            return rejected_status(vec![format!("unsupported {STATUS_ARTIFACT_NAME} output_format `{other}`")]);
         }
         None => {
-            return BundleStatus {
-                output_format: None,
-                bundle_kind: BundleKind::Check,
-                raw_log_retention: RawLogRetention::Bundle,
-                checked_scope: None,
-                diagnostics: vec![format!("missing {STATUS_ARTIFACT_NAME} output_format")],
-            };
+            return rejected_status(vec![format!("missing {STATUS_ARTIFACT_NAME} output_format")]);
         }
     };
 
@@ -1909,9 +1896,9 @@ fn reject_build_log_raw_artifacts(file_map: &BTreeMap<String, Vec<u8>>, diagnost
         ));
     }
     for locator in file_map.keys() {
-        let raw_log = locator.starts_with(PROOF_ARTIFACT_PREFIX)
+        let is_raw_log = locator.starts_with(PROOF_ARTIFACT_PREFIX)
             && (locator.ends_with(".stdout") || locator.ends_with(".stderr"));
-        if raw_log {
+        if is_raw_log {
             diagnostics.push(format!("build-log prove bundle must not contain raw log artifact `{locator}`"));
         }
     }

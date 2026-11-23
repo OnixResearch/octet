@@ -259,12 +259,12 @@ fn resolve_artifact_locator(
 
 fn contained_relative(relative: &str, locator: &str, label: &str) -> Result<std::path::PathBuf, String> {
     let path = std::path::Path::new(relative);
-    let contained = !relative.is_empty()
+    let is_contained = !relative.is_empty()
         && !path.is_absolute()
         && path
             .components()
             .all(|component| matches!(component, std::path::Component::CurDir | std::path::Component::Normal(_)));
-    if contained {
+    if is_contained {
         Ok(path.to_path_buf())
     } else {
         Err(format!(

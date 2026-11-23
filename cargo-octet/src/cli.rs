@@ -791,17 +791,7 @@ enum RequirementAction {
 // Flag parsing is one linear match over the subcommand's flags; splitting it would hide which flags
 // the command accepts.
 fn parse_requirements(args: &[String]) -> Result<RequirementsArgs, String> {
-    let (action, mode, rest) = match args.first().map(String::as_str) {
-        Some("check") => (RequirementAction::Check, "check", &args[1..]),
-        Some("verify") => (RequirementAction::Verify, "verify", &args[1..]),
-        Some("freshness") => (RequirementAction::Freshness, "freshness", &args[1..]),
-        Some(other) => {
-            return Err(format!(
-                "unknown requirements subcommand `{other}`; expected `check`, `verify`, or `freshness`"
-            ));
-        }
-        None => return Err("missing requirements subcommand; expected `check`, `verify`, or `freshness`".to_owned()),
-    };
+    let (action, mode, rest) = requirements_subcommand(args)?;
     let mut contract = None;
     let mut evidence = None;
     let mut decision = None;
@@ -863,6 +853,18 @@ fn parse_requirements(args: &[String]) -> Result<RequirementsArgs, String> {
         }),
     };
     Ok(RequirementsArgs { mode })
+}
+
+fn requirements_subcommand(args: &[String]) -> Result<(RequirementAction, &'static str, &[String]), String> {
+    match args.first().map(String::as_str) {
+        Some("check") => Ok((RequirementAction::Check, "check", &args[1..])),
+        Some("verify") => Ok((RequirementAction::Verify, "verify", &args[1..])),
+        Some("freshness") => Ok((RequirementAction::Freshness, "freshness", &args[1..])),
+        Some(other) => {
+            Err(format!("unknown requirements subcommand `{other}`; expected `check`, `verify`, or `freshness`"))
+        }
+        None => Err("missing requirements subcommand; expected `check`, `verify`, or `freshness`".to_owned()),
+    }
 }
 
 fn requirement_value(
