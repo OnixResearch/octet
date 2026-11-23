@@ -1166,4 +1166,100 @@ mod tests {
     fn repo_root() -> std::path::PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR")).parent().expect("repo root").to_path_buf()
     }
+
+    const WRPC_REGISTRY_JSON: &str = include_str!("../../standards/wasm-artifact/generated/profiles.json");
+    const WRPC_BASELINE_PROFILE_ID: &str = "portable-component-baseline";
+    const WRPC_PROFILE_ID: &str = "wrpc-reference";
+    const WRPC_HELLO_SERVER: &[u8] =
+        include_bytes!("../../standards/wasm-artifact/fixtures/positive/wrpc-hello-component.wasm");
+    const WRPC_HELLO_CLIENT: &[u8] =
+        include_bytes!("../../standards/wasm-artifact/fixtures/positive/wrpc-hello-client-component.wasm");
+    const WRPC_TELEMETRY_PROFILE_ID: &str = "wrpc-telemetry-reference";
+    const WRPC_TELEMETRY_EMITTER: &[u8] =
+        include_bytes!("../../standards/wasm-artifact/fixtures/positive/wrpc-telemetry-emitter-component.wasm");
+    const WRPC_TELEMETRY_IMPORTS: [&str; 3] = [
+        "component::wasi:clocks/wall-clock@0.2.3::Instance(1)",
+        "component::wasi:otel/tracing@0.2.0-rc.2::Instance(5)",
+        "component::wasi:otel/types@0.2.0-rc.2::Instance(0)",
+    ];
+
+    fn wrpc_registry() -> (crate::wasm_artifact::WasmProfileRegistry, String) {
+        let registry = crate::wasm_artifact::parse_registry(WRPC_REGISTRY_JSON).expect("parse wasm profile registry");
+        let diagnostics = crate::wasm_artifact::validate_registry(&registry);
+        assert!(diagnostics.is_empty(), "{diagnostics:?}");
+        let identity = crate::wasm_artifact::registry_identity(WRPC_REGISTRY_JSON.as_bytes());
+        (registry, identity)
+    }
+
+    fn analyze_wrpc_profile(bytes: &[u8], profile_id: &str) -> crate::wasm_artifact::WasmArtifactEnvelope {
+        let (registry, identity) = wrpc_registry();
+        crate::wasm_artifact::analyze_bytes(bytes, &registry, profile_id, identity, &[]).expect("analyze wasm artifact")
+    }
+
+    #[test]
+    fn wrpc_reference_profile_admits_the_exact_hello_component_and_keeps_the_baseline_closed() {
+        for component in [WRPC_HELLO_SERVER, WRPC_HELLO_CLIENT] {
+            let report = analyze_wrpc_profile(component, WRPC_PROFILE_ID);
+            assert!(report.details.findings.is_empty(), "{:?}", report.details.findings);
+            assert_eq!(report.details.verification_role, crate::wasm_artifact::RECORDED_ONLY_ROLE);
+            let baseline = analyze_wrpc_profile(component, WRPC_BASELINE_PROFILE_ID);
+            assert!(
+                baseline.details.findings.iter().any(|finding| finding.issue_code == "disallowed-import"),
+                "{:?}",
+                baseline.details.findings
+            );
+        }
+        let baseline = analyze_wrpc_profile(WRPC_HELLO_SERVER, WRPC_BASELINE_PROFILE_ID);
+        assert!(
+            baseline.details.findings.iter().any(|finding| finding.issue_code == "disallowed-proposal"),
+            "{:?}",
+            baseline.details.findings
+        );
+    }
+
+    #[test]
+    fn wrpc_telemetry_profile_admits_the_exact_emitter_and_other_profiles_stay_closed() {
+        let report = analyze_wrpc_profile(WRPC_TELEMETRY_EMITTER, WRPC_TELEMETRY_PROFILE_ID);
+        assert!(report.details.findings.is_empty(), "{:?}", report.details.findings);
+        assert_eq!(report.details.verification_role, crate::wasm_artifact::RECORDED_ONLY_ROLE);
+        let reference = analyze_wrpc_profile(WRPC_TELEMETRY_EMITTER, WRPC_PROFILE_ID);
+        for import in WRPC_TELEMETRY_IMPORTS {
+            assert!(
+                reference
+                    .details
+                    .findings
+                    .iter()
+                    .any(|finding| finding.issue_code == "disallowed-import" && finding.message.contains(import)),
+                "{import}: {:?}",
+                reference.details.findings
+            );
+        }
+        assert!(
+            reference.details.findings.iter().any(|finding| finding.issue_code == "resource-limit"),
+            "{:?}",
+            reference.details.findings
+        );
+        let baseline = analyze_wrpc_profile(WRPC_TELEMETRY_EMITTER, WRPC_BASELINE_PROFILE_ID);
+        assert!(
+            baseline.details.findings.iter().any(|finding| finding.issue_code == "disallowed-import"),
+            "{:?}",
+            baseline.details.findings
+        );
+    }
+
+    #[test]
+    fn wrpc_telemetry_profile_refuses_a_component_without_its_required_imports() {
+        let report = analyze_wrpc_profile(WRPC_HELLO_SERVER, WRPC_TELEMETRY_PROFILE_ID);
+        for import in WRPC_TELEMETRY_IMPORTS {
+            assert!(
+                report
+                    .details
+                    .findings
+                    .iter()
+                    .any(|finding| finding.issue_code == "abi-mismatch" && finding.message.contains(import)),
+                "{import}: {:?}",
+                report.details.findings
+            );
+        }
+    }
 }

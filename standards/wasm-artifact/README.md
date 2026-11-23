@@ -22,6 +22,44 @@ cargo octet artifact verify --artifact-dir artifacts/wasm-artifact
 
 The bundle includes `wasm-artifact.bin`, exact-byte and normalized-interface identities, extracted facts, ordered JSON findings, a SARIF projection, profile/cohort identities, provenance, and explicit non-claims. `wasm-artifact.bin` holds the exact bounded bytes that were analyzed, and the receipt's config identity is the identity of the registry bytes that were analyzed. The runner reads `--input` and `--config` once each, so a pipe such as `/dev/stdin` works. The SARIF projection reports `advisory` findings at SARIF level `note` and includes a `region.byteOffset` only when the finding has a byte offset. Verification recomputes the normalized-interface identity from the recorded facts and rejects a receipt whose stored identity differs. It also rejects a receipt whose config identity differs from its recorded `registry_identity`, and recomputes the receipt status from the recorded findings with the rule collection uses: diagnostics or any `error` finding mean `failed`, other findings mean `manual_review_required`, and no findings mean `passed`. A relabelled status or a changed finding severity therefore fails verification.
 
+## wrpc reference artifact
+
+`wrpc-reference` is an additive recorded-only profile for the normalized
+`bytecodealliance/wrpc` reference hello component pair. It admits exactly the
+server host import identity `component@3::import-func-hello::Func(0)` and the
+client handler instance import
+`component::wrpc-examples:hello/handler::Instance(0)`, with `bulk-memory` and
+`call-indirect-overlong`, two import slots, two tables, and the same remaining
+resource maxima, severity map, and metadata policy as the portable baseline. The portable
+baseline remains closed against the same bytes, so the denial is available as
+negative evidence. The fixtures `fixtures/positive/wrpc-hello-component.wasm` and
+`fixtures/positive/wrpc-hello-client-component.wasm` are the normalized server
+and client artifacts from the wrpc reference bundle at revision
+`aa01409ed38bf7a978570ff567c4475376925df6`; the profile is bound to the observed
+parser scope ordinal and admits no other import or proposal. Runtime, authority,
+provenance, and release claims remain outside this profile.
+
+## wrpc telemetry emitter artifact
+
+`wrpc-telemetry-reference` is an additive recorded-only profile for the
+normalized wasi-otel telemetry emitter that Mantle materializes. It allows and
+requires exactly three instance imports:
+`component::wasi:clocks/wall-clock@0.2.3::Instance(1)`,
+`component::wasi:otel/tracing@0.2.0-rc.2::Instance(5)` and
+`component::wasi:otel/types@0.2.0-rc.2::Instance(0)`, with `wasm1`,
+`component-model`, `bulk-memory` and `call-indirect-overlong`, three import
+slots, two tables, and the same remaining resource maxima,
+severity map and metadata policy as the portable baseline. `wrpc-reference` and
+the portable baseline both stay closed against the same bytes. The fixture
+`fixtures/positive/wrpc-telemetry-emitter-component.wasm` is the pipeline's final
+normalized emitter from Mantle `994bf6537` and wasi-otel
+`e5262a84044aff064c9599eebc05013bb3432795` (BLAKE3
+`0a701cfe9279b6e72bbcace7a1987c5030cfb1e7f25844a55b14dd51efd84f6f`). Octet
+records each import's identity and instance type index, not the instance's
+contents, so the profile does not establish that the types and wall-clock
+imports are type-only. Runtime, telemetry export, clock, authority, provenance
+and release claims remain outside this profile.
+
 ## Molten effect surface
 
 `molten-component-effects-v1` is separate from both unchanged baseline policies.
