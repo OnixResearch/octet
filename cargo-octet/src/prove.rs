@@ -4623,7 +4623,7 @@ mod tests {
         use crate::aeneas_execution::fake_provider;
 
         static AENEAS_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-        let _guard = AENEAS_ENV_LOCK.lock().unwrap_or_else(|poison| poison.into_inner());
+        let _guard = AENEAS_ENV_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         let theorem = fake_provider::real_theorem();
         let mut rail = fake_provider::rail("Theorem.lean", &theorem);
         rail.receipt_verifier.verifier_id = "aeneas-lean@fixture".to_owned();
