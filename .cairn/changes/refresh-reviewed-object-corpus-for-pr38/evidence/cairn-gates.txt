@@ -1,0 +1,13 @@
+Final local gates for refresh-reviewed-object-corpus-for-pr38, 2026-11-23.
+CLI: /nix/store/x37qabfj71nzk5661f3x735nni4m96qk-cairn-0.1.0/bin/cairn (installed CLI).
+
+$ cairn validate --root .
+exit 0; valid: true; issues: 0
+$ cairn gate proposal refresh-reviewed-object-corpus-for-pr38 --root .
+exit 0; verdict: PASS; issues: 0
+$ cairn gate design refresh-reviewed-object-corpus-for-pr38 --root .
+exit 0; verdict: PASS; issues: 0
+$ cairn gate tasks refresh-reviewed-object-corpus-for-pr38 --root .
+exit 0; verdict: PASS; issues: 0
+
+These are local lifecycle checks, not results from GitHub CI or the Nix object rails.

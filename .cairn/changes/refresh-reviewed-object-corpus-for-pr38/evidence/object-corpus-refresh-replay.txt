@@ -1,0 +1,55 @@
+# Object-corpus reference replay for PR #38 (delta discovery)
+# NOTE: this file records the pre-recapture delta that motivated the re-capture;
+# the prepared tuple is the re-captured one in reference-recapture.txt.
+# date: 2026-11-23
+# producer: /nix/store/1caf2mjpb6bs33w2s05lbmhwladysqn3-cargo-octet-0.1.1-rc.1/bin/cargo-octet (cargo-octet 0.1.1-rc.1, BLAKE3 9c06f2760abff9431d40597d849a3e4d83cd0dc9536df179f76662f22712ba60)
+# roots: /tmp/octet-main = origin/main 3ddd21ef (git worktree, baseline)
+#        PR #38 worktree = 20045f39
+# commands per root, cwd=root:
+#   $CARGO_OCTET object corpus receipt --output OUT <manifest source_selections[role]>
+#   $CARGO_OCTET object corpus caveats --output-format=json <manifest source_selections[expanded_internal_corpus]>
+#   cd cargo-octet/tests/fixtures/object-corpus/source-token-v2 && $CARGO_OCTET object corpus receipt --output OUT src/lib.rs
+
+========================================================================
+origin/main 3ddd21ef
+internal-corpus-receipt.json: exit=0 bytes_equal=True
+  object_count recomputed=1155 reference=1155
+  object_set_hash recomputed=b3:c56a0eb81843e0745a5715556dc566c41ae979950b5c781ea2a5577b1b408861
+  object_set_hash reference =b3:c56a0eb81843e0745a5715556dc566c41ae979950b5c781ea2a5577b1b408861
+  pure_cache_blocked recomputed=1155 reference=1155
+  caveat_counts recomputed={"dependency_status": {"source-scanner-token-set": 427, "unsupported-macro-context": 728}, "effect_kind": {"effect_summary": 887, "filesystem": 134, "panic": 226, "process": 12, "time": 2, "unsafe": 4}, "macro_status": {"none-detected": 427, "review-required": 728}, "pure_cache_blocker": {"dependency-identity-unresolved": 1155, "effect-summary-unresolved": 1155, "macro-expansion-unmodeled": 728}}
+  caveat_counts reference ={"dependency_status": {"source-scanner-token-set": 427, "unsupported-macro-context": 728}, "effect_kind": {"effect_summary": 887, "filesystem": 134, "panic": 226, "process": 12, "time": 2, "unsafe": 4}, "macro_status": {"none-detected": 427, "review-required": 728}, "pure_cache_blocker": {"dependency-identity-unresolved": 1155, "effect-summary-unresolved": 1155, "macro-expansion-unmodeled": 728}}
+expanded-internal-corpus-receipt.json: exit=0 bytes_equal=True
+  object_count recomputed=1764 reference=1764
+  object_set_hash recomputed=b3:15f7a4408ad4d3ca24080e09e8b702a75de87a335a2aa27b3d5a4321c9a8ffbb
+  object_set_hash reference =b3:15f7a4408ad4d3ca24080e09e8b702a75de87a335a2aa27b3d5a4321c9a8ffbb
+  pure_cache_blocked recomputed=1764 reference=1764
+  caveat_counts recomputed={"dependency_status": {"source-scanner-token-set": 714, "unsupported-macro-context": 1050}, "effect_kind": {"effect_summary": 1441, "filesystem": 156, "panic": 264, "process": 13, "time": 3, "unsafe": 4}, "macro_status": {"none-detected": 714, "review-required": 1050}, "pure_cache_blocker": {"dependency-identity-unresolved": 1764, "effect-summary-unresolved": 1764, "macro-expansion-unmodeled": 1050}}
+  caveat_counts reference ={"dependency_status": {"source-scanner-token-set": 714, "unsupported-macro-context": 1050}, "effect_kind": {"effect_summary": 1441, "filesystem": 156, "panic": 264, "process": 13, "time": 3, "unsafe": 4}, "macro_status": {"none-detected": 714, "review-required": 1050}, "pure_cache_blocker": {"dependency-identity-unresolved": 1764, "effect-summary-unresolved": 1764, "macro-expansion-unmodeled": 1050}}
+expanded-internal-corpus-caveat-taxonomy.json: exit=0 bytes_equal=True
+  object_count recomputed=1764 reference=1764
+  source_bucket_sum recomputed=1764 reference=1764
+  source_paths_equal=True
+positive-v2-receipt.json: exit=0 bytes_equal=True object_count=1
+
+========================================================================
+PR38 head 20045f39
+internal-corpus-receipt.json: exit=0 bytes_equal=False
+  object_count recomputed=1157 reference=1155
+  object_set_hash recomputed=b3:daf54ee1705ad3c3f8f63e94fec70d75fd3b7ffd901724524250e78c135bfee2
+  object_set_hash reference =b3:c56a0eb81843e0745a5715556dc566c41ae979950b5c781ea2a5577b1b408861
+  pure_cache_blocked recomputed=1157 reference=1155
+  caveat_counts recomputed={"dependency_status": {"source-scanner-token-set": 428, "unsupported-macro-context": 729}, "effect_kind": {"effect_summary": 889, "filesystem": 134, "panic": 226, "process": 12, "time": 2, "unsafe": 4}, "macro_status": {"none-detected": 428, "review-required": 729}, "pure_cache_blocker": {"dependency-identity-unresolved": 1157, "effect-summary-unresolved": 1157, "macro-expansion-unmodeled": 729}}
+  caveat_counts reference ={"dependency_status": {"source-scanner-token-set": 427, "unsupported-macro-context": 728}, "effect_kind": {"effect_summary": 887, "filesystem": 134, "panic": 226, "process": 12, "time": 2, "unsafe": 4}, "macro_status": {"none-detected": 427, "review-required": 728}, "pure_cache_blocker": {"dependency-identity-unresolved": 1155, "effect-summary-unresolved": 1155, "macro-expansion-unmodeled": 728}}
+expanded-internal-corpus-receipt.json: exit=0 bytes_equal=False
+  object_count recomputed=1766 reference=1764
+  object_set_hash recomputed=b3:25214d4f72c1e930bfbb228010b971370c2ccc3b0ec267599bceceb45cda74d7
+  object_set_hash reference =b3:15f7a4408ad4d3ca24080e09e8b702a75de87a335a2aa27b3d5a4321c9a8ffbb
+  pure_cache_blocked recomputed=1766 reference=1764
+  caveat_counts recomputed={"dependency_status": {"source-scanner-token-set": 715, "unsupported-macro-context": 1051}, "effect_kind": {"effect_summary": 1443, "filesystem": 156, "panic": 264, "process": 13, "time": 3, "unsafe": 4}, "macro_status": {"none-detected": 715, "review-required": 1051}, "pure_cache_blocker": {"dependency-identity-unresolved": 1766, "effect-summary-unresolved": 1766, "macro-expansion-unmodeled": 1051}}
+  caveat_counts reference ={"dependency_status": {"source-scanner-token-set": 714, "unsupported-macro-context": 1050}, "effect_kind": {"effect_summary": 1441, "filesystem": 156, "panic": 264, "process": 13, "time": 3, "unsafe": 4}, "macro_status": {"none-detected": 714, "review-required": 1050}, "pure_cache_blocker": {"dependency-identity-unresolved": 1764, "effect-summary-unresolved": 1764, "macro-expansion-unmodeled": 1050}}
+expanded-internal-corpus-caveat-taxonomy.json: exit=0 bytes_equal=False
+  object_count recomputed=1766 reference=1764
+  source_bucket_sum recomputed=1766 reference=1764
+  source_paths_equal=True
+positive-v2-receipt.json: exit=0 bytes_equal=True object_count=1

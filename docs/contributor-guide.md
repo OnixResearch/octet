@@ -286,45 +286,41 @@ proof. The
 [current-head evidence page](current-head-valence-evidence.md) attests an
 earlier payload, not the current v2 rail state.
 
-The current `source-token-v2/candidate-source-manifest.json` is the immutable
-Octet `0.1.1-rc.1` candidate. Its `PENDING`, unselected and null-approval fields
-remain unchanged: the separate `reviewed-source-manifest.json` records selection
-of that exact candidate after the owner's direct bounded decision in
-[`rc1-import-clean-owner-approval.txt`](../.cairn/archive/1970-01-01-resolve-open-assurance-issues/evidence/rc1-import-clean-owner-approval.txt).
-The approval covers all 40 selected source-byte hashes, the 18-path internal and
-39-path expanded selections, three producer modules, the captured consumer-test
-snapshot, immutable Valence revision/module, and four exact reference artifacts.
-Their object counts are 1 (fixed fixture), 1,155 (internal), and 1,764 each
-(expanded receipt and expanded caveat taxonomy). The fixed receipt deliberately
-uses the fixture-relative `src/lib.rs` locator, not the root-relative diagnostic.
+The original audited `0.1.1-rc.1` tuple was admitted by the owner's
+[2026-11-13 decision](../.cairn/archive/1970-01-01-resolve-open-assurance-issues/evidence/rc1-import-clean-owner-approval.txt).
+It covered 40 source paths, 18-path internal and 39-path expanded selections,
+three producer modules, the captured consumer-test snapshot, the reviewed
+Valence revision/module, and exact reference counts of 1, 1,155, 1,764, and
+1,764. The original producer binding covers 42 unique source/module/test paths
+and the compiled Valence module; it describes the audited preflight, not a
+build of a later source.
 
-The active admission inputs have these BLAKE3 identities:
+The current verifier also requires a separate
+[PR #38 owner decision](../cargo-octet/tests/fixtures/object-corpus/source-token-v2/pr38-object-refresh-owner-approval.txt).
+Only `cargo-octet/src/cli.rs` changed among the selected paths. The fixed
+reference still uses the fixture-relative `src/lib.rs` locator and has one
+object. The recaptured internal and expanded references have 1,157 and 1,766
+objects respectively; the expanded caveat taxonomy covers the same 1,766.
+The refresh approval names the exact manifest and reference identities. The
+candidate's `PENDING`, unselected and null-approval fields are preserved
+because authority is recorded separately from the frozen manifests.
 
-- Candidate: `be3647f9c72a598defa192f4ff0cda440fef22eeb5e2bc7dd6c162abce43d862`.
-- Reviewed manifest: `63a4cc8c1e5dbdda1e74182ebb13f830d33772dc97636143b82cc400dcf94961`.
-- Native owner record: `3f7b40b37e9eb0d5d58de205fd1d18b1da4733e929982d52ed7b27959399b4f7`.
-- `source-token-v2/approved-audit-envelope.json`:
-  `5892eae1dfa1658381e95684243a252bc8757dad6e21ef14d3950bfadd0d49fc`.
-- `source-token-v2/original-producer-source-binding.json`:
-  `a3ab4aa9674aecd8ec9648dc436b285ebfff1288a78c94414d561c97acb8d2f4`.
-
-The original producer's retained Nix derivation/source evidence compares 42
-unique selected source/module/test paths and the compiled Valence module. This
-resolves the original preflight source binding, not the final H3/release-source
-binding. The candidate's preparation-time provenance is frozen; its later source
-resolution is recorded separately, not retroactively written into candidate bytes.
+The two decisions, audit envelope and original producer/source binding are
+separately byte-locked. The reviewed manifest's mapping relates the changed
+source and references to their old audited identities without claiming a new
+audit or granting admission on its own.
 Approval excludes future consumer-test code and every other future edit. It is
 not a signature, correctness proof, warning-budget acceptance, or release
 qualification. Re-review changed producer code and tests separately.
 
-Lifecycle closure relocates only the owner-record file. The sealed reviewed
-manifest keeps its pre-archive locator and digest; the admission verifier opens
-only the archived owner record and checks the same approved bytes.
+The archived RC approval keeps the reviewed manifest's sealed pre-archive
+locator and digest; the verifier uses the fixed archive location. The new
+refresh record has its own fixed path alongside the manifests.
 
 The verifier requires the exact owner-record, audit and source-binding bytes;
 it does not infer approval from prose phrases. Its code and byte locks still
 live in the same PR-controlled repository. An independent reviewer must compare
-the exact candidate and audit identities with the actual owner decision; an
+the exact live and historical identities with their respective owner decisions; an
 in-repository PASS cannot authenticate an owner against simultaneous malicious
 edits to the verifier and its inputs.
 
@@ -359,7 +355,7 @@ whenever a change touches object-corpus inputs such as `cargo-octet/src/object.r
 `cargo-octet/src/cli.rs`, `cargo-octet/tests/fingerprint_consumer.rs`,
 `THIR/MIR fixture inventories`, or `cargo-octet/tests/fixtures/object-corpus/*`.
 The named freshness rail must bind actual source bytes to the approved
-37-source manifest and compare generated output against its four separately
+40-source manifest and compare generated output against its four separately
 saved, reviewed references; a self-replay or freshly regenerated expected
 receipt is insufficient. The selected freshness rail and aggregate have now
 passed against those saved reviewed references. An intentional refresh requires new

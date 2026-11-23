@@ -19,6 +19,11 @@ and rejects a `build-log` bundle that still contains raw logs or a manifest. The
 Mantle Aeneas consumer job uses `build-log`, making its output byte-reproducible
 while keeping the `sorry` scan and axiom check in force.
 
+The object-corpus rails require a separate exact owner decision for the PR #38
+refresh. The CLI change adds two selected function objects; the internal and
+expanded references now cover 1,157 and 1,766 objects. The original audit and
+release approval are unchanged.
+
 ## 0.1.1-rc.1 — published immutable prerelease
 
 `OnixResearch/octet` is the sole canonical source, release and support home.
