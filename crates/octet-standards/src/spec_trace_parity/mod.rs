@@ -37,6 +37,8 @@ pub const REQUIRED_NON_CLAIMS: [&str; 4] = [
 pub const PROJECTION_NON_CLAIM: &str = "parity is claimed only under the adapter's declared state projection and loss bound; divergences lost by projection are not detected";
 
 mod adapter;
+/// Default-off opt-in Dive `validate-trace` pin and schema-4 admission bridge.
+pub mod external;
 mod freshness;
 mod model;
 mod receipt;
