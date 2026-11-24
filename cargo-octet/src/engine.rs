@@ -111,6 +111,7 @@ struct ArchitectureRunArtifacts {
     compiler: Option<crate::architecture_ir::ArchitectureArtifacts>,
     project: Option<crate::project_architecture::ProjectArchitectureArtifacts>,
     closure: Option<crate::admit::IntegratedClosureArtifacts>,
+    cargo_lints: Option<crate::cargo::lints::CargoLintAssessment>,
 }
 
 #[derive(Debug, Clone)]
@@ -241,7 +242,8 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
             .env("DYLINT_LIBS", &dylint_libs)
             .env("DYLINT_NO_DEPS", "1")
             .env("RUSTUP_TOOLCHAIN", &toolchain)
-            .stdout(Stdio::piped());
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
         cmd.env_remove(octet_lint_metadata::strict_profile::STRICT_PROFILE_ENV);
         cmd.env_remove(octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_ENV);
         if let Some(collector) = &collector {
@@ -252,12 +254,12 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
             cmd.env(octet_lint_metadata::strict_profile::STRICT_PROFILE_ENV, &selected.policy.profile_id);
         }
 
-        if check.output_format != OutputFormat::Human {
-            cmd.stderr(Stdio::null());
-        }
-
         let mut child = cmd.spawn().map_err(|error| format!("run cargo check: {error}"))?;
         let child_stdout = child.stdout.take().expect("stdout piped");
+        let child_stderr = child.stderr.take().expect("stderr piped");
+        let echo_stderr = check.output_format == OutputFormat::Human;
+        let stderr_handle =
+            std::thread::spawn(move || crate::cargo::lints::stream_bounded_stderr(child_stderr, echo_stderr));
 
         let meta_map = output::lint_meta_map();
         let streamed_findings =
@@ -267,8 +269,41 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
             let _ = child.kill();
         }
         let cargo_wait = child.wait().map_err(|error| format!("wait for cargo check: {error}"));
+        let captured_stderr = stderr_handle.join().map_err(|_| "cargo stderr reader thread panicked".to_owned())??;
         let mut findings = streamed_findings?;
         let cargo_process_exit = classify_cargo_process_exit(cargo_wait?);
+        let parsed_stderr =
+            crate::cargo::lints::parse::parse_cargo_stderr(&captured_stderr.text, captured_stderr.is_truncated);
+        let cargo_lint_policy =
+            crate::cargo::lints::policy::scan_workspace_policy(&cfg.workspace_root, &diagnostic_paths.package_dirs);
+        let should_probe_cargo_version = cargo_lint_policy.has_any_cargo_lints
+            || parsed_stderr.has_unused_manifest_key_lints_cargo
+            || parsed_stderr.has_unknown_cargo_lint
+            || !parsed_stderr.diagnostics.is_empty();
+        let cargo_version =
+            should_probe_cargo_version.then(|| crate::cargo::lints::CargoVersion::probe(&toolchain)).flatten();
+        let stderr_findings = crate::cargo::lints::findings_from_diagnostics(
+            &parsed_stderr.diagnostics,
+            &findings,
+            &run_metadata.config_hash,
+            check.cache,
+            &|raw_path| diagnostic_paths.normalize_manifest_diagnostic(raw_path),
+        )?;
+        findings.extend(stderr_findings);
+        let has_rustc_compile_errors = findings
+            .iter()
+            .any(|finding| finding.severity_is_error() && !output::is_known_lint_finding(finding));
+        let cargo_lint_assessment =
+            crate::cargo::lints::policy::assess_cargo_lints(&crate::cargo::lints::policy::AssessmentInput {
+                workspace_root: &cfg.workspace_root,
+                cargo_version: cargo_version.as_ref(),
+                policy: &cargo_lint_policy,
+                scope_args: &scope_args,
+                cargo_check_args: &cargo_check_args,
+                parsed_stderr: &parsed_stderr,
+                has_rustc_compile_errors,
+                is_cargo_success: cargo_process_exit.is_success(),
+            });
         let mut stdout_lock = std::io::stdout().lock();
         let mut stderr_lock = std::io::stderr().lock();
         let architecture_artifacts = if cargo_process_exit.is_success() {
@@ -404,7 +439,10 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
         } else {
             restore_changed_lockfile(&lockfile_path, &lockfile_before)?
         };
-        let base_outcome = if architecture_error.is_some() || lockfile_error.is_some() || baseline_write_error.is_some()
+        let base_outcome = if architecture_error.is_some()
+            || lockfile_error.is_some()
+            || baseline_write_error.is_some()
+            || cargo_lint_assessment.fail_closed_message.is_some()
         {
             lint_outcome.force_integration_failure()
         } else if let Some(project) = &project_architecture_artifacts {
@@ -430,6 +468,7 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
             architecture_error.or_else(|| terminated_run_error(&lint_outcome)),
             baseline_write_error,
             lockfile_error,
+            cargo_lint_assessment.fail_closed_message.clone(),
         ]
         .into_iter()
         .flatten()
@@ -438,6 +477,7 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
             compiler: architecture_artifacts,
             project: project_architecture_artifacts,
             closure: integrated_closure_artifacts,
+            cargo_lints: Some(cargo_lint_assessment),
         };
         let finalized_run = finalize_run(
             check,
@@ -496,8 +536,9 @@ fn build_run_artifacts(
         compiler,
         project,
         closure,
+        cargo_lints,
     } = architecture_artifacts;
-    let summary = match &project {
+    let base_summary = match &project {
         Some(project) => output::render_integrated_summary(
             findings,
             outcome,
@@ -507,6 +548,10 @@ fn build_run_artifacts(
             &project.receipt,
         )?,
         None => output::render_summary(findings, outcome, metadata, baseline_evaluation)?,
+    };
+    let summary = match cargo_lints.as_ref() {
+        Some(assessment) => output::append_cargo_lint_summary(base_summary, assessment)?,
+        None => base_summary,
     };
     let status_json = match &project {
         Some(project) => output::render_integrated_status_json(
@@ -1102,7 +1147,7 @@ fn read_cargo_messages(
                 let code = message["code"]["code"].as_str().unwrap_or("");
                 let lint_name = normalize_lint_name(code);
 
-                let meta = meta_map.get(lint_name.as_str()).unwrap_or(&output::UNKNOWN_LINT_META);
+                let meta = output::lint_meta_for(&lint_name, meta_map);
                 finding_counter += 1;
                 findings.push(build_finding(
                     finding_counter,
@@ -1356,6 +1401,7 @@ struct DiagnosticPaths {
     root: PathBuf,
     reported_root: PathBuf,
     package_dirs: BTreeMap<String, PathBuf>,
+    manifest_packages: BTreeMap<String, (String, String)>,
     dir: Dir,
 }
 
@@ -1415,6 +1461,7 @@ impl DiagnosticPaths {
             return Err("diagnostic Cargo metadata workspace root differs from the check workspace".to_owned());
         }
         let mut package_dirs = BTreeMap::new();
+        let mut manifest_packages = BTreeMap::new();
         let packages = metadata["packages"].as_array().ok_or("diagnostic Cargo metadata has no packages")?;
         for package in packages {
             // Registry/git packages may have paths under an ambient Cargo cache;
@@ -1439,6 +1486,14 @@ impl DiagnosticPaths {
                         .as_path()
                         .to_path_buf()
                 };
+                let manifest_rel = if directory.as_os_str().is_empty() {
+                    "Cargo.toml".to_owned()
+                } else {
+                    format!("{}/Cargo.toml", determinism::normalize_path(&directory))
+                };
+                if let Some(pkg_name) = package["name"].as_str() {
+                    manifest_packages.insert(manifest_rel, (id.to_owned(), pkg_name.to_owned()));
+                }
                 if package_dirs.insert(id.to_owned(), directory).is_some() {
                     return Err(format!("duplicate diagnostic Cargo package ID `{id}`"));
                 }
@@ -1450,8 +1505,29 @@ impl DiagnosticPaths {
             root,
             reported_root,
             package_dirs,
+            manifest_packages,
             dir,
         })
+    }
+
+    fn package_name_for_manifest(&self, file: &str) -> &str {
+        self.manifest_packages.get(file).map_or("unknown", |(_, pkg_name)| pkg_name.as_str())
+    }
+
+    fn normalize_manifest_diagnostic(&self, raw_path: &str) -> Result<(String, String), String> {
+        let candidate = Path::new(raw_path);
+        let rel_guess = if candidate.is_absolute() {
+            candidate
+                .strip_prefix(&self.reported_root)
+                .or_else(|_| candidate.strip_prefix(&self.root))
+                .map_or_else(|_| raw_path.to_owned(), determinism::normalize_path)
+        } else {
+            determinism::normalize_path_text(raw_path)
+        };
+        let package_id = self.manifest_packages.get(&rel_guess).map(|(id, _)| id.as_str());
+        let normalized = self.normalize(package_id, raw_path)?;
+        let crate_name = self.package_name_for_manifest(&normalized).to_owned();
+        Ok((normalized, crate_name))
     }
 
     fn normalize(&self, package_id: Option<&str>, reported_path: &str) -> Result<String, String> {
@@ -1595,7 +1671,12 @@ fn build_finding(
     let msg_text =
         normalize_finding_message(&diagnostic_paths.reported_root, message["message"].as_str().unwrap_or(""));
     let severity = compiler_finding_severity(message["level"].as_str()).to_owned();
-    let crate_name = cargo_msg["target"]["name"].as_str().unwrap_or("unknown").to_owned();
+    let raw_crate = cargo_msg["target"]["name"].as_str().unwrap_or("unknown");
+    let crate_name = if raw_crate == "unknown" && crate::cargo::lints::is_cargo_lint_name(lint_name) {
+        diagnostic_paths.package_name_for_manifest(&file).to_owned()
+    } else {
+        raw_crate.to_owned()
+    };
 
     let (suggestion, applicability) = extract_suggestion(message);
     let normalized_snippet_hash = primary_span

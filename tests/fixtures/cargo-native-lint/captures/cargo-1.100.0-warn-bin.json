@@ -1,0 +1,17 @@
+{
+  "scenario": "cargo-1.100.0-warn-bin",
+  "cargo_version": "cargo 1.100.0 (3acc79c0c 2026-11-05)",
+  "rustc_version": "rustc 1.100.0 (0ef1bc386 2026-11-09)",
+  "args": [
+    "check",
+    "--offline",
+    "-p",
+    "app",
+    "--bin",
+    "app-bin",
+    "--message-format=json"
+  ],
+  "exit_code": 0,
+  "stdout": "{\"reason\":\"compiler-artifact\",\"package_id\":\"path+file://<WORKSPACE>/used_dep#0.1.0\",\"manifest_path\":\"<WORKSPACE>/used_dep/Cargo.toml\",\"target\":{\"kind\":[\"lib\"],\"crate_types\":[\"lib\"],\"name\":\"used_dep\",\"src_path\":\"<WORKSPACE>/used_dep/src/lib.rs\",\"edition\":\"2024\",\"doc\":true,\"doctest\":true,\"test\":true},\"profile\":{\"opt_level\":\"0\",\"debuginfo\":0,\"debug_assertions\":true,\"overflow_checks\":true,\"test\":false},\"features\":[],\"filenames\":[\"<TARGET>/debug/build/used_dep/0adcb279a408be38/out/libused_dep-0adcb279a408be38.rmeta\"],\"executable\":null,\"fresh\":false}\n{\"reason\":\"compiler-artifact\",\"package_id\":\"path+file://<WORKSPACE>/unused_dep#0.1.0\",\"manifest_path\":\"<WORKSPACE>/unused_dep/Cargo.toml\",\"target\":{\"kind\":[\"lib\"],\"crate_types\":[\"lib\"],\"name\":\"unused_dep\",\"src_path\":\"<WORKSPACE>/unused_dep/src/lib.rs\",\"edition\":\"2024\",\"doc\":true,\"doctest\":true,\"test\":true},\"profile\":{\"opt_level\":\"0\",\"debuginfo\":0,\"debug_assertions\":true,\"overflow_checks\":true,\"test\":false},\"features\":[],\"filenames\":[\"<TARGET>/debug/build/unused_dep/0574a5f4c3b443c6/out/libunused_dep-0574a5f4c3b443c6.rmeta\"],\"executable\":null,\"fresh\":false}\n{\"reason\":\"compiler-artifact\",\"package_id\":\"path+file://<WORKSPACE>/app#0.1.0\",\"manifest_path\":\"<WORKSPACE>/app/Cargo.toml\",\"target\":{\"kind\":[\"lib\"],\"crate_types\":[\"lib\"],\"name\":\"app\",\"src_path\":\"<WORKSPACE>/app/src/lib.rs\",\"edition\":\"2024\",\"doc\":true,\"doctest\":true,\"test\":true},\"profile\":{\"opt_level\":\"0\",\"debuginfo\":0,\"debug_assertions\":true,\"overflow_checks\":true,\"test\":false},\"features\":[],\"filenames\":[\"<TARGET>/debug/build/app/91abb71efefce45b/out/libapp-91abb71efefce45b.rmeta\"],\"executable\":null,\"fresh\":false}\n{\"reason\":\"compiler-artifact\",\"package_id\":\"path+file://<WORKSPACE>/app#0.1.0\",\"manifest_path\":\"<WORKSPACE>/app/Cargo.toml\",\"target\":{\"kind\":[\"bin\"],\"crate_types\":[\"bin\"],\"name\":\"app-bin\",\"src_path\":\"<WORKSPACE>/app/src/main.rs\",\"edition\":\"2024\",\"doc\":true,\"doctest\":false,\"test\":true},\"profile\":{\"opt_level\":\"0\",\"debuginfo\":0,\"debug_assertions\":true,\"overflow_checks\":true,\"test\":false},\"features\":[],\"filenames\":[\"<TARGET>/debug/build/app/5a8b4d2515b6babf/out/libapp_bin-5a8b4d2515b6babf.rmeta\"],\"executable\":null,\"fresh\":false}\n{\"reason\":\"build-finished\",\"success\":true}\n",
+  "stderr": "    Checking unused_dep v0.1.0 (<WORKSPACE>/unused_dep)\n    Checking used_dep v0.1.0 (<WORKSPACE>/used_dep)\n    Checking app v0.1.0 (<WORKSPACE>/app)\n    Finished `dev` profile [unoptimized] target(s) in 0.43s\n"
+}

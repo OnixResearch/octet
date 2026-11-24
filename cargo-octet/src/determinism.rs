@@ -184,6 +184,13 @@ fn runner_manifest_config(manifest_path: &Path) -> serde_json::Value {
             Some(((*name).to_owned(), canonical_toml_json(value)))
         })
         .collect::<serde_json::Map<_, _>>();
+    if let Some(cargo_lints) = crate::cargo::lints::manifest_cargo_lints_json(&document) {
+        return serde_json::json!({
+            "status": "parsed",
+            "workspace_metadata": tables,
+            "cargo_lints": cargo_lints,
+        });
+    }
     serde_json::json!({ "status": "parsed", "workspace_metadata": tables })
 }
 
@@ -332,6 +339,19 @@ version = "0.1.0"
         assert_ne!(unparsable, config_hash_for("[workspace\n\n", "[octet]\n"));
         assert_ne!(unparsable, baseline);
         assert_ne!(missing_manifest, baseline);
+    }
+
+    #[test]
+    fn config_hash_tracks_cargo_lints_tables_deterministically() {
+        let baseline = config_hash_for(BASE_MANIFEST, "[octet]\n");
+        let with_warn = format!("{BASE_MANIFEST}\n[workspace.lints.cargo]\nunused_dependencies = \"warn\"\n");
+        let with_deny = format!("{BASE_MANIFEST}\n[workspace.lints.cargo]\nunused_dependencies = \"deny\"\n");
+
+        let warn_hash = config_hash_for(&with_warn, "[octet]\n");
+        let deny_hash = config_hash_for(&with_deny, "[octet]\n");
+        assert_ne!(warn_hash, baseline);
+        assert_ne!(deny_hash, warn_hash);
+        assert_eq!(warn_hash, config_hash_for(&with_warn, "[octet]\n"));
     }
 
     #[test]
