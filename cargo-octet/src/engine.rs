@@ -111,7 +111,7 @@ struct ArchitectureRunArtifacts {
     compiler: Option<crate::architecture_ir::ArchitectureArtifacts>,
     project: Option<crate::project_architecture::ProjectArchitectureArtifacts>,
     closure: Option<crate::admit::IntegratedClosureArtifacts>,
-    cargo_lints: Option<crate::cargo::lints::CargoLintAssessment>,
+    cargo_lints: Option<crate::cargo::lints::LintAssessment>,
 }
 
 #[derive(Debug, Clone)]
@@ -196,14 +196,6 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
             profile_id: &selected.policy.profile_id,
             policy_hash: &selected.policy_hash,
         });
-        let run_metadata = determinism::build_run_metadata(&determinism::MetadataInput {
-            workspace_root: &cfg.workspace_root,
-            toolchain: &toolchain,
-            scope_args: &scope_args,
-            cargo_check_args: &cargo_check_args,
-            output_format: check.output_format.as_str(),
-            strict_profile: strict_profile_identity,
-        });
         let driver = resolve_driver(&toolchain)?;
         let lint_lib = resolve_lint_lib(&toolchain)?;
         let collector = cfg
@@ -224,6 +216,15 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
             .map_err(|error| format!("encode DYLINT_LIBS: {error}"))?;
         let diagnostic_paths =
             DiagnosticPaths::from_cargo_metadata(&cfg.workspace_root, &toolchain, &scope_args, &cargo_check_args)?;
+        let run_metadata = determinism::build_run_metadata(&determinism::MetadataInput {
+            workspace_root: &cfg.workspace_root,
+            member_dirs: Some(&diagnostic_paths.workspace_member_dirs),
+            toolchain: &toolchain,
+            scope_args: &scope_args,
+            cargo_check_args: &cargo_check_args,
+            output_format: check.output_format.as_str(),
+            strict_profile: strict_profile_identity,
+        });
 
         let mut cmd = Command::new(CARGO_COMMAND);
         cmd.arg(CARGO_CHECK_SUBCOMMAND).arg(CARGO_MESSAGE_FORMAT_JSON);
@@ -256,10 +257,11 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
 
         let mut child = cmd.spawn().map_err(|error| format!("run cargo check: {error}"))?;
         let child_stdout = child.stdout.take().expect("stdout piped");
-        let child_stderr = child.stderr.take().expect("stderr piped");
-        let echo_stderr = check.output_format == OutputFormat::Human;
-        let stderr_handle =
-            std::thread::spawn(move || crate::cargo::lints::stream_bounded_stderr(child_stderr, echo_stderr));
+        let child_stderr = child.stderr.take().ok_or_else(|| "stderr piped".to_owned())?;
+        let should_echo_stderr = check.output_format == OutputFormat::Human;
+        let stderr_handle = std::thread::spawn(move || {
+            crate::cargo::lints::stream::read_bounded_stderr(child_stderr, should_echo_stderr)
+        });
 
         let meta_map = output::lint_meta_map();
         let streamed_findings =
@@ -272,38 +274,19 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
         let captured_stderr = stderr_handle.join().map_err(|_| "cargo stderr reader thread panicked".to_owned())??;
         let mut findings = streamed_findings?;
         let cargo_process_exit = classify_cargo_process_exit(cargo_wait?);
-        let parsed_stderr =
-            crate::cargo::lints::parse::parse_cargo_stderr(&captured_stderr.text, captured_stderr.is_truncated);
-        let cargo_lint_policy =
-            crate::cargo::lints::policy::scan_workspace_policy(&cfg.workspace_root, &diagnostic_paths.package_dirs);
-        let should_probe_cargo_version = cargo_lint_policy.has_any_cargo_lints
-            || parsed_stderr.has_unused_manifest_key_lints_cargo
-            || parsed_stderr.has_unknown_cargo_lint
-            || !parsed_stderr.diagnostics.is_empty();
-        let cargo_version =
-            should_probe_cargo_version.then(|| crate::cargo::lints::CargoVersion::probe(&toolchain)).flatten();
-        let stderr_findings = crate::cargo::lints::findings_from_diagnostics(
-            &parsed_stderr.diagnostics,
-            &findings,
-            &run_metadata.config_hash,
-            check.cache,
-            &|raw_path| diagnostic_paths.normalize_manifest_diagnostic(raw_path),
-        )?;
+        let (stderr_findings, cargo_lint_assessment) = assess_native_lints(&NativeLintEvalInput {
+            workspace_root: &cfg.workspace_root,
+            toolchain: &toolchain,
+            scope_args: &scope_args,
+            cargo_check_args: &cargo_check_args,
+            captured_stderr: &captured_stderr,
+            diagnostic_paths: &diagnostic_paths,
+            existing_findings: &findings,
+            config_hash: &run_metadata.config_hash,
+            is_cache_enabled: check.cache,
+            is_command_success: cargo_process_exit.is_success(),
+        });
         findings.extend(stderr_findings);
-        let has_rustc_compile_errors = findings
-            .iter()
-            .any(|finding| finding.severity_is_error() && !output::is_known_lint_finding(finding));
-        let cargo_lint_assessment =
-            crate::cargo::lints::policy::assess_cargo_lints(&crate::cargo::lints::policy::AssessmentInput {
-                workspace_root: &cfg.workspace_root,
-                cargo_version: cargo_version.as_ref(),
-                policy: &cargo_lint_policy,
-                scope_args: &scope_args,
-                cargo_check_args: &cargo_check_args,
-                parsed_stderr: &parsed_stderr,
-                has_rustc_compile_errors,
-                is_cargo_success: cargo_process_exit.is_success(),
-            });
         let mut stdout_lock = std::io::stdout().lock();
         let mut stderr_lock = std::io::stderr().lock();
         let architecture_artifacts = if cargo_process_exit.is_success() {
@@ -399,13 +382,17 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
             let pre_closure_architecture = project_architecture_artifacts
                 .as_ref()
                 .ok_or_else(|| "architecture admission prerequisite receipt disappeared".to_owned())?;
-            let parent_status_json = output::render_integrated_status_json(
+            let base_parent_status_json = output::render_integrated_status_json(
                 &lint_outcome,
                 &lint_outcome,
                 check.output_format.as_str(),
                 &run_metadata,
                 baseline_evaluation.as_ref(),
                 &pre_closure_architecture.receipt,
+            )?;
+            let parent_status_json = output::attach_native_lint_status(
+                base_parent_status_json,
+                cargo_lint_assessment.to_structured_status().as_ref(),
             )?;
             let closure = crate::admit::run_integrated_closure(
                 &cfg.workspace_root,
@@ -550,10 +537,11 @@ fn build_run_artifacts(
         None => output::render_summary(findings, outcome, metadata, baseline_evaluation)?,
     };
     let summary = match cargo_lints.as_ref() {
-        Some(assessment) => output::append_cargo_lint_summary(base_summary, assessment)?,
+        Some(assessment) => output::append_native_lint_summary(base_summary, assessment)?,
         None => base_summary,
     };
-    let status_json = match &project {
+    let lint_status = cargo_lints.as_ref().and_then(crate::cargo::lints::LintAssessment::to_structured_status);
+    let base_status_json = match &project {
         Some(project) => output::render_integrated_status_json(
             outcome,
             lint_outcome,
@@ -564,7 +552,8 @@ fn build_run_artifacts(
         )?,
         None => output::render_status_json(outcome, check.output_format.as_str(), metadata, baseline_evaluation)?,
     };
-    let structured_output = render_structured_output(
+    let status_json = output::attach_native_lint_status(base_status_json, lint_status.as_ref())?;
+    let mut structured_output = render_structured_output(
         check,
         findings,
         meta_map,
@@ -574,6 +563,12 @@ fn build_run_artifacts(
         baseline_evaluation,
         project.as_ref(),
     )?;
+    if check.output_format == OutputFormat::Sarif
+        && let Some(artifact) = structured_output.as_mut()
+    {
+        artifact.contents =
+            output::attach_native_lint_sarif(std::mem::take(&mut artifact.contents), lint_status.as_ref())?;
+    }
     let mut additional_artifacts = function_address_artifact.into_iter().collect::<Vec<_>>();
     if let Some(architecture) = compiler {
         additional_artifacts.extend([
@@ -1107,6 +1102,71 @@ fn remove_extra_artifact_paths(artifact_root: &ArtifactRoot, expected_files: &[&
 /// rendered diagnostics and progress to stderr. Cargo passes through anything rustc writes to its
 /// own stdout, such as a proc macro printing during expansion, so lines that are not JSON objects
 /// are not Cargo messages: they are echoed in human mode and otherwise skipped.
+struct NativeLintEvalInput<'a> {
+    workspace_root: &'a Path,
+    toolchain: &'a str,
+    scope_args: &'a [String],
+    cargo_check_args: &'a [String],
+    captured_stderr: &'a crate::cargo::lints::stream::CapturedStderr,
+    diagnostic_paths: &'a DiagnosticPaths,
+    existing_findings: &'a [Finding],
+    config_hash: &'a str,
+    is_cache_enabled: bool,
+    is_command_success: bool,
+}
+
+fn assess_native_lints(input: &NativeLintEvalInput<'_>) -> (Vec<Finding>, crate::cargo::lints::LintAssessment) {
+    let parsed_stderr = crate::cargo::lints::parse::extract_stderr_report_with_flags(
+        &input.captured_stderr.text,
+        crate::cargo::lints::CaptureIntegrity {
+            is_truncated: input.captured_stderr.is_truncated,
+            has_invalid_utf8: input.captured_stderr.has_invalid_utf8,
+        },
+    );
+    let settings =
+        crate::cargo::lints::policy::scan_workspace(input.workspace_root, &input.diagnostic_paths.package_dirs);
+    let should_probe_version = settings.has_any_cargo_lints
+        || parsed_stderr.has_unused_manifest_key_lints_cargo
+        || parsed_stderr.has_unknown_cargo_lint
+        || parsed_stderr.capture.has_invalid_utf8
+        || !parsed_stderr.diagnostics.is_empty();
+    let toolchain_version = should_probe_version
+        .then(|| crate::cargo::lints::ToolchainVersion::probe(input.toolchain))
+        .flatten();
+    let (stderr_findings, diagnostic_path_error) = match crate::cargo::lints::findings_from_diagnostics(
+        &parsed_stderr.diagnostics,
+        input.existing_findings,
+        input.config_hash,
+        input.is_cache_enabled,
+        &|raw_path| input.diagnostic_paths.normalize_manifest_diagnostic(raw_path),
+    ) {
+        Ok(added) => (added, None),
+        Err(error) => (Vec::new(), Some(error)),
+    };
+    let has_rustc_compile_errors = input
+        .existing_findings
+        .iter()
+        .chain(stderr_findings.iter())
+        .any(|finding| finding.severity_is_error() && !output::is_known_lint_finding(finding));
+    let has_octet_error_findings = input
+        .existing_findings
+        .iter()
+        .any(|finding| finding.severity_is_error() && output::is_built_in_lint_finding(finding));
+    let assessment = crate::cargo::lints::policy::assess_coverage(&crate::cargo::lints::policy::AssessmentInput {
+        workspace_root: input.workspace_root,
+        toolchain_version: toolchain_version.as_ref(),
+        settings: &settings,
+        scope_args: input.scope_args,
+        check_args: input.cargo_check_args,
+        parsed_stderr: &parsed_stderr,
+        has_rustc_compile_errors,
+        has_octet_error_findings,
+        is_command_success: input.is_command_success,
+        diagnostic_path_error: diagnostic_path_error.as_deref(),
+    });
+    (stderr_findings, assessment)
+}
+
 fn read_cargo_messages(
     reader: impl BufRead,
     check: &CheckArgs,
@@ -1116,14 +1176,13 @@ fn read_cargo_messages(
 ) -> Result<Vec<Finding>, String> {
     let mut findings: Vec<Finding> = Vec::new();
     let mut finding_counter: usize = 0;
-    let mut stderr_lock = std::io::stderr().lock();
 
     for line in reader.lines() {
         let line = line.map_err(|error| format!("read cargo stdout: {error}"))?;
         let Some(json) = serde_json::from_str::<serde_json::Value>(&line).ok().filter(serde_json::Value::is_object)
         else {
             if check.output_format == OutputFormat::Human {
-                let _ = writeln!(stderr_lock, "{line}");
+                echo_human_stderr_line(&line);
             }
             continue;
         };
@@ -1137,7 +1196,7 @@ fn read_cargo_messages(
                 if check.output_format == OutputFormat::Human
                     && let Some(rendered) = message["rendered"].as_str()
                 {
-                    let _ = write!(stderr_lock, "{rendered}");
+                    echo_human_stderr_raw(rendered);
                 }
 
                 if is_informational_compiler_level(message["level"].as_str()) || is_rustc_abort_summary(message) {
@@ -1161,13 +1220,13 @@ fn read_cargo_messages(
             }
             "compiler-artifact" if check.output_format == OutputFormat::Human => {
                 if let Some(banner) = format_compiling_banner(&json) {
-                    let _ = writeln!(stderr_lock, "{banner}");
+                    echo_human_stderr_line(&banner);
                 }
             }
             "build-finished" if check.output_format == OutputFormat::Human => {
                 let success = json["success"].as_bool().unwrap_or(false);
                 if success {
-                    let _ = writeln!(stderr_lock, "    Finished checking");
+                    echo_human_stderr_line("    Finished checking");
                 }
             }
             _ => {}
@@ -1175,6 +1234,16 @@ fn read_cargo_messages(
     }
 
     Ok(findings)
+}
+
+fn echo_human_stderr_line(text: &str) {
+    let mut stderr_lock = std::io::stderr().lock();
+    if let Err(_err) = writeln!(stderr_lock, "{text}") {}
+}
+
+fn echo_human_stderr_raw(text: &str) {
+    let mut stderr_lock = std::io::stderr().lock();
+    if let Err(_err) = write!(stderr_lock, "{text}") {}
 }
 
 fn classify_cargo_process_exit(status: std::process::ExitStatus) -> output::CargoProcessExit {
@@ -1395,6 +1464,9 @@ fn json_u64_to_u32(value: Option<u64>) -> u32 {
     value.and_then(|line| u32::try_from(line).ok()).filter(|line| *line > 0).unwrap_or(1)
 }
 
+const MAX_DIAGNOSTIC_PATH_BYTES: usize = 4096;
+const MAX_DIAGNOSTIC_COMPONENTS: usize = 256;
+
 // r[impl octet.runner_self_check.inventory]
 // r[verify octet.runner_self_check.inventory.paths]
 struct DiagnosticPaths {
@@ -1402,7 +1474,99 @@ struct DiagnosticPaths {
     reported_root: PathBuf,
     package_dirs: BTreeMap<String, PathBuf>,
     manifest_packages: BTreeMap<String, (String, String)>,
+    workspace_member_dirs: Vec<PathBuf>,
     dir: Dir,
+}
+
+struct LocalPackageEntry {
+    id: String,
+    directory: PathBuf,
+    manifest_rel: String,
+    package_name: Option<String>,
+}
+
+struct LocalPackagePaths {
+    package_dirs: BTreeMap<String, PathBuf>,
+    manifest_packages: BTreeMap<String, (String, String)>,
+    workspace_member_dirs: Vec<PathBuf>,
+}
+
+fn parse_local_package_entry(root: &Path, package: &serde_json::Value) -> Result<Option<LocalPackageEntry>, String> {
+    // Registry/git packages may have paths under an ambient Cargo cache;
+    // only local packages can anchor a compiler-origin workspace path.
+    match package.get("source") {
+        Some(serde_json::Value::Null) => {}
+        Some(_) => return Ok(None),
+        None => return Err("diagnostic Cargo metadata package lacks source provenance".to_owned()),
+    }
+    let (Some(id), Some(manifest)) = (package["id"].as_str(), package["manifest_path"].as_str()) else {
+        return Err("diagnostic Cargo metadata package lacks ID or manifest".to_owned());
+    };
+    let manifest = fs::canonicalize(manifest)
+        .map_err(|error| format!("canonicalize diagnostic package manifest `{manifest}`: {error}"))?;
+    let directory = manifest.parent().ok_or("diagnostic package manifest has no parent")?;
+    let Ok(relative) = directory.strip_prefix(root) else {
+        return Ok(None);
+    };
+    let directory = if relative.as_os_str().is_empty() {
+        PathBuf::new()
+    } else {
+        RootRelativePath::new(relative)
+            .map_err(|error| format!("invalid diagnostic package directory: {error}"))?
+            .as_path()
+            .to_path_buf()
+    };
+    let manifest_rel = if directory.as_os_str().is_empty() {
+        "Cargo.toml".to_owned()
+    } else {
+        format!("{}/Cargo.toml", determinism::normalize_path(&directory))
+    };
+    Ok(Some(LocalPackageEntry {
+        id: id.to_owned(),
+        directory,
+        manifest_rel,
+        package_name: package["name"].as_str().map(ToOwned::to_owned),
+    }))
+}
+
+fn collect_local_package_paths(root: &Path, metadata: &serde_json::Value) -> Result<LocalPackagePaths, String> {
+    let packages = metadata["packages"].as_array().ok_or("diagnostic Cargo metadata has no packages")?;
+    let entries = packages
+        .iter()
+        .filter_map(|package| parse_local_package_entry(root, package).transpose())
+        .collect::<Result<Vec<_>, String>>()?;
+    let package_dirs: BTreeMap<String, PathBuf> =
+        entries.iter().map(|entry| (entry.id.clone(), entry.directory.clone())).collect();
+    if package_dirs.len() != entries.len() {
+        let mut sorted_ids: Vec<&str> = entries.iter().map(|entry| entry.id.as_str()).collect();
+        sorted_ids.sort_unstable();
+        if let Some([dup, ..]) = sorted_ids.windows(2).find(|pair| pair[0] == pair[1]) {
+            return Err(format!("duplicate diagnostic Cargo package ID `{dup}`"));
+        }
+    }
+    let manifest_packages: BTreeMap<String, (String, String)> = entries
+        .iter()
+        .filter_map(|entry| {
+            let pkg_name = entry.package_name.as_ref()?;
+            Some((entry.manifest_rel.clone(), (entry.id.clone(), pkg_name.clone())))
+        })
+        .collect();
+    let workspace_member_ids: std::collections::BTreeSet<&str> = metadata["workspace_members"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(serde_json::Value::as_str)
+        .collect();
+    let workspace_member_dirs = entries
+        .iter()
+        .filter(|entry| !entry.directory.as_os_str().is_empty() && workspace_member_ids.contains(entry.id.as_str()))
+        .map(|entry| entry.directory.clone())
+        .collect();
+    Ok(LocalPackagePaths {
+        package_dirs,
+        manifest_packages,
+        workspace_member_dirs,
+    })
 }
 
 impl DiagnosticPaths {
@@ -1460,52 +1624,15 @@ impl DiagnosticPaths {
         {
             return Err("diagnostic Cargo metadata workspace root differs from the check workspace".to_owned());
         }
-        let mut package_dirs = BTreeMap::new();
-        let mut manifest_packages = BTreeMap::new();
-        let packages = metadata["packages"].as_array().ok_or("diagnostic Cargo metadata has no packages")?;
-        for package in packages {
-            // Registry/git packages may have paths under an ambient Cargo cache;
-            // only local packages can anchor a compiler-origin workspace path.
-            match package.get("source") {
-                Some(serde_json::Value::Null) => {}
-                Some(_) => continue,
-                None => return Err("diagnostic Cargo metadata package lacks source provenance".to_owned()),
-            }
-            let (Some(id), Some(manifest)) = (package["id"].as_str(), package["manifest_path"].as_str()) else {
-                return Err("diagnostic Cargo metadata package lacks ID or manifest".to_owned());
-            };
-            let manifest = fs::canonicalize(manifest)
-                .map_err(|error| format!("canonicalize diagnostic package manifest `{manifest}`: {error}"))?;
-            let directory = manifest.parent().ok_or("diagnostic package manifest has no parent")?;
-            if let Ok(relative) = directory.strip_prefix(&root) {
-                let directory = if relative.as_os_str().is_empty() {
-                    PathBuf::new()
-                } else {
-                    RootRelativePath::new(relative)
-                        .map_err(|error| format!("invalid diagnostic package directory: {error}"))?
-                        .as_path()
-                        .to_path_buf()
-                };
-                let manifest_rel = if directory.as_os_str().is_empty() {
-                    "Cargo.toml".to_owned()
-                } else {
-                    format!("{}/Cargo.toml", determinism::normalize_path(&directory))
-                };
-                if let Some(pkg_name) = package["name"].as_str() {
-                    manifest_packages.insert(manifest_rel, (id.to_owned(), pkg_name.to_owned()));
-                }
-                if package_dirs.insert(id.to_owned(), directory).is_some() {
-                    return Err(format!("duplicate diagnostic Cargo package ID `{id}`"));
-                }
-            }
-        }
+        let local_paths = collect_local_package_paths(&root, &metadata)?;
         let dir = Dir::open_ambient_dir(&root, ambient_authority())
             .map_err(|error| format!("open diagnostic workspace root: {error}"))?;
         Ok(Self {
             root,
             reported_root,
-            package_dirs,
-            manifest_packages,
+            package_dirs: local_paths.package_dirs,
+            manifest_packages: local_paths.manifest_packages,
+            workspace_member_dirs: local_paths.workspace_member_dirs,
             dir,
         })
     }
@@ -1515,19 +1642,41 @@ impl DiagnosticPaths {
     }
 
     fn normalize_manifest_diagnostic(&self, raw_path: &str) -> Result<(String, String), String> {
-        let candidate = Path::new(raw_path);
-        let rel_guess = if candidate.is_absolute() {
-            candidate
+        if raw_path.len() > MAX_DIAGNOSTIC_PATH_BYTES {
+            return Err("invalid Cargo diagnostic path: oversized path".to_owned());
+        }
+        let slash_normalized = determinism::normalize_path_text(raw_path);
+        let candidate = Path::new(&slash_normalized);
+        let relative_text = if candidate.is_absolute() {
+            let stripped = candidate
                 .strip_prefix(&self.reported_root)
                 .or_else(|_| candidate.strip_prefix(&self.root))
-                .map_or_else(|_| raw_path.to_owned(), determinism::normalize_path)
+                .map_err(|_| "invalid Cargo diagnostic path: absolute path is outside the workspace root".to_owned())?;
+            determinism::normalize_path(stripped)
         } else {
-            determinism::normalize_path_text(raw_path)
+            slash_normalized
         };
-        let package_id = self.manifest_packages.get(&rel_guess).map(|(id, _)| id.as_str());
-        let normalized = self.normalize(package_id, raw_path)?;
-        let crate_name = self.package_name_for_manifest(&normalized).to_owned();
-        Ok((normalized, crate_name))
+        #[cfg(unix)]
+        let normalized = self.normalize_physical_relative(&relative_text)?;
+        #[cfg(not(unix))]
+        let normalized = {
+            let rel_path = Path::new(&relative_text);
+            if rel_path.is_absolute() || rel_path.components().any(|part| part == Component::ParentDir) {
+                return Err(
+                    "invalid Cargo diagnostic path: absolute and parent-bearing compiler paths are unsupported on this platform".to_owned(),
+                );
+            }
+            RootRelativePath::new(rel_path)
+                .map(|path| path.display())
+                .map_err(|error| format!("invalid Cargo diagnostic path: {error}"))?
+        };
+        if let Some((_, pkg_name)) = self.manifest_packages.get(&normalized) {
+            Ok((normalized, pkg_name.clone()))
+        } else if normalized == "Cargo.toml" {
+            Ok((normalized, "unknown".to_owned()))
+        } else {
+            Err(format!("invalid Cargo diagnostic path: `{normalized}` is not a workspace package manifest"))
+        }
     }
 
     fn normalize(&self, package_id: Option<&str>, reported_path: &str) -> Result<String, String> {
@@ -1551,8 +1700,6 @@ impl DiagnosticPaths {
 
     #[cfg(unix)]
     fn normalize_physical(&self, package_id: Option<&str>, reported_path: &str, path: &Path) -> Result<String, String> {
-        const MAX_DIAGNOSTIC_PATH_BYTES: usize = 4096;
-        const MAX_DIAGNOSTIC_COMPONENTS: usize = 256;
         if reported_path.len() > MAX_DIAGNOSTIC_PATH_BYTES {
             return Err("invalid Cargo diagnostic path: oversized path".to_owned());
         }
@@ -1569,12 +1716,17 @@ impl DiagnosticPaths {
         if !path.is_absolute() && !relative.starts_with(package) {
             return Err("invalid Cargo diagnostic path: parent traversal lacks matching package directory".to_owned());
         }
+        let text = relative.to_str().ok_or("invalid Cargo diagnostic path: non-UTF-8 component")?;
+        self.normalize_physical_relative(text)
+    }
+
+    #[cfg(unix)]
+    fn normalize_physical_relative(&self, relative_text: &str) -> Result<String, String> {
         let mut physical = self.root.clone();
         let mut count = 0;
         // Path::components() elides interior `.` and trailing separators:
         // `file/./..` must still fail ENOTDIR rather than becoming `file/..`.
-        let text = relative.to_str().ok_or("invalid Cargo diagnostic path: non-UTF-8 component")?;
-        let mut components = text.split('/').filter(|part| !part.is_empty()).peekable();
+        let mut components = relative_text.split('/').filter(|part| !part.is_empty()).peekable();
         while let Some(part) = components.next() {
             count += 1;
             if count > MAX_DIAGNOSTIC_COMPONENTS {
@@ -1593,7 +1745,7 @@ impl DiagnosticPaths {
             if !physical.starts_with(&self.root) {
                 return Err("invalid Cargo diagnostic path: component escapes the workspace root".to_owned());
             }
-            if (components.peek().is_some() || part == "." || text.ends_with('/'))
+            if (components.peek().is_some() || part == "." || relative_text.ends_with('/'))
                 && !fs::metadata(&physical)
                     .map_err(|error| format!("inspect Cargo diagnostic component: {error}"))?
                     .is_dir()
@@ -1601,18 +1753,20 @@ impl DiagnosticPaths {
                 return Err("invalid Cargo diagnostic path: intermediate component is not a directory".to_owned());
             }
         }
-        let relative = physical.strip_prefix(&self.root).expect("checked path containment");
+        let relative = physical
+            .strip_prefix(&self.root)
+            .map_err(|_| "invalid Cargo diagnostic path: component escapes the workspace root".to_owned())?;
         let locator =
             RootRelativePath::new(relative).map_err(|error| format!("invalid Cargo diagnostic path: {error}"))?;
         // The root-relative capability open prevents a swapped directory from
         // redirecting the checked target outside the workspace before open.
         // O_NONBLOCK ensures a swapped-in FIFO cannot stall the check.
-        let file = {
-            let mut options = OpenOptions::new();
-            options.read(true).custom_flags(libc::O_NONBLOCK);
-            self.dir.open_with(locator.as_path(), &options)
-        };
-        let file = file.map_err(|error| format!("invalid Cargo diagnostic path: cannot open source file: {error}"))?;
+        let mut options = OpenOptions::new();
+        options.read(true).custom_flags(libc::O_NONBLOCK);
+        let file = self
+            .dir
+            .open_with(locator.as_path(), &options)
+            .map_err(|error| format!("invalid Cargo diagnostic path: cannot open source file: {error}"))?;
         let opened = file.metadata().map_err(|error| format!("inspect Cargo diagnostic file: {error}"))?;
         if !opened.is_file() {
             return Err("invalid Cargo diagnostic path: source is not a regular file".to_owned());
@@ -1622,10 +1776,6 @@ impl DiagnosticPaths {
         if physical_again != physical || !physical_again.starts_with(&self.root) {
             return Err("invalid Cargo diagnostic path: source changed during verification".to_owned());
         }
-        // This detects an inode replacement between capability-open and the
-        // final path check on Unix. It is not a snapshot of the compiler's FD:
-        // a concurrent swap-back remains possible, so containment is the
-        // security guarantee, not immutable source identity.
         let current = self
             .dir
             .metadata(locator.as_path())
@@ -1672,7 +1822,7 @@ fn build_finding(
         normalize_finding_message(&diagnostic_paths.reported_root, message["message"].as_str().unwrap_or(""));
     let severity = compiler_finding_severity(message["level"].as_str()).to_owned();
     let raw_crate = cargo_msg["target"]["name"].as_str().unwrap_or("unknown");
-    let crate_name = if raw_crate == "unknown" && crate::cargo::lints::is_cargo_lint_name(lint_name) {
+    let crate_name = if raw_crate == "unknown" && crate::cargo::lints::is_native_lint_name(lint_name) {
         diagnostic_paths.package_name_for_manifest(&file).to_owned()
     } else {
         raw_crate.to_owned()

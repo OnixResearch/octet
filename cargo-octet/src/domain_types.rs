@@ -268,9 +268,9 @@ fn collect_result<T>(diagnostics: &mut Vec<String>, result: Result<T, String>) -
 
 fn parse_namespaced_identifier(value: &str, field: &str) -> Result<String, String> {
     let parsed = parse_no_whitespace(value, field)?;
-    let valid_segments =
+    let has_valid_segments =
         parsed.split("::").all(|segment| !segment.is_empty() && segment.chars().all(is_identifier_char));
-    if !valid_segments {
+    if !has_valid_segments {
         return Err(format!("domain field `{field}` must use canonical identifier spelling, got `{parsed}`"));
     }
     Ok(parsed)

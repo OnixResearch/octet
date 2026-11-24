@@ -312,7 +312,11 @@ fn is_denied_lint_compile_failure(findings: &[Finding], cargo_process_exit: &Car
 }
 
 pub(crate) fn is_known_lint_finding(finding: &Finding) -> bool {
-    is_octet_lint_finding(finding) || crate::cargo::lints::is_cargo_lint_name(&finding.lint)
+    is_octet_lint_finding(finding) || crate::cargo::lints::is_native_lint_name(&finding.lint)
+}
+
+pub(crate) fn is_built_in_lint_finding(finding: &Finding) -> bool {
+    is_octet_lint_finding(finding)
 }
 
 fn is_octet_lint_finding(finding: &Finding) -> bool {
@@ -321,7 +325,7 @@ fn is_octet_lint_finding(finding: &Finding) -> bool {
 
 pub fn lint_meta_for<'a>(lint_name: &str, meta_map: &'a HashMap<&str, LintMeta>) -> &'a LintMeta {
     meta_map.get(lint_name).unwrap_or_else(|| {
-        if crate::cargo::lints::is_cargo_lint_name(lint_name) {
+        if crate::cargo::lints::is_native_lint_name(lint_name) {
             &CARGO_LINT_META
         } else {
             &UNKNOWN_LINT_META
@@ -397,7 +401,7 @@ pub fn render_sarif(
         .map(|lint_name| {
             let meta = meta_map
                 .get(lint_name)
-                .or_else(|| crate::cargo::lints::is_cargo_lint_name(lint_name).then_some(&CARGO_LINT_META));
+                .or_else(|| crate::cargo::lints::is_native_lint_name(lint_name).then_some(&CARGO_LINT_META));
             let guidance = meta.map_or("unknown", |meta| meta.guidance);
             let group = meta.map_or("tigerstyle::unknown", |meta| meta.group);
             let effect_family = meta.map_or("unknown", |meta| meta.effect_family);
@@ -635,6 +639,32 @@ pub fn render_integrated_status_json(
     pretty_json(&value, "write integrated status JSON")
 }
 
+pub(crate) fn attach_native_lint_status(
+    rendered_status: String,
+    lint_status: Option<&crate::cargo::lints::LintStatus>,
+) -> Result<String, String> {
+    let Some(lint_status) = lint_status else {
+        return Ok(rendered_status);
+    };
+    let mut value = serde_json::from_str::<serde_json::Value>(&rendered_status)
+        .map_err(|error| format!("parse rendered status for native lint status: {error}"))?;
+    value["cargo_lints"] = serde_json::json!(lint_status);
+    pretty_json(&value, "write status JSON")
+}
+
+pub(crate) fn attach_native_lint_sarif(
+    rendered_sarif: String,
+    lint_status: Option<&crate::cargo::lints::LintStatus>,
+) -> Result<String, String> {
+    let Some(lint_status) = lint_status else {
+        return Ok(rendered_sarif);
+    };
+    let mut sarif = serde_json::from_str::<serde_json::Value>(&rendered_sarif)
+        .map_err(|error| format!("parse rendered SARIF for native lint status: {error}"))?;
+    sarif["runs"][0]["properties"]["cargoLints"] = serde_json::json!(lint_status);
+    pretty_json(&sarif, "write SARIF")
+}
+
 pub fn render_summary(
     findings: &[Finding],
     outcome: &RunOutcome,
@@ -751,9 +781,9 @@ pub fn render_summary(
     Ok(summary)
 }
 
-pub(crate) fn append_cargo_lint_summary(
+pub(crate) fn append_native_lint_summary(
     summary: String,
-    assessment: &crate::cargo::lints::CargoLintAssessment,
+    assessment: &crate::cargo::lints::LintAssessment,
 ) -> Result<String, String> {
     if !assessment.should_render_in_summary() {
         return Ok(summary);
@@ -776,8 +806,7 @@ pub(crate) fn append_cargo_lint_summary(
         .map_err(|error| format!("write summary: {error}"))?;
     if matches!(
         assessment.status,
-        crate::cargo::lints::CargoLintCoverageStatus::UnsupportedCargoVersion
-            | crate::cargo::lints::CargoLintCoverageStatus::Error
+        crate::cargo::lints::CoverageStatus::UnsupportedCargoVersion | crate::cargo::lints::CoverageStatus::Error
     ) && !assessment.raw_excerpt.is_empty()
     {
         let single_line = assessment.raw_excerpt.lines().take(3).collect::<Vec<_>>().join(" | ");

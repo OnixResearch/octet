@@ -222,6 +222,9 @@ fn replay_captured_1_100_warn_workspace_across_human_json_sarif() {
     assert_eq!(status["total_findings"], 2);
     assert_eq!(status["warning_findings"], 2);
     assert_eq!(status["error_findings"], 0);
+    assert_eq!(status["cargo_lints"]["status"], "partial");
+    assert!(status["cargo_lints"]["cargo_version"].as_str().is_some_and(|v| v.contains("1.100.0")));
+    assert!(status["cargo_lints"]["boundary_identity"].as_str().is_some_and(|v| v.starts_with("b3:")));
 
     let summary = fs::read_to_string(json_dir.join("summary.txt")).expect("read summary");
     assert!(summary.contains("Cargo version: cargo 1.100.0"), "{summary}");
@@ -262,6 +265,8 @@ fn replay_captured_1_100_warn_workspace_across_human_json_sarif() {
     let rules = sarif["runs"][0]["tool"]["driver"]["rules"].as_array().expect("sarif rules");
     assert_eq!(rules[0]["id"], "cargo::unused_dependencies");
     assert_eq!(rules[0]["properties"]["group"], "tigerstyle::cargo");
+    assert_eq!(sarif["runs"][0]["properties"]["cargoLints"]["status"], "partial");
+    assert_eq!(sarif["runs"][0]["properties"]["cargoLints"], status["cargo_lints"]);
 }
 
 #[test]
@@ -526,4 +531,500 @@ fn real_cargo_check_reports_unsupported_boundary_below_1_100_or_passes_on_1_100(
         assert!(summary.contains("Cargo lints: unsupported-cargo-version"), "{summary}");
         assert!(summary.contains("Cargo stderr excerpt:"), "{summary}");
     }
+}
+
+fn run_with_custom_cargo_script(tmp: &Path, ws: &Path, cargo_script: &str, args: &[&str]) -> Output {
+    let bash = bash_path().expect("bash");
+    let fakebin = tmp.join("fakebin");
+    let driver = tmp.join("bin/dylint-driver");
+    let lint_lib = tmp.join("lib/liboctet.so");
+    fs::create_dir_all(&fakebin).expect("fakebin");
+    write_executable(&fakebin.join("cargo"), cargo_script);
+    write_executable(&driver, &format!("#!{}\nexit 0\n", bash.display()));
+    write_file(&lint_lib, "fake liboctet\n");
+    let path = format!("{}:{}", fakebin.display(), env::var("PATH").expect("PATH"));
+    let mut cmd = Command::new(cargo_octet_bin());
+    for name in OCTET_RUNNER_ENV {
+        cmd.env_remove(name);
+    }
+    cmd.args(args)
+        .current_dir(ws)
+        .env("PATH", path)
+        .env("TS_REAL_CARGO", env::var_os("CARGO").expect("CARGO"))
+        .env("OCTET_TOOLCHAIN", "nightly-2026-03-21-x86_64-unknown-linux-gnu")
+        .env("OCTET_DRIVER_PATH", driver)
+        .env("OCTET_LINT_LIB", lint_lib)
+        .env("CARGO_TARGET_DIR", tmp.join("target"))
+        .env("XDG_CACHE_HOME", tmp.join("xdg-cache"));
+    cmd.output().expect("run cargo-octet")
+}
+
+fn colorize_cargo_stderr(stderr: &str) -> String {
+    stderr
+        .replace("warning:", "\x1b[1m\x1b[33mwarning\x1b[0m\x1b[1m:")
+        .replace("error:", "\x1b[1m\x1b[31merror\x1b[0m\x1b[1m:")
+        .replace("--> ", "\x1b[1m\x1b[94m--> \x1b[0m")
+        .replace("= note:", "\x1b[1m\x1b[94m= \x1b[0m\x1b[1mnote\x1b[0m:")
+        .replace("help:", "\x1b[1m\x1b[96mhelp\x1b[0m:")
+}
+
+#[test]
+fn ansi_color_always_warn_deny_and_1_96_parse_cleanly() {
+    let warn_base = load_capture("cargo-1.100.0-warn-workspace");
+    let warn_colored = CaptureFixture {
+        stderr: colorize_cargo_stderr(&warn_base.stderr),
+        ..warn_base
+    };
+    let tmp_w = TempDir::new("cargo-native-ansi-warn");
+    let ws_w = tmp_w.path().join("ws");
+    copy_fixture_workspace(&ws_w);
+    let art_w = tmp_w.path().join("artifacts");
+    let out_w = run_cargo_octet_with_fake_cargo(tmp_w.path(), &ws_w, &warn_colored, &[
+        "check",
+        "--workspace",
+        "--artifact-dir",
+        art_w.to_str().expect("dir"),
+        "--",
+        "--offline",
+        "--color=always",
+    ]);
+    assert_eq!(out_w.status.code(), Some(0));
+    let status_w = read_json(&art_w.join("status.json"));
+    assert_eq!(status_w["total_findings"], 2);
+    let summary_w = fs::read_to_string(art_w.join("summary.txt")).expect("summary");
+    assert!(!summary_w.contains('\x1b'));
+
+    let deny_base = load_capture("cargo-1.100.0-deny-workspace");
+    let deny_colored = CaptureFixture {
+        stderr: colorize_cargo_stderr(&deny_base.stderr),
+        ..deny_base
+    };
+    let tmp_d = TempDir::new("cargo-native-ansi-deny");
+    let ws_d = tmp_d.path().join("ws");
+    copy_fixture_workspace(&ws_d);
+    set_fixture_unused_dep_level(&ws_d, "deny");
+    let art_d = tmp_d.path().join("artifacts");
+    let out_d = run_cargo_octet_with_fake_cargo(tmp_d.path(), &ws_d, &deny_colored, &[
+        "check",
+        "--workspace",
+        "--artifact-dir",
+        art_d.to_str().expect("dir"),
+        "--",
+        "--offline",
+        "--color=always",
+    ]);
+    assert_eq!(out_d.status.code(), Some(1));
+    let status_d = read_json(&art_d.join("status.json"));
+    assert_eq!(status_d["status"], "lint-failure");
+    assert_eq!(status_d["error_findings"], 2);
+
+    let legacy_base = load_capture("cargo-1.96.0-nightly-warn-workspace");
+    let legacy_colored = CaptureFixture {
+        stderr: colorize_cargo_stderr(&legacy_base.stderr),
+        ..legacy_base
+    };
+    let tmp_l = TempDir::new("cargo-native-ansi-196");
+    let ws_l = tmp_l.path().join("ws");
+    copy_fixture_workspace(&ws_l);
+    let art_l = tmp_l.path().join("artifacts");
+    let out_l = run_cargo_octet_with_fake_cargo(tmp_l.path(), &ws_l, &legacy_colored, &[
+        "check",
+        "--workspace",
+        "--output-format",
+        "json",
+        "--artifact-dir",
+        art_l.to_str().expect("dir"),
+        "--",
+        "--offline",
+        "--color=always",
+    ]);
+    assert_eq!(out_l.status.code(), Some(2));
+    let summary_l = fs::read_to_string(art_l.join("summary.txt")).expect("summary");
+    assert!(summary_l.contains("Cargo lints: unsupported-cargo-version"), "{summary_l}");
+    assert!(!summary_l.contains('\x1b'));
+}
+
+#[test]
+fn multi_dep_single_package_warn_and_deny_extract_all_findings() {
+    let multi_warn = CaptureFixture {
+        cargo_version: "cargo 1.100.0 (3acc79c0c 2026-11-05)".to_owned(),
+        exit_code: 0,
+        stdout: "{\"reason\":\"build-finished\",\"success\":true}\n".to_owned(),
+        stderr: "\
+warning: unused dependency `unused_dep`\n\
+  --> app/Cargo.toml:18:1\n\
+   |\n\
+18 | unused_dep = { path = \"../unused_dep\" }\n\
+   = note: `cargo::unused_dependencies` is set to `warn` in `[lints]`\n\
+help: remove `unused_dep`\n\
+warning: unused dependency `feature_dep`\n\
+  --> app/Cargo.toml:20:1\n\
+   |\n\
+20 | feature_dep = { path = \"../feature_dep\" }\n\
+help: remove `feature_dep`\n\
+warning: `app` (manifest) generated 2 warnings\n"
+            .to_owned(),
+    };
+    let tmp = TempDir::new("cargo-native-multi-warn");
+    let ws = tmp.path().join("ws");
+    copy_fixture_workspace(&ws);
+    let art = tmp.path().join("artifacts");
+    let out = run_cargo_octet_with_fake_cargo(tmp.path(), &ws, &multi_warn, &[
+        "check",
+        "--workspace",
+        "--output-format",
+        "json",
+        "--artifact-dir",
+        art.to_str().expect("dir"),
+        "--",
+        "--offline",
+        "--all-features",
+    ]);
+    assert_eq!(out.status.code(), Some(0));
+    let status = read_json(&art.join("status.json"));
+    assert_eq!(status["total_findings"], 2);
+    let summary = fs::read_to_string(art.join("summary.txt")).expect("summary");
+    assert!(summary.contains("Cargo lints: checked ("), "{summary}");
+
+    let multi_deny = CaptureFixture {
+        cargo_version: "cargo 1.100.0 (3acc79c0c 2026-11-05)".to_owned(),
+        exit_code: 101,
+        stdout: "{\"reason\":\"build-finished\",\"success\":false}\n".to_owned(),
+        stderr: multi_warn
+            .stderr
+            .replace("warning: unused dependency", "error: unused dependency")
+            .replace("set to `warn`", "set to `deny`")
+            .replace(
+                "warning: `app` (manifest) generated 2 warnings",
+                "error: could not finalize `app` (manifest) due to 2 previous errors",
+            ),
+    };
+    let tmp_d = TempDir::new("cargo-native-multi-deny");
+    let ws_d = tmp_d.path().join("ws");
+    copy_fixture_workspace(&ws_d);
+    set_fixture_unused_dep_level(&ws_d, "deny");
+    let art_d = tmp_d.path().join("artifacts");
+    let out_d = run_cargo_octet_with_fake_cargo(tmp_d.path(), &ws_d, &multi_deny, &[
+        "check",
+        "--workspace",
+        "--output-format",
+        "json",
+        "--artifact-dir",
+        art_d.to_str().expect("dir"),
+        "--",
+        "--offline",
+        "--all-features",
+    ]);
+    assert_eq!(out_d.status.code(), Some(1));
+    let status_d = read_json(&art_d.join("status.json"));
+    assert_eq!(status_d["status"], "lint-failure");
+    assert_eq!(status_d["error_findings"], 2);
+}
+
+#[test]
+fn human_mode_large_stderr_does_not_deadlock_and_non_utf8_emits_artifacts() {
+    let bash = bash_path().expect("bash");
+    let tmp = TempDir::new("cargo-native-deadlock");
+    let ws = tmp.path().join("ws");
+    copy_fixture_workspace(&ws);
+    let art = tmp.path().join("artifacts");
+    let large_script = format!(
+        r#"#!{bash}
+set -euo pipefail
+case "${{1:-}}" in
+  --version) echo "cargo 1.100.0 (3acc79c0c 2026-11-05)" ;;
+  metadata)
+    if [[ " $* " == *" --offline "* ]]; then
+      exec "${{TS_REAL_CARGO:?}}" "$@" --no-deps
+    else
+      exec "${{TS_REAL_CARGO:?}}" "$@" --no-deps --offline
+    fi
+    ;;
+  check)
+    head -c 140000 /dev/zero | tr '\0' 'a' >&2
+    printf '\n' >&2
+    printf '{{"reason":"build-finished","success":true}}\n'
+    ;;
+esac
+"#,
+        bash = bash.display()
+    );
+    let out = run_with_custom_cargo_script(tmp.path(), &ws, &large_script, &[
+        "check",
+        "--workspace",
+        "--artifact-dir",
+        art.to_str().expect("dir"),
+        "--",
+        "--offline",
+    ]);
+    assert_eq!(out.status.code(), Some(0), "stderr={}", String::from_utf8_lossy(&out.stderr));
+
+    let tmp_bad = TempDir::new("cargo-native-nonutf8");
+    let ws_bad = tmp_bad.path().join("ws");
+    copy_fixture_workspace(&ws_bad);
+    let art_bad = tmp_bad.path().join("artifacts");
+    let bad_script = format!(
+        r#"#!{bash}
+set -euo pipefail
+case "${{1:-}}" in
+  --version) echo "cargo 1.100.0 (3acc79c0c 2026-11-05)" ;;
+  metadata)
+    if [[ " $* " == *" --offline "* ]]; then
+      exec "${{TS_REAL_CARGO:?}}" "$@" --no-deps
+    else
+      exec "${{TS_REAL_CARGO:?}}" "$@" --no-deps --offline
+    fi
+    ;;
+  check)
+    printf 'error: bad \377\376 manifest\n' >&2
+    head -c 310000 /dev/zero | tr '\0' 'b' >&2
+    printf '\n' >&2
+    exit 101
+    ;;
+esac
+"#,
+        bash = bash.display()
+    );
+    let out_bad = run_with_custom_cargo_script(tmp_bad.path(), &ws_bad, &bad_script, &[
+        "check",
+        "--workspace",
+        "--output-format",
+        "json",
+        "--artifact-dir",
+        art_bad.to_str().expect("dir"),
+        "--",
+        "--offline",
+    ]);
+    assert_eq!(out_bad.status.code(), Some(2));
+    let status_bad = read_json(&art_bad.join("status.json"));
+    assert_eq!(status_bad["status"], "integration-failure");
+    let summary_bad = fs::read_to_string(art_bad.join("summary.txt")).expect("summary");
+    assert!(summary_bad.contains("Cargo stderr excerpt:"), "{summary_bad}");
+}
+
+#[test]
+fn large_stderr_unselected_vs_selected_version_none_and_cooccurring_errors() {
+    let bash = bash_path().expect("bash");
+    let big_stderr = "note: verbose progress\n".repeat(15_000);
+    assert!(big_stderr.len() > 256 * 1024);
+
+    let tmp_un = TempDir::new("cargo-native-unselected-big");
+    let ws_un = tmp_un.path().join("ws");
+    write_file(
+        &ws_un.join("Cargo.toml"),
+        "[workspace]\n\n[workspace.metadata.octet]\ndefault_scope = [\"--workspace\"]\ncargo_check_args = []\n\n[package]\nname = \"plain\"\nversion = \"0.1.0\"\nedition = \"2024\"\n",
+    );
+    write_file(&ws_un.join("src/lib.rs"), "pub fn ok() {}\n");
+    write_file(&ws_un.join("Cargo.lock"), "# lock\n");
+    let art_un = tmp_un.path().join("artifacts");
+    let big_cap = CaptureFixture {
+        cargo_version: "cargo 1.100.0 (3acc79c0c 2026-11-05)".to_owned(),
+        exit_code: 0,
+        stdout: "{\"reason\":\"build-finished\",\"success\":true}\n".to_owned(),
+        stderr: big_stderr.clone(),
+    };
+    let out_un = run_cargo_octet_with_fake_cargo(tmp_un.path(), &ws_un, &big_cap, &[
+        "check",
+        "--workspace",
+        "--output-format",
+        "sarif",
+        "--artifact-dir",
+        art_un.to_str().expect("dir"),
+        "--",
+        "--offline",
+    ]);
+    assert_eq!(out_un.status.code(), Some(0), "stderr={}", String::from_utf8_lossy(&out_un.stderr));
+    let status_un = read_json(&art_un.join("status.json"));
+    assert!(status_un.get("cargo_lints").is_none());
+    let sarif_un = read_json(&art_un.join("results.sarif"));
+    assert!(sarif_un["runs"][0]["properties"].get("cargoLints").is_none());
+
+    let tmp_sel = TempDir::new("cargo-native-selected-big");
+    let ws_sel = tmp_sel.path().join("ws");
+    copy_fixture_workspace(&ws_sel);
+    let art_sel = tmp_sel.path().join("artifacts");
+    let out_sel = run_cargo_octet_with_fake_cargo(tmp_sel.path(), &ws_sel, &big_cap, &[
+        "check",
+        "--workspace",
+        "--output-format",
+        "json",
+        "--artifact-dir",
+        art_sel.to_str().expect("dir"),
+        "--",
+        "--offline",
+    ]);
+    assert_eq!(out_sel.status.code(), Some(2));
+    let status_sel = read_json(&art_sel.join("status.json"));
+    assert_eq!(status_sel["cargo_lints"]["status"], "error");
+
+    let tmp_nv = TempDir::new("cargo-native-no-version");
+    let ws_nv = tmp_nv.path().join("ws");
+    copy_fixture_workspace(&ws_nv);
+    let art_nv = tmp_nv.path().join("artifacts");
+    let no_ver_script = format!(
+        r#"#!{bash}
+set -euo pipefail
+case "${{1:-}}" in
+  --version) exit 1 ;;
+  metadata)
+    if [[ " $* " == *" --offline "* ]]; then
+      exec "${{TS_REAL_CARGO:?}}" "$@" --no-deps
+    else
+      exec "${{TS_REAL_CARGO:?}}" "$@" --no-deps --offline
+    fi
+    ;;
+  check) printf '{{"reason":"build-finished","success":true}}\n' ;;
+esac
+"#,
+        bash = bash.display()
+    );
+    let out_nv = run_with_custom_cargo_script(tmp_nv.path(), &ws_nv, &no_ver_script, &[
+        "check",
+        "--workspace",
+        "--output-format",
+        "json",
+        "--artifact-dir",
+        art_nv.to_str().expect("dir"),
+        "--",
+        "--offline",
+    ]);
+    assert_eq!(out_nv.status.code(), Some(2));
+    let status_nv = read_json(&art_nv.join("status.json"));
+    assert_eq!(status_nv["cargo_lints"]["status"], "error");
+}
+
+#[test]
+fn cooccurring_unrecognized_error_fails_closed_while_octet_deny_stays_lint_failure() {
+    let deny_plus_unrec = CaptureFixture {
+        cargo_version: "cargo 1.100.0 (3acc79c0c 2026-11-05)".to_owned(),
+        exit_code: 101,
+        stdout: "{\"reason\":\"build-finished\",\"success\":false}\n".to_owned(),
+        stderr: format!(
+            "{}\nerror: failed to parse manifest at other_pkg/Cargo.toml\n",
+            load_capture("cargo-1.100.0-deny-workspace").stderr
+        ),
+    };
+    let tmp_mix = TempDir::new("cargo-native-deny-unrec");
+    let ws_mix = tmp_mix.path().join("ws");
+    copy_fixture_workspace(&ws_mix);
+    set_fixture_unused_dep_level(&ws_mix, "deny");
+    let art_mix = tmp_mix.path().join("artifacts");
+    let out_mix = run_cargo_octet_with_fake_cargo(tmp_mix.path(), &ws_mix, &deny_plus_unrec, &[
+        "check",
+        "--workspace",
+        "--output-format",
+        "json",
+        "--artifact-dir",
+        art_mix.to_str().expect("dir"),
+        "--",
+        "--offline",
+    ]);
+    assert_eq!(out_mix.status.code(), Some(2));
+    assert_eq!(read_json(&art_mix.join("status.json"))["status"], "integration-failure");
+
+    let octet_deny_cap = CaptureFixture {
+        cargo_version: "cargo 1.100.0 (3acc79c0c 2026-11-05)".to_owned(),
+        exit_code: 101,
+        stdout: "{\"reason\":\"compiler-message\",\"package_id\":\"path+file://<WORKSPACE>/app#0.1.0\",\"manifest_path\":\"<WORKSPACE>/app/Cargo.toml\",\"target\":{\"kind\":[\"lib\"],\"crate_types\":[\"lib\"],\"name\":\"app\",\"src_path\":\"<WORKSPACE>/app/src/lib.rs\",\"edition\":\"2024\"},\"message\":{\"rendered\":\"error: used unwrap\",\"children\":[],\"level\":\"error\",\"message\":\"used unwrap\",\"spans\":[{\"file_name\":\"app/src/lib.rs\",\"line_start\":1,\"column_start\":1,\"is_primary\":true,\"text\":[{\"text\":\"x.unwrap()\"}]}],\"code\":{\"code\":\"tigerstyle::no_unwrap\"}}}\n{\"reason\":\"build-finished\",\"success\":false}\n".to_owned(),
+        stderr: "error: could not compile `app` (lib) due to 1 previous error\n".to_owned(),
+    };
+    let tmp_od = TempDir::new("cargo-native-octet-deny");
+    let ws_od = tmp_od.path().join("ws");
+    copy_fixture_workspace(&ws_od);
+    let art_od = tmp_od.path().join("artifacts");
+    let out_od = run_cargo_octet_with_fake_cargo(tmp_od.path(), &ws_od, &octet_deny_cap, &[
+        "check",
+        "--workspace",
+        "--output-format",
+        "json",
+        "--artifact-dir",
+        art_od.to_str().expect("dir"),
+        "--",
+        "--offline",
+    ]);
+    assert_eq!(out_od.status.code(), Some(1));
+    assert_eq!(read_json(&art_od.join("status.json"))["status"], "lint-failure");
+}
+
+#[cfg(unix)]
+#[test]
+fn diagnostic_path_containment_and_member_config_hash() {
+    let tmp = TempDir::new("cargo-native-path-contain");
+    let ws = tmp.path().join("ws");
+    copy_fixture_workspace(&ws);
+    write_file(&ws.join("app/secret.toml"), "secret = true\n");
+    fs::create_dir_all(ws.join("app/evil")).expect("evil dir");
+    std::os::unix::fs::symlink("../secret.toml", ws.join("app/evil/Cargo.toml")).expect("symlink");
+
+    for bad_path in ["app/evil/Cargo.toml", "nonexistent_crate/Cargo.toml"] {
+        let cap = CaptureFixture {
+            cargo_version: "cargo 1.100.0 (3acc79c0c 2026-11-05)".to_owned(),
+            exit_code: 0,
+            stdout: "{\"reason\":\"build-finished\",\"success\":true}\n".to_owned(),
+            stderr: format!(
+                "warning: unused dependency `unused_dep`\n --> {bad_path}:1:1\n  = note: `cargo::unused_dependencies` is set to `warn` in `[lints]`\n"
+            ),
+        };
+        let art = tmp.path().join(format!("art-{}", bad_path.replace('/', "_")));
+        let out = run_cargo_octet_with_fake_cargo(tmp.path(), &ws, &cap, &[
+            "check",
+            "--workspace",
+            "--output-format",
+            "json",
+            "--artifact-dir",
+            art.to_str().expect("dir"),
+            "--",
+            "--offline",
+        ]);
+        assert_eq!(out.status.code(), Some(2), "{bad_path} must fail closed");
+        let status = read_json(&art.join("status.json"));
+        assert_eq!(status["status"], "integration-failure");
+        assert!(art.join("summary.txt").is_file());
+    }
+
+    let dot_cap = CaptureFixture {
+        cargo_version: "cargo 1.100.0 (3acc79c0c 2026-11-05)".to_owned(),
+        exit_code: 0,
+        stdout: "{\"reason\":\"build-finished\",\"success\":true}\n".to_owned(),
+        stderr: "warning: unused dependency `unused_dep`\n --> ./app/Cargo.toml:18:1\n  = note: `cargo::unused_dependencies` is set to `warn` in `[lints]`\n".to_owned(),
+    };
+    let art_dot = tmp.path().join("art-dot");
+    let out_dot = run_cargo_octet_with_fake_cargo(tmp.path(), &ws, &dot_cap, &[
+        "check",
+        "--workspace",
+        "--output-format",
+        "json",
+        "--artifact-dir",
+        art_dot.to_str().expect("dir"),
+        "--",
+        "--offline",
+    ]);
+    assert_eq!(out_dot.status.code(), Some(0));
+    let jsonl = fs::read_to_string(art_dot.join("results.jsonl")).expect("jsonl");
+    let finding: serde_json::Value = serde_json::from_str(jsonl.lines().next().expect("line")).expect("json");
+    assert_eq!(finding["file"], "app/Cargo.toml");
+    assert_eq!(finding["crate_name"], "app");
+
+    let hash_before = read_json(&art_dot.join("status.json"))["metadata"]["config_hash"]
+        .as_str()
+        .expect("config_hash")
+        .to_owned();
+    let app_manifest = fs::read_to_string(ws.join("app/Cargo.toml")).expect("read app");
+    fs::write(ws.join("app/Cargo.toml"), app_manifest.replace("\"warn\"", "\"deny\"")).expect("mutate member");
+    let art_after = tmp.path().join("art-after");
+    let _ = run_cargo_octet_with_fake_cargo(tmp.path(), &ws, &dot_cap, &[
+        "check",
+        "--workspace",
+        "--output-format",
+        "json",
+        "--artifact-dir",
+        art_after.to_str().expect("dir"),
+        "--",
+        "--offline",
+    ]);
+    let hash_after = read_json(&art_after.join("status.json"))["metadata"]["config_hash"]
+        .as_str()
+        .expect("config_hash")
+        .to_owned();
+    assert_ne!(hash_before, hash_after);
 }
