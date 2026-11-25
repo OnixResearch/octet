@@ -34,7 +34,7 @@ pub(crate) struct AssessmentInput<'a> {
 
 pub(crate) fn scan_workspace(
     workspace_root: &std::path::Path,
-    package_dirs: &std::collections::BTreeMap<String, std::path::PathBuf>,
+    member_dirs: &[std::path::PathBuf],
 ) -> WorkspaceSettings {
     let root_table = read_toml_table(&workspace_root.join("Cargo.toml"));
     let workspace_lint_table = root_table
@@ -45,7 +45,7 @@ pub(crate) fn scan_workspace(
     let workspace_unused = workspace_lint_table.and_then(|table| extract_lint_level(table, UNUSED_DEPENDENCIES_KEY));
     let has_workspace_cargo_lints = workspace_lint_table.is_some_and(|table| !table.is_empty());
 
-    let mut rel_dirs: Vec<std::path::PathBuf> = package_dirs.values().cloned().collect();
+    let mut rel_dirs = member_dirs.to_vec();
     rel_dirs.sort();
     rel_dirs.dedup();
     if rel_dirs.is_empty() && workspace_root.join("Cargo.toml").is_file() {

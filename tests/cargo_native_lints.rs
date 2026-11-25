@@ -1192,3 +1192,252 @@ fn write_baseline_does_not_create_or_overwrite_when_native_lint_fails_closed() {
     assert_eq!(status2["cargo_lints"]["status"], "error");
     assert_eq!(fs::read_to_string(&existing_baseline).expect("read baseline"), sentinel);
 }
+
+fn excluded_dep_cargo_script() -> String {
+    let bash = bash_path().expect("bash");
+    format!(
+        r#"#!{bash}
+set -euo pipefail
+case "${{1:-}}" in
+  --version)
+    printf 'cargo 1.100.0 (3acc79c0c 2026-11-05)\n'
+    ;;
+  metadata)
+    exec "${{TS_REAL_CARGO:?}}" "$@"
+    ;;
+  check)
+    printf '{{"reason":"build-finished","success":true}}\n'
+    exit 0
+    ;;
+  *)
+    echo "unexpected cargo subcommand: $*" >&2
+    exit 97
+    ;;
+esac
+"#,
+        bash = bash.display()
+    )
+}
+
+fn has_cargo_lint_exclusion(status: &serde_json::Value, needle: &str) -> bool {
+    status["cargo_lints"]["exclusions"]
+        .as_array()
+        .expect("exclusions array")
+        .iter()
+        .any(|item| item.as_str() == Some(needle))
+}
+
+fn write_excluded_dep_and_generate_lock(ws: &Path, dep_manifest: &str) {
+    write_file(&ws.join("dep/Cargo.toml"), dep_manifest);
+    write_file(&ws.join("dep/src/lib.rs"), "pub fn dep_ok() {}\n");
+    write_file(
+        &ws.join("opt_leaf/Cargo.toml"),
+        "[package]\nname = \"opt_leaf\"\nversion = \"0.1.0\"\nedition = \"2024\"\n",
+    );
+    write_file(&ws.join("opt_leaf/src/lib.rs"), "pub fn opt_ok() {}\n");
+    let lock = Command::new(env::var_os("CARGO").expect("CARGO"))
+        .args(["generate-lockfile", "--offline"])
+        .current_dir(ws)
+        .output()
+        .expect("generate lockfile");
+    assert!(lock.status.success(), "lockfile: {}", String::from_utf8_lossy(&lock.stderr));
+}
+
+fn assert_excluded_dep_virtual_workspace(cargo_script: &str) {
+    let tmp = TempDir::new("cargo-native-excluded-virtual");
+    let ws = tmp.path().join("ws");
+    write_file(
+        &ws.join("Cargo.toml"),
+        "[workspace]\nmembers = [\"app\"]\nexclude = [\"dep\"]\nresolver = \"2\"\n\n[workspace.metadata.octet]\ndefault_scope = [\"--workspace\"]\ncargo_check_args = []\n",
+    );
+    write_file(
+        &ws.join("app/Cargo.toml"),
+        "[package]\nname = \"app\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\ndep = { path = \"../dep\" }\n\n[lints.cargo]\nunused_dependencies = \"warn\"\n",
+    );
+    write_file(&ws.join("app/src/lib.rs"), "pub fn app_ok() {}\n");
+    write_excluded_dep_and_generate_lock(
+        &ws,
+        "[package]\nname = \"dep\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\nopt_leaf = { path = \"../opt_leaf\", optional = true }\n\n[lints.cargo]\nunused_dependencies = \"allow\"\n",
+    );
+
+    for (art_name, scope_args) in [("art-ws", vec!["--workspace"]), ("art-pkg", vec!["-p", "app"])] {
+        let art = tmp.path().join(art_name);
+        let mut args = vec!["check"];
+        args.extend(scope_args);
+        args.extend([
+            "--output-format",
+            "json",
+            "--artifact-dir",
+            art.to_str().expect("dir"),
+            "--",
+            "--offline",
+        ]);
+        let out = run_with_custom_cargo_script(tmp.path(), &ws, cargo_script, &args);
+        assert_eq!(out.status.code(), Some(0), "Case A {art_name} stderr={}", String::from_utf8_lossy(&out.stderr));
+        let status = read_json(&art.join("status.json"));
+        assert_eq!(status["cargo_lints"]["status"], "checked", "Case A {art_name}: {status}");
+        assert!(!has_cargo_lint_exclusion(&status, "inactive optional feature dependencies excluded"));
+        assert!(!has_cargo_lint_exclusion(&status, "unselected workspace packages excluded"));
+    }
+}
+
+fn assert_excluded_dep_non_virtual_root_only(cargo_script: &str) {
+    let tmp = TempDir::new("cargo-native-excluded-root-only");
+    let ws = tmp.path().join("ws");
+    write_file(
+        &ws.join("Cargo.toml"),
+        "[package]\nname = \"root_pkg\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\ndep = { path = \"dep\" }\n\n[workspace]\nmembers = []\nexclude = [\"dep\"]\nresolver = \"2\"\n\n[workspace.metadata.octet]\ndefault_scope = [\"--workspace\"]\ncargo_check_args = []\n\n[workspace.lints.cargo]\nunused_dependencies = \"warn\"\n\n[lints]\nworkspace = true\n",
+    );
+    write_file(&ws.join("src/lib.rs"), "pub fn root_ok() {}\n");
+    write_excluded_dep_and_generate_lock(
+        &ws,
+        "[package]\nname = \"dep\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\nopt_leaf = { path = \"../opt_leaf\", optional = true }\n",
+    );
+
+    for (art_name, scope_args) in [("art-ws", vec!["--workspace"]), ("art-pkg", vec!["-p", "root_pkg"])] {
+        let art = tmp.path().join(art_name);
+        let mut args = vec!["check"];
+        args.extend(scope_args);
+        args.extend([
+            "--output-format",
+            "json",
+            "--artifact-dir",
+            art.to_str().expect("dir"),
+            "--",
+            "--offline",
+        ]);
+        let out = run_with_custom_cargo_script(tmp.path(), &ws, cargo_script, &args);
+        assert_eq!(out.status.code(), Some(0), "Case B {art_name} stderr={}", String::from_utf8_lossy(&out.stderr));
+        let status = read_json(&art.join("status.json"));
+        assert_eq!(status["cargo_lints"]["status"], "checked", "Case B {art_name}: {status}");
+    }
+}
+
+fn assert_excluded_dep_non_virtual_submember(cargo_script: &str) {
+    let tmp = TempDir::new("cargo-native-excluded-nonvirtual-sub");
+    let ws = tmp.path().join("ws");
+    write_file(
+        &ws.join("Cargo.toml"),
+        "[package]\nname = \"root_pkg\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\ndep = { path = \"dep\" }\n\n[workspace]\nmembers = [\"app\"]\nexclude = [\"dep\"]\nresolver = \"2\"\n\n[workspace.metadata.octet]\ndefault_scope = [\"--workspace\"]\ncargo_check_args = []\n\n[workspace.lints.cargo]\nunused_dependencies = \"warn\"\n\n[lints]\nworkspace = true\n",
+    );
+    write_file(&ws.join("src/lib.rs"), "pub fn root_ok() {}\n");
+    write_file(
+        &ws.join("app/Cargo.toml"),
+        "[package]\nname = \"app\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[lints]\nworkspace = true\n",
+    );
+    write_file(&ws.join("app/src/lib.rs"), "pub fn app_ok() {}\n");
+    write_excluded_dep_and_generate_lock(
+        &ws,
+        "[package]\nname = \"dep\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\nopt_leaf = { path = \"../opt_leaf\", optional = true }\n",
+    );
+
+    let art_ws = tmp.path().join("art-ws");
+    let out_ws = run_with_custom_cargo_script(tmp.path(), &ws, cargo_script, &[
+        "check",
+        "--workspace",
+        "--output-format",
+        "json",
+        "--artifact-dir",
+        art_ws.to_str().expect("dir"),
+        "--",
+        "--offline",
+    ]);
+    assert_eq!(out_ws.status.code(), Some(0), "Case C ws stderr={}", String::from_utf8_lossy(&out_ws.stderr));
+    let status_ws = read_json(&art_ws.join("status.json"));
+    assert_eq!(status_ws["cargo_lints"]["status"], "checked", "Case C ws: {status_ws}");
+    assert!(!has_cargo_lint_exclusion(&status_ws, "inactive optional feature dependencies excluded"));
+
+    let art_app = tmp.path().join("art-app");
+    let out_app = run_with_custom_cargo_script(tmp.path(), &ws, cargo_script, &[
+        "check",
+        "-p",
+        "app",
+        "--output-format",
+        "json",
+        "--artifact-dir",
+        art_app.to_str().expect("dir"),
+        "--",
+        "--offline",
+    ]);
+    assert_eq!(out_app.status.code(), Some(0), "Case C app stderr={}", String::from_utf8_lossy(&out_app.stderr));
+    let status_app = read_json(&art_app.join("status.json"));
+    assert_eq!(status_app["cargo_lints"]["status"], "partial", "Case C app: {status_app}");
+    assert!(has_cargo_lint_exclusion(&status_app, "unselected workspace packages excluded"));
+    assert!(!has_cargo_lint_exclusion(&status_app, "inactive optional feature dependencies excluded"));
+}
+
+#[test]
+fn excluded_local_path_dependency_does_not_pollute_native_lint_coverage() {
+    let cargo_script = excluded_dep_cargo_script();
+    assert_excluded_dep_virtual_workspace(&cargo_script);
+    assert_excluded_dep_non_virtual_root_only(&cargo_script);
+    assert_excluded_dep_non_virtual_submember(&cargo_script);
+}
+
+#[test]
+fn config_hash_tracks_live_cargo_metadata_exclude_and_normalized_member_paths() {
+    let tmp = TempDir::new("cargo-native-exclude-norm");
+    let ws = tmp.path().join("ws");
+    for (dir, name) in [("crates/included", "included"), ("crates/wip/demo", "demo")] {
+        write_file(
+            &ws.join(dir).join("Cargo.toml"),
+            &format!(
+                "[package]\nname = \"{name}\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[lints.cargo]\nunused_dependencies = \"warn\"\n"
+            ),
+        );
+        write_file(&ws.join(dir).join("src/lib.rs"), "pub fn ok() {}\n");
+    }
+    write_file(&ws.join("Cargo.lock"), "# lock\n");
+
+    let cap = CaptureFixture {
+        cargo_version: "cargo 1.100.0 (3acc79c0c 2026-11-05)".to_owned(),
+        exit_code: 0,
+        stdout: "{\"reason\":\"build-finished\",\"success\":true}\n".to_owned(),
+        stderr: String::new(),
+    };
+    let run_cfg = |art_name: &str| -> String {
+        let art = tmp.path().join(art_name);
+        let out = run_cargo_octet_with_fake_cargo(tmp.path(), &ws, &cap, &[
+            "check",
+            "--workspace",
+            "--output-format",
+            "json",
+            "--artifact-dir",
+            art.to_str().expect("dir"),
+            "--",
+            "--offline",
+        ]);
+        assert_eq!(out.status.code(), Some(0), "stderr={}", String::from_utf8_lossy(&out.stderr));
+        read_json(&art.join("status.json"))["metadata"]["config_hash"]
+            .as_str()
+            .expect("config_hash")
+            .to_owned()
+    };
+
+    // 1. `exclude = ["crates/wip/*"]` does NOT exclude `crates/wip/demo` in real Cargo.
+    write_file(
+        &ws.join("Cargo.toml"),
+        "[workspace]\nmembers = [\"crates/included\", \"crates/wip/demo\"]\nexclude = [\"crates/wip/*\"]\nresolver = \"2\"\n\n[workspace.metadata.octet]\ndefault_scope = [\"--workspace\"]\ncargo_check_args = []\n",
+    );
+    let cfg_before = run_cfg("art1");
+    write_file(
+        &ws.join("crates/wip/demo/Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[lints.cargo]\nunused_dependencies = \"deny\"\n",
+    );
+    let cfg_after = run_cfg("art2");
+    assert_ne!(cfg_before, cfg_after, "crates/wip/demo must remain included when exclude uses glob `crates/wip/*`");
+
+    // 2. Normalized member/exclude paths (`./crates/included/`, `./crates/wip/*`, `./crates/wip/`)
+    //    match canonical ones.
+    write_file(
+        &ws.join("Cargo.toml"),
+        "[workspace]\nmembers = [\"./crates/included/\", \"./crates/wip/*\"]\nexclude = [\"./crates/wip/\"]\nresolver = \"2\"\n\n[workspace.metadata.octet]\ndefault_scope = [\"--workspace\"]\ncargo_check_args = []\n",
+    );
+    let cfg_dot_slash = run_cfg("art3");
+    write_file(
+        &ws.join("Cargo.toml"),
+        "[workspace]\nmembers = [\"crates/included\", \"crates/wip/*\"]\nexclude = [\"crates/wip\"]\nresolver = \"2\"\n\n[workspace.metadata.octet]\ndefault_scope = [\"--workspace\"]\ncargo_check_args = []\n",
+    );
+    let cfg_canonical = run_cfg("art4");
+    assert_eq!(cfg_dot_slash, cfg_canonical);
+}

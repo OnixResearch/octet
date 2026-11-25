@@ -247,54 +247,159 @@ fn discover_workspace_member_dirs(workspace_root: &Path, document: &toml::Table)
     let Some(members) = workspace.get("members").and_then(toml::Value::as_array) else {
         return Vec::new();
     };
-    let excludes: Vec<&str> = workspace
+    let excludes: Vec<PathBuf> = workspace
         .get("exclude")
         .and_then(toml::Value::as_array)
         .into_iter()
         .flatten()
         .filter_map(toml::Value::as_str)
+        .filter_map(normalize_workspace_relative_path)
         .collect();
+    let has_root_exclusion = excludes.iter().any(|excl| excl.as_os_str().is_empty());
     members
         .iter()
         .filter_map(toml::Value::as_str)
-        .flat_map(|pattern| expand_member_pattern(workspace_root, pattern))
-        .filter(|rel_dir| !is_excluded_member_dir(rel_dir, &excludes))
+        .flat_map(|pattern| expand_member_pattern(workspace_root, pattern, &excludes, has_root_exclusion))
         .collect()
 }
 
-fn expand_member_pattern(workspace_root: &Path, pattern: &str) -> Vec<PathBuf> {
-    if let Some(prefix) = pattern.strip_suffix("/*") {
-        read_dir_subdirs(&workspace_root.join(prefix), Path::new(prefix))
-    } else if pattern == "*" {
-        read_dir_subdirs(workspace_root, Path::new(""))
-    } else if !pattern.is_empty() && pattern != "." {
-        vec![PathBuf::from(pattern)]
+fn expand_member_pattern(
+    workspace_root: &Path,
+    pattern: &str,
+    excludes: &[PathBuf],
+    has_root_exclusion: bool,
+) -> Vec<PathBuf> {
+    let Some(normalized) = normalize_workspace_relative_path(pattern) else {
+        return Vec::new();
+    };
+    if normalized.as_os_str().is_empty() || has_root_exclusion {
+        return Vec::new();
+    }
+    if !normalize_path(&normalized).contains(['*', '?']) {
+        return vec![normalized];
+    }
+    expand_glob_member_pattern(workspace_root, &normalized)
+        .into_iter()
+        .filter(|rel_dir| !is_excluded_member_dir(rel_dir, excludes))
+        .collect()
+}
+
+fn expand_glob_member_pattern(workspace_root: &Path, normalized_pattern: &Path) -> Vec<PathBuf> {
+    let mut dirs = vec![PathBuf::new()];
+    for component in normalized_pattern.components() {
+        let std::path::Component::Normal(part_os) = component else {
+            return Vec::new();
+        };
+        let Some(part) = part_os.to_str() else {
+            return Vec::new();
+        };
+        dirs = dirs.into_iter().flat_map(|dir| expand_glob_component(workspace_root, &dir, part)).collect();
+        if dirs.is_empty() {
+            break;
+        }
+    }
+    dirs.into_iter().filter(|dir| !dir.as_os_str().is_empty()).collect()
+}
+
+fn expand_glob_component(workspace_root: &Path, dir: &Path, part: &str) -> Vec<PathBuf> {
+    if part == "**" {
+        collect_recursive_subdirs(workspace_root, dir)
+    } else if part.contains(['*', '?']) {
+        read_dir_subdirs(&workspace_root.join(dir), dir)
+            .into_iter()
+            .filter(|sub| {
+                sub.file_name()
+                    .and_then(std::ffi::OsStr::to_str)
+                    .is_some_and(|name| glob_segment_matches(part, name))
+            })
+            .collect()
     } else {
-        Vec::new()
+        let candidate = dir.join(part);
+        if workspace_root.join(&candidate).is_dir() {
+            vec![candidate]
+        } else {
+            Vec::new()
+        }
     }
 }
 
-fn is_excluded_member_dir(rel_dir: &Path, excludes: &[&str]) -> bool {
-    let normalized_dir = normalize_path(rel_dir);
-    let trimmed_dir = normalized_dir.trim_start_matches("./").trim_end_matches('/');
-    if trimmed_dir.is_empty() || trimmed_dir == "." {
+fn collect_recursive_subdirs(workspace_root: &Path, start: &Path) -> Vec<PathBuf> {
+    const MAX_RECURSIVE_DIRS: usize = 4096;
+    let mut out = Vec::with_capacity(64);
+    let mut stack = Vec::with_capacity(64);
+    stack.push(start.to_path_buf());
+    for _ in 0..MAX_RECURSIVE_DIRS {
+        let Some(dir) = stack.pop() else {
+            break;
+        };
+        if !dir.as_os_str().is_empty() {
+            out.push(dir.clone());
+        }
+        let mut children = read_dir_subdirs(&workspace_root.join(&dir), &dir);
+        children.sort();
+        for child in children.into_iter().rev() {
+            if stack.len() >= MAX_RECURSIVE_DIRS {
+                break;
+            }
+            stack.push(child);
+        }
+    }
+    out
+}
+
+fn normalize_workspace_relative_path(raw: &str) -> Option<PathBuf> {
+    let slash_normalized = normalize_path_text(raw);
+    let mut normalized = PathBuf::new();
+    for component in Path::new(&slash_normalized).components() {
+        match component {
+            std::path::Component::CurDir => {}
+            std::path::Component::Normal(part) => normalized.push(part),
+            std::path::Component::ParentDir | std::path::Component::RootDir | std::path::Component::Prefix(_) => {
+                return None;
+            }
+        }
+    }
+    Some(normalized)
+}
+
+fn is_excluded_member_dir(rel_dir: &Path, excludes: &[PathBuf]) -> bool {
+    if rel_dir.as_os_str().is_empty() {
         return false;
     }
-    let rel_path = Path::new(trimmed_dir);
-    excludes.iter().any(|raw| {
-        let normalized_excl = normalize_path_text(raw);
-        let trimmed_excl = normalized_excl.trim_start_matches("./").trim_end_matches('/');
-        if trimmed_excl.is_empty() || trimmed_excl == "." {
+    excludes.iter().any(|excl| excl.as_os_str().is_empty() || rel_dir.starts_with(excl))
+}
+
+fn glob_segment_matches(pattern: &str, candidate: &str) -> bool {
+    let pattern_chars: Vec<char> = pattern.chars().collect();
+    let candidate_chars: Vec<char> = candidate.chars().collect();
+    let mut pattern_idx = 0;
+    let mut candidate_idx = 0;
+    let mut star_idx = None;
+    let mut retry_idx = 0;
+
+    while candidate_idx < candidate_chars.len() {
+        if pattern_idx < pattern_chars.len()
+            && (pattern_chars[pattern_idx] == '?' || pattern_chars[pattern_idx] == candidate_chars[candidate_idx])
+        {
+            pattern_idx += 1;
+            candidate_idx += 1;
+        } else if pattern_idx < pattern_chars.len() && pattern_chars[pattern_idx] == '*' {
+            star_idx = Some(pattern_idx);
+            pattern_idx += 1;
+            retry_idx = candidate_idx;
+        } else if let Some(star) = star_idx {
+            pattern_idx = star + 1;
+            retry_idx += 1;
+            candidate_idx = retry_idx;
+        } else {
             return false;
         }
-        if trimmed_excl == "*" || trimmed_excl == "**" {
-            return true;
-        }
-        if let Some(prefix) = trimmed_excl.strip_suffix("/*").or_else(|| trimmed_excl.strip_suffix("/**")) {
-            return prefix.is_empty() || (rel_path.starts_with(prefix) && rel_path != Path::new(prefix));
-        }
-        rel_path.starts_with(trimmed_excl)
-    })
+    }
+
+    while pattern_idx < pattern_chars.len() && pattern_chars[pattern_idx] == '*' {
+        pattern_idx += 1;
+    }
+    pattern_idx == pattern_chars.len()
 }
 
 fn read_dir_subdirs(dir: &Path, prefix: &Path) -> Vec<PathBuf> {
@@ -620,7 +725,7 @@ version = "0.1.0"
         let root = tempfile::tempdir().expect("workspace exclude tempdir");
         std::fs::write(
             root.path().join("Cargo.toml"),
-            "[workspace]\nmembers = [\"crates/*\"]\nexclude = [\"crates/excluded\", \"crates/wip/*\"]\nresolver = \"2\"\n\n[workspace.metadata.octet]\ndefault_scope = [\"--workspace\"]\ncargo_check_args = [\"--lib\"]\n",
+            "[workspace]\nmembers = [\"crates/*\", \"crates/wip/*\"]\nexclude = [\"crates/excluded\", \"crates/wip\"]\nresolver = \"2\"\n\n[workspace.metadata.octet]\ndefault_scope = [\"--workspace\"]\ncargo_check_args = [\"--lib\"]\n",
         )
         .expect("write root Cargo.toml");
         std::fs::write(root.path().join("dylint.toml"), "[octet]\n").expect("write dylint.toml");
@@ -659,6 +764,92 @@ version = "0.1.0"
         )
         .expect("mutate included manifest");
         assert_ne!(config_hash(root.path(), None, &scope, &check, None), discovered);
+    }
+
+    #[test]
+    fn config_hash_omitted_member_dirs_matches_cargo_exclude_and_path_normalization() {
+        let root = tempfile::tempdir().expect("parity tempdir");
+        std::fs::write(root.path().join("dylint.toml"), "[octet]\n").expect("write dylint.toml");
+        for (dir, name) in [
+            ("crates/included", "included"),
+            ("crates/ex", "ex"),
+            ("crates/excluded", "excluded"),
+            ("wip/demo", "demo"),
+            ("deep/a/sub", "sub"),
+        ] {
+            std::fs::create_dir_all(root.path().join(dir)).expect("create crate dir");
+            std::fs::write(
+                root.path().join(dir).join("Cargo.toml"),
+                format!("[package]\nname = \"{name}\"\nversion = \"0.1.0\"\n\n[lints.cargo]\nunused_dependencies = \"warn\"\n"),
+            )
+            .expect("write crate manifest");
+        }
+
+        let scope = ["--workspace".to_owned()];
+        let check = ["--lib".to_owned()];
+
+        // 1. `exclude` does NOT expand globs (`wip/*`, `*`, `**`, `deep/**`), and explicit members ignore
+        //    non-`.` excludes.
+        std::fs::write(
+            root.path().join("Cargo.toml"),
+            "[workspace]\nmembers = [\"./crates/included/\", \"./crates/*/\", \"./wip/*\", \"deep/*/*\"]\nexclude = [\"./crates/ex/\", \"wip/*\", \"*\", \"**\", \"deep/**\"]\nresolver = \"2\"\n",
+        )
+        .expect("write Cargo.toml case 1");
+        let expected_case_1 = [
+            PathBuf::from("crates/included"),
+            PathBuf::from("crates/excluded"),
+            PathBuf::from("wip/demo"),
+            PathBuf::from("deep/a/sub"),
+        ];
+        let hash_none_1 = config_hash(root.path(), None, &scope, &check, None);
+        let hash_some_1 = config_hash(root.path(), Some(&expected_case_1), &scope, &check, None);
+        assert_eq!(hash_none_1, hash_some_1);
+
+        // Mutating `wip/demo` MUST change `config_hash` because `exclude = ["wip/*"]` does not exclude it.
+        std::fs::write(
+            root.path().join("wip/demo/Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n\n[lints.cargo]\nunused_dependencies = \"deny\"\n",
+        )
+        .expect("mutate wip/demo");
+        assert_ne!(config_hash(root.path(), None, &scope, &check, None), hash_none_1);
+
+        // Mutating `crates/ex` MUST NOT change `config_hash`, while `crates/excluded` remains included
+        // (component boundary).
+        let base_after_wip = config_hash(root.path(), None, &scope, &check, None);
+        std::fs::write(
+            root.path().join("crates/ex/Cargo.toml"),
+            "[package]\nname = \"ex\"\nversion = \"0.1.0\"\n\n[lints.cargo]\nunused_dependencies = \"deny\"\n",
+        )
+        .expect("mutate crates/ex");
+        assert_eq!(config_hash(root.path(), None, &scope, &check, None), base_after_wip);
+
+        // 2. Explicit non-glob member is kept even if listed under `exclude` (except `exclude = ["."]`).
+        std::fs::write(
+            root.path().join("Cargo.toml"),
+            "[workspace]\nmembers = [\"./crates/included/\", \"wip/demo/\"]\nexclude = [\"wip\"]\nresolver = \"2\"\n",
+        )
+        .expect("write Cargo.toml case 2");
+        assert_eq!(
+            config_hash(root.path(), None, &scope, &check, None),
+            config_hash(
+                root.path(),
+                Some(&[PathBuf::from("crates/included"), PathBuf::from("wip/demo")]),
+                &scope,
+                &check,
+                None
+            )
+        );
+
+        // 3. `exclude = ["."]` excludes all sub-members.
+        std::fs::write(
+            root.path().join("Cargo.toml"),
+            "[workspace]\nmembers = [\"crates/included\", \"wip/demo\"]\nexclude = [\".\"]\nresolver = \"2\"\n",
+        )
+        .expect("write Cargo.toml case 3");
+        assert_eq!(
+            config_hash(root.path(), None, &scope, &check, None),
+            config_hash(root.path(), Some(&[]), &scope, &check, None)
+        );
     }
 
     #[test]

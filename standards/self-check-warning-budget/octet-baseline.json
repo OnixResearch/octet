@@ -10,7 +10,7 @@
     "profile_hash": "b3:cab68b88c47e365a83bcff8760701a148e90217e605daee7c7d0fe8ec2e83e45",
     "config_hash": "b3:c51d1ae1c55fee2a9d155a7b8abe18cb7a6b14ac30476d513f3f5162fe5360c7"
   },
-  "baseline_hash": "b3:19b88b38dd456a68a40f3f22360ac8612f9def039312d822f6a06ddca2139f31",
+  "baseline_hash": "b3:df9e9ac98539d0b01d714d33cdc75f5a738242fd2460b5df6c4e303bf450b64d",
   "findings": [
     {
       "stable_id": "b3:00261e8fb80f3de5",
@@ -3920,7 +3920,7 @@
       "group": "tigerstyle::purity",
       "severity": "warning",
       "file": "cargo-octet/src/engine.rs",
-      "line": 2242,
+      "line": 2251,
       "column": 25,
       "message": "direct `std::env::var_os` access reads or mutates ambient process state",
       "crate_name": "cargo_octet"
@@ -4583,7 +4583,7 @@
       "group": "tigerstyle::purity",
       "severity": "warning",
       "file": "cargo-octet/src/engine.rs",
-      "line": 2245,
+      "line": 2254,
       "column": 25,
       "message": "direct `std::env::var_os` access reads or mutates ambient process state",
       "crate_name": "cargo_octet"
@@ -6975,7 +6975,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/engine.rs",
-      "line": 2255,
+      "line": 2264,
       "column": 27,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -9146,7 +9146,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/engine.rs",
-      "line": 1807,
+      "line": 1816,
       "column": 1,
       "message": "function has 7 parameters (limit: 5) — consider an options struct",
       "crate_name": "cargo_octet"
@@ -9162,19 +9162,6 @@
       "line": 15,
       "column": 1,
       "message": "non-trait import `DETAILS_SCHEMA` hides the owner path; prefer the qualified path at the use site",
-      "crate_name": "cargo_octet"
-    },
-    {
-      "stable_id": "b3:3c3c866e798ecabc",
-      "semantic_id": "b3:3c3c866e798ecabc",
-      "identity_status": "computed",
-      "lint": "excessive_file_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/engine.rs",
-      "line": 1,
-      "column": 1,
-      "message": "source file is 3365 lines (limit: 300)",
       "crate_name": "cargo_octet"
     },
     {
@@ -10459,7 +10446,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/engine.rs",
-      "line": 2230,
+      "line": 2239,
       "column": 13,
       "message": "`Result` value silently discarded with `let _ = ...`",
       "crate_name": "cargo_octet"
@@ -11044,7 +11031,7 @@
       "group": "tigerstyle::purity",
       "severity": "warning",
       "file": "cargo-octet/src/engine.rs",
-      "line": 1943,
+      "line": 1952,
       "column": 20,
       "message": "direct `std::env::temp_dir` access reads or mutates ambient process state",
       "crate_name": "cargo_octet"
@@ -11629,7 +11616,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/determinism.rs",
-      "line": 332,
+      "line": 437,
       "column": 58,
       "message": "function calls itself recursively",
       "crate_name": "cargo_octet"
@@ -23803,6 +23790,19 @@
       "crate_name": "cargo_octet"
     },
     {
+      "stable_id": "b3:9b8f8db9b1b49a5a",
+      "semantic_id": "b3:9b8f8db9b1b49a5a",
+      "identity_status": "computed",
+      "lint": "excessive_file_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/determinism.rs",
+      "line": 1,
+      "column": 1,
+      "message": "source file is 887 lines (limit: 300)",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:9b979f70ea3624f3",
       "semantic_id": "b3:9b979f70ea3624f3",
       "identity_status": "computed",
@@ -24165,19 +24165,6 @@
       "column": 9,
       "message": "function calls itself recursively",
       "crate_name": "octet_merge_rail"
-    },
-    {
-      "stable_id": "b3:9d142f6124ff4eae",
-      "semantic_id": "b3:9d142f6124ff4eae",
-      "identity_status": "computed",
-      "lint": "excessive_file_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/determinism.rs",
-      "line": 1,
-      "column": 1,
-      "message": "source file is 696 lines (limit: 300)",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:9d1ab93fb0247aa9",
@@ -25448,7 +25435,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/engine.rs",
-      "line": 1909,
+      "line": 1918,
       "column": 9,
       "message": "boolean binding `fresh` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -29660,7 +29647,7 @@
       "group": "tigerstyle::purity",
       "severity": "warning",
       "file": "cargo-octet/src/engine.rs",
-      "line": 2273,
+      "line": 2282,
       "column": 17,
       "message": "direct `std::env::var` access reads or mutates ambient process state",
       "crate_name": "cargo_octet"
@@ -31093,6 +31080,19 @@
       "line": 22,
       "column": 1,
       "message": "non-trait import `PROJECT_ARCHITECTURE_CARGO_GRAPH_SCHEMA_VERSION` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:c81870151cb67d40",
+      "semantic_id": "b3:c81870151cb67d40",
+      "identity_status": "computed",
+      "lint": "excessive_file_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/engine.rs",
+      "line": 1,
+      "column": 1,
+      "message": "source file is 3485 lines (limit: 300)",
       "crate_name": "cargo_octet"
     },
     {
@@ -34938,7 +34938,7 @@
       "group": "tigerstyle::purity",
       "severity": "warning",
       "file": "cargo-octet/src/engine.rs",
-      "line": 2209,
+      "line": 2218,
       "column": 9,
       "message": "direct system clock read in production code",
       "crate_name": "cargo_octet"
@@ -35172,7 +35172,7 @@
       "group": "tigerstyle::purity",
       "severity": "warning",
       "file": "cargo-octet/src/engine.rs",
-      "line": 2248,
+      "line": 2257,
       "column": 21,
       "message": "direct `std::env::temp_dir` access reads or mutates ambient process state",
       "crate_name": "cargo_octet"
@@ -38539,7 +38539,7 @@
       "group": "tigerstyle::purity",
       "severity": "warning",
       "file": "cargo-octet/src/engine.rs",
-      "line": 1939,
+      "line": 1948,
       "column": 21,
       "message": "direct system clock read in production code",
       "crate_name": "cargo_octet"

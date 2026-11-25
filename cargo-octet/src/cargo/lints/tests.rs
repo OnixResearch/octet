@@ -270,10 +270,7 @@ fn assesses_coverage_boundaries_and_deterministic_identity() {
     )
     .expect("other manifest");
 
-    let mut package_dirs = std::collections::BTreeMap::new();
-    package_dirs.insert("app#0.1.0".to_owned(), std::path::PathBuf::from("app"));
-    package_dirs.insert("other#0.1.0".to_owned(), std::path::PathBuf::from("other"));
-    let settings = scan_workspace(dir.path(), &package_dirs);
+    let settings = scan_workspace(dir.path(), &[std::path::PathBuf::from("app"), std::path::PathBuf::from("other")]);
     assert!(settings.has_any_cargo_lints);
 
     let v1100 = ToolchainVersion::parse("cargo 1.100.0 (3acc79c0c 2026-11-05)").expect("v1100");
@@ -348,9 +345,7 @@ fn assesses_unknown_and_unsupported_cargo_versions() {
         "[package]\nname = \"app\"\nversion = \"0.1.0\"\n\n[lints.cargo]\nunused_dependencies = \"warn\"\n",
     )
     .expect("manifest");
-    let mut package_dirs = std::collections::BTreeMap::new();
-    package_dirs.insert("app#0.1.0".to_owned(), std::path::PathBuf::new());
-    let settings = scan_workspace(dir.path(), &package_dirs);
+    let settings = scan_workspace(dir.path(), &[std::path::PathBuf::new()]);
     let v1100 = ToolchainVersion::parse("cargo 1.100.0 (3acc79c0c 2026-11-05)").expect("v1100");
     let v196 = ToolchainVersion::parse("cargo 1.96.0-nightly (cbb9bb8bd 2026-03-13)").expect("v196");
     let clean_stderr = extract_stderr_report("", false);
@@ -412,9 +407,7 @@ fn assesses_unselected_vs_selected_truncation_zero_inheritance_and_error_cooccur
     std::fs::write(dir.path().join("app/Cargo.toml"), "[package]\nname = \"app\"\nversion = \"0.1.0\"\n")
         .expect("app without inheritance");
 
-    let mut package_dirs = std::collections::BTreeMap::new();
-    package_dirs.insert("app#0.1.0".to_owned(), std::path::PathBuf::from("app"));
-    let zero_inherit_settings = scan_workspace(dir.path(), &package_dirs);
+    let zero_inherit_settings = scan_workspace(dir.path(), &[std::path::PathBuf::from("app")]);
     let v1100 = ToolchainVersion::parse("cargo 1.100.0 (3acc79c0c 2026-11-05)").expect("v1100");
     let clean = extract_stderr_report("", false);
     let zero_inherit = assess_coverage(&AssessmentInput {
@@ -435,7 +428,7 @@ fn assesses_unselected_vs_selected_truncation_zero_inheritance_and_error_cooccur
     let unselected_dir = tempfile::tempdir().expect("unselected");
     std::fs::write(unselected_dir.path().join("Cargo.toml"), "[package]\nname = \"plain\"\nversion = \"0.1.0\"\n")
         .expect("plain manifest");
-    let unselected_settings = scan_workspace(unselected_dir.path(), &std::collections::BTreeMap::new());
+    let unselected_settings = scan_workspace(unselected_dir.path(), &[]);
     let truncated_stderr = extract_stderr_report_with_flags("big output", super::CaptureIntegrity {
         is_truncated: true,
         has_invalid_utf8: true,
@@ -506,10 +499,7 @@ fn package_selection_handles_compact_and_equals_flags_in_check_args() {
         .expect("member manifest");
     }
 
-    let mut package_dirs = std::collections::BTreeMap::new();
-    package_dirs.insert("app#0.1.0".to_owned(), std::path::PathBuf::from("app"));
-    package_dirs.insert("other#0.1.0".to_owned(), std::path::PathBuf::from("other"));
-    let settings = scan_workspace(dir.path(), &package_dirs);
+    let settings = scan_workspace(dir.path(), &[std::path::PathBuf::from("app"), std::path::PathBuf::from("other")]);
     let v1100 = ToolchainVersion::parse("cargo 1.100.0 (3acc79c0c 2026-11-05)").expect("v1100");
     let clean_stderr = extract_stderr_report("", false);
 
@@ -562,5 +552,72 @@ fn package_selection_handles_compact_and_equals_flags_in_check_args() {
         });
         assert_eq!(partial.status, CoverageStatus::Partial);
         assert!(partial.exclusions.iter().any(|item| item == "unselected workspace packages excluded"));
+    }
+}
+
+#[test]
+fn scan_workspace_scopes_to_member_dirs_including_non_virtual_root() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    std::fs::write(
+        dir.path().join("Cargo.toml"),
+        "[package]\nname = \"root_pkg\"\nversion = \"0.1.0\"\n\n[workspace]\nmembers = [\"app\"]\nexclude = [\"dep\"]\n\n[workspace.lints.cargo]\nunused_dependencies = \"warn\"\n\n[lints]\nworkspace = true\n",
+    )
+    .expect("root manifest");
+    std::fs::create_dir_all(dir.path().join("app")).expect("app dir");
+    std::fs::write(
+        dir.path().join("app/Cargo.toml"),
+        "[package]\nname = \"app\"\nversion = \"0.1.0\"\n\n[lints]\nworkspace = true\n",
+    )
+    .expect("app manifest");
+    std::fs::create_dir_all(dir.path().join("dep")).expect("dep dir");
+    std::fs::write(
+        dir.path().join("dep/Cargo.toml"),
+        "[package]\nname = \"dep\"\nversion = \"0.1.0\"\n\n[dependencies]\nopt_leaf = { path = \"../opt_leaf\", optional = true }\n\n[lints.cargo]\nunused_dependencies = \"allow\"\n",
+    )
+    .expect("dep manifest");
+
+    let settings = scan_workspace(dir.path(), &[std::path::PathBuf::new(), std::path::PathBuf::from("app")]);
+    assert_eq!(settings.packages.len(), 2);
+    assert_eq!(settings.packages[0].package_name, "root_pkg");
+    assert_eq!(settings.packages[0].manifest_path, "Cargo.toml");
+    assert_eq!(settings.packages[1].package_name, "app");
+    assert_eq!(settings.packages[1].manifest_path, "app/Cargo.toml");
+
+    let v1100 = ToolchainVersion::parse("cargo 1.100.0 (3acc79c0c 2026-11-05)").expect("v1100");
+    let clean_stderr = extract_stderr_report("", false);
+    let checked = assess_coverage(&AssessmentInput {
+        workspace_root: dir.path(),
+        toolchain_version: Some(&v1100),
+        settings: &settings,
+        scope_args: &["--workspace".to_owned()],
+        check_args: &[],
+        parsed_stderr: &clean_stderr,
+        has_rustc_compile_errors: false,
+        has_octet_error_findings: false,
+        is_command_success: true,
+        diagnostic_path_error: None,
+    });
+    assert_eq!(checked.status, CoverageStatus::Checked);
+
+    let root_only = scan_workspace(dir.path(), &[std::path::PathBuf::new()]);
+    assert_eq!(root_only.packages.len(), 1);
+    assert_eq!(root_only.packages[0].package_name, "root_pkg");
+    for (scope_args, check_args) in [
+        (vec!["--workspace".to_owned()], vec![]),
+        (vec![], vec!["-p".to_owned(), "root_pkg".to_owned()]),
+    ] {
+        let assessment = assess_coverage(&AssessmentInput {
+            workspace_root: dir.path(),
+            toolchain_version: Some(&v1100),
+            settings: &root_only,
+            scope_args: &scope_args,
+            check_args: &check_args,
+            parsed_stderr: &clean_stderr,
+            has_rustc_compile_errors: false,
+            has_octet_error_findings: false,
+            is_command_success: true,
+            diagnostic_path_error: None,
+        });
+        assert_eq!(assessment.status, CoverageStatus::Checked);
     }
 }

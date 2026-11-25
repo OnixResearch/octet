@@ -1131,7 +1131,7 @@ fn assess_native_lints(input: &NativeLintEvalInput<'_>) -> (Vec<Finding>, crate:
         },
     );
     let settings =
-        crate::cargo::lints::policy::scan_workspace(input.workspace_root, &input.diagnostic_paths.package_dirs);
+        crate::cargo::lints::policy::scan_workspace(input.workspace_root, &input.diagnostic_paths.member_package_dirs);
     let should_probe_version = settings.has_any_cargo_lints
         || parsed_stderr.has_unused_manifest_key_lints_cargo
         || parsed_stderr.has_unknown_cargo_lint
@@ -1482,6 +1482,7 @@ struct DiagnosticPaths {
     package_dirs: BTreeMap<String, PathBuf>,
     manifest_packages: BTreeMap<String, (String, String)>,
     workspace_member_dirs: Vec<PathBuf>,
+    member_package_dirs: Vec<PathBuf>,
     dir: Dir,
 }
 
@@ -1496,6 +1497,7 @@ struct LocalPackagePaths {
     package_dirs: BTreeMap<String, PathBuf>,
     manifest_packages: BTreeMap<String, (String, String)>,
     workspace_member_dirs: Vec<PathBuf>,
+    member_package_dirs: Vec<PathBuf>,
 }
 
 fn parse_local_package_entry(root: &Path, package: &serde_json::Value) -> Result<Option<LocalPackageEntry>, String> {
@@ -1569,10 +1571,16 @@ fn collect_local_package_paths(root: &Path, metadata: &serde_json::Value) -> Res
         .filter(|entry| !entry.directory.as_os_str().is_empty() && workspace_member_ids.contains(entry.id.as_str()))
         .map(|entry| entry.directory.clone())
         .collect();
+    let member_package_dirs = entries
+        .iter()
+        .filter(|entry| workspace_member_ids.contains(entry.id.as_str()))
+        .map(|entry| entry.directory.clone())
+        .collect();
     Ok(LocalPackagePaths {
         package_dirs,
         manifest_packages,
         workspace_member_dirs,
+        member_package_dirs,
     })
 }
 
@@ -1640,6 +1648,7 @@ impl DiagnosticPaths {
             package_dirs: local_paths.package_dirs,
             manifest_packages: local_paths.manifest_packages,
             workspace_member_dirs: local_paths.workspace_member_dirs,
+            member_package_dirs: local_paths.member_package_dirs,
             dir,
         })
     }
@@ -3181,6 +3190,117 @@ mod tests {
         assert_eq!(finding.file, "proofs/Rules.rs");
         assert_eq!(finding.severity, "error");
         assert!(finding.message.contains("retained excluded dependency error"));
+    }
+
+    #[test]
+    fn member_package_dirs_includes_non_virtual_root_and_excludes_local_path_deps() {
+        let temporary = tempfile::tempdir().expect("member_package_dirs fixture");
+        let root = temporary.path();
+        for dir in ["app", "dep"] {
+            fs::create_dir_all(root.join(dir).join("src")).expect("create src dir");
+            fs::write(root.join(dir).join("src/lib.rs"), "pub fn ok() {}\n").expect("write lib.rs");
+            let manifest = if dir == "app" {
+                "[package]\nname = \"app\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[dependencies]\ndep = { path = \"../dep\" }\n"
+            } else {
+                "[package]\nname = \"dep\"\nversion = \"0.1.0\"\nedition = \"2021\"\n"
+            };
+            fs::write(root.join(dir).join("Cargo.toml"), manifest).expect("write manifest");
+        }
+        fs::create_dir_all(root.join("src")).expect("create root src dir");
+        fs::write(root.join("src/lib.rs"), "pub fn root_ok() {}\n").expect("write root lib.rs");
+        let toolchain = std::env::var("RUSTUP_TOOLCHAIN").unwrap_or_else(|_| "stable".to_owned());
+
+        // Virtual workspace with excluded local path dependency `dep`:
+        // `package_dirs` retains `dep` for compiler-span provenance, whereas `member_package_dirs` only has
+        // `app`.
+        fs::write(root.join("Cargo.toml"), "[workspace]\nmembers = [\"app\"]\nexclude = [\"dep\"]\nresolver = \"2\"\n")
+            .expect("write virtual workspace");
+        let virtual_paths = DiagnosticPaths::from_cargo_metadata(root, &toolchain, &[], &["--offline".to_owned()])
+            .expect("virtual metadata");
+        assert!(virtual_paths.package_dirs.values().any(|dir| dir == Path::new("app")));
+        assert!(virtual_paths.package_dirs.values().any(|dir| dir == Path::new("dep")));
+        assert_eq!(virtual_paths.member_package_dirs, vec![PathBuf::from("app")]);
+
+        // Non-virtual root `[package]` + `[workspace] members = ["app"], exclude = ["dep"]`:
+        // `member_package_dirs` includes `""` (root) and `"app"`, never `"dep"`.
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"root_pkg\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[dependencies]\ndep = { path = \"dep\" }\n\n[workspace]\nmembers = [\"app\"]\nexclude = [\"dep\"]\nresolver = \"2\"\n",
+        )
+        .expect("write non-virtual workspace with sub-member");
+        let non_virtual_paths = DiagnosticPaths::from_cargo_metadata(root, &toolchain, &[], &["--offline".to_owned()])
+            .expect("non-virtual metadata");
+        let mut sorted_member_dirs = non_virtual_paths.member_package_dirs;
+        sorted_member_dirs.sort();
+        assert_eq!(sorted_member_dirs, vec![PathBuf::new(), PathBuf::from("app")]);
+
+        // Non-virtual root `[package]` + `[workspace] members = [], exclude = ["dep"]`:
+        // `member_package_dirs` contains only `""`, never `"dep"`.
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"root_pkg\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[dependencies]\ndep = { path = \"dep\" }\n\n[workspace]\nmembers = []\nexclude = [\"dep\"]\nresolver = \"2\"\n",
+        )
+        .expect("write non-virtual workspace without sub-members");
+        let root_only_paths = DiagnosticPaths::from_cargo_metadata(root, &toolchain, &[], &["--offline".to_owned()])
+            .expect("root-only metadata");
+        assert_eq!(root_only_paths.member_package_dirs, vec![PathBuf::new()]);
+    }
+
+    #[test]
+    fn config_hash_omitted_member_dirs_matches_live_cargo_metadata() {
+        let temporary = tempfile::tempdir().expect("metadata parity fixture");
+        let root = temporary.path();
+        for (dir, name) in [
+            ("crates/included", "included"),
+            ("crates/ex", "ex"),
+            ("crates/excluded", "excluded"),
+            ("wip/demo", "demo"),
+            ("deep/a/sub", "sub"),
+        ] {
+            fs::create_dir_all(root.join(dir).join("src")).expect("create member src");
+            fs::write(
+                root.join(dir).join("Cargo.toml"),
+                format!(
+                    "[package]\nname = \"{name}\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[lints.cargo]\nunused_dependencies = \"warn\"\n"
+                ),
+            )
+            .expect("write member manifest");
+            fs::write(root.join(dir).join("src/lib.rs"), "pub fn ok() {}\n").expect("write member lib");
+        }
+        fs::write(root.join("dylint.toml"), "[octet]\n").expect("write dylint.toml");
+        let toolchain = std::env::var("RUSTUP_TOOLCHAIN").unwrap_or_else(|_| "stable".to_owned());
+        let scope = ["--workspace".to_owned()];
+        let check = ["--offline".to_owned()];
+
+        for manifest in [
+            "[workspace]\nmembers = [\"./crates/included/\", \"./crates/*/\", \"./wip/*\", \"deep/*/*\"]\nexclude = [\"./crates/ex/\", \"wip/*\"]\nresolver = \"2\"\n",
+            "[workspace]\nmembers = [\"crates/*\", \"wip/*\"]\nexclude = [\"crates/ex\", \"wip/\"]\nresolver = \"2\"\n",
+            "[workspace]\nmembers = [\"./crates/included/\", \"wip/demo/\"]\nexclude = [\"wip\"]\nresolver = \"2\"\n",
+            "[workspace]\nmembers = [\"crates/included\", \"wip/demo\"]\nexclude = [\"wip/*\"]\nresolver = \"2\"\n",
+        ] {
+            fs::write(root.join("Cargo.toml"), manifest).expect("write workspace manifest");
+            let paths =
+                DiagnosticPaths::from_cargo_metadata(root, &toolchain, &scope, &check).expect("live cargo metadata");
+            let with_none = crate::determinism::build_run_metadata(&crate::determinism::MetadataInput {
+                workspace_root: root,
+                member_dirs: None,
+                toolchain: &toolchain,
+                scope_args: &scope,
+                cargo_check_args: &check,
+                output_format: "json",
+                strict_profile: None,
+            });
+            let with_some = crate::determinism::build_run_metadata(&crate::determinism::MetadataInput {
+                workspace_root: root,
+                member_dirs: Some(&paths.workspace_member_dirs),
+                toolchain: &toolchain,
+                scope_args: &scope,
+                cargo_check_args: &check,
+                output_format: "json",
+                strict_profile: None,
+            });
+            assert_eq!(with_none.config_hash, with_some.config_hash, "manifest:\n{manifest}");
+        }
     }
 
     #[cfg(unix)]
