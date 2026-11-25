@@ -59,7 +59,11 @@ impl<'a> PackageSelection<'a> {
                 has_workspace = true;
             } else if arg == "-p" || arg == "--package" {
                 pending = Some(PendingSelectionArg::Package);
-            } else if let Some(spec) = arg.strip_prefix("-p=").or_else(|| arg.strip_prefix("--package=")) {
+            } else if let Some(spec) = arg
+                .strip_prefix("-p=")
+                .or_else(|| arg.strip_prefix("--package="))
+                .or_else(|| arg.strip_prefix("-p").filter(|rest| !rest.is_empty()))
+            {
                 selected.push(strip_package_version(spec));
             } else if arg == "--exclude" {
                 pending = Some(PendingSelectionArg::Exclude);

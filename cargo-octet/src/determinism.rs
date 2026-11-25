@@ -197,7 +197,9 @@ fn runner_manifest_config(workspace_root: &Path, member_dirs: Option<&[PathBuf]>
     let mut root_obj = serde_json::Map::new();
     root_obj.insert("status".to_owned(), serde_json::json!("parsed"));
     root_obj.insert("workspace_metadata".to_owned(), serde_json::Value::Object(tables));
-    if let Some(cargo_lints) = crate::cargo::lints::manifest_lint_table_json(&document) {
+    if let Some(cargo_lints) =
+        crate::cargo::lints::manifest_lint_table_json(&document, crate::cargo::lints::WorkspaceInheritanceMode::Ignore)
+    {
         root_obj.insert("cargo_lints".to_owned(), cargo_lints);
     }
     if !member_lints.is_empty() {
@@ -211,6 +213,11 @@ fn collect_member_lints(
     document: &toml::Table,
     member_dirs: Option<&[PathBuf]>,
 ) -> serde_json::Map<String, serde_json::Value> {
+    let inheritance_mode = if crate::cargo::lints::has_workspace_lint_table(document) {
+        crate::cargo::lints::WorkspaceInheritanceMode::Track
+    } else {
+        crate::cargo::lints::WorkspaceInheritanceMode::Ignore
+    };
     let discovered;
     let dirs = if let Some(dirs) = member_dirs {
         dirs
@@ -227,36 +234,67 @@ fn collect_member_lints(
         .filter_map(|rel_dir| {
             let text = fs::read_to_string(workspace_root.join(&rel_dir).join("Cargo.toml")).ok()?;
             let member_doc = text.parse::<toml::Table>().ok()?;
-            let lints = crate::cargo::lints::manifest_lint_table_json(&member_doc)?;
+            let lints = crate::cargo::lints::manifest_lint_table_json(&member_doc, inheritance_mode)?;
             Some((format!("{}/Cargo.toml", normalize_path(&rel_dir)), lints))
         })
         .collect()
 }
 
 fn discover_workspace_member_dirs(workspace_root: &Path, document: &toml::Table) -> Vec<PathBuf> {
-    let Some(members) = document
-        .get("workspace")
-        .and_then(toml::Value::as_table)
-        .and_then(|workspace| workspace.get("members"))
-        .and_then(toml::Value::as_array)
-    else {
+    let Some(workspace) = document.get("workspace").and_then(toml::Value::as_table) else {
         return Vec::new();
     };
+    let Some(members) = workspace.get("members").and_then(toml::Value::as_array) else {
+        return Vec::new();
+    };
+    let excludes: Vec<&str> = workspace
+        .get("exclude")
+        .and_then(toml::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(toml::Value::as_str)
+        .collect();
     members
         .iter()
         .filter_map(toml::Value::as_str)
-        .flat_map(|pattern| {
-            if let Some(prefix) = pattern.strip_suffix("/*") {
-                read_dir_subdirs(&workspace_root.join(prefix), Path::new(prefix))
-            } else if pattern == "*" {
-                read_dir_subdirs(workspace_root, Path::new(""))
-            } else if !pattern.is_empty() && pattern != "." {
-                vec![PathBuf::from(pattern)]
-            } else {
-                Vec::new()
-            }
-        })
+        .flat_map(|pattern| expand_member_pattern(workspace_root, pattern))
+        .filter(|rel_dir| !is_excluded_member_dir(rel_dir, &excludes))
         .collect()
+}
+
+fn expand_member_pattern(workspace_root: &Path, pattern: &str) -> Vec<PathBuf> {
+    if let Some(prefix) = pattern.strip_suffix("/*") {
+        read_dir_subdirs(&workspace_root.join(prefix), Path::new(prefix))
+    } else if pattern == "*" {
+        read_dir_subdirs(workspace_root, Path::new(""))
+    } else if !pattern.is_empty() && pattern != "." {
+        vec![PathBuf::from(pattern)]
+    } else {
+        Vec::new()
+    }
+}
+
+fn is_excluded_member_dir(rel_dir: &Path, excludes: &[&str]) -> bool {
+    let normalized_dir = normalize_path(rel_dir);
+    let trimmed_dir = normalized_dir.trim_start_matches("./").trim_end_matches('/');
+    if trimmed_dir.is_empty() || trimmed_dir == "." {
+        return false;
+    }
+    let rel_path = Path::new(trimmed_dir);
+    excludes.iter().any(|raw| {
+        let normalized_excl = normalize_path_text(raw);
+        let trimmed_excl = normalized_excl.trim_start_matches("./").trim_end_matches('/');
+        if trimmed_excl.is_empty() || trimmed_excl == "." {
+            return false;
+        }
+        if trimmed_excl == "*" || trimmed_excl == "**" {
+            return true;
+        }
+        if let Some(prefix) = trimmed_excl.strip_suffix("/*").or_else(|| trimmed_excl.strip_suffix("/**")) {
+            return prefix.is_empty() || (rel_path.starts_with(prefix) && rel_path != Path::new(prefix));
+        }
+        rel_path.starts_with(trimmed_excl)
+    })
 }
 
 fn read_dir_subdirs(dir: &Path, prefix: &Path) -> Vec<PathBuf> {
@@ -468,6 +506,159 @@ version = "0.1.0"
         .expect("write member deny");
         let member_deny = config_hash(root.path(), Some(&member_dirs), &scope, &check, None);
         assert_ne!(member_deny, member_warn);
+    }
+
+    #[test]
+    fn config_hash_tracks_member_workspace_lint_inheritance_only_with_workspace_cargo_lints() {
+        let scope = ["--workspace".to_owned()];
+        let check = ["--lib".to_owned()];
+        let member_dirs = [PathBuf::from("core")];
+
+        for root_manifest in [
+            BASE_MANIFEST.to_owned(),
+            format!("{BASE_MANIFEST}\n[workspace.lints.rust]\nunsafe_code = \"forbid\"\n"),
+        ] {
+            let root = tempfile::tempdir().expect("plain workspace tempdir");
+            std::fs::write(root.path().join("Cargo.toml"), &root_manifest).expect("write root manifest");
+            std::fs::write(root.path().join("dylint.toml"), "[octet]\n").expect("write dylint.toml");
+            std::fs::create_dir_all(root.path().join("core")).expect("create core dir");
+            std::fs::write(root.path().join("core/Cargo.toml"), "[package]\nname = \"core\"\nversion = \"0.1.0\"\n")
+                .expect("write plain member");
+
+            let plain_cfg = config_hash(root.path(), Some(&member_dirs), &scope, &check, None);
+            assert_eq!(plain_cfg, config_hash(root.path(), None, &scope, &check, None));
+            let plain_profile = profile_hash(&scope, &check, "json", &plain_cfg, None);
+            let plain_finding =
+                semantic_finding_id("cargo::unused_dependencies", "core", "msg", None, "b3:snip", Some(&plain_cfg));
+
+            std::fs::write(
+                root.path().join("core/Cargo.toml"),
+                "[package]\nname = \"core\"\nversion = \"0.1.0\"\n\n[lints]\nworkspace = true\n",
+            )
+            .expect("write inheriting member");
+            let inherited_cfg = config_hash(root.path(), Some(&member_dirs), &scope, &check, None);
+            assert_eq!(inherited_cfg, plain_cfg);
+            assert_eq!(config_hash(root.path(), None, &scope, &check, None), plain_cfg);
+            assert_eq!(profile_hash(&scope, &check, "json", &inherited_cfg, None), plain_profile);
+            assert_eq!(
+                semantic_finding_id("cargo::unused_dependencies", "core", "msg", None, "b3:snip", Some(&inherited_cfg)),
+                plain_finding
+            );
+
+            std::fs::write(root.path().join("Cargo.toml"), format!("{root_manifest}\n[lints]\nworkspace = true\n"))
+                .expect("write root workspace = true without cargo lints");
+            assert_eq!(config_hash(root.path(), Some(&member_dirs), &scope, &check, None), plain_cfg);
+        }
+
+        for workspace_lints_section in [
+            "[workspace.lints.cargo]\nunused_dependencies = \"warn\"\n",
+            "[workspace.lints.cargo]\n",
+        ] {
+            let root_manifest = format!("{BASE_MANIFEST}\n{workspace_lints_section}");
+            let root = tempfile::tempdir().expect("cargo lint workspace tempdir");
+            std::fs::write(root.path().join("Cargo.toml"), &root_manifest).expect("write root manifest");
+            std::fs::write(root.path().join("dylint.toml"), "[octet]\n").expect("write dylint.toml");
+            std::fs::create_dir_all(root.path().join("core")).expect("create core dir");
+
+            std::fs::write(root.path().join("core/Cargo.toml"), "[package]\nname = \"core\"\nversion = \"0.1.0\"\n")
+                .expect("write non-inheriting member");
+            let no_inherit_cfg = config_hash(root.path(), Some(&member_dirs), &scope, &check, None);
+            assert_eq!(no_inherit_cfg, config_hash(root.path(), None, &scope, &check, None));
+            let no_inherit_profile = profile_hash(&scope, &check, "json", &no_inherit_cfg, None);
+            let no_inherit_finding = semantic_finding_id(
+                "cargo::unused_dependencies",
+                "core",
+                "msg",
+                None,
+                "b3:snip",
+                Some(&no_inherit_cfg),
+            );
+
+            std::fs::write(
+                root.path().join("core/Cargo.toml"),
+                "[package]\nname = \"core\"\nversion = \"0.1.0\"\n\n[lints]\nworkspace = false\n",
+            )
+            .expect("write workspace = false member");
+            assert_eq!(config_hash(root.path(), Some(&member_dirs), &scope, &check, None), no_inherit_cfg);
+
+            std::fs::write(
+                root.path().join("core/Cargo.toml"),
+                "[package]\nname = \"core\"\nversion = \"0.1.0\"\n\n[lints]\nworkspace = true\n",
+            )
+            .expect("write workspace = true member");
+            let inherit_cfg = config_hash(root.path(), Some(&member_dirs), &scope, &check, None);
+            assert_eq!(inherit_cfg, config_hash(root.path(), None, &scope, &check, None));
+            assert_ne!(inherit_cfg, no_inherit_cfg);
+            assert_ne!(profile_hash(&scope, &check, "json", &inherit_cfg, None), no_inherit_profile);
+            assert_ne!(
+                semantic_finding_id("cargo::unused_dependencies", "core", "msg", None, "b3:snip", Some(&inherit_cfg)),
+                no_inherit_finding
+            );
+
+            std::fs::write(
+                root.path().join("core/Cargo.toml"),
+                "[package]\nname = \"core\"\nversion = \"0.1.0\"\n\n[lints.cargo]\nunused_dependencies = \"warn\"\n",
+            )
+            .expect("write explicit member lints");
+            let explicit_cfg = config_hash(root.path(), Some(&member_dirs), &scope, &check, None);
+            assert_ne!(explicit_cfg, inherit_cfg);
+            assert_ne!(explicit_cfg, no_inherit_cfg);
+
+            std::fs::write(root.path().join("core/Cargo.toml"), "[package]\nname = \"core\"\nversion = \"0.1.0\"\n")
+                .expect("restore plain member");
+            assert_eq!(config_hash(root.path(), Some(&member_dirs), &scope, &check, None), no_inherit_cfg);
+
+            std::fs::write(root.path().join("Cargo.toml"), format!("{root_manifest}\n[lints]\nworkspace = true\n"))
+                .expect("enable root package inheritance");
+            let root_inherit_cfg = config_hash(root.path(), Some(&member_dirs), &scope, &check, None);
+            assert_ne!(root_inherit_cfg, no_inherit_cfg);
+        }
+    }
+
+    #[test]
+    fn config_hash_respects_workspace_exclude_when_member_dirs_omitted() {
+        let root = tempfile::tempdir().expect("workspace exclude tempdir");
+        std::fs::write(
+            root.path().join("Cargo.toml"),
+            "[workspace]\nmembers = [\"crates/*\"]\nexclude = [\"crates/excluded\", \"crates/wip/*\"]\nresolver = \"2\"\n\n[workspace.metadata.octet]\ndefault_scope = [\"--workspace\"]\ncargo_check_args = [\"--lib\"]\n",
+        )
+        .expect("write root Cargo.toml");
+        std::fs::write(root.path().join("dylint.toml"), "[octet]\n").expect("write dylint.toml");
+        for (dir, name) in [
+            ("crates/included", "included"),
+            ("crates/excluded", "excluded"),
+            ("crates/wip/demo", "demo"),
+        ] {
+            std::fs::create_dir_all(root.path().join(dir)).expect("create member dir");
+            std::fs::write(
+                root.path().join(dir).join("Cargo.toml"),
+                format!("[package]\nname = \"{name}\"\nversion = \"0.1.0\"\n\n[lints.cargo]\nunused_dependencies = \"warn\"\n"),
+            )
+            .expect("write member manifest");
+        }
+
+        let scope = ["--workspace".to_owned()];
+        let check = ["--lib".to_owned()];
+        let explicit_members = [PathBuf::from("crates/included")];
+        let discovered = config_hash(root.path(), None, &scope, &check, None);
+        let explicit = config_hash(root.path(), Some(&explicit_members), &scope, &check, None);
+        assert_eq!(discovered, explicit);
+
+        for excluded in ["crates/excluded/Cargo.toml", "crates/wip/demo/Cargo.toml"] {
+            std::fs::write(
+                root.path().join(excluded),
+                "[package]\nname = \"excluded\"\nversion = \"0.1.0\"\n\n[lints.cargo]\nunused_dependencies = \"deny\"\n",
+            )
+            .expect("mutate excluded manifest");
+            assert_eq!(config_hash(root.path(), None, &scope, &check, None), discovered);
+        }
+
+        std::fs::write(
+            root.path().join("crates/included/Cargo.toml"),
+            "[package]\nname = \"included\"\nversion = \"0.1.0\"\n\n[lints.cargo]\nunused_dependencies = \"deny\"\n",
+        )
+        .expect("mutate included manifest");
+        assert_ne!(config_hash(root.path(), None, &scope, &check, None), discovered);
     }
 
     #[test]

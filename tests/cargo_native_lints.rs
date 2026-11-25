@@ -1028,3 +1028,167 @@ fn diagnostic_path_containment_and_member_config_hash() {
         .to_owned();
     assert_ne!(hash_before, hash_after);
 }
+
+#[test]
+fn member_workspace_lint_inheritance_mutates_config_hash_and_cache_key() {
+    let capture = load_capture("cargo-1.100.0-warn-workspace");
+    let tmp = TempDir::new("cargo-native-inherit-cache");
+    let ws = tmp.path().join("ws");
+    copy_fixture_workspace(&ws);
+
+    let run_cached = |art: &Path| {
+        let out = run_cargo_octet_with_fake_cargo(tmp.path(), &ws, &capture, &[
+            "check",
+            "--workspace",
+            "--cache",
+            "--output-format",
+            "json",
+            "--artifact-dir",
+            art.to_str().expect("dir"),
+            "--",
+            "--offline",
+        ]);
+        assert_eq!(out.status.code(), Some(0), "stderr={}", String::from_utf8_lossy(&out.stderr));
+        let status = read_json(&art.join("status.json"));
+        let jsonl = fs::read_to_string(art.join("results.jsonl")).expect("jsonl");
+        let findings: Vec<serde_json::Value> =
+            jsonl.lines().map(|line| serde_json::from_str(line).expect("parse finding")).collect();
+        (status, findings)
+    };
+
+    let (status1, findings1) = run_cached(&tmp.path().join("art1"));
+    assert_eq!(findings1.len(), 2);
+    assert!(findings1.iter().all(|f| f["cache_status"] == "miss"));
+    let other1 = findings1.iter().find(|f| f["crate_name"] == "other_pkg").expect("other_pkg finding");
+    let cfg1 = status1["metadata"]["config_hash"].as_str().expect("cfg1").to_owned();
+    let prof1 = status1["metadata"]["profile_hash"].as_str().expect("prof1").to_owned();
+    let sem1 = other1["semantic_id"].as_str().expect("sem1").to_owned();
+    let stab1 = other1["stable_id"].as_str().expect("stab1").to_owned();
+
+    let (status2, findings2) = run_cached(&tmp.path().join("art2"));
+    assert_eq!(status2["metadata"]["config_hash"], cfg1);
+    assert_eq!(status2["metadata"]["profile_hash"], prof1);
+    assert!(findings2.iter().all(|f| f["cache_status"] == "hit"));
+
+    write_file(
+        &ws.join("other_pkg/Cargo.toml"),
+        "[package]\nname = \"other_pkg\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\nunused_dep = { path = \"../unused_dep\" }\n",
+    );
+
+    let (status3, findings3) = run_cached(&tmp.path().join("art3"));
+    let other3 = findings3.iter().find(|f| f["crate_name"] == "other_pkg").expect("other_pkg finding");
+    assert_ne!(status3["metadata"]["config_hash"].as_str().expect("cfg3"), cfg1);
+    assert_ne!(status3["metadata"]["profile_hash"].as_str().expect("prof3"), prof1);
+    assert_ne!(other3["semantic_id"].as_str().expect("sem3"), sem1);
+    assert_ne!(other3["stable_id"].as_str().expect("stab3"), stab1);
+    assert!(findings3.iter().all(|f| f["cache_status"] == "miss"));
+
+    let tmp_plain = TempDir::new("cargo-native-plain-inherit");
+    let ws_plain = tmp_plain.path().join("ws");
+    write_file(
+        &ws_plain.join("Cargo.toml"),
+        "[workspace]\nmembers = [\"app\"]\nresolver = \"2\"\n\n[workspace.metadata.octet]\ndefault_scope = [\"--workspace\"]\ncargo_check_args = []\n\n[workspace.lints.rust]\nunsafe_code = \"forbid\"\n",
+    );
+    write_file(
+        &ws_plain.join("app/Cargo.toml"),
+        "[package]\nname = \"app\"\nversion = \"0.1.0\"\nedition = \"2024\"\n",
+    );
+    write_file(&ws_plain.join("app/src/lib.rs"), "pub fn ok() {}\n");
+    write_file(&ws_plain.join("Cargo.lock"), "# lock\n");
+    let plain_cap = CaptureFixture {
+        cargo_version: "cargo 1.100.0 (3acc79c0c 2026-11-05)".to_owned(),
+        exit_code: 0,
+        stdout: "{\"reason\":\"build-finished\",\"success\":true}\n".to_owned(),
+        stderr: String::new(),
+    };
+    let art_plain1 = tmp_plain.path().join("art1");
+    let out_p1 = run_cargo_octet_with_fake_cargo(tmp_plain.path(), &ws_plain, &plain_cap, &[
+        "check",
+        "--workspace",
+        "--output-format",
+        "json",
+        "--artifact-dir",
+        art_plain1.to_str().expect("dir"),
+        "--",
+        "--offline",
+    ]);
+    assert_eq!(out_p1.status.code(), Some(0));
+    let plain_cfg1 = read_json(&art_plain1.join("status.json"))["metadata"]["config_hash"]
+        .as_str()
+        .expect("plain_cfg1")
+        .to_owned();
+
+    write_file(
+        &ws_plain.join("app/Cargo.toml"),
+        "[package]\nname = \"app\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[lints]\nworkspace = true\n",
+    );
+    let art_plain2 = tmp_plain.path().join("art2");
+    let out_p2 = run_cargo_octet_with_fake_cargo(tmp_plain.path(), &ws_plain, &plain_cap, &[
+        "check",
+        "--workspace",
+        "--output-format",
+        "json",
+        "--artifact-dir",
+        art_plain2.to_str().expect("dir"),
+        "--",
+        "--offline",
+    ]);
+    assert_eq!(out_p2.status.code(), Some(0));
+    assert_eq!(read_json(&art_plain2.join("status.json"))["metadata"]["config_hash"], plain_cfg1);
+}
+
+#[test]
+fn write_baseline_does_not_create_or_overwrite_when_native_lint_fails_closed() {
+    let tmp = TempDir::new("cargo-native-write-baseline");
+    let ws = tmp.path().join("ws");
+    copy_fixture_workspace(&ws);
+
+    let legacy_cap = load_capture("cargo-1.96.0-nightly-warn-workspace");
+    let missing_baseline = tmp.path().join("new-baseline.json");
+    let art1 = tmp.path().join("art1");
+    let out1 = run_cargo_octet_with_fake_cargo(tmp.path(), &ws, &legacy_cap, &[
+        "check",
+        "--workspace",
+        "--write-baseline",
+        missing_baseline.to_str().expect("baseline path"),
+        "--output-format",
+        "json",
+        "--artifact-dir",
+        art1.to_str().expect("dir"),
+        "--",
+        "--offline",
+    ]);
+    assert_eq!(out1.status.code(), Some(2));
+    let status1 = read_json(&art1.join("status.json"));
+    assert_eq!(status1["status"], "integration-failure");
+    assert_eq!(status1["cargo_lints"]["status"], "unsupported-cargo-version");
+    assert!(!missing_baseline.exists(), "fail-closed run must not create baseline");
+
+    let existing_baseline = tmp.path().join("existing-baseline.json");
+    let sentinel = "{\"sentinel\":true}\n";
+    write_file(&existing_baseline, sentinel);
+    let big_cap = CaptureFixture {
+        cargo_version: "cargo 1.100.0 (3acc79c0c 2026-11-05)".to_owned(),
+        exit_code: 0,
+        stdout: "{\"reason\":\"build-finished\",\"success\":true}\n".to_owned(),
+        stderr: "note: verbose progress\n".repeat(15_000),
+    };
+    let art2 = tmp.path().join("art2");
+    let out2 = run_cargo_octet_with_fake_cargo(tmp.path(), &ws, &big_cap, &[
+        "check",
+        "--workspace",
+        "--write-baseline",
+        existing_baseline.to_str().expect("baseline path"),
+        "--output-format",
+        "json",
+        "--artifact-dir",
+        art2.to_str().expect("dir"),
+        "--",
+        "--offline",
+    ]);
+    assert_eq!(out2.status.code(), Some(2));
+    let status2 = read_json(&art2.join("status.json"));
+    assert_eq!(status2["status"], "integration-failure");
+    assert_eq!(status2["cargo_lints"]["status"], "error");
+    assert_eq!(fs::read_to_string(&existing_baseline).expect("read baseline"), sentinel);
+}

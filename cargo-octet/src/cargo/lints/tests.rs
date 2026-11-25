@@ -487,3 +487,80 @@ fn assesses_unselected_vs_selected_truncation_zero_inheritance_and_error_cooccur
     });
     assert!(octet_deny.fail_closed_message.is_none());
 }
+
+#[test]
+fn package_selection_handles_compact_and_equals_flags_in_check_args() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    std::fs::write(
+        dir.path().join("Cargo.toml"),
+        "[workspace]\nmembers = [\"app\", \"other\"]\n\n[workspace.lints.cargo]\nunused_dependencies = \"warn\"\n",
+    )
+    .expect("root manifest");
+    std::fs::create_dir_all(dir.path().join("app")).expect("app dir");
+    std::fs::create_dir_all(dir.path().join("other")).expect("other dir");
+    for name in ["app", "other"] {
+        std::fs::write(
+            dir.path().join(name).join("Cargo.toml"),
+            format!("[package]\nname = \"{name}\"\nversion = \"0.1.0\"\n\n[lints]\nworkspace = true\n"),
+        )
+        .expect("member manifest");
+    }
+
+    let mut package_dirs = std::collections::BTreeMap::new();
+    package_dirs.insert("app#0.1.0".to_owned(), std::path::PathBuf::from("app"));
+    package_dirs.insert("other#0.1.0".to_owned(), std::path::PathBuf::from("other"));
+    let settings = scan_workspace(dir.path(), &package_dirs);
+    let v1100 = ToolchainVersion::parse("cargo 1.100.0 (3acc79c0c 2026-11-05)").expect("v1100");
+    let clean_stderr = extract_stderr_report("", false);
+
+    let compact_partial = assess_coverage(&AssessmentInput {
+        workspace_root: dir.path(),
+        toolchain_version: Some(&v1100),
+        settings: &settings,
+        scope_args: &[],
+        check_args: &["-papp".to_owned(), "--all-features".to_owned()],
+        parsed_stderr: &clean_stderr,
+        has_rustc_compile_errors: false,
+        has_octet_error_findings: false,
+        is_command_success: true,
+        diagnostic_path_error: None,
+    });
+    assert_eq!(compact_partial.status, CoverageStatus::Partial);
+    assert!(compact_partial.boundary_reason.contains("package selection excludes unselected workspace members"));
+    assert!(compact_partial.exclusions.iter().any(|item| item == "unselected workspace packages excluded"));
+
+    let compact_with_workspace = assess_coverage(&AssessmentInput {
+        workspace_root: dir.path(),
+        toolchain_version: Some(&v1100),
+        settings: &settings,
+        scope_args: &["--workspace".to_owned()],
+        check_args: &["-papp".to_owned(), "--all-features".to_owned()],
+        parsed_stderr: &clean_stderr,
+        has_rustc_compile_errors: false,
+        has_octet_error_findings: false,
+        is_command_success: true,
+        diagnostic_path_error: None,
+    });
+    assert_eq!(compact_with_workspace.status, CoverageStatus::Checked);
+
+    for (scope_args, check_args) in [
+        (vec![], vec!["-p=app".to_owned(), "--all-features".to_owned()]),
+        (vec![], vec!["--package=app".to_owned(), "--all-features".to_owned()]),
+        (vec!["--workspace".to_owned()], vec!["--exclude=other".to_owned(), "--all-features".to_owned()]),
+    ] {
+        let partial = assess_coverage(&AssessmentInput {
+            workspace_root: dir.path(),
+            toolchain_version: Some(&v1100),
+            settings: &settings,
+            scope_args: &scope_args,
+            check_args: &check_args,
+            parsed_stderr: &clean_stderr,
+            has_rustc_compile_errors: false,
+            has_octet_error_findings: false,
+            is_command_success: true,
+            diagnostic_path_error: None,
+        });
+        assert_eq!(partial.status, CoverageStatus::Partial);
+        assert!(partial.exclusions.iter().any(|item| item == "unselected workspace packages excluded"));
+    }
+}

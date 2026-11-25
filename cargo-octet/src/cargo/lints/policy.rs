@@ -244,12 +244,7 @@ fn read_package_settings(
         .and_then(|pkg| pkg.get("name"))
         .and_then(toml::Value::as_str)?
         .to_owned();
-    let has_workspace_inheritance = table
-        .get("lints")
-        .and_then(toml::Value::as_table)
-        .and_then(|tbl| tbl.get("workspace"))
-        .and_then(toml::Value::as_bool)
-        == Some(true);
+    let has_workspace_inheritance = super::has_workspace_lint_inheritance(&table);
     let lint_table = manifest_lint_table(table.get("lints"));
     let pkg_unused = lint_table.and_then(|tbl| extract_lint_level(tbl, UNUSED_DEPENDENCIES_KEY));
     let unused_dependencies_level =

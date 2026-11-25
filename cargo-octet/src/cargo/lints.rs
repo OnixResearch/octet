@@ -149,13 +149,42 @@ pub(crate) struct StderrReport {
     pub(crate) raw_excerpt: String,
 }
 
-pub(crate) fn manifest_lint_table_json(document: &toml::Table) -> Option<serde_json::Value> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum WorkspaceInheritanceMode {
+    Ignore,
+    Track,
+}
+
+pub(crate) fn has_workspace_lint_inheritance(document: &toml::Table) -> bool {
+    document
+        .get("lints")
+        .and_then(toml::Value::as_table)
+        .and_then(|tbl| tbl.get("workspace"))
+        .and_then(toml::Value::as_bool)
+        == Some(true)
+}
+
+pub(crate) fn has_workspace_lint_table(document: &toml::Table) -> bool {
+    document
+        .get("workspace")
+        .and_then(toml::Value::as_table)
+        .and_then(|workspace| policy::manifest_lint_table(workspace.get("lints")))
+        .is_some()
+}
+
+pub(crate) fn manifest_lint_table_json(
+    document: &toml::Table,
+    inheritance_mode: WorkspaceInheritanceMode,
+) -> Option<serde_json::Value> {
     let package_lints = policy::manifest_lint_table(document.get("lints"));
     let workspace_lints = document
         .get("workspace")
         .and_then(toml::Value::as_table)
         .and_then(|workspace| policy::manifest_lint_table(workspace.get("lints")));
-    if package_lints.is_none() && workspace_lints.is_none() {
+    let has_inherited_workspace_lints = (inheritance_mode == WorkspaceInheritanceMode::Track
+        || workspace_lints.is_some())
+        && has_workspace_lint_inheritance(document);
+    if package_lints.is_none() && workspace_lints.is_none() && !has_inherited_workspace_lints {
         return None;
     }
     let mut map = serde_json::Map::new();
@@ -164,6 +193,9 @@ pub(crate) fn manifest_lint_table_json(document: &toml::Table) -> Option<serde_j
     }
     if let Some(pkg) = package_lints {
         map.insert("package".to_owned(), crate::determinism::canonical_toml_json(&toml::Value::Table(pkg.clone())));
+    }
+    if has_inherited_workspace_lints {
+        map.insert("workspace_inherited".to_owned(), serde_json::Value::Bool(true));
     }
     Some(serde_json::Value::Object(map))
 }

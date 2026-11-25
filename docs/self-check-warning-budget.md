@@ -17,9 +17,9 @@ Octet ratchets its canonical `--workspace --lib` self-check with the runner's ex
 
 The checked-in baseline contains **3,023 unique stable identities**. Its
 semantic `baseline_hash` is
-`b3:cc65190b66b4c22260c7ee2f92c81b93a17d08710c0f9178f124660f466e0d13`;
+`b3:19b88b38dd456a68a40f3f22360ac8612f9def039312d822f6a06ddca2139f31`;
 the baseline file's BLAKE3 identity is
-`b3:dde11022985f8d35b10a7d92b71a7943b22ee259d159206a60a0f416412f79d5`.
+`b3:699622229e7e47fc8e971c26d6b5295980dab62aab1cb82b903ccd408fbe7790`.
 These describe stored data, not a fresh self-check observation or approval of
 new findings. The flake gate's **4,233 occurrence** budget is an expectation,
 not a measured current run. Candidate qualification must record actual results
