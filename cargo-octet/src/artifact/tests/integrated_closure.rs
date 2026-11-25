@@ -53,6 +53,14 @@ fn toolchain_summary(shape: &str) -> CallSummary {
             locator: "rustc-version#alloc".to_owned(),
             blake3: closure::provider_identity_blake3(&provider),
         },
+        implementation_binding: Some(crate::envelope::ImplementationBinding {
+            profile: crate::envelope::BindingProfile::ImplementationBoundV1,
+            package_envelope_blake3: IDENTITY_HASH.to_owned(),
+            closure_blake3: IDENTITY_HASH.to_owned(),
+            build_context_blake3: IDENTITY_HASH.to_owned(),
+            justification: crate::envelope::SummaryJustification::ReviewedAssumption,
+            generated_inputs: Vec::new(),
+        }),
         provider,
     }
 }
@@ -86,6 +94,8 @@ fn closure_fixture(source: &str, role: ModuleRole, call_summaries: Vec<CallSumma
     let policy = closure::WorkspacePolicy {
         schema_version: closure::WORKSPACE_POLICY_SCHEMA_VERSION.to_owned(),
         profile_id: closure::DETERMINISTIC_CORE_PROFILE.to_owned(),
+        binding_profile: Some(crate::envelope::BindingProfile::ImplementationBoundV1),
+        envelope_policy_blake3: None,
         function_address_baseline: FUNCTION_ADDRESS_ARTIFACT_NAME.to_owned(),
         module_roles: vec![ModuleRoleAssignment {
             path: SOURCE_PATH.to_owned(),
@@ -94,14 +104,33 @@ fn closure_fixture(source: &str, role: ModuleRole, call_summaries: Vec<CallSumma
         call_summaries,
         non_claims: vec!["bounded fixture policy".to_owned()],
     };
+    let provider_envelopes = providers
+        .iter()
+        .cloned()
+        .map(|provider| crate::envelope::ProviderRecord {
+            provider,
+            source_envelope_kind: crate::envelope::SourceKind::Toolchain,
+            completeness: crate::envelope::CompletenessStatus::Complete,
+            completeness_diagnostics: Vec::new(),
+            package_envelope_blake3: IDENTITY_HASH.to_owned(),
+            build_context_blake3: IDENTITY_HASH.to_owned(),
+            implementation_closure_blake3: IDENTITY_HASH.to_owned(),
+            generated_inputs: Vec::new(),
+            transitive_providers: Vec::new(),
+        })
+        .collect::<Vec<_>>();
     insert_json(&mut files, EFFECT_CLOSURE_POLICY_ARTIFACT_NAME, &policy);
     insert_json(&mut files, EFFECT_CLOSURE_GRAPH_ARTIFACT_NAME, &crate::admit::DependencyGraphArtifact {
-        schema_version: "octet-effect-closure-dependency-graph/v1".to_owned(),
+        schema_version: crate::admit::DEPENDENCY_GRAPH_SCHEMA.to_owned(),
         target: TARGET.to_owned(),
         toolchain: TOOLCHAIN.to_owned(),
         rustc_version: "rustc-fixture".to_owned(),
         cargo_lock_blake3: CARGO_LOCK.to_owned(),
+        build_context_blake3: IDENTITY_HASH.to_owned(),
+        metadata_cargo_args: Vec::new(),
+        rustflags: String::new(),
         providers: providers.clone(),
+        provider_envelopes: provider_envelopes.clone(),
     });
     files.insert(EFFECT_CLOSURE_PARENT_STATUS_ARTIFACT_NAME.to_owned(), PARENT_STATUS.to_vec());
     let identity = |name: &str| crate::evidence::artifact_blake3_hex(&files[name]);
@@ -116,8 +145,10 @@ fn closure_fixture(source: &str, role: ModuleRole, call_summaries: Vec<CallSumma
         workspace_policy_blake3: identity(EFFECT_CLOSURE_POLICY_ARTIFACT_NAME),
         cargo_graph_blake3: identity(EFFECT_CLOSURE_GRAPH_ARTIFACT_NAME),
         cargo_lock_blake3: CARGO_LOCK.to_owned(),
+        build_context_blake3: IDENTITY_HASH.to_owned(),
         target: TARGET.to_owned(),
         toolchain: TOOLCHAIN.to_owned(),
+        required_binding_profile: crate::envelope::BindingProfile::ImplementationBoundV1,
         sources: vec![closure::SourceEnvelope {
             path: SOURCE_PATH.to_owned(),
             source: source.to_owned(),
@@ -125,6 +156,7 @@ fn closure_fixture(source: &str, role: ModuleRole, call_summaries: Vec<CallSumma
         }],
         function_addresses: records,
         resolved_providers: providers,
+        resolved_envelopes: provider_envelopes,
         catalog: closure::embedded_catalog().expect("embedded catalog"),
         policy,
     };
@@ -260,7 +292,7 @@ fn integrated_previous_receipt_schema_is_reported_unsupported() {
         }
     }
 
-    let report = verify_bundle(integrated_bundle_storing(fixture.files, &receipt, &stored));
+    let report = verify_bundle(integrated_bundle_storing(fixture.files.clone(), &receipt, &stored));
 
     assert_eq!(report.status, STATUS_INVALID);
     let expected = "unsupported effect-closure receipt schema `octet-effect-closure-receipt/v1`";
@@ -273,5 +305,16 @@ fn integrated_previous_receipt_schema_is_reported_unsupported() {
         !report.diagnostics.iter().any(|diagnostic| diagnostic.contains("malformed")),
         "{:?}",
         report.diagnostics
+    );
+
+    let mut stored_v2 = serde_json::to_value(&receipt).expect("receipt JSON");
+    stored_v2["schema_version"] = serde_json::json!("octet-effect-closure-receipt/v2");
+    let v2_report = verify_bundle(integrated_bundle_storing(fixture.files, &receipt, &stored_v2));
+    assert_eq!(v2_report.status, STATUS_INVALID);
+    assert!(
+        v2_report.diagnostics.iter().any(|diagnostic| diagnostic
+            .contains("unsupported effect-closure receipt schema `octet-effect-closure-receipt/v2`")),
+        "{:?}",
+        v2_report.diagnostics
     );
 }

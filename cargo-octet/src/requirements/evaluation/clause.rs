@@ -118,25 +118,39 @@ pub(in crate::requirements) fn evaluate_disposition(
         super::super::DISPOSITION_EMPIRICAL_CHECK => {
             empirical(evaluator.evidence, clause, evaluator.source_root, diagnostics)
         }
-        super::super::DISPOSITION_ACCEPTED_ASSUMPTION => match &clause.assumption_id {
-            None => {
-                diagnostics.push("assumption clause does not name an assumption".to_owned());
-                (super::super::STATUS_FAILED.to_owned(), Vec::new())
+        super::super::DISPOSITION_ACCEPTED_ASSUMPTION => {
+            if clause.expected_evidence_tier == super::super::DISPOSITION_FORMAL_PROOF
+                || clause.required_evidence_classes.iter().any(|class| class == "formal_proof")
+                || clause.required_bindings.evidence_tier.as_deref() == Some("formal_proof")
+            {
+                diagnostics.push(format!(
+                    "accepted assumption cannot satisfy the formal-proof requirement for clause `{}`",
+                    clause.clause_id
+                ));
+                return (super::super::STATUS_FAILED.to_owned(), Vec::new());
             }
-            Some(assumption_id) => match evaluator.assumptions.get(assumption_id) {
-                Some(assumption) if assumption.status == super::super::STATUS_ASSUMPTION_ACCEPTED => {
-                    (super::super::STATUS_ASSUMPTION_ACCEPTED.to_owned(), assumption.supporting_evidence_ids.clone())
-                }
-                Some(assumption) => {
-                    diagnostics.push(format!("assumption `{assumption_id}` is not accepted: {}", assumption.status));
-                    (super::super::STATUS_FAILED.to_owned(), assumption.supporting_evidence_ids.clone())
-                }
+            match &clause.assumption_id {
                 None => {
-                    diagnostics.push(format!("assumption `{assumption_id}` has no decision"));
+                    diagnostics.push("assumption clause does not name an assumption".to_owned());
                     (super::super::STATUS_FAILED.to_owned(), Vec::new())
                 }
-            },
-        },
+                Some(assumption_id) => match evaluator.assumptions.get(assumption_id) {
+                    Some(assumption) if assumption.status == super::super::STATUS_ASSUMPTION_ACCEPTED => (
+                        super::super::STATUS_ASSUMPTION_ACCEPTED.to_owned(),
+                        assumption.supporting_evidence_ids.clone(),
+                    ),
+                    Some(assumption) => {
+                        diagnostics
+                            .push(format!("assumption `{assumption_id}` is not accepted: {}", assumption.status));
+                        (super::super::STATUS_FAILED.to_owned(), assumption.supporting_evidence_ids.clone())
+                    }
+                    None => {
+                        diagnostics.push(format!("assumption `{assumption_id}` has no decision"));
+                        (super::super::STATUS_FAILED.to_owned(), Vec::new())
+                    }
+                },
+            }
+        }
         _ => {
             diagnostics.push(format!("unsupported disposition `{}`", clause.disposition));
             (super::super::STATUS_UNSUPPORTED.to_owned(), Vec::new())
@@ -166,7 +180,7 @@ pub(in crate::requirements) fn validate_empirical_check(
     }
     validate_empirical_sources(check, source_root, &mut check_diagnostics);
     if let (Some(artifact), Some(expected)) = (&check.artifact, &check.artifact_blake3) {
-        match std::fs::read(super::super::resolve_path(source_root, artifact)) {
+        match crate::envelope::read_regular_non_symlink_file(&super::super::resolve_path(source_root, artifact)) {
             Ok(bytes) => {
                 let actual = super::super::hash_bytes(&bytes);
                 if &actual != expected {
@@ -192,7 +206,7 @@ pub(in crate::requirements) fn validate_sources(
 ) {
     for binding in &clause.source_bindings {
         let path = super::super::resolve_path(source_root, &binding.locator);
-        match std::fs::read(&path) {
+        match crate::envelope::read_regular_non_symlink_file(&path) {
             Ok(bytes) => {
                 let actual = super::super::hash_bytes(&bytes);
                 if actual != binding.blake3 {
@@ -213,7 +227,8 @@ fn validate_empirical_sources(
     check_diagnostics: &mut Vec<String>,
 ) {
     for binding in &check.source_bindings {
-        match std::fs::read(super::super::resolve_path(source_root, &binding.locator)) {
+        match crate::envelope::read_regular_non_symlink_file(&super::super::resolve_path(source_root, &binding.locator))
+        {
             Ok(bytes) => {
                 let actual = super::super::hash_bytes(&bytes);
                 if actual != binding.blake3 {

@@ -1829,6 +1829,22 @@ pub(crate) fn reject_process_dylint_toml_override() -> Result<(), String> {
     reject_dylint_toml_override(&process_env)
 }
 
+pub(crate) fn effective_rustflags_from(lookup: &impl Fn(&str) -> Option<OsString>) -> Result<String, String> {
+    for (name, label) in [
+        ("CARGO_ENCODED_RUSTFLAGS", "`CARGO_ENCODED_RUSTFLAGS`"),
+        ("RUSTFLAGS", "`RUSTFLAGS`"),
+    ] {
+        if let Some(value) = lookup(name) {
+            return value.into_string().map_err(|_| format!("non-utf8 {label} is not supported"));
+        }
+    }
+    Ok(String::new())
+}
+
+pub(crate) fn effective_process_rustflags() -> Result<String, String> {
+    effective_rustflags_from(&process_env)
+}
+
 fn resolve_driver(toolchain: &str) -> Result<ManagedPath, String> {
     match select_driver_source(&process_env)? {
         DriverSource::Explicit(path) => Ok(ManagedPath::explicit(path)),
@@ -3122,6 +3138,37 @@ mod tests {
             "TIGERSTYLE_DYLINT_REV",
         ] {
             assert!(missing.contains(name), "{missing}");
+        }
+    }
+
+    #[test]
+    fn effective_rustflags_respects_cargo_encoded_precedence_and_rejects_non_utf8() {
+        assert_eq!(super::effective_rustflags_from(&env_lookup(&[])), Ok(String::new()));
+        assert_eq!(
+            super::effective_rustflags_from(&env_lookup(&[("RUSTFLAGS", "-C opt-level=2")])),
+            Ok("-C opt-level=2".to_owned())
+        );
+        assert_eq!(
+            super::effective_rustflags_from(&env_lookup(&[
+                ("CARGO_ENCODED_RUSTFLAGS", "-D\x1fwarnings"),
+                ("RUSTFLAGS", "-C opt-level=2"),
+            ])),
+            Ok("-D\x1fwarnings".to_owned())
+        );
+        assert_eq!(
+            super::effective_rustflags_from(&env_lookup(&[
+                ("CARGO_ENCODED_RUSTFLAGS", ""),
+                ("RUSTFLAGS", "-C opt-level=2"),
+            ])),
+            Ok(String::new())
+        );
+        #[cfg(unix)]
+        {
+            use std::os::unix::ffi::OsStringExt;
+
+            let lookup = |name: &str| (name == "RUSTFLAGS").then(|| OsString::from_vec(vec![0xff]));
+            let error = super::effective_rustflags_from(&lookup).expect_err("non-utf8 RUSTFLAGS must fail");
+            assert!(error.contains("RUSTFLAGS"), "{error}");
         }
     }
 }

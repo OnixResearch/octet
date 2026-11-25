@@ -9,8 +9,9 @@ use serde::Serialize;
 use syn::visit::Visit;
 
 pub const CATALOG_SCHEMA_VERSION: &str = "octet-effect-closure-catalog/v1";
-pub const WORKSPACE_POLICY_SCHEMA_VERSION: &str = "octet-effect-closure-workspace-policy/v1";
-pub const RECEIPT_SCHEMA_VERSION: &str = "octet-effect-closure-receipt/v2";
+pub const WORKSPACE_POLICY_SCHEMA_VERSION_V1: &str = "octet-effect-closure-workspace-policy/v1";
+pub const WORKSPACE_POLICY_SCHEMA_VERSION: &str = "octet-effect-closure-workspace-policy/v2";
+pub const RECEIPT_SCHEMA_VERSION: &str = "octet-effect-closure-receipt/v3";
 pub const DETERMINISTIC_CORE_PROFILE: &str = "deterministic-core";
 pub const CLAIM_SCOPE: &str = "selected-source-token-effect-closure";
 pub const WORKSPACE_POLICY_FILE: &str = "octet-effect-closure.json";
@@ -18,7 +19,7 @@ pub const RECEIPT_FILE: &str = "effect-closure.json";
 
 const CATALOG_JSON: &str = include_str!("../../standards/effect-closure/generated/effect-closure-catalog.json");
 const CALL_SITE_DOMAIN: &str = "octet-effect-closure-call-site/v2";
-const RECEIPT_DOMAIN: &str = "octet-effect-closure-receipt/v2";
+const RECEIPT_DOMAIN: &str = "octet-effect-closure-receipt/v3";
 const MISSING_FUNCTION_ADDRESS: &str = "b3:missing-function-address";
 const DIAGNOSTIC_CATALOG: &str = "catalog_invalid";
 const DIAGNOSTIC_POLICY: &str = "workspace_policy_invalid";
@@ -32,6 +33,13 @@ const DIAGNOSTIC_CALL_UNKNOWN: &str = "call_edge_unknown";
 const DIAGNOSTIC_SUMMARY_DUPLICATE: &str = "call_summary_duplicate";
 const DIAGNOSTIC_SUMMARY_STALE: &str = "call_summary_stale";
 const DIAGNOSTIC_PROVIDER_MISMATCH: &str = "dependency_provider_mismatch";
+const DIAGNOSTIC_LEGACY_SCHEMA_UNSUPPORTED: &str = "legacy_lockfile_summary_unsupported";
+const DIAGNOSTIC_ENVELOPE_INCOMPLETE: &str = "dependency_envelope_incomplete";
+const DIAGNOSTIC_UNSUPPORTED_GENERATED_INPUT: &str = "dependency_unsupported_generated_input";
+const DIAGNOSTIC_SUMMARY_IMPLEMENTATION_STALE: &str = "summary_implementation_stale";
+const DIAGNOSTIC_EVIDENCE_DIGEST_MISMATCH: &str = "summary_evidence_digest_mismatch";
+const DIAGNOSTIC_JUSTIFICATION_INVALID: &str = "summary_justification_invalid";
+const DIAGNOSTIC_UNRESOLVED_OBLIGATION: &str = "summary_unresolved_obligation";
 const DIAGNOSTIC_EFFECT_DENIED: &str = "closure_effect_denied";
 const DIAGNOSTIC_FIXED_POINT: &str = "closure_fixed_point_failed";
 const DIAGNOSTIC_RECEIPT_IDENTITY: &str = "receipt_identity_mismatch";
@@ -182,16 +190,52 @@ pub struct CallSummary {
     pub provider: ProviderIdentity,
     pub effects: Vec<Effect>,
     pub evidence: EvidenceReference,
+    #[serde(default = "none_implementation_binding", skip_serializing_if = "Option::is_none")]
+    pub implementation_binding: Option<crate::envelope::ImplementationBinding>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct WorkspacePolicy {
     pub schema_version: String,
     pub profile_id: String,
+    #[serde(default = "none_binding_profile", skip_serializing_if = "Option::is_none")]
+    pub binding_profile: Option<crate::envelope::BindingProfile>,
+    #[serde(default = "none_string", skip_serializing_if = "Option::is_none")]
+    pub envelope_policy_blake3: Option<String>,
     pub function_address_baseline: String,
     pub module_roles: Vec<ModuleRoleAssignment>,
     pub call_summaries: Vec<CallSummary>,
     pub non_claims: Vec<String>,
+}
+
+impl WorkspacePolicy {
+    #[must_use]
+    pub fn effective_binding_profile(&self) -> crate::envelope::BindingProfile {
+        if let Some(profile) = self.binding_profile {
+            return profile;
+        }
+        if self.schema_version == WORKSPACE_POLICY_SCHEMA_VERSION {
+            crate::envelope::BindingProfile::ImplementationBoundV1
+        } else {
+            crate::envelope::BindingProfile::LockfileOnlyV1
+        }
+    }
+}
+
+fn none_implementation_binding() -> Option<crate::envelope::ImplementationBinding> {
+    None
+}
+
+fn none_binding_profile() -> Option<crate::envelope::BindingProfile> {
+    None
+}
+
+fn none_justification() -> Option<crate::envelope::SummaryJustification> {
+    None
+}
+
+fn none_string() -> Option<String> {
+    None
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -221,11 +265,14 @@ pub struct ClosureInput {
     pub workspace_policy_blake3: String,
     pub cargo_graph_blake3: String,
     pub cargo_lock_blake3: String,
+    pub build_context_blake3: String,
     pub target: String,
     pub toolchain: String,
+    pub required_binding_profile: crate::envelope::BindingProfile,
     pub sources: Vec<SourceEnvelope>,
     pub function_addresses: Vec<FunctionAddressRecord>,
     pub resolved_providers: Vec<ProviderIdentity>,
+    pub resolved_envelopes: Vec<crate::envelope::ProviderRecord>,
     pub catalog: EffectCatalog,
     pub policy: WorkspacePolicy,
 }
@@ -258,6 +305,10 @@ pub struct ClosureCallEdge {
     pub review_label: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub evidence: Option<EvidenceReference>,
+    #[serde(default = "none_implementation_binding", skip_serializing_if = "Option::is_none")]
+    pub implementation_binding: Option<crate::envelope::ImplementationBinding>,
+    #[serde(default = "none_justification", skip_serializing_if = "Option::is_none")]
+    pub justification: Option<crate::envelope::SummaryJustification>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -302,6 +353,7 @@ pub struct ClosureInputIdentities {
     pub workspace_policy_blake3: String,
     pub cargo_graph_blake3: String,
     pub cargo_lock_blake3: String,
+    pub build_context_blake3: String,
     pub target: String,
     pub toolchain: String,
 }
@@ -317,13 +369,16 @@ pub struct EffectClosureReceipt {
     pub schema_version: String,
     pub status: AdmissionStatus,
     pub claim_scope: String,
+    pub binding_profile: crate::envelope::BindingProfile,
     pub resolver: String,
     pub canonicalizer: String,
     pub inputs: ClosureInputIdentities,
     pub sources: Vec<ClosureSourceIdentity>,
     pub providers: Vec<ProviderIdentity>,
+    pub provider_envelopes: Vec<crate::envelope::ProviderRecord>,
     pub nodes: Vec<FunctionClosureNode>,
     pub diagnostics: Vec<ClosureDiagnostic>,
+    pub justification_summary: crate::envelope::JustificationSummary,
     pub non_claims: Vec<String>,
     pub receipt_identity: String,
 }
@@ -2563,11 +2618,33 @@ pub fn validate_catalog(catalog: &EffectCatalog) -> Vec<String> {
 // r[impl octet.effect_closure.dependency_summaries]
 pub fn validate_workspace_policy(policy: &WorkspacePolicy) -> Vec<String> {
     let mut diagnostics = Vec::new();
-    if policy.schema_version != WORKSPACE_POLICY_SCHEMA_VERSION {
+    let is_v1 = policy.schema_version == WORKSPACE_POLICY_SCHEMA_VERSION_V1;
+    let is_v2 = policy.schema_version == WORKSPACE_POLICY_SCHEMA_VERSION;
+    if !is_v1 && !is_v2 {
         diagnostics.push(format!(
-            "{DIAGNOSTIC_POLICY}: schema_version must be `{WORKSPACE_POLICY_SCHEMA_VERSION}`, got `{}`",
+            "{DIAGNOSTIC_POLICY}: schema_version must be `{WORKSPACE_POLICY_SCHEMA_VERSION}` or `{WORKSPACE_POLICY_SCHEMA_VERSION_V1}`, got `{}`",
             policy.schema_version
         ));
+    }
+    if is_v2 && policy.binding_profile != Some(crate::envelope::BindingProfile::ImplementationBoundV1) {
+        diagnostics.push(format!(
+            "{DIAGNOSTIC_POLICY}: v2 workspace policy must declare binding_profile `implementation-bound-v1`"
+        ));
+    }
+    if is_v1 && policy.binding_profile == Some(crate::envelope::BindingProfile::ImplementationBoundV1) {
+        diagnostics.push(format!(
+            "{DIAGNOSTIC_POLICY}: v1 workspace policy cannot declare binding_profile `implementation-bound-v1`"
+        ));
+    }
+    if let Some(digest) = &policy.envelope_policy_blake3 {
+        let expected = crate::envelope::policy::embedded_json_blake3();
+        if !is_blake3_identity(digest) {
+            diagnostics.push(format!("{DIAGNOSTIC_POLICY}: envelope_policy_blake3 must be a full BLAKE3 identity"));
+        } else if digest != &expected {
+            diagnostics.push(format!(
+                "{DIAGNOSTIC_POLICY}: envelope_policy_blake3 `{digest}` does not match active source-envelope policy `{expected}`"
+            ));
+        }
     }
     if policy.profile_id != DETERMINISTIC_CORE_PROFILE {
         diagnostics.push(format!(
@@ -2601,52 +2678,177 @@ pub fn validate_workspace_policy(policy: &WorkspacePolicy) -> Vec<String> {
 
     let mut call_site_ids = BTreeSet::new();
     for summary in &policy.call_summaries {
-        if !call_site_ids.insert(summary.call_site_id.as_str()) {
-            diagnostics
-                .push(format!("{DIAGNOSTIC_SUMMARY_DUPLICATE}: duplicate call_site_id `{}`", summary.call_site_id));
-        }
-        if !is_blake3_identity(&summary.call_site_id) {
-            diagnostics.push(format!(
-                "{DIAGNOSTIC_POLICY}: call_site_id `{}` is not a full BLAKE3 identity",
-                summary.call_site_id
-            ));
-        }
-        if summary.review_label.trim().is_empty() || summary.callee.trim().is_empty() {
-            diagnostics.push(format!(
-                "{DIAGNOSTIC_POLICY}: call summary `{}` requires review_label and callee",
-                summary.call_site_id
-            ));
-        }
-        if summary.effects.contains(&Effect::Unknown) {
-            diagnostics.push(format!(
-                "{DIAGNOSTIC_POLICY}: call summary `{}` must not declare `unknown`",
-                summary.call_site_id
-            ));
-        }
-        if !is_sorted_unique(&summary.effects) {
-            diagnostics.push(format!(
-                "{DIAGNOSTIC_POLICY}: call summary `{}` effects must be sorted and unique",
-                summary.call_site_id
-            ));
-        }
-        validate_provider(&summary.call_site_id, &summary.provider, &mut diagnostics);
-        if summary.evidence.kind.trim().is_empty()
-            || summary.evidence.locator.trim().is_empty()
-            || !is_blake3_identity(&summary.evidence.blake3)
-        {
-            diagnostics.push(format!(
-                "{DIAGNOSTIC_POLICY}: call summary `{}` requires an exact evidence reference",
-                summary.call_site_id
-            ));
-        }
+        validate_policy_summary(summary, is_v2, &mut call_site_ids, &mut diagnostics);
     }
     diagnostics.sort();
     diagnostics.dedup();
     diagnostics
 }
 
+fn validate_policy_summary<'a>(
+    summary: &'a CallSummary,
+    is_v2: bool,
+    call_site_ids: &mut BTreeSet<&'a str>,
+    diagnostics: &mut Vec<String>,
+) {
+    if !call_site_ids.insert(summary.call_site_id.as_str()) {
+        diagnostics.push(format!("{DIAGNOSTIC_SUMMARY_DUPLICATE}: duplicate call_site_id `{}`", summary.call_site_id));
+    }
+    if !is_blake3_identity(&summary.call_site_id) {
+        diagnostics.push(format!(
+            "{DIAGNOSTIC_POLICY}: call_site_id `{}` is not a full BLAKE3 identity",
+            summary.call_site_id
+        ));
+    }
+    if summary.review_label.trim().is_empty() || summary.callee.trim().is_empty() {
+        diagnostics.push(format!(
+            "{DIAGNOSTIC_POLICY}: call summary `{}` requires review_label and callee",
+            summary.call_site_id
+        ));
+    }
+    if summary.effects.contains(&Effect::Unknown) {
+        diagnostics
+            .push(format!("{DIAGNOSTIC_POLICY}: call summary `{}` must not declare `unknown`", summary.call_site_id));
+    }
+    if !is_sorted_unique(&summary.effects) {
+        diagnostics.push(format!(
+            "{DIAGNOSTIC_POLICY}: call summary `{}` effects must be sorted and unique",
+            summary.call_site_id
+        ));
+    }
+    validate_provider(&summary.call_site_id, &summary.provider, diagnostics);
+    if summary.evidence.kind.trim().is_empty()
+        || summary.evidence.locator.trim().is_empty()
+        || !is_blake3_identity(&summary.evidence.blake3)
+    {
+        diagnostics.push(format!(
+            "{DIAGNOSTIC_POLICY}: call summary `{}` requires an exact evidence reference",
+            summary.call_site_id
+        ));
+    }
+    let is_binding_required = is_v2 && summary.provider.kind != ProviderKind::Toolchain;
+    if is_binding_required && summary.implementation_binding.is_none() {
+        diagnostics.push(format!(
+            "{DIAGNOSTIC_POLICY}: v2 call summary `{}` requires implementation_binding",
+            summary.call_site_id
+        ));
+    }
+    if let Some(binding) = &summary.implementation_binding {
+        if is_v2 && binding.profile != crate::envelope::BindingProfile::ImplementationBoundV1 {
+            diagnostics.push(format!(
+                "{DIAGNOSTIC_POLICY}: v2 call summary `{}` implementation_binding must use `implementation-bound-v1`",
+                summary.call_site_id
+            ));
+        }
+        if !is_blake3_identity(&binding.package_envelope_blake3)
+            || !is_blake3_identity(&binding.closure_blake3)
+            || !is_blake3_identity(&binding.build_context_blake3)
+        {
+            diagnostics.push(format!(
+                "{DIAGNOSTIC_POLICY}: call summary `{}` implementation_binding must carry full BLAKE3 identities",
+                summary.call_site_id
+            ));
+        }
+        for input in &binding.generated_inputs {
+            if input.locator.trim().is_empty() || !is_blake3_identity(&input.blake3) {
+                diagnostics.push(format!(
+                    "{DIAGNOSTIC_POLICY}: call summary `{}` generated_inputs entry is invalid",
+                    summary.call_site_id
+                ));
+            }
+        }
+    }
+}
+
+fn used_providers_and_envelopes(
+    nodes: &[FunctionClosureNode],
+    resolved_envelopes: &[crate::envelope::ProviderRecord],
+) -> (Vec<ProviderIdentity>, Vec<crate::envelope::ProviderRecord>) {
+    let used_providers = nodes
+        .iter()
+        .flat_map(|node| node.calls.iter().filter_map(|call| call.provider.clone()))
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    let used_provider_set = used_providers.iter().collect::<BTreeSet<_>>();
+    let mut provider_envelopes = resolved_envelopes
+        .iter()
+        .filter(|env| used_provider_set.contains(&env.provider))
+        .cloned()
+        .collect::<Vec<_>>();
+    provider_envelopes.sort();
+    provider_envelopes.dedup();
+    (used_providers, provider_envelopes)
+}
+
 // r[impl octet.effect_closure.inference]
 // r[impl octet.effect_closure.transitive]
+fn assemble_receipt(
+    input: ClosureInput,
+    mut nodes: Vec<FunctionClosureNode>,
+    mut diagnostics: Vec<ClosureDiagnostic>,
+) -> EffectClosureReceipt {
+    diagnostics.sort();
+    diagnostics.dedup();
+    nodes.sort_by(|left, right| {
+        left.path
+            .cmp(&right.path)
+            .then(left.name.cmp(&right.name))
+            .then(left.function_address.cmp(&right.function_address))
+    });
+    let mut sources = input
+        .sources
+        .iter()
+        .map(|source| ClosureSourceIdentity {
+            path: source.path.clone(),
+            source_identity: source.source_identity.clone(),
+        })
+        .collect::<Vec<_>>();
+    sources.sort();
+    sources.dedup();
+    let (used_providers, provider_envelopes) = used_providers_and_envelopes(&nodes, &input.resolved_envelopes);
+    let justification_summary = summarize_justifications(&nodes);
+    let mut non_claims = input.catalog.non_claims.iter().chain(&input.policy.non_claims).cloned().collect::<Vec<_>>();
+    non_claims.sort();
+    non_claims.dedup();
+    let status = if diagnostics.is_empty() {
+        AdmissionStatus::Admitted
+    } else {
+        AdmissionStatus::Denied
+    };
+    finalize_receipt(EffectClosureReceipt {
+        schema_version: RECEIPT_SCHEMA_VERSION.to_owned(),
+        status,
+        claim_scope: CLAIM_SCOPE.to_owned(),
+        binding_profile: input.required_binding_profile,
+        resolver: input.catalog.resolver,
+        canonicalizer: input.catalog.canonicalizer,
+        inputs: ClosureInputIdentities {
+            profile_id: input.profile_id,
+            profile_hash: input.profile_hash,
+            config_hash: input.config_hash,
+            command_blake3: input.command_blake3,
+            check_status_blake3: input.check_status_blake3,
+            function_address_artifact_blake3: input.function_address_artifact_blake3,
+            function_address_record_root: input.function_address_record_root,
+            workspace_policy_blake3: input.workspace_policy_blake3,
+            cargo_graph_blake3: input.cargo_graph_blake3,
+            cargo_lock_blake3: input.cargo_lock_blake3,
+            build_context_blake3: input.build_context_blake3,
+            target: input.target,
+            toolchain: input.toolchain,
+        },
+        sources,
+        providers: used_providers,
+        provider_envelopes,
+        nodes,
+        diagnostics,
+        justification_summary,
+        non_claims,
+        receipt_identity: String::new(),
+    })
+}
+
 // r[impl octet.effect_closure.evidence]
 pub fn compute_closure(input: ClosureInput) -> EffectClosureReceipt {
     let mut diagnostics = validate_catalog(&input.catalog)
@@ -2671,6 +2873,17 @@ pub fn compute_closure(input: ClosureInput) -> EffectClosureReceipt {
             None,
         ));
     }
+    if input.required_binding_profile == crate::envelope::BindingProfile::ImplementationBoundV1
+        && input.policy.effective_binding_profile() == crate::envelope::BindingProfile::LockfileOnlyV1
+    {
+        diagnostics.push(diagnostic(
+            DIAGNOSTIC_LEGACY_SCHEMA_UNSUPPORTED,
+            "workspace policy uses historical lockfile-only schema (`v1` / `lockfile-only-v1`) and cannot satisfy `implementation-bound-v1` freshness".to_owned(),
+            None,
+            None,
+            None,
+        ));
+    }
 
     let roles = role_map(&input.sources, &input.policy, &mut diagnostics);
     let (drafts, modules) = parse_function_drafts(&input.sources, &mut diagnostics);
@@ -2678,69 +2891,30 @@ pub fn compute_closure(input: ClosureInput) -> EffectClosureReceipt {
     let mut nodes = build_nodes(&addressed, &modules, &input, &mut diagnostics);
     propagate_closure_effects(&mut nodes, &mut diagnostics);
     apply_profile_effect_gate(&nodes, &input.catalog, &input.profile_id, &mut diagnostics);
+    assemble_receipt(input, nodes, diagnostics)
+}
 
-    diagnostics.sort();
-    diagnostics.dedup();
-    nodes.sort_by(|left, right| {
-        left.path
-            .cmp(&right.path)
-            .then(left.name.cmp(&right.name))
-            .then(left.function_address.cmp(&right.function_address))
-    });
-
-    let mut sources = input
-        .sources
-        .iter()
-        .map(|source| ClosureSourceIdentity {
-            path: source.path.clone(),
-            source_identity: source.source_identity.clone(),
-        })
-        .collect::<Vec<_>>();
-    sources.sort();
-    sources.dedup();
-
-    let used_providers = nodes
-        .iter()
-        .flat_map(|node| node.calls.iter().filter_map(|call| call.provider.clone()))
-        .collect::<BTreeSet<_>>()
-        .into_iter()
-        .collect::<Vec<_>>();
-    let mut non_claims = input.catalog.non_claims.iter().chain(&input.policy.non_claims).cloned().collect::<Vec<_>>();
-    non_claims.sort();
-    non_claims.dedup();
-
-    let status = if diagnostics.is_empty() {
-        AdmissionStatus::Admitted
-    } else {
-        AdmissionStatus::Denied
+fn summarize_justifications(nodes: &[FunctionClosureNode]) -> crate::envelope::JustificationSummary {
+    let mut summary = crate::envelope::JustificationSummary {
+        reviewed_assumptions: 0,
+        checked_proofs: 0,
+        unresolved_obligations: 0,
+        formal_proof_promoted: false,
     };
-    finalize_receipt(EffectClosureReceipt {
-        schema_version: RECEIPT_SCHEMA_VERSION.to_owned(),
-        status,
-        claim_scope: CLAIM_SCOPE.to_owned(),
-        resolver: input.catalog.resolver,
-        canonicalizer: input.catalog.canonicalizer,
-        inputs: ClosureInputIdentities {
-            profile_id: input.profile_id,
-            profile_hash: input.profile_hash,
-            config_hash: input.config_hash,
-            command_blake3: input.command_blake3,
-            check_status_blake3: input.check_status_blake3,
-            function_address_artifact_blake3: input.function_address_artifact_blake3,
-            function_address_record_root: input.function_address_record_root,
-            workspace_policy_blake3: input.workspace_policy_blake3,
-            cargo_graph_blake3: input.cargo_graph_blake3,
-            cargo_lock_blake3: input.cargo_lock_blake3,
-            target: input.target,
-            toolchain: input.toolchain,
-        },
-        sources,
-        providers: used_providers,
-        nodes,
-        diagnostics,
-        non_claims,
-        receipt_identity: String::new(),
-    })
+    for node in nodes {
+        for call in node.calls.iter().filter(|call| call.resolution == CallResolution::ReviewedSummary) {
+            match call.justification {
+                Some(crate::envelope::SummaryJustification::CheckedProof) => summary.checked_proofs += 1,
+                Some(crate::envelope::SummaryJustification::UnresolvedObligation) => {
+                    summary.unresolved_obligations += 1;
+                }
+                Some(crate::envelope::SummaryJustification::ReviewedAssumption) | None => {
+                    summary.reviewed_assumptions += 1;
+                }
+            }
+        }
+    }
+    summary
 }
 
 /// Reads only the `schema_version` of stored receipt bytes and reports it when it is not
@@ -2777,6 +2951,7 @@ pub fn verify_receipt_identity(receipt: &EffectClosureReceipt) -> Vec<String> {
     }
     if !is_sorted_unique(&receipt.sources)
         || !is_sorted_unique(&receipt.providers)
+        || !is_sorted_unique(&receipt.provider_envelopes)
         || !is_sorted_unique(&receipt.diagnostics)
         || !is_sorted_unique(&receipt.non_claims)
     {
@@ -2827,6 +3002,7 @@ fn validate_receipt_structure(receipt: &EffectClosureReceipt) -> Vec<String> {
         ("workspace_policy_blake3", receipt.inputs.workspace_policy_blake3.as_str()),
         ("cargo_graph_blake3", receipt.inputs.cargo_graph_blake3.as_str()),
         ("cargo_lock_blake3", receipt.inputs.cargo_lock_blake3.as_str()),
+        ("build_context_blake3", receipt.inputs.build_context_blake3.as_str()),
     ];
     for (label, digest) in bound_digests {
         if !is_blake3_digest(digest) {
@@ -2907,6 +3083,8 @@ fn validate_receipt_structure(receipt: &EffectClosureReceipt) -> Vec<String> {
                         || call.provider.is_some()
                         || call.review_label.is_some()
                         || call.evidence.is_some()
+                        || call.implementation_binding.is_some()
+                        || call.justification.is_some()
                     {
                         diagnostics.push(format!("local call `{}` has invalid linkage fields", call.call_site_id));
                     }
@@ -2927,12 +3105,20 @@ fn validate_receipt_structure(receipt: &EffectClosureReceipt) -> Vec<String> {
                     {
                         diagnostics.push(format!("reviewed call `{}` has invalid summary linkage", call.call_site_id));
                     }
+                    if call.justification == Some(crate::envelope::SummaryJustification::CheckedProof) {
+                        diagnostics.push(format!(
+                            "reviewed call `{}` cannot promote policy-check summary to `checked-proof`",
+                            call.call_site_id
+                        ));
+                    }
                 }
                 CallResolution::Unknown => {
                     if call.callee_function_address.is_some()
                         || call.provider.is_some()
                         || call.review_label.is_some()
                         || call.evidence.is_some()
+                        || call.implementation_binding.is_some()
+                        || call.justification.is_some()
                         || call.effects != [Effect::Unknown]
                     {
                         diagnostics
@@ -2948,6 +3134,15 @@ fn validate_receipt_structure(receipt: &EffectClosureReceipt) -> Vec<String> {
     }
     if used_providers.into_iter().collect::<Vec<_>>() != receipt.providers {
         diagnostics.push("effect-closure receipt provider set does not exactly match reviewed calls".to_owned());
+    }
+    let envelope_providers = receipt.provider_envelopes.iter().map(|env| env.provider.clone()).collect::<Vec<_>>();
+    if envelope_providers != receipt.providers {
+        diagnostics.push("effect-closure receipt provider_envelopes do not match receipt providers".to_owned());
+    }
+    if receipt.justification_summary != summarize_justifications(&receipt.nodes)
+        || receipt.justification_summary.formal_proof_promoted
+    {
+        diagnostics.push("effect-closure receipt justification_summary is stale or promotes proof".to_owned());
     }
     diagnostics.sort();
     diagnostics.dedup();
@@ -3009,10 +3204,18 @@ pub fn validate_admitted_bindings(
     receipt: &EffectClosureReceipt,
     records: &[FunctionAddressRecord],
     policy: &WorkspacePolicy,
+    provider_envelopes: &[crate::envelope::ProviderRecord],
 ) -> Vec<String> {
     let mut diagnostics = Vec::new();
     if receipt.status != AdmissionStatus::Admitted {
         return diagnostics;
+    }
+    if receipt.binding_profile == crate::envelope::BindingProfile::ImplementationBoundV1
+        && policy.effective_binding_profile() != crate::envelope::BindingProfile::ImplementationBoundV1
+    {
+        diagnostics.push(format!(
+            "{DIAGNOSTIC_LEGACY_SCHEMA_UNSUPPORTED}: admitted implementation-bound receipt cannot bind a legacy lockfile-only policy"
+        ));
     }
     let node_keys = receipt
         .nodes
@@ -3041,6 +3244,7 @@ pub fn validate_admitted_bindings(
     }
     validate_admitted_roles(receipt, policy, &mut diagnostics);
 
+    let envelope_map = index_provider_envelopes(provider_envelopes);
     let summaries = policy
         .call_summaries
         .iter()
@@ -3060,17 +3264,23 @@ pub fn validate_admitted_bindings(
                 && call.effects == summary.effects
                 && call.review_label.as_deref() == Some(summary.review_label.as_str())
                 && call.evidence.as_ref() == Some(&summary.evidence)
+                && call.implementation_binding == summary.implementation_binding
         });
         if !matches_summary {
             diagnostics.push(format!(
                 "admitted reviewed call `{}` does not match its workspace-policy summary",
                 call.call_site_id
             ));
-        } else if summary.is_some_and(|summary| !summary_evidence_matches(summary, &receipt.inputs.cargo_lock_blake3)) {
-            diagnostics.push(format!(
-                "admitted reviewed call `{}` summary evidence is not bound to the recorded Cargo.lock or provider identity",
-                call.call_site_id
-            ));
+        } else if let Some(summary) = summary {
+            let expected_ctx = VerificationBindingCtx {
+                required_profile: receipt.binding_profile,
+                cargo_lock_blake3: &receipt.inputs.cargo_lock_blake3,
+                build_context_blake3: &receipt.inputs.build_context_blake3,
+                envelope_map: &envelope_map,
+            };
+            if let Err((code, message)) = validate_summary_binding(summary, &expected_ctx) {
+                diagnostics.push(format!("admitted reviewed call `{}` {code}: {message}", call.call_site_id));
+            }
         }
     }
     for summary in &policy.call_summaries {
@@ -3351,7 +3561,13 @@ fn build_nodes(
     let local_names = local_function_index(functions);
     let resolver = ScopeResolver::new(modules, functions);
     let allowed_role_edges = input.catalog.role_edges.iter().cloned().collect::<BTreeSet<_>>();
-    let providers = input.resolved_providers.iter().cloned().collect::<BTreeSet<_>>();
+    let envelope_map = index_provider_envelopes(&input.resolved_envelopes);
+    let binding_ctx = VerificationBindingCtx {
+        required_profile: input.required_binding_profile,
+        cargo_lock_blake3: &input.cargo_lock_blake3,
+        build_context_blake3: &input.build_context_blake3,
+        envelope_map: &envelope_map,
+    };
     let mut summaries = BTreeMap::new();
     for summary in &input.policy.call_summaries {
         if summaries.insert(summary.call_site_id.clone(), summary).is_some() {
@@ -3435,6 +3651,8 @@ fn build_nodes(
                     effects: raw_call.effects.into_iter().collect(),
                     review_label: None,
                     evidence: None,
+                    implementation_binding: None,
+                    justification: None,
                 }
             } else if call_scope.hidden && raw_call.kind != RawCallKind::Macro {
                 scanner.direct_effects.insert(Effect::Unknown);
@@ -3450,52 +3668,52 @@ fn build_nodes(
                 ));
                 unknown_edge(call_site_id, occurrence, raw_call.shape, scope)
             } else if raw_call.kind != RawCallKind::Macro {
-                match summaries.get(&call_site_id).copied() {
-                    Some(summary)
-                        if providers.contains(&summary.provider)
-                            && summary_evidence_matches(summary, &input.cargo_lock_blake3) =>
-                    {
-                        used_summaries.insert(call_site_id.clone());
-                        scanner.direct_effects.extend(summary.effects.iter().copied());
-                        ClosureCallEdge {
-                            call_site_id,
-                            occurrence,
-                            shape: raw_call.shape,
-                            scope,
-                            resolution: CallResolution::ReviewedSummary,
-                            callee_function_address: None,
-                            provider: Some(summary.provider.clone()),
-                            effects: summary.effects.clone(),
-                            review_label: Some(summary.review_label.clone()),
-                            evidence: Some(summary.evidence.clone()),
+                if let Some(summary) = summaries.get(&call_site_id).copied() {
+                    match validate_summary_binding(summary, &binding_ctx) {
+                        Ok(justification) => {
+                            used_summaries.insert(call_site_id.clone());
+                            scanner.direct_effects.extend(summary.effects.iter().copied());
+                            ClosureCallEdge {
+                                call_site_id,
+                                occurrence,
+                                shape: raw_call.shape,
+                                scope,
+                                resolution: CallResolution::ReviewedSummary,
+                                callee_function_address: None,
+                                provider: Some(summary.provider.clone()),
+                                effects: summary.effects.clone(),
+                                review_label: Some(summary.review_label.clone()),
+                                evidence: Some(summary.evidence.clone()),
+                                implementation_binding: summary.implementation_binding.clone(),
+                                justification: Some(justification),
+                            }
+                        }
+                        Err((code, message)) => {
+                            used_summaries.insert(call_site_id.clone());
+                            scanner.direct_effects.insert(Effect::Unknown);
+                            diagnostics.push(diagnostic(
+                                code,
+                                format!(
+                                    "call summary `{call_site_id}` for `{}` {}: {message}",
+                                    summary.provider.name, summary.provider.version
+                                ),
+                                Some(function.draft.path.clone()),
+                                Some(function.function_address.clone()),
+                                Some(call_site_id.clone()),
+                            ));
+                            unknown_edge(call_site_id, occurrence, raw_call.shape, scope)
                         }
                     }
-                    Some(summary) => {
-                        used_summaries.insert(call_site_id.clone());
-                        scanner.direct_effects.insert(Effect::Unknown);
-                        diagnostics.push(diagnostic(
-                            DIAGNOSTIC_PROVIDER_MISMATCH,
-                            format!(
-                                "call summary `{}` provider/evidence identity for `{}` {} does not match the resolved graph",
-                                call_site_id, summary.provider.name, summary.provider.version
-                            ),
-                            Some(function.draft.path.clone()),
-                            Some(function.function_address.clone()),
-                            Some(call_site_id.clone()),
-                        ));
-                        unknown_edge(call_site_id, occurrence, raw_call.shape, scope)
-                    }
-                    None => {
-                        scanner.direct_effects.insert(Effect::Unknown);
-                        diagnostics.push(diagnostic(
-                            DIAGNOSTIC_CALL_UNKNOWN,
-                            format!("call `{}` has no selected local or exact reviewed summary", raw_call.shape),
-                            Some(function.draft.path.clone()),
-                            Some(function.function_address.clone()),
-                            Some(call_site_id.clone()),
-                        ));
-                        unknown_edge(call_site_id, occurrence, raw_call.shape, scope)
-                    }
+                } else {
+                    scanner.direct_effects.insert(Effect::Unknown);
+                    diagnostics.push(diagnostic(
+                        DIAGNOSTIC_CALL_UNKNOWN,
+                        format!("call `{}` has no selected local or exact reviewed summary", raw_call.shape),
+                        Some(function.draft.path.clone()),
+                        Some(function.function_address.clone()),
+                        Some(call_site_id.clone()),
+                    ));
+                    unknown_edge(call_site_id, occurrence, raw_call.shape, scope)
                 }
             } else {
                 scanner.direct_effects.insert(Effect::Unknown);
@@ -3840,17 +4058,240 @@ fn unknown_edge(call_site_id: String, occurrence: usize, shape: String, scope: S
         effects: vec![Effect::Unknown],
         review_label: None,
         evidence: None,
+        implementation_binding: None,
+        justification: None,
     }
 }
 
-fn summary_evidence_matches(summary: &CallSummary, cargo_lock_blake3: &str) -> bool {
-    match summary.provider.kind {
+type ProviderKey<'a> = (ProviderKind, &'a str, &'a str, &'a str, &'a [String]);
+type EnvelopeIndex<'a> = BTreeMap<ProviderKey<'a>, Vec<&'a crate::envelope::ProviderRecord>>;
+
+struct VerificationBindingCtx<'a> {
+    required_profile: crate::envelope::BindingProfile,
+    cargo_lock_blake3: &'a str,
+    build_context_blake3: &'a str,
+    envelope_map: &'a EnvelopeIndex<'a>,
+}
+
+fn index_provider_envelopes(envelopes: &[crate::envelope::ProviderRecord]) -> EnvelopeIndex<'_> {
+    let mut map: EnvelopeIndex<'_> = BTreeMap::new();
+    for env in envelopes {
+        let key = (
+            env.provider.kind,
+            env.provider.name.as_str(),
+            env.provider.version.as_str(),
+            env.provider.target.as_str(),
+            env.provider.features.as_slice(),
+        );
+        map.entry(key).or_default().push(env);
+    }
+    map
+}
+
+fn validate_summary_binding(
+    summary: &CallSummary,
+    ctx: &VerificationBindingCtx<'_>,
+) -> Result<crate::envelope::SummaryJustification, (&'static str, String)> {
+    if ctx.required_profile == crate::envelope::BindingProfile::LockfileOnlyV1 {
+        return validate_legacy_lockfile_summary(summary, ctx);
+    }
+    let is_legacy_evidence =
+        matches!(summary.evidence.kind.as_str(), "cargo-lock-review-v1" | "reviewed-source-summary-v1");
+    if summary.provider.kind != ProviderKind::Toolchain
+        && (summary.implementation_binding.is_none() || is_legacy_evidence)
+    {
+        return Err((
+            DIAGNOSTIC_LEGACY_SCHEMA_UNSUPPORTED,
+            "historical lockfile-only summary cannot satisfy `implementation-bound-v1`".to_owned(),
+        ));
+    }
+    if let Some(binding) = &summary.implementation_binding {
+        if binding.profile != crate::envelope::BindingProfile::ImplementationBoundV1 {
+            return Err((
+                DIAGNOSTIC_LEGACY_SCHEMA_UNSUPPORTED,
+                format!(
+                    "summary binding profile `{}` cannot satisfy `implementation-bound-v1`",
+                    binding.profile.as_str()
+                ),
+            ));
+        }
+        match binding.justification {
+            crate::envelope::SummaryJustification::CheckedProof => {
+                return Err((
+                    DIAGNOSTIC_JUSTIFICATION_INVALID,
+                    "reviewed policy-check summary cannot promote itself to `checked-proof`".to_owned(),
+                ));
+            }
+            crate::envelope::SummaryJustification::UnresolvedObligation => {
+                return Err((
+                    DIAGNOSTIC_UNRESOLVED_OBLIGATION,
+                    "summary declares `unresolved-obligation` and cannot be admitted".to_owned(),
+                ));
+            }
+            crate::envelope::SummaryJustification::ReviewedAssumption => {}
+        }
+    }
+    let key = (
+        summary.provider.kind,
+        summary.provider.name.as_str(),
+        summary.provider.version.as_str(),
+        summary.provider.target.as_str(),
+        summary.provider.features.as_slice(),
+    );
+    let Some(candidates) = ctx.envelope_map.get(&key) else {
+        return Err((
+            DIAGNOSTIC_PROVIDER_MISMATCH,
+            "provider identity (kind/name/version/target/features) does not match resolved graph".to_owned(),
+        ));
+    };
+    let env = match_provider_candidate(summary, candidates)?;
+    check_envelope_completeness(env)?;
+    check_binding_digests(summary, env, ctx.build_context_blake3)?;
+    Ok(summary
+        .implementation_binding
+        .as_ref()
+        .map_or(crate::envelope::SummaryJustification::ReviewedAssumption, |binding| binding.justification))
+}
+
+fn match_provider_candidate<'a>(
+    summary: &CallSummary,
+    candidates: &[&'a crate::envelope::ProviderRecord],
+) -> Result<&'a crate::envelope::ProviderRecord, (&'static str, String)> {
+    for env in candidates {
+        if matches!(
+            env.source_envelope_kind,
+            crate::envelope::SourceKind::LockedRegistryOrGit | crate::envelope::SourceKind::Toolchain
+        ) && summary.provider.source != env.provider.source
+        {
+            continue;
+        }
+        if env.source_envelope_kind == crate::envelope::SourceKind::LocalSourceTree {
+            let expected_prefix = if summary.provider.kind == ProviderKind::Workspace {
+                "workspace-envelope:"
+            } else {
+                "path-envelope:"
+            };
+            if summary.provider.source == "workspace" || summary.provider.source.starts_with("path-manifest:") {
+                return Err((
+                    DIAGNOSTIC_LEGACY_SCHEMA_UNSUPPORTED,
+                    "provider uses legacy unhashed `workspace` or `path-manifest:` source identity".to_owned(),
+                ));
+            }
+            if !summary.provider.source.starts_with(expected_prefix) {
+                continue;
+            }
+        }
+        return Ok(env);
+    }
+    Err((DIAGNOSTIC_PROVIDER_MISMATCH, "provider source does not match any resolved candidate".to_owned()))
+}
+
+fn check_envelope_completeness(env: &crate::envelope::ProviderRecord) -> Result<(), (&'static str, String)> {
+    match env.completeness {
+        crate::envelope::CompletenessStatus::Complete => Ok(()),
+        crate::envelope::CompletenessStatus::UnsupportedGeneratedInput => Err((
+            DIAGNOSTIC_UNSUPPORTED_GENERATED_INPUT,
+            format!("dependency has unsupported generated/build inputs: {}", env.completeness_diagnostics.join("; ")),
+        )),
+        crate::envelope::CompletenessStatus::Incomplete => Err((
+            DIAGNOSTIC_ENVELOPE_INCOMPLETE,
+            format!("dependency source envelope is incomplete: {}", env.completeness_diagnostics.join("; ")),
+        )),
+    }
+}
+
+fn check_binding_digests(
+    summary: &CallSummary,
+    env: &crate::envelope::ProviderRecord,
+    build_context_blake3: &str,
+) -> Result<(), (&'static str, String)> {
+    let Some(binding) = &summary.implementation_binding else {
+        if env.build_context_blake3 != build_context_blake3 {
+            return Err((
+                DIAGNOSTIC_SUMMARY_IMPLEMENTATION_STALE,
+                format!(
+                    "toolchain build context `{}` differs from active build context `{build_context_blake3}`",
+                    env.build_context_blake3
+                ),
+            ));
+        }
+        let expected = provider_identity_blake3(&summary.provider);
+        if summary.evidence.blake3 != expected {
+            return Err((
+                DIAGNOSTIC_EVIDENCE_DIGEST_MISMATCH,
+                format!(
+                    "toolchain evidence digest `{}` does not match provider identity `{expected}`",
+                    summary.evidence.blake3
+                ),
+            ));
+        }
+        return Ok(());
+    };
+    let expected_evidence =
+        if summary.provider.kind == ProviderKind::Toolchain && summary.evidence.kind == "toolchain-api-review-v1" {
+            provider_identity_blake3(&summary.provider)
+        } else {
+            binding.closure_blake3.clone()
+        };
+    if summary.evidence.blake3 != expected_evidence {
+        return Err((
+            DIAGNOSTIC_EVIDENCE_DIGEST_MISMATCH,
+            format!(
+                "edited embedded digest: summary evidence.blake3 `{}` does not match expected `{expected_evidence}`",
+                summary.evidence.blake3
+            ),
+        ));
+    }
+    if binding.package_envelope_blake3 != env.package_envelope_blake3
+        || binding.closure_blake3 != env.implementation_closure_blake3
+        || binding.build_context_blake3 != env.build_context_blake3
+        || binding.build_context_blake3 != build_context_blake3
+        || binding.generated_inputs != env.generated_inputs
+        || summary.provider.source != env.provider.source
+    {
+        return Err((
+            DIAGNOSTIC_SUMMARY_IMPLEMENTATION_STALE,
+            format!(
+                "recomputed implementation closure `{}` differs from summary binding `{}`",
+                env.implementation_closure_blake3, binding.closure_blake3
+            ),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_legacy_lockfile_summary(
+    summary: &CallSummary,
+    ctx: &VerificationBindingCtx<'_>,
+) -> Result<crate::envelope::SummaryJustification, (&'static str, String)> {
+    let key = (
+        summary.provider.kind,
+        summary.provider.name.as_str(),
+        summary.provider.version.as_str(),
+        summary.provider.target.as_str(),
+        summary.provider.features.as_slice(),
+    );
+    let has_matching_provider = ctx
+        .envelope_map
+        .get(&key)
+        .is_some_and(|candidates| candidates.iter().any(|env| env.provider == summary.provider));
+    if !has_matching_provider {
+        return Err((DIAGNOSTIC_PROVIDER_MISMATCH, "legacy provider does not match resolved graph".to_owned()));
+    }
+    let is_evidence_valid = match summary.provider.kind {
         ProviderKind::CargoPackage | ProviderKind::Workspace => {
-            summary.evidence.blake3 == canonical_blake3_identity(cargo_lock_blake3)
+            summary.evidence.blake3 == canonical_blake3_identity(ctx.cargo_lock_blake3)
                 && summary.evidence.locator.starts_with("Cargo.lock")
         }
         ProviderKind::Toolchain => summary.evidence.blake3 == provider_identity_blake3(&summary.provider),
+    };
+    if !is_evidence_valid {
+        return Err((
+            DIAGNOSTIC_EVIDENCE_DIGEST_MISMATCH,
+            "legacy summary evidence digest does not match Cargo.lock or provider identity".to_owned(),
+        ));
     }
+    Ok(crate::envelope::SummaryJustification::ReviewedAssumption)
 }
 
 fn canonical_blake3_identity(value: &str) -> String {
@@ -3947,17 +4388,20 @@ mod tests {
     use super::*;
 
     const TEST_PATH: &str = "crates/domain/src/core.rs";
-    const TEST_SOURCE_ID: &str = "b3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-    const TEST_PROFILE_HASH: &str = "b3:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-    const TEST_CONFIG_HASH: &str = "b3:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
-    const TEST_ARTIFACT_HASH: &str = "b3:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd";
-    const TEST_RECORD_ROOT: &str = "b3:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
-    const TEST_POLICY_HASH: &str = "b3:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
-    const TEST_GRAPH_HASH: &str = "b3:1111111111111111111111111111111111111111111111111111111111111111";
-    const TEST_LOCK_HASH: &str = "b3:2222222222222222222222222222222222222222222222222222222222222222";
-    const TEST_EVIDENCE_HASH: &str = "b3:3333333333333333333333333333333333333333333333333333333333333333";
+    const TEST_SOURCE_ID: &str = "b3:0000000000000000000000000000000000000000000000000000000000000000";
+    const TEST_PROFILE_HASH: &str = "b3:0101010101010101010101010101010101010101010101010101010101010101";
+    const TEST_CONFIG_HASH: &str = "b3:0202020202020202020202020202020202020202020202020202020202020202";
+    const TEST_ARTIFACT_HASH: &str = "b3:1111111111111111111111111111111111111111111111111111111111111111";
+    const TEST_RECORD_ROOT: &str = "b3:2222222222222222222222222222222222222222222222222222222222222222";
+    const TEST_POLICY_HASH: &str = "b3:3333333333333333333333333333333333333333333333333333333333333333";
+    const TEST_GRAPH_HASH: &str = "b3:7777777777777777777777777777777777777777777777777777777777777777";
+    const TEST_LOCK_HASH: &str = "b3:8888888888888888888888888888888888888888888888888888888888888888";
     const TEST_TARGET: &str = "x86_64-unknown-linux-gnu";
-    const TEST_TOOLCHAIN: &str = "rustc-test";
+    const TEST_TOOLCHAIN: &str = "nightly-2026-03-21-x86_64-unknown-linux-gnu";
+    const TEST_EVIDENCE_HASH: &str = "b3:9999999999999999999999999999999999999999999999999999999999999999";
+    const TEST_BUILD_CTX_HASH: &str = "b3:4444444444444444444444444444444444444444444444444444444444444444";
+    const TEST_PKG_ENV_HASH: &str = "b3:5555555555555555555555555555555555555555555555555555555555555555";
+    const TEST_CLOSURE_HASH: &str = "b3:6666666666666666666666666666666666666666666666666666666666666666";
 
     fn address(name: &str, fill: char) -> FunctionAddressRecord {
         address_at(TEST_PATH, name, fill)
@@ -3972,10 +4416,37 @@ mod tests {
         }
     }
 
+    fn test_envelope(provider: ProviderIdentity, kind: crate::envelope::SourceKind) -> crate::envelope::ProviderRecord {
+        crate::envelope::ProviderRecord {
+            provider,
+            source_envelope_kind: kind,
+            completeness: crate::envelope::CompletenessStatus::Complete,
+            completeness_diagnostics: Vec::new(),
+            package_envelope_blake3: TEST_PKG_ENV_HASH.to_owned(),
+            build_context_blake3: TEST_BUILD_CTX_HASH.to_owned(),
+            implementation_closure_blake3: TEST_CLOSURE_HASH.to_owned(),
+            generated_inputs: Vec::new(),
+            transitive_providers: Vec::new(),
+        }
+    }
+
+    fn test_binding() -> crate::envelope::ImplementationBinding {
+        crate::envelope::ImplementationBinding {
+            profile: crate::envelope::BindingProfile::ImplementationBoundV1,
+            package_envelope_blake3: TEST_PKG_ENV_HASH.to_owned(),
+            closure_blake3: TEST_CLOSURE_HASH.to_owned(),
+            build_context_blake3: TEST_BUILD_CTX_HASH.to_owned(),
+            justification: crate::envelope::SummaryJustification::ReviewedAssumption,
+            generated_inputs: Vec::new(),
+        }
+    }
+
     fn policy(call_summaries: Vec<CallSummary>) -> WorkspacePolicy {
         WorkspacePolicy {
             schema_version: WORKSPACE_POLICY_SCHEMA_VERSION.to_owned(),
             profile_id: DETERMINISTIC_CORE_PROFILE.to_owned(),
+            binding_profile: Some(crate::envelope::BindingProfile::ImplementationBoundV1),
+            envelope_policy_blake3: None,
             function_address_baseline: "evidence/functions.json".to_owned(),
             module_roles: vec![ModuleRoleAssignment {
                 path: TEST_PATH.to_owned(),
@@ -3998,8 +4469,10 @@ mod tests {
             workspace_policy_blake3: TEST_POLICY_HASH.to_owned(),
             cargo_graph_blake3: TEST_GRAPH_HASH.to_owned(),
             cargo_lock_blake3: TEST_LOCK_HASH.to_owned(),
+            build_context_blake3: TEST_BUILD_CTX_HASH.to_owned(),
             target: TEST_TARGET.to_owned(),
             toolchain: TEST_TOOLCHAIN.to_owned(),
+            required_binding_profile: crate::envelope::BindingProfile::ImplementationBoundV1,
             sources: vec![SourceEnvelope {
                 path: TEST_PATH.to_owned(),
                 source: source.to_owned(),
@@ -4007,6 +4480,7 @@ mod tests {
             }],
             function_addresses: addresses,
             resolved_providers: Vec::new(),
+            resolved_envelopes: Vec::new(),
             catalog: embedded_catalog().expect("embedded catalog"),
             policy,
         }
@@ -4044,6 +4518,7 @@ mod tests {
                 locator: format!("rustc-version#{provider_name}"),
                 blake3: provider_identity_blake3(&provider),
             },
+            implementation_binding: Some(test_binding()),
         };
         (summary, provider)
     }
@@ -4077,6 +4552,7 @@ mod tests {
                 locator: "rustc-version#std".to_owned(),
                 blake3: TEST_EVIDENCE_HASH.to_owned(),
             },
+            implementation_binding: None,
         });
         let diagnostics = validate_workspace_policy(&invalid);
         assert!(diagnostics.iter().any(|message| message.contains("non_claims")));
@@ -4094,13 +4570,16 @@ mod tests {
         let (summary, provider) =
             toolchain_summary(&leaf_address.function_address, "call:Vec::new", 0, "alloc", vec![Effect::Alloc]);
         let mut closure_input = input(source, vec![leaf_address, address("root", '5')], policy(vec![summary]));
-        closure_input.resolved_providers.push(provider);
+        closure_input.resolved_providers.push(provider.clone());
+        closure_input
+            .resolved_envelopes
+            .push(test_envelope(provider, crate::envelope::SourceKind::Toolchain));
 
         let first = compute_closure(closure_input.clone());
         let second = compute_closure(closure_input);
 
         assert_eq!(first, second);
-        assert_eq!(first.status, AdmissionStatus::Admitted);
+        assert_eq!(first.status, AdmissionStatus::Admitted, "{:?}", first.diagnostics);
         assert!(first.diagnostics.is_empty());
         let root = first.nodes.iter().find(|node| node.name == "root").expect("root node");
         assert_eq!(root.closure_effects, vec![Effect::Alloc]);
@@ -4115,10 +4594,13 @@ mod tests {
         let (summary, provider) =
             toolchain_summary(&right_address.function_address, "call:Vec::new", 0, "alloc", vec![Effect::Alloc]);
         let mut closure_input = input(source, vec![address("left", '6'), right_address], policy(vec![summary]));
-        closure_input.resolved_providers.push(provider);
+        closure_input.resolved_providers.push(provider.clone());
+        closure_input
+            .resolved_envelopes
+            .push(test_envelope(provider, crate::envelope::SourceKind::Toolchain));
         let receipt = compute_closure(closure_input);
 
-        assert_eq!(receipt.status, AdmissionStatus::Admitted);
+        assert_eq!(receipt.status, AdmissionStatus::Admitted, "{:?}", receipt.diagnostics);
         assert!(receipt.nodes.iter().all(|node| node.closure_effects == [Effect::Alloc]));
         assert!(verify_receipt_identity(&receipt).is_empty());
     }
@@ -4148,10 +4630,11 @@ mod tests {
             },
             effects: Vec::new(),
             evidence: EvidenceReference {
-                kind: "reviewed-source-summary-v1".to_owned(),
-                locator: "Cargo.lock#mystery".to_owned(),
-                blake3: TEST_EVIDENCE_HASH.to_owned(),
+                kind: "reviewed-implementation-summary-v1".to_owned(),
+                locator: "workspace-envelope#mystery".to_owned(),
+                blake3: TEST_CLOSURE_HASH.to_owned(),
             },
+            implementation_binding: Some(test_binding()),
         };
         let stale = compute_closure(input(source, vec![function_address], policy(vec![stale_summary])));
         assert!(stale.diagnostics.iter().any(|diagnostic| diagnostic.code == DIAGNOSTIC_SUMMARY_STALE));
@@ -4191,23 +4674,30 @@ mod tests {
             provider: provider.clone(),
             effects: Vec::new(),
             evidence: EvidenceReference {
-                kind: "reviewed-source-summary-v1".to_owned(),
+                kind: "reviewed-implementation-summary-v1".to_owned(),
                 locator: "Cargo.lock#mystery".to_owned(),
-                blake3: TEST_LOCK_HASH.to_owned(),
+                blake3: TEST_CLOSURE_HASH.to_owned(),
             },
+            implementation_binding: Some(test_binding()),
         };
         let mut closure_input = input(source, vec![function_address.clone()], policy(vec![summary.clone()]));
         closure_input.resolved_providers.push(provider.clone());
+        closure_input
+            .resolved_envelopes
+            .push(test_envelope(provider.clone(), crate::envelope::SourceKind::LockedRegistryOrGit));
 
         let receipt = compute_closure(closure_input);
 
-        assert_eq!(receipt.status, AdmissionStatus::Admitted);
+        assert_eq!(receipt.status, AdmissionStatus::Admitted, "{:?}", receipt.diagnostics);
         assert_eq!(receipt.nodes[0].calls[0].resolution, CallResolution::ReviewedSummary);
 
         let mut mismatch = input(source, vec![function_address], policy(vec![summary]));
         let mut mismatched_provider = provider;
         mismatched_provider.version = "2.0.0".to_owned();
-        mismatch.resolved_providers.push(mismatched_provider);
+        mismatch.resolved_providers.push(mismatched_provider.clone());
+        mismatch
+            .resolved_envelopes
+            .push(test_envelope(mismatched_provider, crate::envelope::SourceKind::LockedRegistryOrGit));
         let denied = compute_closure(mismatch);
         assert!(denied.diagnostics.iter().any(|diagnostic| diagnostic.code == DIAGNOSTIC_PROVIDER_MISMATCH));
     }
@@ -4257,7 +4747,12 @@ mod tests {
         let root = admitted.nodes.iter().find(|node| node.name == "root").expect("root node");
         assert_eq!(root.calls[0].resolution, CallResolution::Local);
         let bindings = |receipt: &EffectClosureReceipt| {
-            validate_admitted_bindings(receipt, &closure_input.function_addresses, &closure_input.policy)
+            validate_admitted_bindings(
+                receipt,
+                &closure_input.function_addresses,
+                &closure_input.policy,
+                &closure_input.resolved_envelopes,
+            )
         };
         assert_eq!(bindings(&admitted), Vec::<String>::new());
 
@@ -4348,7 +4843,10 @@ unsafe fn risky(values: &[u8]) -> u8 {
         let (summary, provider) =
             toolchain_summary(&root_address.function_address, "call:Vec::new", 0, "alloc", vec![Effect::Alloc]);
         let mut closure_input = input(source, vec![root_address], policy(vec![summary]));
-        closure_input.resolved_providers.push(provider);
+        closure_input.resolved_providers.push(provider.clone());
+        closure_input
+            .resolved_envelopes
+            .push(test_envelope(provider, crate::envelope::SourceKind::Toolchain));
         let mut receipt = compute_closure(closure_input);
         assert!(verify_receipt_identity(&receipt).is_empty());
 
@@ -4405,7 +4903,10 @@ unsafe fn risky(values: &[u8]) -> u8 {
         let (summary, provider) =
             toolchain_summary(&leaf_address.function_address, "call:Vec::new", 0, "alloc", vec![Effect::Alloc]);
         let mut closure_input = input(source, vec![leaf_address, address("root", '5')], policy(vec![summary]));
-        closure_input.resolved_providers.push(provider);
+        closure_input.resolved_providers.push(provider.clone());
+        closure_input
+            .resolved_envelopes
+            .push(test_envelope(provider, crate::envelope::SourceKind::Toolchain));
         let admitted = compute_closure(closure_input);
         assert_eq!(admitted.status, AdmissionStatus::Admitted);
         assert!(verify_receipt_identity(&admitted).is_empty());
@@ -4805,10 +5306,11 @@ unsafe fn risky(values: &[u8]) -> u8 {
                 provider: provider.clone(),
                 effects: Vec::new(),
                 evidence: EvidenceReference {
-                    kind: "reviewed-source-summary-v1".to_owned(),
+                    kind: "reviewed-implementation-summary-v1".to_owned(),
                     locator: "Cargo.lock#dep".to_owned(),
-                    blake3: TEST_LOCK_HASH.to_owned(),
+                    blake3: TEST_CLOSURE_HASH.to_owned(),
                 },
+                implementation_binding: Some(test_binding()),
             })
             .collect::<Vec<_>>();
         summaries.sort();
@@ -4828,7 +5330,11 @@ unsafe fn risky(values: &[u8]) -> u8 {
 
     fn reviewed_input(source: &str, summaries: Vec<CallSummary>) -> ClosureInput {
         let mut closure_input = input(source, vec![address("root", '5')], policy(summaries));
-        closure_input.resolved_providers.push(dependency_provider());
+        let provider = dependency_provider();
+        closure_input.resolved_providers.push(provider.clone());
+        closure_input
+            .resolved_envelopes
+            .push(test_envelope(provider, crate::envelope::SourceKind::LockedRegistryOrGit));
         closure_input
     }
 
@@ -5045,7 +5551,11 @@ unsafe fn risky(values: &[u8]) -> u8 {
             })
             .collect();
         closure_input.policy.module_roles.sort();
-        closure_input.resolved_providers.push(dependency_provider());
+        let provider = dependency_provider();
+        closure_input.resolved_providers.push(provider.clone());
+        closure_input
+            .resolved_envelopes
+            .push(test_envelope(provider, crate::envelope::SourceKind::LockedRegistryOrGit));
         closure_input
     }
 
@@ -5133,7 +5643,11 @@ unsafe fn risky(values: &[u8]) -> u8 {
         let denied = compute_closure(input(cycle, addresses(), policy(Vec::new())));
         let summaries = reviewed_summaries(&denied, &dependency_provider());
         let mut closure_input = input(cycle, addresses(), policy(summaries));
-        closure_input.resolved_providers.push(dependency_provider());
+        let provider = dependency_provider();
+        closure_input.resolved_providers.push(provider.clone());
+        closure_input
+            .resolved_envelopes
+            .push(test_envelope(provider, crate::envelope::SourceKind::LockedRegistryOrGit));
         let admitted = compute_closure(closure_input);
         assert_eq!(admitted.status, AdmissionStatus::Admitted, "{:?}", admitted.diagnostics);
     }
@@ -5350,5 +5864,133 @@ unsafe fn risky(values: &[u8]) -> u8 {
             (LIB_PATH, "mod core;\nmod util;\n"),
             (UTIL_PATH, &util),
         ]);
+    }
+
+    #[test]
+    fn implementation_bound_distinguishes_all_failure_modes_and_never_promotes_proof() {
+        let source = "fn root() { ws_dep::pure_fn(); }\n";
+        let root_addr = address("root", '1');
+        let denied = compute_closure(input(source, vec![root_addr.clone()], policy(Vec::new())));
+        let call_site_id = denied.nodes[0].calls[0].call_site_id.clone();
+        let ws_provider = ProviderIdentity {
+            kind: ProviderKind::Workspace,
+            name: "ws_dep".to_owned(),
+            version: "0.1.0".to_owned(),
+            source: format!("workspace-envelope:{TEST_CLOSURE_HASH}"),
+            target: TEST_TARGET.to_owned(),
+            features: Vec::new(),
+        };
+        let ws_env = test_envelope(ws_provider.clone(), crate::envelope::SourceKind::LocalSourceTree);
+        let valid_summary = CallSummary {
+            call_site_id: call_site_id.clone(),
+            review_label: "reviewed workspace helper".to_owned(),
+            callee: "ws_dep::pure_fn".to_owned(),
+            provider: ws_provider.clone(),
+            effects: Vec::new(),
+            evidence: EvidenceReference {
+                kind: "reviewed-implementation-summary-v1".to_owned(),
+                locator: "workspace-envelope#ws_dep".to_owned(),
+                blake3: TEST_CLOSURE_HASH.to_owned(),
+            },
+            implementation_binding: Some(test_binding()),
+        };
+
+        let mut base = input(source, vec![root_addr.clone()], policy(vec![valid_summary.clone()]));
+        base.resolved_providers.push(ws_provider.clone());
+        base.resolved_envelopes.push(ws_env.clone());
+        let admitted = compute_closure(base.clone());
+        assert_eq!(admitted.status, AdmissionStatus::Admitted, "{:?}", admitted.diagnostics);
+        assert_eq!(admitted.justification_summary.reviewed_assumptions, 1);
+        assert_eq!(admitted.justification_summary.checked_proofs, 0);
+        assert!(!admitted.justification_summary.formal_proof_promoted);
+
+        // 1. Legacy v1 / lockfile-only summary rejected distinctly
+        let mut legacy = base.clone();
+        legacy.policy.schema_version = WORKSPACE_POLICY_SCHEMA_VERSION_V1.to_owned();
+        legacy.policy.binding_profile = None;
+        legacy.policy.call_summaries[0].implementation_binding = None;
+        legacy.policy.call_summaries[0].evidence.kind = "cargo-lock-review-v1".to_owned();
+        let legacy_receipt = compute_closure(legacy);
+        assert!(legacy_receipt.diagnostics.iter().any(|d| d.code == DIAGNOSTIC_LEGACY_SCHEMA_UNSUPPORTED));
+
+        // 2. Wrong provider
+        let mut wrong_provider = base.clone();
+        wrong_provider.policy.call_summaries[0].provider.version = "9.9.9".to_owned();
+        let wrong_receipt = compute_closure(wrong_provider);
+        assert!(wrong_receipt.diagnostics.iter().any(|d| d.code == DIAGNOSTIC_PROVIDER_MISMATCH));
+
+        // 3. Changed implementation on disk (recomputed envelope differs)
+        let mut changed_impl = base.clone();
+        changed_impl.resolved_envelopes[0].implementation_closure_blake3 = full_hash("new-impl");
+        changed_impl.resolved_envelopes[0].provider.source = format!("workspace-envelope:{}", full_hash("new-impl"));
+        let stale_impl_receipt = compute_closure(changed_impl);
+        assert!(stale_impl_receipt.diagnostics.iter().any(|d| d.code == DIAGNOSTIC_SUMMARY_IMPLEMENTATION_STALE));
+
+        // 4. Altered summary (effects or call_site_id modified)
+        let mut altered_summary = base.clone();
+        altered_summary.policy.call_summaries[0].effects = vec![Effect::Fs];
+        let altered_receipt = compute_closure(altered_summary);
+        assert!(altered_receipt.diagnostics.iter().any(|d| d.code == DIAGNOSTIC_EFFECT_DENIED));
+
+        // 5. Edited embedded digest (`evidence.blake3`)
+        let mut edited_digest = base.clone();
+        edited_digest.policy.call_summaries[0].evidence.blake3 = full_hash("tampered-evidence");
+        let digest_receipt = compute_closure(edited_digest);
+        assert!(digest_receipt.diagnostics.iter().any(|d| d.code == DIAGNOSTIC_EVIDENCE_DIGEST_MISMATCH));
+
+        // 6. Incomplete / unsupported generated input
+        let mut incomplete = base.clone();
+        incomplete.resolved_envelopes[0].completeness = crate::envelope::CompletenessStatus::UnsupportedGeneratedInput;
+        incomplete.resolved_envelopes[0].completeness_diagnostics = vec!["build.rs unadmitted".to_owned()];
+        let incomplete_receipt = compute_closure(incomplete);
+        assert!(incomplete_receipt.diagnostics.iter().any(|d| d.code == DIAGNOSTIC_UNSUPPORTED_GENERATED_INPUT));
+
+        // 7. Promoting reviewed summary to checked-proof fails closed
+        let mut promoted = base;
+        if let Some(binding) = &mut promoted.policy.call_summaries[0].implementation_binding {
+            binding.justification = crate::envelope::SummaryJustification::CheckedProof;
+        }
+        let promoted_receipt = compute_closure(promoted);
+        assert!(promoted_receipt.diagnostics.iter().any(|d| d.code == DIAGNOSTIC_JUSTIFICATION_INVALID));
+    }
+
+    #[test]
+    fn workspace_policy_verifies_envelope_policy_blake3_pin() {
+        let mut valid = policy(Vec::new());
+        valid.envelope_policy_blake3 = Some(crate::envelope::policy::embedded_json_blake3());
+        assert!(validate_workspace_policy(&valid).is_empty());
+
+        let mut wrong = valid;
+        wrong.envelope_policy_blake3 = Some(full_hash("wrong-envelope-policy"));
+        let diagnostics = validate_workspace_policy(&wrong);
+        assert!(diagnostics.iter().any(|diag| diag.contains(DIAGNOSTIC_POLICY)), "{diagnostics:?}");
+    }
+
+    #[test]
+    fn toolchain_summary_enforces_provider_source_and_build_context() {
+        let source = "fn root() { let _values: Vec<u8> = Vec::new(); }\n";
+        let root_addr = address("root", '1');
+        let (mut summary, provider) =
+            toolchain_summary(&root_addr.function_address, "call:Vec::new", 0, "alloc", vec![Effect::Alloc]);
+        let mut env = test_envelope(provider.clone(), crate::envelope::SourceKind::Toolchain);
+
+        let mut wrong_source_summary = summary.clone();
+        wrong_source_summary.provider.source = "forged-toolchain".to_owned();
+        wrong_source_summary.evidence.blake3 = provider_identity_blake3(&wrong_source_summary.provider);
+        let wrong_source_provider = wrong_source_summary.provider.clone();
+        let mut wrong_source = input(source, vec![root_addr.clone()], policy(vec![wrong_source_summary]));
+        wrong_source.resolved_providers.push(provider.clone());
+        wrong_source.resolved_providers.push(wrong_source_provider);
+        wrong_source.resolved_envelopes.push(env.clone());
+        let source_receipt = compute_closure(wrong_source);
+        assert!(source_receipt.diagnostics.iter().any(|d| d.code == DIAGNOSTIC_PROVIDER_MISMATCH));
+
+        summary.implementation_binding = None;
+        env.build_context_blake3 = full_hash("stale-build-context");
+        let mut stale_ctx = input(source, vec![root_addr], policy(vec![summary]));
+        stale_ctx.resolved_providers.push(provider);
+        stale_ctx.resolved_envelopes.push(env);
+        let stale_receipt = compute_closure(stale_ctx);
+        assert!(stale_receipt.diagnostics.iter().any(|d| d.code == DIAGNOSTIC_SUMMARY_IMPLEMENTATION_STALE));
     }
 }

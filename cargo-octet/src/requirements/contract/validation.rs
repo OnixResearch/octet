@@ -79,6 +79,16 @@ fn validate_clause<'a>(
     if clause.disposition == super::super::DISPOSITION_ACCEPTED_ASSUMPTION && clause.assumption_id.is_none() {
         diagnostics.push(format!("assumption clause `{}` must name an assumption_id", clause.clause_id));
     }
+    if clause.disposition == super::super::DISPOSITION_ACCEPTED_ASSUMPTION
+        && (clause.expected_evidence_tier == super::super::DISPOSITION_FORMAL_PROOF
+            || clause.required_evidence_classes.iter().any(|c| c == "formal_proof")
+            || clause.required_bindings.evidence_tier.as_deref() == Some("formal_proof"))
+    {
+        diagnostics.push(format!(
+            "assumption clause `{}` cannot promote an accepted assumption to formal_proof",
+            clause.clause_id
+        ));
+    }
     if clause.source_bindings.is_empty() && clause.disposition != super::super::DISPOSITION_EXCLUDED {
         diagnostics.push(format!(
             "requirement clause `{}` has an empty source scope; an unexamined scope cannot establish coverage",

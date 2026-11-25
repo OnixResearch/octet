@@ -15,13 +15,13 @@ Octet ratchets its canonical `--workspace --lib` self-check with the runner's ex
 
 ## Stored budget and qualification status
 
-The checked-in baseline contains **3,160 unique stable identities**. Its
+The checked-in baseline contains **3,019 unique stable identities**. Its
 semantic `baseline_hash` is
-`dc1b7b0a5a9379702268ff967e391d9595ceacb365032daf25387a232721c576`;
+`b3:6c48aa829741de81eaed89bcecf3b8877de8ff82f90e4145e650539e5c599310`;
 the baseline file's BLAKE3 identity is
-`b3:e89881bb54c99c48a097f1622291d45a1a3511b4081518e7e19a52a36c95e1a0`.
+`b3:76b69495cc62271d3bed8fcfcd60e922ea1d3c886217963313de82446157f984`.
 These describe stored data, not a fresh self-check observation or approval of
-new findings. The flake gate's **4,337 occurrence** budget is an expectation,
+new findings. The flake gate's **4,236 occurrence** budget is an expectation,
 not a measured current run. No budget is changed by this documentation repair.
 Candidate qualification must record actual results for the exact source,
 toolchain, config, scope, and stored baseline.
@@ -104,8 +104,8 @@ Historical baseline BLAKE3 identity: `b3:cb7cb5c359de18a3b6f05014edb6bee45989f23
 ## Gate behavior
 
 The `cargo-octet-self-check` Nix derivation runs structured output against the
-checked-in baseline. Its current stored contract expects 4,337 warning
-occurrences and the accepted 3,160 stable identities, zero new IDs, zero stale
+checked-in baseline. Its current stored contract expects 4,236 warning
+occurrences and the accepted 3,019 stable identities, zero new IDs, zero stale
 IDs, a matching baseline hash, and repository-relative locators. These are gate
 expectations, not a claim that a candidate run passed. The previous prose's
 2,665 occurrences / 1,815 identities described an older gate expectation and is

@@ -1415,6 +1415,8 @@ mod tests {
             effects,
             review_label: Some("reviewed semantic emission".to_owned()),
             evidence: Some(evidence()),
+            implementation_binding: None,
+            justification: Some(crate::envelope::SummaryJustification::ReviewedAssumption),
         }
     }
 
@@ -1437,6 +1439,7 @@ mod tests {
                 AdmissionStatus::Denied
             },
             claim_scope: effect_closure::CLAIM_SCOPE.to_owned(),
+            binding_profile: crate::envelope::BindingProfile::ImplementationBoundV1,
             resolver: "octet-selected-source-token-call-resolver-v1".to_owned(),
             canonicalizer: "octet-effect-closure-canonicalizer-v1".to_owned(),
             inputs: ClosureInputIdentities {
@@ -1450,6 +1453,7 @@ mod tests {
                 workspace_policy_blake3: TEST_HASH.to_owned(),
                 cargo_graph_blake3: TEST_HASH.to_owned(),
                 cargo_lock_blake3: TEST_HASH.to_owned(),
+                build_context_blake3: TEST_HASH.to_owned(),
                 target: "x86_64-unknown-linux-gnu".to_owned(),
                 toolchain: "test-toolchain".to_owned(),
             },
@@ -1462,7 +1466,22 @@ mod tests {
             } else {
                 vec![provider()]
             },
-            nodes: vec![node],
+            provider_envelopes: if node.calls.is_empty() {
+                Vec::new()
+            } else {
+                vec![crate::envelope::ProviderRecord {
+                    provider: provider(),
+                    source_envelope_kind: crate::envelope::SourceKind::LocalSourceTree,
+                    completeness: crate::envelope::CompletenessStatus::Complete,
+                    completeness_diagnostics: Vec::new(),
+                    package_envelope_blake3: TEST_HASH.to_owned(),
+                    build_context_blake3: TEST_HASH.to_owned(),
+                    implementation_closure_blake3: TEST_HASH.to_owned(),
+                    generated_inputs: Vec::new(),
+                    transitive_providers: Vec::new(),
+                }]
+            },
+            nodes: vec![node.clone()],
             diagnostics: if admitted {
                 Vec::new()
             } else {
@@ -1473,6 +1492,12 @@ mod tests {
                     function_address: Some(TEST_FUNCTION.to_owned()),
                     call_site_id: None,
                 }]
+            },
+            justification_summary: crate::envelope::JustificationSummary {
+                reviewed_assumptions: node.calls.len(),
+                checked_proofs: 0,
+                unresolved_obligations: 0,
+                formal_proof_promoted: false,
             },
             non_claims: vec!["selected source-token closure only".to_owned()],
             receipt_identity: String::new(),

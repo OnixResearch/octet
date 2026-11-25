@@ -22,6 +22,7 @@ mod domain_types;
 mod effect_closure;
 mod effect_ports;
 mod engine;
+mod envelope;
 pub mod evidence;
 mod evidence_chain;
 #[cfg(test)]

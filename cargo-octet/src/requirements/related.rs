@@ -60,6 +60,35 @@ pub(super) fn record_satisfies_bindings(
         && is_scope_current
 }
 
+pub(super) fn record_is_tier_overclaim(
+    record: &valence_core::evidence_codebase_index::EvidenceIndexRecord,
+    clause: &super::contract::RequirementClause,
+) -> bool {
+    let is_proof_required = clause.disposition == super::DISPOSITION_FORMAL_PROOF
+        || clause.expected_evidence_tier == super::DISPOSITION_FORMAL_PROOF
+        || clause.required_bindings.evidence_tier.as_deref() == Some("formal_proof")
+        || clause.required_evidence_classes.iter().any(|c| c == "formal_proof");
+    if !is_proof_required {
+        return false;
+    }
+    record.evidence_tier != "formal_proof"
+        || record.artifact_family.contains("effect-closure")
+        || record.artifact_family.contains("reviewed-assumption")
+        || record.artifact_family.contains("cargo-lock-review")
+}
+
+pub(super) fn record_is_legacy_lockfile(
+    record: &valence_core::evidence_codebase_index::EvidenceIndexRecord,
+    clause: &super::contract::RequirementClause,
+) -> bool {
+    if clause.required_bindings.binding_profile.as_deref() != Some("implementation-bound-v1") {
+        return false;
+    }
+    record.artifact_family.contains("lockfile-only")
+        || record.artifact_family.contains("cargo-lock-review-v1")
+        || record.caveats.iter().any(|caveat| caveat.contains("lockfile-only"))
+}
+
 pub(super) fn record_has_failure(record: &valence_core::evidence_codebase_index::EvidenceIndexRecord) -> bool {
     let text = format!("{} {}", record.summary, record.caveats.join(" ")).to_ascii_lowercase();
     text.contains("status=failed")

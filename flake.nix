@@ -2612,9 +2612,16 @@
             ''
               cd ${./.}
               generated_catalog=$(mktemp)
+              generated_envelope=$(mktemp)
               nickel typecheck standards/effect-closure/catalog.ncl
               nickel export --format json standards/effect-closure/catalog.ncl > "$generated_catalog"
               cmp "$generated_catalog" standards/effect-closure/generated/effect-closure-catalog.json
+
+              nickel typecheck standards/effect-closure/envelope-policy.ncl
+              nickel export --format json standards/effect-closure/envelope-policy.ncl > "$generated_envelope"
+              cmp "$generated_envelope" standards/effect-closure/generated/envelope-policy.json
+
+              nickel typecheck standards/effect-closure/contracts/effect-closure-receipt.generated.ncl
 
               for file in standards/effect-closure/fixtures/valid/*.ncl; do
                 nickel export --format json "$file" >/dev/null
@@ -3581,8 +3588,8 @@
                   sentinel_bin="$scratch/sentinel-bin"
                   sentinel_marker="$scratch/cargo-invoked"
                   baseline_relative="standards/self-check-warning-budget/octet-baseline.json"
-                  accepted_warning_total=4239
-                  accepted_identity_total=3030
+                  accepted_warning_total=4236
+                  accepted_identity_total=3019
                   lint_failure_exit=1
                   integration_failure_exit=2
                   sentinel_exit=99

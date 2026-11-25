@@ -10,21 +10,8 @@
     "profile_hash": "b3:cab68b88c47e365a83bcff8760701a148e90217e605daee7c7d0fe8ec2e83e45",
     "config_hash": "b3:c51d1ae1c55fee2a9d155a7b8abe18cb7a6b14ac30476d513f3f5162fe5360c7"
   },
-  "baseline_hash": "b3:97c195b6f296e9eb6b7ef38b237c8a45fb9738f2e657740d02b5d283b146c4cf",
+  "baseline_hash": "b3:6c48aa829741de81eaed89bcecf3b8877de8ff82f90e4145e650539e5c599310",
   "findings": [
-    {
-      "stable_id": "b3:00261e8fb80f3de5",
-      "semantic_id": "b3:00261e8fb80f3de5",
-      "identity_status": "computed",
-      "lint": "function_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/effect_closure.rs",
-      "line": 2811,
-      "column": 78,
-      "message": "function `validate_receipt_structure` is 141 lines (limit: 70)",
-      "crate_name": "cargo_octet"
-    },
     {
       "stable_id": "b3:002ffa4b4020a084",
       "semantic_id": "b3:002ffa4b4020a084",
@@ -33,7 +20,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 2621,
+      "line": 2625,
       "column": 13,
       "message": "boolean binding `list` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -98,7 +85,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 643,
+      "line": 698,
       "column": 13,
       "message": "boolean binding `enclosing_opaque` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -115,6 +102,19 @@
       "column": 13,
       "message": "boolean binding `static_path` should have a predicate prefix",
       "crate_name": "octet"
+    },
+    {
+      "stable_id": "b3:00fbdbeac1cadd0c",
+      "semantic_id": "b3:00fbdbeac1cadd0c",
+      "identity_status": "computed",
+      "lint": "path_segment_repetition",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/effect_closure.rs",
+      "line": 257,
+      "column": 1,
+      "message": "item name `ClosureInput` repeats `closure` from ancestor path segment `effect_closure`",
+      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:00ff62fdb2a217e5",
@@ -293,9 +293,22 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 3549,
+      "line": 3767,
       "column": 13,
       "message": "boolean binding `converged` should have a predicate prefix",
+      "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:030fc274795cd283",
+      "semantic_id": "b3:030fc274795cd283",
+      "identity_status": "computed",
+      "lint": "path_segment_repetition",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/admit.rs",
+      "line": 237,
+      "column": 1,
+      "message": "item name `CargoResolve` repeats `cargo` from ancestor path segment `cargo_octet`",
       "crate_name": "cargo_octet"
     },
     {
@@ -689,19 +702,6 @@
       "crate_name": "octet_standards"
     },
     {
-      "stable_id": "b3:05a0016698cc46f5",
-      "semantic_id": "b3:05a0016698cc46f5",
-      "identity_status": "computed",
-      "lint": "underscore_in_module_filename",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "cargo-octet/src/kamacite_effect_closure.rs",
-      "line": 1,
-      "column": 1,
-      "message": "module filename `kamacite_effect_closure.rs` contains an underscore; prefer `kamacite/effect/closure.rs`",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:05a1258c2700ff2f",
       "semantic_id": "b3:05a1258c2700ff2f",
       "identity_status": "computed",
@@ -774,7 +774,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 275,
+      "line": 326,
       "column": 1,
       "message": "item name `ClosureDiagnostic` repeats `closure` from ancestor path segment `effect_closure`",
       "crate_name": "cargo_octet"
@@ -982,7 +982,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1897,
+      "line": 1901,
       "column": 13,
       "message": "boolean binding `dry_run` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -1024,19 +1024,6 @@
       "line": 997,
       "column": 9,
       "message": "boolean binding `declares_other_bundle` should have a predicate prefix",
-      "crate_name": "cargo_octet"
-    },
-    {
-      "stable_id": "b3:076246dfdd64cf3f",
-      "semantic_id": "b3:076246dfdd64cf3f",
-      "identity_status": "computed",
-      "lint": "function_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/admit.rs",
-      "line": 1109,
-      "column": 57,
-      "message": "function `dependency_graph` is 81 lines (limit: 70)",
       "crate_name": "cargo_octet"
     },
     {
@@ -1229,7 +1216,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 2872,
+      "line": 3048,
       "column": 13,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -1324,6 +1311,19 @@
       "column": 1,
       "message": "non-trait import `ArchitectureProtectedEffectProtocol` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "octet_standards"
+    },
+    {
+      "stable_id": "b3:08ad4cd5a820adb8",
+      "semantic_id": "b3:08ad4cd5a820adb8",
+      "identity_status": "computed",
+      "lint": "underscore_in_module_filename",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/effect_closure.rs",
+      "line": 1,
+      "column": 1,
+      "message": "module filename `effect_closure.rs` contains an underscore; prefer `effect/closure.rs`",
+      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:08ba6261b0afe7bb",
@@ -1580,7 +1580,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 2427,
+      "line": 2431,
       "column": 92,
       "message": "function `parse_object_supplement_scan` is 148 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -1736,7 +1736,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/artifact.rs",
-      "line": 1915,
+      "line": 1914,
       "column": 1,
       "message": "item name `expected_artifact_hashes` repeats `artifact` from ancestor path segment `artifact`",
       "crate_name": "cargo_octet"
@@ -1765,19 +1765,6 @@
       "line": 267,
       "column": 13,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
-      "crate_name": "cargo_octet"
-    },
-    {
-      "stable_id": "b3:0b9e8721d8843ab7",
-      "semantic_id": "b3:0b9e8721d8843ab7",
-      "identity_status": "computed",
-      "lint": "path_segment_repetition",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "cargo-octet/src/admit.rs",
-      "line": 216,
-      "column": 1,
-      "message": "item name `CargoMetadata` repeats `cargo` from ancestor path segment `cargo_octet`",
       "crate_name": "cargo_octet"
     },
     {
@@ -1814,7 +1801,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/artifact.rs",
-      "line": 1445,
+      "line": 1444,
       "column": 9,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -1944,7 +1931,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 2960,
+      "line": 3155,
       "column": 1,
       "message": "item name `validate_admitted_closure` repeats `closure` from ancestor path segment `effect_closure`",
       "crate_name": "cargo_octet"
@@ -1996,7 +1983,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 3036,
+      "line": 3239,
       "column": 13,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -2061,7 +2048,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 3796,
+      "line": 4014,
       "column": 9,
       "message": "catch-all `_` on enum match returns deny value — new variants will be silently handled",
       "crate_name": "cargo_octet"
@@ -2204,7 +2191,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 1214,
+      "line": 1352,
       "column": 13,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -2438,7 +2425,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 1398,
+      "line": 1547,
       "column": 5,
       "message": "`Result` value silently discarded with `let _ = ...`",
       "crate_name": "cargo_octet"
@@ -2652,19 +2639,6 @@
       "crate_name": "cargo_octet"
     },
     {
-      "stable_id": "b3:104e7a0a28ea2e08",
-      "semantic_id": "b3:104e7a0a28ea2e08",
-      "identity_status": "computed",
-      "lint": "path_segment_repetition",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "cargo-octet/src/effect_closure.rs",
-      "line": 316,
-      "column": 1,
-      "message": "item name `EffectClosureReceipt` repeats `effect` from ancestor path segment `effect_closure`",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:10888c1294840bf6",
       "semantic_id": "b3:10888c1294840bf6",
       "identity_status": "computed",
@@ -2802,7 +2776,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/artifact.rs",
-      "line": 1998,
+      "line": 1997,
       "column": 1,
       "message": "item name `expected_shape_for_artifact` repeats `artifact` from ancestor path segment `artifact`",
       "crate_name": "cargo_octet"
@@ -2841,7 +2815,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 1039,
+      "line": 1094,
       "column": 27,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -2880,7 +2854,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 3795,
+      "line": 4013,
       "column": 44,
       "message": "function calls itself recursively",
       "crate_name": "cargo_octet"
@@ -2897,19 +2871,6 @@
       "column": 13,
       "message": "catch-all `_` on enum match returns deny value — new variants will be silently handled",
       "crate_name": "octet"
-    },
-    {
-      "stable_id": "b3:11a9e86b316d7706",
-      "semantic_id": "b3:11a9e86b316d7706",
-      "identity_status": "computed",
-      "lint": "path_segment_repetition",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "cargo-octet/src/effect_closure.rs",
-      "line": 213,
-      "column": 1,
-      "message": "item name `ClosureInput` repeats `closure` from ancestor path segment `effect_closure`",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:11c2553cf59c9247",
@@ -2958,7 +2919,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 135,
+      "line": 143,
       "column": 1,
       "message": "item name `EffectProfile` repeats `effect` from ancestor path segment `effect_closure`",
       "crate_name": "cargo_octet"
@@ -3192,7 +3153,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1591,
+      "line": 1595,
       "column": 13,
       "message": "boolean binding `run` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -3335,7 +3296,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 142,
+      "line": 150,
       "column": 1,
       "message": "item name `EffectCatalog` repeats `effect` from ancestor path segment `effect_closure`",
       "crate_name": "cargo_octet"
@@ -3959,7 +3920,7 @@
       "group": "tigerstyle::purity",
       "severity": "warning",
       "file": "cargo-octet/src/engine.rs",
-      "line": 2004,
+      "line": 2020,
       "column": 25,
       "message": "direct `std::env::var_os` access reads or mutates ambient process state",
       "crate_name": "cargo_octet"
@@ -4050,7 +4011,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 3058,
+      "line": 3262,
       "column": 13,
       "message": "boolean binding `matches_summary` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -4115,9 +4076,22 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 40,
+      "line": 39,
       "column": 1,
       "message": "non-trait import `KamaciteEffectProfile` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:1a7046dddb1717da",
+      "semantic_id": "b3:1a7046dddb1717da",
+      "identity_status": "computed",
+      "lint": "excessive_file_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/admit.rs",
+      "line": 1,
+      "column": 1,
+      "message": "source file is 4290 lines (limit: 300)",
       "crate_name": "cargo_octet"
     },
     {
@@ -4258,7 +4232,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 848,
+      "line": 903,
       "column": 21,
       "message": "boolean binding `placed` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -4388,7 +4362,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 3231,
+      "line": 3441,
       "column": 17,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -4505,7 +4479,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 34,
+      "line": 33,
       "column": 1,
       "message": "non-trait import `ProvenanceRecord` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -4609,7 +4583,7 @@
       "group": "tigerstyle::purity",
       "severity": "warning",
       "file": "cargo-octet/src/engine.rs",
-      "line": 2007,
+      "line": 2023,
       "column": 25,
       "message": "direct `std::env::var_os` access reads or mutates ambient process state",
       "crate_name": "cargo_octet"
@@ -4888,19 +4862,6 @@
       "crate_name": "octet"
     },
     {
-      "stable_id": "b3:20f2dfcc2ed2eabb",
-      "semantic_id": "b3:20f2dfcc2ed2eabb",
-      "identity_status": "computed",
-      "lint": "function_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/artifact.rs",
-      "line": 1273,
-      "column": 115,
-      "message": "function `validate_integrated_effect_closure_bundle` is 96 lines (limit: 70)",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:20f38e0bc21ca69a",
       "semantic_id": "b3:20f38e0bc21ca69a",
       "identity_status": "computed",
@@ -4999,7 +4960,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/artifact.rs",
-      "line": 1897,
+      "line": 1896,
       "column": 27,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -5025,7 +4986,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 1775,
+      "line": 1830,
       "column": 17,
       "message": "function calls itself recursively",
       "crate_name": "cargo_octet"
@@ -5142,7 +5103,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 2613,
+      "line": 2617,
       "column": 84,
       "message": "function `parse_prove` is 268 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -5224,6 +5185,19 @@
       "column": 17,
       "message": "boolean binding `capped` should have a predicate prefix",
       "crate_name": "octet"
+    },
+    {
+      "stable_id": "b3:2342f8c396d0ccf7",
+      "semantic_id": "b3:2342f8c396d0ccf7",
+      "identity_status": "computed",
+      "lint": "function_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/effect_closure.rs",
+      "line": 2986,
+      "column": 78,
+      "message": "function `validate_receipt_structure` is 161 lines (limit: 70)",
+      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:23439494e1c3f793",
@@ -5727,7 +5701,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/artifact.rs",
-      "line": 2081,
+      "line": 2080,
       "column": 13,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -6533,7 +6507,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 3264,
+      "line": 3474,
       "column": 29,
       "message": "function `address_functions` is 74 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -6549,19 +6523,6 @@
       "line": 163,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
-      "crate_name": "cargo_octet"
-    },
-    {
-      "stable_id": "b3:2ba5d3b36e8eab3d",
-      "semantic_id": "b3:2ba5d3b36e8eab3d",
-      "identity_status": "computed",
-      "lint": "function_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/effect_closure.rs",
-      "line": 3349,
-      "column": 31,
-      "message": "function `build_nodes` is 185 lines (limit: 70)",
       "crate_name": "cargo_octet"
     },
     {
@@ -6689,7 +6650,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 2627,
+      "line": 2631,
       "column": 13,
       "message": "boolean binding `record_negative_check` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -6975,7 +6936,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 3082,
+      "line": 3086,
       "column": 17,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -7001,7 +6962,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/engine.rs",
-      "line": 2017,
+      "line": 2033,
       "column": 27,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -7212,19 +7173,6 @@
       "line": 1,
       "column": 1,
       "message": "source file is 520 lines (limit: 300)",
-      "crate_name": "cargo_octet"
-    },
-    {
-      "stable_id": "b3:2f72f632ef68521f",
-      "semantic_id": "b3:2f72f632ef68521f",
-      "identity_status": "computed",
-      "lint": "function_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/effect_closure.rs",
-      "line": 2564,
-      "column": 75,
-      "message": "function `validate_workspace_policy` is 79 lines (limit: 70)",
       "crate_name": "cargo_octet"
     },
     {
@@ -7547,7 +7495,7 @@
       "group": "tigerstyle::purity",
       "severity": "warning",
       "file": "cargo-octet/src/lib.rs",
-      "line": 114,
+      "line": 115,
       "column": 35,
       "message": "direct `std::env::temp_dir` access reads or mutates ambient process state",
       "crate_name": "cargo_octet"
@@ -7703,7 +7651,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 822,
+      "line": 877,
       "column": 25,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -7755,7 +7703,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1643,
+      "line": 1647,
       "column": 17,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -7820,7 +7768,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 1421,
+      "line": 1570,
       "column": 13,
       "message": "`Result` value silently discarded with `let _ = ...`",
       "crate_name": "cargo_octet"
@@ -7904,6 +7852,19 @@
       "crate_name": "cargo_octet"
     },
     {
+      "stable_id": "b3:340fd4bfb5eec761",
+      "semantic_id": "b3:340fd4bfb5eec761",
+      "identity_status": "computed",
+      "lint": "too_many_parameters",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/admit.rs",
+      "line": 613,
+      "column": 1,
+      "message": "function has 7 parameters (limit: 5) — consider an options struct",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:342165b96e4d2a7b",
       "semantic_id": "b3:342165b96e4d2a7b",
       "identity_status": "computed",
@@ -7927,6 +7888,19 @@
       "line": 21,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
+      "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:3455d75ecb5be656",
+      "semantic_id": "b3:3455d75ecb5be656",
+      "identity_status": "computed",
+      "lint": "too_many_parameters",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/admit.rs",
+      "line": 1029,
+      "column": 1,
+      "message": "function has 9 parameters (limit: 5) — consider an options struct",
       "crate_name": "cargo_octet"
     },
     {
@@ -8262,7 +8236,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 855,
+      "line": 859,
       "column": 13,
       "message": "boolean binding `closure` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -8327,7 +8301,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 32,
+      "line": 31,
       "column": 1,
       "message": "non-trait import `WorkspacePolicy` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -8561,7 +8535,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 1395,
+      "line": 1544,
       "column": 5,
       "message": "`Result` value silently discarded with `let _ = ...`",
       "crate_name": "cargo_octet"
@@ -8912,7 +8886,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 1133,
+      "line": 1188,
       "column": 29,
       "message": "function calls itself recursively",
       "crate_name": "cargo_octet"
@@ -8929,19 +8903,6 @@
       "column": 17,
       "message": "boolean binding `scope_valid` should have a predicate prefix",
       "crate_name": "octet_standards"
-    },
-    {
-      "stable_id": "b3:39f757017bde05f7",
-      "semantic_id": "b3:39f757017bde05f7",
-      "identity_status": "computed",
-      "lint": "path_segment_repetition",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "cargo-octet/src/effect_closure.rs",
-      "line": 243,
-      "column": 1,
-      "message": "item name `ClosureCallEdge` repeats `closure` from ancestor path segment `effect_closure`",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:3a030a071ee269a1",
@@ -9042,7 +9003,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 3511,
+      "line": 3729,
       "column": 13,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -9215,19 +9176,6 @@
       "column": 1,
       "message": "item name `Config` repeats `config` from ancestor path segment `config`",
       "crate_name": "octet"
-    },
-    {
-      "stable_id": "b3:3c8a563faa3fcfb9",
-      "semantic_id": "b3:3c8a563faa3fcfb9",
-      "identity_status": "computed",
-      "lint": "path_segment_repetition",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "cargo-octet/src/admit.rs",
-      "line": 232,
-      "column": 1,
-      "message": "item name `CargoResolve` repeats `cargo` from ancestor path segment `cargo_octet`",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:3c8de2693bebb9cb",
@@ -9991,7 +9939,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1229,
+      "line": 1233,
       "column": 13,
       "message": "boolean binding `cache` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -10082,7 +10030,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/artifact.rs",
-      "line": 1769,
+      "line": 1768,
       "column": 1,
       "message": "item name `expected_artifact_files` repeats `artifact` from ancestor path segment `artifact`",
       "crate_name": "cargo_octet"
@@ -10472,7 +10420,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/engine.rs",
-      "line": 1992,
+      "line": 2008,
       "column": 13,
       "message": "`Result` value silently discarded with `let _ = ...`",
       "crate_name": "cargo_octet"
@@ -10628,7 +10576,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 2003,
+      "line": 2058,
       "column": 9,
       "message": "catch-all `_` on enum match returns deny value — new variants will be silently handled",
       "crate_name": "cargo_octet"
@@ -10680,7 +10628,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 3777,
+      "line": 3995,
       "column": 21,
       "message": "function calls itself recursively",
       "crate_name": "cargo_octet"
@@ -11044,7 +10992,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 264,
+      "line": 315,
       "column": 1,
       "message": "item name `FunctionClosureNode` repeats `closure` from ancestor path segment `effect_closure`",
       "crate_name": "cargo_octet"
@@ -11304,7 +11252,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 1399,
+      "line": 1548,
       "column": 5,
       "message": "`Result` value silently discarded with `let _ = ...`",
       "crate_name": "cargo_octet"
@@ -11395,7 +11343,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 3045,
+      "line": 3049,
       "column": 92,
       "message": "function `parse_provider_manifest_export` is 81 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -11525,7 +11473,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 3552,
+      "line": 3770,
       "column": 17,
       "message": "boolean binding `changed` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -11681,7 +11629,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 2623,
+      "line": 2627,
       "column": 13,
       "message": "boolean binding `candidates` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -11837,7 +11785,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 2352,
+      "line": 2356,
       "column": 84,
       "message": "function `parse_object_supplement_fixtures` is 71 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -11980,7 +11928,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 2833,
+      "line": 3009,
       "column": 13,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -12103,19 +12051,6 @@
       "crate_name": "octet_standards"
     },
     {
-      "stable_id": "b3:500cc082c449ce4e",
-      "semantic_id": "b3:500cc082c449ce4e",
-      "identity_status": "computed",
-      "lint": "unbounded_collection_growth",
-      "group": "tigerstyle::safety",
-      "severity": "warning",
-      "file": "cargo-octet/src/effect_closure.rs",
-      "line": 2605,
-      "column": 13,
-      "message": "collection grows in loop without a prior reservation or explicit local bound",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:50276727107e4ccf",
       "semantic_id": "b3:50276727107e4ccf",
       "identity_status": "computed",
@@ -12188,7 +12123,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 2012,
+      "line": 2067,
       "column": 9,
       "message": "catch-all `_` on enum match returns deny value — new variants will be silently handled",
       "crate_name": "cargo_octet"
@@ -12396,7 +12331,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 1400,
+      "line": 1549,
       "column": 5,
       "message": "`Result` value silently discarded with `let _ = ...`",
       "crate_name": "cargo_octet"
@@ -12526,7 +12461,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 1328,
+      "line": 1466,
       "column": 9,
       "message": "boolean binding `kamacite_denied` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -12555,6 +12490,19 @@
       "line": 100,
       "column": 1,
       "message": "item name `ProofRefStatus` repeats `proof` from ancestor path segment `proof_candidates`",
+      "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:52c0320f9552ffd1",
+      "semantic_id": "b3:52c0320f9552ffd1",
+      "identity_status": "computed",
+      "lint": "function_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/effect_closure.rs",
+      "line": 3208,
+      "column": 18,
+      "message": "function `validate_admitted_bindings` is 85 lines (limit: 70)",
       "crate_name": "cargo_octet"
     },
     {
@@ -12890,7 +12838,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 2654,
+      "line": 2658,
       "column": 17,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -12994,7 +12942,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 659,
+      "line": 719,
       "column": 9,
       "message": "boolean binding `admitted` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -13254,7 +13202,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 41,
+      "line": 40,
       "column": 1,
       "message": "non-trait import `KamaciteEffectSummaryProjection` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -13361,19 +13309,6 @@
       "line": 1135,
       "column": 1,
       "message": "item name `classify_cargo_process_exit` repeats `cargo` from ancestor path segment `cargo_octet`",
-      "crate_name": "cargo_octet"
-    },
-    {
-      "stable_id": "b3:57f90fe44c8f2790",
-      "semantic_id": "b3:57f90fe44c8f2790",
-      "identity_status": "computed",
-      "lint": "function_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/admit.rs",
-      "line": 564,
-      "column": 26,
-      "message": "function `run_admission` is 91 lines (limit: 70)",
       "crate_name": "cargo_octet"
     },
     {
@@ -13514,7 +13449,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 1419,
+      "line": 1568,
       "column": 9,
       "message": "`Result` value silently discarded with `let _ = ...`",
       "crate_name": "cargo_octet"
@@ -13709,7 +13644,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 1259,
+      "line": 1397,
       "column": 1,
       "message": "function has 9 parameters (limit: 5) — consider an options struct",
       "crate_name": "cargo_octet"
@@ -13878,7 +13813,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 1208,
+      "line": 1346,
       "column": 1,
       "message": "item name `metadata_cargo_args` repeats `cargo` from ancestor path segment `cargo_octet`",
       "crate_name": "cargo_octet"
@@ -13947,6 +13882,19 @@
       "column": 1,
       "message": "item name `ComparisonRow` repeats `comparison` from ancestor path segment `comparison`",
       "crate_name": "octet_standards"
+    },
+    {
+      "stable_id": "b3:5a95542a9f931bfc",
+      "semantic_id": "b3:5a95542a9f931bfc",
+      "identity_status": "computed",
+      "lint": "excessive_file_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/artifact.rs",
+      "line": 1,
+      "column": 1,
+      "message": "source file is 3398 lines (limit: 300)",
+      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:5a95af82b734aa4b",
@@ -14112,7 +14060,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 2418,
+      "line": 2578,
       "column": 13,
       "message": "boolean binding `complete` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -14697,7 +14645,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 1403,
+      "line": 1552,
       "column": 9,
       "message": "`Result` value silently discarded with `let _ = ...`",
       "crate_name": "cargo_octet"
@@ -14779,19 +14727,6 @@
       "column": 20,
       "message": "`.expect()` in production code will panic on failure",
       "crate_name": "octet_standards"
-    },
-    {
-      "stable_id": "b3:600fb504978dce28",
-      "semantic_id": "b3:600fb504978dce28",
-      "identity_status": "computed",
-      "lint": "path_segment_repetition",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "cargo-octet/src/effect_closure.rs",
-      "line": 2651,
-      "column": 1,
-      "message": "item name `compute_closure` repeats `closure` from ancestor path segment `effect_closure`",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:6028def6220150e4",
@@ -15100,7 +15035,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1477,
+      "line": 1481,
       "column": 13,
       "message": "boolean binding `advisory` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -15321,7 +15256,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 1422,
+      "line": 1477,
       "column": 28,
       "message": "function calls itself recursively",
       "crate_name": "cargo_octet"
@@ -15717,19 +15652,6 @@
       "crate_name": "cargo_octet"
     },
     {
-      "stable_id": "b3:655381af97c7aa5a",
-      "semantic_id": "b3:655381af97c7aa5a",
-      "identity_status": "computed",
-      "lint": "function_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/effect_closure.rs",
-      "line": 3012,
-      "column": 18,
-      "message": "function `validate_admitted_bindings` is 71 lines (limit: 70)",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:656a2ca47f56c83a",
       "semantic_id": "b3:656a2ca47f56c83a",
       "identity_status": "computed",
@@ -15802,7 +15724,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 3590,
+      "line": 3808,
       "column": 1,
       "message": "item name `apply_profile_effect_gate` repeats `effect` from ancestor path segment `effect_closure`",
       "crate_name": "cargo_octet"
@@ -15975,19 +15897,6 @@
       "column": 1,
       "message": "source file is 1001 lines (limit: 300)",
       "crate_name": "octet_merge_rail"
-    },
-    {
-      "stable_id": "b3:675ff2088db1a04d",
-      "semantic_id": "b3:675ff2088db1a04d",
-      "identity_status": "computed",
-      "lint": "non_trait_imports",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "cargo-octet/src/admit.rs",
-      "line": 30,
-      "column": 1,
-      "message": "non-trait import `ProviderKind` hides the owner path; prefer the qualified path at the use site",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:67614fa5053d4142",
@@ -16569,7 +16478,7 @@
       "group": "tigerstyle::purity",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 573,
+      "line": 630,
       "column": 15,
       "message": "direct `std::env::current_dir` access reads or mutates ambient process state",
       "crate_name": "cargo_octet"
@@ -16634,7 +16543,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1589,
+      "line": 1593,
       "column": 13,
       "message": "boolean binding `locked` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -16712,7 +16621,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 2752,
+      "line": 2926,
       "column": 5,
       "message": "item name `SchemaVersion` repeats `schema` from ancestor path segment `unsupported_receipt_schema`",
       "crate_name": "cargo_octet"
@@ -16816,7 +16725,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 673,
+      "line": 728,
       "column": 33,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -16832,19 +16741,6 @@
       "line": 3128,
       "column": 33,
       "message": "function calls itself recursively",
-      "crate_name": "cargo_octet"
-    },
-    {
-      "stable_id": "b3:6ce7b900b1b85f5d",
-      "semantic_id": "b3:6ce7b900b1b85f5d",
-      "identity_status": "computed",
-      "lint": "underscore_in_module_filename",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "cargo-octet/src/effect_closure.rs",
-      "line": 1,
-      "column": 1,
-      "message": "module filename `effect_closure.rs` contains an underscore; prefer `effect/closure.rs`",
       "crate_name": "cargo_octet"
     },
     {
@@ -16868,7 +16764,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 3865,
+      "line": 4306,
       "column": 21,
       "message": "`.expect()` in production code will panic on failure",
       "crate_name": "cargo_octet"
@@ -16881,7 +16777,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 845,
+      "line": 849,
       "column": 92,
       "message": "function `parse_admission` is 126 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -17089,7 +16985,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 2201,
+      "line": 2205,
       "column": 71,
       "message": "function `parse_object_corpus` is 136 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -17199,6 +17095,19 @@
       "crate_name": "cargo_octet"
     },
     {
+      "stable_id": "b3:6ed84536a776fcfc",
+      "semantic_id": "b3:6ed84536a776fcfc",
+      "identity_status": "computed",
+      "lint": "path_segment_repetition",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/admit.rs",
+      "line": 212,
+      "column": 1,
+      "message": "item name `CargoMetadata` repeats `cargo` from ancestor path segment `cargo_octet`",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:6f12345a007082b7",
       "semantic_id": "b3:6f12345a007082b7",
       "identity_status": "computed",
@@ -17232,7 +17141,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 1391,
+      "line": 1531,
       "column": 5,
       "message": "`Result` value silently discarded with `let _ = ...`",
       "crate_name": "cargo_octet"
@@ -17336,7 +17245,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 2505,
+      "line": 2509,
       "column": 9,
       "message": "boolean binding `fixture_shape_was_provided` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -17726,7 +17635,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 1390,
+      "line": 1530,
       "column": 5,
       "message": "`Result` value silently discarded with `let _ = ...`",
       "crate_name": "cargo_octet"
@@ -17921,7 +17830,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 709,
+      "line": 769,
       "column": 32,
       "message": "`unreachable!` will abort the process on execution",
       "crate_name": "cargo_octet"
@@ -17934,7 +17843,7 @@
       "group": "tigerstyle::purity",
       "severity": "warning",
       "file": "cargo-octet/src/lib.rs",
-      "line": 101,
+      "line": 102,
       "column": 22,
       "message": "direct `std::env::args_os` access reads or mutates ambient process state",
       "crate_name": "cargo_octet"
@@ -18064,7 +17973,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 2860,
+      "line": 3036,
       "column": 13,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -18090,7 +17999,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 3065,
+      "line": 3270,
       "column": 13,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -18246,7 +18155,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 2622,
+      "line": 2626,
       "column": 13,
       "message": "boolean binding `explain` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -18688,7 +18597,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 1394,
+      "line": 1543,
       "column": 5,
       "message": "`Result` value silently discarded with `let _ = ...`",
       "crate_name": "cargo_octet"
@@ -18740,7 +18649,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1878,
+      "line": 1882,
       "column": 9,
       "message": "boolean binding `legacy` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -18837,19 +18746,6 @@
       "crate_name": "cargo_octet"
     },
     {
-      "stable_id": "b3:7956d50824cb2e93",
-      "semantic_id": "b3:7956d50824cb2e93",
-      "identity_status": "computed",
-      "lint": "excessive_file_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/effect_closure.rs",
-      "line": 1,
-      "column": 1,
-      "message": "source file is 5354 lines (limit: 300)",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:796a00b05204daa5",
       "semantic_id": "b3:796a00b05204daa5",
       "identity_status": "computed",
@@ -18870,7 +18766,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 3232,
+      "line": 3442,
       "column": 17,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -19325,7 +19221,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 433,
+      "line": 434,
       "column": 9,
       "message": "boolean binding `invoked_as_cargo_subcommand` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -19598,7 +19494,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 857,
+      "line": 912,
       "column": 21,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -20079,7 +19975,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 2646,
+      "line": 2650,
       "column": 17,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -20885,7 +20781,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1572,
+      "line": 1576,
       "column": 102,
       "message": "function `parse_evidence_collect` is 177 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -21236,7 +21132,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 1397,
+      "line": 1546,
       "column": 5,
       "message": "`Result` value silently discarded with `let _ = ...`",
       "crate_name": "cargo_octet"
@@ -21314,7 +21210,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/artifact.rs",
-      "line": 1484,
+      "line": 1483,
       "column": 1,
       "message": "item name `evidence_log_artifact_rows` repeats `artifact` from ancestor path segment `artifact`",
       "crate_name": "cargo_octet"
@@ -21912,7 +21808,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 1201,
+      "line": 1256,
       "column": 5,
       "message": "function has 6 parameters (limit: 5) — consider an options struct",
       "crate_name": "cargo_octet"
@@ -21951,7 +21847,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 37,
+      "line": 36,
       "column": 1,
       "message": "non-trait import `kamacite_effect_closure` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -22003,7 +21899,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 1410,
+      "line": 1559,
       "column": 9,
       "message": "`Result` value silently discarded with `let _ = ...`",
       "crate_name": "cargo_octet"
@@ -22679,7 +22575,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 1396,
+      "line": 1545,
       "column": 5,
       "message": "`Result` value silently discarded with `let _ = ...`",
       "crate_name": "cargo_octet"
@@ -22809,7 +22705,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 2333,
+      "line": 2493,
       "column": 17,
       "message": "boolean binding `status_matches` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -22867,6 +22763,19 @@
       "crate_name": "cargo_octet"
     },
     {
+      "stable_id": "b3:9400e8632c758437",
+      "semantic_id": "b3:9400e8632c758437",
+      "identity_status": "computed",
+      "lint": "excessive_file_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/engine.rs",
+      "line": 1,
+      "column": 1,
+      "message": "source file is 3174 lines (limit: 300)",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:941282ab3c2e5d94",
       "semantic_id": "b3:941282ab3c2e5d94",
       "identity_status": "computed",
@@ -22887,7 +22796,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 2686,
+      "line": 2690,
       "column": 17,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -22994,19 +22903,6 @@
       "line": 13,
       "column": 1,
       "message": "non-trait import `finding_identity` hides the owner path; prefer the qualified path at the use site",
-      "crate_name": "cargo_octet"
-    },
-    {
-      "stable_id": "b3:94bb7cf5d8b9a2e7",
-      "semantic_id": "b3:94bb7cf5d8b9a2e7",
-      "identity_status": "computed",
-      "lint": "excessive_file_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/admit.rs",
-      "line": 1,
-      "column": 1,
-      "message": "source file is 4047 lines (limit: 300)",
       "crate_name": "cargo_octet"
     },
     {
@@ -23348,19 +23244,6 @@
       "crate_name": "cargo_octet"
     },
     {
-      "stable_id": "b3:971da46ae8fab0c1",
-      "semantic_id": "b3:971da46ae8fab0c1",
-      "identity_status": "computed",
-      "lint": "function_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/effect_closure.rs",
-      "line": 2651,
-      "column": 69,
-      "message": "function `compute_closure` is 86 lines (limit: 70)",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:972492c54d874f30",
       "semantic_id": "b3:972492c54d874f30",
       "identity_status": "computed",
@@ -23420,7 +23303,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 2820,
+      "line": 2995,
       "column": 13,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -23485,7 +23368,7 @@
       "group": "tigerstyle::purity",
       "severity": "warning",
       "file": "cargo-octet/src/lib.rs",
-      "line": 108,
+      "line": 109,
       "column": 42,
       "message": "direct `std::env::var_os` access reads or mutates ambient process state",
       "crate_name": "cargo_octet"
@@ -23605,19 +23488,6 @@
       "line": 1,
       "column": 1,
       "message": "module directory `cargo-octet/src/benchmark` contains 12 Rust source files (limit: 7)",
-      "crate_name": "cargo_octet"
-    },
-    {
-      "stable_id": "b3:99e64f286745895a",
-      "semantic_id": "b3:99e64f286745895a",
-      "identity_status": "computed",
-      "lint": "excessive_file_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/cli.rs",
-      "line": 1,
-      "column": 1,
-      "message": "source file is 5575 lines (limit: 300)",
       "crate_name": "cargo_octet"
     },
     {
@@ -23810,7 +23680,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/artifact.rs",
-      "line": 1362,
+      "line": 1361,
       "column": 9,
       "message": "boolean binding `linked` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -23927,7 +23797,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/artifact.rs",
-      "line": 1922,
+      "line": 1921,
       "column": 13,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -24135,7 +24005,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/artifact.rs",
-      "line": 1607,
+      "line": 1606,
       "column": 1,
       "message": "item name `validate_wasm_artifact_binding` repeats `artifact` from ancestor path segment `artifact`",
       "crate_name": "cargo_octet"
@@ -24265,7 +24135,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 1416,
+      "line": 1565,
       "column": 13,
       "message": "`Result` value silently discarded with `let _ = ...`",
       "crate_name": "cargo_octet"
@@ -24411,6 +24281,19 @@
       "line": 23,
       "column": 1,
       "message": "non-trait import `corpus_root` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:9e7c154bf0f8a45a",
+      "semantic_id": "b3:9e7c154bf0f8a45a",
+      "identity_status": "computed",
+      "lint": "function_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/admit.rs",
+      "line": 621,
+      "column": 26,
+      "message": "function `run_admission` is 94 lines (limit: 70)",
       "crate_name": "cargo_octet"
     },
     {
@@ -24694,7 +24577,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 2949,
+      "line": 2953,
       "column": 78,
       "message": "function `parse_proof_ref_scaffold` is 84 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -25136,7 +25019,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/artifact.rs",
-      "line": 1638,
+      "line": 1637,
       "column": 1,
       "message": "item name `validate_charon_semantic_artifact_binding` repeats `artifact` from ancestor path segment `artifact`",
       "crate_name": "cargo_octet"
@@ -25153,19 +25036,6 @@
       "column": 1,
       "message": "non-trait import `CompilerArchitectureIr` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "octet_architecture_ir"
-    },
-    {
-      "stable_id": "b3:a30c29444037ded7",
-      "semantic_id": "b3:a30c29444037ded7",
-      "identity_status": "computed",
-      "lint": "excessive_file_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/kamacite_effect_closure.rs",
-      "line": 1,
-      "column": 1,
-      "message": "source file is 1832 lines (limit: 300)",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:a3133fb82ff117c2",
@@ -25231,6 +25101,19 @@
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "octet_standards"
+    },
+    {
+      "stable_id": "b3:a3c6ef7b5721f0cf",
+      "semantic_id": "b3:a3c6ef7b5721f0cf",
+      "identity_status": "computed",
+      "lint": "path_segment_repetition",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/effect_closure.rs",
+      "line": 345,
+      "column": 1,
+      "message": "item name `ClosureInputIdentities` repeats `closure` from ancestor path segment `effect_closure`",
+      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:a3c768ac2497620e",
@@ -25344,7 +25227,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/artifact.rs",
-      "line": 1821,
+      "line": 1820,
       "column": 1,
       "message": "item name `expected_proof_artifact` repeats `artifact` from ancestor path segment `artifact`",
       "crate_name": "cargo_octet"
@@ -25370,7 +25253,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1803,
+      "line": 1807,
       "column": 17,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -25396,7 +25279,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 2396,
+      "line": 2556,
       "column": 29,
       "message": "function `verify_kamacite_bundle` is 130 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -25695,7 +25578,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 3542,
+      "line": 3760,
       "column": 1,
       "message": "item name `propagate_closure_effects` repeats `closure` from ancestor path segment `effect_closure`",
       "crate_name": "cargo_octet"
@@ -25799,7 +25682,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 1392,
+      "line": 1532,
       "column": 5,
       "message": "`Result` value silently discarded with `let _ = ...`",
       "crate_name": "cargo_octet"
@@ -25984,19 +25867,6 @@
       "line": 140,
       "column": 1,
       "message": "item name `ProofCardNegativeCheck` repeats `proof` from ancestor path segment `proof_ref`",
-      "crate_name": "cargo_octet"
-    },
-    {
-      "stable_id": "b3:a8a74de549e9b419",
-      "semantic_id": "b3:a8a74de549e9b419",
-      "identity_status": "computed",
-      "lint": "path_segment_repetition",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "cargo-octet/src/admit.rs",
-      "line": 237,
-      "column": 1,
-      "message": "item name `CargoNode` repeats `cargo` from ancestor path segment `cargo_octet`",
       "crate_name": "cargo_octet"
     },
     {
@@ -26215,7 +26085,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 2971,
+      "line": 3166,
       "column": 13,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -26319,7 +26189,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 42,
+      "line": 41,
       "column": 1,
       "message": "non-trait import `KamaciteIdentity` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -26410,7 +26280,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 1525,
+      "line": 1580,
       "column": 13,
       "message": "function calls itself recursively",
       "crate_name": "cargo_octet"
@@ -26449,7 +26319,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 2526,
+      "line": 2581,
       "column": 13,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -26466,6 +26336,19 @@
       "column": 1,
       "message": "non-trait import `emit_tiger_style_lint` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "octet"
+    },
+    {
+      "stable_id": "b3:ab4143246e721599",
+      "semantic_id": "b3:ab4143246e721599",
+      "identity_status": "computed",
+      "lint": "excessive_file_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/cli.rs",
+      "line": 1,
+      "column": 1,
+      "message": "source file is 5609 lines (limit: 300)",
+      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:ab5b97f6a7f18d98",
@@ -26592,7 +26475,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 1418,
+      "line": 1567,
       "column": 9,
       "message": "`Result` value silently discarded with `let _ = ...`",
       "crate_name": "cargo_octet"
@@ -26644,7 +26527,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/artifact.rs",
-      "line": 2077,
+      "line": 2076,
       "column": 1,
       "message": "item name `verified_artifact_rows` repeats `artifact` from ancestor path segment `artifact`",
       "crate_name": "cargo_octet"
@@ -26774,7 +26657,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 3078,
+      "line": 3288,
       "column": 13,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -26988,19 +26871,6 @@
       "crate_name": "cargo_octet"
     },
     {
-      "stable_id": "b3:ae73a3f488119a21",
-      "semantic_id": "b3:ae73a3f488119a21",
-      "identity_status": "computed",
-      "lint": "bool_naming",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "cargo-octet/src/admit.rs",
-      "line": 1154,
-      "column": 13,
-      "message": "boolean binding `workspace_package` should have a predicate prefix",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:aed82b78bcdf7852",
       "semantic_id": "b3:aed82b78bcdf7852",
       "identity_status": "computed",
@@ -27086,7 +26956,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 1056,
+      "line": 1121,
       "column": 21,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -27372,7 +27242,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 905,
+      "line": 909,
       "column": 17,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -27580,7 +27450,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1493,
+      "line": 1497,
       "column": 17,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -27710,7 +27580,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 1968,
+      "line": 2023,
       "column": 37,
       "message": "function calls itself recursively",
       "crate_name": "cargo_octet"
@@ -27723,7 +27593,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 798,
+      "line": 853,
       "column": 9,
       "message": "boolean binding `identifiers` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -27853,7 +27723,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 33,
+      "line": 32,
       "column": 1,
       "message": "non-trait import `EvidenceTier` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -28275,19 +28145,6 @@
       "crate_name": "cargo_octet"
     },
     {
-      "stable_id": "b3:b6715a9908456fef",
-      "semantic_id": "b3:b6715a9908456fef",
-      "identity_status": "computed",
-      "lint": "module_file_count",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/admit.rs",
-      "line": 1,
-      "column": 1,
-      "message": "module directory `cargo-octet/src` contains 45 Rust source files (limit: 7)",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:b6991d112afdc957",
       "semantic_id": "b3:b6991d112afdc957",
       "identity_status": "computed",
@@ -28298,6 +28155,19 @@
       "line": 62,
       "column": 1,
       "message": "non-trait import `path_matches_pattern` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:b6a596fbf665e799",
+      "semantic_id": "b3:b6a596fbf665e799",
+      "identity_status": "computed",
+      "lint": "underscore_in_module_filename",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/kamacite_effect_closure.rs",
+      "line": 1,
+      "column": 1,
+      "message": "module filename `kamacite_effect_closure.rs` contains an underscore; prefer `kamacite/effect/closure.rs`",
       "crate_name": "cargo_octet"
     },
     {
@@ -28399,7 +28269,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 3912,
+      "line": 4353,
       "column": 17,
       "message": "`.expect()` in production code will panic on failure",
       "crate_name": "cargo_octet"
@@ -28776,7 +28646,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 35,
+      "line": 34,
       "column": 1,
       "message": "non-trait import `FunctionAddressCheck` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -28793,6 +28663,19 @@
       "column": 1,
       "message": "non-trait import `EnforcementMode` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "octet_standards"
+    },
+    {
+      "stable_id": "b3:b9d08e8dd6d2ce64",
+      "semantic_id": "b3:b9d08e8dd6d2ce64",
+      "identity_status": "computed",
+      "lint": "function_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/effect_closure.rs",
+      "line": 3559,
+      "column": 31,
+      "message": "function `build_nodes` is 193 lines (limit: 70)",
+      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:b9da443943c5664c",
@@ -28984,7 +28867,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 310,
+      "line": 362,
       "column": 1,
       "message": "item name `ClosureSourceIdentity` repeats `closure` from ancestor path segment `effect_closure`",
       "crate_name": "cargo_octet"
@@ -29257,7 +29140,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/artifact.rs",
-      "line": 1678,
+      "line": 1677,
       "column": 1,
       "message": "item name `validate_benchmark_artifact_binding` repeats `artifact` from ancestor path segment `artifact`",
       "crate_name": "cargo_octet"
@@ -29614,6 +29497,19 @@
       "crate_name": "octet"
     },
     {
+      "stable_id": "b3:bec08bfc72786768",
+      "semantic_id": "b3:bec08bfc72786768",
+      "identity_status": "computed",
+      "lint": "function_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/admit.rs",
+      "line": 2392,
+      "column": 50,
+      "message": "function `verify_bundle_inner` is 150 lines (limit: 70)",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:bef1504139a8c3f3",
       "semantic_id": "b3:bef1504139a8c3f3",
       "identity_status": "computed",
@@ -29647,7 +29543,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 31,
+      "line": 30,
       "column": 1,
       "message": "non-trait import `SourceEnvelope` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -29660,7 +29556,7 @@
       "group": "tigerstyle::purity",
       "severity": "warning",
       "file": "cargo-octet/src/engine.rs",
-      "line": 2035,
+      "line": 2051,
       "column": 17,
       "message": "direct `std::env::var` access reads or mutates ambient process state",
       "crate_name": "cargo_octet"
@@ -29924,19 +29820,6 @@
       "column": 1,
       "message": "non-trait import `ItemMapping` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "octet_merge_rail"
-    },
-    {
-      "stable_id": "b3:c0e5909145cc77e5",
-      "semantic_id": "b3:c0e5909145cc77e5",
-      "identity_status": "computed",
-      "lint": "path_segment_repetition",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "cargo-octet/src/admit.rs",
-      "line": 223,
-      "column": 1,
-      "message": "item name `CargoPackage` repeats `cargo` from ancestor path segment `cargo_octet`",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:c0e61fa8c92b34dc",
@@ -30433,19 +30316,6 @@
       "crate_name": "cargo_octet"
     },
     {
-      "stable_id": "b3:c430cee11a05c5ed",
-      "semantic_id": "b3:c430cee11a05c5ed",
-      "identity_status": "computed",
-      "lint": "excessive_file_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/engine.rs",
-      "line": 1,
-      "column": 1,
-      "message": "source file is 3127 lines (limit: 300)",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:c4314fc93a2fdb2f",
       "semantic_id": "b3:c4314fc93a2fdb2f",
       "identity_status": "computed",
@@ -30609,7 +30479,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 2407,
+      "line": 2567,
       "column": 9,
       "message": "boolean binding `declared` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -30726,7 +30596,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 1357,
+      "line": 1412,
       "column": 46,
       "message": "function calls itself recursively",
       "crate_name": "cargo_octet"
@@ -30953,19 +30823,6 @@
       "crate_name": "octet_standards"
     },
     {
-      "stable_id": "b3:c72ea0fb1f2530b9",
-      "semantic_id": "b3:c72ea0fb1f2530b9",
-      "identity_status": "computed",
-      "lint": "too_many_parameters",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/admit.rs",
-      "line": 556,
-      "column": 1,
-      "message": "function has 7 parameters (limit: 5) — consider an options struct",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:c73ce02487780fd9",
       "semantic_id": "b3:c73ce02487780fd9",
       "identity_status": "computed",
@@ -31012,7 +30869,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1292,
+      "line": 1296,
       "column": 13,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -31083,6 +30940,19 @@
       "crate_name": "octet"
     },
     {
+      "stable_id": "b3:c7fd1e87a60b8a3e",
+      "semantic_id": "b3:c7fd1e87a60b8a3e",
+      "identity_status": "computed",
+      "lint": "ignored_result",
+      "group": "tigerstyle::safety",
+      "severity": "warning",
+      "file": "cargo-octet/src/admit.rs",
+      "line": 1533,
+      "column": 5,
+      "message": "`Result` value silently discarded with `let _ = ...`",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:c80ce93add77773a",
       "semantic_id": "b3:c80ce93add77773a",
       "identity_status": "computed",
@@ -31090,7 +30960,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 2586,
+      "line": 2663,
       "column": 13,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -31116,7 +30986,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 685,
+      "line": 740,
       "column": 13,
       "message": "boolean binding `opaque_context` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -31311,7 +31181,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 1644,
+      "line": 1699,
       "column": 50,
       "message": "function `declare_item` is 89 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -31402,7 +31272,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 3317,
+      "line": 3527,
       "column": 9,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -31642,6 +31512,19 @@
       "crate_name": "octet_standards"
     },
     {
+      "stable_id": "b3:ccbbceecabc97f79",
+      "semantic_id": "b3:ccbbceecabc97f79",
+      "identity_status": "computed",
+      "lint": "path_segment_repetition",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/effect_closure.rs",
+      "line": 368,
+      "column": 1,
+      "message": "item name `EffectClosureReceipt` repeats `effect` from ancestor path segment `effect_closure`",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:cccabd8df4215ff7",
       "semantic_id": "b3:cccabd8df4215ff7",
       "identity_status": "computed",
@@ -31649,7 +31532,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/artifact.rs",
-      "line": 1928,
+      "line": 1927,
       "column": 1,
       "message": "function has 7 parameters (limit: 5) — consider an options struct",
       "crate_name": "cargo_octet"
@@ -31759,19 +31642,6 @@
       "crate_name": "octet_merge_rail"
     },
     {
-      "stable_id": "b3:cd59552fff09ea43",
-      "semantic_id": "b3:cd59552fff09ea43",
-      "identity_status": "computed",
-      "lint": "path_segment_repetition",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "cargo-octet/src/effect_closure.rs",
-      "line": 294,
-      "column": 1,
-      "message": "item name `ClosureInputIdentities` repeats `closure` from ancestor path segment `effect_closure`",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:cd5fc22db345e2a9",
       "semantic_id": "b3:cd5fc22db345e2a9",
       "identity_status": "computed",
@@ -31792,7 +31662,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 1407,
+      "line": 1556,
       "column": 9,
       "message": "`Result` value silently discarded with `let _ = ...`",
       "crate_name": "cargo_octet"
@@ -31831,7 +31701,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1459,
+      "line": 1463,
       "column": 88,
       "message": "function `parse_codebase_evidence_index` is 96 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -31896,7 +31766,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/artifact.rs",
-      "line": 1968,
+      "line": 1967,
       "column": 9,
       "message": "boolean binding `withheld_formal_proof` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -32227,6 +32097,19 @@
       "crate_name": "octet_standards"
     },
     {
+      "stable_id": "b3:d046086a0ecddd48",
+      "semantic_id": "b3:d046086a0ecddd48",
+      "identity_status": "computed",
+      "lint": "excessive_file_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/effect_closure.rs",
+      "line": 1,
+      "column": 1,
+      "message": "source file is 5996 lines (limit: 300)",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:d04dbaa0534d3621",
       "semantic_id": "b3:d04dbaa0534d3621",
       "identity_status": "computed",
@@ -32260,7 +32143,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1647,
+      "line": 1651,
       "column": 17,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -32572,7 +32455,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 1040,
+      "line": 1095,
       "column": 34,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -32923,7 +32806,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 1340,
+      "line": 1395,
       "column": 21,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -32949,7 +32832,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 66,
+      "line": 74,
       "column": 1,
       "message": "item name `Effect` repeats `effect` from ancestor path segment `effect_closure`",
       "crate_name": "cargo_octet"
@@ -33573,7 +33456,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1221,
+      "line": 1225,
       "column": 84,
       "message": "function `parse_check` is 120 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -33670,19 +33553,6 @@
       "crate_name": "octet_standards"
     },
     {
-      "stable_id": "b3:d9b35177732398fb",
-      "semantic_id": "b3:d9b35177732398fb",
-      "identity_status": "computed",
-      "lint": "unbounded_collection_growth",
-      "group": "tigerstyle::safety",
-      "severity": "warning",
-      "file": "cargo-octet/src/admit.rs",
-      "line": 1156,
-      "column": 9,
-      "message": "collection grows in loop without a prior reservation or explicit local bound",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:d9d537500e14976d",
       "semantic_id": "b3:d9d537500e14976d",
       "identity_status": "computed",
@@ -33768,7 +33638,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/artifact.rs",
-      "line": 1806,
+      "line": 1805,
       "column": 1,
       "message": "item name `expected_check_extra_artifact` repeats `artifact` from ancestor path segment `artifact`",
       "crate_name": "cargo_octet"
@@ -33911,7 +33781,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 39,
+      "line": 38,
       "column": 1,
       "message": "non-trait import `KamaciteEffectHandoff` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -34132,7 +34002,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 2316,
+      "line": 2470,
       "column": 17,
       "message": "boolean binding `parent_matches` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -34184,7 +34054,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 1408,
+      "line": 1557,
       "column": 9,
       "message": "`Result` value silently discarded with `let _ = ...`",
       "crate_name": "cargo_octet"
@@ -34288,7 +34158,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1590,
+      "line": 1594,
       "column": 13,
       "message": "boolean binding `update_advisory_database` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -34860,7 +34730,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 1409,
+      "line": 1558,
       "column": 9,
       "message": "`Result` value silently discarded with `let _ = ...`",
       "crate_name": "cargo_octet"
@@ -35016,7 +34886,7 @@
       "group": "tigerstyle::purity",
       "severity": "warning",
       "file": "cargo-octet/src/engine.rs",
-      "line": 1971,
+      "line": 1987,
       "column": 9,
       "message": "direct system clock read in production code",
       "crate_name": "cargo_octet"
@@ -35237,7 +35107,7 @@
       "group": "tigerstyle::purity",
       "severity": "warning",
       "file": "cargo-octet/src/engine.rs",
-      "line": 2010,
+      "line": 2026,
       "column": 21,
       "message": "direct `std::env::temp_dir` access reads or mutates ambient process state",
       "crate_name": "cargo_octet"
@@ -35380,7 +35250,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 1425,
+      "line": 1574,
       "column": 5,
       "message": "`Result` value silently discarded with `let _ = ...`",
       "crate_name": "cargo_octet"
@@ -35409,19 +35279,6 @@
       "line": 47,
       "column": 1,
       "message": "item name `AstGrepTool` repeats `ast` from ancestor path segment `ast_grep_rail`",
-      "crate_name": "cargo_octet"
-    },
-    {
-      "stable_id": "b3:e4b9a90e34d8da65",
-      "semantic_id": "b3:e4b9a90e34d8da65",
-      "identity_status": "computed",
-      "lint": "function_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/admit.rs",
-      "line": 2243,
-      "column": 50,
-      "message": "function `verify_bundle_inner` is 139 lines (limit: 70)",
       "crate_name": "cargo_octet"
     },
     {
@@ -35536,7 +35393,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/artifact.rs",
-      "line": 1375,
+      "line": 1374,
       "column": 1,
       "message": "item name `parse_project_architecture_artifact` repeats `artifact` from ancestor path segment `artifact`",
       "crate_name": "cargo_octet"
@@ -35631,19 +35488,6 @@
       "column": 1,
       "message": "non-trait import `SurfaceKind` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "octet"
-    },
-    {
-      "stable_id": "b3:e69bdc27846b39f8",
-      "semantic_id": "b3:e69bdc27846b39f8",
-      "identity_status": "computed",
-      "lint": "ignored_result",
-      "group": "tigerstyle::safety",
-      "severity": "warning",
-      "file": "cargo-octet/src/admit.rs",
-      "line": 1393,
-      "column": 5,
-      "message": "`Result` value silently discarded with `let _ = ...`",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:e6b42a0a6833e5fe",
@@ -35800,19 +35644,6 @@
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "octet_standards"
-    },
-    {
-      "stable_id": "b3:e803f143c65ccc60",
-      "semantic_id": "b3:e803f143c65ccc60",
-      "identity_status": "computed",
-      "lint": "excessive_file_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/artifact.rs",
-      "line": 1,
-      "column": 1,
-      "message": "source file is 3399 lines (limit: 300)",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:e82e1029d9541aa3",
@@ -36329,7 +36160,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 2650,
+      "line": 2654,
       "column": 17,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -36384,6 +36215,19 @@
       "line": 1,
       "column": 1,
       "message": "non-trait import `Counts` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:ebe0224ecdea1521",
+      "semantic_id": "b3:ebe0224ecdea1521",
+      "identity_status": "computed",
+      "lint": "excessive_file_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/kamacite_effect_closure.rs",
+      "line": 1,
+      "column": 1,
+      "message": "source file is 1857 lines (limit: 300)",
       "crate_name": "cargo_octet"
     },
     {
@@ -36498,7 +36342,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 2340,
+      "line": 2395,
       "column": 47,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -36667,7 +36511,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 1427,
+      "line": 1576,
       "column": 9,
       "message": "`Result` value silently discarded with `let _ = ...`",
       "crate_name": "cargo_octet"
@@ -36979,7 +36823,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 2144,
+      "line": 2199,
       "column": 13,
       "message": "boolean binding `locally_resolvable` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -37044,7 +36888,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1889,
+      "line": 1893,
       "column": 92,
       "message": "function `parse_migrate_common` is 78 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -37148,7 +36992,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 3515,
+      "line": 3733,
       "column": 9,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -37243,6 +37087,19 @@
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "octet_standards"
+    },
+    {
+      "stable_id": "b3:f0d3235debfcfcba",
+      "semantic_id": "b3:f0d3235debfcfcba",
+      "identity_status": "computed",
+      "lint": "path_segment_repetition",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/effect_closure.rs",
+      "line": 290,
+      "column": 1,
+      "message": "item name `ClosureCallEdge` repeats `closure` from ancestor path segment `effect_closure`",
+      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:f0deafeb012e2daa",
@@ -37460,7 +37317,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 1652,
+      "line": 1707,
       "column": 21,
       "message": "boolean binding `leading_colon` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -37726,19 +37583,6 @@
       "crate_name": "octet"
     },
     {
-      "stable_id": "b3:f41f9c24f9ce603e",
-      "semantic_id": "b3:f41f9c24f9ce603e",
-      "identity_status": "computed",
-      "lint": "too_many_parameters",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/admit.rs",
-      "line": 967,
-      "column": 1,
-      "message": "function has 9 parameters (limit: 5) — consider an options struct",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:f4237d09f5aa9bc1",
       "semantic_id": "b3:f4237d09f5aa9bc1",
       "identity_status": "computed",
@@ -37876,7 +37720,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/effect_closure.rs",
-      "line": 3132,
+      "line": 3342,
       "column": 17,
       "message": "boolean binding `allowed` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -38179,19 +38023,6 @@
       "column": 1,
       "message": "item name `DependencyDirectionInput` repeats `dependency` from ancestor path segment `dependency_direction`",
       "crate_name": "octet_standards"
-    },
-    {
-      "stable_id": "b3:f78671727017082e",
-      "semantic_id": "b3:f78671727017082e",
-      "identity_status": "computed",
-      "lint": "unbounded_collection_growth",
-      "group": "tigerstyle::safety",
-      "severity": "warning",
-      "file": "cargo-octet/src/admit.rs",
-      "line": 1170,
-      "column": 9,
-      "message": "collection grows in loop without a prior reservation or explicit local bound",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:f788de3b3b26ca36",
@@ -38701,6 +38532,19 @@
       "crate_name": "cargo_octet"
     },
     {
+      "stable_id": "b3:fad5bde5c8ff55eb",
+      "semantic_id": "b3:fad5bde5c8ff55eb",
+      "identity_status": "computed",
+      "lint": "path_segment_repetition",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/effect_closure.rs",
+      "line": 2853,
+      "column": 1,
+      "message": "item name `compute_closure` repeats `closure` from ancestor path segment `effect_closure`",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:fad8b36f5ba502e4",
       "semantic_id": "b3:fad8b36f5ba502e4",
       "identity_status": "computed",
@@ -38724,6 +38568,19 @@
       "line": 84,
       "column": 1,
       "message": "non-trait import `ProcessCommandPlanInput` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:fb64b86e6a41314d",
+      "semantic_id": "b3:fb64b86e6a41314d",
+      "identity_status": "computed",
+      "lint": "module_file_count",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/admit.rs",
+      "line": 1,
+      "column": 1,
+      "message": "module directory `cargo-octet/src` contains 45 Rust source files (limit: 7)",
       "crate_name": "cargo_octet"
     },
     {
@@ -38916,7 +38773,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1497,
+      "line": 1501,
       "column": 17,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -39033,7 +38890,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 36,
+      "line": 35,
       "column": 1,
       "message": "non-trait import `FunctionAddressMode` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -39397,7 +39254,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/admit.rs",
-      "line": 38,
+      "line": 37,
       "column": 1,
       "message": "non-trait import `KamaciteEffectComparison` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"

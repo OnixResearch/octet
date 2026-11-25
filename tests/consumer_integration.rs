@@ -4588,3 +4588,591 @@ fn conflicting_message_format_in_passthrough_args_rejected() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("--message-format"), "should mention --message-format in error: {stderr}");
 }
+
+mod implementation_bound_effect_closure_tests {
+    use std::fs;
+    use std::path::Path;
+    use std::path::PathBuf;
+    use std::process::Command;
+
+    use crate::read_json_artifact;
+    use crate::support::consumer_fixture::TempDir;
+    use crate::support::consumer_fixture::bash_path;
+    use crate::support::consumer_fixture::built_cargo_octet_bin;
+    use crate::support::consumer_fixture::write_executable;
+    use crate::support::consumer_fixture::write_file;
+
+    struct MultiCrateFixture {
+        _tmp: TempDir,
+        ws_root: PathBuf,
+        ext_root: PathBuf,
+        trans_root: PathBuf,
+        fakebin: PathBuf,
+        driver: PathBuf,
+        lint_lib: PathBuf,
+        target_dir: PathBuf,
+        xdg_cache: PathBuf,
+    }
+
+    fn write_multicrate_sources(ws_root: &Path, ext_root: &Path, trans_root: &Path) {
+        write_file(
+            &trans_root.join("Cargo.toml"),
+            "[package]\nname = \"trans_dep\"\nversion = \"0.1.0\"\nedition = \"2024\"\n",
+        );
+        write_file(&trans_root.join("src/lib.rs"), "pub fn leaf() -> u32 { 1 }\n");
+        write_file(
+            &ext_root.join("Cargo.toml"),
+            "[package]\nname = \"ext_dep\"\nversion = \"0.1.0\"\nedition = \"2024\"\n",
+        );
+        write_file(&ext_root.join("src/lib.rs"), "pub fn pure_fn() -> u32 { 7 }\n");
+        write_file(
+            &ws_root.join("Cargo.toml"),
+            "[workspace]\nmembers = [\"app\", \"ws_dep\"]\nresolver = \"2\"\n\n[workspace.metadata.octet]\ndefault_scope = [\"-p\", \"app\"]\ncargo_check_args = [\"--lib\"]\n",
+        );
+        write_file(
+            &ws_root.join("app/Cargo.toml"),
+            "[package]\nname = \"app\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\nws_dep = { path = \"../ws_dep\" }\next_dep = { path = \"../../ext_dep\" }\n",
+        );
+        write_file(
+            &ws_root.join("app/src/lib.rs"),
+            "pub fn run() -> u32 {\n    let a = ws_dep::pure_fn();\n    let b = ext_dep::pure_fn();\n    if a > b { a } else { b }\n}\n",
+        );
+        write_file(
+            &ws_root.join("ws_dep/Cargo.toml"),
+            "[package]\nname = \"ws_dep\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[features]\nextra = []\n\n[dependencies]\ntrans_dep = { path = \"../../trans_dep\" }\n",
+        );
+        write_file(&ws_root.join("ws_dep/src/data.txt"), "rev1\n");
+        write_file(
+            &ws_root.join("ws_dep/src/lib.rs"),
+            "pub const DATA: &str = include_str!(\"data.txt\");\npub fn pure_fn() -> u32 { trans_dep::leaf() }\n",
+        );
+        write_file(&ws_root.join("dylint.toml"), "[octet]\ncore_source_scopes = [\"app/src\"]\n");
+    }
+
+    fn setup_multicrate(label: &str, base_dir: Option<&Path>) -> MultiCrateFixture {
+        let bash = bash_path().expect("find bash");
+        let tmp = TempDir::new(label);
+        let root = base_dir.unwrap_or_else(|| tmp.path());
+        let ws_root = root.join("ws");
+        let ext_root = root.join("ext_dep");
+        let trans_root = root.join("trans_dep");
+        let fakebin = tmp.path().join("fakebin");
+        let driver = tmp.path().join("bin/dylint-driver");
+        let lint_lib = tmp.path().join("lib/liboctet.so");
+        let target_dir = tmp.path().join("target");
+        let xdg_cache = tmp.path().join("xdg-cache");
+
+        write_multicrate_sources(&ws_root, &ext_root, &trans_root);
+        let real_cargo = std::env::var_os("CARGO").expect("CARGO env var");
+        let lock_status = Command::new(&real_cargo)
+            .args(["generate-lockfile", "--offline"])
+            .current_dir(&ws_root)
+            .status()
+            .expect("generate Cargo.lock");
+        assert!(lock_status.success(), "cargo generate-lockfile failed");
+
+        let cargo_script = format!(
+            "#!{}\nset -euo pipefail\ncase \"${{1:-}}\" in\n  metadata) exec \"${{TS_REAL_CARGO:?}}\" \"$@\" --offline ;;\n  check) printf '{{\"reason\":\"build-finished\",\"success\":true}}\\n'; exit 0 ;;\n  *) echo \"unexpected cargo command: $*\" >&2; exit 97 ;;\nesac\n",
+            bash.display()
+        );
+        write_executable(&fakebin.join("cargo"), &cargo_script);
+        write_executable(&driver, &format!("#!{}\necho fake dylint\n", bash.display()));
+        write_file(&lint_lib, "fake lint lib");
+
+        MultiCrateFixture {
+            _tmp: tmp,
+            ws_root,
+            ext_root,
+            trans_root,
+            fakebin,
+            driver,
+            lint_lib,
+            target_dir,
+            xdg_cache,
+        }
+    }
+
+    fn run_octet(fixture: &MultiCrateFixture, args: &[&str]) -> std::process::Output {
+        let bin = built_cargo_octet_bin().expect("built cargo-octet");
+        let path = format!("{}:{}", fixture.fakebin.display(), std::env::var("PATH").expect("PATH"));
+        let mut cmd = Command::new(bin);
+        cmd.args(args)
+            .current_dir(&fixture.ws_root)
+            .env("PATH", path)
+            .env("TS_REAL_CARGO", std::env::var_os("CARGO").expect("CARGO"))
+            .env("CARGO_TARGET_DIR", &fixture.target_dir)
+            .env("XDG_CACHE_HOME", &fixture.xdg_cache)
+            .env("TIGERSTYLE_TOOLCHAIN", "nightly-2026-03-21-x86_64-unknown-linux-gnu")
+            .env("TIGERSTYLE_DRIVER_PATH", &fixture.driver)
+            .env("TIGERSTYLE_LINT_LIB", &fixture.lint_lib);
+        for name in [
+            "OCTET_TOOLCHAIN",
+            "OCTET_DRIVER_PATH",
+            "OCTET_LINT_LIB",
+            "OCTET_DYLINT_REV",
+        ] {
+            cmd.env_remove(name);
+        }
+        cmd.output().expect("execute cargo-octet")
+    }
+
+    fn observe_baseline(fixture: &MultiCrateFixture) -> PathBuf {
+        let dir = fixture.ws_root.join("artifacts/observe");
+        let out = run_octet(fixture, &[
+            "check",
+            "--function-addresses",
+            "observe",
+            "--function-address-path",
+            "app/src",
+            "--artifact-dir",
+            dir.to_str().expect("dir utf8"),
+        ]);
+        assert!(out.status.success(), "observe failed: {}", String::from_utf8_lossy(&out.stderr));
+        dir.join("function-addresses.json")
+    }
+
+    fn build_v2_policy(baseline: &Path, receipt: &serde_json::Value, graph: &serde_json::Value) -> serde_json::Value {
+        let envelopes = graph["provider_envelopes"].as_array().expect("provider_envelopes");
+        let find_env = |name: &str| {
+            envelopes
+                .iter()
+                .find(|env| env["provider"]["name"] == name)
+                .unwrap_or_else(|| panic!("missing envelope for `{name}`"))
+        };
+        let ws_env = find_env("ws_dep");
+        let ext_env = find_env("ext_dep");
+        let build_ctx = graph["build_context_blake3"].as_str().expect("build_context_blake3");
+
+        let mut summaries = Vec::new();
+        for call in receipt["nodes"][0]["calls"].as_array().expect("calls") {
+            let shape = call["shape"].as_str().expect("shape");
+            let env = if shape.contains("ws_dep") {
+                ws_env
+            } else if shape.contains("ext_dep") {
+                ext_env
+            } else {
+                continue;
+            };
+            let closure = env["implementation_closure_blake3"].as_str().expect("closure_blake3");
+            let mut summary = serde_json::json!({
+                "call_site_id": call["call_site_id"],
+                "review_label": format!("reviewed {shape}"),
+                "callee": shape.trim_start_matches("call:"),
+                "provider": env["provider"],
+                "effects": [],
+                "evidence": {
+                    "kind": "reviewed-implementation-summary-v1",
+                    "locator": format!("envelope#{}", env["provider"]["name"].as_str().expect("name")),
+                    "blake3": closure,
+                },
+                "implementation_binding": {
+                    "profile": "implementation-bound-v1",
+                    "package_envelope_blake3": env["package_envelope_blake3"],
+                    "closure_blake3": closure,
+                    "build_context_blake3": build_ctx,
+                    "justification": "reviewed-assumption",
+                }
+            });
+            if let Some(gen_inputs) = env.get("generated_inputs").and_then(|v| v.as_array())
+                && !gen_inputs.is_empty()
+            {
+                summary["implementation_binding"]["generated_inputs"] = serde_json::Value::Array(gen_inputs.clone());
+            }
+            summaries.push(summary);
+        }
+        summaries.sort_by(|a, b| a["call_site_id"].as_str().cmp(&b["call_site_id"].as_str()));
+
+        serde_json::json!({
+            "schema_version": "octet-effect-closure-workspace-policy/v2",
+            "profile_id": "deterministic-core",
+            "binding_profile": "implementation-bound-v1",
+            "function_address_baseline": baseline.file_name().and_then(|name| name.to_str()).expect("baseline filename"),
+            "module_roles": [{ "path": "app/src/lib.rs", "role": "core" }],
+            "call_summaries": summaries,
+            "non_claims": ["reviewed dependency summaries are assumptions, not semantic proofs"],
+        })
+    }
+
+    fn run_admit_target(
+        fixture: &MultiCrateFixture,
+        dir_rel: &str,
+        extra_cargo_args: &[&str],
+    ) -> (std::process::Output, PathBuf) {
+        let dir = fixture.ws_root.join(dir_rel);
+        let dir_str = dir.to_str().expect("dir utf8").to_owned();
+        let mut args = vec![
+            "admit",
+            "--profile",
+            "deterministic-core",
+            "--closure",
+            "--artifact-dir",
+            &dir_str,
+            "--",
+        ];
+        args.extend_from_slice(extra_cargo_args);
+        let out = run_octet(fixture, &args);
+        (out, dir)
+    }
+
+    fn seed_v2_policy(fixture: &MultiCrateFixture, baseline_copy: &Path) -> (serde_json::Value, serde_json::Value) {
+        let seed_policy = serde_json::json!({
+            "schema_version": "octet-effect-closure-workspace-policy/v2",
+            "profile_id": "deterministic-core",
+            "binding_profile": "implementation-bound-v1",
+            "function_address_baseline": "function-addresses.json",
+            "module_roles": [{ "path": "app/src/lib.rs", "role": "core" }],
+            "call_summaries": [],
+            "non_claims": ["seed policy"],
+        });
+        fs::write(
+            fixture.ws_root.join("octet-effect-closure.json"),
+            serde_json::to_vec_pretty(&seed_policy).expect("seed json"),
+        )
+        .expect("write seed policy");
+
+        let (seed_out, seed_dir) =
+            run_admit_target(fixture, "artifacts/seed", &["--target", "x86_64-unknown-linux-gnu"]);
+        assert!(!seed_out.status.success(), "seed admit without summaries must deny");
+        let seed_receipt = read_json_artifact(&seed_dir.join("effect-closure.json"));
+        let seed_graph = read_json_artifact(&seed_dir.join("dependency-graph.json"));
+        assert_eq!(seed_graph["schema_version"], "octet-effect-closure-dependency-graph/v2");
+        let v2_policy = build_v2_policy(baseline_copy, &seed_receipt, &seed_graph);
+        (v2_policy, seed_graph)
+    }
+
+    fn assert_diagnostic_code(receipt: &serde_json::Value, code: &str) {
+        assert!(
+            receipt["diagnostics"].as_array().expect("diagnostics").iter().any(|d| d["code"] == code),
+            "expected diagnostic `{code}` in {receipt}"
+        );
+    }
+
+    fn assert_relocated_matches(baseline_copy: &Path, v2_bytes: &[u8], seed_graph: &serde_json::Value) {
+        let relocated_parent = TempDir::new("impl-bound-relocated");
+        let relocated = setup_multicrate("impl-bound-reloc-inner", Some(relocated_parent.path()));
+        fs::copy(baseline_copy, relocated.ws_root.join("function-addresses.json")).expect("copy baseline");
+        fs::write(relocated.ws_root.join("octet-effect-closure.json"), v2_bytes).expect("write v2 policy");
+        let (reloc_out, reloc_dir) =
+            run_admit_target(&relocated, "artifacts/admit-reloc", &["--target", "x86_64-unknown-linux-gnu"]);
+        assert!(reloc_out.status.success(), "relocated admit failed: {}", String::from_utf8_lossy(&reloc_out.stderr));
+        let reloc_graph = read_json_artifact(&reloc_dir.join("dependency-graph.json"));
+        assert_eq!(reloc_graph["provider_envelopes"], seed_graph["provider_envelopes"]);
+    }
+
+    fn assert_source_and_build_mutations_deny(fixture: &MultiCrateFixture) {
+        let lock_before = fs::read(fixture.ws_root.join("Cargo.lock")).expect("read Cargo.lock");
+        write_file(
+            &fixture.ext_root.join("src/lib.rs"),
+            "pub fn pure_fn() -> u32 { let _ = std::fs::read(\"x\"); 7 }\n",
+        );
+        let (stale_ext_out, stale_ext_dir) =
+            run_admit_target(fixture, "artifacts/stale-ext", &["--target", "x86_64-unknown-linux-gnu"]);
+        assert!(!stale_ext_out.status.success(), "mutated external dep must deny");
+        assert_eq!(fs::read(fixture.ws_root.join("Cargo.lock")).expect("lock"), lock_before);
+        assert_diagnostic_code(
+            &read_json_artifact(&stale_ext_dir.join("effect-closure.json")),
+            "summary_implementation_stale",
+        );
+        write_file(&fixture.ext_root.join("src/lib.rs"), "pub fn pure_fn() -> u32 { 7 }\n");
+
+        write_file(&fixture.trans_root.join("src/lib.rs"), "pub fn leaf() -> u32 { 99 }\n");
+        let (stale_trans_out, stale_trans_dir) =
+            run_admit_target(fixture, "artifacts/stale-trans", &["--target", "x86_64-unknown-linux-gnu"]);
+        assert!(!stale_trans_out.status.success());
+        assert_diagnostic_code(
+            &read_json_artifact(&stale_trans_dir.join("effect-closure.json")),
+            "summary_implementation_stale",
+        );
+        write_file(&fixture.trans_root.join("src/lib.rs"), "pub fn leaf() -> u32 { 1 }\n");
+
+        write_file(&fixture.ws_root.join("ws_dep/src/data.txt"), "rev2\n");
+        let (_, stale_inc_dir) =
+            run_admit_target(fixture, "artifacts/stale-inc", &["--target", "x86_64-unknown-linux-gnu"]);
+        assert_diagnostic_code(
+            &read_json_artifact(&stale_inc_dir.join("effect-closure.json")),
+            "summary_implementation_stale",
+        );
+        write_file(&fixture.ws_root.join("ws_dep/src/data.txt"), "rev1\n");
+
+        let (_, target_dir) =
+            run_admit_target(fixture, "artifacts/wrong-target", &["--target", "aarch64-unknown-linux-gnu"]);
+        assert_diagnostic_code(
+            &read_json_artifact(&target_dir.join("effect-closure.json")),
+            "dependency_provider_mismatch",
+        );
+
+        let (_, feat_dir) = run_admit_target(fixture, "artifacts/feat-change", &[
+            "--target",
+            "x86_64-unknown-linux-gnu",
+            "--features",
+            "ws_dep/extra",
+        ]);
+        assert_eq!(read_json_artifact(&feat_dir.join("effect-closure.json"))["status"], "denied");
+    }
+
+    fn assert_distinct_policy_and_envelope_failures(
+        fixture: &MultiCrateFixture,
+        v2_policy: &serde_json::Value,
+        v2_bytes: &[u8],
+    ) {
+        let mut legacy_v1 = v2_policy.clone();
+        legacy_v1["schema_version"] = serde_json::json!("octet-effect-closure-workspace-policy/v1");
+        legacy_v1.as_object_mut().expect("obj").remove("binding_profile");
+        for sum in legacy_v1["call_summaries"].as_array_mut().expect("summaries") {
+            sum.as_object_mut().expect("sum").remove("implementation_binding");
+            sum["evidence"]["kind"] = serde_json::json!("cargo-lock-review-v1");
+        }
+        fs::write(
+            fixture.ws_root.join("octet-effect-closure.json"),
+            serde_json::to_vec_pretty(&legacy_v1).expect("v1 json"),
+        )
+        .expect("write v1");
+        let (_, v1_dir) = run_admit_target(fixture, "artifacts/legacy-v1", &["--target", "x86_64-unknown-linux-gnu"]);
+        assert_diagnostic_code(
+            &read_json_artifact(&v1_dir.join("effect-closure.json")),
+            "legacy_lockfile_summary_unsupported",
+        );
+
+        let mut edited_digest = v2_policy.clone();
+        edited_digest["call_summaries"][0]["evidence"]["blake3"] =
+            serde_json::json!("b3:0000000000000000000000000000000000000000000000000000000000000000");
+        fs::write(
+            fixture.ws_root.join("octet-effect-closure.json"),
+            serde_json::to_vec_pretty(&edited_digest).expect("edited json"),
+        )
+        .expect("write edited digest");
+        let (_, digest_dir) =
+            run_admit_target(fixture, "artifacts/edited-digest", &["--target", "x86_64-unknown-linux-gnu"]);
+        assert_diagnostic_code(
+            &read_json_artifact(&digest_dir.join("effect-closure.json")),
+            "summary_evidence_digest_mismatch",
+        );
+
+        fs::write(fixture.ws_root.join("octet-effect-closure.json"), v2_bytes).expect("restore v2");
+        std::os::unix::fs::symlink(fixture.ext_root.join("src/lib.rs"), fixture.ext_root.join("src/link.rs"))
+            .expect("symlink in ext_dep");
+        let (_, sym_dir) =
+            run_admit_target(fixture, "artifacts/symlink-dep", &["--target", "x86_64-unknown-linux-gnu"]);
+        assert_diagnostic_code(
+            &read_json_artifact(&sym_dir.join("effect-closure.json")),
+            "dependency_envelope_incomplete",
+        );
+        fs::remove_file(fixture.ext_root.join("src/link.rs")).expect("remove symlink");
+
+        write_file(&fixture.ext_root.join("build.rs"), "fn main() {}\n");
+        let (_, bld_dir) =
+            run_admit_target(fixture, "artifacts/build-rs-dep", &["--target", "x86_64-unknown-linux-gnu"]);
+        assert_diagnostic_code(
+            &read_json_artifact(&bld_dir.join("effect-closure.json")),
+            "dependency_unsupported_generated_input",
+        );
+    }
+
+    #[test]
+    fn implementation_bound_workspace_and_path_deps_enforce_freshness_relocation_and_distinct_failures() {
+        let fixture = setup_multicrate("impl-bound-e2e", None);
+        let baseline = observe_baseline(&fixture);
+        let baseline_copy = fixture.ws_root.join("function-addresses.json");
+        fs::copy(&baseline, &baseline_copy).expect("copy baseline");
+        let (v2_policy, seed_graph) = seed_v2_policy(&fixture, &baseline_copy);
+        let v2_bytes = serde_json::to_vec_pretty(&v2_policy).expect("v2 policy json");
+        fs::write(fixture.ws_root.join("octet-effect-closure.json"), &v2_bytes).expect("write v2 policy");
+
+        let (admit_out, admit_dir) =
+            run_admit_target(&fixture, "artifacts/admit-ok", &["--target", "x86_64-unknown-linux-gnu"]);
+        assert!(
+            admit_out.status.success(),
+            "fresh admit should pass: stdout={} stderr={}",
+            String::from_utf8_lossy(&admit_out.stdout),
+            String::from_utf8_lossy(&admit_out.stderr)
+        );
+        let ok_receipt = read_json_artifact(&admit_dir.join("effect-closure.json"));
+        assert_eq!(ok_receipt["schema_version"], "octet-effect-closure-receipt/v3");
+        assert_eq!(ok_receipt["binding_profile"], "implementation-bound-v1");
+        assert_eq!(ok_receipt["justification_summary"]["reviewed_assumptions"], 2);
+        assert_eq!(ok_receipt["justification_summary"]["formal_proof_promoted"], false);
+
+        let verify_out = run_octet(&fixture, &[
+            "admit",
+            "verify",
+            "--artifact-dir",
+            admit_dir.to_str().expect("admit dir"),
+            "--output-format",
+            "json",
+        ]);
+        assert!(verify_out.status.success(), "admit verify failed: {}", String::from_utf8_lossy(&verify_out.stderr));
+
+        assert_relocated_matches(&baseline_copy, &v2_bytes, &seed_graph);
+        assert_source_and_build_mutations_deny(&fixture);
+        assert_distinct_policy_and_envelope_failures(&fixture, &v2_policy, &v2_bytes);
+    }
+
+    fn write_requirements_contract_and_index(
+        fixture: &MultiCrateFixture,
+        ws_env: &serde_json::Value,
+    ) -> (PathBuf, PathBuf) {
+        let app_bytes = fs::read(fixture.ws_root.join("app/src/lib.rs")).expect("read app");
+        let app_hash = blake3::hash(&app_bytes).to_hex().to_string();
+        let spec_bytes = b"effect closure requirement spec\n";
+        write_file(&fixture.ws_root.join("spec.md"), "effect closure requirement spec\n");
+        let spec_hash = blake3::hash(spec_bytes).to_hex().to_string();
+        let contract = serde_json::json!({
+            "schema_version": "octet-requirement-contract/v1",
+            "contract_id": "test.impl-bound",
+            "reviewed_specification": { "path": "spec.md", "blake3": spec_hash },
+            "clauses": [{
+                "clause_id": "clause.ws_dep",
+                "statement": "ws_dep implementation matches reviewed summary",
+                "required": true,
+                "disposition": "accepted_assumption",
+                "checked_scope": ["ws_dep"],
+                "expected_evidence_tier": "policy_check",
+                "allowed_evidence_ids": ["ws_dep.summary"],
+                "assumption_id": "assumption.ws_dep",
+                "required_bindings": { "binding_profile": "implementation-bound-v1", "evidence_tier": "policy_check" },
+                "source_bindings": [{ "locator": "app/src/lib.rs", "blake3": app_hash }],
+                "dependency_bindings": [{
+                    "provider_name": "ws_dep",
+                    "manifest_path": "ws_dep/Cargo.toml",
+                    "package_envelope_blake3": ws_env["package_envelope_blake3"],
+                    "binding_profile": "implementation-bound-v1",
+                    "transitive_manifest_paths": ["../trans_dep/Cargo.toml"],
+                    "closure_blake3": ws_env["implementation_closure_blake3"],
+                    "dependency_graph_path": "artifacts/seed/dependency-graph.json"
+                }]
+            }],
+            "assumptions": [{
+                "assumption_id": "assumption.ws_dep",
+                "statement": "ws_dep reviewed",
+                "identity": "ws_dep:v1",
+                "trusted_boundary_identity": "ws_dep-boundary",
+                "affected_clause_ids": ["clause.ws_dep"],
+                "required_empirical_evidence": ["ws_dep.summary"]
+            }],
+            "non_claims": ["bounded"]
+        });
+        let index = serde_json::json!({
+            "schema_version": "octet-evidence-codebase-index/v1",
+            "normalization_version": "v1",
+            "index_hash": "idx-hash",
+            "boundary": "identity and linkage only",
+            "source_artifact_count": 1,
+            "record_count": 1,
+            "records": [{
+                "record_id": "rec-1",
+                "artifact_family": "octet-effect-closure-receipt",
+                "stable_id": "ws_dep.summary",
+                "artifact_locator": "effect-closure.json",
+                "artifact_blake3": "hash",
+                "evidence_tier": "policy_check",
+                "source_ids": [],
+                "requirement_ids": ["clause.ws_dep"],
+                "lint_ids": [],
+                "policy_ids": [],
+                "fingerprints": [],
+                "artifact_hashes": [],
+                "provenance_source_ids": [],
+                "replay_commands": [],
+                "parent_links": [],
+                "caveats": [],
+                "summary": "admitted"
+            }],
+            "issues": []
+        });
+        let contract_path = fixture.ws_root.join("req-contract.json");
+        let index_path = fixture.ws_root.join("req-index.json");
+        fs::write(&contract_path, serde_json::to_vec_pretty(&contract).expect("contract json"))
+            .expect("write contract");
+        fs::write(&index_path, serde_json::to_vec_pretty(&index).expect("index json")).expect("write index");
+        (contract_path, index_path)
+    }
+
+    #[test]
+    fn requirements_freshness_cli_checks_live_source_root_and_dependency_envelopes() {
+        let fixture = setup_multicrate("req-freshness-e2e", None);
+        let baseline = observe_baseline(&fixture);
+        let baseline_copy = fixture.ws_root.join("function-addresses.json");
+        fs::copy(&baseline, &baseline_copy).expect("copy baseline");
+        let (_, seed_graph) = seed_v2_policy(&fixture, &baseline_copy);
+        let ws_env = seed_graph["provider_envelopes"]
+            .as_array()
+            .expect("envelopes")
+            .iter()
+            .find(|env| env["provider"]["name"] == "ws_dep")
+            .expect("ws_dep envelope");
+        let (contract_path, index_path) = write_requirements_contract_and_index(&fixture, ws_env);
+
+        let fresh_out = run_octet(&fixture, &[
+            "requirements",
+            "freshness",
+            "--contract",
+            contract_path.to_str().expect("contract"),
+            "--index",
+            index_path.to_str().expect("index"),
+            "--source-root",
+            fixture.ws_root.to_str().expect("ws_root"),
+            "--output-format",
+            "json",
+        ]);
+        assert!(fresh_out.status.success(), "freshness should pass: {}", String::from_utf8_lossy(&fresh_out.stderr));
+        let fresh_json: serde_json::Value = serde_json::from_slice(&fresh_out.stdout).expect("fresh json");
+        assert_eq!(fresh_json["aggregate_result"], "current");
+
+        write_file(&fixture.trans_root.join("src/lib.rs"), "pub fn leaf() -> u32 { 99 }\n");
+        let trans_stale_out = run_octet(&fixture, &[
+            "requirements",
+            "freshness",
+            "--contract",
+            contract_path.to_str().expect("contract"),
+            "--index",
+            index_path.to_str().expect("index"),
+            "--source-root",
+            fixture.ws_root.to_str().expect("ws_root"),
+            "--output-format",
+            "json",
+        ]);
+        assert!(!trans_stale_out.status.success());
+        let trans_stale_json: serde_json::Value =
+            serde_json::from_slice(&trans_stale_out.stdout).expect("trans stale json");
+        assert_eq!(trans_stale_json["clauses"][0]["status"], "stale_binding");
+        write_file(&fixture.trans_root.join("src/lib.rs"), "pub fn leaf() -> u32 { 1 }\n");
+
+        write_file(
+            &fixture.ws_root.join("ws_dep/src/lib.rs"),
+            "pub const DATA: &str = include_str!(\"data.txt\");\npub fn pure_fn() -> u32 { 42 }\n",
+        );
+        let stale_out = run_octet(&fixture, &[
+            "requirements",
+            "freshness",
+            "--contract",
+            contract_path.to_str().expect("contract"),
+            "--index",
+            index_path.to_str().expect("index"),
+            "--source-root",
+            fixture.ws_root.to_str().expect("ws_root"),
+            "--output-format",
+            "json",
+        ]);
+        assert!(!stale_out.status.success());
+        let stale_json: serde_json::Value = serde_json::from_slice(&stale_out.stdout).expect("stale json");
+        assert_eq!(stale_json["clauses"][0]["status"], "stale_binding");
+
+        std::os::unix::fs::symlink(fixture.trans_root.join("src/lib.rs"), fixture.trans_root.join("src/link.rs"))
+            .expect("symlink trans_dep");
+        let inc_out = run_octet(&fixture, &[
+            "requirements",
+            "freshness",
+            "--contract",
+            contract_path.to_str().expect("contract"),
+            "--index",
+            index_path.to_str().expect("index"),
+            "--source-root",
+            fixture.ws_root.to_str().expect("ws_root"),
+            "--output-format",
+            "json",
+        ]);
+        assert!(!inc_out.status.success());
+        let inc_json: serde_json::Value = serde_json::from_slice(&inc_out.stdout).expect("inc json");
+        assert_eq!(inc_json["clauses"][0]["status"], "incomplete");
+    }
+}

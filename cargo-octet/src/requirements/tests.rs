@@ -53,6 +53,7 @@ fn contract(source_binding: SourceBinding, spec_hash: String, disposition: &str)
             required_negative_controls: Vec::new(),
             required_bindings: RequirementBindings::default(),
             source_bindings: vec![source_binding],
+            dependency_bindings: Vec::new(),
             assumption_id: None,
             exclusion_reason: None,
             required_provider_id: None,
