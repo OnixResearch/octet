@@ -391,6 +391,7 @@ pub struct RequirementsVerifyArgs {
 pub struct RequirementsFreshnessArgs {
     pub contract: PathBuf,
     pub index: PathBuf,
+    pub source_root: Option<PathBuf>,
     pub output_format: OutputFormat,
 }
 
@@ -562,7 +563,7 @@ Usage:
   cargo octet proof-ref scaffold --proof-cards PATH --proof-or-property-id ID --reference-id ID --consumer-context TEXT --consumer-source PATH --anchor TEXT [--output PATH]
   cargo octet requirements check --contract PATH --evidence PATH [--source-root PATH] [--output PATH] [--output-format human|json]
   cargo octet requirements verify --contract PATH --evidence PATH --decision PATH [--source-root PATH] [--output-format human|json]
-  cargo octet requirements freshness --contract PATH --index PATH [--output-format human|json]
+  cargo octet requirements freshness --contract PATH --index PATH [--source-root PATH] [--output-format human|json]
   cargo octet roadmap <artifact|capsule|ability|pointer|session|pure-cache> ...
   cargo octet transcript <PATH>
   cargo octet --version
@@ -772,6 +773,7 @@ fn parse_requirements(args: &[String]) -> Result<RequirementsArgs, String> {
     let mut decision = None;
     let mut index = None;
     let mut source_root = PathBuf::from(".");
+    let mut has_source_root = false;
     let mut output = None;
     let mut output_format = OutputFormat::Human;
     let mut position = 0;
@@ -786,6 +788,7 @@ fn parse_requirements(args: &[String]) -> Result<RequirementsArgs, String> {
             "--index" => index = Some(PathBuf::from(requirement_value(rest, &mut position, flag, inline_value)?)),
             "--source-root" => {
                 source_root = PathBuf::from(requirement_value(rest, &mut position, flag, inline_value)?);
+                has_source_root = true;
             }
             "--output" => output = Some(PathBuf::from(requirement_value(rest, &mut position, flag, inline_value)?)),
             "--output-format" | "--format" => {
@@ -818,6 +821,7 @@ fn parse_requirements(args: &[String]) -> Result<RequirementsArgs, String> {
         RequirementAction::Freshness => RequirementsMode::Freshness(RequirementsFreshnessArgs {
             contract,
             index: index.ok_or_else(|| "requirements freshness requires `--index PATH`".to_owned())?,
+            source_root: has_source_root.then_some(source_root),
             output_format,
         }),
     };
@@ -5525,7 +5529,7 @@ mod tests {
             other => panic!("expected requirements args, got {other:?}"),
         }
 
-        let parsed = parse(
+        let parsed_no_root = parse(
             [
                 "cargo",
                 "octet",
@@ -5539,10 +5543,40 @@ mod tests {
             .map(OsString::from),
         )
         .expect("parse requirements freshness");
+        match parsed_no_root {
+            CommandArgs::Requirements(args) => match args.mode {
+                RequirementsMode::Freshness(fresh) => assert!(fresh.source_root.is_none()),
+                other => panic!("expected freshness mode, got {other:?}"),
+            },
+            other => panic!("expected requirements args, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn requirements_parse_accepts_freshness_source_root() {
+        let parsed = parse(
+            [
+                "cargo",
+                "octet",
+                "requirements",
+                "freshness",
+                "--contract",
+                "contract.json",
+                "--index",
+                "index.json",
+                "--source-root",
+                "ws",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse requirements freshness with source root");
         match parsed {
-            CommandArgs::Requirements(args) => {
-                assert!(matches!(args.mode, RequirementsMode::Freshness(_)));
-            }
+            CommandArgs::Requirements(args) => match args.mode {
+                RequirementsMode::Freshness(fresh) => {
+                    assert_eq!(fresh.source_root, Some(std::path::PathBuf::from("ws")));
+                }
+                other => panic!("expected freshness mode, got {other:?}"),
+            },
             other => panic!("expected requirements args, got {other:?}"),
         }
     }

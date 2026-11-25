@@ -46,12 +46,23 @@ The runtime does not execute Nickel. Admission also requires an explicit Cargo `
 
 The workspace JSON must contain:
 
-- schema `octet-effect-closure-workspace-policy/v1`;
+- schema `octet-effect-closure-workspace-policy/v2` (historical `v1` policies remain identifiable as `lockfile-only-v1`, but are rejected when `implementation-bound-v1` is required);
+- `binding_profile`: `implementation-bound-v1`;
 - profile `deterministic-core`;
 - the workspace-relative reviewed function-address baseline;
 - exactly one explicit `core`, `shell`, `adapter`, `ffi`, or `proof` role for every selected source path;
-- sorted exact call-site summaries;
+- sorted exact call-site summaries, each carrying an `implementation_binding` (`package_envelope_blake3`, `closure_blake3`, `build_context_blake3`, `justification = "reviewed-assumption"`, and `generated_inputs`) for workspace and Cargo dependencies;
 - explicit non-claims.
+
+## Source-envelope policy and implementation binding
+
+The Nickel source of truth for dependency source envelopes is `standards/effect-closure/envelope-policy.ncl` (exported to `standards/effect-closure/generated/envelope-policy.json`). Under `implementation-bound-v1`:
+
+- Workspace and local path dependencies bind `Cargo.toml`, sorted `.rs` bodies, static package-local `include!`/`include_str!`/`include_bytes!` literals, selected transitive dependency closures (`resolve.nodes[].deps`), target/features/`cfg`/`rustc_version`/`toolchain`, and workspace build inputs (`Cargo.lock`, `.cargo/config.toml`/`.cargo/config`, `rust-toolchain*`).
+- **Relocation invariance**: `relocation_preserving = true` — package-relative paths enter the digest, while absolute checkout paths and file mtimes are excluded. Relocating a workspace and its external path dependencies with identical relative layout preserves `package_envelope_blake3` and `implementation_closure_blake3`.
+- **Fail-closed completeness**: missing/unreadable files, symlinks, non-regular files, non-UTF-8 paths, resolve cycles, escaping `..` includes, or unadmitted `build.rs` / `OUT_DIR` / `env!` / `option_env!` / non-literal `include*!` fail closed as `incomplete` or `unsupported-generated-input` rather than falling back to path-string hashing.
+- **Obligation separation**: binding freshness (`implementation_binding` matches the recomputed envelope on disk) is kept distinct from semantic justification (`reviewed-assumption` vs `checked-proof` vs `unresolved-obligation`). Policy-check summaries remain reviewed assumptions and cannot promote themselves to `formal_proof`.
+- **Distinct failure outcomes**: old/legacy lockfile-only schemas (`legacy_lockfile_summary_unsupported` / `unsupported effect-closure receipt schema`), wrong provider (`dependency_provider_mismatch`), changed implementation (`summary_implementation_stale`), altered summary (`call_summary_stale` / `closure_effect_denied` / policy mismatch), edited embedded digest (`summary_evidence_digest_mismatch`), and incomplete/unsupported inputs (`dependency_envelope_incomplete` / `dependency_unsupported_generated_input`) emit distinct diagnostics.
 
 All paths selected by `deterministic-core` must have role `core` in v1. The catalog admits `core -> core`; no path-name convention or missing-role default is used.
 
@@ -137,8 +148,8 @@ The default artifact directory is `target/octet-admission`; `--artifact-dir` may
 - `check/` — the existing strict-profile parent bundle;
 - `command.txt` — normalized admission invocation;
 - `workspace-policy.json` — exact consumed policy bytes;
-- `dependency-graph.json` — canonical resolved providers, target/toolchain, and lock identity;
-- `effect-closure.json` — schema `octet-effect-closure-receipt/v2`: canonical nodes, calls (each with its resolution scope), direct/closure effects, diagnostics, input identities, non-claims, and BLAKE3 receipt identity;
+- `dependency-graph.json` — schema `octet-effect-closure-dependency-graph/v2`: canonical resolved providers, `build_context_blake3`, per-provider `provider_envelopes`, target/toolchain, and lock identity;
+- `effect-closure.json` — schema `octet-effect-closure-receipt/v3` (contract `standards/effect-closure/contracts/effect-closure-receipt.generated.ncl`): canonical nodes, calls (each with its resolution scope, `implementation_binding`, and `justification`), `binding_profile`, `provider_envelopes`, `justification_summary`, direct/closure effects, diagnostics, input identities, non-claims, and BLAKE3 receipt identity;
 - `status.json` — admitted/denied phase status;
 - `summary.txt` — deterministic operator summary;
 - `provenance.jsonl` — artifact hashes and parent links.
@@ -151,7 +162,7 @@ cargo octet admit verify --artifact-dir target/octet-admission --output-format j
 
 Verification reruns the ordinary artifact verifier over the complete strict-profile parent, recomputes closure receipt and artifact identities, validates parent profile/config/function-address/source/policy/dependency linkage, regenerates status/summary/provenance expectations, and rejects tampering. For an `admitted` receipt it also requires the node set to equal the records in `check/function-addresses.json`, each reviewed-summary edge to equal its `workspace-policy.json` call summary, and every policy call summary to be used. It also requires each selected source to have exactly one `core` role in `workspace-policy.json`, every node to have role `core`, and every local edge to follow the catalog's role-edge matrix. Each reviewed summary's evidence must still match the receipt's recorded Cargo.lock identity (Cargo and workspace providers) or its provider identity (toolchain providers), as admission requires. A denied receipt therefore cannot be relabelled admitted. `cargo octet artifact verify` applies the same checks to the closure artifacts of an architecture admission run. This proves stored identity/linkage consistency only; unkeyed BLAKE3 receipts provide no signer authenticity, authorization, or defense against an actor who can coherently replace every artifact and trust root.
 
-Both verifiers read the receipt's `schema_version` before decoding anything else. A receipt under any other schema, including `octet-effect-closure-receipt/v1` from before call edges carried their resolution scope, is reported as an unsupported effect-closure receipt schema; rerun admission to produce a v2 receipt.
+Both verifiers read the receipt's `schema_version` before decoding anything else. A receipt under any other schema, including `octet-effect-closure-receipt/v1` and `octet-effect-closure-receipt/v2`, is reported as an unsupported effect-closure receipt schema; rerun admission to produce a v3 receipt.
 
 ## Kamacite effect handoff
 

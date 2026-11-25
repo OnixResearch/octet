@@ -4,9 +4,11 @@
 // r[impl octet.law_tested_deterministic_cores.hegel_catalog]
 pub const PROFILE_SCHEMA: &str = "octet-hegel-producer-profiles/v1";
 pub const PROFILE_ID: &str = "octet-pure-core-laws-v1";
-pub const PROFILE_IDENTITY: &str = "b3:10e01458cca9ccc821a3adbf56afa70d21161c4bfdaf888525a5f61c64c913de";
+pub const PROFILE_IDENTITY: &str = "b3:3ed6d5d1bda858a5293491f65f8279451edf3ec18de2638615b4ffaa18f8d365";
 pub const LAW_CATALOG_SCHEMA: &str = "octet-hegel-law-catalog/v1";
-pub const LAW_CATALOG_IDENTITY: &str = "b3:33710ac60efb4a7edca25de746d9740d75233b372d0016f54a2e138ec1a038eb";
+pub const LAW_CATALOG_IDENTITY: &str = "b3:669888e630d46dc95c394fe91afd2af736239864441985630194d1be5add6f3f";
+pub const BUOY_MATRIX_SCHEMA: &str = "octet-hegel-buoy-mutation-matrix/v1";
+pub const BUOY_MATRIX_IDENTITY: &str = "b3:120ed01f3e77145b6f5186a880a578714189cdf64f4911311e891d179ede6e0a";
 pub const SUMMARY_SCHEMA: &str = "octet-hegel-producer-summary/v2";
 pub const REQUEST_SCHEMA: &str = "octet-hegel-evaluation-input/v1";
 pub const RECEIPT_SCHEMA: &str = "octet-hegel-profiled-receipt/v1";
@@ -20,6 +22,7 @@ pub const REQUIRED_NON_CLAIM: &str = "Hegel checks bounded generated inputs only
 
 const PROFILE_JSON: &str = include_str!("../../../standards/hegel/profiles.json");
 const LAW_CATALOG_JSON: &str = include_str!("../../../standards/hegel/laws.json");
+const BUOY_MATRIX_JSON: &str = include_str!("../../../standards/hegel/buoy-mutation-matrix.json");
 
 #[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Producer {
@@ -64,6 +67,7 @@ pub struct Retention {
 #[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Profile {
     pub profile_id: String,
+    pub family: String,
     pub producer: Producer,
     pub command_argv: Vec<String>,
     pub property_catalog: String,
@@ -91,7 +95,10 @@ struct ProfileRegistry {
 #[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Law {
     pub law_id: String,
+    pub profile_id: String,
+    pub family: String,
     pub pure_core: String,
+    pub domain_boundary: String,
     pub generator: String,
     pub positive_property: String,
     pub negative_property: String,
@@ -100,12 +107,29 @@ pub struct Law {
     pub replay_method: String,
     pub fixture_complement: String,
     pub effect_free: bool,
+    #[serde(default = "Vec::new")]
+    pub deferred_domains: Vec<String>,
+}
+
+const fn none_u64() -> Option<u64> {
+    None
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct LawCatalog {
     pub schema_version: String,
     pub laws: Vec<Law>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct LawExecutionRecord {
+    pub law_id: String,
+    pub family: String,
+    pub status: String,
+    pub cases_completed: u64,
+    pub shrink_termination: String,
+    #[serde(default = "none_u64", skip_serializing_if = "Option::is_none")]
+    pub achieved_size: Option<u64>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -137,6 +161,12 @@ pub struct ProducerSummary {
     pub cases_completed: u64,
     pub issue_codes: Vec<String>,
     pub counterexample_identity: Option<String>,
+    #[serde(default = "Vec::new", skip_serializing_if = "Vec::is_empty")]
+    pub expected_laws: Vec<String>,
+    #[serde(default = "Vec::new", skip_serializing_if = "Vec::is_empty")]
+    pub executed_laws: Vec<LawExecutionRecord>,
+    #[serde(default = "Vec::new", skip_serializing_if = "Vec::is_empty")]
+    pub unexecuted_laws: Vec<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -173,6 +203,12 @@ pub struct ReceiptDetails {
     pub evidence_tier: String,
     pub verification_role: String,
     pub non_claims: Vec<String>,
+    #[serde(default = "Vec::new", skip_serializing_if = "Vec::is_empty")]
+    pub expected_laws: Vec<String>,
+    #[serde(default = "Vec::new", skip_serializing_if = "Vec::is_empty")]
+    pub executed_laws: Vec<LawExecutionRecord>,
+    #[serde(default = "Vec::new", skip_serializing_if = "Vec::is_empty")]
+    pub unexecuted_laws: Vec<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -181,14 +217,21 @@ pub struct Evaluation {
     pub diagnostics: Vec<String>,
 }
 
-pub fn selected_profile(profile_id: &str) -> Result<Profile, String> {
+pub fn all_profiles() -> Result<Vec<Profile>, String> {
     let registry: ProfileRegistry = serde_json::from_str(PROFILE_JSON)
         .map_err(|error| format!("parse embedded Hegel profile registry: {error}"))?;
     if registry.schema_version != PROFILE_SCHEMA {
         return Err("embedded Hegel profile registry schema is unsupported".to_owned());
     }
-    registry
-        .profiles
+    Ok(registry.profiles)
+}
+
+pub fn is_registered_profile(profile_id: &str) -> bool {
+    all_profiles().is_ok_and(|profiles| profiles.iter().any(|profile| profile.profile_id == profile_id))
+}
+
+pub fn selected_profile(profile_id: &str) -> Result<Profile, String> {
+    all_profiles()?
         .into_iter()
         .find(|profile| profile.profile_id == profile_id)
         .ok_or_else(|| format!("unknown Hegel profile `{profile_id}`"))
@@ -201,6 +244,10 @@ pub fn law_catalog() -> Result<LawCatalog, String> {
         return Err("embedded Hegel law catalog schema is unsupported".to_owned());
     }
     Ok(catalog)
+}
+
+pub fn laws_for_profile(profile_id: &str) -> Result<Vec<Law>, String> {
+    Ok(law_catalog()?.laws.into_iter().filter(|law| law.profile_id == profile_id).collect())
 }
 
 pub fn normalize_issue_codes(values: &[String]) -> Vec<String> {
@@ -235,11 +282,11 @@ pub fn validate(details: &ReceiptDetails) -> Vec<String> {
     validation::validate_details(details)
 }
 
-mod profile_validation;
+pub(crate) mod profile_validation;
 pub(crate) mod request;
 pub(crate) mod safe_read;
 pub mod shell;
 mod validation;
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

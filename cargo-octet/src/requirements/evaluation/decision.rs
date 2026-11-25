@@ -146,7 +146,7 @@ pub(in crate::requirements) fn validate_evidence_identity(
         diagnostics.push("requirement evidence contract_blake3 does not match the supplied contract bytes".to_owned());
     }
     let spec_path = super::super::resolve_path(source_root, &contract.reviewed_specification.path);
-    match std::fs::read(&spec_path) {
+    match crate::envelope::read_regular_non_symlink_file(&spec_path) {
         Ok(bytes) => {
             let actual = super::super::hash_bytes(&bytes);
             if actual != contract.reviewed_specification.blake3 {

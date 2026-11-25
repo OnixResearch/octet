@@ -1270,6 +1270,43 @@ fn parse_effect_closure_receipt(
     parse_project_architecture_artifact(file_map, EFFECT_CLOSURE_RECEIPT_ARTIFACT_NAME, diagnostics)
 }
 
+fn validate_integrated_receipt_hashes(
+    file_map: &BTreeMap<String, Vec<u8>>,
+    receipt: &crate::effect_closure::EffectClosureReceipt,
+    policy: &crate::effect_closure::WorkspacePolicy,
+    graph: &crate::admit::DependencyGraphArtifact,
+    diagnostics: &mut Vec<String>,
+) {
+    let hash_of =
+        |name: &str| file_map.get(name).map(|bytes| crate::evidence::artifact_blake3_hex(bytes)).unwrap_or_default();
+    if receipt.inputs.workspace_policy_blake3 != hash_of(EFFECT_CLOSURE_POLICY_ARTIFACT_NAME) {
+        diagnostics.push("effect-closure policy identity does not match stored policy bytes".to_owned());
+    }
+    if receipt.inputs.cargo_graph_blake3 != hash_of(EFFECT_CLOSURE_GRAPH_ARTIFACT_NAME) {
+        diagnostics.push("effect-closure Cargo graph identity does not match stored graph bytes".to_owned());
+    }
+    if receipt.inputs.check_status_blake3 != hash_of(EFFECT_CLOSURE_PARENT_STATUS_ARTIFACT_NAME) {
+        diagnostics.push("effect-closure parent status identity does not match stored status bytes".to_owned());
+    }
+    if receipt.inputs.command_blake3 != hash_of(COMMAND_ARTIFACT_NAME) {
+        diagnostics.push("effect-closure command identity does not match command.txt".to_owned());
+    }
+    if receipt.inputs.function_address_artifact_blake3 != hash_of(FUNCTION_ADDRESS_ARTIFACT_NAME) {
+        diagnostics.push("effect-closure function-address identity does not match stored evidence".to_owned());
+    }
+    if receipt.inputs.profile_id != policy.profile_id {
+        diagnostics.push("effect-closure receipt profile does not match its stored policy".to_owned());
+    }
+    if graph.schema_version != crate::admit::DEPENDENCY_GRAPH_SCHEMA
+        || receipt.inputs.target != graph.target
+        || receipt.inputs.toolchain != graph.toolchain
+        || receipt.inputs.cargo_lock_blake3 != graph.cargo_lock_blake3
+        || receipt.inputs.build_context_blake3 != graph.build_context_blake3
+    {
+        diagnostics.push("effect-closure receipt inputs do not match the stored dependency graph".to_owned());
+    }
+}
+
 fn validate_integrated_effect_closure_bundle(file_map: &BTreeMap<String, Vec<u8>>, diagnostics: &mut Vec<String>) {
     let present = EFFECT_CLOSURE_ARTIFACT_NAMES.iter().filter(|name| file_map.contains_key(**name)).count();
     if present == 0 {
@@ -1297,58 +1334,15 @@ fn validate_integrated_effect_closure_bundle(file_map: &BTreeMap<String, Vec<u8>
         return;
     };
     diagnostics.extend(crate::effect_closure::verify_receipt_identity(&receipt));
-    if receipt.inputs.workspace_policy_blake3
-        != file_map
-            .get(EFFECT_CLOSURE_POLICY_ARTIFACT_NAME)
-            .map(|bytes| crate::evidence::artifact_blake3_hex(bytes))
-            .unwrap_or_default()
-    {
-        diagnostics.push("effect-closure policy identity does not match stored policy bytes".to_owned());
-    }
-    if receipt.inputs.cargo_graph_blake3
-        != file_map
-            .get(EFFECT_CLOSURE_GRAPH_ARTIFACT_NAME)
-            .map(|bytes| crate::evidence::artifact_blake3_hex(bytes))
-            .unwrap_or_default()
-    {
-        diagnostics.push("effect-closure Cargo graph identity does not match stored graph bytes".to_owned());
-    }
-    if receipt.inputs.check_status_blake3
-        != file_map
-            .get(EFFECT_CLOSURE_PARENT_STATUS_ARTIFACT_NAME)
-            .map(|bytes| crate::evidence::artifact_blake3_hex(bytes))
-            .unwrap_or_default()
-    {
-        diagnostics.push("effect-closure parent status identity does not match stored status bytes".to_owned());
-    }
-    if receipt.inputs.command_blake3
-        != file_map
-            .get(COMMAND_ARTIFACT_NAME)
-            .map(|bytes| crate::evidence::artifact_blake3_hex(bytes))
-            .unwrap_or_default()
-    {
-        diagnostics.push("effect-closure command identity does not match command.txt".to_owned());
-    }
-    if receipt.inputs.function_address_artifact_blake3
-        != file_map
-            .get(FUNCTION_ADDRESS_ARTIFACT_NAME)
-            .map(|bytes| crate::evidence::artifact_blake3_hex(bytes))
-            .unwrap_or_default()
-    {
-        diagnostics.push("effect-closure function-address identity does not match stored evidence".to_owned());
-    }
-    if receipt.inputs.profile_id != policy.profile_id {
-        diagnostics.push("effect-closure receipt profile does not match its stored policy".to_owned());
-    }
-    if receipt.inputs.target != graph.target
-        || receipt.inputs.toolchain != graph.toolchain
-        || receipt.inputs.cargo_lock_blake3 != graph.cargo_lock_blake3
-    {
-        diagnostics.push("effect-closure receipt inputs do not match the stored dependency graph".to_owned());
-    }
+    validate_integrated_receipt_hashes(file_map, &receipt, &policy, &graph, diagnostics);
     let graph_providers = graph.providers.iter().collect::<std::collections::BTreeSet<_>>();
     if receipt.providers.iter().any(|provider| !graph_providers.contains(provider)) {
         diagnostics.push("effect-closure receipt uses a provider absent from the stored dependency graph".to_owned());
+    }
+    let graph_envelopes = graph.provider_envelopes.iter().collect::<std::collections::BTreeSet<_>>();
+    if receipt.provider_envelopes.iter().any(|env| !graph_envelopes.contains(env)) {
+        diagnostics
+            .push("effect-closure receipt uses a provider envelope absent from the stored dependency graph".to_owned());
     }
     // The receipt identity is unkeyed, so re-derive what it asserts from its bound function-address
     // report and policy, exactly as `admit verify` does; otherwise a denied closure relabelled
@@ -1358,7 +1352,12 @@ fn validate_integrated_effect_closure_bundle(file_map: &BTreeMap<String, Vec<u8>
         FUNCTION_ADDRESS_ARTIFACT_NAME,
         diagnostics,
     );
-    diagnostics.extend(crate::admit::verify_bound_closure_inputs(&receipt, function_report.as_ref(), Some(&policy)));
+    diagnostics.extend(crate::admit::verify_bound_closure_inputs(
+        &receipt,
+        function_report.as_ref(),
+        Some(&policy),
+        &graph.provider_envelopes,
+    ));
     let linked = parent.effect_closure.as_ref().is_some_and(|closure| {
         closure.receipt_id == receipt.receipt_identity
             && closure.admitted == (receipt.status == crate::effect_closure::AdmissionStatus::Admitted)

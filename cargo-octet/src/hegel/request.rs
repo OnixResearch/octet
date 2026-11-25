@@ -101,7 +101,7 @@ fn validate_identity(label: &str, bytes: &[u8], expected: &str) -> Result<(), St
     Ok(())
 }
 
-fn failed(mut diagnostics: Vec<String>) -> Evaluation {
+pub(super) fn failed(mut diagnostics: Vec<String>) -> Evaluation {
     diagnostics.sort();
     diagnostics.dedup();
     Evaluation {
