@@ -325,6 +325,10 @@ pub(crate) struct ArchitectureCollector {
     // flow does not analyze; their callers are not all visible to value flow.
     indirect_functions: HashSet<LocalDefId>,
     incomplete: bool,
+    value_flow_bodies_analyzed: usize,
+    value_flow_steps: usize,
+    value_flow_rounds: usize,
+    semantic_bodies_analyzed: usize,
 }
 
 impl ArchitectureCollector {
@@ -345,6 +349,10 @@ impl ArchitectureCollector {
             ),
             indirect_functions: HashSet::new(),
             incomplete: false,
+            value_flow_bodies_analyzed: 0,
+            value_flow_steps: 0,
+            value_flow_rounds: 0,
+            semantic_bodies_analyzed: 0,
             context,
             selected,
         }
@@ -1049,6 +1057,7 @@ impl ArchitectureCollector {
                 body_carries_tracked_values(cx, body, &tracked_types, &mut tracked_definitions)
             })
             .collect::<Vec<_>>();
+        self.value_flow_bodies_analyzed = body_def_ids.len();
         if body_def_ids.len() > self.context.limits.max_value_flow_bodies {
             self.exceed_value_flow_limit(
                 UnknownFactKind::UnsupportedCompilerShape,
@@ -1066,8 +1075,10 @@ impl ArchitectureCollector {
         let mut final_observations =
             BTreeMap::<(String, ProvenanceObservationKey), (LocalDefId, ProvenanceObservation<'_>)>::new();
         let mut steps = 0usize;
+        let mut rounds_run = 0usize;
         let mut converged = false;
         for _ in 0..self.context.limits.max_value_flow_rounds {
+            rounds_run += 1;
             let mut next_argument_origins = HashMap::<(LocalDefId, usize), ValueOrigins>::new();
             let mut next_return_origins = HashMap::<LocalDefId, ValueOrigins>::new();
             let mut round_observations =
@@ -1119,6 +1130,8 @@ impl ArchitectureCollector {
                 break;
             }
         }
+        self.value_flow_steps = steps;
+        self.value_flow_rounds = rounds_run;
         if !converged {
             self.exceed_value_flow_limit(
                 UnknownFactKind::AmbiguousValueProvenance,
@@ -1248,9 +1261,14 @@ impl ArchitectureCollector {
     }
 
     fn emit_shard(&mut self, cx: &LateContext<'_>) -> Result<(), String> {
+        let has_phase_dir = self.context.self_profile_phase_dir.is_some();
         self.collect_selected_type_shapes(cx);
+        let mir_started = has_phase_dir.then(std::time::Instant::now);
         self.collect_selected_value_provenance(cx);
         self.collect_active_configuration(cx);
+        let mut selected_mir_analysis_ns =
+            mir_started.and_then(|t| u64::try_from(t.elapsed().as_nanos()).ok()).unwrap_or(0);
+        let serialize_started = has_phase_dir.then(std::time::Instant::now);
         let mut shard = CompilerArchitectureShard {
             schema_version: octet_architecture_ir::COMPILER_ARCHITECTURE_SHARD_SCHEMA_VERSION.to_owned(),
             shard_id: String::new(),
@@ -1283,10 +1301,69 @@ impl ArchitectureCollector {
         let temporary_path = output_path.with_extension(format!("{}.{TEMP_FILE_SUFFIX}", std::process::id()));
         publish_shard(&temporary_path, &output_path, &bytes)
             .map_err(|error| format!("publish compiler architecture shard {}: {error}", output_path.display()))?;
+        let shard_serialization_ns =
+            serialize_started.and_then(|t| u64::try_from(t.elapsed().as_nanos()).ok()).unwrap_or(0);
         if self.context.collect_semantic_effects {
-            semantic::collect_and_write_unit_summary(self, cx)?;
+            let sem_started = has_phase_dir.then(std::time::Instant::now);
+            self.semantic_bodies_analyzed = semantic::collect_and_write_unit_summary(self, cx)?;
+            if let Some(t) = sem_started {
+                selected_mir_analysis_ns =
+                    selected_mir_analysis_ns.saturating_add(u64::try_from(t.elapsed().as_nanos()).unwrap_or(0));
+            }
+        }
+        if let Some(phase_dir) = self.context.self_profile_phase_dir.as_deref() {
+            self.publish_phase_spans(phase_dir, selected_mir_analysis_ns, shard_serialization_ns, bytes.len())?;
         }
         Ok(())
+    }
+
+    fn publish_phase_spans(
+        &self,
+        phase_dir: &str,
+        selected_mir_analysis_ns: u64,
+        shard_serialization_ns: u64,
+        shard_bytes_written: usize,
+    ) -> Result<(), String> {
+        #[derive(serde::Serialize)]
+        struct CollectorPhaseSpan<'a> {
+            schema_version: &'a str,
+            unit_label: &'a str,
+            process_id: u32,
+            selected_mir_analysis_ns: u64,
+            value_flow_bodies_analyzed: usize,
+            value_flow_steps: usize,
+            value_flow_rounds: usize,
+            semantic_bodies_analyzed: usize,
+            shard_serialization_ns: u64,
+            shard_bytes_written: usize,
+            shard_normalization_ns: u64,
+            policy_evaluation_ns: u64,
+            unattributed_note: &'a str,
+        }
+        let dir = Path::new(phase_dir);
+        fs::create_dir_all(dir).map_err(|error| format!("create self-profile phase dir {}: {error}", dir.display()))?;
+        let record = CollectorPhaseSpan {
+            schema_version: "octet-phase-span/v1",
+            unit_label: &self.selected.unit.unit_id,
+            process_id: std::process::id(),
+            selected_mir_analysis_ns,
+            value_flow_bodies_analyzed: self.value_flow_bodies_analyzed,
+            value_flow_steps: self.value_flow_steps,
+            value_flow_rounds: self.value_flow_rounds,
+            semantic_bodies_analyzed: self.semantic_bodies_analyzed,
+            shard_serialization_ns,
+            shard_bytes_written,
+            shard_normalization_ns: 0,
+            policy_evaluation_ns: 0,
+            unattributed_note: "rustc lint pass traversal outside explicit Octet collector phases remains host-compiler-attributed",
+        };
+        let mut bytes =
+            serde_json::to_vec_pretty(&record).map_err(|error| format!("serialize collector phase span: {error}"))?;
+        bytes.push(b'\n');
+        let out_path = dir.join(format!("{}.{}.phases.json", self.selected.unit.unit_id, std::process::id()));
+        let tmp_path = out_path.with_extension(format!("phases.{}.{TEMP_FILE_SUFFIX}", std::process::id()));
+        publish_shard(&tmp_path, &out_path, &bytes)
+            .map_err(|error| format!("publish collector phase span {}: {error}", out_path.display()))
     }
 }
 

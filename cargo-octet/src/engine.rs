@@ -290,11 +290,14 @@ fn run_with_semantic_mode(check: &CheckArgs, is_semantic_enabled: bool) -> Resul
         let cargo_process_exit = classify_cargo_process_exit(cargo_wait?);
         let mut stdout_lock = std::io::stdout().lock();
         let mut stderr_lock = std::io::stderr().lock();
+        let phase_dir = std::env::var("OCTET_SELF_PROFILE_PHASE_DIR").ok().filter(|value| !value.trim().is_empty());
+        let norm_started = phase_dir.as_ref().map(|_| std::time::Instant::now());
         let architecture_artifacts = if cargo_process_exit.is_success() {
             collector.as_ref().map(crate::architecture_ir::normalize_collected_shards).transpose()?
         } else {
             None
         };
+        let shard_normalization_ns = norm_started.and_then(|t| u64::try_from(t.elapsed().as_nanos()).ok()).unwrap_or(0);
         let function_address_artifact = if cargo_process_exit.is_success() {
             match crate::function_address::collect_run(
                 &effective_function_addresses,
@@ -349,6 +352,7 @@ fn run_with_semantic_mode(check: &CheckArgs, is_semantic_enabled: bool) -> Resul
         let architecture_error =
             architecture_artifacts.as_ref().and_then(|artifacts| artifacts.incomplete_error.clone());
         let lint_outcome = apply_baseline_gate(base_outcome, baseline_evaluation.as_ref());
+        let eval_started = phase_dir.as_ref().map(|_| std::time::Instant::now());
         let mut project_architecture_artifacts =
             match (cfg.architecture_policy.as_ref(), collector.as_ref(), architecture_artifacts.as_ref()) {
                 (Some(policy), Some(prepared), Some(architecture)) if architecture.incomplete_error.is_none() => {
@@ -363,6 +367,14 @@ fn run_with_semantic_mode(check: &CheckArgs, is_semantic_enabled: bool) -> Resul
                 }
                 _ => None,
             };
+        let policy_evaluation_ns = eval_started.and_then(|t| u64::try_from(t.elapsed().as_nanos()).ok()).unwrap_or(0);
+        if let Some(dir) = phase_dir.as_deref() {
+            crate::benchmark::self_profile::phases::write_engine_phase_record(
+                std::path::Path::new(dir),
+                shard_normalization_ns,
+                policy_evaluation_ns,
+            )?;
+        }
         let mut integrated_closure_artifacts = None;
         if lint_outcome.status == output::RunStatus::Clean
             && project_architecture_artifacts.as_ref().is_some_and(|project| {

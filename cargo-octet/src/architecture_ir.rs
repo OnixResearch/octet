@@ -350,7 +350,9 @@ fn prepare_collector_with_options(
         selected_units,
         value_flow_selections: protected_value_flow_selections(&policy.policy),
         collect_semantic_effects: is_semantic_enabled,
-        self_profile_phase_dir: None,
+        self_profile_phase_dir: std::env::var("OCTET_SELF_PROFILE_PHASE_DIR")
+            .ok()
+            .filter(|value| !value.trim().is_empty()),
         non_claims: policy.policy.non_claims.clone(),
     };
     let context_bytes = serde_json::to_vec_pretty(&context)

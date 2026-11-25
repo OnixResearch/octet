@@ -23,6 +23,7 @@ pub enum CommandArgs {
     Admit(AdmissionArgs),
     Artifact(ArtifactArgs),
     Benchmark(BenchmarkArgs),
+    BenchmarkSelfProfile(BenchmarkSelfProfileArgs),
     Check(CheckArgs),
     EvidenceIndex(EvidenceIndexArgs),
     EvidenceRail(EvidenceRailArgs),
@@ -94,6 +95,18 @@ pub struct ArtifactArgs {
 #[derive(Debug)]
 pub struct BenchmarkArgs {
     pub experiment: BenchmarkExperimentArgs,
+}
+
+#[derive(Debug)]
+pub struct BenchmarkSelfProfileArgs {
+    pub profile_config: PathBuf,
+    pub workspace_root: PathBuf,
+    pub artifact_dir: PathBuf,
+    pub artifact: Option<PathBuf>,
+    pub is_compare: bool,
+    pub is_verify: bool,
+    pub controlled_change: Option<PathBuf>,
+    pub output_format: OutputFormat,
 }
 
 #[derive(Debug)]
@@ -454,7 +467,7 @@ pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CommandArgs, St
         Some("artifact") if artifact_wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Artifact)),
         Some("artifact") => parse_artifact(&argv[1..]).map(CommandArgs::Artifact),
         Some("benchmark") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Benchmark)),
-        Some("benchmark") => parse_benchmark(&argv[1..]).map(CommandArgs::Benchmark),
+        Some("benchmark") => parse_benchmark_command(&argv[1..]),
         Some("check") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Check)),
         Some("check") => parse_check(&argv[1..], command_line).map(CommandArgs::Check),
         Some("evidence-index") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::EvidenceIndex)),
@@ -1151,6 +1164,73 @@ fn parse_artifact_verify(args: &[String]) -> Result<ArtifactArgs, String> {
 
 // Flag parsing is one linear match over the subcommand's flags; splitting it would hide which flags
 // the command accepts.
+fn parse_benchmark_command(args: &[String]) -> Result<CommandArgs, String> {
+    if args.first().map(String::as_str) == Some("self-profile") {
+        return parse_benchmark_self_profile(&args[1..]).map(CommandArgs::BenchmarkSelfProfile);
+    }
+    parse_benchmark(args).map(CommandArgs::Benchmark)
+}
+
+fn parse_benchmark_self_profile(args: &[String]) -> Result<BenchmarkSelfProfileArgs, String> {
+    let mut parsed = BenchmarkSelfProfileArgs {
+        profile_config: PathBuf::from("standards/benchmark/self-profile.json"),
+        workspace_root: PathBuf::from("."),
+        artifact_dir: PathBuf::from("artifacts/octet-self-profile"),
+        artifact: None,
+        is_compare: false,
+        is_verify: false,
+        controlled_change: None,
+        output_format: OutputFormat::Human,
+    };
+    let mut index = 0;
+    while index < args.len() {
+        let arg = &args[index];
+        let (flag, inline_value) = arg.split_once('=').map_or((arg.as_str(), None), |(f, v)| (f, Some(v)));
+        match flag {
+            "--profile-config" => {
+                parsed.profile_config = PathBuf::from(benchmark_value(args, &mut index, flag, inline_value)?);
+            }
+            "--workspace-root" => {
+                parsed.workspace_root = PathBuf::from(benchmark_value(args, &mut index, flag, inline_value)?);
+            }
+            "--artifact-dir" => {
+                parsed.artifact_dir = PathBuf::from(benchmark_value(args, &mut index, flag, inline_value)?);
+            }
+            "--artifact" => {
+                parsed.artifact = Some(PathBuf::from(benchmark_value(args, &mut index, flag, inline_value)?));
+            }
+            "--controlled-change" => {
+                parsed.controlled_change = Some(PathBuf::from(benchmark_value(args, &mut index, flag, inline_value)?));
+            }
+            "--output-format" | "--format" => {
+                parsed.output_format = parse_output_format(&benchmark_value(args, &mut index, flag, inline_value)?)?;
+            }
+            "--compare" => {
+                if inline_value.is_some() {
+                    return Err("`--compare` does not take a value".to_owned());
+                }
+                parsed.is_compare = true;
+            }
+            "--verify" => {
+                if inline_value.is_some() {
+                    return Err("`--verify` does not take a value".to_owned());
+                }
+                parsed.is_verify = true;
+            }
+            other => {
+                return Err(format!(
+                    "unsupported benchmark self-profile argument `{other}`; expected --profile-config, --workspace-root, --artifact-dir, --artifact, --controlled-change, --compare, --verify, or --output-format"
+                ));
+            }
+        }
+        index += 1;
+    }
+    if parsed.output_format == OutputFormat::Sarif {
+        return Err("benchmark self-profile supports human or json output, not SARIF".to_owned());
+    }
+    Ok(parsed)
+}
+
 fn parse_benchmark(args: &[String]) -> Result<BenchmarkArgs, String> {
     if args.first().map(String::as_str) != Some("experiment") {
         return Err("unknown benchmark action; expected `experiment`".to_owned());

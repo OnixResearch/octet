@@ -1,0 +1,51 @@
+{
+  "budgets": {
+    "max_events_per_unit": 500000,
+    "max_mm_profdata_bytes": 67108864,
+    "max_phase_records": 256,
+    "max_units": 64
+  },
+  "configurations": [
+    {
+      "claim_coverage_note": "Baseline compiler work only; provides no Tiger Style or architecture claims.",
+      "config_id": "plain-compiler",
+      "description": "Plain cargo/rustc compilation without Octet driver or lint library.",
+      "enables_architecture_collection": false,
+      "enables_value_flow": false,
+      "uses_octet_driver": false
+    },
+    {
+      "claim_coverage_note": "Enforces strict lints; provides no compiler architecture IR or value-flow claims.",
+      "config_id": "lint-collection",
+      "description": "Octet Dylint driver and lint library without architecture shard collection.",
+      "enables_architecture_collection": false,
+      "enables_value_flow": false,
+      "uses_octet_driver": true
+    },
+    {
+      "claim_coverage_note": "Emits compiler architecture shards and coverage without MIR value-flow provenance.",
+      "config_id": "architecture-collection",
+      "description": "Octet driver with compiler architecture IR collection, without selected value flow.",
+      "enables_architecture_collection": true,
+      "enables_value_flow": false,
+      "uses_octet_driver": true
+    },
+    {
+      "claim_coverage_note": "Full selected-MIR provenance and semantic body collection within declared budgets.",
+      "config_id": "selected-value-flow",
+      "description": "Octet driver with compiler architecture IR and selected MIR value-flow provenance.",
+      "enables_architecture_collection": true,
+      "enables_value_flow": true,
+      "uses_octet_driver": true
+    }
+  ],
+  "non_claims": [
+    "Instrumented -Z self-profile runs measure diagnostic compiler/collector behavior and remain separate from uninstrumented scored wall-time baselines.",
+    "Summed rustc query or parallel thread spans are attribution counters, not elapsed wall-clock duration.",
+    "A warm no-op Cargo run with NotCompiled units is a no-compilation observation, not evidence of zero-cost analysis."
+  ],
+  "profile_id": "rustc-self-profile-diagnostic",
+  "rustc_format_version": 9,
+  "schema_version": "octet-compiler-self-profile/v1",
+  "self_profile_events": "default"
+}

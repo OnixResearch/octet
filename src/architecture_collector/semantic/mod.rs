@@ -14,7 +14,7 @@ use rustc_span::def_id::LocalDefId;
 pub(super) fn collect_and_write_unit_summary(
     collector: &mut super::ArchitectureCollector,
     cx: &LateContext<'_>,
-) -> Result<(), String> {
+) -> Result<usize, String> {
     let mut body_ids = collect_mir_body_ids(collector, cx);
     body_ids.sort_by_key(|def_id| super::qualified_definition(cx, def_id.to_def_id()));
     body_ids.dedup();
@@ -56,6 +56,7 @@ pub(super) fn collect_and_write_unit_summary(
     };
     summary.summary_blake3 = octet_architecture_ir::semantic::compute_unit_summary_blake3(&summary)?;
 
+    let observed_bodies = summary.bodies.len();
     let mut bytes =
         serde_json::to_vec_pretty(&summary).map_err(|error| format!("serialize semantic MIR unit summary: {error}"))?;
     bytes.push(b'\n');
@@ -65,7 +66,8 @@ pub(super) fn collect_and_write_unit_summary(
     let temporary_path =
         output_path.with_extension(format!("semantic.{}.{}", std::process::id(), super::TEMP_FILE_SUFFIX));
     super::publish_shard(&temporary_path, &output_path, &bytes)
-        .map_err(|error| format!("publish semantic MIR unit summary {}: {error}", output_path.display()))
+        .map_err(|error| format!("publish semantic MIR unit summary {}: {error}", output_path.display()))?;
+    Ok(observed_bodies)
 }
 
 fn collect_mir_body_ids(collector: &super::ArchitectureCollector, cx: &LateContext<'_>) -> Vec<LocalDefId> {
