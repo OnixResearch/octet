@@ -60,7 +60,7 @@ let EvidenceTier = std.contract.from_predicate (fun value => std.is_string value
   },
   HegelHardenedReceiptDetailsV1 = {
     schema_version | std.contract.from_predicate (fun value => value == "octet-hegel-profiled-receipt/v1"),
-    profile_id | std.contract.from_predicate (fun value => value == "octet-pure-core-laws-v1"),
+    profile_id | std.contract.from_predicate (fun value => std.is_string value && std.array.elem value ["octet-pure-core-laws-v1", "octet-evidence-identity-laws-v1", "octet-evidence-lineage-laws-v1", "octet-catalog-composition-laws-v1", "octet-reduction-acceptance-laws-v1", "octet-requirement-admission-laws-v1", "octet-freshness-mutation-laws-v1", ]),
     profile_identity | NonEmptyString,
     law_catalog_identity | NonEmptyString,
     property_id | NonEmptyString,
@@ -76,6 +76,7 @@ let EvidenceTier = std.contract.from_predicate (fun value => std.is_string value
     generator_manifest_identity | NonEmptyString,
     summary_identity | NonEmptyString,
     bounded_log_identity | NonEmptyString,
+    counterexample_identity | NullableString | default = null,
     result | NonEmptyString,
     cases_completed | Number,
     issue_codes | Array String,
@@ -83,6 +84,9 @@ let EvidenceTier = std.contract.from_predicate (fun value => std.is_string value
     evidence_tier | EvidenceTier,
     verification_role | NonEmptyString,
     non_claims | Array String,
+    expected_laws | Array String | optional,
+    executed_laws | Array Dyn | optional,
+    unexecuted_laws | Array String | optional,
   },
   MiraiPilotDecisionV1 = {
     schema_version | std.contract.from_predicate (fun value => value == "octet-mirai-semantic-pilot-decision/v1"),

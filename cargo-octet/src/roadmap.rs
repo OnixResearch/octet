@@ -4598,3 +4598,74 @@ mod tests {
         assert!(error.contains("does not match the recomputed"), "{error}");
     }
 }
+
+#[cfg(test)]
+pub(crate) mod test_hooks {
+    use super::*;
+
+    pub(crate) fn normalize_and_hash_artifact(
+        schema_version: u32,
+        kind: &str,
+        value: Value,
+        workspace: &Path,
+        home: &Path,
+        temp: &Path,
+    ) -> Result<(String, String), String> {
+        let roots = LocalRoots::new(&[workspace.to_path_buf()], &[home.to_path_buf()], &[temp.to_path_buf()]);
+        let normalized = normalize_value(value, &roots);
+        let canonical = canonical_json(&normalized)?;
+        let hash = artifact_hash(&Value::from(schema_version), kind, &normalized)?;
+        Ok((canonical, hash))
+    }
+
+    pub(crate) fn pointer_set_and_rollback(
+        registry_path: &Path,
+        name: &str,
+        kind: &str,
+        hash: &str,
+        receipt_path: &Path,
+    ) -> Result<i32, String> {
+        pointer_set(registry_path, name, kind, hash, receipt_path)
+    }
+
+    pub(crate) fn pointer_rollback_op(registry_path: &Path, receipt_path: &Path) -> Result<i32, String> {
+        pointer_rollback(registry_path, receipt_path)
+    }
+
+    pub(crate) fn session_migrate_op(input: &Path, output: &Path) -> Result<i32, String> {
+        session_migrate(input, output)
+    }
+
+    pub(crate) fn capsule_mismatches_op(manifest: &Value, observed: &Value) -> Vec<String> {
+        capsule_mismatches(manifest, observed)
+    }
+
+    pub(crate) fn compare_outputs_op(
+        expected: &BTreeMap<String, String>,
+        produced_hashes: &BTreeMap<String, String>,
+    ) -> Result<Vec<String>, String> {
+        let produced = produced_hashes
+            .iter()
+            .map(|(name, hash)| {
+                (name.clone(), ReceiptOutput {
+                    hash: hash.clone(),
+                    bytes: 0,
+                })
+            })
+            .collect::<BTreeMap<_, _>>();
+        let mut drifts = Vec::new();
+        compare_outputs(expected, &produced, &mut drifts)?;
+        Ok(drifts.into_iter().map(|drift| drift.field).collect())
+    }
+
+    pub(crate) fn pure_cache_check_op(key_path: &Path, store_dir: &Path, output_hash: &str) -> Result<i32, String> {
+        pure_cache_check(key_path, store_dir, output_hash)
+    }
+
+    pub(crate) fn check_effective_limits(stdout_limit: u64) -> Result<(), String> {
+        let execution = serde_json::json!({ "resource_limits": { "stdout_max_bytes": stdout_limit } });
+        effective_limits(Some(&execution), &CHECK_PROFILE)
+            .map(|_| ())
+            .map_err(|_| "effective limits rejected".to_owned())
+    }
+}

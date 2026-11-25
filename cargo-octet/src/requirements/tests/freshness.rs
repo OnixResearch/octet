@@ -273,3 +273,138 @@ fn live_dependency_bindings_check_transitive_manifests_profiles_and_monotonic_st
     let monotonic = super::super::freshness::evaluate(&multi, &index, b"contract", Some(root.path()));
     assert_eq!(monotonic.clauses[0].status, STATUS_INCOMPLETE, "{:?}", monotonic.diagnostics);
 }
+
+fn role_freshness_fixture() -> (Definition, valence_core::evidence_codebase_index::EvidenceIndexRecord) {
+    let mut base_contract = contract(
+        SourceBinding {
+            locator: SOURCE_PATH.to_owned(),
+            blake3: "0".repeat(64),
+        },
+        "0".repeat(64),
+        DISPOSITION_FORMAL_PROOF,
+    );
+    base_contract.clauses[0].required_bindings = RequirementBindings {
+        source_ids: vec!["scope-a".to_owned()],
+        policy_ids: vec!["policy-a".to_owned()],
+        tool_identity_hashes: vec!["tool-hash-1".to_owned()],
+        artifact_hashes: vec!["artifact-hash-1".to_owned()],
+        checked_scope: vec!["scope-a".to_owned(), "scope-b".to_owned()],
+        evidence_tier: Some("formal_proof".to_owned()),
+        binding_profile: None,
+    };
+    let valid_record = valence_core::evidence_codebase_index::EvidenceIndexRecord {
+        record_id: "rec-valid".to_owned(),
+        artifact_family: "octet-proof-card".to_owned(),
+        stable_id: PROOF_CARD_ID.to_owned(),
+        artifact_locator: "proof-cards.json".to_owned(),
+        artifact_blake3: "hash".to_owned(),
+        evidence_tier: "formal_proof".to_owned(),
+        source_ids: vec!["scope-a".to_owned(), "scope-b".to_owned()],
+        requirement_ids: vec![base_contract.clauses[0].clause_id.clone()],
+        lint_ids: Vec::new(),
+        policy_ids: vec!["policy-a".to_owned()],
+        fingerprints: Vec::new(),
+        artifact_hashes: vec!["tool-hash-1".to_owned(), "artifact-hash-1".to_owned()],
+        provenance_source_ids: Vec::new(),
+        replay_commands: Vec::new(),
+        parent_links: Vec::new(),
+        caveats: vec!["does not prove invalid or rejected external assumptions".to_owned()],
+        summary: "not status=failed; passed".to_owned(),
+    };
+    (base_contract, valid_record)
+}
+
+fn make_test_index(records: Vec<valence_core::evidence_codebase_index::EvidenceIndexRecord>) -> EvidenceCodebaseIndex {
+    EvidenceCodebaseIndex {
+        schema_version: "octet-evidence-codebase-index/v1".to_owned(),
+        normalization_version: "v1".to_owned(),
+        index_hash: "index-hash".to_owned(),
+        boundary: "identity and linkage only".to_owned(),
+        source_artifact_count: records.len(),
+        record_count: records.len(),
+        records,
+        issues: Vec::new(),
+    }
+}
+
+#[test]
+fn role_confusion_and_misleading_summary_are_rejected_in_freshness() {
+    let (base_contract, valid_record) = role_freshness_fixture();
+    let current =
+        super::super::freshness::evaluate(&base_contract, &make_test_index(vec![valid_record.clone()]), b"c", None);
+    assert_eq!(current.clauses[0].status, STATUS_CURRENT, "{:?}", current.diagnostics);
+
+    // 1. Placing tool digest in source_ids instead of artifact_hashes must be stale_binding.
+    let mut wrong_role_tool = valid_record.clone();
+    wrong_role_tool.artifact_hashes = vec!["artifact-hash-1".to_owned()];
+    wrong_role_tool.source_ids.push("tool-hash-1".to_owned());
+    let wrong_tool =
+        super::super::freshness::evaluate(&base_contract, &make_test_index(vec![wrong_role_tool]), b"c", None);
+    assert_eq!(wrong_tool.clauses[0].status, STATUS_STALE_BINDING);
+
+    // 2. Mentioning allowed_evidence_id only in summary prose must not match the clause.
+    let mut prose_match = valid_record.clone();
+    prose_match.stable_id = "other.id".to_owned();
+    prose_match.record_id = "other.rec".to_owned();
+    prose_match.requirement_ids.clear();
+    prose_match.summary = format!("mentions {PROOF_CARD_ID} in prose");
+    let missing = super::super::freshness::evaluate(&base_contract, &make_test_index(vec![prose_match]), b"c", None);
+    assert_eq!(missing.clauses[0].status, STATUS_MISSING);
+
+    // 3. Partial checked_scope or prose-only checked_scope must be stale_binding.
+    let mut partial_scope = valid_record.clone();
+    partial_scope.source_ids = vec!["scope-a".to_owned()];
+    partial_scope.summary = "scope-a scope-b".to_owned();
+    let stale_scope =
+        super::super::freshness::evaluate(&base_contract, &make_test_index(vec![partial_scope]), b"c", None);
+    assert_eq!(stale_scope.clauses[0].status, STATUS_STALE_BINDING);
+
+    // 4. Structured status=failed triggers STATUS_FAILED.
+    let mut failed_record = valid_record;
+    failed_record.summary = "status=failed".to_owned();
+    let failed = super::super::freshness::evaluate(&base_contract, &make_test_index(vec![failed_record]), b"c", None);
+    assert_eq!(failed.clauses[0].status, STATUS_FAILED);
+}
+
+#[test]
+fn unpunctuated_failure_summaries_and_empirical_tier_overclaim_fail_in_freshness() {
+    let (base_contract, valid_record) = role_freshness_fixture();
+    for failure_text in [
+        "check status: failed",
+        "check outcome: failed",
+        "check status:  failed",
+        "status: failed.",
+    ] {
+        let mut rec = valid_record.clone();
+        rec.summary = failure_text.to_owned();
+        let report = super::super::freshness::evaluate(&base_contract, &make_test_index(vec![rec]), b"c", None);
+        assert_eq!(report.clauses[0].status, STATUS_FAILED, "expected failed for `{failure_text}`");
+    }
+    for benign_text in [
+        "not status: failed; passed",
+        "does not prove invalid or rejected external axioms",
+    ] {
+        let mut rec = valid_record.clone();
+        rec.summary = benign_text.to_owned();
+        let report = super::super::freshness::evaluate(&base_contract, &make_test_index(vec![rec]), b"c", None);
+        assert_eq!(report.clauses[0].status, STATUS_CURRENT, "expected current for `{benign_text}`");
+    }
+
+    for use_binding_tier in [false, true] {
+        let mut tier_contract = base_contract.clone();
+        tier_contract.clauses[0].disposition = DISPOSITION_EMPIRICAL_CHECK.to_owned();
+        tier_contract.clauses[0].required_evidence_classes = vec![DISPOSITION_EMPIRICAL_CHECK.to_owned()];
+        if use_binding_tier {
+            tier_contract.clauses[0].expected_evidence_tier = DISPOSITION_EMPIRICAL_CHECK.to_owned();
+            tier_contract.clauses[0].required_bindings.evidence_tier = Some(DISPOSITION_FORMAL_PROOF.to_owned());
+        } else {
+            tier_contract.clauses[0].expected_evidence_tier = DISPOSITION_FORMAL_PROOF.to_owned();
+            tier_contract.clauses[0].required_bindings.evidence_tier = None;
+        }
+        for records in [Vec::new(), vec![valid_record.clone()]] {
+            let report = super::super::freshness::evaluate(&tier_contract, &make_test_index(records), b"c", None);
+            assert_eq!(report.aggregate_result, STATUS_FAILED);
+            assert_eq!(report.clauses[0].status, STATUS_UNSUPPORTED);
+        }
+    }
+}

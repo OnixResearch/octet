@@ -49,6 +49,36 @@ fn index_completeness(
     }
 }
 
+fn verify_live_reviewed_specification(
+    contract: &super::contract::Definition,
+    source_root: Option<&std::path::Path>,
+    diagnostics: &mut Vec<String>,
+) -> bool {
+    let Some(root) = source_root else {
+        return false;
+    };
+    let spec_path = super::resolve_path(root, &contract.reviewed_specification.path);
+    match crate::envelope::read_regular_non_symlink_file(&spec_path) {
+        Ok(bytes) => {
+            let actual = super::hash_bytes(&bytes);
+            if actual != contract.reviewed_specification.blake3 {
+                diagnostics.push(format!(
+                    "reviewed specification `{}` changed: expected {}, actual {actual}",
+                    contract.reviewed_specification.path, contract.reviewed_specification.blake3
+                ));
+            }
+            false
+        }
+        Err(error) => {
+            diagnostics.push(format!(
+                "reviewed specification `{}` is missing, symlinked, or unreadable: {error}",
+                contract.reviewed_specification.path
+            ));
+            true
+        }
+    }
+}
+
 pub(super) fn evaluate(
     contract: &super::contract::Definition,
     index: &crate::valence_core_shim::evidence_codebase_index::EvidenceCodebaseIndex,
@@ -56,6 +86,7 @@ pub(super) fn evaluate(
     source_root: Option<&std::path::Path>,
 ) -> InventoryReport {
     let mut diagnostics = super::contract::validation::validate(contract);
+    let is_live_spec_incomplete = verify_live_reviewed_specification(contract, source_root, &mut diagnostics);
     let contract_blake3 = super::hash_bytes(contract_bytes);
     let completeness = index_completeness(index);
     let snapshot = crate::evidence_multihop::EvidenceSnapshot::from_index_declared(index, completeness.clone());
@@ -68,12 +99,12 @@ pub(super) fn evaluate(
     let aggregate_result = if required_clauses.peek().is_none() {
         diagnostics.push("required inventory is empty".to_owned());
         super::STATUS_FAILED
-    } else if required_clauses.clone().any(|clause| clause.status != super::STATUS_CURRENT) {
-        if required_clauses.clone().any(|clause| clause.status == super::STATUS_INCOMPLETE) {
-            super::STATUS_INCOMPLETE
-        } else {
-            super::STATUS_FAILED
-        }
+    } else if is_live_spec_incomplete
+        || required_clauses.clone().any(|clause| clause.status == super::STATUS_INCOMPLETE)
+    {
+        super::STATUS_INCOMPLETE
+    } else if !diagnostics.is_empty() || required_clauses.clone().any(|clause| clause.status != super::STATUS_CURRENT) {
+        super::STATUS_FAILED
     } else {
         super::STATUS_CURRENT
     }
@@ -180,6 +211,22 @@ pub(super) fn evaluate_clause(
     }
 }
 
+fn is_tier_overclaim_only(
+    index: &crate::valence_core_shim::evidence_codebase_index::EvidenceCodebaseIndex,
+    candidates: &[&valence_core::evidence_codebase_index::EvidenceIndexRecord],
+    matched: &[String],
+    clause: &super::contract::RequirementClause,
+) -> bool {
+    (clause.disposition != super::DISPOSITION_FORMAL_PROOF && super::contract::validation::targets_formal_proof(clause))
+        || (candidates.iter().any(|record| super::related::record_is_tier_overclaim(record, clause))
+            && matched.iter().all(|id| {
+                index
+                    .records
+                    .iter()
+                    .any(|r| &r.record_id == id && super::related::record_is_tier_overclaim(r, clause))
+            }))
+}
+
 pub(super) fn classify(
     index: &crate::valence_core_shim::evidence_codebase_index::EvidenceCodebaseIndex,
     snapshot: &crate::evidence_multihop::EvidenceSnapshot,
@@ -188,14 +235,11 @@ pub(super) fn classify(
     clause_diagnostics: &mut Vec<String>,
 ) -> &'static str {
     let (candidates, matched) = records;
-    if candidates.iter().any(|record| super::related::record_is_tier_overclaim(record, clause))
-        && matched.iter().all(|id| {
-            index
-                .records
-                .iter()
-                .any(|r| &r.record_id == id && super::related::record_is_tier_overclaim(r, clause))
-        })
-    {
+    if clause.disposition == super::DISPOSITION_UNRESOLVED {
+        clause_diagnostics.push("required clause remains unresolved".to_owned());
+        return super::STATUS_UNRESOLVED;
+    }
+    if is_tier_overclaim_only(index, candidates, matched, clause) {
         clause_diagnostics.push(format!(
             "clause `{}` cannot promote reviewed assumption or policy-check evidence to formal_proof",
             clause.clause_id

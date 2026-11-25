@@ -27,10 +27,7 @@ pub(super) fn record_matches_clause(
     clause: &super::contract::RequirementClause,
 ) -> bool {
     record.requirement_ids.iter().any(|id| normalized_requirement_id(id) == clause.clause_id)
-        || clause
-            .allowed_evidence_ids
-            .iter()
-            .any(|id| record.stable_id == *id || record.record_id == *id || record.summary.contains(id))
+        || clause.allowed_evidence_ids.iter().any(|id| record.stable_id == *id || record.record_id == *id)
 }
 
 pub(super) fn normalized_requirement_id(value: &str) -> &str {
@@ -44,20 +41,44 @@ pub(super) fn record_satisfies_bindings(
     let bindings = &clause.required_bindings;
     let is_source_current = bindings.source_ids.iter().all(|expected| record.source_ids.contains(expected));
     let is_policy_current = bindings.policy_ids.iter().all(|expected| record.policy_ids.contains(expected));
-    let is_tool_current = bindings
-        .tool_identity_hashes
-        .iter()
-        .all(|expected| record.artifact_hashes.contains(expected) || record.source_ids.contains(expected));
+    let is_tool_current =
+        bindings.tool_identity_hashes.iter().all(|expected| record.artifact_hashes.contains(expected));
     let is_artifact_current = bindings.artifact_hashes.iter().all(|expected| record.artifact_hashes.contains(expected));
     let is_tier_current = bindings.evidence_tier.as_ref().is_none_or(|tier| &record.evidence_tier == tier);
-    let is_scope_current =
-        bindings.checked_scope.is_empty() || bindings.checked_scope.iter().any(|scope| record.summary.contains(scope));
+    let is_scope_current = bindings.checked_scope.iter().all(|scope| record.source_ids.contains(scope));
     is_source_current
         && is_policy_current
         && is_tool_current
         && is_artifact_current
         && is_tier_current
         && is_scope_current
+        && !has_wrong_role_substitution(record, bindings)
+}
+
+fn has_wrong_role_substitution(
+    record: &valence_core::evidence_codebase_index::EvidenceIndexRecord,
+    bindings: &super::contract::RequirementBindings,
+) -> bool {
+    let is_hash_in_wrong_role =
+        bindings.tool_identity_hashes.iter().chain(bindings.artifact_hashes.iter()).any(|expected| {
+            (record.source_ids.contains(expected) && !bindings.source_ids.contains(expected))
+                || (record.policy_ids.contains(expected) && !bindings.policy_ids.contains(expected))
+        });
+    let is_source_in_wrong_role = bindings.source_ids.iter().chain(bindings.checked_scope.iter()).any(|expected| {
+        (record.policy_ids.contains(expected) && !bindings.policy_ids.contains(expected))
+            || (record.artifact_hashes.contains(expected)
+                && !bindings.artifact_hashes.contains(expected)
+                && !bindings.tool_identity_hashes.contains(expected))
+    });
+    let is_policy_in_wrong_role = bindings.policy_ids.iter().any(|expected| {
+        (record.source_ids.contains(expected)
+            && !bindings.source_ids.contains(expected)
+            && !bindings.checked_scope.contains(expected))
+            || (record.artifact_hashes.contains(expected)
+                && !bindings.artifact_hashes.contains(expected)
+                && !bindings.tool_identity_hashes.contains(expected))
+    });
+    is_hash_in_wrong_role || is_source_in_wrong_role || is_policy_in_wrong_role
 }
 
 pub(super) fn record_is_tier_overclaim(
@@ -65,9 +86,7 @@ pub(super) fn record_is_tier_overclaim(
     clause: &super::contract::RequirementClause,
 ) -> bool {
     let is_proof_required = clause.disposition == super::DISPOSITION_FORMAL_PROOF
-        || clause.expected_evidence_tier == super::DISPOSITION_FORMAL_PROOF
-        || clause.required_bindings.evidence_tier.as_deref() == Some("formal_proof")
-        || clause.required_evidence_classes.iter().any(|c| c == "formal_proof");
+        || super::contract::validation::targets_formal_proof(clause);
     if !is_proof_required {
         return false;
     }
@@ -90,14 +109,65 @@ pub(super) fn record_is_legacy_lockfile(
 }
 
 pub(super) fn record_has_failure(record: &valence_core::evidence_codebase_index::EvidenceIndexRecord) -> bool {
-    let text = format!("{} {}", record.summary, record.caveats.join(" ")).to_ascii_lowercase();
-    text.contains("status=failed")
-        || text.contains("status: failed")
-        || text.contains("status=fail")
-        || text.contains("status: fail")
-        || text.contains("rejected")
-        || text.contains("invalid")
-        || text.contains("missing required")
+    record.caveats.iter().any(|caveat| is_failure_marker(caveat)) || is_failure_summary(&record.summary)
+}
+
+fn is_failure_marker(value: &str) -> bool {
+    let normalized = value.trim().to_ascii_lowercase();
+    matches!(
+        normalized.as_str(),
+        "failed"
+            | "status=failed"
+            | "status: failed"
+            | "status:failed"
+            | "status=fail"
+            | "status: fail"
+            | "status:fail"
+            | "outcome=failed"
+            | "outcome: failed"
+            | "outcome:failed"
+            | "outcome=fail"
+            | "outcome: fail"
+            | "outcome:fail"
+    )
+}
+
+fn is_failure_token(token: &str) -> bool {
+    let clean_token = token.trim_end_matches(['.', ';', ',', ')']);
+    matches!(
+        clean_token,
+        "status=failed"
+            | "status=fail"
+            | "status:failed"
+            | "status:fail"
+            | "outcome=failed"
+            | "outcome=fail"
+            | "outcome:failed"
+            | "outcome:fail"
+    )
+}
+
+fn is_failure_pair(key: &str, value: &str) -> bool {
+    let clean_value = value.trim_end_matches(['.', ';', ',', ')']);
+    matches!((key, clean_value), ("status:" | "outcome:", "failed" | "fail"))
+}
+
+fn is_failure_summary(summary: &str) -> bool {
+    let normalized = summary.trim().to_ascii_lowercase();
+    if is_failure_marker(&normalized) {
+        return true;
+    }
+    if normalized.split([';', ',']).any(|segment| is_failure_marker(segment.trim())) {
+        return true;
+    }
+    let tokens = normalized.split_whitespace().collect::<Vec<_>>();
+    tokens.iter().enumerate().any(|(idx, token)| {
+        let is_negated = idx.checked_sub(1).and_then(|prev| tokens.get(prev)) == Some(&"not");
+        if is_negated {
+            return false;
+        }
+        is_failure_token(token) || tokens.get(idx + 1).is_some_and(|next| is_failure_pair(token, next))
+    })
 }
 
 pub(super) fn actual_bindings(record: &valence_core::evidence_codebase_index::EvidenceIndexRecord) -> ActualBindings {

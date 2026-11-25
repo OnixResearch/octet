@@ -1070,8 +1070,25 @@ in
       generation_command = "cargo octet evidence collect --rail hegel-property --profile octet-pure-core-laws-v1 --config standards/hegel/profiles.json --run",
       validation_command = "nix develop -c cargo test -p cargo-octet --lib hegel::",
       status = "existing", config_digest_required = true,
-      positive_fixtures = ["standards/evidence/fixtures/valid/hegel_hardened_details_v1.ncl"],
-      negative_fixtures = ["standards/evidence/fixtures/invalid/hegel_hardened_wrong_profile.ncl"],
+      positive_fixtures = [
+        "standards/evidence/fixtures/valid/hegel_hardened_details_v1.ncl",
+        "standards/evidence/fixtures/valid/hegel_hardened_family_details_v1.ncl",
+      ],
+      negative_fixtures = [
+        "standards/evidence/fixtures/invalid/hegel_hardened_wrong_profile.ncl",
+        "standards/evidence/fixtures/invalid/hegel_hardened_wrong_family_tier.ncl",
+      ],
+    },
+    {
+      family_id = "octet.hegel-buoy-mutation-matrix",
+      ownership = "nickel-authored",
+      owner_source_path = "standards/hegel/buoy-mutation-matrix.ncl",
+      artifact_path = "standards/hegel/buoy-mutation-matrix.json",
+      generation_command = "nickel export --format json standards/hegel/buoy-mutation-matrix.ncl",
+      validation_command = "nix develop -c cargo test -p cargo-octet --lib hegel::",
+      status = "existing", config_digest_required = true,
+      positive_fixtures = ["cargo-octet/src/hegel/tests.rs::buoy_mutation_matrix_is_complete_and_every_dimension_discriminates"],
+      negative_fixtures = ["standards/hegel/buoy-mutation-matrix.ncl#mutant_operator"],
     },
     {
       family_id = "octet.mirai-semantic-pilot-policy",

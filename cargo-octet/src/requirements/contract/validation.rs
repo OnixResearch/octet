@@ -28,6 +28,12 @@ pub(in crate::requirements) fn validate(contract: &super::Definition) -> Vec<Str
     diagnostics
 }
 
+pub(in crate::requirements) fn targets_formal_proof(clause: &super::RequirementClause) -> bool {
+    clause.expected_evidence_tier == super::super::DISPOSITION_FORMAL_PROOF
+        || clause.required_evidence_classes.iter().any(|c| c == super::super::DISPOSITION_FORMAL_PROOF)
+        || clause.required_bindings.evidence_tier.as_deref() == Some(super::super::DISPOSITION_FORMAL_PROOF)
+}
+
 pub(super) fn push_required(diagnostics: &mut Vec<String>, field: &str, value: &str) {
     if value.trim().is_empty() {
         diagnostics.push(format!("missing required requirement-contract field `{field}`"));
@@ -79,15 +85,15 @@ fn validate_clause<'a>(
     if clause.disposition == super::super::DISPOSITION_ACCEPTED_ASSUMPTION && clause.assumption_id.is_none() {
         diagnostics.push(format!("assumption clause `{}` must name an assumption_id", clause.clause_id));
     }
-    if clause.disposition == super::super::DISPOSITION_ACCEPTED_ASSUMPTION
-        && (clause.expected_evidence_tier == super::super::DISPOSITION_FORMAL_PROOF
-            || clause.required_evidence_classes.iter().any(|c| c == "formal_proof")
-            || clause.required_bindings.evidence_tier.as_deref() == Some("formal_proof"))
-    {
+    if clause.disposition == super::super::DISPOSITION_ACCEPTED_ASSUMPTION && targets_formal_proof(clause) {
         diagnostics.push(format!(
             "assumption clause `{}` cannot promote an accepted assumption to formal_proof",
             clause.clause_id
         ));
+    }
+    if clause.disposition == super::super::DISPOSITION_EMPIRICAL_CHECK && targets_formal_proof(clause) {
+        diagnostics
+            .push(format!("empirical clause `{}` cannot promote an empirical check to formal_proof", clause.clause_id));
     }
     if clause.source_bindings.is_empty() && clause.disposition != super::super::DISPOSITION_EXCLUDED {
         diagnostics.push(format!(
@@ -154,6 +160,14 @@ pub(super) fn validate_relationships(
     for exclusion in &contract.exclusions {
         push_required(diagnostics, "exclusion_id", &exclusion.exclusion_id);
         push_required(diagnostics, "exclusion.reason", &exclusion.reason);
+        if exclusion.reviewed_specification_blake3.trim().is_empty() {
+            diagnostics.push(format!("exclusion `{}` must bind reviewed_specification_blake3", exclusion.exclusion_id));
+        } else if exclusion.reviewed_specification_blake3 != contract.reviewed_specification.blake3 {
+            diagnostics.push(format!(
+                "exclusion `{}` reviewed_specification_blake3 `{}` does not match contract `{}`",
+                exclusion.exclusion_id, exclusion.reviewed_specification_blake3, contract.reviewed_specification.blake3
+            ));
+        }
         if !clause_ids.contains(exclusion.clause_id.as_str()) {
             diagnostics
                 .push(format!("exclusion `{}` names unknown clause `{}`", exclusion.exclusion_id, exclusion.clause_id));

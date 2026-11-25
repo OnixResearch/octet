@@ -1267,3 +1267,14 @@ fn print_negative_check_report(output_format: OutputFormat, report: &NegativeChe
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+pub(crate) mod test_hooks {
+    pub(crate) fn apply_negative_verdict(
+        record: &mut crate::proof_ref::ProofCardNegativeCheck,
+        baseline_card: &crate::proof_ref::ProofCard,
+        diagnostics: Vec<String>,
+    ) {
+        super::apply_negative_verdict(record, baseline_card, diagnostics);
+    }
+}

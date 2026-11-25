@@ -16,7 +16,7 @@ mod output;
 mod related;
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 use serde::Deserialize;
 

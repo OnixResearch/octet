@@ -60,12 +60,19 @@ pub(in crate::requirements) fn empirical(
     source_root: &std::path::Path,
     diagnostics: &mut Vec<String>,
 ) -> (String, Vec<String>) {
+    if super::super::contract::validation::targets_formal_proof(clause) {
+        diagnostics.push(format!(
+            "empirical evidence cannot satisfy the formal-proof requirement for clause `{}`",
+            clause.clause_id
+        ));
+        return (super::super::STATUS_FAILED.to_owned(), Vec::new());
+    }
     let evidence_ids = evidence
         .empirical_checks
         .iter()
         .filter(|check| clause.allowed_evidence_ids.contains(&check.evidence_id))
         .filter_map(|check| {
-            let check_diagnostics = validate_empirical_check(check, source_root);
+            let check_diagnostics = validate_empirical_check(check, clause, source_root);
             if check_diagnostics.is_empty() {
                 Some(check.evidence_id.clone())
             } else {
@@ -82,12 +89,6 @@ pub(in crate::requirements) fn empirical(
     }
     let status = if evidence_ids.is_empty() {
         super::super::STATUS_MISSING
-    } else if clause.required_evidence_classes.iter().any(|class| class == "formal_proof") {
-        diagnostics.push(format!(
-            "empirical evidence cannot satisfy the formal-proof requirement for clause `{}`",
-            clause.clause_id
-        ));
-        super::super::STATUS_FAILED
     } else {
         super::super::STATUS_PASSED
     };
@@ -103,8 +104,19 @@ pub(in crate::requirements) fn evaluate_disposition(
         super::super::DISPOSITION_EXCLUDED => {
             let matching =
                 evaluator.contract.exclusions.iter().find(|exclusion| exclusion.clause_id == clause.clause_id);
-            if matching.is_none() {
-                diagnostics.push("excluded clause has no exclusion record".to_owned());
+            match matching {
+                None => diagnostics.push("excluded clause has no exclusion record".to_owned()),
+                Some(exclusion)
+                    if !exclusion.reviewed_specification_blake3.is_empty()
+                        && exclusion.reviewed_specification_blake3
+                            != evaluator.contract.reviewed_specification.blake3 =>
+                {
+                    diagnostics.push(format!(
+                        "exclusion `{}` reviewed_specification_blake3 does not match contract specification",
+                        exclusion.exclusion_id
+                    ));
+                }
+                Some(_) => {}
             }
             (super::super::STATUS_EXCLUDED.to_owned(), Vec::new())
         }
@@ -119,10 +131,7 @@ pub(in crate::requirements) fn evaluate_disposition(
             empirical(evaluator.evidence, clause, evaluator.source_root, diagnostics)
         }
         super::super::DISPOSITION_ACCEPTED_ASSUMPTION => {
-            if clause.expected_evidence_tier == super::super::DISPOSITION_FORMAL_PROOF
-                || clause.required_evidence_classes.iter().any(|class| class == "formal_proof")
-                || clause.required_bindings.evidence_tier.as_deref() == Some("formal_proof")
-            {
+            if super::super::contract::validation::targets_formal_proof(clause) {
                 diagnostics.push(format!(
                     "accepted assumption cannot satisfy the formal-proof requirement for clause `{}`",
                     clause.clause_id
@@ -160,9 +169,13 @@ pub(in crate::requirements) fn evaluate_disposition(
 
 pub(in crate::requirements) fn validate_empirical_check(
     check: &super::super::evidence::EmpiricalCheck,
+    clause: &super::super::contract::RequirementClause,
     source_root: &std::path::Path,
 ) -> Vec<String> {
     let mut check_diagnostics = Vec::new();
+    if check.checker_id.trim().is_empty() {
+        check_diagnostics.push(format!("empirical evidence `{}` has no checker_id", check.evidence_id));
+    }
     if check.evidence_class != super::super::DISPOSITION_EMPIRICAL_CHECK {
         check_diagnostics.push(format!(
             "evidence `{}` class `{}` is not an empirical check",
@@ -177,6 +190,13 @@ pub(in crate::requirements) fn validate_empirical_check(
     }
     if check.checked_scope.is_empty() {
         check_diagnostics.push(format!("empirical evidence `{}` has no checked scope", check.evidence_id));
+    } else if !clause.checked_scope.is_empty()
+        && !check.checked_scope.iter().all(|scope| clause.checked_scope.contains(scope))
+    {
+        check_diagnostics.push(format!(
+            "empirical evidence `{}` checked_scope does not match clause `{}`",
+            check.evidence_id, clause.clause_id
+        ));
     }
     validate_empirical_sources(check, source_root, &mut check_diagnostics);
     if let (Some(artifact), Some(expected)) = (&check.artifact, &check.artifact_blake3) {
