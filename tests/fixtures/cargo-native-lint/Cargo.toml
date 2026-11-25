@@ -1,0 +1,18 @@
+[workspace]
+members = [
+    "app",
+    "other_pkg",
+    "used_dep",
+    "unused_dep",
+    "unused_dev_dep",
+    "feature_dep",
+    "target_dep",
+]
+resolver = "2"
+
+[workspace.metadata.octet]
+default_scope = ["--workspace"]
+cargo_check_args = []
+
+[workspace.lints.cargo]
+unused_dependencies = "warn"

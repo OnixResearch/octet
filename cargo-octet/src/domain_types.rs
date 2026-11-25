@@ -81,10 +81,9 @@ pub struct ValidatedFindingDomain {
 
 impl LintName {
     pub fn parse(value: &str) -> Result<Self, String> {
-        parse_identifier(value, LINT_NAME_FIELD).map(Self)
+        parse_namespaced_identifier(value, LINT_NAME_FIELD).map(Self)
     }
 
-    #[cfg(test)]
     #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
@@ -267,12 +266,18 @@ fn collect_result<T>(diagnostics: &mut Vec<String>, result: Result<T, String>) -
     }
 }
 
-fn parse_identifier(value: &str, field: &str) -> Result<String, String> {
+fn parse_namespaced_identifier(value: &str, field: &str) -> Result<String, String> {
     let parsed = parse_no_whitespace(value, field)?;
-    if !parsed.chars().all(|character| character.is_ascii_alphanumeric() || character == '_') {
+    let has_valid_segments =
+        parsed.split("::").all(|segment| !segment.is_empty() && segment.chars().all(is_identifier_char));
+    if !has_valid_segments {
         return Err(format!("domain field `{field}` must use canonical identifier spelling, got `{parsed}`"));
     }
     Ok(parsed)
+}
+
+fn is_identifier_char(character: char) -> bool {
+    character.is_ascii_alphanumeric() || character == '_'
 }
 
 fn parse_no_whitespace(value: &str, field: &str) -> Result<String, String> {
@@ -409,6 +414,31 @@ mod tests {
     fn severity_enum_encodes_gate_state_without_boolean_pairs() {
         assert_eq!(DiagnosticSeverity::Warning.gate_state(), FindingGateState::ReviewInput);
         assert_eq!(DiagnosticSeverity::Error.gate_state(), FindingGateState::BlocksPromotion);
+    }
+
+    #[test]
+    fn lint_name_accepts_namespaced_identifiers_and_rejects_malformed_colons() {
+        for valid in [
+            "ambient_clock",
+            "cargo::unused_dependencies",
+            "clippy::unwrap_used",
+            "a::b::c1",
+        ] {
+            assert_eq!(LintName::parse(valid).expect(valid).as_str(), valid);
+        }
+
+        for invalid in [
+            "::unused_dependencies",
+            "cargo::",
+            "cargo::::unused_dependencies",
+            "cargo:unused_dependencies",
+            "cargo:::unused_dependencies",
+            "cargo:: unused",
+            "cargo::unused-dep",
+            "::",
+        ] {
+            assert!(LintName::parse(invalid).is_err(), "expected `{invalid}` to be rejected");
+        }
     }
 
     fn valid_fixture() -> FindingFixture {

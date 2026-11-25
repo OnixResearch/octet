@@ -15,16 +15,15 @@ Octet ratchets its canonical `--workspace --lib` self-check with the runner's ex
 
 ## Stored budget and qualification status
 
-The checked-in baseline contains **3,160 unique stable identities**. Its
+The checked-in baseline contains **3,023 unique stable identities**. Its
 semantic `baseline_hash` is
-`dc1b7b0a5a9379702268ff967e391d9595ceacb365032daf25387a232721c576`;
+`b3:df9e9ac98539d0b01d714d33cdc75f5a738242fd2460b5df6c4e303bf450b64d`;
 the baseline file's BLAKE3 identity is
-`b3:e89881bb54c99c48a097f1622291d45a1a3511b4081518e7e19a52a36c95e1a0`.
+`b3:f2eec117f04eb770dbea81c1d03cf13ad19408e4a815bdd694c89c98c4a37183`.
 These describe stored data, not a fresh self-check observation or approval of
-new findings. The flake gate's **4,337 occurrence** budget is an expectation,
-not a measured current run. No budget is changed by this documentation repair.
-Candidate qualification must record actual results for the exact source,
-toolchain, config, scope, and stored baseline.
+new findings. The flake gate's **4,233 occurrence** budget is an expectation,
+not a measured current run. Candidate qualification must record actual results
+for the exact source, toolchain, config, scope, and stored baseline.
 
 ## Historical inventory and reductions
 
@@ -104,15 +103,15 @@ Historical baseline BLAKE3 identity: `b3:cb7cb5c359de18a3b6f05014edb6bee45989f23
 ## Gate behavior
 
 The `cargo-octet-self-check` Nix derivation runs structured output against the
-checked-in baseline. Its current stored contract expects 4,337 warning
-occurrences and the accepted 3,160 stable identities, zero new IDs, zero stale
+checked-in baseline. Its current stored contract expects 4,233 warning
+occurrences and the accepted 3,023 stable identities, zero new IDs, zero stale
 IDs, a matching baseline hash, and repository-relative locators. These are gate
-expectations, not a claim that a candidate run passed. The previous prose's
-2,665 occurrences / 1,815 identities described an older gate expectation and is
-not the current baseline. A writable negative copy injects one
-behavior-preserving, intentionally negated predicate binding and must exit `1`
-with exactly one new ID. Malformed metadata and Cargo-child failures remain
-integration failures with exit `2`.
+expectations, not a claim that a candidate run passed. Earlier prose citing
+4,337 occurrences / 3,160 identities or 2,665 occurrences / 1,815 identities
+described older gate expectations and is not the current baseline. A writable
+negative copy injects one behavior-preserving, intentionally negated predicate
+binding and must exit `1` with exactly one new ID. Malformed metadata and
+Cargo-child failures remain integration failures with exit `2`.
 
 <!-- r[verify octet.runner_self_check.warning_budget.regression] -->
 <!-- r[verify octet.runner_self_check.warning_budget.reduction.regression] -->

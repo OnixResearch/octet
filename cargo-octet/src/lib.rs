@@ -11,6 +11,7 @@ mod binary_debug_map;
 mod cap_fs;
 mod cargo {
     pub(crate) mod fuzz;
+    pub(crate) mod lints;
 }
 mod charon_semantic;
 mod cli;
