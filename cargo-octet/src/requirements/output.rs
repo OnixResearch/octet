@@ -52,6 +52,20 @@ pub(super) fn write_decision(
             for limitation in &decision.limitations {
                 println!("limitation: {limitation}");
             }
+            if let Some(summary) = &decision.extraction_summary {
+                println!(
+                    "effect-extraction profile={} strongest_claim={} cross_clause_verified={} static=[{}] formal=[{}] assumptions=[{}]",
+                    summary.profile_id,
+                    summary.strongest_supported_claim,
+                    summary.is_cross_clause_verified,
+                    summary.static_analysis_evidence_ids.join(","),
+                    summary.formal_proof_evidence_ids.join(","),
+                    summary.accepted_assumption_ids.join(",")
+                );
+                for obligation in &summary.remaining_obligations {
+                    println!("remaining-obligation: {obligation}");
+                }
+            }
             for diagnostic in &decision.diagnostics {
                 println!("diagnostic: {diagnostic}");
             }

@@ -121,9 +121,6 @@ pub(crate) struct ArchitectureArtifacts {
     pub incomplete_error: Option<String>,
 }
 
-// Collector preparation binds policy, toolchain, Cargo graph, and unit identities in sequence;
-// helpers would thread the same partial state.
-#[allow(clippy::too_many_lines)]
 pub(crate) fn prepare_collector(
     workspace_root: &Path,
     policy: &SelectedProjectArchitecturePolicy,
@@ -131,6 +128,48 @@ pub(crate) fn prepare_collector(
     collector_path: &Path,
     scope_args: &[String],
     cargo_check_args: &[String],
+) -> Result<PreparedCollector, String> {
+    prepare_collector_with_options(
+        workspace_root,
+        policy,
+        toolchain,
+        collector_path,
+        scope_args,
+        cargo_check_args,
+        false,
+    )
+}
+
+pub(crate) fn prepare_semantic_collector(
+    workspace_root: &Path,
+    policy: &SelectedProjectArchitecturePolicy,
+    toolchain: &str,
+    collector_path: &Path,
+    scope_args: &[String],
+    cargo_check_args: &[String],
+) -> Result<PreparedCollector, String> {
+    prepare_collector_with_options(
+        workspace_root,
+        policy,
+        toolchain,
+        collector_path,
+        scope_args,
+        cargo_check_args,
+        true,
+    )
+}
+
+// Collector preparation binds policy, toolchain, Cargo graph, and unit identities in sequence;
+// helpers would thread the same partial state.
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
+fn prepare_collector_with_options(
+    workspace_root: &Path,
+    policy: &SelectedProjectArchitecturePolicy,
+    toolchain: &str,
+    collector_path: &Path,
+    scope_args: &[String],
+    cargo_check_args: &[String],
+    is_semantic_enabled: bool,
 ) -> Result<PreparedCollector, String> {
     let package_roles = package_roles(policy);
     let source_roles = source_roles(policy);
@@ -310,6 +349,8 @@ pub(crate) fn prepare_collector(
         limits: policy.policy.collection_limits.clone(),
         selected_units,
         value_flow_selections: protected_value_flow_selections(&policy.policy),
+        collect_semantic_effects: is_semantic_enabled,
+        self_profile_phase_dir: None,
         non_claims: policy.policy.non_claims.clone(),
     };
     let context_bytes = serde_json::to_vec_pretty(&context)

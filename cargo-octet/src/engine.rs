@@ -133,8 +133,16 @@ fn apply_baseline_gate(
     outcome
 }
 
-#[allow(clippy::too_many_lines)]
 pub fn run(check: &CheckArgs) -> Result<i32, String> {
+    run_with_semantic_mode(check, false)
+}
+
+pub(crate) fn run_with_semantic_collection(check: &CheckArgs) -> Result<i32, String> {
+    run_with_semantic_mode(check, true)
+}
+
+#[allow(clippy::too_many_lines)]
+fn run_with_semantic_mode(check: &CheckArgs, is_semantic_enabled: bool) -> Result<i32, String> {
     reject_process_dylint_toml_override()?;
     let cwd = env::current_dir().map_err(|error| format!("current_dir: {error}"))?;
     let cfg = config::load(&cwd)?;
@@ -209,14 +217,25 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
             .architecture_policy
             .as_ref()
             .map(|policy| {
-                crate::architecture_ir::prepare_collector(
-                    &cfg.workspace_root,
-                    policy,
-                    &toolchain,
-                    Path::new(lint_lib.path()),
-                    &scope_args,
-                    &cargo_check_args,
-                )
+                if is_semantic_enabled {
+                    crate::architecture_ir::prepare_semantic_collector(
+                        &cfg.workspace_root,
+                        policy,
+                        &toolchain,
+                        Path::new(lint_lib.path()),
+                        &scope_args,
+                        &cargo_check_args,
+                    )
+                } else {
+                    crate::architecture_ir::prepare_collector(
+                        &cfg.workspace_root,
+                        policy,
+                        &toolchain,
+                        Path::new(lint_lib.path()),
+                        &scope_args,
+                        &cargo_check_args,
+                    )
+                }
             })
             .transpose()?;
         let dylint_libs = serde_json::to_string(&vec![lint_lib.path().to_owned()])

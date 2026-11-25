@@ -1282,7 +1282,11 @@ impl ArchitectureCollector {
         // Equivalent shards share their content path, but never a mutable staging file.
         let temporary_path = output_path.with_extension(format!("{}.{TEMP_FILE_SUFFIX}", std::process::id()));
         publish_shard(&temporary_path, &output_path, &bytes)
-            .map_err(|error| format!("publish compiler architecture shard {}: {error}", output_path.display()))
+            .map_err(|error| format!("publish compiler architecture shard {}: {error}", output_path.display()))?;
+        if self.context.collect_semantic_effects {
+            semantic::collect_and_write_unit_summary(self, cx)?;
+        }
+        Ok(())
     }
 }
 
@@ -1293,6 +1297,8 @@ fn publish_shard(temporary: &Path, output: &Path, bytes: &[u8]) -> std::io::Resu
     }
     fs::rename(temporary, output)
 }
+
+mod semantic;
 
 #[cfg(test)]
 mod publication_tests;
@@ -2959,6 +2965,8 @@ mod tests {
             limits,
             selected_units: Vec::new(),
             value_flow_selections: Vec::new(),
+            collect_semantic_effects: false,
+            self_profile_phase_dir: None,
             non_claims: Vec::new(),
         };
         ArchitectureCollector::new(context, selected_unit("fixture", "fixture", "rlib", false))

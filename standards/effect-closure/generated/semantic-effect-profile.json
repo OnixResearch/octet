@@ -1,0 +1,77 @@
+{
+  "allowed_effects": [
+    "alloc"
+  ],
+  "budgets": {
+    "max_blocks_per_body": 512,
+    "max_bodies": 256,
+    "max_call_edges": 2048,
+    "max_rounds": 16,
+    "max_steps": 8192
+  },
+  "claim_tier": "semantic-mir-effect-closure",
+  "compiler_stage": "rustc-mir-optimized",
+  "denied_effects": [
+    "panic",
+    "unsafe",
+    "clock",
+    "random",
+    "fs",
+    "net",
+    "spawn",
+    "lock",
+    "ffi",
+    "external-mutation",
+    "interior-mutation",
+    "unwind-drop",
+    "unknown"
+  ],
+  "effect_vocabulary": [
+    "alloc",
+    "panic",
+    "unsafe",
+    "clock",
+    "random",
+    "fs",
+    "net",
+    "spawn",
+    "lock",
+    "ffi",
+    "external-mutation",
+    "interior-mutation",
+    "unwind-drop",
+    "unknown"
+  ],
+  "non_claims": [
+    "This profile covers only the declared bounded sequential Rust/MIR subset and selected compilation units; it does not claim arbitrary Rust support, whole-program correctness, rustc soundness, or verified termination.",
+    "Trusted parametric or dependency summaries remain explicitly recorded assumptions bound to exact provider and implementation identities."
+  ],
+  "profile_id": "semantic-mir-core",
+  "schema_version": "octet-semantic-effect-profile/v1",
+  "supported_subset": {
+    "excluded_constructs": [
+      "async-polling-drop",
+      "ffi-extern",
+      "concurrency-atomics-locks",
+      "raw-pointer-deref",
+      "interior-mutability-bypass",
+      "unbounded-dynamic-dispatch",
+      "unresolved-function-pointers",
+      "inline-asm"
+    ],
+    "included_constructs": [
+      "pure-arithmetic",
+      "owned-local-mutation",
+      "disjoint-field-projection",
+      "partial-move-drop-tracking",
+      "direct-local-calls",
+      "resolved-trait-calls",
+      "resolved-operators",
+      "resolved-derefs",
+      "implicit-drop-cleanup",
+      "mutable-ref-alias-tracking"
+    ],
+    "subset_id": "bounded-sequential-rust-mir/v1"
+  },
+  "unwind_mode": "modeled-cleanup"
+}

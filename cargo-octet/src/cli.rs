@@ -74,6 +74,7 @@ pub enum AdmissionMode {
         closure: bool,
         policy: PathBuf,
         kamacite_effect_profile: Option<PathBuf>,
+        semantic_effect_profile: Option<PathBuf>,
         scope_args: Vec<String>,
         cargo_check_args: Option<Vec<String>>,
     },
@@ -855,6 +856,7 @@ fn parse_admission(args: &[String], command_line: String) -> Result<AdmissionArg
     let mut closure = false;
     let mut policy = PathBuf::from(DEFAULT_POLICY_PATH);
     let mut kamacite_effect_profile = None;
+    let mut semantic_effect_profile = None;
     let mut artifact_dir = PathBuf::from(DEFAULT_ARTIFACT_DIR);
     let mut output_format = OutputFormat::Human;
     let mut scope_args = Vec::new();
@@ -891,6 +893,13 @@ fn parse_admission(args: &[String], command_line: String) -> Result<AdmissionArg
                     return Err("`--kamacite-effect-profile` may be provided only once".to_owned());
                 }
                 kamacite_effect_profile = Some(PathBuf::from(required_arg_at(args, index, arg)?));
+                index += FLAG_AND_VALUE_ARGS;
+            }
+            "--semantic-effect-profile" => {
+                if semantic_effect_profile.is_some() {
+                    return Err("`--semantic-effect-profile` may be provided only once".to_owned());
+                }
+                semantic_effect_profile = Some(PathBuf::from(required_arg_at(args, index, arg)?));
                 index += FLAG_AND_VALUE_ARGS;
             }
             "--artifact-dir" => {
@@ -936,6 +945,17 @@ fn parse_admission(args: &[String], command_line: String) -> Result<AdmissionArg
                 kamacite_effect_profile = Some(PathBuf::from(value));
                 index += 1;
             }
+            _ if arg.starts_with("--semantic-effect-profile=") => {
+                if semantic_effect_profile.is_some() {
+                    return Err("`--semantic-effect-profile` may be provided only once".to_owned());
+                }
+                let value = arg.trim_start_matches("--semantic-effect-profile=");
+                if value.is_empty() {
+                    return Err("missing value after `--semantic-effect-profile`".to_owned());
+                }
+                semantic_effect_profile = Some(PathBuf::from(value));
+                index += 1;
+            }
             _ if arg.starts_with("--artifact-dir=") => {
                 artifact_dir = PathBuf::from(arg.trim_start_matches("--artifact-dir="));
                 index += 1;
@@ -967,6 +987,7 @@ fn parse_admission(args: &[String], command_line: String) -> Result<AdmissionArg
             closure,
             policy,
             kamacite_effect_profile,
+            semantic_effect_profile,
             scope_args,
             cargo_check_args,
         },
@@ -3353,6 +3374,7 @@ mod tests {
                         closure,
                         policy,
                         kamacite_effect_profile,
+                        semantic_effect_profile: _,
                         scope_args,
                         cargo_check_args,
                     } => {

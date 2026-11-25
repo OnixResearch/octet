@@ -522,6 +522,11 @@ pub(crate) struct IntegratedClosureArtifacts {
 }
 
 // r[impl octet.effect_closure.cli]
+struct OptionalEffectProfiles<'a> {
+    kamacite: Option<&'a Path>,
+    semantic: Option<&'a Path>,
+}
+
 // r[impl octet.effect_closure.boundaries.default]
 pub fn run(args: &AdmissionArgs) -> Result<i32, String> {
     match &args.mode {
@@ -530,6 +535,7 @@ pub fn run(args: &AdmissionArgs) -> Result<i32, String> {
             closure,
             policy,
             kamacite_effect_profile,
+            semantic_effect_profile,
             scope_args,
             cargo_check_args,
         } => run_admission(
@@ -537,7 +543,10 @@ pub fn run(args: &AdmissionArgs) -> Result<i32, String> {
             profile,
             *closure,
             policy,
-            kamacite_effect_profile.as_deref(),
+            OptionalEffectProfiles {
+                kamacite: kamacite_effect_profile.as_deref(),
+                semantic: semantic_effect_profile.as_deref(),
+            },
             scope_args,
             cargo_check_args.as_deref(),
         ),
@@ -558,7 +567,7 @@ fn run_admission(
     profile: &str,
     closure: bool,
     policy_path: &Path,
-    kamacite_effect_profile: Option<&Path>,
+    optional_profiles: OptionalEffectProfiles<'_>,
     scope_args: &[String],
     cargo_check_args: Option<&[String]>,
 ) -> Result<i32, String> {
@@ -597,7 +606,11 @@ fn run_admission(
         },
         command_line: args.command_line.clone(),
     };
-    let check_exit = crate::engine::run(&check)?;
+    let check_exit = if optional_profiles.semantic.is_some() {
+        crate::engine::run_with_semantic_collection(&check)?
+    } else {
+        crate::engine::run(&check)?
+    };
     if check_exit != EXIT_ADMITTED {
         write_blocked_status(&root, profile, check_exit, &command_bytes)?;
         return Ok(check_exit);
@@ -637,7 +650,7 @@ fn run_admission(
         policy: prepared.policy,
     });
 
-    let kamacite = match kamacite_effect_profile {
+    let kamacite = match optional_profiles.kamacite {
         Some(path) if receipt.status == AdmissionStatus::Admitted => {
             Some(prepare_kamacite_bundle(&workspace_root, path, &receipt)?)
         }
@@ -655,9 +668,31 @@ fn run_admission(
         &receipt,
         kamacite.as_ref(),
     )?;
+    let is_semantic_admitted = if let Some(semantic_path) = optional_profiles.semantic {
+        let semantic_receipt = crate::semantic_effect::admit::evaluate_admitted_semantic_profile(
+            &workspace_root,
+            semantic_path,
+            &artifact_dir,
+            &receipt
+                .nodes
+                .iter()
+                .map(|node| FunctionAddressRecord {
+                    path: node.path.clone(),
+                    name: node.name.clone(),
+                    function_address: node.function_address.clone(),
+                    source_identity: String::new(),
+                })
+                .collect::<Vec<_>>(),
+            &receipt.inputs.cargo_lock_blake3,
+        )?;
+        semantic_receipt.status == AdmissionStatus::Admitted
+    } else {
+        true
+    };
     render_admission_output(args.output_format, &artifact_dir, &receipt, kamacite.as_ref())?;
     let admitted = receipt.status == AdmissionStatus::Admitted
-        && kamacite.as_ref().is_none_or(|bundle| bundle.comparison.status == AdmissionStatus::Admitted);
+        && kamacite.as_ref().is_none_or(|bundle| bundle.comparison.status == AdmissionStatus::Admitted)
+        && is_semantic_admitted;
     Ok(if admitted { EXIT_ADMITTED } else { EXIT_DENIED })
 }
 

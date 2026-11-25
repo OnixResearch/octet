@@ -44,6 +44,7 @@ mod function_address;
 mod hegel;
 mod imported_proof;
 mod kamacite_effect_closure;
+pub(crate) mod semantic_effect;
 #[cfg(test)]
 mod legacy_alias_contracts;
 mod migrate;

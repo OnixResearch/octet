@@ -18,6 +18,7 @@ mod forged_question;
 mod freshness;
 mod lint_freshness;
 mod randomness;
+mod semantic_effects;
 
 const TOOLCHAIN: &str = "nightly-2026-03-21";
 const FIXTURE_FILES: &[&str] = &[

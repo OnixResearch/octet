@@ -11,6 +11,7 @@
 mod contract;
 mod evaluation;
 mod evidence;
+mod extraction;
 mod freshness;
 mod output;
 mod related;

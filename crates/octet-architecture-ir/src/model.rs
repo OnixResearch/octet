@@ -407,6 +407,10 @@ pub struct CompilerArchitectureCollectorContext {
     pub selected_units: Vec<CollectorCompilationUnit>,
     #[serde(default)]
     pub value_flow_selections: Vec<CompilerValueFlowSelection>,
+    #[serde(default)]
+    pub collect_semantic_effects: bool,
+    #[serde(default)]
+    pub self_profile_phase_dir: Option<String>,
     pub non_claims: Vec<String>,
 }
 
