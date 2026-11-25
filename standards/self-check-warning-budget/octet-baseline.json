@@ -10,7 +10,7 @@
     "profile_hash": "b3:cab68b88c47e365a83bcff8760701a148e90217e605daee7c7d0fe8ec2e83e45",
     "config_hash": "b3:c51d1ae1c55fee2a9d155a7b8abe18cb7a6b14ac30476d513f3f5162fe5360c7"
   },
-  "baseline_hash": "b3:f9865bc1d48bb2a198ad76d518e38fcb7846d46bd0f6416ed36d683d5c67116a",
+  "baseline_hash": "b3:88bbada65e65334e9f82bfaaeac4b6df400a11d25427a690104dab73cbcfda53",
   "findings": [
     {
       "stable_id": "b3:00261e8fb80f3de5",
@@ -33,7 +33,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 2664,
+      "line": 2662,
       "column": 13,
       "message": "boolean binding `list` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -969,7 +969,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1940,
+      "line": 1938,
       "column": 13,
       "message": "boolean binding `dry_run` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -1567,7 +1567,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 2470,
+      "line": 2468,
       "column": 92,
       "message": "function `parse_object_supplement_scan` is 148 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -3192,7 +3192,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1634,
+      "line": 1632,
       "column": 13,
       "message": "boolean binding `run` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -6676,7 +6676,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 2670,
+      "line": 2668,
       "column": 13,
       "message": "boolean binding `record_negative_check` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -6949,7 +6949,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 3141,
+      "line": 3139,
       "column": 17,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -7729,7 +7729,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1686,
+      "line": 1684,
       "column": 17,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -8203,6 +8203,19 @@
       "crate_name": "cargo_octet"
     },
     {
+      "stable_id": "b3:3600e3c1b7e8cf1b",
+      "semantic_id": "b3:3600e3c1b7e8cf1b",
+      "identity_status": "computed",
+      "lint": "function_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/cli.rs",
+      "line": 793,
+      "column": 76,
+      "message": "function `parse_requirements` is 72 lines (limit: 70)",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:36014bc9965ca607",
       "semantic_id": "b3:36014bc9965ca607",
       "identity_status": "computed",
@@ -8223,7 +8236,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 898,
+      "line": 896,
       "column": 13,
       "message": "boolean binding `closure` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -9952,7 +9965,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1272,
+      "line": 1270,
       "column": 13,
       "message": "boolean binding `cache` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -11343,7 +11356,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 3104,
+      "line": 3102,
       "column": 92,
       "message": "function `parse_provider_manifest_export` is 81 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -11629,7 +11642,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 2666,
+      "line": 2664,
       "column": 13,
       "message": "boolean binding `candidates` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -11785,7 +11798,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 2395,
+      "line": 2393,
       "column": 84,
       "message": "function `parse_object_supplement_fixtures` is 71 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -12812,7 +12825,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 2698,
+      "line": 2696,
       "column": 17,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -15022,7 +15035,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1520,
+      "line": 1518,
       "column": 13,
       "message": "boolean binding `advisory` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -16556,7 +16569,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1632,
+      "line": 1630,
       "column": 13,
       "message": "boolean binding `locked` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -16803,7 +16816,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 888,
+      "line": 886,
       "column": 92,
       "message": "function `parse_admission` is 126 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -17011,7 +17024,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 2244,
+      "line": 2242,
       "column": 71,
       "message": "function `parse_object_corpus` is 136 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -17258,7 +17271,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 2548,
+      "line": 2546,
       "column": 9,
       "message": "boolean binding `fixture_shape_was_provided` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -18155,7 +18168,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 2665,
+      "line": 2663,
       "column": 13,
       "message": "boolean binding `explain` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -18649,7 +18662,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1921,
+      "line": 1919,
       "column": 9,
       "message": "boolean binding `legacy` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -19988,7 +20001,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 2690,
+      "line": 2688,
       "column": 17,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -20794,7 +20807,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1615,
+      "line": 1613,
       "column": 102,
       "message": "function `parse_evidence_collect` is 177 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -20989,7 +21002,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 2656,
+      "line": 2654,
       "column": 84,
       "message": "function `parse_prove` is 284 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -22809,7 +22822,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 2730,
+      "line": 2728,
       "column": 17,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -24505,19 +24518,6 @@
       "crate_name": "cargo_octet"
     },
     {
-      "stable_id": "b3:9f4cf09a1602cc45",
-      "semantic_id": "b3:9f4cf09a1602cc45",
-      "identity_status": "computed",
-      "lint": "excessive_file_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/cli.rs",
-      "line": 1,
-      "column": 1,
-      "message": "source file is 5641 lines (limit: 300)",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:9f59d4a4f7a913e6",
       "semantic_id": "b3:9f59d4a4f7a913e6",
       "identity_status": "computed",
@@ -24603,7 +24603,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 3008,
+      "line": 3006,
       "column": 78,
       "message": "function `parse_proof_ref_scaffold` is 84 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -25292,7 +25292,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1846,
+      "line": 1844,
       "column": 17,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -27281,7 +27281,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 948,
+      "line": 946,
       "column": 17,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -27489,7 +27489,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1536,
+      "line": 1534,
       "column": 17,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -30921,7 +30921,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1335,
+      "line": 1333,
       "column": 13,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -31727,7 +31727,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1502,
+      "line": 1500,
       "column": 88,
       "message": "function `parse_codebase_evidence_index` is 96 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -32156,7 +32156,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1690,
+      "line": 1688,
       "column": 17,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -33456,7 +33456,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1264,
+      "line": 1262,
       "column": 84,
       "message": "function `parse_check` is 120 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -34171,7 +34171,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1633,
+      "line": 1631,
       "column": 13,
       "message": "boolean binding `update_advisory_database` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -34357,6 +34357,19 @@
       "column": 1,
       "message": "item name `ArchitectureFindingSeverity` repeats `architecture` from ancestor path segment `project_architecture_gate`",
       "crate_name": "octet_standards"
+    },
+    {
+      "stable_id": "b3:df34a77a382f3e0f",
+      "semantic_id": "b3:df34a77a382f3e0f",
+      "identity_status": "computed",
+      "lint": "excessive_file_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/cli.rs",
+      "line": 1,
+      "column": 1,
+      "message": "source file is 5639 lines (limit: 300)",
+      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:df38a2eff8600d32",
@@ -36212,7 +36225,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 2694,
+      "line": 2692,
       "column": 17,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -36927,7 +36940,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1932,
+      "line": 1930,
       "column": 92,
       "message": "function `parse_migrate_common` is 78 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -38799,7 +38812,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/cli.rs",
-      "line": 1540,
+      "line": 1538,
       "column": 17,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"

@@ -1,0 +1,1357 @@
+$ cairn validate --root . --policy cairn-policy/generated/cairn-policy.json
+{
+  "change_issues": [],
+  "changes": 3,
+  "cross_repo_dependencies": [],
+  "cross_repo_evidence_issues": [],
+  "findings": [],
+  "issues": [],
+  "layout": "cairn",
+  "policy": "octet-default",
+  "policy_selection": {
+    "blake3": "728c4b47495c4469c2cdaa765908fd380732835f489f41a1270b60f36c4ae8e6",
+    "installation_receipt": false,
+    "locator": "cairn-policy/generated/cairn-policy.json",
+    "source": "explicit"
+  },
+  "profile_issues": [],
+  "receipt_hash": "9b2d84094589bbf8cbf172d8cb304db966ff16ddbfdfc3ae89130b3047b267fa",
+  "resolution": {
+    "diagnostics": [],
+    "locator_consulted": false,
+    "registry_lookup": "local_locator_only",
+    "selected": {
+      "project_identity": null,
+      "root": ".",
+      "source": "explicit_root",
+      "store_id": null,
+      "store_identity": null
+    },
+    "valid": true
+  },
+  "spec_findings": [],
+  "spec_issues": [],
+  "spec_substance": [
+    {
+      "path": "./.cairn/changes/add-prove-build-log-retention/specs/prove-raw-log-retention/spec.md",
+      "requirement_blocks": 4,
+      "scenario_blocks": 6,
+      "substantive_requirement_blocks": 4
+    },
+    {
+      "path": "./.cairn/changes/add-requirements-artifact-base/specs/cairn-convergence-pilot/spec.md",
+      "requirement_blocks": 1,
+      "scenario_blocks": 4,
+      "substantive_requirement_blocks": 1
+    },
+    {
+      "path": "./.cairn/changes/refresh-self-check-budget-pr38-cli/specs/self-check/spec.md",
+      "requirement_blocks": 1,
+      "scenario_blocks": 4,
+      "substantive_requirement_blocks": 1
+    },
+    {
+      "path": "./.cairn/specs/accumulating-validation/spec.md",
+      "requirement_blocks": 4,
+      "scenario_blocks": 4,
+      "substantive_requirement_blocks": 4
+    },
+    {
+      "path": "./.cairn/specs/adoption-story/spec.md",
+      "requirement_blocks": 10,
+      "scenario_blocks": 20,
+      "substantive_requirement_blocks": 10
+    },
+    {
+      "path": "./.cairn/specs/advisory-lint-promotion/spec.md",
+      "requirement_blocks": 2,
+      "scenario_blocks": 4,
+      "substantive_requirement_blocks": 2
+    },
+    {
+      "path": "./.cairn/specs/aeneas-consumer-contract/spec.md",
+      "requirement_blocks": 13,
+      "scenario_blocks": 21,
+      "substantive_requirement_blocks": 13
+    },
+    {
+      "path": "./.cairn/specs/aeneas-lean-proof-rail/spec.md",
+      "requirement_blocks": 15,
+      "scenario_blocks": 28,
+      "substantive_requirement_blocks": 15
+    },
+    {
+      "path": "./.cairn/specs/api-stability-rail/spec.md",
+      "requirement_blocks": 9,
+      "scenario_blocks": 17,
+      "substantive_requirement_blocks": 9
+    },
+    {
+      "path": "./.cairn/specs/artifact-bundle-verification/spec.md",
+      "requirement_blocks": 6,
+      "scenario_blocks": 10,
+      "substantive_requirement_blocks": 6
+    },
+    {
+      "path": "./.cairn/specs/assurance-profiles/spec.md",
+      "requirement_blocks": 7,
+      "scenario_blocks": 12,
+      "substantive_requirement_blocks": 7
+    },
+    {
+      "path": "./.cairn/specs/ast-grep-structural-rails/spec.md",
+      "requirement_blocks": 7,
+      "scenario_blocks": 7,
+      "substantive_requirement_blocks": 7
+    },
+    {
+      "path": "./.cairn/specs/authorized-effect-protocol/spec.md",
+      "requirement_blocks": 9,
+      "scenario_blocks": 24,
+      "substantive_requirement_blocks": 9
+    },
+    {
+      "path": "./.cairn/specs/benchmark-evidence/spec.md",
+      "requirement_blocks": 9,
+      "scenario_blocks": 19,
+      "substantive_requirement_blocks": 9
+    },
+    {
+      "path": "./.cairn/specs/build-hygiene/spec.md",
+      "requirement_blocks": 7,
+      "scenario_blocks": 12,
+      "substantive_requirement_blocks": 7
+    },
+    {
+      "path": "./.cairn/specs/cairn-convergence-pilot/spec.md",
+      "requirement_blocks": 3,
+      "scenario_blocks": 8,
+      "substantive_requirement_blocks": 3
+    },
+    {
+      "path": "./.cairn/specs/capability-manifest-checker/spec.md",
+      "requirement_blocks": 5,
+      "scenario_blocks": 10,
+      "substantive_requirement_blocks": 5
+    },
+    {
+      "path": "./.cairn/specs/charon-semantic-analysis/spec.md",
+      "requirement_blocks": 10,
+      "scenario_blocks": 19,
+      "substantive_requirement_blocks": 10
+    },
+    {
+      "path": "./.cairn/specs/checked-contract-ladder/spec.md",
+      "requirement_blocks": 4,
+      "scenario_blocks": 8,
+      "substantive_requirement_blocks": 4
+    },
+    {
+      "path": "./.cairn/specs/cob-collaboration-adoption/spec.md",
+      "requirement_blocks": 6,
+      "scenario_blocks": 8,
+      "substantive_requirement_blocks": 6
+    },
+    {
+      "path": "./.cairn/specs/cob-collaboration-conflict-recovery/spec.md",
+      "requirement_blocks": 7,
+      "scenario_blocks": 12,
+      "substantive_requirement_blocks": 7
+    },
+    {
+      "path": "./.cairn/specs/compiler-architecture-ir/spec.md",
+      "requirement_blocks": 12,
+      "scenario_blocks": 25,
+      "substantive_requirement_blocks": 12
+    },
+    {
+      "path": "./.cairn/specs/compiler-architecture-targets/spec.md",
+      "requirement_blocks": 6,
+      "scenario_blocks": 12,
+      "substantive_requirement_blocks": 6
+    },
+    {
+      "path": "./.cairn/specs/compiler-policy-provider/spec.md",
+      "requirement_blocks": 4,
+      "scenario_blocks": 9,
+      "substantive_requirement_blocks": 4
+    },
+    {
+      "path": "./.cairn/specs/concurrency-performance-lints/spec.md",
+      "requirement_blocks": 2,
+      "scenario_blocks": 4,
+      "substantive_requirement_blocks": 2
+    },
+    {
+      "path": "./.cairn/specs/controlled-deployment/spec.md",
+      "requirement_blocks": 2,
+      "scenario_blocks": 3,
+      "substantive_requirement_blocks": 2
+    },
+    {
+      "path": "./.cairn/specs/coverage-baseline-evidence/spec.md",
+      "requirement_blocks": 6,
+      "scenario_blocks": 12,
+      "substantive_requirement_blocks": 6
+    },
+    {
+      "path": "./.cairn/specs/crate-boundary-config/spec.md",
+      "requirement_blocks": 4,
+      "scenario_blocks": 8,
+      "substantive_requirement_blocks": 4
+    },
+    {
+      "path": "./.cairn/specs/dependency-audit/spec.md",
+      "requirement_blocks": 3,
+      "scenario_blocks": 6,
+      "substantive_requirement_blocks": 3
+    },
+    {
+      "path": "./.cairn/specs/dependency-direction/spec.md",
+      "requirement_blocks": 4,
+      "scenario_blocks": 9,
+      "substantive_requirement_blocks": 4
+    },
+    {
+      "path": "./.cairn/specs/dependency-trust/spec.md",
+      "requirement_blocks": 13,
+      "scenario_blocks": 21,
+      "substantive_requirement_blocks": 13
+    },
+    {
+      "path": "./.cairn/specs/dynamic-evidence-rails/spec.md",
+      "requirement_blocks": 15,
+      "scenario_blocks": 34,
+      "substantive_requirement_blocks": 15
+    },
+    {
+      "path": "./.cairn/specs/effect-closure-admission/spec.md",
+      "requirement_blocks": 17,
+      "scenario_blocks": 34,
+      "substantive_requirement_blocks": 17
+    },
+    {
+      "path": "./.cairn/specs/evidence-codebase-index/spec.md",
+      "requirement_blocks": 15,
+      "scenario_blocks": 27,
+      "substantive_requirement_blocks": 15
+    },
+    {
+      "path": "./.cairn/specs/evidence-contracts/spec.md",
+      "requirement_blocks": 9,
+      "scenario_blocks": 15,
+      "substantive_requirement_blocks": 9
+    },
+    {
+      "path": "./.cairn/specs/evidence-log-storage/spec.md",
+      "requirement_blocks": 3,
+      "scenario_blocks": 6,
+      "substantive_requirement_blocks": 3
+    },
+    {
+      "path": "./.cairn/specs/evidence-provenance/spec.md",
+      "requirement_blocks": 34,
+      "scenario_blocks": 61,
+      "substantive_requirement_blocks": 34
+    },
+    {
+      "path": "./.cairn/specs/evidence-stack/spec.md",
+      "requirement_blocks": 2,
+      "scenario_blocks": 2,
+      "substantive_requirement_blocks": 2
+    },
+    {
+      "path": "./.cairn/specs/evidence-tier-taxonomy/spec.md",
+      "requirement_blocks": 3,
+      "scenario_blocks": 5,
+      "substantive_requirement_blocks": 3
+    },
+    {
+      "path": "./.cairn/specs/experimental-solver-rails/spec.md",
+      "requirement_blocks": 5,
+      "scenario_blocks": 5,
+      "substantive_requirement_blocks": 5
+    },
+    {
+      "path": "./.cairn/specs/external-lint-reporting/spec.md",
+      "requirement_blocks": 13,
+      "scenario_blocks": 26,
+      "substantive_requirement_blocks": 13
+    },
+    {
+      "path": "./.cairn/specs/function-address-export/spec.md",
+      "requirement_blocks": 26,
+      "scenario_blocks": 35,
+      "substantive_requirement_blocks": 26
+    },
+    {
+      "path": "./.cairn/specs/gate-posture/spec.md",
+      "requirement_blocks": 3,
+      "scenario_blocks": 3,
+      "substantive_requirement_blocks": 3
+    },
+    {
+      "path": "./.cairn/specs/hexagonal-ports/spec.md",
+      "requirement_blocks": 3,
+      "scenario_blocks": 7,
+      "substantive_requirement_blocks": 3
+    },
+    {
+      "path": "./.cairn/specs/kani-evidence-rail/spec.md",
+      "requirement_blocks": 6,
+      "scenario_blocks": 11,
+      "substantive_requirement_blocks": 6
+    },
+    {
+      "path": "./.cairn/specs/kani-panic-pilots/spec.md",
+      "requirement_blocks": 7,
+      "scenario_blocks": 13,
+      "substantive_requirement_blocks": 7
+    },
+    {
+      "path": "./.cairn/specs/kani-property-checklist/spec.md",
+      "requirement_blocks": 6,
+      "scenario_blocks": 11,
+      "substantive_requirement_blocks": 6
+    },
+    {
+      "path": "./.cairn/specs/law-tested-deterministic-cores/spec.md",
+      "requirement_blocks": 6,
+      "scenario_blocks": 14,
+      "substantive_requirement_blocks": 6
+    },
+    {
+      "path": "./.cairn/specs/lint-analysis-cores/spec.md",
+      "requirement_blocks": 6,
+      "scenario_blocks": 7,
+      "substantive_requirement_blocks": 6
+    },
+    {
+      "path": "./.cairn/specs/lint-autofix-quality/spec.md",
+      "requirement_blocks": 2,
+      "scenario_blocks": 4,
+      "substantive_requirement_blocks": 2
+    },
+    {
+      "path": "./.cairn/specs/lint-catalog-freshness/spec.md",
+      "requirement_blocks": 3,
+      "scenario_blocks": 6,
+      "substantive_requirement_blocks": 3
+    },
+    {
+      "path": "./.cairn/specs/lint-guardrail-fixtures/spec.md",
+      "requirement_blocks": 2,
+      "scenario_blocks": 4,
+      "substantive_requirement_blocks": 2
+    },
+    {
+      "path": "./.cairn/specs/lint-guidance-freshness/spec.md",
+      "requirement_blocks": 2,
+      "scenario_blocks": 3,
+      "substantive_requirement_blocks": 2
+    },
+    {
+      "path": "./.cairn/specs/lint-metadata-catalog/spec.md",
+      "requirement_blocks": 3,
+      "scenario_blocks": 6,
+      "substantive_requirement_blocks": 3
+    },
+    {
+      "path": "./.cairn/specs/lint-signal-quality/spec.md",
+      "requirement_blocks": 4,
+      "scenario_blocks": 8,
+      "substantive_requirement_blocks": 4
+    },
+    {
+      "path": "./.cairn/specs/mantle-producer-handoff/spec.md",
+      "requirement_blocks": 3,
+      "scenario_blocks": 5,
+      "substantive_requirement_blocks": 3
+    },
+    {
+      "path": "./.cairn/specs/mirai-semantic-pilot/spec.md",
+      "requirement_blocks": 8,
+      "scenario_blocks": 15,
+      "substantive_requirement_blocks": 8
+    },
+    {
+      "path": "./.cairn/specs/mutation-testing-evidence/spec.md",
+      "requirement_blocks": 6,
+      "scenario_blocks": 12,
+      "substantive_requirement_blocks": 6
+    },
+    {
+      "path": "./.cairn/specs/namespace-compatibility/spec.md",
+      "requirement_blocks": 6,
+      "scenario_blocks": 10,
+      "substantive_requirement_blocks": 6
+    },
+    {
+      "path": "./.cairn/specs/nickel-export-helpers/spec.md",
+      "requirement_blocks": 14,
+      "scenario_blocks": 20,
+      "substantive_requirement_blocks": 14
+    },
+    {
+      "path": "./.cairn/specs/nickel-toolchain/spec.md",
+      "requirement_blocks": 5,
+      "scenario_blocks": 6,
+      "substantive_requirement_blocks": 5
+    },
+    {
+      "path": "./.cairn/specs/object-corpus/spec.md",
+      "requirement_blocks": 1,
+      "scenario_blocks": 6,
+      "substantive_requirement_blocks": 1
+    },
+    {
+      "path": "./.cairn/specs/ocp-enum-match-lints/spec.md",
+      "requirement_blocks": 10,
+      "scenario_blocks": 17,
+      "substantive_requirement_blocks": 10
+    },
+    {
+      "path": "./.cairn/specs/open-issue-resolution/spec.md",
+      "requirement_blocks": 9,
+      "scenario_blocks": 20,
+      "substantive_requirement_blocks": 9
+    },
+    {
+      "path": "./.cairn/specs/policy-package-customs/spec.md",
+      "requirement_blocks": 3,
+      "scenario_blocks": 6,
+      "substantive_requirement_blocks": 3
+    },
+    {
+      "path": "./.cairn/specs/product-positioning/spec.md",
+      "requirement_blocks": 2,
+      "scenario_blocks": 2,
+      "substantive_requirement_blocks": 2
+    },
+    {
+      "path": "./.cairn/specs/project-architecture-gate/spec.md",
+      "requirement_blocks": 12,
+      "scenario_blocks": 34,
+      "substantive_requirement_blocks": 12
+    },
+    {
+      "path": "./.cairn/specs/project-architecture-policy/spec.md",
+      "requirement_blocks": 8,
+      "scenario_blocks": 18,
+      "substantive_requirement_blocks": 8
+    },
+    {
+      "path": "./.cairn/specs/proof-artifact-library/spec.md",
+      "requirement_blocks": 11,
+      "scenario_blocks": 15,
+      "substantive_requirement_blocks": 11
+    },
+    {
+      "path": "./.cairn/specs/proof-claim-catalog/spec.md",
+      "requirement_blocks": 4,
+      "scenario_blocks": 5,
+      "substantive_requirement_blocks": 4
+    },
+    {
+      "path": "./.cairn/specs/proof-implementation-gap/spec.md",
+      "requirement_blocks": 5,
+      "scenario_blocks": 11,
+      "substantive_requirement_blocks": 5
+    },
+    {
+      "path": "./.cairn/specs/purity-effect-lints/spec.md",
+      "requirement_blocks": 14,
+      "scenario_blocks": 44,
+      "substantive_requirement_blocks": 14
+    },
+    {
+      "path": "./.cairn/specs/release-supply-chain/spec.md",
+      "requirement_blocks": 3,
+      "scenario_blocks": 6,
+      "substantive_requirement_blocks": 3
+    },
+    {
+      "path": "./.cairn/specs/runner-core-architecture/spec.md",
+      "requirement_blocks": 6,
+      "scenario_blocks": 11,
+      "substantive_requirement_blocks": 6
+    },
+    {
+      "path": "./.cairn/specs/runner-self-check/spec.md",
+      "requirement_blocks": 8,
+      "scenario_blocks": 35,
+      "substantive_requirement_blocks": 8
+    },
+    {
+      "path": "./.cairn/specs/safety-lint-semantics/spec.md",
+      "requirement_blocks": 9,
+      "scenario_blocks": 15,
+      "substantive_requirement_blocks": 9
+    },
+    {
+      "path": "./.cairn/specs/scope-boundary/spec.md",
+      "requirement_blocks": 2,
+      "scenario_blocks": 3,
+      "substantive_requirement_blocks": 2
+    },
+    {
+      "path": "./.cairn/specs/self-check/spec.md",
+      "requirement_blocks": 1,
+      "scenario_blocks": 4,
+      "substantive_requirement_blocks": 1
+    },
+    {
+      "path": "./.cairn/specs/semantic-merge-verification/spec.md",
+      "requirement_blocks": 9,
+      "scenario_blocks": 28,
+      "substantive_requirement_blocks": 9
+    },
+    {
+      "path": "./.cairn/specs/small-checker-receipts/spec.md",
+      "requirement_blocks": 4,
+      "scenario_blocks": 6,
+      "substantive_requirement_blocks": 4
+    },
+    {
+      "path": "./.cairn/specs/solid-structure-lints/spec.md",
+      "requirement_blocks": 15,
+      "scenario_blocks": 23,
+      "substantive_requirement_blocks": 15
+    },
+    {
+      "path": "./.cairn/specs/spacewasm-mvp-artifact-profile/spec.md",
+      "requirement_blocks": 13,
+      "scenario_blocks": 22,
+      "substantive_requirement_blocks": 13
+    },
+    {
+      "path": "./.cairn/specs/spacewasm-pilot-abi-admission/spec.md",
+      "requirement_blocks": 6,
+      "scenario_blocks": 11,
+      "substantive_requirement_blocks": 6
+    },
+    {
+      "path": "./.cairn/specs/spec-trace-parity/spec.md",
+      "requirement_blocks": 7,
+      "scenario_blocks": 12,
+      "substantive_requirement_blocks": 7
+    },
+    {
+      "path": "./.cairn/specs/state-machine-exhaustiveness/spec.md",
+      "requirement_blocks": 7,
+      "scenario_blocks": 13,
+      "substantive_requirement_blocks": 7
+    },
+    {
+      "path": "./.cairn/specs/strict-rust-profiles/spec.md",
+      "requirement_blocks": 12,
+      "scenario_blocks": 27,
+      "substantive_requirement_blocks": 12
+    },
+    {
+      "path": "./.cairn/specs/structured-migration-sessions/spec.md",
+      "requirement_blocks": 5,
+      "scenario_blocks": 7,
+      "substantive_requirement_blocks": 5
+    },
+    {
+      "path": "./.cairn/specs/trust-boundary-index/spec.md",
+      "requirement_blocks": 2,
+      "scenario_blocks": 2,
+      "substantive_requirement_blocks": 2
+    },
+    {
+      "path": "./.cairn/specs/type-driven-domain-modeling/spec.md",
+      "requirement_blocks": 13,
+      "scenario_blocks": 24,
+      "substantive_requirement_blocks": 13
+    },
+    {
+      "path": "./.cairn/specs/unsafe-trust-boundary/spec.md",
+      "requirement_blocks": 5,
+      "scenario_blocks": 9,
+      "substantive_requirement_blocks": 5
+    },
+    {
+      "path": "./.cairn/specs/valence-evidence/spec.md",
+      "requirement_blocks": 3,
+      "scenario_blocks": 5,
+      "substantive_requirement_blocks": 3
+    },
+    {
+      "path": "./.cairn/specs/valence-project-extraction/spec.md",
+      "requirement_blocks": 36,
+      "scenario_blocks": 45,
+      "substantive_requirement_blocks": 36
+    },
+    {
+      "path": "./.cairn/specs/verifier-fixture-intake/spec.md",
+      "requirement_blocks": 4,
+      "scenario_blocks": 4,
+      "substantive_requirement_blocks": 4
+    },
+    {
+      "path": "./.cairn/specs/vermilion-canary-rail/spec.md",
+      "requirement_blocks": 1,
+      "scenario_blocks": 3,
+      "substantive_requirement_blocks": 1
+    },
+    {
+      "path": "./.cairn/specs/vermilion-proof-rail/spec.md",
+      "requirement_blocks": 7,
+      "scenario_blocks": 13,
+      "substantive_requirement_blocks": 7
+    },
+    {
+      "path": "./.cairn/specs/verus-proof-rails/spec.md",
+      "requirement_blocks": 38,
+      "scenario_blocks": 91,
+      "substantive_requirement_blocks": 38
+    },
+    {
+      "path": "./.cairn/specs/wasm-component-artifact-rail/spec.md",
+      "requirement_blocks": 22,
+      "scenario_blocks": 38,
+      "substantive_requirement_blocks": 22
+    }
+  ],
+  "specs_validated": 97,
+  "substance": [
+    {
+      "checkbox_tasks": 0,
+      "kind": "design",
+      "malformed_dependency_markers": 0,
+      "path": "./.cairn/changes/add-prove-build-log-retention/design.md",
+      "requirement_blocks": 0,
+      "scenario_blocks": 0,
+      "substantive_lines": 39,
+      "substantive_requirement_blocks": 0,
+      "substantive_tasks": 0,
+      "task_done": 0,
+      "task_in_progress": 0,
+      "task_todo": 0
+    },
+    {
+      "checkbox_tasks": 0,
+      "kind": "proposal",
+      "malformed_dependency_markers": 0,
+      "path": "./.cairn/changes/add-prove-build-log-retention/proposal.md",
+      "requirement_blocks": 0,
+      "scenario_blocks": 0,
+      "substantive_lines": 37,
+      "substantive_requirement_blocks": 0,
+      "substantive_tasks": 0,
+      "task_done": 0,
+      "task_in_progress": 0,
+      "task_todo": 0
+    },
+    {
+      "checkbox_tasks": 0,
+      "kind": "delta_spec",
+      "malformed_dependency_markers": 0,
+      "path": "./.cairn/changes/add-prove-build-log-retention/specs/prove-raw-log-retention/spec.md",
+      "requirement_blocks": 4,
+      "scenario_blocks": 6,
+      "substantive_lines": 54,
+      "substantive_requirement_blocks": 4,
+      "substantive_tasks": 0,
+      "task_done": 0,
+      "task_in_progress": 0,
+      "task_todo": 0
+    },
+    {
+      "checkbox_tasks": 9,
+      "kind": "tasks",
+      "malformed_dependency_markers": 0,
+      "path": "./.cairn/changes/add-prove-build-log-retention/tasks.md",
+      "requirement_blocks": 0,
+      "scenario_blocks": 0,
+      "substantive_lines": 15,
+      "substantive_requirement_blocks": 0,
+      "substantive_tasks": 9,
+      "task_done": 9,
+      "task_in_progress": 0,
+      "task_todo": 0
+    },
+    {
+      "checkbox_tasks": 0,
+      "kind": "design",
+      "malformed_dependency_markers": 0,
+      "path": "./.cairn/changes/add-requirements-artifact-base/design.md",
+      "requirement_blocks": 0,
+      "scenario_blocks": 0,
+      "substantive_lines": 52,
+      "substantive_requirement_blocks": 0,
+      "substantive_tasks": 0,
+      "task_done": 0,
+      "task_in_progress": 0,
+      "task_todo": 0
+    },
+    {
+      "checkbox_tasks": 0,
+      "kind": "proposal",
+      "malformed_dependency_markers": 0,
+      "path": "./.cairn/changes/add-requirements-artifact-base/proposal.md",
+      "requirement_blocks": 0,
+      "scenario_blocks": 0,
+      "substantive_lines": 44,
+      "substantive_requirement_blocks": 0,
+      "substantive_tasks": 0,
+      "task_done": 0,
+      "task_in_progress": 0,
+      "task_todo": 0
+    },
+    {
+      "checkbox_tasks": 0,
+      "kind": "delta_spec",
+      "malformed_dependency_markers": 0,
+      "path": "./.cairn/changes/add-requirements-artifact-base/specs/cairn-convergence-pilot/spec.md",
+      "requirement_blocks": 1,
+      "scenario_blocks": 4,
+      "substantive_lines": 30,
+      "substantive_requirement_blocks": 1,
+      "substantive_tasks": 0,
+      "task_done": 0,
+      "task_in_progress": 0,
+      "task_todo": 0
+    },
+    {
+      "checkbox_tasks": 12,
+      "kind": "tasks",
+      "malformed_dependency_markers": 0,
+      "path": "./.cairn/changes/add-requirements-artifact-base/tasks.md",
+      "requirement_blocks": 0,
+      "scenario_blocks": 0,
+      "substantive_lines": 17,
+      "substantive_requirement_blocks": 0,
+      "substantive_tasks": 12,
+      "task_done": 12,
+      "task_in_progress": 0,
+      "task_todo": 0
+    },
+    {
+      "checkbox_tasks": 0,
+      "kind": "design",
+      "malformed_dependency_markers": 0,
+      "path": "./.cairn/changes/refresh-self-check-budget-pr38-cli/design.md",
+      "requirement_blocks": 0,
+      "scenario_blocks": 0,
+      "substantive_lines": 12,
+      "substantive_requirement_blocks": 0,
+      "substantive_tasks": 0,
+      "task_done": 0,
+      "task_in_progress": 0,
+      "task_todo": 0
+    },
+    {
+      "checkbox_tasks": 0,
+      "kind": "proposal",
+      "malformed_dependency_markers": 0,
+      "path": "./.cairn/changes/refresh-self-check-budget-pr38-cli/proposal.md",
+      "requirement_blocks": 0,
+      "scenario_blocks": 0,
+      "substantive_lines": 7,
+      "substantive_requirement_blocks": 0,
+      "substantive_tasks": 0,
+      "task_done": 0,
+      "task_in_progress": 0,
+      "task_todo": 0
+    },
+    {
+      "checkbox_tasks": 0,
+      "kind": "delta_spec",
+      "malformed_dependency_markers": 0,
+      "path": "./.cairn/changes/refresh-self-check-budget-pr38-cli/specs/self-check/spec.md",
+      "requirement_blocks": 1,
+      "scenario_blocks": 4,
+      "substantive_lines": 20,
+      "substantive_requirement_blocks": 1,
+      "substantive_tasks": 0,
+      "task_done": 0,
+      "task_in_progress": 0,
+      "task_todo": 0
+    },
+    {
+      "checkbox_tasks": 5,
+      "kind": "tasks",
+      "malformed_dependency_markers": 0,
+      "path": "./.cairn/changes/refresh-self-check-budget-pr38-cli/tasks.md",
+      "requirement_blocks": 0,
+      "scenario_blocks": 0,
+      "substantive_lines": 9,
+      "substantive_requirement_blocks": 0,
+      "substantive_tasks": 5,
+      "task_done": 5,
+      "task_in_progress": 0,
+      "task_todo": 0
+    }
+  ],
+  "substance_findings": [],
+  "substance_issues": [],
+  "valid": true,
+  "workflow_profiles": [
+    {
+      "acceptance_ids": [],
+      "non_claims": [
+        "workflow state proves only the selected policy graph and observed structural artifact facts",
+        "workflow instructions do not prove artifact truth, review quality, or implementation correctness",
+        "workflow state does not satisfy proposal, design, tasks, sync, archive, evidence, or release gates",
+        "workflow commands are read-only and do not create, edit, delete, or approve lifecycle artifacts"
+      ],
+      "profile_identity_hash": "36ce970a15d49092a5247af25129da45daa0d27acc5512e5b34c27937bef59f2",
+      "review_receipt_hashes": [],
+      "spec_effect": "delta",
+      "workflow_profile": "spec-driven",
+      "workflow_profile_compatibility_fallback": false,
+      "workflow_profile_source": "change_create",
+      "workflow_profile_version": 1
+    },
+    {
+      "acceptance_ids": [],
+      "non_claims": [
+        "workflow state proves only the selected policy graph and observed structural artifact facts",
+        "workflow instructions do not prove artifact truth, review quality, or implementation correctness",
+        "workflow state does not satisfy proposal, design, tasks, sync, archive, evidence, or release gates",
+        "workflow commands are read-only and do not create, edit, delete, or approve lifecycle artifacts"
+      ],
+      "profile_identity_hash": "52d7523ba9c62191dee39f98d10b4ddf19bb32c7eca1535020875c0fe12c0e74",
+      "review_receipt_hashes": [],
+      "spec_effect": "delta",
+      "workflow_profile": "spec-driven",
+      "workflow_profile_compatibility_fallback": false,
+      "workflow_profile_source": "change_create",
+      "workflow_profile_version": 1
+    },
+    {
+      "acceptance_ids": [],
+      "non_claims": [
+        "workflow state proves only the selected policy graph and observed structural artifact facts",
+        "workflow instructions do not prove artifact truth, review quality, or implementation correctness",
+        "workflow state does not satisfy proposal, design, tasks, sync, archive, evidence, or release gates",
+        "workflow commands are read-only and do not create, edit, delete, or approve lifecycle artifacts"
+      ],
+      "profile_identity_hash": "e682c8790c9b1c9bb932c57c7cf2526ffe727b36f1a01d2765f9b30368554e59",
+      "review_receipt_hashes": [],
+      "spec_effect": "delta",
+      "workflow_profile": "spec-driven",
+      "workflow_profile_compatibility_fallback": false,
+      "workflow_profile_source": "change_create",
+      "workflow_profile_version": 1
+    }
+  ]
+}
+$ cairn gate proposal refresh-self-check-budget-pr38-cli --root . --policy cairn-policy/generated/cairn-policy.json
+{
+  "acceptance_ids": [],
+  "change": "refresh-self-check-budget-pr38-cli",
+  "evidence_summary": {
+    "docs_only": 0,
+    "fixture": 0,
+    "formal": 0,
+    "mode": "advisory",
+    "model": 0,
+    "probe": 0,
+    "property": 0
+  },
+  "input_hash": "500320a6bd2a1921d7aee859771b1678fee5b5fc69d9dfe50da6bb7a4a40c071",
+  "issues": [],
+  "layout": "cairn",
+  "non_claims": [
+    "workflow state proves only the selected policy graph and observed structural artifact facts",
+    "workflow instructions do not prove artifact truth, review quality, or implementation correctness",
+    "workflow state does not satisfy proposal, design, tasks, sync, archive, evidence, or release gates",
+    "workflow commands are read-only and do not create, edit, delete, or approve lifecycle artifacts"
+  ],
+  "policy": "octet-default",
+  "policy_hash": "454b429ad8c48acf7144c1c42d810f0425f23867c2c83b8625af3d42a6895b4c",
+  "policy_selection": {
+    "blake3": "728c4b47495c4469c2cdaa765908fd380732835f489f41a1270b60f36c4ae8e6",
+    "installation_receipt": false,
+    "locator": "cairn-policy/generated/cairn-policy.json",
+    "source": "explicit"
+  },
+  "probe_evidence": null,
+  "profile_identity_hash": "e682c8790c9b1c9bb932c57c7cf2526ffe727b36f1a01d2765f9b30368554e59",
+  "receipt_hash": "b89861e31f83a4b4786829b21e5eee21d27e291a9291c2cffa636428c64180e4",
+  "review_receipt_hashes": [],
+  "spec_effect": "delta",
+  "stage": "proposal",
+  "substance": [
+    {
+      "checkbox_tasks": 0,
+      "kind": "proposal",
+      "malformed_dependency_markers": 0,
+      "path": "./.cairn/changes/refresh-self-check-budget-pr38-cli/proposal.md",
+      "requirement_blocks": 0,
+      "scenario_blocks": 0,
+      "substantive_lines": 7,
+      "substantive_requirement_blocks": 0,
+      "substantive_tasks": 0,
+      "task_done": 0,
+      "task_in_progress": 0,
+      "task_todo": 0
+    }
+  ],
+  "task_ordering": null,
+  "valid": true,
+  "verdict": "PASS",
+  "workflow_profile": "spec-driven",
+  "workflow_profile_compatibility_fallback": false,
+  "workflow_profile_source": "change_create",
+  "workflow_profile_version": 1
+}
+$ cairn gate design refresh-self-check-budget-pr38-cli --root . --policy cairn-policy/generated/cairn-policy.json
+{
+  "acceptance_ids": [],
+  "change": "refresh-self-check-budget-pr38-cli",
+  "evidence_summary": {
+    "docs_only": 0,
+    "fixture": 0,
+    "formal": 0,
+    "mode": "advisory",
+    "model": 0,
+    "probe": 0,
+    "property": 0
+  },
+  "input_hash": "48e9a3dc90ba9384b5e6b89d38814cd0237b032bb19bb2b35102c3dec8b1975a",
+  "issues": [],
+  "layout": "cairn",
+  "non_claims": [
+    "workflow state proves only the selected policy graph and observed structural artifact facts",
+    "workflow instructions do not prove artifact truth, review quality, or implementation correctness",
+    "workflow state does not satisfy proposal, design, tasks, sync, archive, evidence, or release gates",
+    "workflow commands are read-only and do not create, edit, delete, or approve lifecycle artifacts"
+  ],
+  "policy": "octet-default",
+  "policy_hash": "454b429ad8c48acf7144c1c42d810f0425f23867c2c83b8625af3d42a6895b4c",
+  "policy_selection": {
+    "blake3": "728c4b47495c4469c2cdaa765908fd380732835f489f41a1270b60f36c4ae8e6",
+    "installation_receipt": false,
+    "locator": "cairn-policy/generated/cairn-policy.json",
+    "source": "explicit"
+  },
+  "probe_evidence": null,
+  "profile_identity_hash": "e682c8790c9b1c9bb932c57c7cf2526ffe727b36f1a01d2765f9b30368554e59",
+  "receipt_hash": "eb7c2dbc6f8421cae24e5b84e5efe615205d5dcb1dca73ffc6764c7b87fa5c55",
+  "review_receipt_hashes": [],
+  "spec_effect": "delta",
+  "stage": "design",
+  "substance": [
+    {
+      "checkbox_tasks": 0,
+      "kind": "design",
+      "malformed_dependency_markers": 0,
+      "path": "./.cairn/changes/refresh-self-check-budget-pr38-cli/design.md",
+      "requirement_blocks": 0,
+      "scenario_blocks": 0,
+      "substantive_lines": 12,
+      "substantive_requirement_blocks": 0,
+      "substantive_tasks": 0,
+      "task_done": 0,
+      "task_in_progress": 0,
+      "task_todo": 0
+    },
+    {
+      "checkbox_tasks": 0,
+      "kind": "proposal",
+      "malformed_dependency_markers": 0,
+      "path": "./.cairn/changes/refresh-self-check-budget-pr38-cli/proposal.md",
+      "requirement_blocks": 0,
+      "scenario_blocks": 0,
+      "substantive_lines": 7,
+      "substantive_requirement_blocks": 0,
+      "substantive_tasks": 0,
+      "task_done": 0,
+      "task_in_progress": 0,
+      "task_todo": 0
+    },
+    {
+      "checkbox_tasks": 0,
+      "kind": "delta_spec",
+      "malformed_dependency_markers": 0,
+      "path": "./.cairn/changes/refresh-self-check-budget-pr38-cli/specs/self-check/spec.md",
+      "requirement_blocks": 1,
+      "scenario_blocks": 4,
+      "substantive_lines": 20,
+      "substantive_requirement_blocks": 1,
+      "substantive_tasks": 0,
+      "task_done": 0,
+      "task_in_progress": 0,
+      "task_todo": 0
+    }
+  ],
+  "task_ordering": null,
+  "valid": true,
+  "verdict": "PASS",
+  "workflow_profile": "spec-driven",
+  "workflow_profile_compatibility_fallback": false,
+  "workflow_profile_source": "change_create",
+  "workflow_profile_version": 1
+}
+$ cairn gate tasks refresh-self-check-budget-pr38-cli --root . --policy cairn-policy/generated/cairn-policy.json
+{
+  "acceptance_ids": [],
+  "change": "refresh-self-check-budget-pr38-cli",
+  "evidence_summary": {
+    "docs_only": 0,
+    "fixture": 0,
+    "formal": 0,
+    "mode": "advisory",
+    "model": 0,
+    "probe": 0,
+    "property": 0
+  },
+  "input_hash": "1388c1d3d352c38179e4ec1b98945547329e5aedbc79b97a82cb640e5bd20ab5",
+  "issues": [],
+  "layout": "cairn",
+  "non_claims": [
+    "workflow state proves only the selected policy graph and observed structural artifact facts",
+    "workflow instructions do not prove artifact truth, review quality, or implementation correctness",
+    "workflow state does not satisfy proposal, design, tasks, sync, archive, evidence, or release gates",
+    "workflow commands are read-only and do not create, edit, delete, or approve lifecycle artifacts"
+  ],
+  "policy": "octet-default",
+  "policy_hash": "454b429ad8c48acf7144c1c42d810f0425f23867c2c83b8625af3d42a6895b4c",
+  "policy_selection": {
+    "blake3": "728c4b47495c4469c2cdaa765908fd380732835f489f41a1270b60f36c4ae8e6",
+    "installation_receipt": false,
+    "locator": "cairn-policy/generated/cairn-policy.json",
+    "source": "explicit"
+  },
+  "probe_evidence": {
+    "declarations_present": false,
+    "probes": []
+  },
+  "profile_identity_hash": "e682c8790c9b1c9bb932c57c7cf2526ffe727b36f1a01d2765f9b30368554e59",
+  "receipt_hash": "da871200cf4c86889fe7bcab733766e7f72492b3f5a719cf69d2f69de09c6752",
+  "review_receipt_hashes": [],
+  "spec_effect": "delta",
+  "stage": "tasks",
+  "substance": [
+    {
+      "checkbox_tasks": 0,
+      "kind": "design",
+      "malformed_dependency_markers": 0,
+      "path": "./.cairn/changes/refresh-self-check-budget-pr38-cli/design.md",
+      "requirement_blocks": 0,
+      "scenario_blocks": 0,
+      "substantive_lines": 12,
+      "substantive_requirement_blocks": 0,
+      "substantive_tasks": 0,
+      "task_done": 0,
+      "task_in_progress": 0,
+      "task_todo": 0
+    },
+    {
+      "checkbox_tasks": 0,
+      "kind": "proposal",
+      "malformed_dependency_markers": 0,
+      "path": "./.cairn/changes/refresh-self-check-budget-pr38-cli/proposal.md",
+      "requirement_blocks": 0,
+      "scenario_blocks": 0,
+      "substantive_lines": 7,
+      "substantive_requirement_blocks": 0,
+      "substantive_tasks": 0,
+      "task_done": 0,
+      "task_in_progress": 0,
+      "task_todo": 0
+    },
+    {
+      "checkbox_tasks": 0,
+      "kind": "delta_spec",
+      "malformed_dependency_markers": 0,
+      "path": "./.cairn/changes/refresh-self-check-budget-pr38-cli/specs/self-check/spec.md",
+      "requirement_blocks": 1,
+      "scenario_blocks": 4,
+      "substantive_lines": 20,
+      "substantive_requirement_blocks": 1,
+      "substantive_tasks": 0,
+      "task_done": 0,
+      "task_in_progress": 0,
+      "task_todo": 0
+    },
+    {
+      "checkbox_tasks": 5,
+      "kind": "tasks",
+      "malformed_dependency_markers": 0,
+      "path": "./.cairn/changes/refresh-self-check-budget-pr38-cli/tasks.md",
+      "requirement_blocks": 0,
+      "scenario_blocks": 0,
+      "substantive_lines": 9,
+      "substantive_requirement_blocks": 0,
+      "substantive_tasks": 5,
+      "task_done": 5,
+      "task_in_progress": 0,
+      "task_todo": 0
+    }
+  ],
+  "task_ordering": {
+    "active": false,
+    "edges": [],
+    "issues": [],
+    "nodes": [],
+    "order": [],
+    "ready_tasks": [],
+    "valid": true
+  },
+  "valid": true,
+  "verdict": "PASS",
+  "workflow_profile": "spec-driven",
+  "workflow_profile_compatibility_fallback": false,
+  "workflow_profile_source": "change_create",
+  "workflow_profile_version": 1
+}
+$ cairn traceability coverage --root . --policy cairn-policy/generated/cairn-policy.json --profile octet-default --json
+{
+  "command": "traceability coverage",
+  "dangling": [],
+  "input_hash": "749b751d7dc4eebba8598fa68e23fd03e23f23e1b4a3313b4df5ff10307c861b",
+  "missing": [],
+  "policy": "octet-default",
+  "policy_hash": "454b429ad8c48acf7144c1c42d810f0425f23867c2c83b8625af3d42a6895b4c",
+  "profile": {
+    "anchor_kind": "exact_marker_bytes",
+    "assurance_level": "declared",
+    "evidence_sources": [
+      {
+        "extensions": [
+          "rs"
+        ],
+        "root": "cargo-octet/src/baseline.rs",
+        "source_kind": "rust_source"
+      },
+      {
+        "extensions": [
+          "rs"
+        ],
+        "root": "cargo-octet/src/engine.rs",
+        "source_kind": "rust_source"
+      },
+      {
+        "extensions": [
+          "rs"
+        ],
+        "root": "cargo-octet/src/lib.rs",
+        "source_kind": "rust_source"
+      },
+      {
+        "extensions": [
+          "rs"
+        ],
+        "root": "cargo-octet/src/main.rs",
+        "source_kind": "rust_source"
+      },
+      {
+        "extensions": [
+          "rs"
+        ],
+        "root": "cargo-octet/src/admit.rs",
+        "source_kind": "rust_source"
+      },
+      {
+        "extensions": [
+          "rs"
+        ],
+        "root": "cargo-octet/src/artifact.rs",
+        "source_kind": "rust_source"
+      },
+      {
+        "extensions": [
+          "rs"
+        ],
+        "root": "cargo-octet/src/cli.rs",
+        "source_kind": "rust_source"
+      },
+      {
+        "extensions": [
+          "rs"
+        ],
+        "root": "cargo-octet/src/effect_closure.rs",
+        "source_kind": "rust_source"
+      },
+      {
+        "extensions": [
+          "rs"
+        ],
+        "root": "cargo-octet/src/evidence.rs",
+        "source_kind": "rust_source"
+      },
+      {
+        "extensions": [
+          "rs"
+        ],
+        "root": "cargo-octet/src/evidence_chain.rs",
+        "source_kind": "rust_source"
+      },
+      {
+        "extensions": [
+          "rs"
+        ],
+        "root": "cargo-octet/src/function_address.rs",
+        "source_kind": "rust_source"
+      },
+      {
+        "extensions": [
+          "rs"
+        ],
+        "root": "cargo-octet/src/formal_proof_valence_export_fixture.rs",
+        "source_kind": "rust_source"
+      },
+      {
+        "extensions": [
+          "rs"
+        ],
+        "root": "cargo-octet/src/preserves_receipt_export.rs",
+        "source_kind": "rust_source"
+      },
+      {
+        "extensions": [
+          "rs"
+        ],
+        "root": "crates/octet-standards/src/runner.rs",
+        "source_kind": "rust_source"
+      },
+      {
+        "extensions": [
+          "rs"
+        ],
+        "root": "crates/valence-core/src/evidence_codebase_index.rs",
+        "source_kind": "rust_source"
+      },
+      {
+        "extensions": [
+          "rs"
+        ],
+        "root": "src/safety/no_todo.rs",
+        "source_kind": "rust_source"
+      },
+      {
+        "extensions": [
+          "rs"
+        ],
+        "root": "src/safety/public_unsafe_api.rs",
+        "source_kind": "rust_source"
+      },
+      {
+        "extensions": [
+          "rs"
+        ],
+        "root": "tests",
+        "source_kind": "rust_source"
+      },
+      {
+        "extensions": [
+          "md"
+        ],
+        "root": "README.md",
+        "source_kind": "tool_source"
+      },
+      {
+        "extensions": [
+          "md"
+        ],
+        "root": "docs/effect-closure-admission.md",
+        "source_kind": "tool_source"
+      },
+      {
+        "extensions": [
+          "md"
+        ],
+        "root": "docs/formal-proof-valence-export-fixture.md",
+        "source_kind": "tool_source"
+      },
+      {
+        "extensions": [
+          "md"
+        ],
+        "root": "docs/preserves-receipt-export.md",
+        "source_kind": "tool_source"
+      },
+      {
+        "extensions": [
+          "md"
+        ],
+        "root": "docs/self-check-warning-budget.md",
+        "source_kind": "tool_source"
+      },
+      {
+        "extensions": [
+          "md"
+        ],
+        "root": "docs/trust-boundary-evidence.md",
+        "source_kind": "tool_source"
+      }
+    ],
+    "id": "octet-default",
+    "marker_verbs": [
+      "impl",
+      "verify",
+      "depends",
+      "related"
+    ],
+    "requirement_sources": [
+      {
+        "extensions": [
+          "md"
+        ],
+        "root": ".cairn/specs/evidence-provenance/spec.md",
+        "source_kind": "accepted_specs"
+      },
+      {
+        "extensions": [
+          "md"
+        ],
+        "root": ".cairn/specs/effect-closure-admission/spec.md",
+        "source_kind": "accepted_specs"
+      },
+      {
+        "extensions": [
+          "md"
+        ],
+        "root": ".cairn/specs/cob-collaboration-adoption/spec.md",
+        "source_kind": "accepted_specs"
+      },
+      {
+        "extensions": [
+          "md"
+        ],
+        "root": ".cairn/specs/cob-collaboration-conflict-recovery/spec.md",
+        "source_kind": "accepted_specs"
+      },
+      {
+        "extensions": [
+          "md"
+        ],
+        "root": ".cairn/specs/runner-self-check/spec.md",
+        "source_kind": "accepted_specs"
+      },
+      {
+        "extensions": [
+          "md"
+        ],
+        "root": ".cairn/specs/artifact-bundle-verification/spec.md",
+        "source_kind": "accepted_specs"
+      },
+      {
+        "extensions": [
+          "md"
+        ],
+        "root": ".cairn/specs/project-architecture-gate/spec.md",
+        "source_kind": "accepted_specs"
+      }
+    ]
+  },
+  "profile_id": "octet-default",
+  "receipt_hash": "9abfc11393080c0edcd0fa94f529f8848f465f90688896b375f764442d6e07d0",
+  "referenced": 220,
+  "requirements": 220,
+  "root": ".",
+  "source_summary": {
+    "evidence_files": 59,
+    "evidence_manifest_hash": "10e8c4330f13b8d5e431ecd01d0f522be95b6be098f61559b0c92fb8dc901870",
+    "requirement_files": 7,
+    "requirement_manifest_hash": "f79d49bef9c24b5298f16a07bc98c8ce105f517b9db94a1af13d2c3c2fcb89cc"
+  },
+  "valid": true,
+  "verdict": "pass"
+}

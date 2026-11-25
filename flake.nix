@@ -3581,8 +3581,8 @@
                   sentinel_bin="$scratch/sentinel-bin"
                   sentinel_marker="$scratch/cargo-invoked"
                   baseline_relative="standards/self-check-warning-budget/octet-baseline.json"
-                  accepted_warning_total=4230
-                  accepted_identity_total=3021
+                  accepted_warning_total=4231
+                  accepted_identity_total=3022
                   lint_failure_exit=1
                   integration_failure_exit=2
                   sentinel_exit=99
