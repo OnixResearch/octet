@@ -78,6 +78,7 @@ fn run_check(args: &crate::cli::RequirementsCheckArgs) -> Result<i32, String> {
         &contract_bytes,
         &evidence_bytes,
         &args.source_root,
+        args.artifact_base.as_deref(),
     )?;
     output::write_decision(&decision, args.output.as_deref(), args.output_format)?;
     Ok(exit_for_aggregate(&decision.aggregate_result))
@@ -96,6 +97,7 @@ fn run_verify(args: &crate::cli::RequirementsVerifyArgs) -> Result<i32, String> 
         &contract_bytes,
         &evidence_bytes,
         &args.source_root,
+        args.artifact_base.as_deref(),
     )?;
     let mut diagnostics = Vec::new();
     evaluation::verification::compare_decisions(&recorded, &recomputed, &mut diagnostics);
@@ -221,5 +223,52 @@ fn resolve_path(root: &std::path::Path, locator: &str) -> std::path::PathBuf {
         path.to_path_buf()
     } else {
         root.join(path)
+    }
+}
+
+/// Resolves a proof-deck or artifact-root locator against the optional artifact base.
+///
+/// Without a base the locator resolves exactly as it always has, so existing evidence keeps its
+/// decision. With a base, an absolute locator still names the file directly; a relative locator,
+/// or the remainder of an absolute locator that lies inside the base, must stay inside the base.
+/// That rule mirrors Cairn's `deck_relative_path`: empty locators and root, prefix, or
+/// parent-directory components are refused, while `.` and normal components are allowed (the
+/// pilot evidence names its artifact root as `.`).
+fn resolve_artifact_locator(
+    source_root: &std::path::Path,
+    artifact_base: Option<&std::path::Path>,
+    locator: &str,
+    label: &str,
+) -> Result<std::path::PathBuf, String> {
+    let Some(base) = artifact_base else {
+        return Ok(resolve_path(source_root, locator));
+    };
+    let path = std::path::Path::new(locator);
+    let relative = if path.is_absolute() {
+        let base_text = base.to_string_lossy();
+        let prefix = format!("{}/", base_text.trim_end_matches('/'));
+        match locator.strip_prefix(&prefix) {
+            Some(relative) => relative,
+            None => return Ok(path.to_path_buf()),
+        }
+    } else {
+        locator
+    };
+    contained_relative(relative, locator, label).map(|relative| base.join(relative))
+}
+
+fn contained_relative(relative: &str, locator: &str, label: &str) -> Result<std::path::PathBuf, String> {
+    let path = std::path::Path::new(relative);
+    let is_contained = !relative.is_empty()
+        && !path.is_absolute()
+        && path
+            .components()
+            .all(|component| matches!(component, std::path::Component::CurDir | std::path::Component::Normal(_)));
+    if is_contained {
+        Ok(path.to_path_buf())
+    } else {
+        Err(format!(
+            "{label} locator `{locator}` escapes the artifact base: only relative paths inside the base are allowed"
+        ))
     }
 }

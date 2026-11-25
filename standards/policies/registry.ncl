@@ -198,7 +198,7 @@ in
       owner_source_path = "standards/requirements/cairn-pilot/targets.ncl",
       artifact_path = "standards/requirements/cairn-pilot/contract.json",
       generation_command = "nickel export --format json standards/requirements/cairn-pilot/contract.ncl | jq -S . > standards/requirements/cairn-pilot/contract.json",
-      validation_command = "nix develop -c cargo octet requirements check --contract standards/requirements/cairn-pilot/contract.json --evidence standards/requirements/fixtures/cairn-pilot/evidence.json --source-root ../octet-rev --output artifacts/requirements/decision.json --output-format json",
+      validation_command = "nix develop -c cargo octet requirements check --contract standards/requirements/cairn-pilot/contract.json --evidence standards/requirements/fixtures/cairn-pilot/evidence.json --source-root ../octet-rev --artifact-base /datapool/mantle-store/convergence-pilot-20261119/store/zjq6whhf2c641vkz89kgwwpbajjq5cbq-octet-mantle-aeneas-consumer-job-v1 --output artifacts/requirements/decision.json --output-format json",
       status = "existing",
       config_digest_required = true,
       positive_fixtures = ["standards/requirements/cairn-pilot/targets.ncl", "standards/requirements/cairn-pilot/generated.ncl"],

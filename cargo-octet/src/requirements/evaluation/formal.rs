@@ -2,6 +2,7 @@ pub(in crate::requirements) fn evaluate(
     evidence: &super::super::evidence::Bundle,
     clause: &super::super::contract::RequirementClause,
     source_root: &std::path::Path,
+    artifact_base: Option<&std::path::Path>,
     diagnostics: &mut Vec<String>,
 ) -> (String, Vec<String>) {
     let mut evidence_ids = Vec::new();
@@ -9,7 +10,14 @@ pub(in crate::requirements) fn evaluate(
         if !clause.allowed_evidence_ids.contains(&deck.evidence_id) {
             continue;
         }
-        let deck_path = super::super::resolve_path(source_root, &deck.deck);
+        let deck_path =
+            match super::super::resolve_artifact_locator(source_root, artifact_base, &deck.deck, "proof deck") {
+                Ok(path) => path,
+                Err(diagnostic) => {
+                    diagnostics.push(diagnostic);
+                    continue;
+                }
+            };
         let deck_json = match super::super::read_json_bounded::<serde_json::Value>(&deck_path) {
             Ok(value) => value,
             Err(error) => {
@@ -36,7 +44,12 @@ pub(in crate::requirements) fn evaluate(
                 continue;
             }
             let mut card_diagnostics = Vec::new();
-            validate_card(card, clause, &deck.artifact_root, source_root, &mut card_diagnostics);
+            let locators = CardLocators {
+                artifact_root: &deck.artifact_root,
+                source_root,
+                artifact_base,
+            };
+            validate_card(card, clause, locators, &mut card_diagnostics);
             if card_diagnostics.is_empty() {
                 evidence_ids.push(card_id.to_owned());
             } else {
@@ -58,11 +71,18 @@ pub(in crate::requirements) fn evaluate(
     (status.to_owned(), evidence_ids)
 }
 
+/// The three path inputs every proof-card check resolves through.
+#[derive(Clone, Copy)]
+pub(in crate::requirements) struct CardLocators<'a> {
+    pub(in crate::requirements) artifact_root: &'a str,
+    pub(in crate::requirements) source_root: &'a std::path::Path,
+    pub(in crate::requirements) artifact_base: Option<&'a std::path::Path>,
+}
+
 pub(in crate::requirements) fn validate_card(
     card: &serde_json::Value,
     clause: &super::super::contract::RequirementClause,
-    artifact_root: &str,
-    source_root: &std::path::Path,
+    locators: CardLocators<'_>,
     diagnostics: &mut Vec<String>,
 ) {
     let status = card.get("status").and_then(serde_json::Value::as_str).unwrap_or_default();
@@ -107,7 +127,7 @@ pub(in crate::requirements) fn validate_card(
     } else {
         super::negative::validate_control(card, clause, diagnostics);
     }
-    validate_artifacts(card, artifact_root, source_root, diagnostics);
+    validate_artifacts(card, locators.artifact_root, locators.source_root, locators.artifact_base, diagnostics);
     validate_envelope(card, clause, diagnostics);
 }
 
@@ -115,9 +135,17 @@ pub(in crate::requirements) fn validate_artifacts(
     card: &serde_json::Value,
     artifact_root: &str,
     source_root: &std::path::Path,
+    artifact_base: Option<&std::path::Path>,
     diagnostics: &mut Vec<String>,
 ) {
-    let artifact_root = super::super::resolve_path(source_root, artifact_root);
+    let artifact_root =
+        match super::super::resolve_artifact_locator(source_root, artifact_base, artifact_root, "artifact root") {
+            Ok(path) => path,
+            Err(diagnostic) => {
+                diagnostics.push(diagnostic);
+                return;
+            }
+        };
     if let Some(identities) = card.get("artifact_blake3_identities").and_then(serde_json::Value::as_array) {
         for identity in identities {
             let Some(locator) = identity.get("artifact").and_then(serde_json::Value::as_str) else {

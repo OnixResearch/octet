@@ -200,6 +200,11 @@ const EVIDENCE_LOG_CAPTURE_STDOUT: &str = "octet.prove.stdout";
 const EVIDENCE_LOG_CAPTURE_STDERR: &str = "octet.prove.stderr";
 const EVIDENCE_LOG_CLAIM_BOUNDARY: &str =
     "scoped proof rail output only; not whole-program correctness, certification, semantic equivalence, or full safety";
+/// Recorded in a `build-log` bundle's `status.json` and summary: the raw tool output is in the
+/// cargo-octet build log, so this bundle's identity does not bind or vouch for it.
+const BUILD_LOG_NON_CLAIM: &str =
+    "raw tool logs are written to the cargo-octet build log and are not bound by this bundle's identity";
+const BUILD_LOG_RAW_LOG_NON_CLAIMS: &[&str] = &[BUILD_LOG_NON_CLAIM];
 
 #[derive(Debug, Serialize)]
 struct ProveReport {
@@ -300,6 +305,10 @@ struct StatusArtifact {
     status: &'static str,
     output_format: &'static str,
     metadata: StatusMetadata,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    raw_log_retention: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    non_claims: Option<&'static [&'static str]>,
     proofs: Vec<ProofReportRow>,
 }
 
@@ -398,7 +407,7 @@ pub fn run(args: &ProveArgs) -> Result<i32, String> {
     let mut executions = if diagnostics.is_empty() {
         selected_rails
             .iter()
-            .map(|selected| execute_proof(selected, &sources, &working_dir, args.explain))
+            .map(|selected| execute_proof(selected, &sources, &working_dir, args.explain, args.raw_log_retention))
             .collect::<Vec<_>>()
     } else {
         Vec::new()
@@ -588,6 +597,7 @@ fn execute_proof(
     sources: &[SourceFile],
     working_dir: &Path,
     explain: bool,
+    raw_log_retention: crate::cli::RawLogRetention,
 ) -> ExecutedProof {
     let receipt_locator = proof_artifact_locator(selected.policy, selected.rail_index);
     let stdout_locator = proof_log_artifact_locator(selected.policy, selected.rail_index, COMMAND_STDOUT_SUFFIX);
@@ -600,10 +610,27 @@ fn execute_proof(
     diagnostics.extend(outcome.diagnostics.clone());
     diagnostics.extend(proof_failure_diagnostics(selected.rail, &outcome));
 
-    let stdout_artifact =
-        log_artifact(&stdout_locator, &outcome.stdout_text, outcome.stdout_original_bytes, outcome.stdout_truncated);
-    let stderr_artifact =
-        log_artifact(&stderr_locator, &outcome.stderr_text, outcome.stderr_original_bytes, outcome.stderr_truncated);
+    let (stdout_artifact, stderr_artifact) = if raw_log_retention == crate::cli::RawLogRetention::BuildLog {
+        (
+            build_log_artifact(&selected.policy.policy_id, selected.rail_index, COMMAND_STDOUT_SUFFIX),
+            build_log_artifact(&selected.policy.policy_id, selected.rail_index, COMMAND_STDERR_SUFFIX),
+        )
+    } else {
+        (
+            log_artifact(
+                &stdout_locator,
+                &outcome.stdout_text,
+                outcome.stdout_original_bytes,
+                outcome.stdout_truncated,
+            ),
+            log_artifact(
+                &stderr_locator,
+                &outcome.stderr_text,
+                outcome.stderr_original_bytes,
+                outcome.stderr_truncated,
+            ),
+        )
+    };
     let logs = vec![
         captured_proof_log(&stdout_locator, &outcome.stdout_text, &checked_scope, EVIDENCE_LOG_CAPTURE_STDOUT),
         captured_proof_log(&stderr_locator, &outcome.stderr_text, &checked_scope, EVIDENCE_LOG_CAPTURE_STDERR),
@@ -1711,6 +1738,18 @@ fn log_artifact(locator: &str, text: &str, original_bytes: usize, truncated: boo
     }
 }
 
+/// A receipt-required log identity for `build-log` retention. The marker names the rail and
+/// stream and digests only that marker, so the receipt binds no raw tool bytes.
+fn build_log_artifact(policy_id: &str, rail_index: usize, stream: &str) -> VerusLogArtifact {
+    let locator = format!("build-log/{policy_id}-rail-{rail_index}.{stream}");
+    VerusLogArtifact {
+        blake3: crate::evidence::artifact_blake3_hex(locator.as_bytes()),
+        locator,
+        bytes: 0,
+        truncated: false,
+    }
+}
+
 fn captured_proof_log(
     locator: &str,
     text: &str,
@@ -1866,11 +1905,16 @@ fn write_artifacts(
     artifact_root.create_dir_all(&RootRelativePath::new(PROOF_ARTIFACT_DIR_NAME)?)?;
 
     let command_text = format!("{}\n", args.command_line);
-    let status_text = status_text(args.output_format, report)?;
-    let summary_text = summary_text(report, &args.command_line, goal_states, executions);
+    let status_text = status_text(args.output_format, report, args.raw_log_retention)?;
+    let summary_text = summary_text(report, &args.command_line, goal_states, executions, args.raw_log_retention)?;
     let proof_cards_text = proof_cards_text(executions)?;
     let provenance_text = provenance_text(&command_text, &status_text, &summary_text, &proof_cards_text, executions)?;
-    let evidence_log_manifest_text = evidence_log_manifest_text(&args.command_line, executions)?;
+    let is_build_log_mode = args.raw_log_retention == crate::cli::RawLogRetention::BuildLog;
+    let evidence_log_manifest_text = if is_build_log_mode {
+        None
+    } else {
+        evidence_log_manifest_text(&args.command_line, executions)?
+    };
 
     write_artifact_text(&artifact_root, COMMAND_ARTIFACT_NAME, &command_text)?;
     write_artifact_text(&artifact_root, STATUS_ARTIFACT_NAME, &status_text)?;
@@ -1885,14 +1929,95 @@ fn write_artifacts(
         for artifact in &execution.extra_artifacts {
             write_artifact_bytes(&artifact_root, &artifact.locator, &artifact.contents)?;
         }
-        for log in &execution.logs {
-            write_artifact_text(&artifact_root, &log.locator, &log.text)?;
+        if is_build_log_mode {
+            emit_raw_log_to_build_log(execution)?;
+        } else {
+            for log in &execution.logs {
+                write_artifact_text(&artifact_root, &log.locator, &log.text)?;
+            }
         }
     }
     Ok(())
 }
 
-fn status_text(output_format: OutputFormat, report: &ProveReport) -> Result<String, String> {
+const BUILD_LOG_FRAME_PREFIX: &str = "cargo-octet prove raw log";
+const AENEAS_STAGE_MARKERS: &[&str] = &["[charon]", "[aeneas]", "[lean]"];
+
+/// Frames one captured raw log for the build log. The header names the rail, stage and stream so
+/// interleaved stages stay attributable without relying on timing or ordering.
+fn build_log_frame(rail_id: &str, stage: &str, stream: &str, text: &str) -> Result<String, String> {
+    let mut framed = format!("=== {BUILD_LOG_FRAME_PREFIX} rail={rail_id} stage={stage} stream={stream} ===\n");
+    framed.push_str(text);
+    if !text.is_empty() && !text.ends_with('\n') {
+        framed.push('\n');
+    }
+    writeln!(framed, "=== end {BUILD_LOG_FRAME_PREFIX} rail={rail_id} stage={stage} stream={stream} ===")
+        .map_err(build_log_write_error)?;
+    Ok(framed)
+}
+
+/// Formats the unreachable observation of a failed frame write, so the caller propagates it
+/// instead of discarding or unwrapping the `fmt::Result`.
+fn build_log_write_error(error: std::fmt::Error) -> String {
+    format!("write build-log frame: {error}")
+}
+
+/// Splits an Aeneas rail capture on its stage markers so each stage keeps its own frame. Any
+/// capture without a recognized marker, and every non-Aeneas rail, stays one `command` block.
+fn raw_log_stage_blocks<'a>(backend: &str, text: &'a str) -> Vec<(&'static str, &'a str)> {
+    if backend != AENEAS_LEAN_BACKEND {
+        return vec![("command", text)];
+    }
+    let mut starts = Vec::with_capacity(AENEAS_STAGE_MARKERS.len().saturating_mul(4));
+    for marker in AENEAS_STAGE_MARKERS {
+        let stage: &'static str = match *marker {
+            "[charon]" => "charon",
+            "[aeneas]" => "aeneas",
+            _ => "lean",
+        };
+        let header = format!("{marker}\n");
+        let mut search_from = 0;
+        while let Some(offset) = text[search_from..].find(&header) {
+            let start = search_from + offset;
+            starts.push((start, stage, header.len()));
+            search_from = start + header.len();
+        }
+    }
+    if starts.is_empty() {
+        return vec![("command", text)];
+    }
+    starts.sort_by_key(|(start, _, _)| *start);
+    let mut blocks = Vec::with_capacity(starts.len());
+    for (index, (start, stage, header_len)) in starts.iter().enumerate() {
+        let body_start = start + header_len;
+        let body_end = starts.get(index + 1).map_or(text.len(), |(next, _, _)| *next);
+        blocks.push((*stage, &text[body_start..body_end]));
+    }
+    blocks
+}
+
+/// Writes each rail's raw capture to cargo-octet's stderr, framed per stage and stream, so it
+/// lands in the build log of whoever runs the job instead of the content-addressed bundle.
+fn emit_raw_log_to_build_log(execution: &ExecutedProof) -> Result<(), String> {
+    let rail_id = format!("{}#rail-{}", execution.row.policy_id, execution.row.rail_index);
+    for log in &execution.logs {
+        let stream = if log.capture_source == EVIDENCE_LOG_CAPTURE_STDOUT {
+            "stdout"
+        } else {
+            "stderr"
+        };
+        for (stage, block) in raw_log_stage_blocks(&execution.row.backend, &log.text) {
+            eprint!("{}", build_log_frame(&rail_id, stage, stream, block)?);
+        }
+    }
+    Ok(())
+}
+
+fn status_text(
+    output_format: OutputFormat,
+    report: &ProveReport,
+    raw_log_retention: crate::cli::RawLogRetention,
+) -> Result<String, String> {
     let artifact = StatusArtifact {
         schema_version: STATUS_SCHEMA_VERSION,
         bundle_kind: BUNDLE_KIND_PROVE,
@@ -1901,6 +2026,10 @@ fn status_text(output_format: OutputFormat, report: &ProveReport) -> Result<Stri
         metadata: StatusMetadata {
             profile_name: PROVE_PROFILE_NAME,
         },
+        raw_log_retention: (raw_log_retention == crate::cli::RawLogRetention::BuildLog)
+            .then(|| raw_log_retention.as_str()),
+        non_claims: (raw_log_retention == crate::cli::RawLogRetention::BuildLog)
+            .then_some(BUILD_LOG_RAW_LOG_NON_CLAIMS),
         proofs: report.proofs.clone(),
     };
     json_text(&artifact)
@@ -1911,19 +2040,39 @@ fn summary_text(
     replay_command: &str,
     goal_states: &[ProofGoalState],
     executions: &[ExecutedProof],
-) -> String {
+    raw_log_retention: crate::cli::RawLogRetention,
+) -> Result<String, String> {
     let mut text = format!(
         "octet prove status={} proofs={} diagnostics={}\n",
         report.status,
         report.proofs.len(),
         report.diagnostics.len()
     );
-    writeln!(&mut text, "replay_command: {replay_command}").expect("write replay command summary to string");
-    writeln!(&mut text, "claim_boundary: {EVIDENCE_LOG_CLAIM_BOUNDARY}")
-        .expect("write claim boundary summary to string");
+    writeln!(&mut text, "replay_command: {replay_command}").map_err(summary_write_error)?;
+    writeln!(&mut text, "claim_boundary: {EVIDENCE_LOG_CLAIM_BOUNDARY}").map_err(summary_write_error)?;
+    if raw_log_retention == crate::cli::RawLogRetention::BuildLog {
+        writeln!(&mut text, "raw_log_retention: {}", raw_log_retention.as_str()).map_err(summary_write_error)?;
+        writeln!(&mut text, "raw_log_non_claim: {BUILD_LOG_NON_CLAIM}").map_err(summary_write_error)?;
+    }
+    summary_proof_lines(&mut text, report)?;
+    summary_goal_state_lines(&mut text, goal_states)?;
+    summary_evidence_log_lines(&mut text, replay_command, executions, raw_log_retention)?;
+    for diagnostic in &report.diagnostics {
+        writeln!(&mut text, "diagnostic: {diagnostic}").map_err(summary_write_error)?;
+    }
+    Ok(text)
+}
+
+/// Formats the unreachable observation of a failed write into an owned `String`, so callers
+/// propagate it instead of discarding or unwrapping the `fmt::Result`.
+fn summary_write_error(error: std::fmt::Error) -> String {
+    format!("write prove summary: {error}")
+}
+
+fn summary_proof_lines(text: &mut String, report: &ProveReport) -> Result<(), String> {
     for proof in &report.proofs {
         writeln!(
-            &mut text,
+            text,
             "proof policy_id={} rail_index={} backend={} verifier_mode={} status={} receipt={} checked_scope={}",
             proof.policy_id,
             proof.rail_index,
@@ -1933,11 +2082,15 @@ fn summary_text(
             proof.receipt,
             proof.checked_scope
         )
-        .expect("write proof summary to string");
+        .map_err(summary_write_error)?;
     }
+    Ok(())
+}
+
+fn summary_goal_state_lines(text: &mut String, goal_states: &[ProofGoalState]) -> Result<(), String> {
     for goal_state in goal_states {
         writeln!(
-            &mut text,
+            text,
             "proof_goal_state schema_version={} goal_id={} claim_id={} satisfied_evidence={} missing_obligations={} blockers={} emits_formal_proof={}",
             goal_state.schema_version,
             goal_state.goal_id,
@@ -1947,23 +2100,34 @@ fn summary_text(
             goal_state.blockers.len(),
             goal_state.emits_formal_proof
         )
-        .expect("write proof goal-state summary to string");
+        .map_err(summary_write_error)?;
         for missing in &goal_state.missing_obligations {
-            writeln!(&mut text, "proof_goal_state missing_obligation: {missing}")
-                .expect("write proof goal-state missing obligation to string");
+            writeln!(text, "proof_goal_state missing_obligation: {missing}").map_err(summary_write_error)?;
         }
         for blocker in &goal_state.blockers {
-            writeln!(&mut text, "proof_goal_state blocker: {blocker}")
-                .expect("write proof goal-state blocker to string");
+            writeln!(text, "proof_goal_state blocker: {blocker}").map_err(summary_write_error)?;
         }
         for remediation in &goal_state.remediation_commands {
-            writeln!(&mut text, "proof_goal_state remediation: {remediation}")
-                .expect("write proof goal-state remediation to string");
+            writeln!(text, "proof_goal_state remediation: {remediation}").map_err(summary_write_error)?;
         }
     }
-    for entry in evidence_log_entries(replay_command, executions) {
+    Ok(())
+}
+
+fn summary_evidence_log_lines(
+    text: &mut String,
+    replay_command: &str,
+    executions: &[ExecutedProof],
+    raw_log_retention: crate::cli::RawLogRetention,
+) -> Result<(), String> {
+    let log_entries = if raw_log_retention == crate::cli::RawLogRetention::Bundle {
+        evidence_log_entries(replay_command, executions)
+    } else {
+        Vec::new()
+    };
+    for entry in log_entries {
         writeln!(
-            &mut text,
+            text,
             "evidence_log artifact={} blake3={} bytes={} checked_scope={} capture_source={} retention={} claim_boundary={}",
             entry.artifact_locator,
             entry.blake3,
@@ -1973,14 +2137,10 @@ fn summary_text(
             entry.retention,
             EVIDENCE_LOG_CLAIM_BOUNDARY
         )
-        .expect("write evidence log summary to string");
-        writeln!(&mut text, "evidence_log replay_command: {}", entry.replay_command)
-            .expect("write evidence log replay command to string");
+        .map_err(summary_write_error)?;
+        writeln!(text, "evidence_log replay_command: {}", entry.replay_command).map_err(summary_write_error)?;
     }
-    for diagnostic in &report.diagnostics {
-        writeln!(&mut text, "diagnostic: {diagnostic}").expect("write diagnostic summary to string");
-    }
-    text
+    Ok(())
 }
 
 fn proof_goal_state_for_execution(args: &ProveArgs, execution: &ExecutedProof) -> ProofGoalState {
@@ -3120,6 +3280,7 @@ mod tests {
             proof_refs: Vec::new(),
             trust_boundary: None,
             negative_check: None,
+            raw_log_retention: crate::cli::RawLogRetention::default(),
         })
         .expect("prove run");
         assert_eq!(code, EXIT_PROOF_VALID);
@@ -3161,6 +3322,7 @@ mod tests {
             proof_refs: Vec::new(),
             trust_boundary: None,
             negative_check: None,
+            raw_log_retention: crate::cli::RawLogRetention::default(),
         })
         .expect("prove run");
 
@@ -3396,6 +3558,7 @@ mod tests {
             proof_refs: Vec::new(),
             trust_boundary: None,
             negative_check: None,
+            raw_log_retention: crate::cli::RawLogRetention::default(),
         })
         .expect("prove run");
 
@@ -3436,6 +3599,7 @@ mod tests {
             proof_refs: Vec::new(),
             trust_boundary: None,
             negative_check: None,
+            raw_log_retention: crate::cli::RawLogRetention::default(),
         })
         .expect("prove run");
 
@@ -3575,6 +3739,7 @@ mod tests {
             proof_refs: Vec::new(),
             trust_boundary: None,
             negative_check: None,
+            raw_log_retention: crate::cli::RawLogRetention::default(),
         })
         .expect("prove run");
 
@@ -3659,6 +3824,7 @@ mod tests {
             proof_refs: Vec::new(),
             trust_boundary: None,
             negative_check: None,
+            raw_log_retention: crate::cli::RawLogRetention::default(),
         })
         .expect("prove run");
         assert_eq!(code, EXIT_PROOF_INVALID);
@@ -3886,6 +4052,7 @@ mod tests {
             proof_refs: Vec::new(),
             trust_boundary: None,
             negative_check: None,
+            raw_log_retention: crate::cli::RawLogRetention::default(),
         })
         .expect("prove run");
 
@@ -3919,6 +4086,7 @@ mod tests {
             proof_refs: Vec::new(),
             trust_boundary: None,
             negative_check: None,
+            raw_log_retention: crate::cli::RawLogRetention::default(),
         })
         .expect("prove run");
 
@@ -3952,6 +4120,7 @@ mod tests {
             proof_refs: Vec::new(),
             trust_boundary: None,
             negative_check: None,
+            raw_log_retention: crate::cli::RawLogRetention::default(),
         })
         .expect("prove run");
 
@@ -3986,6 +4155,7 @@ mod tests {
             proof_refs: Vec::new(),
             trust_boundary: None,
             negative_check: None,
+            raw_log_retention: crate::cli::RawLogRetention::default(),
         })
         .expect("prove list");
 
@@ -4467,6 +4637,203 @@ mod tests {
         assert_eq!(payload.limits.timeout_ms, DEFAULT_PROOF_TIMEOUT_MS);
     }
 
+    /// Runs one fake-Aeneas prove bundle. The fake provider executables are passed through the
+    /// same environment variables the shell uses, serialized so parallel tests cannot interleave
+    /// their provider paths.
+    #[cfg(unix)]
+    fn run_fake_aeneas_prove(
+        root: &Path,
+        artifact_dir: &Path,
+        retention: crate::cli::RawLogRetention,
+        charon_body: &str,
+        lean_body: &str,
+    ) -> Result<i32, String> {
+        use crate::aeneas_execution::fake_provider;
+
+        static AENEAS_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        let _guard = AENEAS_ENV_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let theorem = fake_provider::real_theorem();
+        let mut rail = fake_provider::rail("Theorem.lean", &theorem);
+        rail.receipt_verifier.verifier_id = "aeneas-lean@fixture".to_owned();
+        let source_root = fake_provider::source_root(root, "Theorem.lean", &theorem);
+        let provider = fake_provider::provider(
+            &root.join("provider"),
+            charon_body,
+            &fake_provider::replay_translation(),
+            lean_body,
+        );
+        let mut policy = fixture_policy_stub();
+        policy.policy_id = "octet.test.aeneas_raw_log".to_owned();
+        policy.proof_rails = vec![rail];
+        let registry = PolicyRegistry {
+            schema_version: "test".to_owned(),
+            checker_ids: vec![CHECKER_OCTET_STANDARDS.to_owned()],
+            policies: vec![policy],
+            seed_manifests: Vec::new(),
+            config_receipt_families: Vec::new(),
+        };
+        let registry_path = root.join("registry-aeneas-raw-log.json");
+        fs::write(&registry_path, serde_json::to_string_pretty(&registry).expect("registry json"))
+            .expect("write registry");
+        for (name, path) in [
+            ("OCTET_AENEAS_CHARON", provider.charon),
+            ("OCTET_AENEAS_AENEAS", provider.aeneas),
+            ("OCTET_AENEAS_LEAN", provider.lean),
+            ("OCTET_AENEAS_LEAN_LIBRARY", provider.aeneas_lean_library),
+            ("OCTET_AENEAS_NETWORK_SANDBOX", provider.network_sandbox),
+        ] {
+            // SAFETY: the test-only lock above serializes every writer in this test binary.
+            unsafe { std::env::set_var(name, path) };
+        }
+        run(&ProveArgs {
+            registry: Some(registry_path),
+            policy_artifacts_dir: None,
+            source: vec![source_root.join("src/lib.rs")],
+            family: Vec::new(),
+            rail: Vec::new(),
+            artifact_dir: artifact_dir.to_path_buf(),
+            output_format: OutputFormat::Json,
+            command_line: "cargo octet prove fixture".to_owned(),
+            list: false,
+            explain: false,
+            candidates: false,
+            proof_cards: None,
+            proof_refs: Vec::new(),
+            trust_boundary: None,
+            negative_check: None,
+            raw_log_retention: retention,
+        })
+    }
+
+    fn read_bundle_tree(root: &Path) -> BTreeMap<String, Vec<u8>> {
+        fn walk(root: &Path, directory: &Path, files: &mut BTreeMap<String, Vec<u8>>) {
+            let mut entries = fs::read_dir(directory)
+                .expect("read artifact directory")
+                .collect::<Result<Vec<_>, _>>()
+                .expect("read artifact entries");
+            entries.sort_by_key(std::fs::DirEntry::path);
+            for entry in entries {
+                let path = entry.path();
+                if path.is_dir() {
+                    walk(root, &path, files);
+                } else {
+                    let relative = path.strip_prefix(root).expect("relative artifact").display().to_string();
+                    files.insert(relative, fs::read(&path).expect("read artifact"));
+                }
+            }
+        }
+        let mut files = BTreeMap::new();
+        walk(root, root, &mut files);
+        files
+    }
+
+    // r[verify octet.prove_raw_log_retention.retention]
+    #[cfg(unix)]
+    #[test]
+    fn build_log_mode_keeps_raw_logs_out_of_the_bundle() {
+        use crate::aeneas_execution::fake_provider;
+
+        let temp = tempfile::tempdir().expect("tempdir");
+        let artifact_dir = temp.path().join("artifacts");
+        let code = run_fake_aeneas_prove(
+            temp.path(),
+            &artifact_dir,
+            crate::cli::RawLogRetention::BuildLog,
+            &fake_provider::replay_llbc(),
+            &fake_provider::lean_checks_real_theorem(),
+        )
+        .expect("prove run");
+        assert_eq!(code, EXIT_PROOF_VALID, "bundle: {:?}", read_bundle_tree(&artifact_dir).keys());
+
+        let files = read_bundle_tree(&artifact_dir);
+        assert!(!files.contains_key(crate::evidence_log::EVIDENCE_LOG_MANIFEST_ARTIFACT));
+        assert!(
+            !files.keys().any(|locator| {
+                locator.starts_with("proofs/") && (locator.ends_with(".stdout") || locator.ends_with(".stderr"))
+            }),
+            "raw logs leaked into the bundle: {:?}",
+            files.keys()
+        );
+        let status: serde_json::Value = serde_json::from_slice(&files[STATUS_ARTIFACT_NAME]).expect("status json");
+        assert_eq!(status["raw_log_retention"], serde_json::json!("build-log"));
+        assert_eq!(status["non_claims"], serde_json::json!([BUILD_LOG_NON_CLAIM]));
+        let summary = String::from_utf8(files[SUMMARY_ARTIFACT_NAME].clone()).expect("summary utf8");
+        assert!(summary.contains("raw_log_retention: build-log"));
+        assert!(summary.contains(&format!("raw_log_non_claim: {BUILD_LOG_NON_CLAIM}")));
+        assert!(!summary.contains("evidence_log artifact="));
+
+        let report = verify_bundle(bundle_input(&artifact_dir));
+        assert_eq!(report.status, "valid", "unexpected diagnostics: {:?}", report.diagnostics);
+    }
+
+    // r[verify octet.prove_raw_log_retention.reproducibility]
+    #[cfg(unix)]
+    #[test]
+    fn build_log_mode_is_byte_reproducible_where_bundle_mode_is_not() {
+        use crate::aeneas_execution::fake_provider;
+
+        let temp = tempfile::tempdir().expect("tempdir");
+        let first_timing =
+            format!("printf '[n/3] Built A (1.0s)\\n[n/3] Built B (2.0s)\\n'\n{}", fake_provider::replay_llbc());
+        let second_timing =
+            format!("printf '[n/3] Built B (9.0s)\\n[n/3] Built A (3.0s)\\n'\n{}", fake_provider::replay_llbc());
+        let lean = fake_provider::lean_checks_real_theorem();
+
+        let mut build_log_bundles = Vec::new();
+        for (index, timing) in [&first_timing, &second_timing].into_iter().enumerate() {
+            let artifact_dir = temp.path().join(format!("build-log-{index}"));
+            let code =
+                run_fake_aeneas_prove(temp.path(), &artifact_dir, crate::cli::RawLogRetention::BuildLog, timing, &lean)
+                    .expect("build-log prove run");
+            assert_eq!(code, EXIT_PROOF_VALID);
+            build_log_bundles.push(read_bundle_tree(&artifact_dir));
+        }
+        assert_eq!(build_log_bundles[0], build_log_bundles[1], "build-log bundles must not depend on tool timing");
+
+        let mut raw_bundles = Vec::new();
+        for (index, timing) in [&first_timing, &second_timing].into_iter().enumerate() {
+            let artifact_dir = temp.path().join(format!("bundle-{index}"));
+            let code =
+                run_fake_aeneas_prove(temp.path(), &artifact_dir, crate::cli::RawLogRetention::Bundle, timing, &lean)
+                    .expect("bundle prove run");
+            assert_eq!(code, EXIT_PROOF_VALID);
+            raw_bundles.push(read_bundle_tree(&artifact_dir));
+        }
+        assert_ne!(
+            raw_bundles[0], raw_bundles[1],
+            "bundle mode must expose the tool-timing variance build-log mode removes"
+        );
+    }
+
+    // r[verify octet.prove_raw_log_retention.retention]
+    #[cfg(unix)]
+    #[test]
+    fn build_log_mode_still_fails_the_stage_on_a_sorry_warning() {
+        use crate::aeneas_execution::fake_provider;
+
+        let temp = tempfile::tempdir().expect("tempdir");
+        let artifact_dir = temp.path().join("artifacts");
+        let lean = fake_provider::lean_checks_real_theorem()
+            .replace("build) ;;", "build) printf '%s\\n' 'warning: Theorem.lean:2:16: declaration uses `sorry`' ;;");
+        assert!(lean.contains("declaration uses `sorry`"));
+        let code = run_fake_aeneas_prove(
+            temp.path(),
+            &artifact_dir,
+            crate::cli::RawLogRetention::BuildLog,
+            &fake_provider::replay_llbc(),
+            &lean,
+        )
+        .expect("prove run");
+        assert_eq!(code, EXIT_PROOF_INVALID);
+        let status: serde_json::Value =
+            serde_json::from_slice(&fs::read(artifact_dir.join(STATUS_ARTIFACT_NAME)).expect("read status"))
+                .expect("status json");
+        assert_eq!(status["status"], serde_json::json!("failed"));
+        assert_eq!(status["proofs"][0]["status"], serde_json::json!("failed"));
+        let summary = fs::read_to_string(artifact_dir.join(SUMMARY_ARTIFACT_NAME)).expect("summary");
+        assert!(summary.contains("sorry"), "{summary}");
+    }
+
     fn fixture_args(registry: PathBuf, source: Vec<PathBuf>, artifact_dir: PathBuf) -> ProveArgs {
         ProveArgs {
             registry: Some(registry),
@@ -4484,6 +4851,7 @@ mod tests {
             proof_refs: Vec::new(),
             trust_boundary: None,
             negative_check: None,
+            raw_log_retention: crate::cli::RawLogRetention::default(),
         }
     }
 
@@ -4497,7 +4865,7 @@ mod tests {
             rail_index: 0,
             rail: &policy.proof_rails[0],
         };
-        let execution = execute_proof(&selected, &sources, &working_dir, false);
+        let execution = execute_proof(&selected, &sources, &working_dir, false, crate::cli::RawLogRetention::default());
         assert!(execution.row.diagnostics.is_empty(), "fixture proof failed: {:?}", execution.row.diagnostics);
         (fixture_args(root.join("registry.json"), source_paths, root.join("artifacts")), execution)
     }
@@ -4522,6 +4890,7 @@ mod tests {
             proof_refs: Vec::new(),
             trust_boundary: None,
             negative_check: None,
+            raw_log_retention: crate::cli::RawLogRetention::default(),
         })
         .expect("prove run");
         assert_eq!(code, EXIT_PROOF_INVALID);
@@ -4551,6 +4920,7 @@ mod tests {
             proof_refs: Vec::new(),
             trust_boundary: None,
             negative_check: None,
+            raw_log_retention: crate::cli::RawLogRetention::default(),
         })
         .expect("prove run");
         assert_eq!(code, EXIT_PROOF_INVALID);

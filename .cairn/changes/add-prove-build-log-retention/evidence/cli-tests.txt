@@ -1,0 +1,57 @@
+$ cargo test -p cargo-octet --lib cli::
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.44s
+     Running unittests src/lib.rs (/datapool/mantle-store/followups-20261122/octet-repro-target-plain/debug/deps/cargo_octet-04ecd70e4940c095)
+
+running 50 tests
+test cli::tests::check_parse_accepts_one_strict_profile_selection ... ok
+test cli::tests::binary_debug_map_collect_parse_binds_explicit_companion_and_linkage_inputs ... ok
+test cli::tests::evidence_collect_parse_accepts_import_bundle_options_and_rejects_sarif ... ok
+test cli::tests::admission_parse_requires_explicit_profile_and_closure ... ok
+test cli::tests::command_line_quoting_matches_contract ... ok
+test cli::tests::admission_verify_parse_requires_artifact_dir_and_rejects_sarif ... ok
+test cli::tests::admission_parse_accepts_optional_kamacite_profile_once ... ok
+test cli::tests::evidence_index_codebase_parse_accepts_build_query_and_html ... ok
+test cli::tests::evidence_index_codebase_parse_rejects_missing_inputs ... ok
+test cli::tests::admission_help_does_not_overclaim_comparison_authority ... ok
+test cli::tests::evidence_index_parse_accepts_each_action_own_flags ... ok
+test cli::tests::admission_verify_parse_requires_auth_inputs_together ... ok
+test cli::tests::check_parse_accepts_function_address_adoption_options ... ok
+test cli::tests::evidence_index_parse_rejects_other_actions_flags ... ok
+test cli::tests::benchmark_parse_accepts_recorded_execute_and_verify_modes ... ok
+test cli::tests::fingerprint_parse_accepts_compatibility_alias ... ok
+test cli::tests::prove_parse_defaults_artifact_dir_to_proof_bundle_directory ... ok
+test cli::tests::fingerprint_parse_accepts_default_check ... ok
+test cli::tests::help_parse_accepts_root_and_subcommand_help ... ok
+test cli::tests::object_parse_accepts_corpus_contract ... ok
+test cli::tests::object_parse_accepts_corpus_receipt ... ok
+test cli::tests::object_parse_accepts_emit_selection ... ok
+test cli::tests::object_parse_accepts_supplement_emit_and_check ... ok
+test cli::tests::object_parse_accepts_supplement_fixture_inventory ... ok
+test cli::tests::fingerprint_parse_rejects_conflicting_or_repeated_modes ... ok
+test cli::tests::prove_parse_rejects_candidate_only_flags_in_run_mode ... ok
+test cli::tests::migrate_parse_rejects_sarif_before_any_write ... ok
+test cli::tests::migrate_session_parse_accepts_apply_manifest_and_dry_run ... ok
+test cli::tests::migrate_parse_rejects_flags_outside_selected_mode ... ok
+test cli::tests::migrate_session_parse_rejects_missing_session_or_manifest ... ok
+test cli::tests::spacewasm_collect_parse_accepts_external_reports_and_rejects_missing_path ... ok
+test cli::tests::object_parse_accepts_corpus_caveats ... ok
+test cli::tests::starter_check_parse_stays_separate_from_dynamic_evidence ... ok
+test cli::tests::object_bundle_parse_accepts_inline_and_separate_values ... ok
+test cli::tests::object_parse_accepts_corpus_check ... ok
+test cli::tests::proof_ref_parse_accepts_scaffold_args ... ok
+test cli::tests::proof_ref_parse_accepts_validate_paths_and_json_output ... ok
+test cli::tests::object_pointer_and_bundle_parse_reject_unknown_flags_and_flag_values ... ok
+test cli::tests::octet_config_and_command_paths ... ok
+test cli::tests::octet_identity_surfaces ... ok
+test cli::tests::proof_ref_parse_rejects_sarif_and_help_is_bounded ... ok
+test cli::tests::prove_parse_accepts_candidate_mode_without_registry ... ok
+test cli::tests::prove_parse_accepts_rail_selector ... ok
+test cli::tests::prove_parse_accepts_record_negative_check_mode ... ok
+test cli::tests::provider_manifest_parse_accepts_export ... ok
+test cli::tests::provider_manifest_parse_rejects_missing_driver ... ok
+test cli::tests::requirements_parse_rejects_unknown_or_missing_arguments ... ok
+test cli::tests::version_parse_accepts_root_version_aliases ... ok
+test cli::tests::requirements_parse_accepts_check_verify_and_freshness ... ok
+test cli::tests::artifact_verify_parse_accepts_dir_json_report_and_valence_export ... ok
+
+test result: ok. 50 passed; 0 failed; 0 ignored; 0 measured; 927 filtered out; finished in 0.04s

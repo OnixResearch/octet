@@ -2,7 +2,7 @@
   "schema_version": "octet-requirement-decision/v1",
   "contract_id": "octet.cairn-pilot.aeneas-consumer",
   "contract_blake3": "56d7f459cc59ddfcdc31d42b86d6c0cef9ae3c03d8a9673ba6d6fb0a66e8eb3e",
-  "evidence_blake3": "5c620f8cd64cd5872bdad7e5af7f82cef8e6f81426c46852c20d6440eb2d5293",
+  "evidence_blake3": "7f7da1fffe6a5175d4c77f5869e9ce5a7c12ff5812921c4f4119f8f4a390935b",
   "source_snapshot_blake3": "84c2dbde41baca71e4889b30300bb146f905bf9874c44ab2bdbe755d27e36dd4",
   "reviewed_specification": {
     "path": ".cairn/specs/aeneas-consumer-contract/spec.md",
@@ -48,5 +48,5 @@
     "evaluates supplied reviewed contracts and evidence only; does not authenticate reviewers or producers, prove verifier soundness, or establish whole-program correctness",
     "phase-1 pilot non-claim: the evidence is a fixture theorem over a fixture rail; it is not a production theorem, not whole-program correctness, and not release eligibility"
   ],
-  "decision_blake3": "906cc950af8318c420b9c8188f325aede254fe2c54360b4881c5c87f2d4f9a45"
+  "decision_blake3": "e7f07cd37d8fe03b5a6792797136518ef3b2d623fe57ab42b336c84fbf729d5b"
 }

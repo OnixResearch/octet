@@ -1,0 +1,87 @@
+# Test bodies for the eight mkObjectRail filters, run locally on the exact recaptured bytes.
+# date: 2026-11-23
+# harness: /home/brittonr/.cargo-target/debug/deps/fingerprint_consumer-ee7aafd563e5cad9  (fingerprint_consumer test binary built in this worktree)
+# binary under test: CARGO_BIN_EXE_cargo-octet = $HOME/.cargo-target/debug/cargo-octet (cargo-octet 0.1.1-rc.1)
+# Prepared before the owner decision; the manifest bytes did not change afterward.
+# These are direct test-harness results, not Nix child or aggregate gate results.
+# Final decision-gate and tamper checks are in reviewed-source-verifier.txt.
+
+### rail filter: object_internal_corpus
+
+running 1 test
+test object_internal_corpus_matches_reviewed_source_reference_and_rejects_tamper ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 67 filtered out; finished in 7.61s
+
+### exit: 0
+
+### rail filter: object_corpus_compatibility
+
+running 6 tests
+test object_corpus_compatibility_source_selection_fixtures_fail_closed ... ok
+test object_corpus_compatibility_historical_v1_is_stale_under_v2 ... ok
+test object_corpus_compatibility_boundary_tamper_fixture_fails_closed ... ok
+test object_corpus_compatibility_positive_v2_replays_and_rejects_source_and_boundary_drift ... ok
+test object_corpus_compatibility_negative_fixtures_fail_closed ... ok
+test object_corpus_compatibility_preserves_v1_artifact_read ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 62 filtered out; finished in 0.02s
+
+### exit: 0
+
+### rail filter: caveat_taxonomy
+
+running 1 test
+test object_caveat_taxonomy_matches_reviewed_expanded_reference_and_detects_added_function ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 67 filtered out; finished in 12.35s
+
+### exit: 0
+
+### rail filter: matches_fresh
+
+running 1 test
+test object_corpus_matches_fresh_reviewed_references_and_rejects_missing_receipt ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 67 filtered out; finished in 10.03s
+
+### exit: 0
+
+### rail filter: supplement_compatibility
+
+running 1 test
+test object_supplement_compatibility_marker_and_bounded_families_reject_tamper ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 67 filtered out; finished in 1.21s
+
+### exit: 0
+
+### rail filter: thir_inventory
+
+running 1 test
+test object_thir_inventory_call_return_replay_rejects_true_boundary ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 67 filtered out; finished in 0.21s
+
+### exit: 0
+
+### rail filter: mir_fixture
+
+running 1 test
+test object_mir_fixture_checked_arithmetic_replay_rejects_observation_tamper ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 67 filtered out; finished in 0.26s
+
+### exit: 0
+
+### rail filter: mir_inventory
+
+running 1 test
+test object_mir_inventory_branch_source_replay_rejects_wrong_path ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 67 filtered out; finished in 0.16s
+
+### exit: 0
+
+# fresh-build parity: $HOME/.cargo-target/debug/cargo-octet reproduces all three
+# re-captured references and positive-v2-receipt.json byte-for-byte.

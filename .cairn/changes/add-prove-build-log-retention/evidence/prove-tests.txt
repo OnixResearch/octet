@@ -1,0 +1,51 @@
+$ cargo test -p cargo-octet --lib prove::
+   Compiling cargo-octet v0.1.1-rc.1 (/home/brittonr/wt/octet-reproducible-job/cargo-octet)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 47s
+     Running unittests src/lib.rs (/datapool/mantle-store/followups-20261122/octet-repro-target-plain/debug/deps/cargo_octet-04ecd70e4940c095)
+
+running 43 tests
+test prove::tests::live_provider_builds_external_consumer_binding ... ignored, requires the pinned Aeneas/Charon/Lean provider closure
+test prove::tests::aeneas_theorem_name_extraction_accepts_named_theorem ... ok
+test prove::tests::aeneas_theorem_name_extraction_rejects_missing_theorem ... ok
+test prove::tests::aeneas_theorem_name_and_adequacy_select_the_same_multi_line_theorem ... ok
+test prove::tests::proof_card_validation_rejects_missing_fields_fixture_mode_and_overclaims ... ok
+test prove::tests::proof_card_validation_rejects_imported_trellis_formal_proof_overclaim ... ok
+test prove::tests::proof_card_linkage_rejects_stale_receipt_and_provenance_links ... ok
+test prove::tests::proof_card_for_imported_trellis_bundle_stays_manual_review ... ok
+test prove::tests::prove_rail_selector_partial_miss_fails_before_any_verifier_execution ... ok
+test prove::tests::prove_refuses_artifact_dir_that_is_or_encloses_the_proof_workspace_root ... ok
+test prove::tests::prove_rail_selector_missing_fails_without_verifier_execution ... ok
+test prove::tests::selected_rails_use_shared_receipt_path_relevance ... ok
+test prove::tests::aeneas_receipts_for_different_rails_use_disjoint_artifact_locators ... ok
+test prove::tests::verus_v1_compatibility_golden_preserves_receipt_card_and_artifact_verification ... ok
+test prove::tests::canary_rail_validates_measured_receipt_and_emits_manual_review_card ... ok
+test prove::tests::prove_list_reports_selected_rail_without_artifacts ... ok
+test prove::tests::prove_list_fails_closed_for_unmatched_or_malformed_rail_selector ... ok
+test prove::tests::prove_drains_verifier_output_larger_than_pipe_buffer ... ok
+test prove::tests::goal_state_blocks_on_demoted_proof_card_diagnostics ... ok
+test prove::tests::prove_writes_valid_formal_proof_artifact_bundle ... ok
+test prove::tests::prove_rejects_missing_command_argv_without_shell_execution ... ok
+test prove::tests::prove_deduplicates_overlapping_source_arguments ... ok
+test prove::tests::prove_fails_without_pass_signal_and_does_not_emit_formal_proof ... ok
+test prove::tests::prove_refuses_non_empty_artifact_directory_that_is_not_a_prove_bundle_before_running_rails ... ok
+test prove::tests::prove_resolves_one_source_root_independent_of_argument_order ... ok
+test prove::tests::prove_production_verifier_failure_is_fail_closed ... ok
+test prove::tests::prove_fails_closed_when_verifier_output_exceeds_log_limit ... ok
+test prove::tests::blocked_goal_withholds_formal_proof_provenance_and_bundle_still_verifies ... ok
+test prove::tests::prove_production_rail_probes_verifier_whatever_its_backend_label ... ok
+test prove::tests::blocked_goal_state_explain_remediation_is_a_runnable_prove_command ... ok
+test prove::tests::prove_rail_selector_runs_matching_policy_rail ... ok
+test prove::tests::goal_state_checks_receipt_bytes_against_formal_provenance ... ok
+test prove::tests::prove_reports_spawn_failure_nonzero_exit_and_timeout ... ok
+test prove::tests::prove_reuses_prove_bundle_directory_without_stale_proof_artifacts ... ok
+test prove::tests::prove_production_rail_accepts_verifier_with_pinned_identity ... ok
+test prove::tests::prove_production_rail_refuses_verifier_without_pinned_identity ... ok
+test prove::tests::prove_teardown_does_not_wait_for_descendants_holding_output_pipes ... ok
+test prove::tests::aeneas_receipt_rejects_trust_inputs_lean_reports ... ok
+test prove::tests::aeneas_receipt_records_charon_options_observed_from_the_produced_llbc ... ok
+test prove::tests::aeneas_receipt_records_the_effectively_enforced_limits ... ok
+test prove::tests::build_log_mode_is_byte_reproducible_where_bundle_mode_is_not ... ok
+test prove::tests::build_log_mode_keeps_raw_logs_out_of_the_bundle ... ok
+test prove::tests::build_log_mode_still_fails_the_stage_on_a_sorry_warning ... ok
+
+test result: ok. 42 passed; 0 failed; 1 ignored; 0 measured; 934 filtered out; finished in 5.44s

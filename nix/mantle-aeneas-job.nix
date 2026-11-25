@@ -15,6 +15,9 @@ pkgs.runCommand "octet-mantle-aeneas-consumer-job-v1" {
   stage=prepare-inputs
   # Nix removes failed output paths. Mirror original diagnostics into the build
   # log and keep a copy in TMPDIR for --keep-failed, without admitting an output.
+  # Raw proof stage stdout/stderr are not in the bundle: `prove` writes them to
+  # this build log with `--raw-log-retention build-log`, so they are already
+  # printed here even when the run fails early.
   retain_failure() {
     status="$1"
     if [ "$status" -eq 0 ]; then
@@ -34,7 +37,8 @@ pkgs.runCommand "octet-mantle-aeneas-consumer-job-v1" {
     done
     if [ -d "$out/artifacts" ]; then
       cp -R "$out/artifacts" "$diagnostics/artifacts"
-      for log in "$out"/artifacts/proofs/*.stdout "$out"/artifacts/proofs/*.stderr "$out"/artifacts/proofs/*.receipt; do
+      printf '\nRaw proof stage stdout/stderr were written to this build log by `cargo-octet prove --raw-log-retention build-log`.\n' >&2
+      for log in "$out"/artifacts/proofs/*.receipt; do
         if [ -f "$log" ]; then
           printf '\n--- %s ---\n' "$log" >&2
           cat "$log" >&2
@@ -108,6 +112,7 @@ pkgs.runCommand "octet-mantle-aeneas-consumer-job-v1" {
     --source src/lib.rs \
     --rail octet.aeneas_consumer_contract.external-fixture#rail-0 \
     --artifact-dir "$out/artifacts" \
+    --raw-log-retention build-log \
     --output-format json > "$out/producer-prove.json"
   stage=artifact-verification
   ${cargoOctet}/bin/cargo-octet artifact verify \
