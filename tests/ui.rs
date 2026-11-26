@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::env;
 use std::fs;
@@ -70,6 +71,7 @@ fn temp_path(prefix: &str) -> PathBuf {
 
 /// A scratch directory owned by one fixture run or test, removed when dropped, also while a
 /// failed assertion unwinds, so repeated UI runs do not pile up build output in `TMPDIR`.
+#[derive(Debug)]
 struct ScratchDir(PathBuf);
 
 impl ScratchDir {
@@ -142,10 +144,102 @@ fn prebuilt_path(name: &str) -> Option<PathBuf> {
     env::var_os(name).map(PathBuf::from)
 }
 
+#[derive(Debug)]
 struct FixtureSupport {
-    dependency_search_path: PathBuf,
+    target_search_paths: Vec<PathBuf>,
+    host_search_paths: Vec<PathBuf>,
     externs: Vec<(String, PathBuf)>,
-    _target: ScratchDir,
+    saw_fresh_artifact: bool,
+    #[allow(dead_code)]
+    owned_target: Option<ScratchDir>,
+}
+
+impl FixtureSupport {
+    fn all_search_paths(&self) -> Vec<&Path> {
+        let mut paths = Vec::with_capacity(self.target_search_paths.len() + self.host_search_paths.len());
+        for path in self.target_search_paths.iter().chain(self.host_search_paths.iter()) {
+            let candidate = path.as_path();
+            if !paths.contains(&candidate) {
+                paths.push(candidate);
+            }
+        }
+        paths
+    }
+}
+
+struct SupportBuildOptions<'a> {
+    toolchain: &'a str,
+    manifest_path: &'a Path,
+    target_triple: Option<&'a str>,
+    target_dir: &'a Path,
+    build_dir: Option<&'a Path>,
+    extra_cargo_args: &'a [&'a str],
+}
+
+#[derive(Debug, Deserialize)]
+struct CargoMetadata {
+    resolve: Option<CargoResolve>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CargoResolve {
+    root: Option<String>,
+    nodes: Vec<CargoResolveNode>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CargoResolveNode {
+    id: String,
+    #[serde(default)]
+    deps: Vec<CargoResolveDep>,
+    #[serde(default)]
+    features: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CargoResolveDep {
+    name: String,
+    pkg: String,
+    #[serde(default)]
+    dep_kinds: Vec<CargoDepKind>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CargoDepKind {
+    kind: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CargoArtifactMessage {
+    package_id: String,
+    target: CargoArtifactTarget,
+    #[serde(default)]
+    features: Vec<String>,
+    #[serde(default)]
+    filenames: Vec<PathBuf>,
+    #[serde(default)]
+    fresh: bool,
+    #[serde(default)]
+    profile: CargoArtifactProfile,
+}
+
+#[derive(Debug, Deserialize)]
+struct CargoArtifactTarget {
+    #[serde(default)]
+    kind: Vec<String>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct CargoArtifactProfile {
+    #[serde(default)]
+    test: bool,
+}
+
+#[derive(Debug, Clone)]
+struct DirectSupportDependency {
+    extern_name: String,
+    package_id: String,
+    resolved_features: BTreeSet<String>,
 }
 
 fn fixture_support_manifest(fixture_path: &Path) -> Option<PathBuf> {
@@ -153,17 +247,13 @@ fn fixture_support_manifest(fixture_path: &Path) -> Option<PathBuf> {
     manifest_path.exists().then_some(manifest_path)
 }
 
-fn fixture_dependency_names(manifest_path: &Path) -> Vec<String> {
+fn fixture_has_dependencies(manifest_path: &Path) -> bool {
     let manifest = fs::read_to_string(manifest_path)
         .unwrap_or_else(|error| panic!("read fixture manifest {}: {error}", manifest_path.display()));
     let parsed = toml::from_str::<toml::Table>(&manifest)
         .unwrap_or_else(|error| panic!("parse fixture manifest {}: {error}", manifest_path.display()));
 
-    parsed
-        .get("dependencies")
-        .and_then(toml::Value::as_table)
-        .map(|deps| deps.keys().map(|name| name.replace('-', "_")).collect())
-        .unwrap_or_default()
+    parsed.get("dependencies").and_then(toml::Value::as_table).is_some_and(|deps| !deps.is_empty())
 }
 
 const RMETA_ARTIFACT_RANK: u8 = 0;
@@ -176,66 +266,437 @@ fn path_extension_matches(path: &Path, extension: &str) -> bool {
         .is_some_and(|candidate| candidate.eq_ignore_ascii_case(extension))
 }
 
-fn extern_artifact_path(deps_dir: &Path, crate_name: &str) -> PathBuf {
-    let prefix = format!("{}{}-", std::env::consts::DLL_PREFIX, crate_name);
-    let dynamic_library_extension = std::env::consts::DLL_SUFFIX.trim_start_matches('.');
-    let mut candidates = fs::read_dir(deps_dir)
-        .unwrap_or_else(|error| panic!("read dependency dir {}: {error}", deps_dir.display()))
-        .filter_map(Result::ok)
-        .filter_map(|entry| {
-            let path = entry.path();
-            let file_name = path.file_name()?.to_str()?;
-            if !file_name.starts_with(&prefix) {
-                return None;
-            }
-
-            let rank = if path_extension_matches(&path, "rmeta") {
-                RMETA_ARTIFACT_RANK
-            } else if path_extension_matches(&path, "rlib") {
-                RLIB_ARTIFACT_RANK
-            } else if path_extension_matches(&path, dynamic_library_extension) {
-                DYNAMIC_LIBRARY_ARTIFACT_RANK
-            } else {
-                return None;
-            };
-
-            Some((rank, path))
-        })
-        .collect::<Vec<_>>();
-
-    candidates.sort_by(|(left_rank, left_path), (right_rank, right_path)| {
-        left_rank.cmp(right_rank).then_with(|| left_path.file_name().cmp(&right_path.file_name()))
-    });
-
-    candidates.into_iter().next().map_or_else(
-        || panic!("missing extern artifact for crate `{crate_name}` under {}", deps_dir.display()),
-        |(_, path)| path,
-    )
+fn is_proc_macro_target(target: &CargoArtifactTarget) -> bool {
+    target.kind.iter().any(|kind| kind == "proc-macro")
 }
 
-fn build_fixture_support(toolchain: &str, manifest_path: &Path, dependency_names: &[String]) -> FixtureSupport {
-    let target_dir = ScratchDir::new("octet-ui-fixture-deps");
-    let status = cargo_command()
-        .current_dir(manifest_path.parent().expect("fixture manifest parent"))
-        .env("CARGO_TARGET_DIR", &*target_dir)
-        .env("RUSTUP_TOOLCHAIN", toolchain)
-        .args(["check", "--quiet", "--manifest-path"])
-        .arg(manifest_path)
-        .status()
-        .expect("build fixture support dependencies");
-    assert!(status.success(), "failed to build fixture support deps for {}", manifest_path.display());
+fn is_library_target(target: &CargoArtifactTarget) -> bool {
+    target.kind.iter().any(|kind| matches!(kind.as_str(), "lib" | "rlib" | "dylib"))
+}
 
-    let dependency_search_path = target_dir.join("debug/deps");
-    let externs = dependency_names
-        .iter()
-        .map(|name| (name.clone(), extern_artifact_path(&dependency_search_path, name)))
-        .collect();
+fn is_linkable_dependency_artifact(artifact: &CargoArtifactMessage, root_package_id: &str) -> bool {
+    artifact.package_id != root_package_id
+        && !artifact.profile.test
+        && !artifact.target.kind.iter().any(|kind| kind == "custom-build")
+        && (is_library_target(&artifact.target) || is_proc_macro_target(&artifact.target))
+}
 
-    FixtureSupport {
-        dependency_search_path,
-        externs,
-        _target: target_dir,
+fn select_artifact_filename(
+    artifact: &CargoArtifactMessage,
+    manifest_path: &Path,
+    extern_name: &str,
+    toolchain: &str,
+) -> Result<PathBuf, String> {
+    let dynamic_library_extension = std::env::consts::DLL_SUFFIX.trim_start_matches('.');
+    let proc_macro = is_proc_macro_target(&artifact.target);
+    let mut ranked = Vec::new();
+    for path in &artifact.filenames {
+        let rank = if proc_macro {
+            if path_extension_matches(path, dynamic_library_extension) {
+                DYNAMIC_LIBRARY_ARTIFACT_RANK
+            } else {
+                continue;
+            }
+        } else if path_extension_matches(path, "rmeta") {
+            RMETA_ARTIFACT_RANK
+        } else if path_extension_matches(path, "rlib") {
+            RLIB_ARTIFACT_RANK
+        } else if path_extension_matches(path, dynamic_library_extension) {
+            DYNAMIC_LIBRARY_ARTIFACT_RANK
+        } else {
+            continue;
+        };
+        ranked.push((rank, path.clone()));
     }
+    ranked.sort_by(|left, right| left.0.cmp(&right.0).then_with(|| left.1.cmp(&right.1)));
+    let Some((best_rank, first_path)) = ranked.first().cloned() else {
+        return Err(format!(
+            "no linkable artifact filename in Cargo compiler-artifact for extern `{extern_name}` (package `{}`) in fixture {} (toolchain `{toolchain}`): {:?}",
+            artifact.package_id,
+            manifest_path.display(),
+            artifact.filenames
+        ));
+    };
+    let tied: Vec<PathBuf> = ranked.into_iter().filter(|(rank, _)| *rank == best_rank).map(|(_, path)| path).collect();
+    if tied.len() > 1 {
+        return Err(format!(
+            "ambiguous linkable artifact filenames in Cargo compiler-artifact for extern `{extern_name}` (package `{}`) in fixture {} (toolchain `{toolchain}`): {tied:?}",
+            artifact.package_id,
+            manifest_path.display(),
+        ));
+    }
+    Ok(first_path)
+}
+
+fn path_contains_component(path: &Path, expected: &str) -> bool {
+    path.components().any(|component| component.as_os_str() == expected)
+}
+
+fn push_unique_path(paths: &mut Vec<PathBuf>, candidate: PathBuf) {
+    if !paths.contains(&candidate) {
+        paths.push(candidate);
+    }
+}
+
+fn direct_support_dependencies(
+    metadata: &CargoMetadata,
+    manifest_path: &Path,
+    toolchain: &str,
+) -> Result<(String, Vec<DirectSupportDependency>), String> {
+    let resolve = metadata.resolve.as_ref().ok_or_else(|| {
+        format!(
+            "cargo metadata missing resolve graph for fixture {} (toolchain `{toolchain}`)",
+            manifest_path.display()
+        )
+    })?;
+    let root_id = resolve.root.as_deref().ok_or_else(|| {
+        format!(
+            "cargo metadata missing root package for fixture {} (toolchain `{toolchain}`)",
+            manifest_path.display()
+        )
+    })?;
+    let nodes_by_id: HashMap<&str, &CargoResolveNode> =
+        resolve.nodes.iter().map(|node| (node.id.as_str(), node)).collect();
+    let root_node = nodes_by_id.get(root_id).copied().ok_or_else(|| {
+        format!(
+            "cargo metadata resolve graph missing root node `{root_id}` for fixture {} (toolchain `{toolchain}`)",
+            manifest_path.display()
+        )
+    })?;
+
+    let mut direct = Vec::new();
+    for dep in &root_node.deps {
+        let is_normal = dep.dep_kinds.is_empty() || dep.dep_kinds.iter().any(|kind| kind.kind.is_none());
+        if !is_normal {
+            continue;
+        }
+        let resolved_features = nodes_by_id
+            .get(dep.pkg.as_str())
+            .map(|node| node.features.iter().cloned().collect::<BTreeSet<_>>())
+            .unwrap_or_default();
+        direct.push(DirectSupportDependency {
+            extern_name: dep.name.clone(),
+            package_id: dep.pkg.clone(),
+            resolved_features,
+        });
+    }
+    direct.sort_by(|left, right| {
+        left.extern_name.cmp(&right.extern_name).then_with(|| left.package_id.cmp(&right.package_id))
+    });
+    Ok((root_id.to_owned(), direct))
+}
+
+fn collect_dependency_artifacts(
+    manifest_path: &Path,
+    toolchain: &str,
+    root_package_id: &str,
+    cargo_stdout: &str,
+) -> Result<(Vec<CargoArtifactMessage>, bool), String> {
+    let mut artifacts = Vec::new();
+    let mut saw_fresh_artifact = false;
+
+    for line in cargo_stdout.lines() {
+        let Ok(value) = serde_json::from_str::<serde_json::Value>(line) else {
+            continue;
+        };
+        if value.get("reason").and_then(serde_json::Value::as_str) != Some("compiler-artifact") {
+            continue;
+        }
+        let artifact: CargoArtifactMessage = serde_json::from_value(value).map_err(|error| {
+            format!(
+                "parse Cargo compiler-artifact message for fixture {} (toolchain `{toolchain}`): {error}",
+                manifest_path.display()
+            )
+        })?;
+        if !is_linkable_dependency_artifact(&artifact, root_package_id) {
+            continue;
+        }
+        if artifact.fresh {
+            saw_fresh_artifact = true;
+        }
+        artifacts.push(artifact);
+    }
+
+    Ok((artifacts, saw_fresh_artifact))
+}
+
+fn collect_artifact_search_paths(
+    artifacts: &[CargoArtifactMessage],
+    target_triple: Option<&str>,
+) -> (Vec<PathBuf>, Vec<PathBuf>) {
+    let mut target_search_paths = Vec::new();
+    let mut host_search_paths = Vec::new();
+    for artifact in artifacts {
+        let proc_macro = is_proc_macro_target(&artifact.target);
+        for filename in &artifact.filenames {
+            let Some(parent) = filename.parent() else {
+                continue;
+            };
+            let is_host_artifact =
+                proc_macro || target_triple.is_some_and(|triple| !path_contains_component(filename, triple));
+            if is_host_artifact {
+                push_unique_path(&mut host_search_paths, parent.to_path_buf());
+            } else {
+                push_unique_path(&mut target_search_paths, parent.to_path_buf());
+            }
+        }
+    }
+    (target_search_paths, host_search_paths)
+}
+
+fn resolve_direct_dependency_artifact(
+    dep: &DirectSupportDependency,
+    artifacts: &[CargoArtifactMessage],
+    manifest_path: &Path,
+    toolchain: &str,
+    target_triple: Option<&str>,
+) -> Result<PathBuf, String> {
+    let mut matches: Vec<&CargoArtifactMessage> =
+        artifacts.iter().filter(|artifact| artifact.package_id == dep.package_id).collect();
+    if matches.len() > 1
+        && let Some(triple) = target_triple
+    {
+        let target_matches: Vec<&CargoArtifactMessage> = matches
+            .iter()
+            .copied()
+            .filter(|artifact| {
+                is_proc_macro_target(&artifact.target)
+                    || artifact.filenames.iter().any(|filename| path_contains_component(filename, triple))
+            })
+            .collect();
+        if !target_matches.is_empty() {
+            matches = target_matches;
+        }
+    }
+    if matches.len() > 1 {
+        let exact_feature_matches: Vec<&CargoArtifactMessage> = matches
+            .iter()
+            .copied()
+            .filter(|artifact| {
+                let features: BTreeSet<String> = artifact.features.iter().cloned().collect();
+                features == dep.resolved_features
+            })
+            .collect();
+        if !exact_feature_matches.is_empty() {
+            matches = exact_feature_matches;
+        }
+    }
+
+    let mut selected_paths = Vec::new();
+    for artifact in matches {
+        let chosen = select_artifact_filename(artifact, manifest_path, &dep.extern_name, toolchain)?;
+        push_unique_path(&mut selected_paths, chosen);
+    }
+    if selected_paths.is_empty() {
+        return Err(format!(
+            "missing Cargo compiler-artifact for extern `{}` (package `{}`) in fixture {} (toolchain `{toolchain}`)",
+            dep.extern_name,
+            dep.package_id,
+            manifest_path.display()
+        ));
+    }
+    if selected_paths.len() > 1 {
+        return Err(format!(
+            "ambiguous Cargo compiler-artifact candidates for extern `{}` (package `{}`) in fixture {} (toolchain `{toolchain}`): {selected_paths:?}",
+            dep.extern_name,
+            dep.package_id,
+            manifest_path.display()
+        ));
+    }
+    Ok(selected_paths.remove(0))
+}
+
+fn resolve_support_from_cargo_json(
+    manifest_path: &Path,
+    toolchain: &str,
+    target_triple: Option<&str>,
+    metadata: &CargoMetadata,
+    cargo_stdout: &str,
+) -> Result<FixtureSupport, String> {
+    let (root_package_id, direct_deps) = direct_support_dependencies(metadata, manifest_path, toolchain)?;
+    let (artifacts, saw_fresh_artifact) =
+        collect_dependency_artifacts(manifest_path, toolchain, &root_package_id, cargo_stdout)?;
+    let (target_search_paths, host_search_paths) = collect_artifact_search_paths(&artifacts, target_triple);
+
+    let mut externs = Vec::with_capacity(direct_deps.len());
+    for dep in &direct_deps {
+        let chosen = resolve_direct_dependency_artifact(dep, &artifacts, manifest_path, toolchain, target_triple)?;
+        externs.push((dep.extern_name.clone(), chosen));
+    }
+
+    Ok(FixtureSupport {
+        target_search_paths,
+        host_search_paths,
+        externs,
+        saw_fresh_artifact,
+        owned_target: None,
+    })
+}
+
+fn format_cargo_failure(stdout: &str, stderr: &str) -> String {
+    let mut rendered = Vec::new();
+    for line in stdout.lines() {
+        let Ok(value) = serde_json::from_str::<serde_json::Value>(line) else {
+            continue;
+        };
+        if value.get("reason").and_then(serde_json::Value::as_str) == Some("compiler-message")
+            && let Some(text) = value.pointer("/message/rendered").and_then(serde_json::Value::as_str)
+        {
+            rendered.push(text.to_owned());
+        }
+    }
+    let mut details = String::new();
+    if !rendered.is_empty() {
+        details.push_str("\nrendered compiler messages:\n");
+        details.push_str(&rendered.join(""));
+    }
+    if !stderr.trim().is_empty() {
+        details.push_str("\nstderr:\n");
+        details.push_str(stderr);
+    }
+    details
+}
+
+fn cargo_metadata_for_support(options: &SupportBuildOptions<'_>) -> Result<CargoMetadata, String> {
+    let manifest_dir = options
+        .manifest_path
+        .parent()
+        .ok_or_else(|| format!("fixture manifest {} has no parent directory", options.manifest_path.display()))?;
+    let mut command = cargo_command();
+    command
+        .current_dir(manifest_dir)
+        .env("RUSTUP_TOOLCHAIN", options.toolchain)
+        .args(["metadata", "--format-version=1", "--manifest-path"])
+        .arg(options.manifest_path);
+    if let Some(triple) = options.target_triple {
+        command.args(["--filter-platform", triple]);
+    }
+    let mut index = 0;
+    while index < options.extra_cargo_args.len() {
+        let arg = options.extra_cargo_args[index];
+        if matches!(arg, "--features" | "-F" | "--config") {
+            command.arg(arg);
+            if let Some(value) = options.extra_cargo_args.get(index + 1) {
+                command.arg(value);
+            }
+            index += 2;
+            continue;
+        }
+        if matches!(arg, "--all-features" | "--no-default-features" | "--offline" | "--frozen")
+            || arg.starts_with("--features=")
+            || arg.starts_with("--config=")
+            || arg.starts_with("-F")
+        {
+            command.arg(arg);
+        }
+        index += 1;
+    }
+
+    let output = command.output().map_err(|error| {
+        format!(
+            "spawn cargo metadata for fixture {} (toolchain `{}`): {error}",
+            options.manifest_path.display(),
+            options.toolchain
+        )
+    })?;
+    if !output.status.success() {
+        return Err(format!(
+            "cargo metadata failed for fixture {} (toolchain `{}`):\nstdout:\n{}\nstderr:\n{}",
+            options.manifest_path.display(),
+            options.toolchain,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+    serde_json::from_slice(&output.stdout).map_err(|error| {
+        format!(
+            "parse cargo metadata JSON for fixture {} (toolchain `{}`): {error}",
+            options.manifest_path.display(),
+            options.toolchain
+        )
+    })
+}
+
+fn build_fixture_support_with_options(options: &SupportBuildOptions<'_>) -> Result<FixtureSupport, String> {
+    let manifest_dir = options
+        .manifest_path
+        .parent()
+        .ok_or_else(|| format!("fixture manifest {} has no parent directory", options.manifest_path.display()))?;
+    let metadata = cargo_metadata_for_support(options)?;
+
+    let mut command = cargo_command();
+    command
+        .current_dir(manifest_dir)
+        .env("CARGO_TARGET_DIR", options.target_dir)
+        .env("RUSTUP_TOOLCHAIN", options.toolchain)
+        .args(["check", "--message-format=json", "--manifest-path"])
+        .arg(options.manifest_path);
+    if let Some(build_dir) = options.build_dir {
+        command.env("CARGO_BUILD_BUILD_DIR", build_dir);
+    }
+    if let Some(triple) = options.target_triple {
+        command.args(["--target", triple]);
+    }
+    command.args(options.extra_cargo_args);
+
+    let output = command.output().map_err(|error| {
+        format!(
+            "spawn cargo check for fixture {} (toolchain `{}`): {error}",
+            options.manifest_path.display(),
+            options.toolchain
+        )
+    })?;
+    let stdout = String::from_utf8(output.stdout).map_err(|error| {
+        format!(
+            "non-utf8 cargo check stdout for fixture {} (toolchain `{}`): {error}",
+            options.manifest_path.display(),
+            options.toolchain
+        )
+    })?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    if !output.status.success() {
+        return Err(format!(
+            "failed to build fixture support deps for {} (toolchain `{}`, status {}){}",
+            options.manifest_path.display(),
+            options.toolchain,
+            output.status,
+            format_cargo_failure(&stdout, &stderr)
+        ));
+    }
+
+    let support = resolve_support_from_cargo_json(
+        options.manifest_path,
+        options.toolchain,
+        options.target_triple,
+        &metadata,
+        &stdout,
+    )?;
+    for (extern_name, path) in &support.externs {
+        if !path.exists() {
+            return Err(format!(
+                "Cargo reported missing extern artifact `{}` for `{extern_name}` in fixture {} (toolchain `{}`)",
+                path.display(),
+                options.manifest_path.display(),
+                options.toolchain
+            ));
+        }
+    }
+    Ok(support)
+}
+
+fn build_fixture_support(toolchain: &str, manifest_path: &Path) -> FixtureSupport {
+    let target_dir = ScratchDir::new("octet-ui-fixture-deps");
+    let options = SupportBuildOptions {
+        toolchain,
+        manifest_path,
+        target_triple: None,
+        target_dir: &target_dir,
+        build_dir: None,
+        extra_cargo_args: &[],
+    };
+    let mut support = build_fixture_support_with_options(&options).unwrap_or_else(|error| panic!("{error}"));
+    support.owned_target = Some(target_dir);
+    support
 }
 
 fn fixture_support_for<'a>(
@@ -244,13 +705,12 @@ fn fixture_support_for<'a>(
     support_cache: &'a mut HashMap<PathBuf, FixtureSupport>,
 ) -> Option<&'a FixtureSupport> {
     let manifest_path = fixture_support_manifest(fixture_path)?;
-    let dependency_names = fixture_dependency_names(&manifest_path);
-    if dependency_names.is_empty() {
+    if !fixture_has_dependencies(&manifest_path) {
         return None;
     }
 
     if !support_cache.contains_key(&manifest_path) {
-        let support = build_fixture_support(toolchain, &manifest_path, &dependency_names);
+        let support = build_fixture_support(toolchain, &manifest_path);
         support_cache.insert(manifest_path.clone(), support);
     }
 
@@ -437,7 +897,9 @@ fn run_fixture(
     }
 
     if let Some(support) = fixture_support_for(toolchain, &fixture_path, support_cache) {
-        command.arg("-L").arg(format!("dependency={}", support.dependency_search_path.display()));
+        for search_path in support.all_search_paths() {
+            command.arg("-L").arg(format!("dependency={}", search_path.display()));
+        }
         for (crate_name, artifact_path) in &support.externs {
             command.arg("--extern").arg(format!("{crate_name}={}", artifact_path.display()));
         }
@@ -2002,4 +2464,303 @@ fn autofix_machine_applicable() {
     for fixture in fixed_fixture_names() {
         run_autofix_fixture(&driver, &library, &toolchain, &fixture);
     }
+}
+
+fn create_offline_support_fixture(root: &Path) -> PathBuf {
+    let manifest_path = root.join("Cargo.toml");
+    let src_dir = root.join("src");
+    let trans_dir = root.join("trans_lib/src");
+    let actual_dir = root.join("actual_lib/src");
+    let macro_dir = root.join("ui_test_macro/src");
+    fs::create_dir_all(&src_dir).expect("create support src dir");
+    fs::create_dir_all(&trans_dir).expect("create trans_lib src dir");
+    fs::create_dir_all(&actual_dir).expect("create actual_lib src dir");
+    fs::create_dir_all(&macro_dir).expect("create proc-macro src dir");
+
+    fs::write(
+        root.join("trans_lib/Cargo.toml"),
+        "[package]\nname = \"trans_lib\"\nversion = \"0.1.0\"\nedition = \"2024\"\n",
+    )
+    .expect("write trans_lib manifest");
+    fs::write(trans_dir.join("lib.rs"), "pub struct TransitiveToken(pub u32);\n").expect("write trans_lib source");
+
+    fs::write(
+        root.join("actual_lib/Cargo.toml"),
+        "[package]\nname = \"actual-lib\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[features]\nextra = []\n\n[dependencies]\ntrans_lib = { path = \"../trans_lib\" }\n",
+    )
+    .expect("write actual_lib manifest");
+    fs::write(
+        actual_dir.join("lib.rs"),
+        "pub fn token() -> trans_lib::TransitiveToken { trans_lib::TransitiveToken(7) }\n\
+         #[cfg(feature = \"extra\")]\n\
+         pub fn extra_value() -> u32 { 42 }\n",
+    )
+    .expect("write actual_lib source");
+
+    fs::write(
+        root.join("ui_test_macro/Cargo.toml"),
+        "[package]\nname = \"ui_test_macro\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[lib]\nproc-macro = true\n",
+    )
+    .expect("write proc-macro manifest");
+    fs::write(
+        macro_dir.join("lib.rs"),
+        "extern crate proc_macro;\n\
+         #[proc_macro]\n\
+         pub fn identity(input: proc_macro::TokenStream) -> proc_macro::TokenStream { input }\n",
+    )
+    .expect("write proc-macro source");
+
+    fs::write(
+        &manifest_path,
+        "[package]\nname = \"ui-support-json-fixture\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n\
+         [features]\nextra = [\"aliased_lib/extra\"]\n\n\
+         [dependencies]\n\
+         aliased_lib = { package = \"actual-lib\", path = \"actual_lib\" }\n\
+         ui_test_macro = { path = \"ui_test_macro\" }\n\n\
+         [workspace]\n",
+    )
+    .expect("write support root manifest");
+    fs::write(src_dir.join("lib.rs"), "").expect("write support root lib.rs");
+    manifest_path
+}
+
+fn assert_rustc_compiles_with_support(toolchain: &str, support: &FixtureSupport, source_path: &Path, out_path: &Path) {
+    let mut rustc = Command::new("rustc");
+    rustc
+        .env("RUSTUP_TOOLCHAIN", toolchain)
+        .args(["--edition=2024", "--crate-type=lib", "--emit=metadata", "-o"])
+        .arg(out_path)
+        .arg(source_path);
+    for dir in support.all_search_paths() {
+        rustc.arg("-L").arg(format!("dependency={}", dir.display()));
+    }
+    for (name, path) in &support.externs {
+        rustc.arg("--extern").arg(format!("{name}={}", path.display()));
+    }
+    let output = rustc.output().expect("run rustc with resolved support externs");
+    assert!(
+        output.status.success(),
+        "rustc failed with Cargo-JSON-resolved externs:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn ui_support_resolution_handles_renamed_transitive_procmacro_cold_warm_and_stale_artifacts() {
+    let root = ScratchDir::new("octet-ui-support-json");
+    let manifest_path = create_offline_support_fixture(&root);
+    let toolchain = rustup_toolchain();
+    let target_dir = ScratchDir::new("octet-ui-support-json-target");
+    let build_dir = ScratchDir::new("octet-ui-support-json-build-dir");
+    let cold_options = SupportBuildOptions {
+        toolchain: &toolchain,
+        manifest_path: &manifest_path,
+        target_triple: None,
+        target_dir: &target_dir,
+        build_dir: Some(&build_dir),
+        extra_cargo_args: &[],
+    };
+    let cold = build_fixture_support_with_options(&cold_options).expect("cold support build should resolve");
+    assert!(!cold.saw_fresh_artifact, "cold build should compile fresh artifacts");
+    assert!(!cold.host_search_paths.is_empty(), "proc-macro host search path must be recorded");
+    assert!(!cold.target_search_paths.is_empty(), "target search path must be recorded");
+
+    let extern_map: HashMap<&str, &Path> =
+        cold.externs.iter().map(|(name, path)| (name.as_str(), path.as_path())).collect();
+    let aliased_path = *extern_map.get("aliased_lib").expect("renamed dependency extern `aliased_lib`");
+    let macro_path = *extern_map.get("ui_test_macro").expect("proc-macro extern `ui_test_macro`");
+    assert!(!extern_map.contains_key("actual_lib"), "manifest alias must be used, not package name");
+
+    let probe_rs = root.join("probe.rs");
+    fs::write(
+        &probe_rs,
+        "pub fn check() -> u32 {\nlet token = aliased_lib::token();\nui_test_macro::identity!(token.0)\n}\n",
+    )
+    .expect("write probe.rs");
+    assert_rustc_compiles_with_support(&toolchain, &cold, &probe_rs, &root.join("libprobe.rmeta"));
+
+    // Plant lexicographically-earlier stale artifacts beside the real ones; warm build must ignore
+    // them.
+    let aliased_dir = aliased_path.parent().expect("aliased artifact parent");
+    fs::write(aliased_dir.join("libaliased_lib-0000000000000000.rmeta"), b"stale").expect("write stale aliased rmeta");
+    fs::write(aliased_dir.join("libactual_lib-0000000000000000.rmeta"), b"stale").expect("write stale actual rmeta");
+    let stale_macro = macro_path.parent().expect("macro artifact parent").join(format!(
+        "{}ui_test_macro-0000000000000000{}",
+        std::env::consts::DLL_PREFIX,
+        std::env::consts::DLL_SUFFIX
+    ));
+    fs::write(&stale_macro, b"stale").expect("write stale macro dylib");
+
+    let warm = build_fixture_support_with_options(&cold_options).expect("warm support build should resolve");
+    assert!(warm.saw_fresh_artifact, "warm build should observe Cargo fresh=true compiler-artifact records");
+    assert_eq!(warm.externs, cold.externs, "warm build must select exact Cargo-reported artifacts, not stale files");
+
+    let extra_options = SupportBuildOptions {
+        toolchain: &toolchain,
+        manifest_path: &manifest_path,
+        target_triple: None,
+        target_dir: &target_dir,
+        build_dir: Some(&build_dir),
+        extra_cargo_args: &["--features", "extra"],
+    };
+    let extra = build_fixture_support_with_options(&extra_options).expect("extra feature build should resolve");
+    let extra_aliased = extra
+        .externs
+        .iter()
+        .find(|(name, _)| name == "aliased_lib")
+        .map(|(_, path)| path.as_path())
+        .expect("extra aliased_lib");
+    assert_ne!(extra_aliased, aliased_path, "distinct feature variant must resolve its own exact artifact");
+
+    let extra_probe_rs = root.join("probe_extra.rs");
+    fs::write(&extra_probe_rs, "pub fn check() -> u32 { aliased_lib::extra_value() }\n").expect("write probe_extra.rs");
+    assert_rustc_compiles_with_support(&toolchain, &extra, &extra_probe_rs, &root.join("libprobe_extra.rmeta"));
+
+    let warm_default_again =
+        build_fixture_support_with_options(&cold_options).expect("default warm rerun should remain exact");
+    assert_eq!(warm_default_again.externs, cold.externs);
+}
+
+fn synthetic_support_metadata() -> CargoMetadata {
+    serde_json::from_value(serde_json::json!({
+        "resolve": {
+            "root": "path+file:///virtual/ui_tests/sample#sample@0.1.0",
+            "nodes": [
+                {
+                    "id": "path+file:///virtual/ui_tests/sample#sample@0.1.0",
+                    "deps": [
+                        {
+                            "name": "renamed_dep",
+                            "pkg": "registry+https://example#actual-dep@1.0.0",
+                            "dep_kinds": [{ "kind": null }]
+                        },
+                        {
+                            "name": "host_macro",
+                            "pkg": "registry+https://example#host-macro@1.0.0",
+                            "dep_kinds": [{ "kind": null }]
+                        },
+                        {
+                            "name": "dev_only",
+                            "pkg": "registry+https://example#dev-only@1.0.0",
+                            "dep_kinds": [{ "kind": "dev" }]
+                        }
+                    ],
+                    "features": []
+                },
+                {
+                    "id": "registry+https://example#actual-dep@1.0.0",
+                    "deps": [],
+                    "features": ["std"]
+                },
+                {
+                    "id": "registry+https://example#host-macro@1.0.0",
+                    "deps": [],
+                    "features": []
+                }
+            ]
+        }
+    }))
+    .expect("metadata fixture")
+}
+
+fn synthetic_artifact_line(package_id: &str, kind: &str, features: &[&str], filename: &str, fresh: bool) -> String {
+    serde_json::json!({
+        "reason": "compiler-artifact",
+        "package_id": package_id,
+        "target": { "kind": [kind] },
+        "features": features,
+        "filenames": [filename],
+        "fresh": fresh,
+        "profile": { "test": false }
+    })
+    .to_string()
+}
+
+#[test]
+fn ui_support_resolution_handles_custom_build_dir_cross_target_and_rejects_missing_or_ambiguous_messages() {
+    let manifest_path = Path::new("/virtual/ui_tests/sample/Cargo.toml");
+    let toolchain = "nightly-2026-03-21";
+    let dylib_ext = std::env::consts::DLL_SUFFIX;
+    let metadata = synthetic_support_metadata();
+
+    let macro_file = format!("/custom/build-dir/host-macros/out/libhost_macro{dylib_ext}");
+    let stdout = [
+        synthetic_artifact_line(
+            "registry+https://example#actual-dep@1.0.0",
+            "lib",
+            &[],
+            "/custom/build-dir/host-unit/out/libactual_dep.rmeta",
+            false,
+        ),
+        synthetic_artifact_line(
+            "registry+https://example#actual-dep@1.0.0",
+            "lib",
+            &["std"],
+            "/custom/build-dir/aarch64-unknown-linux-gnu/unit-1/out/libactual_dep.rmeta",
+            true,
+        ),
+        synthetic_artifact_line("registry+https://example#host-macro@1.0.0", "proc-macro", &[], &macro_file, false),
+        synthetic_artifact_line(
+            "registry+https://example#transitive@0.2.0",
+            "lib",
+            &[],
+            "/custom/build-dir/aarch64-unknown-linux-gnu/unit-2/out/libtransitive.rmeta",
+            false,
+        ),
+    ]
+    .join("\n");
+
+    let resolved = resolve_support_from_cargo_json(
+        manifest_path,
+        toolchain,
+        Some("aarch64-unknown-linux-gnu"),
+        &metadata,
+        &stdout,
+    )
+    .expect("custom build-dir cross-target resolution should succeed");
+
+    assert!(resolved.saw_fresh_artifact);
+    assert_eq!(resolved.externs, vec![
+        ("host_macro".to_owned(), PathBuf::from(&macro_file)),
+        (
+            "renamed_dep".to_owned(),
+            PathBuf::from("/custom/build-dir/aarch64-unknown-linux-gnu/unit-1/out/libactual_dep.rmeta")
+        ),
+    ]);
+    assert_eq!(resolved.target_search_paths, vec![
+        PathBuf::from("/custom/build-dir/aarch64-unknown-linux-gnu/unit-1/out"),
+        PathBuf::from("/custom/build-dir/aarch64-unknown-linux-gnu/unit-2/out"),
+    ]);
+    assert_eq!(resolved.host_search_paths, vec![
+        PathBuf::from("/custom/build-dir/host-unit/out"),
+        PathBuf::from("/custom/build-dir/host-macros/out"),
+    ]);
+
+    let missing_err = resolve_support_from_cargo_json(manifest_path, toolchain, None, &metadata, "")
+        .expect_err("missing compiler-artifact must fail");
+    assert!(missing_err.contains("host_macro") && missing_err.contains("host-macro@1.0.0"), "{missing_err}");
+    assert!(missing_err.contains("sample/Cargo.toml") && missing_err.contains(toolchain), "{missing_err}");
+
+    let ambiguous_stdout = [
+        synthetic_artifact_line(
+            "registry+https://example#actual-dep@1.0.0",
+            "lib",
+            &["std"],
+            "/custom/build-dir/a/libactual_dep.rmeta",
+            false,
+        ),
+        synthetic_artifact_line(
+            "registry+https://example#actual-dep@1.0.0",
+            "lib",
+            &["std"],
+            "/custom/build-dir/b/libactual_dep.rmeta",
+            false,
+        ),
+        synthetic_artifact_line("registry+https://example#host-macro@1.0.0", "proc-macro", &[], &macro_file, false),
+    ]
+    .join("\n");
+    let ambiguous_err = resolve_support_from_cargo_json(manifest_path, toolchain, None, &metadata, &ambiguous_stdout)
+        .expect_err("ambiguous compiler-artifact must fail");
+    assert!(ambiguous_err.contains("ambiguous") && ambiguous_err.contains("renamed_dep"), "{ambiguous_err}");
+    assert!(ambiguous_err.contains("actual-dep@1.0.0") && ambiguous_err.contains(toolchain), "{ambiguous_err}");
 }
