@@ -1,0 +1,81 @@
+# Reviewed semantic MIR effect-closure profile.
+#
+# Regenerate the runtime JSON projection with:
+#   nickel export --format json standards/effect-closure/semantic-profile.ncl \
+#     > standards/effect-closure/generated/semantic-effect-profile.json
+let contracts = import "semantic-contracts.ncl" in
+{
+  schema_version = "octet-semantic-effect-profile/v1",
+  profile_id = "semantic-mir-core",
+  claim_tier = "semantic-mir-effect-closure",
+  compiler_stage = "rustc-mir-optimized",
+  unwind_mode = "modeled-cleanup",
+  supported_subset = {
+    subset_id = "bounded-sequential-rust-mir/v1",
+    included_constructs = [
+      "pure-arithmetic",
+      "owned-local-mutation",
+      "disjoint-field-projection",
+      "partial-move-drop-tracking",
+      "direct-local-calls",
+      "resolved-trait-calls",
+      "resolved-operators",
+      "resolved-derefs",
+      "implicit-drop-cleanup",
+      "mutable-ref-alias-tracking",
+    ],
+    excluded_constructs = [
+      "async-polling-drop",
+      "ffi-extern",
+      "concurrency-atomics-locks",
+      "raw-pointer-deref",
+      "interior-mutability-bypass",
+      "unbounded-dynamic-dispatch",
+      "unresolved-function-pointers",
+      "inline-asm",
+    ],
+  },
+  effect_vocabulary = [
+    "alloc",
+    "panic",
+    "unsafe",
+    "clock",
+    "random",
+    "fs",
+    "net",
+    "spawn",
+    "lock",
+    "ffi",
+    "external-mutation",
+    "interior-mutation",
+    "unwind-drop",
+    "unknown",
+  ],
+  allowed_effects = ["alloc"],
+  denied_effects = [
+    "panic",
+    "unsafe",
+    "clock",
+    "random",
+    "fs",
+    "net",
+    "spawn",
+    "lock",
+    "ffi",
+    "external-mutation",
+    "interior-mutation",
+    "unwind-drop",
+    "unknown",
+  ],
+  budgets = {
+    max_bodies = 256,
+    max_blocks_per_body = 512,
+    max_steps = 8192,
+    max_rounds = 16,
+    call_edge_limit = 2048,
+  },
+  non_claims = [
+    "This profile covers only the declared bounded sequential Rust/MIR subset and selected compilation units; it does not claim arbitrary Rust support, whole-program correctness, rustc soundness, or verified termination.",
+    "Trusted parametric or dependency summaries remain explicitly recorded assumptions bound to exact provider and implementation identities.",
+  ],
+} | contracts.SemanticEffectProfile

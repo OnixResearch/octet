@@ -1256,6 +1256,8 @@ fn run_compiler_architecture_target_with_limits(
             unit,
         }],
         value_flow_selections,
+        collect_semantic_effects: false,
+        self_profile_phase_dir: None,
         non_claims: vec!["whole-program-correctness".to_owned()],
     };
     let context_path = work_dir.join("collector-context.json");

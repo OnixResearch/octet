@@ -61,6 +61,7 @@ fn contract(source_binding: SourceBinding, spec_hash: String, disposition: &str)
         assumptions: Vec::new(),
         exclusions: Vec::new(),
         non_claims: Vec::new(),
+        effect_extraction: None,
     }
 }
 

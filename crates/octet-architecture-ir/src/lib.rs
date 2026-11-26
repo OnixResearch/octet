@@ -7,6 +7,7 @@ mod membership;
 mod model;
 mod roles;
 mod selection;
+pub mod semantic;
 mod stamp;
 
 pub use core::compilation_unit_identity;

@@ -11,6 +11,7 @@
 mod contract;
 mod evaluation;
 mod evidence;
+mod extraction;
 mod freshness;
 mod output;
 mod related;
@@ -180,6 +181,10 @@ fn exit_for_freshness(result: &str) -> i32 {
 
 fn default_true() -> bool {
     true
+}
+
+fn default_none<T>() -> Option<T> {
+    None
 }
 
 fn default_dot() -> String {

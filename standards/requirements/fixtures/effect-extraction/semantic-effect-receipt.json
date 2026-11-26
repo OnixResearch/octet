@@ -1,0 +1,34 @@
+{
+  "schema_version": "octet-semantic-effect-receipt/v1",
+  "status": "admitted",
+  "claim_tier": "semantic-mir-effect-closure",
+  "profile_id": "semantic-mir-core",
+  "unwind_mode": "modeled-cleanup",
+  "subjects": {
+    "unit_id": "unit:effect-extraction-pilot",
+    "package_name": "effect-extraction-pilot",
+    "target_name": "effect_extraction_pilot",
+    "toolchain_blake3": "50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8",
+    "source_blake3": "3e8ada75d8619b3b7b302785f133dc86511fda8e6cf7103a65bb11d79e024275",
+    "profile_blake3": "b3:semantic-mir-core-profile",
+    "cargo_lock_blake3": "5274c486e8fc3004e94cac956e1533c0e558eb17eed5605f66a46290c740c8cf",
+    "compiler_stage": "rustc-mir-optimized"
+  },
+  "coverage": {
+    "is_complete": true,
+    "expected_function_count": 1,
+    "observed_body_count": 1,
+    "is_budget_exhausted": false,
+    "missing_functions": [],
+    "skipped_bodies": []
+  },
+  "observed_effects": [],
+  "trusted_contracts": [],
+  "unsupported_operations": [],
+  "nodes": [],
+  "diagnostics": [],
+  "non_claims": [
+    "bounded sequential MIR subset only; does not prove whole-program correctness"
+  ],
+  "receipt_identity": "b3:a99caa866f1f5da547a3b49554e21f3226f5cac790e3041f2b018fd542777ad3"
+}

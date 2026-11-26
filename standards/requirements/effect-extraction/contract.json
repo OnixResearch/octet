@@ -1,0 +1,178 @@
+{
+  "clauses": [
+    {
+      "allowed_evidence_ids": [
+        "check.subjects"
+      ],
+      "checked_scope": [
+        "pilot:effect-extraction:subjects"
+      ],
+      "clause_id": "extraction.subjects",
+      "disposition": "empirical_check",
+      "expected_evidence_tier": "empirical_check",
+      "required": true,
+      "source_bindings": [
+        {
+          "blake3": "d285236ecacc09bf14375ad5a000bb7b752da2ef83e64a632df70459ed34a2ff",
+          "locator": "standards/requirements/fixtures/effect-extraction/original.rs"
+        },
+        {
+          "blake3": "3e8ada75d8619b3b7b302785f133dc86511fda8e6cf7103a65bb11d79e024275",
+          "locator": "standards/requirements/fixtures/effect-extraction/extracted_core.rs"
+        },
+        {
+          "blake3": "3c0b52b71e6e97a4b0018e9c145b6cc06706756adb6ebee43050cd9438569e0d",
+          "locator": "standards/requirements/fixtures/effect-extraction/driver.rs"
+        }
+      ],
+      "statement": "Original implementation, extracted core, effect driver, and specification bytes are frozen."
+    },
+    {
+      "allowed_evidence_ids": [
+        "check.core_effects"
+      ],
+      "checked_scope": [
+        "pilot:effect-extraction:core"
+      ],
+      "clause_id": "extraction.core_effects",
+      "disposition": "empirical_check",
+      "expected_evidence_tier": "empirical_check",
+      "required": true,
+      "source_bindings": [
+        {
+          "blake3": "3e8ada75d8619b3b7b302785f133dc86511fda8e6cf7103a65bb11d79e024275",
+          "locator": "standards/requirements/fixtures/effect-extraction/extracted_core.rs"
+        }
+      ],
+      "statement": "Extracted core satisfies the semantic MIR effect-closure profile with zero unknown effects."
+    },
+    {
+      "allowed_evidence_ids": [
+        "proof.preservation"
+      ],
+      "allowed_source_requirement_ids": [
+        "extraction.behavior_preservation"
+      ],
+      "checked_scope": [
+        "pilot:effect-extraction:core"
+      ],
+      "clause_id": "extraction.behavior_preservation",
+      "disposition": "formal_proof",
+      "expected_evidence_tier": "formal_proof",
+      "required": true,
+      "source_bindings": [
+        {
+          "blake3": "3c0b52b71e6e97a4b0018e9c145b6cc06706756adb6ebee43050cd9438569e0d",
+          "locator": "standards/requirements/fixtures/effect-extraction/driver.rs"
+        }
+      ],
+      "statement": "Original implementation and driver-composed extracted core satisfy the reviewed observation contract."
+    },
+    {
+      "allowed_evidence_ids": [
+        "check.correspondence"
+      ],
+      "checked_scope": [
+        "pilot:effect-extraction:core"
+      ],
+      "clause_id": "extraction.correspondence",
+      "disposition": "empirical_check",
+      "expected_evidence_tier": "empirical_check",
+      "required": true,
+      "source_bindings": [
+        {
+          "blake3": "3e8ada75d8619b3b7b302785f133dc86511fda8e6cf7103a65bb11d79e024275",
+          "locator": "standards/requirements/fixtures/effect-extraction/extracted_core.rs"
+        }
+      ],
+      "statement": "Source-to-backend correspondence connects the exact checked Rust core and proof model."
+    },
+    {
+      "allowed_evidence_ids": [
+        "check.subjects"
+      ],
+      "checked_scope": [
+        "pilot:effect-extraction:subjects"
+      ],
+      "clause_id": "extraction.freshness",
+      "disposition": "empirical_check",
+      "expected_evidence_tier": "empirical_check",
+      "required": true,
+      "source_bindings": [
+        {
+          "blake3": "d285236ecacc09bf14375ad5a000bb7b752da2ef83e64a632df70459ed34a2ff",
+          "locator": "standards/requirements/fixtures/effect-extraction/original.rs"
+        }
+      ],
+      "statement": "All source snapshots, semantic summaries, and proof receipts remain current."
+    }
+  ],
+  "contract_id": "octet.effect_extraction.pilot",
+  "effect_extraction": {
+    "approved_assumptions": [],
+    "clauses": {
+      "behavior_preservation_clause_id": "extraction.behavior_preservation",
+      "core_effects_clause_id": "extraction.core_effects",
+      "correspondence_clause_id": "extraction.correspondence",
+      "effect_independence_clause_id": null,
+      "freshness_clause_id": "extraction.freshness",
+      "optional_normal_form_clause": null,
+      "subjects_clause_id": "extraction.subjects"
+    },
+    "observation_contract": {
+      "allocation_treatment": "profile-local",
+      "causal_environment": "deterministic-sequential-driver",
+      "destruction_treatment": "modeled-normal-and-unwind-drop",
+      "excluded_concurrency": "no-threads-atomics-async",
+      "explicit_errors": "preserved-error-variant",
+      "externally_visible_state": "modeled-state-equality",
+      "input_domain": "u32",
+      "operation_order_multiplicity": "exact-ordered-trace",
+      "panic_unwind_treatment": "preserved-or-excluded",
+      "preconditions": "all-u32-inputs",
+      "relation": "observational-equivalence",
+      "return_values": "exact-value-equality",
+      "termination_treatment": "total-bounded-sequential"
+    },
+    "optional_effect_independence": null,
+    "optional_normal_form": null,
+    "pilot_id": "compiler-lab-194",
+    "profile_id": "effect-extraction-sequential-v1",
+    "schema_version": "octet-effect-extraction-profile/v1",
+    "subjects": {
+      "dependency_closure_blake3": "5274c486e8fc3004e94cac956e1533c0e558eb17eed5605f66a46290c740c8cf",
+      "effect_driver": {
+        "blake3": "3c0b52b71e6e97a4b0018e9c145b6cc06706756adb6ebee43050cd9438569e0d",
+        "locator": "standards/requirements/fixtures/effect-extraction/driver.rs",
+        "role": "driver"
+      },
+      "extracted_core": {
+        "blake3": "3e8ada75d8619b3b7b302785f133dc86511fda8e6cf7103a65bb11d79e024275",
+        "locator": "standards/requirements/fixtures/effect-extraction/extracted_core.rs",
+        "role": "core"
+      },
+      "original_implementation": {
+        "blake3": "d285236ecacc09bf14375ad5a000bb7b752da2ef83e64a632df70459ed34a2ff",
+        "locator": "standards/requirements/fixtures/effect-extraction/original.rs",
+        "role": "original"
+      },
+      "semantic_profile_id": "semantic-mir-core",
+      "specification": {
+        "blake3": "b524ad5fc87548b965997b67c2e7e2dce833c0e00dfc6eff85756680e83502a7",
+        "locator": "standards/requirements/effect-extraction/spec.md",
+        "role": "spec"
+      },
+      "target_triple": "x86_64-unknown-linux-gnu",
+      "toolchain_blake3": "50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8"
+    }
+  },
+  "non_claims": [
+    "bounded sequential extraction pilot only; does not prove arbitrary Rust, concurrency, or whole-program correctness",
+    "evaluated against retained fixture artifacts; does not prove verifier or rustc soundness"
+  ],
+  "reviewed_specification": {
+    "blake3": "b524ad5fc87548b965997b67c2e7e2dce833c0e00dfc6eff85756680e83502a7",
+    "path": "standards/requirements/effect-extraction/spec.md"
+  },
+  "schema_version": "octet-requirement-contract/v1"
+}

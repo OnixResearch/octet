@@ -1,0 +1,13 @@
+{
+  "assumptions": [],
+  "backend_core_blake3": "3e8ada75d8619b3b7b302785f133dc86511fda8e6cf7103a65bb11d79e024275",
+  "checked_steps": [
+    "mir-to-llbc",
+    "llbc-to-lean"
+  ],
+  "extracted_core_blake3": "3e8ada75d8619b3b7b302785f133dc86511fda8e6cf7103a65bb11d79e024275",
+  "original_blake3": "d285236ecacc09bf14375ad5a000bb7b752da2ef83e64a632df70459ed34a2ff",
+  "schema_version": "octet-extraction-correspondence/v1",
+  "status": "passed",
+  "unresolved_boundaries": []
+}

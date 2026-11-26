@@ -1,0 +1,100 @@
+{
+  "schema_version": "octet-requirement-evidence/v1",
+  "contract_id": "octet.effect_extraction.pilot",
+  "source_snapshot": [
+    {
+      "locator": "standards/requirements/fixtures/effect-extraction/original.rs",
+      "blake3": "d285236ecacc09bf14375ad5a000bb7b752da2ef83e64a632df70459ed34a2ff"
+    },
+    {
+      "locator": "standards/requirements/fixtures/effect-extraction/extracted_core.rs",
+      "blake3": "3e8ada75d8619b3b7b302785f133dc86511fda8e6cf7103a65bb11d79e024275"
+    },
+    {
+      "locator": "standards/requirements/fixtures/effect-extraction/driver.rs",
+      "blake3": "3c0b52b71e6e97a4b0018e9c145b6cc06706756adb6ebee43050cd9438569e0d"
+    }
+  ],
+  "proof_decks": [
+    {
+      "evidence_id": "proof.preservation",
+      "deck": "standards/requirements/fixtures/effect-extraction/proof-cards.json",
+      "artifact_root": "."
+    }
+  ],
+  "empirical_checks": [
+    {
+      "evidence_id": "check.subjects",
+      "evidence_class": "empirical_check",
+      "status": "passed",
+      "checker_id": "b3sum",
+      "command_argv": [
+        "b3sum"
+      ],
+      "checked_scope": [
+        "pilot:effect-extraction:subjects"
+      ],
+      "source_bindings": [
+        {
+          "locator": "standards/requirements/fixtures/effect-extraction/original.rs",
+          "blake3": "d285236ecacc09bf14375ad5a000bb7b752da2ef83e64a632df70459ed34a2ff"
+        }
+      ],
+      "artifact": "standards/requirements/fixtures/effect-extraction/correspondence.json",
+      "artifact_blake3": "f3289be4e96feb0e24dc9b81e10bbef23a932bc03cde1c4cd05f969c6167b303",
+      "non_claims": [
+        "digest verification only"
+      ]
+    },
+    {
+      "evidence_id": "check.core_effects",
+      "evidence_class": "empirical_check",
+      "status": "passed",
+      "checker_id": "cargo-octet",
+      "command_argv": [
+        "cargo-octet",
+        "admit"
+      ],
+      "checked_scope": [
+        "pilot:effect-extraction:core"
+      ],
+      "source_bindings": [
+        {
+          "locator": "standards/requirements/fixtures/effect-extraction/extracted_core.rs",
+          "blake3": "3e8ada75d8619b3b7b302785f133dc86511fda8e6cf7103a65bb11d79e024275"
+        }
+      ],
+      "artifact": "standards/requirements/fixtures/effect-extraction/semantic-effect-receipt.json",
+      "artifact_blake3": "a7bf656e7eba7f79a317ce57e23a1368ded0302d2f7bf463099989771a29278b",
+      "non_claims": [
+        "bounded sequential MIR subset only"
+      ]
+    },
+    {
+      "evidence_id": "check.correspondence",
+      "evidence_class": "empirical_check",
+      "status": "passed",
+      "checker_id": "charon-aeneas",
+      "command_argv": [
+        "charon"
+      ],
+      "checked_scope": [
+        "pilot:effect-extraction:core"
+      ],
+      "source_bindings": [
+        {
+          "locator": "standards/requirements/fixtures/effect-extraction/extracted_core.rs",
+          "blake3": "3e8ada75d8619b3b7b302785f133dc86511fda8e6cf7103a65bb11d79e024275"
+        }
+      ],
+      "artifact": "standards/requirements/fixtures/effect-extraction/correspondence.json",
+      "artifact_blake3": "f3289be4e96feb0e24dc9b81e10bbef23a932bc03cde1c4cd05f969c6167b303",
+      "non_claims": [
+        "translation correspondence only"
+      ]
+    }
+  ],
+  "non_claims": [
+    "retained pilot fixture evidence only; does not establish whole-program correctness"
+  ]
+}
