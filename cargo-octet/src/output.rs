@@ -41,6 +41,13 @@ pub const UNKNOWN_LINT_META: LintMeta = LintMeta {
     effect_family: "unknown",
 };
 
+pub const CARGO_LINT_META: LintMeta = LintMeta {
+    group: "tigerstyle::cargo",
+    principle: "Dependency Hygiene",
+    guidance: "Review Cargo-native lint diagnostic on the workspace manifest.",
+    effect_family: "dependency",
+};
+
 #[derive(Debug, Clone, Serialize)]
 pub struct Finding {
     pub version: u32,
@@ -293,18 +300,37 @@ fn classify_status(findings: &[Finding], counts: &FindingCounts, cargo_process_e
 
 /// rustc fails a compile that hit an error-level lint, so Cargo exits non-zero for denied
 /// findings alone. That run is a lint failure only when Cargo exited with a code (not a signal)
-/// and every error-level diagnostic is an Octet lint finding; any other compiler error (an
-/// `E####` code, an uncoded error, an ICE, or a non-Octet lint) keeps it an integration failure.
+/// and every error-level diagnostic is a known Octet or Cargo native lint finding; any other
+/// compiler error (an `E####` code, an uncoded error, an ICE, or an unknown lint) keeps it an
+/// integration failure.
 fn is_denied_lint_compile_failure(findings: &[Finding], cargo_process_exit: &CargoProcessExit) -> bool {
     if cargo_process_exit.is_terminated() {
         return false;
     }
     let mut errors = findings.iter().filter(|finding| finding.severity_is_error()).peekable();
-    errors.peek().is_some() && errors.all(is_octet_lint_finding)
+    errors.peek().is_some() && errors.all(is_known_lint_finding)
+}
+
+pub(crate) fn is_known_lint_finding(finding: &Finding) -> bool {
+    is_octet_lint_finding(finding) || crate::cargo::lints::is_native_lint_name(&finding.lint)
+}
+
+pub(crate) fn is_built_in_lint_finding(finding: &Finding) -> bool {
+    is_octet_lint_finding(finding)
 }
 
 fn is_octet_lint_finding(finding: &Finding) -> bool {
     octet_lint_metadata::all_metadata().iter().any(|meta| meta.lint_name == finding.lint)
+}
+
+pub fn lint_meta_for<'a>(lint_name: &str, meta_map: &'a HashMap<&str, LintMeta>) -> &'a LintMeta {
+    meta_map.get(lint_name).unwrap_or_else(|| {
+        if crate::cargo::lints::is_native_lint_name(lint_name) {
+            &CARGO_LINT_META
+        } else {
+            &UNKNOWN_LINT_META
+        }
+    })
 }
 
 pub fn lint_meta_map() -> HashMap<&'static str, LintMeta> {
@@ -373,7 +399,9 @@ pub fn render_sarif(
     let rules: Vec<serde_json::Value> = seen_rules
         .iter()
         .map(|lint_name| {
-            let meta = meta_map.get(lint_name);
+            let meta = meta_map
+                .get(lint_name)
+                .or_else(|| crate::cargo::lints::is_native_lint_name(lint_name).then_some(&CARGO_LINT_META));
             let guidance = meta.map_or("unknown", |meta| meta.guidance);
             let group = meta.map_or("tigerstyle::unknown", |meta| meta.group);
             let effect_family = meta.map_or("unknown", |meta| meta.effect_family);
@@ -611,6 +639,32 @@ pub fn render_integrated_status_json(
     pretty_json(&value, "write integrated status JSON")
 }
 
+pub(crate) fn attach_native_lint_status(
+    rendered_status: String,
+    lint_status: Option<&crate::cargo::lints::LintStatus>,
+) -> Result<String, String> {
+    let Some(lint_status) = lint_status else {
+        return Ok(rendered_status);
+    };
+    let mut value = serde_json::from_str::<serde_json::Value>(&rendered_status)
+        .map_err(|error| format!("parse rendered status for native lint status: {error}"))?;
+    value["cargo_lints"] = serde_json::json!(lint_status);
+    pretty_json(&value, "write status JSON")
+}
+
+pub(crate) fn attach_native_lint_sarif(
+    rendered_sarif: String,
+    lint_status: Option<&crate::cargo::lints::LintStatus>,
+) -> Result<String, String> {
+    let Some(lint_status) = lint_status else {
+        return Ok(rendered_sarif);
+    };
+    let mut sarif = serde_json::from_str::<serde_json::Value>(&rendered_sarif)
+        .map_err(|error| format!("parse rendered SARIF for native lint status: {error}"))?;
+    sarif["runs"][0]["properties"]["cargoLints"] = serde_json::json!(lint_status);
+    pretty_json(&sarif, "write SARIF")
+}
+
 pub fn render_summary(
     findings: &[Finding],
     outcome: &RunOutcome,
@@ -725,6 +779,42 @@ pub fn render_summary(
 
     writeln!(&mut summary, "{SUMMARY_FOOTER}").map_err(|error| format!("write summary: {error}"))?;
     Ok(summary)
+}
+
+pub(crate) fn append_native_lint_summary(
+    summary: String,
+    assessment: &crate::cargo::lints::LintAssessment,
+) -> Result<String, String> {
+    if !assessment.should_render_in_summary() {
+        return Ok(summary);
+    }
+    let mut updated = summary
+        .strip_suffix(&format!("{SUMMARY_FOOTER}\n"))
+        .ok_or_else(|| "rendered summary lacks footer".to_owned())?
+        .to_owned();
+    writeln!(&mut updated, "Cargo version: {}", assessment.cargo_version_raw)
+        .map_err(|error| format!("write summary: {error}"))?;
+    writeln!(&mut updated, "Cargo lints: {} ({})", assessment.status.as_str(), assessment.boundary_reason)
+        .map_err(|error| format!("write summary: {error}"))?;
+    writeln!(&mut updated, "Cargo lint scope: {}", assessment.scope_summary)
+        .map_err(|error| format!("write summary: {error}"))?;
+    if !assessment.exclusions.is_empty() {
+        writeln!(&mut updated, "Cargo lint exclusions: {}", assessment.exclusions.join("; "))
+            .map_err(|error| format!("write summary: {error}"))?;
+    }
+    writeln!(&mut updated, "Cargo lint identity: {}", assessment.boundary_identity)
+        .map_err(|error| format!("write summary: {error}"))?;
+    if matches!(
+        assessment.status,
+        crate::cargo::lints::CoverageStatus::UnsupportedCargoVersion | crate::cargo::lints::CoverageStatus::Error
+    ) && !assessment.raw_excerpt.is_empty()
+    {
+        let single_line = assessment.raw_excerpt.lines().take(3).collect::<Vec<_>>().join(" | ");
+        writeln!(&mut updated, "Cargo stderr excerpt: {single_line}")
+            .map_err(|error| format!("write summary: {error}"))?;
+    }
+    writeln!(&mut updated, "{SUMMARY_FOOTER}").map_err(|error| format!("write summary: {error}"))?;
+    Ok(updated)
 }
 
 pub fn render_integrated_summary(
@@ -1199,6 +1289,67 @@ mod tests {
             assert_eq!(outcome.status, expected, "{findings:#?}");
             assert_eq!(outcome.exit_code, expected.exit_code());
         }
+    }
+
+    #[test]
+    fn denied_cargo_lints_are_lint_failures_unless_rustc_errors_cooccur() {
+        let mut cargo_denied = test_finding();
+        cargo_denied.lint = "cargo::unused_dependencies".to_owned();
+        cargo_denied.group = CARGO_LINT_META.group.to_owned();
+        cargo_denied.principle = CARGO_LINT_META.principle.to_owned();
+        cargo_denied.effect_family = CARGO_LINT_META.effect_family.to_owned();
+        cargo_denied.file = "app/Cargo.toml".to_owned();
+        cargo_denied.severity = ERROR_SEVERITY.to_owned();
+
+        let mut rustc_error = compiler_error_finding("mismatched types");
+        rustc_error.lint = "E0308".to_owned();
+        let cargo_failed = CargoProcessExit::exit_code(101);
+
+        assert_eq!(
+            RunOutcome::classify(std::slice::from_ref(&cargo_denied), cargo_failed.clone()).status,
+            RunStatus::LintFailure
+        );
+        assert_eq!(
+            RunOutcome::classify(&[cargo_denied, rustc_error], cargo_failed).status,
+            RunStatus::IntegrationFailure
+        );
+    }
+
+    #[test]
+    fn cargo_native_lint_findings_render_in_json_and_sarif_with_manifest_locations() {
+        let mut finding = test_finding();
+        finding.lint = "cargo::unused_dependencies".to_owned();
+        finding.group = CARGO_LINT_META.group.to_owned();
+        finding.principle = CARGO_LINT_META.principle.to_owned();
+        finding.effect_family = CARGO_LINT_META.effect_family.to_owned();
+        finding.file = "app/Cargo.toml".to_owned();
+        finding.line = 18;
+        finding.column = 1;
+        finding.message = "unused dependency `unused_dep`".to_owned();
+
+        let json_lines = render_json_lines(std::slice::from_ref(&finding)).expect("JSON lines render");
+        assert!(json_lines.contains("\"lint\":\"cargo::unused_dependencies\""), "{json_lines}");
+        assert!(json_lines.contains("\"file\":\"app/Cargo.toml\""), "{json_lines}");
+
+        let outcome = RunOutcome::classify(std::slice::from_ref(&finding), CargoProcessExit::success());
+        let metadata = RunMetadata {
+            tool_name: "cargo-octet",
+            tool_version: "0.1.0",
+            rustc_version: "rustc-test".to_owned(),
+            toolchain: "nightly".to_owned(),
+            profile_name: "default".to_owned(),
+            profile_hash: "profile-hash".to_owned(),
+            config_hash: TEST_CONFIG_HASH.to_owned(),
+        };
+        let sarif_raw = render_sarif(&[finding], &lint_meta_map(), &outcome, "cargo octet check", &metadata, None)
+            .expect("SARIF render");
+        let sarif = serde_json::from_str::<serde_json::Value>(&sarif_raw).expect("parse SARIF");
+        assert_eq!(sarif["runs"][0]["tool"]["driver"]["rules"][0]["id"], "cargo::unused_dependencies");
+        assert_eq!(sarif["runs"][0]["tool"]["driver"]["rules"][0]["properties"]["group"], "tigerstyle::cargo");
+        assert_eq!(
+            sarif["runs"][0]["results"][0]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"],
+            "app/Cargo.toml"
+        );
     }
 
     fn compiler_error_finding(message: &str) -> Finding {

@@ -1,0 +1,10 @@
+[package]
+name = "other_pkg"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+unused_dep = { path = "../unused_dep" }
+
+[lints]
+workspace = true
