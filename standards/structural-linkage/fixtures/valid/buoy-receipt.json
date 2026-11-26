@@ -1,0 +1,27 @@
+{
+  "schema_version": "octet-structural-linkage-receipt/v1",
+  "profile_id": "buoy-comparison-pilot-v1",
+  "producer": "buoy-comparison-pilot",
+  "original_report_schema": "cairn.buoy-comparison.receipt.v1",
+  "original_report_blake3": "1743ae70fc0e0ef9616c72eb3d010470f7829c8412443a7899cbb8fadefe370a",
+  "projection_schema_version": "octet-structural-linkage-projection/v1",
+  "projection_blake3": "bcad0292045e83777d4232db21d42d40f1f3ea19ffd2b450258f4c2ca24ab6f0",
+  "mapping_id": "octet-buoy-comparison-pilot-v1",
+  "mapping_version": "1",
+  "namespace": "buoy",
+  "evidence_class": "structural_linkage",
+  "evidence_tier": "structural_linkage",
+  "status": "valid",
+  "command_executed": false,
+  "replay_deterministic": true,
+  "active_record_count": 1,
+  "historical_record_count": 0,
+  "source_checks": [],
+  "diagnostics": [],
+  "non_claims": [
+    "structural linkage records parser-resolved item anchors only",
+    "does not satisfy formal_proof clauses or transfer formal-proof status",
+    "does not prove prose-to-code correspondence, callee behavior, or test adequacy"
+  ],
+  "receipt_blake3": "96127cc24522b4eae680a99554c69482c9d0ed2a5515135a33cdb5129229ba75"
+}

@@ -1,4 +1,5 @@
 mod comparison;
+mod consumer;
 mod core;
 mod model;
 mod shell;
@@ -14,9 +15,11 @@ pub(crate) use model::CharonSemanticReceiptDetails;
 use model::ComparisonParent;
 use model::DETAILS_SCHEMA;
 use model::ENVELOPE_SCHEMA;
+use model::ENVELOPE_SCHEMA_V2;
 use model::EXPECTED_COMPATIBILITY_IDENTITY;
 pub(crate) use model::EXPECTED_PROFILE_IDENTITY;
 use model::EXPECTED_PROVIDER_PROFILE_IDENTITY;
+pub(crate) use model::PROFILE_ARTIFACT;
 use model::PROFILE_ID;
 pub(crate) use model::PROJECTION_ARTIFACT;
 pub(crate) use model::RAW_SNAPSHOT_ARTIFACT;
@@ -29,18 +32,87 @@ const PROFILE_JSON: &str = include_str!("../../../standards/charon-semantic/gene
 const BLAKE3_PREFIX: &str = "b3:";
 const BLAKE3_HEX_LENGTH: usize = 64;
 
+pub(crate) fn validate_profile_text(
+    selected_profile: &str,
+    profile_text: &str,
+) -> Result<(String, Vec<String>), String> {
+    if consumer::is_workspace_profile_json(profile_text) {
+        let validated = consumer::parse_and_validate(profile_text)
+            .map_err(|diagnostics| format!("invalid Charon workspace profile:\n- {}", diagnostics.join("\n- ")))?;
+        if validated.profile.profile_id != selected_profile {
+            return Err(format!(
+                "Charon semantic `--profile {selected_profile}` does not match config profile `{}`",
+                validated.profile.profile_id
+            ));
+        }
+        Ok((validated.profile_identity, validated.profile.extraction.command_argv))
+    } else {
+        if selected_profile != PROFILE_ID {
+            return Err(format!("unsupported Charon semantic profile `{selected_profile}`"));
+        }
+        if prefixed_identity(profile_text.as_bytes()) != EXPECTED_PROFILE_IDENTITY {
+            return Err("Charon semantic profile bytes do not match the shipped profile identity".to_owned());
+        }
+        Ok((EXPECTED_PROFILE_IDENTITY.to_owned(), profile_command_argv()?))
+    }
+}
+
+#[cfg(test)]
 pub(crate) fn build_envelope(snapshot_text: String, comparison_parent_texts: Vec<String>) -> Result<String, String> {
+    build_envelope_for_profile(snapshot_text, comparison_parent_texts, None)
+}
+
+pub(crate) fn build_envelope_for_profile(
+    snapshot_text: String,
+    comparison_parent_texts: Vec<String>,
+    profile_text: Option<String>,
+) -> Result<String, String> {
     serde_json::from_str::<serde_json::Value>(&snapshot_text)
         .map_err(|error| format!("parse Charon snapshot before envelope construction: {error}"))?;
     for parent in &comparison_parent_texts {
         serde_json::from_str::<ComparisonParent>(parent)
             .map_err(|error| format!("parse Charon comparison parent before envelope construction: {error}"))?;
     }
+    let schema_version = if profile_text.is_some() {
+        ENVELOPE_SCHEMA_V2
+    } else {
+        ENVELOPE_SCHEMA
+    };
     render_json(&CharonSemanticEnvelope {
-        schema_version: ENVELOPE_SCHEMA.to_owned(),
+        schema_version: schema_version.to_owned(),
         snapshot_text,
         comparison_parent_texts,
+        profile_text,
     })
+}
+
+pub(crate) fn envelope_profile_identity(envelope_text: &str) -> Option<String> {
+    let envelope = serde_json::from_str::<CharonSemanticEnvelope>(envelope_text).ok()?;
+    match envelope.profile_text {
+        Some(text) => Some(prefixed_identity(text.as_bytes())),
+        None => Some(EXPECTED_PROFILE_IDENTITY.to_owned()),
+    }
+}
+
+type ResolvedEnvelopeProfile = (String, Option<consumer::ValidatedWorkspace>);
+
+fn resolve_envelope_profile(envelope: &CharonSemanticEnvelope) -> Result<ResolvedEnvelopeProfile, Vec<String>> {
+    let is_v2 = envelope.schema_version == ENVELOPE_SCHEMA_V2;
+    match (is_v2, envelope.profile_text.as_deref()) {
+        (true, Some(profile_text)) if consumer::is_workspace_profile_json(profile_text) => {
+            consumer::parse_and_validate(profile_text)
+                .map(|validated| (validated.profile_identity.clone(), Some(validated)))
+        }
+        (true, Some(profile_text)) => {
+            if prefixed_identity(profile_text.as_bytes()) == EXPECTED_PROFILE_IDENTITY {
+                Ok((EXPECTED_PROFILE_IDENTITY.to_owned(), None))
+            } else {
+                Err(vec!["Charon semantic profile bytes do not match the shipped profile identity".to_owned()])
+            }
+        }
+        (true, None) => Err(vec!["Charon semantic v2 envelope is missing profile_text".to_owned()]),
+        (false, _) => Ok((EXPECTED_PROFILE_IDENTITY.to_owned(), None)),
+    }
 }
 
 pub(crate) fn evaluate_envelope(text: &str) -> CharonSemanticEvaluation {
@@ -48,14 +120,31 @@ pub(crate) fn evaluate_envelope(text: &str) -> CharonSemanticEvaluation {
         Ok(envelope) => envelope,
         Err(error) => return failed_evaluation(format!("parse Charon semantic input envelope: {error}")),
     };
-    if envelope.schema_version != ENVELOPE_SCHEMA {
+    if envelope.schema_version != ENVELOPE_SCHEMA && envelope.schema_version != ENVELOPE_SCHEMA_V2 {
         return failed_evaluation(format!("unsupported Charon semantic envelope schema `{}`", envelope.schema_version));
     }
-    let profile = match core::parse_profile(PROFILE_JSON) {
-        Ok(profile) => profile,
-        Err(error) => return failed_evaluation(error),
+    let (profile_identity, workspace) = match resolve_envelope_profile(&envelope) {
+        Ok(resolved) => resolved,
+        Err(diagnostics) => {
+            return CharonSemanticEvaluation {
+                profile_id: None,
+                details: None,
+                diagnostics,
+                findings: Vec::new(),
+            };
+        }
     };
-    let core_output = match core::analyze_snapshot(&profile, &envelope.snapshot_text) {
+    let (profile, core_result) = if let Some(validated) = workspace.as_ref() {
+        (validated.profile.clone(), core::analyze_workspace_snapshot(validated, &envelope.snapshot_text))
+    } else {
+        let profile = match core::parse_profile(PROFILE_JSON) {
+            Ok(profile) => profile,
+            Err(error) => return failed_evaluation(error),
+        };
+        let result = core::analyze_snapshot(&profile, &envelope.snapshot_text);
+        (profile, result)
+    };
+    let core_output = match core_result {
         Ok(output) => output,
         Err(diagnostics) => {
             return CharonSemanticEvaluation {
@@ -93,8 +182,29 @@ pub(crate) fn evaluate_envelope(text: &str) -> CharonSemanticEvaluation {
             };
         }
     };
-    let mut findings = core_output.findings;
-    if let Some(comparison) = &comparison {
+    let evaluation_ctx = EvaluationArtifactsContext {
+        envelope: &envelope,
+        profile,
+        profile_identity,
+        is_consumer_workspace: workspace.is_some(),
+        core_output,
+        comparison,
+    };
+    finalize_evaluation(evaluation_ctx)
+}
+
+struct EvaluationArtifactsContext<'a> {
+    envelope: &'a CharonSemanticEnvelope,
+    profile: model::CharonSemanticProfile,
+    profile_identity: String,
+    is_consumer_workspace: bool,
+    core_output: core::CoreOutput,
+    comparison: Option<SemanticComparison>,
+}
+
+fn finalize_evaluation(ctx: EvaluationArtifactsContext<'_>) -> CharonSemanticEvaluation {
+    let mut findings = ctx.core_output.findings;
+    if let Some(comparison) = &ctx.comparison {
         findings.extend(comparison_findings(comparison));
     }
     findings.sort_by(|left, right| {
@@ -105,33 +215,41 @@ pub(crate) fn evaluate_envelope(text: &str) -> CharonSemanticEvaluation {
             right.line,
         ))
     });
-    let snapshot_identity = prefixed_identity(envelope.snapshot_text.as_bytes());
-    let projection_identity = identity_for_json(&core_output.projection);
-    let analysis_identity = identity_for_json(&core_output.analysis);
-    let comparison_identity = comparison.as_ref().map(identity_for_json);
-    let artifacts =
-        artifact_bindings(&snapshot_identity, &projection_identity, &analysis_identity, comparison_identity.as_deref());
+    let snapshot_identity = prefixed_identity(ctx.envelope.snapshot_text.as_bytes());
+    let projection_identity = identity_for_json(&ctx.core_output.projection);
+    let analysis_identity = identity_for_json(&ctx.core_output.analysis);
+    let comparison_identity = ctx.comparison.as_ref().map(identity_for_json);
+    let bound_profile_identity = ctx.is_consumer_workspace.then_some(ctx.profile_identity.as_str());
+    let artifacts = artifact_bindings(
+        &snapshot_identity,
+        &projection_identity,
+        &analysis_identity,
+        comparison_identity.as_deref(),
+        bound_profile_identity,
+    );
+    let command_argv = ctx.is_consumer_workspace.then(|| ctx.profile.extraction.command_argv.clone());
     CharonSemanticEvaluation {
-        profile_id: Some(profile.profile_id),
+        profile_id: Some(ctx.profile.profile_id.clone()),
         details: Some(CharonSemanticReceiptDetails {
             schema_version: DETAILS_SCHEMA.to_owned(),
-            profile_id: PROFILE_ID.to_owned(),
-            profile_identity: EXPECTED_PROFILE_IDENTITY.to_owned(),
+            profile_id: ctx.profile.profile_id,
+            profile_identity: ctx.profile_identity,
             provider_profile_identity: EXPECTED_PROVIDER_PROFILE_IDENTITY.to_owned(),
             compatibility_matrix_identity: EXPECTED_COMPATIBILITY_IDENTITY.to_owned(),
-            charon_revision: profile.provider.charon_revision,
+            charon_revision: ctx.profile.provider.charon_revision,
             artifacts,
             snapshot_identity,
             projection_identity,
             analysis_identity,
             comparison_identity,
             verification_role: RECORDED_ONLY_ROLE.to_owned(),
-            artifact_roles: profile.artifact_roles,
-            limits: profile.limits,
-            references: profile.references,
-            projection: core_output.projection,
-            analysis: core_output.analysis,
-            comparison,
+            artifact_roles: ctx.profile.artifact_roles,
+            limits: ctx.profile.limits,
+            references: ctx.profile.references,
+            projection: ctx.core_output.projection,
+            analysis: ctx.core_output.analysis,
+            comparison: ctx.comparison,
+            command_argv,
         }),
         diagnostics: Vec::new(),
         findings,
@@ -156,7 +274,14 @@ pub(crate) fn validate_details(details: &CharonSemanticReceiptDetails, non_claim
     if details.schema_version != DETAILS_SCHEMA {
         diagnostics.push(format!("unsupported Charon semantic receipt details schema `{}`", details.schema_version));
     }
-    if details.profile_id != PROFILE_ID || details.profile_identity != EXPECTED_PROFILE_IDENTITY {
+    if details.profile_id == PROFILE_ID {
+        if details.profile_identity != EXPECTED_PROFILE_IDENTITY {
+            diagnostics.push("Charon semantic receipt profile identity drifted".to_owned());
+        }
+    } else if details.profile_id.trim().is_empty()
+        || !is_b3_identity(&details.profile_identity)
+        || details.command_argv.as_ref().is_none_or(Vec::is_empty)
+    {
         diagnostics.push("Charon semantic receipt profile identity drifted".to_owned());
     }
     if details.provider_profile_identity != EXPECTED_PROVIDER_PROFILE_IDENTITY
@@ -222,6 +347,15 @@ pub(crate) fn artifact_payloads(
         (PROJECTION_ARTIFACT.to_owned(), render_json(&details.projection)?.into_bytes()),
         (ANALYSIS_ARTIFACT.to_owned(), render_json(&details.analysis)?.into_bytes()),
     ]);
+    if details.command_argv.is_some() {
+        let Some(profile_text) = envelope.profile_text else {
+            return Err("Charon workspace envelope missing profile_text before artifact write".to_owned());
+        };
+        if prefixed_identity(profile_text.as_bytes()) != details.profile_identity {
+            return Err("Charon profile identity changed before artifact write".to_owned());
+        }
+        artifacts.insert(PROFILE_ARTIFACT.to_owned(), profile_text.into_bytes());
+    }
     if let Some(comparison) = &details.comparison {
         artifacts.insert(COMPARISON_ARTIFACT.to_owned(), render_json(comparison)?.into_bytes());
     }
@@ -237,6 +371,9 @@ pub(crate) fn expected_artifact_names(details: Option<&CharonSemanticReceiptDeta
         PROJECTION_ARTIFACT.to_owned(),
         ANALYSIS_ARTIFACT.to_owned(),
     ];
+    if details.command_argv.is_some() {
+        names.push(PROFILE_ARTIFACT.to_owned());
+    }
     if details.comparison.is_some() {
         names.push(COMPARISON_ARTIFACT.to_owned());
     }
@@ -249,6 +386,9 @@ pub(crate) fn artifact_identity_bindings(details: &CharonSemanticReceiptDetails)
         (PROJECTION_ARTIFACT.to_owned(), details.projection_identity.clone()),
         (ANALYSIS_ARTIFACT.to_owned(), details.analysis_identity.clone()),
     ]);
+    if details.command_argv.is_some() {
+        bindings.insert(PROFILE_ARTIFACT.to_owned(), details.profile_identity.clone());
+    }
     if let Some(identity) = &details.comparison_identity {
         bindings.insert(COMPARISON_ARTIFACT.to_owned(), identity.clone());
     }
@@ -284,6 +424,7 @@ fn artifact_bindings(
     projection_identity: &str,
     analysis_identity: &str,
     comparison_identity: Option<&str>,
+    profile_identity: Option<&str>,
 ) -> Vec<ArtifactBinding> {
     let mut artifacts = vec![
         ArtifactBinding {
@@ -305,6 +446,14 @@ fn artifact_bindings(
             authority: "recorded-conservative-effects-and-unknowns".to_owned(),
         },
     ];
+    if let Some(identity) = profile_identity {
+        artifacts.push(ArtifactBinding {
+            role: "profile".to_owned(),
+            name: PROFILE_ARTIFACT.to_owned(),
+            identity: identity.to_owned(),
+            authority: "recorded-consumer-workspace-profile".to_owned(),
+        });
+    }
     if let Some(identity) = comparison_identity {
         artifacts.push(ArtifactBinding {
             role: "comparison".to_owned(),
@@ -353,6 +502,9 @@ fn failed_evaluation(diagnostic: String) -> CharonSemanticEvaluation {
         findings: Vec::new(),
     }
 }
+
+#[cfg(test)]
+mod consumer_tests;
 
 #[cfg(test)]
 mod tests {

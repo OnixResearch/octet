@@ -21,32 +21,62 @@ pub(crate) struct CharonSemanticShellOutput {
 }
 
 pub(crate) fn execute_from_profile(workspace_root: &Path, profile_text: &str) -> CharonSemanticShellOutput {
-    let profile = match core::parse_profile(profile_text) {
-        Ok(profile) => profile,
-        Err(error) => return failed_output(error),
-    };
-    let profile_diagnostics = core::validate_profile(&profile);
-    if !profile_diagnostics.is_empty() {
-        return CharonSemanticShellOutput {
-            snapshot_text: String::new(),
-            exit_code: INTEGRATION_FAILURE_EXIT_CODE,
-            diagnostics: profile_diagnostics,
+    let (profile, verified_root) = if super::consumer::is_workspace_profile_json(profile_text) {
+        let validated = match super::consumer::parse_and_validate(profile_text) {
+            Ok(validated) => validated,
+            Err(diagnostics) => {
+                return CharonSemanticShellOutput {
+                    snapshot_text: String::new(),
+                    exit_code: INTEGRATION_FAILURE_EXIT_CODE,
+                    diagnostics,
+                };
+            }
         };
-    }
-    if super::prefixed_identity(profile_text.as_bytes()) != EXPECTED_PROFILE_IDENTITY {
-        return failed_output("Charon semantic profile bytes do not match the shipped profile identity".to_owned());
-    }
-    let canonical_workspace = match workspace_root.canonicalize() {
-        Ok(path) => path,
-        Err(error) => return failed_output(format!("canonicalize Charon semantic workspace root: {error}")),
+        let source_root = match super::consumer::verify_workspace_inputs(workspace_root, &validated) {
+            Ok(path) => path,
+            Err(diagnostics) => {
+                return CharonSemanticShellOutput {
+                    snapshot_text: String::new(),
+                    exit_code: INTEGRATION_FAILURE_EXIT_CODE,
+                    diagnostics,
+                };
+            }
+        };
+        (validated.profile, Some(source_root))
+    } else {
+        let profile = match core::parse_profile(profile_text) {
+            Ok(profile) => profile,
+            Err(error) => return failed_output(error),
+        };
+        let profile_diagnostics = core::validate_profile(&profile);
+        if !profile_diagnostics.is_empty() {
+            return CharonSemanticShellOutput {
+                snapshot_text: String::new(),
+                exit_code: INTEGRATION_FAILURE_EXIT_CODE,
+                diagnostics: profile_diagnostics,
+            };
+        }
+        if super::prefixed_identity(profile_text.as_bytes()) != EXPECTED_PROFILE_IDENTITY {
+            return failed_output("Charon semantic profile bytes do not match the shipped profile identity".to_owned());
+        }
+        (profile, None)
     };
-    let source_root = match canonical_workspace.join(&profile.source.root).canonicalize() {
-        Ok(path) => path,
-        Err(error) => return failed_output(format!("canonicalize Charon semantic source root: {error}")),
+    let source_root = if let Some(path) = verified_root {
+        path
+    } else {
+        let canonical_workspace = match workspace_root.canonicalize() {
+            Ok(path) => path,
+            Err(error) => return failed_output(format!("canonicalize Charon semantic workspace root: {error}")),
+        };
+        let source_root = match canonical_workspace.join(&profile.source.root).canonicalize() {
+            Ok(path) => path,
+            Err(error) => return failed_output(format!("canonicalize Charon semantic source root: {error}")),
+        };
+        if !source_root.starts_with(&canonical_workspace) {
+            return failed_output("Charon semantic source root escapes the workspace root".to_owned());
+        }
+        source_root
     };
-    if !source_root.starts_with(&canonical_workspace) {
-        return failed_output("Charon semantic source root escapes the workspace root".to_owned());
-    }
     let charon_executable = match pinned_path(&profile.provider.executable_env, "Charon executable") {
         Ok(path) => path,
         Err(error) => return failed_output(error),
@@ -228,5 +258,51 @@ mod tests {
         assert_eq!(details.projection_identity, EXPECTED_PROJECTION_IDENTITY);
         assert_eq!(details.analysis_identity, EXPECTED_ANALYSIS_IDENTITY);
         assert_eq!(details.verification_role, super::super::model::RECORDED_ONLY_ROLE);
+    }
+
+    #[test]
+    #[ignore = "requires the packaged Charon provider and Bubblewrap network sandbox"]
+    fn live_charon_semantic_consumer_profiles_execute_and_replay() {
+        let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("cargo-octet manifest must have a workspace parent");
+        let direct_profile = include_str!("../../../standards/charon-semantic/generated/consumer-direct-call.json");
+        let trait_profile = include_str!("../../../standards/charon-semantic/generated/consumer-trait-helper.json");
+        let direct_parent =
+            include_str!("../../../standards/charon-semantic/generated/consumer-direct-call-parent.json");
+        for (profile_text, parents, expected_items) in [
+            (direct_profile, vec![direct_parent.to_owned()], 2_usize),
+            (trait_profile, Vec::new(), 3_usize),
+        ] {
+            let first = execute_from_profile(workspace_root, profile_text);
+            assert_eq!(first.exit_code, 0, "{}", first.diagnostics.join("; "));
+            assert!(first.diagnostics.is_empty(), "{:?}", first.diagnostics);
+            let second = execute_from_profile(workspace_root, profile_text);
+            assert_eq!(second.exit_code, 0, "{}", second.diagnostics.join("; "));
+            assert!(second.diagnostics.is_empty(), "{:?}", second.diagnostics);
+            let first_envelope = super::super::build_envelope_for_profile(
+                first.snapshot_text,
+                parents.clone(),
+                Some(profile_text.to_owned()),
+            )
+            .expect("first consumer envelope must build");
+            let second_envelope =
+                super::super::build_envelope_for_profile(second.snapshot_text, parents, Some(profile_text.to_owned()))
+                    .expect("second consumer envelope must build");
+            let evaluation = super::super::evaluate_envelope(&first_envelope);
+            let replay_evaluation = super::super::evaluate_envelope(&second_envelope);
+            assert!(evaluation.diagnostics.is_empty(), "{:?}", evaluation.diagnostics);
+            assert!(replay_evaluation.diagnostics.is_empty(), "{:?}", replay_evaluation.diagnostics);
+            let details = evaluation.details.expect("consumer live execution must produce details");
+            let replay_details =
+                replay_evaluation.details.expect("replay consumer live execution must produce details");
+            assert_eq!(details.projection_identity, replay_details.projection_identity);
+            assert_eq!(details.analysis_identity, replay_details.analysis_identity);
+            assert_eq!(details.comparison_identity, replay_details.comparison_identity);
+            assert_eq!(details.projection.items.len(), expected_items);
+            assert_eq!(details.verification_role, super::super::model::RECORDED_ONLY_ROLE);
+            assert!(details.projection.items.iter().any(|i| i.selection_role.as_deref() == Some("requested_root")));
+            assert!(details.projection.items.iter().any(|i| i.selection_role.as_deref() == Some("local_dependency")));
+        }
     }
 }

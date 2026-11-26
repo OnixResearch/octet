@@ -2,8 +2,10 @@ use serde::Deserialize;
 use serde::Serialize;
 
 pub(crate) const PROFILE_SCHEMA: &str = "octet-charon-semantic-profile/v1";
+pub(crate) const CONSUMER_PROFILE_SCHEMA: &str = "octet-charon-semantic-consumer-profile/v1";
 pub(crate) const PROFILE_ID: &str = "octet-charon-semantic-safe-add-v1";
 pub(crate) const ENVELOPE_SCHEMA: &str = "octet-charon-semantic-input/v1";
+pub(crate) const ENVELOPE_SCHEMA_V2: &str = "octet-charon-semantic-input/v2";
 pub(crate) const DETAILS_SCHEMA: &str = "octet-charon-semantic-receipt-details/v1";
 pub(crate) const PROJECTION_SCHEMA: &str = "octet-charon-semantic-projection/v1";
 pub(crate) const ANALYSIS_SCHEMA: &str = "octet-charon-semantic-analysis/v1";
@@ -19,6 +21,7 @@ pub(crate) const EXPECTED_CHARON_REVISION: &str = "cb50ff16b9f1066b8a97dc06da704
 pub(crate) const EXPECTED_MECHANIZED_LLBC_REVISION: &str = "8a9b8bb3823ceceb47026837d23baea0934dfb27";
 pub(crate) const EXPECTED_CHARON_RUDRA_REVISION: &str = "0923bf7f21d4eb234d14bce86afc9690d0a4d00e";
 pub(crate) const RECORDED_ONLY_ROLE: &str = "recorded_only";
+pub(crate) const PROFILE_ARTIFACT: &str = "charon-semantic-profile.json";
 pub(crate) const RAW_SNAPSHOT_ARTIFACT: &str = "charon-snapshot.llbc";
 pub(crate) const PROJECTION_ARTIFACT: &str = "charon-semantic-projection.json";
 pub(crate) const ANALYSIS_ARTIFACT: &str = "charon-semantic-analysis.json";
@@ -110,6 +113,8 @@ pub(crate) struct CharonSemanticEnvelope {
     pub(crate) snapshot_text: String,
     #[serde(default)]
     pub(crate) comparison_parent_texts: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) profile_text: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -142,6 +147,8 @@ pub(crate) struct CharonSemanticReceiptDetails {
     pub(crate) analysis: SemanticAnalysis,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) comparison: Option<SemanticComparison>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) command_argv: Option<Vec<String>>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -182,6 +189,8 @@ pub(crate) struct SemanticItem {
     pub(crate) control_flow: String,
     pub(crate) statement_count: u64,
     pub(crate) unsupported: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) selection_role: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
