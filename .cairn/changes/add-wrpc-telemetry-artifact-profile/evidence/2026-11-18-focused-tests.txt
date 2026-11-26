@@ -1,0 +1,6 @@
+$ cargo test -p cargo-octet --lib wrpc_
+test wasm_artifact::tests::wrpc_telemetry_profile_refuses_a_component_without_its_required_imports ... ok
+test wasm_artifact::tests::wrpc_reference_profile_admits_the_exact_hello_component_and_keeps_the_baseline_closed ... ok
+test wasm_artifact::tests::wrpc_telemetry_profile_admits_the_exact_emitter_and_other_profiles_stay_closed ... ok
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 972 filtered out; finished in 0.02s
+exit 0
