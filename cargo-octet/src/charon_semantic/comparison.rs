@@ -218,6 +218,7 @@ mod tests {
                 opacity: "Transparent".to_owned(),
                 control_flow: "structured".to_owned(),
                 statement_count: 1,
+                selection_role: None,
                 unsupported: false,
             }],
             edges: Vec::new(),

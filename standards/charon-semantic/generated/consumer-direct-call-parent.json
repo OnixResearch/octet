@@ -1,0 +1,33 @@
+{
+  "authority": "source-token",
+  "facts": [
+    {
+      "fact": "item-presence",
+      "item": "direct_call_consumer::combine_steps",
+      "value": "present"
+    },
+    {
+      "fact": "control-flow",
+      "item": "direct_call_consumer::combine_steps",
+      "value": "structured"
+    },
+    {
+      "fact": "local-call",
+      "item": "direct_call_consumer::combine_steps",
+      "value": "direct_call_consumer::helper::bounded_step"
+    },
+    {
+      "fact": "item-presence",
+      "item": "direct_call_consumer::helper::bounded_step",
+      "value": "present"
+    },
+    {
+      "fact": "effect-candidate",
+      "item": "direct_call_consumer::helper::bounded_step",
+      "value": "panic"
+    }
+  ],
+  "identity": "b3:23e41fc9fa5d85379bac551522134416b0478cbaf19d67d35e69a6f0b53b906e",
+  "schema_version": "octet-charon-semantic-comparison-parent/v1",
+  "source_identity": "b3:fd772d58dba97f78ae03dda54acd2a62ceaa191711233f20a0ccf1f9bdb08cd1"
+}

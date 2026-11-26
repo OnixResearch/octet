@@ -38,6 +38,9 @@ pub(super) fn record_satisfies_bindings(
     record: &valence_core::evidence_codebase_index::EvidenceIndexRecord,
     clause: &super::contract::RequirementClause,
 ) -> bool {
+    if record.caveats.iter().any(|caveat| caveat.contains("historical")) || record.summary.contains("historical_only") {
+        return false;
+    }
     let bindings = &clause.required_bindings;
     let is_source_current = bindings.source_ids.iter().all(|expected| record.source_ids.contains(expected));
     let is_policy_current = bindings.policy_ids.iter().all(|expected| record.policy_ids.contains(expected));

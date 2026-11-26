@@ -59,6 +59,7 @@ fn validate_clause<'a>(
         clause.disposition.as_str(),
         super::super::DISPOSITION_FORMAL_PROOF
             | super::super::DISPOSITION_EMPIRICAL_CHECK
+            | super::super::DISPOSITION_STRUCTURAL_LINKAGE
             | super::super::DISPOSITION_ACCEPTED_ASSUMPTION
             | super::super::DISPOSITION_UNRESOLVED
             | super::super::DISPOSITION_EXCLUDED
@@ -76,11 +77,37 @@ fn validate_clause<'a>(
     } else if clause.checked_scope.is_empty() {
         diagnostics.push(format!("requirement clause `{}` must declare checked_scope", clause.clause_id));
     }
+    validate_clause_disposition(clause, diagnostics);
+    for binding in &clause.source_bindings {
+        if !is_blake3_hex(&binding.blake3) {
+            diagnostics.push(format!(
+                "requirement clause `{}` source binding `{}` must carry a BLAKE3 digest",
+                clause.clause_id, binding.locator
+            ));
+        }
+    }
+}
+
+fn validate_clause_disposition(clause: &super::RequirementClause, diagnostics: &mut Vec<String>) {
     if clause.disposition == super::super::DISPOSITION_FORMAL_PROOF
         && clause.expected_evidence_tier != super::super::DISPOSITION_FORMAL_PROOF
     {
         diagnostics
             .push(format!("formal-proof clause `{}` must require evidence tier `formal_proof`", clause.clause_id));
+    }
+    if clause.disposition == super::super::DISPOSITION_STRUCTURAL_LINKAGE {
+        if clause.expected_evidence_tier != super::super::DISPOSITION_STRUCTURAL_LINKAGE {
+            diagnostics.push(format!(
+                "structural-linkage clause `{}` must require evidence tier `structural_linkage`",
+                clause.clause_id
+            ));
+        }
+        if clause.required_evidence_classes.iter().any(|c| c == "formal_proof" || c == "proof_card") {
+            diagnostics.push(format!(
+                "structural-linkage clause `{}` cannot claim or satisfy formal_proof requirements",
+                clause.clause_id
+            ));
+        }
     }
     if clause.disposition == super::super::DISPOSITION_ACCEPTED_ASSUMPTION && clause.assumption_id.is_none() {
         diagnostics.push(format!("assumption clause `{}` must name an assumption_id", clause.clause_id));
@@ -103,14 +130,6 @@ fn validate_clause<'a>(
     }
     if clause.allowed_evidence_ids.is_empty() && clause.disposition != super::super::DISPOSITION_EXCLUDED {
         diagnostics.push(format!("requirement clause `{}` must name allowed_evidence_ids", clause.clause_id));
-    }
-    for binding in &clause.source_bindings {
-        if !is_blake3_hex(&binding.blake3) {
-            diagnostics.push(format!(
-                "requirement clause `{}` source binding `{}` must carry a BLAKE3 digest",
-                clause.clause_id, binding.locator
-            ));
-        }
     }
 }
 

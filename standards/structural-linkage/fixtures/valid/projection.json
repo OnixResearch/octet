@@ -1,0 +1,66 @@
+{
+  "schema_version": "octet-structural-linkage-projection/v1",
+  "profile_id": "cairn-structural-trace-v2",
+  "producer": "cairn",
+  "original_report_schema": "cairn.content-bound-trace-index.v2",
+  "original_report_blake3": "2cf5f57a488e70e309cd40121d96ab53c2ab21eb50827ebbe8e392ced3960b3f",
+  "mapping_id": "octet-cairn-structural-linkage-v1",
+  "mapping_version": "1",
+  "namespace": "cairn",
+  "evidence_class": "structural_linkage",
+  "evidence_tier": "structural_linkage",
+  "records": [
+    {
+      "requirement_id": "octet.structural_linkage.pilot.checked_add",
+      "requirement_row_blake3": "291375a8186d6e3f3fa75a8743094f014c1d5550f19c652e793da619bbdcba58",
+      "relation_kind": "impl",
+      "namespace": "cairn",
+      "producer": "cairn",
+      "anchor_kind": "rust_item_v1",
+      "source_path": "standards/structural-linkage/fixtures/target.rs",
+      "source_file_blake3": "bb1f75d6c43eefe8bd026e244f6d14db95e4f17d60bbd439c90ce21a312ab3c8",
+      "marker_span": {
+        "start_byte": 3,
+        "end_byte": 47,
+        "start_line": 1,
+        "end_line": 1
+      },
+      "anchor": {
+        "source_path": "standards/structural-linkage/fixtures/target.rs",
+        "marker_start_byte": 3,
+        "start_byte": 54,
+        "end_byte": 257,
+        "item_kind": "fn",
+        "scoped_locator": "pilot/fn:checked_add#0",
+        "normalized_item_blake3": "7df6b7f7b998f4cb91c03f57d7f749adf02fecb0ac8773414729515d9fff2f2b"
+      },
+      "configuration": {
+        "source_path": "standards/structural-linkage/fixtures/target.rs",
+        "file_blake3": "bb1f75d6c43eefe8bd026e244f6d14db95e4f17d60bbd439c90ce21a312ab3c8",
+        "schema_version": "cairn.rust-item-binding.v1",
+        "target": "x86_64-unknown-linux-gnu",
+        "features": [],
+        "declared_features": [],
+        "cfg": []
+      },
+      "link_blake3": "795d7bc537f01f3a711dfeaafcb19de618a47c5ebb8528646d6251f30e07ee12",
+      "binding_blake3": "1f0b368a4330f6ac02c0be2c783caba75b94aac7b9bf050e0ed929bd0b021e90"
+    }
+  ],
+  "historical_records": [
+    {
+      "requirement_id": "octet.structural_linkage.pilot.old_req",
+      "source_path": "standards/structural-linkage/fixtures/target.rs",
+      "binding_blake3": "7369a1d1a2675d7473a92325ba386eff7d9a59a07b3de4774db58f28329718c7",
+      "historical_only": true,
+      "note": "historical Cairn binding; never admitted as current evidence"
+    }
+  ],
+  "unsupported_reasons": [],
+  "non_claims": [
+    "structural linkage records parser-resolved item anchors only",
+    "does not satisfy formal_proof clauses or transfer formal-proof status",
+    "does not prove prose-to-code correspondence, callee behavior, or test adequacy"
+  ],
+  "projection_blake3": "13936f3f45d5e2d220fdff2c58d211011fe1883d60d78954526395989366ba91"
+}

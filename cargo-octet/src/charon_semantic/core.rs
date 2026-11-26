@@ -3,27 +3,6 @@ use std::collections::BTreeSet;
 
 use serde_json::Value;
 
-use super::model::ANALYSIS_SCHEMA;
-use super::model::CharonSemanticProfile;
-use super::model::EXPECTED_CHARON_REVISION;
-use super::model::EXPECTED_CHARON_RUDRA_REVISION;
-use super::model::EXPECTED_COMPATIBILITY_IDENTITY;
-use super::model::EXPECTED_MECHANIZED_LLBC_REVISION;
-use super::model::EXPECTED_PROVIDER_PROFILE_IDENTITY;
-use super::model::EffectCandidate;
-use super::model::PROFILE_ID;
-use super::model::PROFILE_SCHEMA;
-use super::model::PROJECTION_SCHEMA;
-use super::model::SemanticAnalysis;
-use super::model::SemanticEdge;
-use super::model::SemanticFinding;
-use super::model::SemanticItem;
-use super::model::SemanticProjection;
-use super::model::SourceIdentity;
-use super::model::TargetMetadata;
-use super::model::TraitResolutionRow;
-use super::model::UnknownFact;
-
 const EXPECTED_PROVIDER_PACKAGE: &str = "octet-aeneas-lean-provider-closure";
 const EXPECTED_PROVIDER_PROFILE: &str = "octet-aeneas-lean-0.1.0-bc2eb6f";
 const EXPECTED_COMPATIBILITY_MATRIX: &str = "octet-aeneas-lean-compatibility-0.1.0-bc2eb6f-cb50ff16";
@@ -77,10 +56,10 @@ const KNOWN_STATEMENT_KINDS: [&str; 12] = [
 
 #[derive(Debug)]
 pub(crate) struct CoreOutput {
-    pub(crate) projection: SemanticProjection,
-    pub(crate) analysis: SemanticAnalysis,
+    pub(crate) projection: super::model::SemanticProjection,
+    pub(crate) analysis: super::model::SemanticAnalysis,
     pub(crate) source_identity: String,
-    pub(crate) findings: Vec<SemanticFinding>,
+    pub(crate) findings: Vec<super::model::SemanticFinding>,
 }
 
 #[derive(Clone, Debug)]
@@ -96,25 +75,35 @@ struct RawFunction {
     body: Option<Value>,
     signature: Value,
     local_calls: Vec<u64>,
+    trait_impl_calls: Vec<u64>,
     unresolved_calls: Vec<&'static str>,
     unknown_statement_kinds: Vec<String>,
 }
 
-pub(crate) fn parse_profile(text: &str) -> Result<CharonSemanticProfile, String> {
+pub(crate) fn parse_profile(text: &str) -> Result<super::model::CharonSemanticProfile, String> {
     serde_json::from_str(text).map_err(|error| format!("parse Charon semantic profile: {error}"))
 }
 
-pub(crate) fn validate_profile(profile: &CharonSemanticProfile) -> Vec<String> {
+pub(crate) fn validate_profile(profile: &super::model::CharonSemanticProfile) -> Vec<String> {
+    let mut diagnostics = validate_provider_and_bounds(profile);
+    require_equal(&mut diagnostics, "schema_version", &profile.schema_version, super::model::PROFILE_SCHEMA);
+    require_equal(&mut diagnostics, "profile_id", &profile.profile_id, super::model::PROFILE_ID);
+    validate_profile_selection(profile, &mut diagnostics);
+    validate_profile_extraction(profile, &mut diagnostics);
+    diagnostics.sort();
+    diagnostics.dedup();
+    diagnostics
+}
+
+pub(crate) fn validate_provider_and_bounds(profile: &super::model::CharonSemanticProfile) -> Vec<String> {
     let mut diagnostics = Vec::new();
-    require_equal(&mut diagnostics, "schema_version", &profile.schema_version, PROFILE_SCHEMA);
-    require_equal(&mut diagnostics, "profile_id", &profile.profile_id, PROFILE_ID);
     require_equal(&mut diagnostics, "provider.package", &profile.provider.package, EXPECTED_PROVIDER_PACKAGE);
     require_equal(&mut diagnostics, "provider.profile_id", &profile.provider.profile_id, EXPECTED_PROVIDER_PROFILE);
     require_equal(
         &mut diagnostics,
         "provider.profile_blake3",
         &format!("{BLAKE3_PREFIX}{}", profile.provider.profile_blake3),
-        EXPECTED_PROVIDER_PROFILE_IDENTITY,
+        super::model::EXPECTED_PROVIDER_PROFILE_IDENTITY,
     );
     require_equal(
         &mut diagnostics,
@@ -126,13 +115,13 @@ pub(crate) fn validate_profile(profile: &CharonSemanticProfile) -> Vec<String> {
         &mut diagnostics,
         "provider.compatibility_matrix_blake3",
         &format!("{BLAKE3_PREFIX}{}", profile.provider.compatibility_matrix_blake3),
-        EXPECTED_COMPATIBILITY_IDENTITY,
+        super::model::EXPECTED_COMPATIBILITY_IDENTITY,
     );
     require_equal(
         &mut diagnostics,
         "provider.charon_revision",
         &profile.provider.charon_revision,
-        EXPECTED_CHARON_REVISION,
+        super::model::EXPECTED_CHARON_REVISION,
     );
     require_equal(
         &mut diagnostics,
@@ -146,8 +135,6 @@ pub(crate) fn validate_profile(profile: &CharonSemanticProfile) -> Vec<String> {
         &profile.provider.network_sandbox_env,
         EXPECTED_SANDBOX_ENV,
     );
-    validate_profile_selection(profile, &mut diagnostics);
-    validate_profile_extraction(profile, &mut diagnostics);
     validate_exact_vocabulary(&mut diagnostics, "fact_vocabulary", &profile.fact_vocabulary, &EXPECTED_FACT_KINDS);
     validate_exact_vocabulary(
         &mut diagnostics,
@@ -169,7 +156,7 @@ pub(crate) fn validate_profile(profile: &CharonSemanticProfile) -> Vec<String> {
     diagnostics
 }
 
-fn validate_profile_selection(profile: &CharonSemanticProfile, diagnostics: &mut Vec<String>) {
+fn validate_profile_selection(profile: &super::model::CharonSemanticProfile, diagnostics: &mut Vec<String>) {
     if profile.source.root.trim().is_empty() || profile.source.crate_name.trim().is_empty() {
         diagnostics.push("profile source root and crate name must be non-empty".to_owned());
     }
@@ -198,7 +185,7 @@ fn validate_profile_selection(profile: &CharonSemanticProfile, diagnostics: &mut
     }
 }
 
-fn validate_profile_extraction(profile: &CharonSemanticProfile, diagnostics: &mut Vec<String>) {
+fn validate_profile_extraction(profile: &super::model::CharonSemanticProfile, diagnostics: &mut Vec<String>) {
     let expected_argv = [
         "charon",
         "cargo",
@@ -230,7 +217,7 @@ fn validate_profile_extraction(profile: &CharonSemanticProfile, diagnostics: &mu
     }
 }
 
-fn validate_positive_limits(profile: &CharonSemanticProfile, diagnostics: &mut Vec<String>) {
+fn validate_positive_limits(profile: &super::model::CharonSemanticProfile, diagnostics: &mut Vec<String>) {
     if profile.limits.timeout_ms == 0
         || profile.limits.stdout_max_bytes == 0
         || profile.limits.stderr_max_bytes == 0
@@ -242,7 +229,7 @@ fn validate_positive_limits(profile: &CharonSemanticProfile, diagnostics: &mut V
     }
 }
 
-fn validate_references(profile: &CharonSemanticProfile, diagnostics: &mut Vec<String>) {
+fn validate_references(profile: &super::model::CharonSemanticProfile, diagnostics: &mut Vec<String>) {
     let references = profile
         .references
         .iter()
@@ -251,14 +238,14 @@ fn validate_references(profile: &CharonSemanticProfile, diagnostics: &mut Vec<St
     validate_reference(
         &references,
         "https://github.com/AeneasVerif/mechanized-llbc",
-        EXPECTED_MECHANIZED_LLBC_REVISION,
+        super::model::EXPECTED_MECHANIZED_LLBC_REVISION,
         "README.md:Mechanized LLBC",
         diagnostics,
     );
     validate_reference(
         &references,
         "https://github.com/AeneasVerif/charon-rudra",
-        EXPECTED_CHARON_RUDRA_REVISION,
+        super::model::EXPECTED_CHARON_RUDRA_REVISION,
         "src/main.rs:crate::rudra::lib::analyze",
         diagnostics,
     );
@@ -299,11 +286,68 @@ fn require_equal(diagnostics: &mut Vec<String>, field: &str, observed: &str, exp
     }
 }
 
+pub(crate) fn adapt_workspace_profile(
+    profile: &super::consumer::WorkspaceProfile,
+    command_argv: Vec<String>,
+) -> super::model::CharonSemanticProfile {
+    let s = &profile.source;
+    let e = &profile.extraction;
+    super::model::CharonSemanticProfile {
+        schema_version: super::model::PROFILE_SCHEMA.to_owned(),
+        profile_id: profile.profile_id.clone(),
+        provider: profile.provider.clone(),
+        source: super::model::SourceSelection {
+            root: s.root.clone(),
+            crate_name: s.crate_name.clone(),
+            selected_items: s.selected_roots.clone(),
+            broad_selection_allowed: s.broad_selection_allowed,
+        },
+        extraction: super::model::ExtractionContract {
+            command_argv,
+            preset: e.preset.clone(),
+            has_errors: e.has_errors,
+            skip_borrowck: e.skip_borrowck,
+            borrow_check_preserved: e.borrow_check_preserved,
+            target_triple: e.target_triple.clone(),
+            pointer_width_bytes: e.pointer_width_bytes,
+            endianness: e.endianness.clone(),
+            serialization_format: e.serialization_format.clone(),
+            environment_allowlist: e.environment_allowlist.clone(),
+        },
+        fact_vocabulary: profile.fact_vocabulary.clone(),
+        effect_candidate_vocabulary: profile.effect_candidate_vocabulary.clone(),
+        limits: profile.limits.clone(),
+        artifact_roles: profile.artifact_roles.clone(),
+        references: profile.references.clone(),
+        verification_role: profile.verification_role.clone(),
+        non_claims: profile.non_claims.clone(),
+    }
+}
+
 pub(crate) fn analyze_snapshot(
-    profile: &CharonSemanticProfile,
+    profile: &super::model::CharonSemanticProfile,
     snapshot_text: &str,
 ) -> Result<CoreOutput, Vec<String>> {
-    let mut diagnostics = validate_profile(profile);
+    analyze_inner(profile, None, snapshot_text)
+}
+
+pub(crate) fn analyze_workspace_snapshot(
+    validated: &super::consumer::ValidatedWorkspace,
+    snapshot_text: &str,
+) -> Result<CoreOutput, Vec<String>> {
+    analyze_inner(&validated.profile, Some(validated), snapshot_text)
+}
+
+fn analyze_inner(
+    profile: &super::model::CharonSemanticProfile,
+    workspace: Option<&super::consumer::ValidatedWorkspace>,
+    snapshot_text: &str,
+) -> Result<CoreOutput, Vec<String>> {
+    let mut diagnostics = if workspace.is_some() {
+        Vec::new()
+    } else {
+        validate_profile(profile)
+    };
     if snapshot_text.len() > profile.limits.snapshot_max_bytes {
         diagnostics.push(format!(
             "Charon snapshot exceeds configured byte limit: {} > {}",
@@ -324,9 +368,10 @@ pub(crate) fn analyze_snapshot(
     };
     validate_extraction_observation(profile, &snapshot, translated, &mut diagnostics);
     let sources = project_sources(translated, &mut diagnostics);
-    let source_identity = validate_selected_sources(profile, &sources, translated, &mut diagnostics);
+    let source_identity = validate_selected_sources(profile, workspace, &sources, translated, &mut diagnostics);
+    let foreign_ids = collect_foreign_fun_ids(translated);
     let raw_functions = project_raw_functions(translated, &sources, &mut diagnostics);
-    validate_selected_items(profile, &raw_functions, &mut diagnostics);
+    let root_names = validate_selected_or_reachable(profile, workspace, translated, &raw_functions, &mut diagnostics);
     if raw_functions.len() > profile.limits.item_max_count {
         diagnostics.push(format!(
             "Charon item count exceeds configured limit: {} > {}",
@@ -334,8 +379,22 @@ pub(crate) fn analyze_snapshot(
             profile.limits.item_max_count
         ));
     }
-    let (items, edges, mut unknowns, mut candidates) = normalize_functions(&raw_functions, &mut diagnostics);
+    let trait_methods = local_trait_impl_methods(translated);
+    let (mut items, mut edges, mut unknowns, candidates) =
+        normalize_functions(&raw_functions, &foreign_ids, &trait_methods, &mut diagnostics);
+    if let Some(roots) = root_names.as_ref() {
+        for item in &mut items {
+            let role = if roots.contains(&item.qualified_name) {
+                "requested_root"
+            } else {
+                "local_dependency"
+            };
+            item.selection_role = Some(role.to_owned());
+        }
+    }
     let trait_rows = project_trait_rows(translated, &raw_functions, &mut unknowns, &mut diagnostics);
+    edges.sort();
+    edges.dedup();
     if edges.len() > profile.limits.edge_max_count {
         diagnostics.push(format!(
             "Charon edge count exceeds configured limit: {} > {}",
@@ -349,23 +408,56 @@ pub(crate) fn analyze_snapshot(
     if !diagnostics.is_empty() {
         return Err(diagnostics);
     }
-    candidates.sort();
-    candidates.dedup();
-    unknowns.sort();
-    unknowns.dedup();
-    let cycles = call_cycles(&items, &edges);
-    let status = if unknowns.is_empty() { "recorded" } else { "unknown" };
-    let analysis = SemanticAnalysis {
-        schema_version: ANALYSIS_SCHEMA.to_owned(),
+    let target = target_metadata(profile, translated).expect("validated target metadata must be present");
+    let charon_version = snapshot.get("charon_version").and_then(Value::as_str).unwrap_or("unknown").to_owned();
+    let analyzed = AnalyzedFacts {
+        sources,
+        items,
+        edges,
+        trait_rows,
+        unknowns,
+        candidates,
+        source_identity,
+        target,
+        charon_version,
+    };
+    Ok(build_core_output(profile, analyzed))
+}
+
+struct AnalyzedFacts {
+    sources: Vec<super::model::SourceIdentity>,
+    items: Vec<super::model::SemanticItem>,
+    edges: Vec<super::model::SemanticEdge>,
+    trait_rows: Vec<super::model::TraitResolutionRow>,
+    unknowns: Vec<super::model::UnknownFact>,
+    candidates: Vec<super::model::EffectCandidate>,
+    source_identity: String,
+    target: super::model::TargetMetadata,
+    charon_version: String,
+}
+
+fn build_core_output(profile: &super::model::CharonSemanticProfile, mut facts: AnalyzedFacts) -> CoreOutput {
+    facts.candidates.sort();
+    facts.candidates.dedup();
+    facts.unknowns.sort();
+    facts.unknowns.dedup();
+    let cycles = call_cycles(&facts.items, &facts.edges);
+    let status = if facts.unknowns.is_empty() {
+        "recorded"
+    } else {
+        "unknown"
+    };
+    let analysis = super::model::SemanticAnalysis {
+        schema_version: super::model::ANALYSIS_SCHEMA.to_owned(),
         status: status.to_owned(),
-        item_count: u64::try_from(items.len()).unwrap_or(u64::MAX),
-        edge_count: u64::try_from(edges.len()).unwrap_or(u64::MAX),
+        item_count: u64::try_from(facts.items.len()).unwrap_or(u64::MAX),
+        edge_count: u64::try_from(facts.edges.len()).unwrap_or(u64::MAX),
         cycle_count: u64::try_from(cycles.len()).unwrap_or(u64::MAX),
         cycles,
-        effect_candidates: candidates.clone(),
-        unknowns: unknowns.clone(),
+        effect_candidates: facts.candidates.clone(),
+        unknowns: facts.unknowns.clone(),
     };
-    let mut findings = findings_for_analysis(&candidates, &unknowns, &analysis.cycles);
+    let mut findings = findings_for_analysis(&facts.candidates, &facts.unknowns, &analysis.cycles);
     findings.sort_by(|left, right| {
         (&left.family, &left.message, &left.file, left.line).cmp(&(
             &right.family,
@@ -374,27 +466,26 @@ pub(crate) fn analyze_snapshot(
             right.line,
         ))
     });
-    let target = target_metadata(profile, translated).expect("validated target metadata must be present");
-    let projection = SemanticProjection {
-        schema_version: PROJECTION_SCHEMA.to_owned(),
+    let projection = super::model::SemanticProjection {
+        schema_version: super::model::PROJECTION_SCHEMA.to_owned(),
         crate_name: profile.source.crate_name.clone(),
-        charon_version: snapshot.get("charon_version").and_then(Value::as_str).unwrap_or("unknown").to_owned(),
-        target,
-        sources,
-        items,
-        edges,
-        trait_rows,
+        charon_version: facts.charon_version,
+        target: facts.target,
+        sources: facts.sources,
+        items: facts.items,
+        edges: facts.edges,
+        trait_rows: facts.trait_rows,
     };
-    Ok(CoreOutput {
+    CoreOutput {
         projection,
         analysis,
-        source_identity,
+        source_identity: facts.source_identity,
         findings,
-    })
+    }
 }
 
 fn validate_extraction_observation(
-    profile: &CharonSemanticProfile,
+    profile: &super::model::CharonSemanticProfile,
     snapshot: &Value,
     translated: &Value,
     diagnostics: &mut Vec<String>,
@@ -419,7 +510,10 @@ fn validate_extraction_observation(
     }
 }
 
-fn target_metadata(profile: &CharonSemanticProfile, translated: &Value) -> Option<TargetMetadata> {
+fn target_metadata(
+    profile: &super::model::CharonSemanticProfile,
+    translated: &Value,
+) -> Option<super::model::TargetMetadata> {
     let targets = translated.get("target_information")?.as_array()?;
     let row = targets
         .iter()
@@ -430,14 +524,14 @@ fn target_metadata(profile: &CharonSemanticProfile, translated: &Value) -> Optio
     if pointer_width_bytes != profile.extraction.pointer_width_bytes || endianness != profile.extraction.endianness {
         return None;
     }
-    Some(TargetMetadata {
+    Some(super::model::TargetMetadata {
         triple: profile.extraction.target_triple.clone(),
         pointer_width_bytes,
         endianness: endianness.to_owned(),
     })
 }
 
-fn project_sources(translated: &Value, diagnostics: &mut Vec<String>) -> Vec<SourceIdentity> {
+fn project_sources(translated: &Value, diagnostics: &mut Vec<String>) -> Vec<super::model::SourceIdentity> {
     let Some(files) = translated.get("files").and_then(Value::as_array) else {
         diagnostics.push("Charon snapshot is missing files".to_owned());
         return Vec::new();
@@ -447,7 +541,7 @@ fn project_sources(translated: &Value, diagnostics: &mut Vec<String>) -> Vec<Sou
         .filter_map(|file| {
             let path = file.pointer("/name/Local").and_then(Value::as_str)?;
             let contents = file.get("contents").and_then(Value::as_str)?;
-            Some(SourceIdentity {
+            Some(super::model::SourceIdentity {
                 path: path.to_owned(),
                 identity: super::prefixed_identity(contents.as_bytes()),
             })
@@ -464,8 +558,9 @@ fn project_sources(translated: &Value, diagnostics: &mut Vec<String>) -> Vec<Sou
 }
 
 fn validate_selected_sources(
-    profile: &CharonSemanticProfile,
-    sources: &[SourceIdentity],
+    profile: &super::model::CharonSemanticProfile,
+    workspace: Option<&super::consumer::ValidatedWorkspace>,
+    sources: &[super::model::SourceIdentity],
     translated: &Value,
     diagnostics: &mut Vec<String>,
 ) -> String {
@@ -473,13 +568,37 @@ fn validate_selected_sources(
         .iter()
         .map(|source| (source.path.as_str(), source.identity.as_str()))
         .collect::<BTreeMap<_, _>>();
+    if let Some(workspace) = workspace {
+        for file in &workspace.source_files {
+            if source_map.get(file.path.as_str()).copied() != Some(file.identity.as_str()) {
+                diagnostics.push(format!("selected source identity mismatch for `{}`", file.path));
+            }
+        }
+    }
     for item in &profile.source.selected_items {
         if source_map.get(item.source_file.as_str()).copied() != Some(item.source_identity.as_str()) {
             diagnostics.push(format!("selected source identity mismatch for `{}`", item.source_file));
         }
         validate_profile_span_against_source(item, translated, diagnostics);
     }
-    profile.source.selected_items.first().map_or_else(String::new, |item| item.source_identity.clone())
+    if let Some(workspace) = workspace {
+        aggregate_source_identity(&workspace.source_files)
+    } else {
+        profile.source.selected_items.first().map_or_else(String::new, |item| item.source_identity.clone())
+    }
+}
+
+fn aggregate_source_identity(source_files: &[super::consumer::FileDigest]) -> String {
+    let mut sorted = source_files.to_vec();
+    sorted.sort_by(|left, right| left.path.cmp(&right.path));
+    let mut buffer = String::new();
+    for entry in sorted {
+        buffer.push_str(&entry.path);
+        buffer.push('\0');
+        buffer.push_str(&entry.identity);
+        buffer.push('\n');
+    }
+    super::prefixed_identity(buffer.as_bytes())
 }
 
 fn validate_profile_span_against_source(
@@ -508,7 +627,7 @@ fn validate_profile_span_against_source(
 
 fn project_raw_functions(
     translated: &Value,
-    sources: &[SourceIdentity],
+    sources: &[super::model::SourceIdentity],
     diagnostics: &mut Vec<String>,
 ) -> Vec<RawFunction> {
     let Some(functions) = translated.get("fun_decls").and_then(Value::as_array) else {
@@ -547,12 +666,15 @@ fn project_raw_functions(
         });
         let statement_count = body.as_ref().map_or(0, statement_count);
         let mut local_calls = Vec::new();
+        let mut trait_impl_calls = Vec::new();
         let mut unresolved_calls = Vec::new();
         if let Some(body) = &body {
-            collect_calls(body, &mut local_calls, &mut unresolved_calls);
+            collect_calls(body, &mut local_calls, &mut trait_impl_calls, &mut unresolved_calls);
         }
         local_calls.sort_unstable();
         local_calls.dedup();
+        trait_impl_calls.sort_unstable();
+        trait_impl_calls.dedup();
         unresolved_calls.sort_unstable();
         unresolved_calls.dedup();
         let mut unknown_statement_kinds = Vec::new();
@@ -586,6 +708,7 @@ fn project_raw_functions(
             body,
             signature: function.get("signature").cloned().unwrap_or(Value::Null),
             local_calls,
+            trait_impl_calls,
             unresolved_calls,
             unknown_statement_kinds,
         });
@@ -625,7 +748,152 @@ fn qualified_name(segments: Option<&Vec<Value>>) -> String {
         .join("::")
 }
 
-fn validate_selected_items(profile: &CharonSemanticProfile, functions: &[RawFunction], diagnostics: &mut Vec<String>) {
+fn collect_foreign_fun_ids(translated: &Value) -> BTreeSet<u64> {
+    translated
+        .get("fun_decls")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter(|function| {
+            !function.is_null() && function.pointer("/item_meta/is_local").and_then(Value::as_bool) == Some(false)
+        })
+        .filter_map(|function| function.get("def_id").and_then(Value::as_u64))
+        .collect()
+}
+
+fn local_trait_impl_methods(translated: &Value) -> BTreeMap<u64, Vec<u64>> {
+    let mut map = BTreeMap::new();
+    for implementation in translated.get("trait_impls").and_then(Value::as_array).into_iter().flatten() {
+        if implementation.is_null()
+            || implementation.pointer("/item_meta/is_local").and_then(Value::as_bool) != Some(true)
+        {
+            continue;
+        }
+        let Some(impl_id) = implementation.get("def_id").and_then(Value::as_u64) else {
+            continue;
+        };
+        let methods = implementation
+            .get("methods")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|method| method.pointer("/skip_binder/id").and_then(Value::as_u64))
+            .collect::<Vec<_>>();
+        map.insert(impl_id, methods);
+    }
+    map
+}
+
+fn validate_selected_or_reachable(
+    profile: &super::model::CharonSemanticProfile,
+    workspace: Option<&super::consumer::ValidatedWorkspace>,
+    translated: &Value,
+    functions: &[RawFunction],
+    diagnostics: &mut Vec<String>,
+) -> Option<BTreeSet<String>> {
+    let Some(_) = workspace else {
+        validate_selected_items(profile, functions, diagnostics);
+        return None;
+    };
+    let function_by_name = functions
+        .iter()
+        .map(|function| (function.qualified_name.as_str(), function))
+        .collect::<BTreeMap<_, _>>();
+    for expected_item in &profile.source.selected_items {
+        match function_by_name.get(expected_item.qualified_name.as_str()) {
+            None => diagnostics
+                .push(format!("requested root `{}` missing from Charon snapshot", expected_item.qualified_name)),
+            Some(function)
+                if function.source_file != expected_item.source_file
+                    || function.begin_line != expected_item.begin_line
+                    || function.end_line != expected_item.end_line =>
+            {
+                diagnostics.push(format!("selected item `{}` has stale source linkage", function.qualified_name));
+            }
+            Some(_) => {}
+        }
+    }
+    let trait_methods = local_trait_impl_methods(translated);
+    let local_ids = functions.iter().map(|function| function.run_local_id).collect::<Vec<_>>();
+    let local_names = functions
+        .iter()
+        .map(|function| (function.run_local_id, function.qualified_name.clone()))
+        .collect::<BTreeMap<_, _>>();
+    let direct_calls = functions
+        .iter()
+        .map(|function| (function.run_local_id, function.local_calls.clone()))
+        .collect::<BTreeMap<_, _>>();
+    let trait_calls = functions
+        .iter()
+        .map(|function| {
+            let targets = function
+                .trait_impl_calls
+                .iter()
+                .flat_map(|impl_id| trait_methods.get(impl_id).into_iter().flatten().copied())
+                .collect::<Vec<_>>();
+            (function.run_local_id, targets)
+        })
+        .collect::<BTreeMap<_, _>>();
+    match validate_reachability(&profile.source.selected_items, &local_ids, &local_names, &direct_calls, &trait_calls) {
+        Ok(roots) => Some(roots),
+        Err(reach_diagnostics) => {
+            diagnostics.extend(reach_diagnostics);
+            None
+        }
+    }
+}
+
+fn validate_reachability(
+    requested_roots: &[super::model::SelectedItem],
+    local_ids: &[u64],
+    local_names: &BTreeMap<u64, String>,
+    direct_calls: &BTreeMap<u64, Vec<u64>>,
+    trait_calls: &BTreeMap<u64, Vec<u64>>,
+) -> Result<BTreeSet<String>, Vec<String>> {
+    let name_to_id = local_names.iter().map(|(id, name)| (name.as_str(), *id)).collect::<BTreeMap<_, _>>();
+    let mut diagnostics = Vec::new();
+    let mut queue = std::collections::VecDeque::new();
+    let mut visited_ids = BTreeSet::new();
+    let mut root_names = BTreeSet::new();
+    for root in requested_roots {
+        root_names.insert(root.qualified_name.clone());
+        match name_to_id.get(root.qualified_name.as_str()) {
+            Some(id) if visited_ids.insert(*id) => queue.push_back(*id),
+            Some(_) => {}
+            None => diagnostics.push(format!("requested root `{}` missing from Charon snapshot", root.qualified_name)),
+        }
+    }
+    while let Some(current) = queue.pop_front() {
+        for next in direct_calls
+            .get(&current)
+            .into_iter()
+            .flatten()
+            .chain(trait_calls.get(&current).into_iter().flatten())
+        {
+            if local_names.contains_key(next) && visited_ids.insert(*next) {
+                queue.push_back(*next);
+            }
+        }
+    }
+    for id in local_ids {
+        if !visited_ids.contains(id) {
+            let name = local_names.get(id).map_or("<unknown>", String::as_str);
+            diagnostics
+                .push(format!("unexplained local scope expansion: `{name}` is not reachable from requested roots"));
+        }
+    }
+    if diagnostics.is_empty() {
+        Ok(root_names)
+    } else {
+        Err(diagnostics)
+    }
+}
+
+fn validate_selected_items(
+    profile: &super::model::CharonSemanticProfile,
+    functions: &[RawFunction],
+    diagnostics: &mut Vec<String>,
+) {
     let expected = profile
         .source
         .selected_items
@@ -660,8 +928,15 @@ fn validate_selected_items(profile: &CharonSemanticProfile, functions: &[RawFunc
 #[allow(clippy::too_many_lines)]
 fn normalize_functions(
     functions: &[RawFunction],
+    foreign_ids: &BTreeSet<u64>,
+    trait_methods: &BTreeMap<u64, Vec<u64>>,
     diagnostics: &mut Vec<String>,
-) -> (Vec<SemanticItem>, Vec<SemanticEdge>, Vec<UnknownFact>, Vec<EffectCandidate>) {
+) -> (
+    Vec<super::model::SemanticItem>,
+    Vec<super::model::SemanticEdge>,
+    Vec<super::model::UnknownFact>,
+    Vec<super::model::EffectCandidate>,
+) {
     let id_to_name = functions
         .iter()
         .map(|function| (function.run_local_id, function.qualified_name.clone()))
@@ -673,7 +948,7 @@ fn normalize_functions(
     for function in functions {
         let stable_id = stable_item_id(function);
         let unsupported = function.body.is_none();
-        items.push(SemanticItem {
+        items.push(super::model::SemanticItem {
             stable_id,
             run_local_id: function.run_local_id,
             qualified_name: function.qualified_name.clone(),
@@ -685,23 +960,24 @@ fn normalize_functions(
             control_flow: function.control_flow.clone(),
             statement_count: function.statement_count,
             unsupported,
+            selection_role: None,
         });
         if function.opacity != "Transparent" {
-            unknowns.push(UnknownFact {
+            unknowns.push(super::model::UnknownFact {
                 item: function.qualified_name.clone(),
                 fact: "opacity".to_owned(),
                 reason: format!("selected item opacity is `{}`", function.opacity),
             });
         }
         if unsupported {
-            unknowns.push(UnknownFact {
+            unknowns.push(super::model::UnknownFact {
                 item: function.qualified_name.clone(),
                 fact: "unsupported-marker".to_owned(),
                 reason: "selected item has no translated body".to_owned(),
             });
         }
         for kind in &function.unknown_statement_kinds {
-            unknowns.push(UnknownFact {
+            unknowns.push(super::model::UnknownFact {
                 item: function.qualified_name.clone(),
                 fact: "control-flow-shape".to_owned(),
                 reason: format!("unknown explicit statement kind `{kind}`"),
@@ -709,42 +985,66 @@ fn normalize_functions(
         }
         for target_id in &function.local_calls {
             let Some(target_name) = id_to_name.get(target_id) else {
-                diagnostics.push(format!(
-                    "local call from `{}` references missing function def_id `{target_id}`",
-                    function.qualified_name
-                ));
-                candidates.push(EffectCandidate {
-                    item: function.qualified_name.clone(),
-                    candidate: "unknown-call".to_owned(),
-                    evidence: format!("missing local function def_id {target_id}"),
-                });
+                if foreign_ids.contains(target_id) {
+                    candidates.push(super::model::EffectCandidate {
+                        item: function.qualified_name.clone(),
+                        candidate: "unknown-call".to_owned(),
+                        evidence: "unresolved call through a foreign function".to_owned(),
+                    });
+                    unknowns.push(super::model::UnknownFact {
+                        item: function.qualified_name.clone(),
+                        fact: "local-call".to_owned(),
+                        reason: "call through a foreign function does not resolve to a local function".to_owned(),
+                    });
+                } else {
+                    diagnostics.push(format!(
+                        "local call from `{}` references missing function def_id `{target_id}`",
+                        function.qualified_name
+                    ));
+                    candidates.push(super::model::EffectCandidate {
+                        item: function.qualified_name.clone(),
+                        candidate: "unknown-call".to_owned(),
+                        evidence: format!("missing local function def_id {target_id}"),
+                    });
+                }
                 continue;
             };
-            edges.push(SemanticEdge {
+            edges.push(super::model::SemanticEdge {
                 from: function.qualified_name.clone(),
                 to: target_name.clone(),
                 kind: "local-call".to_owned(),
             });
-            edges.push(SemanticEdge {
+            edges.push(super::model::SemanticEdge {
                 from: function.qualified_name.clone(),
                 to: target_name.clone(),
                 kind: "item-dependency".to_owned(),
             });
         }
+        for impl_id in &function.trait_impl_calls {
+            for method_id in trait_methods.get(impl_id).into_iter().flatten() {
+                if let Some(target_name) = id_to_name.get(method_id) {
+                    edges.push(super::model::SemanticEdge {
+                        from: function.qualified_name.clone(),
+                        to: target_name.clone(),
+                        kind: "item-dependency".to_owned(),
+                    });
+                }
+            }
+        }
         for callee in &function.unresolved_calls {
-            candidates.push(EffectCandidate {
+            candidates.push(super::model::EffectCandidate {
                 item: function.qualified_name.clone(),
                 candidate: "unknown-call".to_owned(),
                 evidence: format!("unresolved call through {callee}"),
             });
-            unknowns.push(UnknownFact {
+            unknowns.push(super::model::UnknownFact {
                 item: function.qualified_name.clone(),
                 fact: "local-call".to_owned(),
                 reason: format!("call through {callee} does not resolve to a local function"),
             });
         }
         if function.signature.pointer("/is_unsafe").and_then(Value::as_bool) == Some(true) {
-            candidates.push(EffectCandidate {
+            candidates.push(super::model::EffectCandidate {
                 item: function.qualified_name.clone(),
                 candidate: "unsafe-boundary".to_owned(),
                 evidence: "explicit unsafe function signature".to_owned(),
@@ -752,21 +1052,21 @@ fn normalize_functions(
         }
         if let Some(body) = &function.body {
             if contains_string(body, "Panic") || contains_object_key(body, "Assert") {
-                candidates.push(EffectCandidate {
+                candidates.push(super::model::EffectCandidate {
                     item: function.qualified_name.clone(),
                     candidate: "panic".to_owned(),
                     evidence: "explicit Charon panic/assert construct".to_owned(),
                 });
             }
             if contains_object_key(body, "Drop") {
-                candidates.push(EffectCandidate {
+                candidates.push(super::model::EffectCandidate {
                     item: function.qualified_name.clone(),
                     candidate: "drop".to_owned(),
                     evidence: "explicit Charon drop construct".to_owned(),
                 });
             }
             if contains_object_key(body, "RawPtr") {
-                candidates.push(EffectCandidate {
+                candidates.push(super::model::EffectCandidate {
                     item: function.qualified_name.clone(),
                     candidate: "unsafe-boundary".to_owned(),
                     evidence: "explicit Charon raw-pointer construct".to_owned(),
@@ -802,14 +1102,24 @@ fn statement_count(value: &Value) -> u64 {
     }
 }
 
-fn collect_calls(value: &Value, local_calls: &mut Vec<u64>, unresolved_calls: &mut Vec<&'static str>) {
+fn collect_calls(
+    value: &Value,
+    local_calls: &mut Vec<u64>,
+    trait_impl_calls: &mut Vec<u64>,
+    unresolved_calls: &mut Vec<&'static str>,
+) {
     match value {
         Value::Array(values) => {
             for value in values {
-                collect_calls(value, local_calls, unresolved_calls);
+                collect_calls(value, local_calls, trait_impl_calls, unresolved_calls);
             }
         }
         Value::Object(values) => {
+            if let Some(trait_impl_id) =
+                values.get("TraitImpl").and_then(|entry| entry.get("id")).and_then(Value::as_u64)
+            {
+                trait_impl_calls.push(trait_impl_id);
+            }
             if let Some(call) = values.get("Call") {
                 let func = call.pointer("/call/func");
                 match func.and_then(|func| func.pointer("/Regular/kind/Fun/Regular")).and_then(Value::as_u64) {
@@ -818,7 +1128,7 @@ fn collect_calls(value: &Value, local_calls: &mut Vec<u64>, unresolved_calls: &m
                 }
             }
             for value in values.values() {
-                collect_calls(value, local_calls, unresolved_calls);
+                collect_calls(value, local_calls, trait_impl_calls, unresolved_calls);
             }
         }
         _ => {}
@@ -888,9 +1198,9 @@ fn contains_object_key(value: &Value, needle: &str) -> bool {
 fn project_trait_rows(
     translated: &Value,
     functions: &[RawFunction],
-    unknowns: &mut Vec<UnknownFact>,
+    unknowns: &mut Vec<super::model::UnknownFact>,
     diagnostics: &mut Vec<String>,
-) -> Vec<TraitResolutionRow> {
+) -> Vec<super::model::TraitResolutionRow> {
     let trait_names = translated
         .get("trait_decls")
         .and_then(Value::as_array)
@@ -926,12 +1236,12 @@ fn project_trait_rows(
             let id = method.pointer("/skip_binder/id").and_then(Value::as_u64);
             match id.map(|id| (id, function_names.get(&id))) {
                 Some((_, Some(name))) => method_items.push(name.clone()),
-                Some((id, None)) => unknowns.push(UnknownFact {
+                Some((id, None)) => unknowns.push(super::model::UnknownFact {
                     item: implementation_name.clone(),
                     fact: "trait-resolution".to_owned(),
                     reason: format!("trait method def_id `{id}` does not resolve to a local function"),
                 }),
-                None => unknowns.push(UnknownFact {
+                None => unknowns.push(super::model::UnknownFact {
                     item: implementation_name.clone(),
                     fact: "trait-resolution".to_owned(),
                     reason: "trait method entry is missing a def_id".to_owned(),
@@ -940,7 +1250,7 @@ fn project_trait_rows(
         }
         method_items.sort();
         method_items.dedup();
-        rows.push(TraitResolutionRow {
+        rows.push(super::model::TraitResolutionRow {
             trait_name,
             implementation_name,
             method_items,
@@ -952,8 +1262,8 @@ fn project_trait_rows(
 }
 
 fn validate_candidate_vocabulary(
-    profile: &CharonSemanticProfile,
-    candidates: &[EffectCandidate],
+    profile: &super::model::CharonSemanticProfile,
+    candidates: &[super::model::EffectCandidate],
     diagnostics: &mut Vec<String>,
 ) {
     let allowed = profile.effect_candidate_vocabulary.iter().map(String::as_str).collect::<BTreeSet<_>>();
@@ -964,7 +1274,7 @@ fn validate_candidate_vocabulary(
     }
 }
 
-fn call_cycles(items: &[SemanticItem], edges: &[SemanticEdge]) -> Vec<Vec<String>> {
+fn call_cycles(items: &[super::model::SemanticItem], edges: &[super::model::SemanticEdge]) -> Vec<Vec<String>> {
     let graph = edges.iter().filter(|edge| edge.kind == "local-call").fold(
         BTreeMap::<String, Vec<String>>::new(),
         |mut graph, edge| {
@@ -1019,13 +1329,13 @@ fn canonical_cycle(mut cycle: Vec<String>) -> Vec<String> {
 }
 
 fn findings_for_analysis(
-    candidates: &[EffectCandidate],
-    unknowns: &[UnknownFact],
+    candidates: &[super::model::EffectCandidate],
+    unknowns: &[super::model::UnknownFact],
     cycles: &[Vec<String>],
-) -> Vec<SemanticFinding> {
+) -> Vec<super::model::SemanticFinding> {
     let mut findings = candidates
         .iter()
-        .map(|candidate| SemanticFinding {
+        .map(|candidate| super::model::SemanticFinding {
             family: "effect-candidate".to_owned(),
             severity: "manual_review".to_owned(),
             message: format!("{}: {}", candidate.candidate, candidate.evidence),
@@ -1033,14 +1343,14 @@ fn findings_for_analysis(
             line: None,
         })
         .collect::<Vec<_>>();
-    findings.extend(unknowns.iter().map(|unknown| SemanticFinding {
+    findings.extend(unknowns.iter().map(|unknown| super::model::SemanticFinding {
         family: "unknown-fact".to_owned(),
         severity: "manual_review".to_owned(),
         message: format!("{}: {}", unknown.fact, unknown.reason),
         file: None,
         line: None,
     }));
-    findings.extend(cycles.iter().map(|cycle| SemanticFinding {
+    findings.extend(cycles.iter().map(|cycle| super::model::SemanticFinding {
         family: "call-cycle".to_owned(),
         severity: "manual_review".to_owned(),
         message: format!("resolved local call cycle: {}", cycle.join(" -> ")),
@@ -1058,6 +1368,7 @@ fn sorted(mut diagnostics: Vec<String>) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
+    use super::super::model::*;
     use super::*;
 
     const PROFILE_JSON: &str = include_str!("../../../standards/charon-semantic/generated/profile.json");

@@ -99,6 +99,7 @@ fn evidence(contract_blake3: String, source_binding: SourceBinding) -> Bundle {
         source_snapshot: vec![source_binding],
         proof_decks: Vec::new(),
         empirical_checks: Vec::new(),
+        structural_links: Vec::new(),
         assumption_records: Vec::new(),
         non_claims: Vec::new(),
     }

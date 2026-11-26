@@ -3617,8 +3617,8 @@
                   sentinel_bin="$scratch/sentinel-bin"
                   sentinel_marker="$scratch/cargo-invoked"
                   baseline_relative="standards/self-check-warning-budget/octet-baseline.json"
-                  accepted_warning_total=4197
-                  accepted_identity_total=3006
+                  accepted_warning_total=4231
+                  accepted_identity_total=3024
                   lint_failure_exit=1
                   integration_failure_exit=2
                   sentinel_exit=99
@@ -4593,9 +4593,21 @@
                   generated_negative_cases=$(mktemp)
                   generated_source_token_receipt=$(mktemp)
                   generated_comparison_parent=$(mktemp)
+                  generated_direct_call=$(mktemp)
+                  generated_trait_helper=$(mktemp)
+                  generated_consumer_parent=$(mktemp)
                   nickel typecheck standards/charon-semantic/profile.ncl
                   nickel export --format json standards/charon-semantic/profile.ncl > "$generated_profile"
                   diff -u standards/charon-semantic/generated/profile.json "$generated_profile"
+                  nickel typecheck standards/charon-semantic/consumer-direct-call.ncl
+                  nickel export --format json standards/charon-semantic/consumer-direct-call.ncl > "$generated_direct_call"
+                  diff -u standards/charon-semantic/generated/consumer-direct-call.json "$generated_direct_call"
+                  nickel typecheck standards/charon-semantic/consumer-trait-helper.ncl
+                  nickel export --format json standards/charon-semantic/consumer-trait-helper.ncl > "$generated_trait_helper"
+                  diff -u standards/charon-semantic/generated/consumer-trait-helper.json "$generated_trait_helper"
+                  nickel typecheck standards/charon-semantic/comparison/consumer-direct-call-parent.ncl
+                  nickel export --format json standards/charon-semantic/comparison/consumer-direct-call-parent.ncl > "$generated_consumer_parent"
+                  diff -u standards/charon-semantic/generated/consumer-direct-call-parent.json "$generated_consumer_parent"
                   nickel typecheck standards/charon-semantic/negative-cases.ncl
                   nickel export --format json standards/charon-semantic/negative-cases.ncl > "$generated_negative_cases"
                   diff -u standards/charon-semantic/generated/negative-cases.json "$generated_negative_cases"
@@ -4694,6 +4706,74 @@
                      and .missing == ["octet.effect_closure.cli.check_failure"]
                      and .dangling == []' \
                     "$out/negative.json" >/dev/null
+                '';
+            cairnStructuralLinkageCheck =
+              pkgs.runCommand "octet-cairn-structural-linkage-check"
+                {
+                  nativeBuildInputs = with pkgs; [
+                    coreutils
+                    diffutils
+                    jq
+                    nickel
+                  ];
+                }
+                ''
+                  cd ${./.}
+                  mkdir -p "$out"
+                  nickel typecheck standards/structural-linkage/profiles.ncl
+                  nickel export --format json standards/structural-linkage/profiles.ncl > "$TMPDIR/profiles.json"
+                  diff -u standards/structural-linkage/generated/profiles.json "$TMPDIR/profiles.json"
+                  nickel export --format json standards/structural-linkage/contract.ncl > "$TMPDIR/contract.json"
+                  diff -u standards/structural-linkage/generated/contract.json "$TMPDIR/contract.json"
+                  nickel export --format json standards/structural-linkage/negative-formal-contract.ncl > "$TMPDIR/neg-contract.json"
+                  diff -u standards/structural-linkage/generated/negative-formal-contract.json "$TMPDIR/neg-contract.json"
+
+                  ${cargoOctetUnwrapped}/bin/cargo-octet octet requirements check \
+                    --contract standards/structural-linkage/generated/contract.json \
+                    --evidence standards/structural-linkage/fixtures/valid/evidence.json \
+                    --source-root . \
+                    --format json \
+                    --output "$out/decision.json"
+                  jq --exit-status '.aggregate_result == "passed" and .clauses[0].status == "passed"' \
+                    "$out/decision.json" >/dev/null
+
+                  ${cargoOctetUnwrapped}/bin/cargo-octet octet requirements verify \
+                    --contract standards/structural-linkage/generated/contract.json \
+                    --evidence standards/structural-linkage/fixtures/valid/evidence.json \
+                    --decision "$out/decision.json" \
+                    --source-root . \
+                    --format json > "$out/verify.json"
+                  jq --exit-status '.status == "passed" and .aggregate_result == "passed"' \
+                    "$out/verify.json" >/dev/null
+
+                  ${cargoOctetUnwrapped}/bin/cargo-octet octet requirements freshness \
+                    --contract standards/structural-linkage/generated/contract.json \
+                    --index standards/structural-linkage/fixtures/valid/index.json \
+                    --format json > "$out/freshness-valid.json"
+                  jq --exit-status '.aggregate_result == "current" and .clauses[0].status == "current"' \
+                    "$out/freshness-valid.json" >/dev/null
+
+                  if ${cargoOctetUnwrapped}/bin/cargo-octet octet requirements check \
+                    --contract standards/structural-linkage/generated/negative-formal-contract.json \
+                    --evidence standards/structural-linkage/fixtures/invalid/evidence-formal-escalation.json \
+                    --source-root . \
+                    --format json \
+                    --output "$out/negative-formal.json" 2> "$out/negative-formal.stderr"; then
+                    echo 'structural linkage unexpectedly satisfied formal_proof clause' >&2
+                    exit 1
+                  fi
+                  jq --exit-status '.aggregate_result == "failed" and .clauses[0].status == "missing"' \
+                    "$out/negative-formal.json" >/dev/null
+
+                  if ${cargoOctetUnwrapped}/bin/cargo-octet octet requirements freshness \
+                    --contract standards/structural-linkage/generated/contract.json \
+                    --index standards/structural-linkage/fixtures/invalid/index-historical.json \
+                    --format json > "$out/freshness-historical.json" 2> "$out/freshness-historical.stderr"; then
+                    echo 'historical structural linkage unexpectedly reported current freshness' >&2
+                    exit 1
+                  fi
+                  jq --exit-status '.aggregate_result == "failed" and .clauses[0].status == "stale_binding"' \
+                    "$out/freshness-historical.json" >/dev/null
                 '';
             cairnCobPilotCheck =
               pkgs.runCommand "octet-cairn-cob-pilot-check"
@@ -4979,6 +5059,7 @@
             policy-registry = policyRegistryCheck;
             cargo-octet-self-check = cargoOctetSelfCheck;
             cairn-traceability = cairnTraceabilityCheck;
+            cairn-structural-linkage = cairnStructuralLinkageCheck;
             cairn-cob-pilot = cairnCobPilotCheck;
             cairn-cob-conflict-pilot = cairnCobConflictPilotCheck;
             ast-grep-structural-rail = astGrepStructuralRailCheck;

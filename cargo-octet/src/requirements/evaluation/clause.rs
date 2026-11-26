@@ -96,6 +96,70 @@ pub(in crate::requirements) fn empirical(
     (status.to_owned(), evidence_ids)
 }
 
+fn structural_linkage(
+    evidence: &super::super::evidence::Bundle,
+    clause: &super::super::contract::RequirementClause,
+    source_root: &std::path::Path,
+    diagnostics: &mut Vec<String>,
+) -> (String, Vec<String>) {
+    if clause.required_evidence_classes.iter().any(|c| c == "formal_proof" || c == "proof_card")
+        || clause.expected_evidence_tier == super::super::DISPOSITION_FORMAL_PROOF
+    {
+        diagnostics.push(format!("clause `{}` structural linkage cannot satisfy formal_proof", clause.clause_id));
+        return (super::super::STATUS_FAILED.to_owned(), Vec::new());
+    }
+    let mut matched = Vec::with_capacity(evidence.structural_links.len());
+    let (mut has_stale, mut has_unsupported) = (false, false);
+    for entry in &evidence.structural_links {
+        if !clause.allowed_evidence_ids.contains(&entry.evidence_id) {
+            continue;
+        }
+        if entry.evidence_class != super::super::DISPOSITION_STRUCTURAL_LINKAGE {
+            diagnostics.push(format!(
+                "evidence `{}` class `{}` is not `structural_linkage`",
+                entry.evidence_id, entry.evidence_class
+            ));
+            continue;
+        }
+        let paths = [
+            super::super::resolve_path(source_root, &entry.profiles),
+            super::super::resolve_path(source_root, &entry.report),
+            super::super::resolve_path(source_root, &entry.projection),
+            super::super::resolve_path(source_root, &entry.receipt),
+        ];
+        let art_root = super::super::resolve_path(source_root, &entry.artifact_root);
+        let reqs = (clause.clause_id.as_str(), clause.allowed_source_requirement_ids.as_slice());
+        match crate::structural_linkage::verify_clause_paths(
+            [&paths[0], &paths[1], &paths[2], &paths[3]],
+            &entry.profile_id,
+            &art_root,
+            reqs,
+            &clause.checked_scope,
+        ) {
+            Ok(_) => matched.push(entry.evidence_id.clone()),
+            Err((status, errs)) => {
+                has_stale |= status == super::super::STATUS_STALE_BINDING;
+                has_unsupported |= status == super::super::STATUS_UNSUPPORTED;
+                diagnostics.extend(errs.into_iter().map(|err| format!("{}: {err}", entry.evidence_id)));
+            }
+        }
+    }
+    if matched.is_empty() && diagnostics.is_empty() {
+        diagnostics.push(format!("clause `{}` has no retained structural-linkage evidence", clause.clause_id));
+        return (super::super::STATUS_MISSING.to_owned(), matched);
+    }
+    let status = if !matched.is_empty() {
+        super::super::STATUS_PASSED
+    } else if has_unsupported {
+        super::super::STATUS_UNSUPPORTED
+    } else if has_stale {
+        super::super::STATUS_STALE_BINDING
+    } else {
+        super::super::STATUS_FAILED
+    };
+    (status.to_owned(), matched)
+}
+
 pub(in crate::requirements) fn evaluate_disposition(
     evaluator: &Context<'_>,
     clause: &super::super::contract::RequirementClause,
@@ -134,6 +198,9 @@ pub(in crate::requirements) fn evaluate_disposition(
         ),
         super::super::DISPOSITION_EMPIRICAL_CHECK => {
             empirical(evaluator.evidence, clause, evaluator.source_root, diagnostics)
+        }
+        super::super::DISPOSITION_STRUCTURAL_LINKAGE => {
+            structural_linkage(evaluator.evidence, clause, evaluator.source_root, diagnostics)
         }
         super::super::DISPOSITION_ACCEPTED_ASSUMPTION => {
             if super::super::contract::validation::targets_formal_proof(clause) {
