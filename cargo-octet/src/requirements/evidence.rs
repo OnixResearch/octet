@@ -14,6 +14,8 @@ pub(crate) struct Bundle {
     #[serde(default = "Vec::new")]
     pub(crate) empirical_checks: Vec<EmpiricalCheck>,
     #[serde(default = "Vec::new")]
+    pub(crate) structural_links: Vec<StructuralLinkEvidence>,
+    #[serde(default = "Vec::new")]
     pub(crate) assumption_records: Vec<AssumptionRecord>,
     #[serde(default = "Vec::new")]
     pub(crate) non_claims: Vec<String>,
@@ -26,6 +28,24 @@ pub(crate) struct ProofDeck {
     pub(crate) deck: String,
     #[serde(default = "super::default_dot")]
     pub(crate) artifact_root: String,
+}
+
+/// One retained structural-linkage report/projection/receipt triple.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub(crate) struct StructuralLinkEvidence {
+    pub(crate) evidence_id: String,
+    pub(crate) evidence_class: String,
+    pub(crate) profile_id: String,
+    pub(crate) profiles: String,
+    pub(crate) report: String,
+    pub(crate) projection: String,
+    pub(crate) receipt: String,
+    #[serde(default = "super::default_dot")]
+    pub(crate) artifact_root: String,
+    #[serde(default = "Vec::new")]
+    pub(crate) checked_scope: Vec<String>,
+    #[serde(default = "Vec::new")]
+    pub(crate) non_claims: Vec<String>,
 }
 
 /// One empirical check record.

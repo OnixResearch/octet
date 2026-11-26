@@ -1,0 +1,126 @@
+{
+  "boundary": "content-bound trace index",
+  "index_blake3": "757d26e3b723835774321de73737d2a5cceea40e8883eb62cb9a4c09c876e6cf",
+  "links": [
+    {
+      "link_blake3": "795d7bc537f01f3a711dfeaafcb19de618a47c5ebb8528646d6251f30e07ee12",
+      "marker_blake3": "9fa09b2270d189362d738d84e6302ab47db9fdfb2b9cb1e03c64c4795bcb6b18",
+      "marker_span": {
+        "end_byte": 47,
+        "end_line": 1,
+        "start_byte": 3,
+        "start_line": 1
+      },
+      "requirement_id": "octet.structural_linkage.pilot.checked_add",
+      "requirement_row_blake3": "291375a8186d6e3f3fa75a8743094f014c1d5550f19c652e793da619bbdcba58",
+      "role": "impl",
+      "source_file_blake3": "bb1f75d6c43eefe8bd026e244f6d14db95e4f17d60bbd439c90ce21a312ab3c8",
+      "source_path": "standards/structural-linkage/fixtures/target.rs"
+    }
+  ],
+  "non_claims": [
+    "not callee behavior",
+    "not reusable proof freshness"
+  ],
+  "policy_blake3": "ff096070fb25d5456f50000af78f1c92fda605bdb7bc3d1e7d1cc0091204e61c",
+  "profile": {
+    "name": "cairn-pilot"
+  },
+  "profile_blake3": "eda5d831cf40b9fa97713a4eb5eec65e322a1a05ab2c8dad5ce1f7907e10236c",
+  "requirement_registry_blake3": "a69e973e8ce2a78f831cdc3e4b4d2d81e27de928920118af5d9ba2b228e612a3",
+  "requirements": [
+    {
+      "requirement_id": "octet.structural_linkage.pilot.checked_add",
+      "row_blake3": "291375a8186d6e3f3fa75a8743094f014c1d5550f19c652e793da619bbdcba58"
+    }
+  ],
+  "schema_version": "cairn.content-bound-trace-index.v2",
+  "sources": [
+    {
+      "content_blake3": "bb1f75d6c43eefe8bd026e244f6d14db95e4f17d60bbd439c90ce21a312ab3c8",
+      "path": "standards/structural-linkage/fixtures/target.rs"
+    }
+  ],
+  "structural": {
+    "adapter": "cairn.saved-rust-bytes.v1",
+    "bindings": [
+      {
+        "binding_blake3": "1f0b368a4330f6ac02c0be2c783caba75b94aac7b9bf050e0ed929bd0b021e90",
+        "configuration": {
+          "cfg": [],
+          "declared_features": [],
+          "features": [],
+          "file_blake3": "bb1f75d6c43eefe8bd026e244f6d14db95e4f17d60bbd439c90ce21a312ab3c8",
+          "schema_version": "cairn.rust-item-binding.v1",
+          "source_path": "standards/structural-linkage/fixtures/target.rs",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "item": {
+          "end_byte": 257,
+          "item_kind": "fn",
+          "marker_start_byte": 3,
+          "normalized_item_blake3": "7df6b7f7b998f4cb91c03f57d7f749adf02fecb0ac8773414729515d9fff2f2b",
+          "scoped_locator": "pilot/fn:checked_add#0",
+          "source_path": "standards/structural-linkage/fixtures/target.rs",
+          "start_byte": 54
+        },
+        "link_blake3": "795d7bc537f01f3a711dfeaafcb19de618a47c5ebb8528646d6251f30e07ee12",
+        "marker_span": {
+          "end_byte": 47,
+          "end_line": 1,
+          "start_byte": 3,
+          "start_line": 1
+        },
+        "requirement_id": "octet.structural_linkage.pilot.checked_add",
+        "requirement_row_blake3": "291375a8186d6e3f3fa75a8743094f014c1d5550f19c652e793da619bbdcba58",
+        "source_file_blake3": "bb1f75d6c43eefe8bd026e244f6d14db95e4f17d60bbd439c90ce21a312ab3c8",
+        "source_path": "standards/structural-linkage/fixtures/target.rs"
+      }
+    ],
+    "configuration": {
+      "cfg": [],
+      "declared_features": [],
+      "features": [],
+      "file_blake3": "bb1f75d6c43eefe8bd026e244f6d14db95e4f17d60bbd439c90ce21a312ab3c8",
+      "schema_version": "cairn.rust-item-binding.v1",
+      "source_path": "standards/structural-linkage/fixtures/target.rs",
+      "target": "x86_64-unknown-linux-gnu"
+    },
+    "history": [
+      {
+        "binding_blake3": "7369a1d1a2675d7473a92325ba386eff7d9a59a07b3de4774db58f28329718c7",
+        "configuration": {
+          "cfg": [],
+          "declared_features": [],
+          "features": [],
+          "file_blake3": "bb1f75d6c43eefe8bd026e244f6d14db95e4f17d60bbd439c90ce21a312ab3c8",
+          "schema_version": "cairn.rust-item-binding.v1",
+          "source_path": "standards/structural-linkage/fixtures/target.rs",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "item": {
+          "end_byte": 257,
+          "item_kind": "fn",
+          "marker_start_byte": 3,
+          "normalized_item_blake3": "7df6b7f7b998f4cb91c03f57d7f749adf02fecb0ac8773414729515d9fff2f2b",
+          "scoped_locator": "pilot/fn:checked_add#0",
+          "source_path": "standards/structural-linkage/fixtures/target.rs",
+          "start_byte": 54
+        },
+        "link_blake3": "795d7bc537f01f3a711dfeaafcb19de618a47c5ebb8528646d6251f30e07ee12",
+        "marker_span": {
+          "end_byte": 47,
+          "end_line": 1,
+          "start_byte": 3,
+          "start_line": 1
+        },
+        "requirement_id": "octet.structural_linkage.pilot.old_req",
+        "requirement_row_blake3": "291375a8186d6e3f3fa75a8743094f014c1d5550f19c652e793da619bbdcba58",
+        "source_file_blake3": "bb1f75d6c43eefe8bd026e244f6d14db95e4f17d60bbd439c90ce21a312ab3c8",
+        "source_path": "standards/structural-linkage/fixtures/target.rs"
+      }
+    ],
+    "parser": "syn-2.0.117",
+    "schema": "cairn.rust-item-binding.v1"
+  }
+}

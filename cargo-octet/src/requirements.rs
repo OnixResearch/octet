@@ -36,6 +36,7 @@ const EXIT_SUCCESS: i32 = 0;
 const EXIT_FAILURE: i32 = 1;
 const DISPOSITION_FORMAL_PROOF: &str = "formal_proof";
 const DISPOSITION_EMPIRICAL_CHECK: &str = "empirical_check";
+const DISPOSITION_STRUCTURAL_LINKAGE: &str = "structural_linkage";
 const DISPOSITION_ACCEPTED_ASSUMPTION: &str = "accepted_assumption";
 const DISPOSITION_UNRESOLVED: &str = "unresolved";
 const DISPOSITION_EXCLUDED: &str = "excluded";

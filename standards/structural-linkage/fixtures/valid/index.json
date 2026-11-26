@@ -1,0 +1,38 @@
+{
+  "boundary": "identity and linkage only",
+  "index_hash": "d3016aaac913378ed59ef673db6babf1187890f8ebb2e9bc376d834913b91da8",
+  "issues": [],
+  "normalization_version": "v1",
+  "record_count": 1,
+  "records": [
+    {
+      "artifact_blake3": "799c1247e9683721a36732c89de37cda3e34435bfae3dd261cf9fd72dc138ca0",
+      "artifact_family": "octet-structural-linkage",
+      "artifact_hashes": [
+        "759c26163339c2a9813cd969f8b11004bc44f97d122029490b0dc4fc3a448c69"
+      ],
+      "artifact_locator": "standards/structural-linkage/fixtures/valid/receipt.json",
+      "caveats": [],
+      "evidence_tier": "structural_linkage",
+      "fingerprints": [],
+      "lint_ids": [],
+      "parent_links": [],
+      "policy_ids": [
+        "cairn-structural-trace-v2"
+      ],
+      "provenance_source_ids": [],
+      "record_id": "cairn.pilot.checked_add",
+      "replay_commands": [],
+      "requirement_ids": [
+        "octet.structural_linkage.pilot.checked_add"
+      ],
+      "source_ids": [
+        "standards/structural-linkage/fixtures/target.rs"
+      ],
+      "stable_id": "cairn.pilot.checked_add",
+      "summary": "pilot/fn:checked_add#0"
+    }
+  ],
+  "schema_version": "octet-evidence-codebase-index/v1",
+  "source_artifact_count": 1
+}

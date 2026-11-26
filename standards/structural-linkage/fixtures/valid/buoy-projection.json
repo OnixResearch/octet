@@ -1,0 +1,42 @@
+{
+  "schema_version": "octet-structural-linkage-projection/v1",
+  "profile_id": "buoy-comparison-pilot-v1",
+  "producer": "buoy-comparison-pilot",
+  "original_report_schema": "cairn.buoy-comparison.receipt.v1",
+  "original_report_blake3": "1743ae70fc0e0ef9616c72eb3d010470f7829c8412443a7899cbb8fadefe370a",
+  "mapping_id": "octet-buoy-comparison-pilot-v1",
+  "mapping_version": "1",
+  "namespace": "buoy",
+  "evidence_class": "structural_linkage",
+  "evidence_tier": "structural_linkage",
+  "records": [
+    {
+      "requirement_id": "buoy:pilot-case-1",
+      "requirement_row_blake3": "0d197521d9a48760576da1c87dfd828a60d397ea1e16f92a5b7c44b4f4060ce1",
+      "relation_kind": "verify",
+      "namespace": "buoy",
+      "producer": "buoy-comparison-pilot",
+      "anchor_kind": "rust_item_v1",
+      "source_path": "buoy-pilot:pilot-case-1",
+      "source_file_blake3": "2d88bd4a81ed7870ca597bd17d0a716364425f84a963a5eb70a20b7c45f1bf72",
+      "marker_span": {
+        "start_byte": 0,
+        "end_byte": 0,
+        "start_line": 0,
+        "end_line": 0
+      },
+      "anchor": null,
+      "configuration": null,
+      "link_blake3": "af9ddc8a7ec82bbbb81a654b4d154671cdd63f72c0fdd82570e4e574ef78eed3",
+      "binding_blake3": "5fa17f453ef63830a5e2c6d15d2ed536a8d6fd6e4bb9ceaf63c8b218848f0d0c"
+    }
+  ],
+  "historical_records": [],
+  "unsupported_reasons": [],
+  "non_claims": [
+    "structural linkage records parser-resolved item anchors only",
+    "does not satisfy formal_proof clauses or transfer formal-proof status",
+    "does not prove prose-to-code correspondence, callee behavior, or test adequacy"
+  ],
+  "projection_blake3": "bcad0292045e83777d4232db21d42d40f1f3ea19ffd2b450258f4c2ca24ab6f0"
+}

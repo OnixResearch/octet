@@ -74,6 +74,7 @@ mod spacewasm;
 #[cfg(test)]
 mod state_machine_exhaustiveness;
 mod strict_profile;
+mod structural_linkage;
 #[cfg(test)]
 mod test_support;
 mod transcript;

@@ -15,13 +15,13 @@ Octet ratchets its canonical `--workspace --lib` self-check with the runner's ex
 
 ## Stored budget and qualification status
 
-The checked-in baseline contains **3,160 unique stable identities**. Its
+The checked-in baseline contains **3,024 unique stable identities**. Its
 semantic `baseline_hash` is
-`dc1b7b0a5a9379702268ff967e391d9595ceacb365032daf25387a232721c576`;
+`b3:9d833ebdb5e9303c95e0af7aec2cf2b3e8b4576d6eaee16cf433c811751a60c2`;
 the baseline file's BLAKE3 identity is
-`b3:e89881bb54c99c48a097f1622291d45a1a3511b4081518e7e19a52a36c95e1a0`.
+`b3:dab25780ba8deb2f353da578eb237e89fbb3227c6cc2dea576cac8da80932ba6`.
 These describe stored data, not a fresh self-check observation or approval of
-new findings. The flake gate's **4,337 occurrence** budget is an expectation,
+new findings. The flake gate's **4,231 occurrence** budget is an expectation,
 not a measured current run. No budget is changed by this documentation repair.
 Candidate qualification must record actual results for the exact source,
 toolchain, config, scope, and stored baseline.

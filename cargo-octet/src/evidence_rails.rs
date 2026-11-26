@@ -28,6 +28,7 @@ const EVIDENCE_BUNDLE_ARTIFACT_NAMES: &[&str] = &[
     SUMMARY_ARTIFACT_NAME,
     PROVENANCE_ARTIFACT_NAME,
     crate::wasm_artifact::INPUT_ARTIFACT_NAME,
+    crate::charon_semantic::PROFILE_ARTIFACT,
     crate::charon_semantic::RAW_SNAPSHOT_ARTIFACT,
     crate::charon_semantic::PROJECTION_ARTIFACT,
     crate::charon_semantic::ANALYSIS_ARTIFACT,
@@ -875,6 +876,12 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
         let baseline_path = args.baseline.as_ref().map(|path| path.display().to_string());
         receipt.command_argv = command_argv(args.rail, None, baseline_path.as_deref(), None, false);
     }
+    if args.rail == EvidenceRailKind::CharonSemantic
+        && receipt.mode == MODE_RUN
+        && let Some(argv) = receipt.charon_semantic.as_ref().and_then(|details| details.command_argv.as_ref())
+    {
+        receipt.command_argv = argv.clone();
+    }
     if args.rail == EvidenceRailKind::DependencyTrust {
         bind_dependency_trust_store(&mut receipt, read_dependency_trust_store(workspace_root));
     }
@@ -967,8 +974,9 @@ fn input_identities(
         // `prepare_ast_grep` hashed the profile bytes it parsed; never re-read `--config`.
         Some(prepared.config_identity.clone())
     } else if args.rail == EvidenceRailKind::CharonSemantic {
-        // `analyze_charon_semantic_input` already verified the config bytes against this identity.
-        Some(crate::charon_semantic::EXPECTED_PROFILE_IDENTITY.to_owned())
+        // `analyze_charon_semantic_input` bound the once-read profile into the envelope; never re-read
+        // `--config`.
+        crate::charon_semantic::envelope_profile_identity(import_text)
     } else {
         args.config.as_ref().map(|path| path_identity(&workspace_root.join(path))).transpose()?
     };
@@ -1010,7 +1018,13 @@ fn normalized_run_command(
         return Ok(args.command.clone());
     }
     match args.rail {
-        EvidenceRailKind::CharonSemantic => Ok(Some(crate::charon_semantic::profile_command_argv()?.join(" "))),
+        EvidenceRailKind::CharonSemantic => {
+            if args.profile.as_deref() == Some(crate::charon_semantic::shipped_profile_id()) {
+                Ok(Some(crate::charon_semantic::profile_command_argv()?.join(" ")))
+            } else {
+                Ok(None)
+            }
+        }
         EvidenceRailKind::BenchmarkEvidence => Ok(None),
         EvidenceRailKind::HegelProperty if args.profile.as_deref() == Some(crate::hegel::PROFILE_ID) => {
             crate::hegel::selected_profile(crate::hegel::PROFILE_ID).map(|profile| Some(profile.command_argv.join(" ")))
@@ -2171,17 +2185,19 @@ fn validate_charon_semantic_receipt(
     match (rail, receipt.charon_semantic.as_ref()) {
         (EvidenceRailKind::CharonSemantic, Some(details)) => {
             diagnostics.extend(crate::charon_semantic::validate_details(details, &receipt.non_claims));
-            if receipt.config_identity.as_deref() != Some(crate::charon_semantic::EXPECTED_PROFILE_IDENTITY) {
-                diagnostics
-                    .push("Charon semantic receipt config identity does not match the shipped profile".to_owned());
+            if receipt.config_identity.as_deref() != Some(details.profile_identity.as_str()) {
+                diagnostics.push("Charon semantic receipt config identity does not match the profile".to_owned());
             }
             if !receipt.property_classes.is_empty() {
                 diagnostics.push("Charon semantic receipt must not carry property classes".to_owned());
             }
-            if receipt.profile.as_deref() != Some(crate::charon_semantic::shipped_profile_id()) {
+            if receipt.profile.as_deref() != Some(details.profile_id.as_str()) {
                 diagnostics.push("Charon semantic receipt profile selection drifted".to_owned());
             }
-            let expected_command = crate::charon_semantic::profile_command_argv().unwrap_or_default();
+            let expected_command = details
+                .command_argv
+                .clone()
+                .unwrap_or_else(|| crate::charon_semantic::profile_command_argv().unwrap_or_default());
             if receipt.mode == MODE_RUN && receipt.command_argv != expected_command {
                 diagnostics
                     .push("Charon semantic run receipt command argv does not match the closed profile".to_owned());
@@ -4831,19 +4847,12 @@ fn analyze_charon_semantic_input(args: &EvidenceRailArgs) -> Result<(&'static st
         .ok_or_else(|| "charon-semantic rail requires `--config PATH` to the generated profile".to_owned())?;
     let selected_profile =
         args.profile.as_deref().ok_or_else(|| "charon-semantic rail requires `--profile NAME`".to_owned())?;
-    if selected_profile != crate::charon_semantic::shipped_profile_id() {
-        return Err(format!("unsupported Charon semantic profile `{selected_profile}`"));
-    }
     if args.command.as_deref().is_some_and(|command| !command.is_empty()) {
         return Err("charon-semantic rail rejects arbitrary --command authority".to_owned());
     }
     let profile_text = fs::read_to_string(config_path)
         .map_err(|error| format!("read Charon semantic profile {}: {error}", config_path.display()))?;
-    if crate::charon_semantic::prefixed_identity(profile_text.as_bytes())
-        != crate::charon_semantic::EXPECTED_PROFILE_IDENTITY
-    {
-        return Err("Charon semantic profile bytes do not match the shipped profile identity".to_owned());
-    }
+    let _validated = crate::charon_semantic::validate_profile_text(selected_profile, &profile_text)?;
     let comparison_parent_texts = args
         .external_reports
         .iter()
@@ -4871,7 +4880,9 @@ fn analyze_charon_semantic_input(args: &EvidenceRailArgs) -> Result<(&'static st
         }
         (None, false) => return Err("charon-semantic rail requires `--input PATH` or `--run`".to_owned()),
     };
-    let envelope = crate::charon_semantic::build_envelope(snapshot_text, comparison_parent_texts)?;
+    let embedded_profile = (selected_profile != crate::charon_semantic::shipped_profile_id()).then_some(profile_text);
+    let envelope =
+        crate::charon_semantic::build_envelope_for_profile(snapshot_text, comparison_parent_texts, embedded_profile)?;
     Ok((mode, envelope, exit_code))
 }
 

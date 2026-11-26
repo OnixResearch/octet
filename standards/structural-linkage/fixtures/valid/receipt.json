@@ -1,0 +1,37 @@
+{
+  "schema_version": "octet-structural-linkage-receipt/v1",
+  "profile_id": "cairn-structural-trace-v2",
+  "producer": "cairn",
+  "original_report_schema": "cairn.content-bound-trace-index.v2",
+  "original_report_blake3": "2cf5f57a488e70e309cd40121d96ab53c2ab21eb50827ebbe8e392ced3960b3f",
+  "projection_schema_version": "octet-structural-linkage-projection/v1",
+  "projection_blake3": "13936f3f45d5e2d220fdff2c58d211011fe1883d60d78954526395989366ba91",
+  "mapping_id": "octet-cairn-structural-linkage-v1",
+  "mapping_version": "1",
+  "namespace": "cairn",
+  "evidence_class": "structural_linkage",
+  "evidence_tier": "structural_linkage",
+  "status": "valid",
+  "command_executed": false,
+  "replay_deterministic": true,
+  "active_record_count": 1,
+  "historical_record_count": 1,
+  "source_checks": [
+    {
+      "locator": "pilot/fn:checked_add#0",
+      "expected_file_blake3": "bb1f75d6c43eefe8bd026e244f6d14db95e4f17d60bbd439c90ce21a312ab3c8",
+      "actual_file_blake3": "bb1f75d6c43eefe8bd026e244f6d14db95e4f17d60bbd439c90ce21a312ab3c8",
+      "expected_normalized_item_blake3": "7df6b7f7b998f4cb91c03f57d7f749adf02fecb0ac8773414729515d9fff2f2b",
+      "actual_normalized_item_blake3": "7df6b7f7b998f4cb91c03f57d7f749adf02fecb0ac8773414729515d9fff2f2b",
+      "status": "current",
+      "explanation": "source bytes and normalized item identity both match `pilot/fn:checked_add#0`"
+    }
+  ],
+  "diagnostics": [],
+  "non_claims": [
+    "structural linkage records parser-resolved item anchors only",
+    "does not satisfy formal_proof clauses or transfer formal-proof status",
+    "does not prove prose-to-code correspondence, callee behavior, or test adequacy"
+  ],
+  "receipt_blake3": "799c1247e9683721a36732c89de37cda3e34435bfae3dd261cf9fd72dc138ca0"
+}
