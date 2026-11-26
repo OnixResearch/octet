@@ -128,7 +128,7 @@ fn real_rustc_mir_collects_implicit_drops_traits_projections_and_admits_pure_cra
     assert!(fn_ptr_body.unsupported.iter().any(|u| u.kind == UnsupportedKind::UnresolvedFnPtr));
 
     let pure_summary = run_semantic_probe(&library, &driver, &host, PURE_LIB_RS);
-    let profile: crate::semantic_effect::model::SemanticEffectProfile = serde_json::from_str(include_str!(
+    let profile: crate::semantic_effect::model::MirClosureProfile = serde_json::from_str(include_str!(
         "../../../../standards/effect-closure/generated/semantic-effect-profile.json"
     ))
     .expect("shipped semantic profile");
@@ -142,15 +142,16 @@ fn real_rustc_mir_collects_implicit_drops_traits_projections_and_admits_pure_cra
             source_identity: pure_summary.source_blake3.clone(),
         })
         .collect::<Vec<_>>();
-    let receipt = crate::semantic_effect::evaluate::evaluate(&crate::semantic_effect::evaluate::EvaluationInput {
-        profile: &profile,
-        profile_blake3: "b3:shipped-profile",
-        unit_summary: &pure_summary,
-        function_addresses: &fn_addrs,
-        trusted_summaries: &[],
-        cargo_lock_blake3: "b3:probe-lock",
-    })
-    .expect("evaluate pure semantic probe");
+    let receipt =
+        crate::semantic_effect::evaluate::run_profile_evaluation(&crate::semantic_effect::evaluate::EvaluationInput {
+            profile: &profile,
+            profile_blake3: "b3:shipped-profile",
+            unit_summary: &pure_summary,
+            function_addresses: &fn_addrs,
+            trusted_summaries: &[],
+            cargo_lock_blake3: "b3:probe-lock",
+        })
+        .expect("evaluate pure semantic probe");
     assert_eq!(
         receipt.status,
         crate::effect_closure::AdmissionStatus::Admitted,
@@ -176,9 +177,17 @@ fn run_semantic_probe(library: &std::path::Path, driver: &std::path::Path, host:
 
     let scope = vec!["--workspace".to_owned()];
     let args = vec!["--lib".to_owned()];
-    let prepared =
-        crate::architecture_ir::prepare_semantic_collector(root, &policy, super::TOOLCHAIN, library, &scope, &args)
-            .expect("prepare semantic collector");
+    let prepared = crate::architecture_ir::prepare_collector(&crate::architecture_ir::CollectorPlanRequest {
+        workspace_root: root,
+        policy: &policy,
+        toolchain: super::TOOLCHAIN,
+        collector_path: library,
+        scope_args: &scope,
+        cargo_check_args: &args,
+        is_semantic_enabled: true,
+        self_profile_phase_dir: None,
+    })
+    .expect("prepare semantic collector");
 
     let output = std::process::Command::new("cargo")
         .arg("check")

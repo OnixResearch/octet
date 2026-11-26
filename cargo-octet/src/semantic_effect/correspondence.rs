@@ -1,8 +1,8 @@
 //! Profile, unit summary, and selected-function correspondence validation (#17).
 
 pub(super) fn validate_profile(
-    profile: &super::model::SemanticEffectProfile,
-    diagnostics: &mut Vec<super::model::SemanticDiagnostic>,
+    profile: &super::model::MirClosureProfile,
+    diagnostics: &mut Vec<super::model::ProfileDiagnostic>,
 ) {
     if profile.schema_version != super::model::PROFILE_SCHEMA_VERSION {
         push_diag(diagnostics, "profile_schema_invalid", "unsupported semantic effect profile schema", None);
@@ -29,8 +29,8 @@ pub(super) fn validate_profile(
 
 pub(super) fn validate_unit_summary(
     summary: &octet_architecture_ir::semantic::UnitSummary,
-    profile: &super::model::SemanticEffectProfile,
-    diagnostics: &mut Vec<super::model::SemanticDiagnostic>,
+    profile: &super::model::MirClosureProfile,
+    diagnostics: &mut Vec<super::model::ProfileDiagnostic>,
 ) {
     if summary.schema_version != octet_architecture_ir::semantic::SEMANTIC_MIR_UNIT_SCHEMA_VERSION {
         push_diag(diagnostics, "unit_schema_invalid", "unsupported semantic MIR unit schema", None);
@@ -50,16 +50,16 @@ pub(super) fn validate_unit_summary(
     }
 }
 
-pub(super) fn check_correspondence(
+pub(super) fn verify_links(
     summary: &octet_architecture_ir::semantic::UnitSummary,
     addresses: &[crate::effect_closure::FunctionAddressRecord],
-    profile: &super::model::SemanticEffectProfile,
-    diagnostics: &mut Vec<super::model::SemanticDiagnostic>,
+    profile: &super::model::MirClosureProfile,
+    diagnostics: &mut Vec<super::model::ProfileDiagnostic>,
 ) -> (super::model::CoverageReport, std::collections::BTreeMap<String, String>) {
-    let mut address_by_name = std::collections::BTreeMap::new();
-    for record in addresses {
-        address_by_name.insert(record.name.clone(), record.function_address.clone());
-    }
+    let address_by_name = addresses
+        .iter()
+        .map(|record| (record.name.clone(), record.function_address.clone()))
+        .collect::<std::collections::BTreeMap<_, _>>();
     let observed_short_names = summary
         .bodies
         .iter()
@@ -106,12 +106,12 @@ pub(super) fn check_correspondence(
 }
 
 fn push_diag(
-    diagnostics: &mut Vec<super::model::SemanticDiagnostic>,
+    diagnostics: &mut Vec<super::model::ProfileDiagnostic>,
     code: &str,
     message: &str,
     item_path: Option<&str>,
 ) {
-    diagnostics.push(super::model::SemanticDiagnostic {
+    diagnostics.push(super::model::ProfileDiagnostic {
         code: code.to_owned(),
         message: message.to_owned(),
         item_path: item_path.map(str::to_owned),

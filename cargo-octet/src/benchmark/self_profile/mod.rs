@@ -17,14 +17,14 @@ pub(crate) fn run_cli(args: &crate::cli::BenchmarkSelfProfileArgs) -> Result<i32
     let profile_bytes = std::fs::read(&args.profile_config)
         .map_err(|error| format!("read self-profile config {}: {error}", args.profile_config.display()))?;
     let profile_blake3 = format!("b3:{}", crate::evidence::artifact_blake3_hex(&profile_bytes));
-    let profile: model::DiagnosticProfileConfig = serde_json::from_slice(&profile_bytes)
+    let profile: model::CaptureConfig = serde_json::from_slice(&profile_bytes)
         .map_err(|error| format!("parse self-profile config {}: {error}", args.profile_config.display()))?;
 
     if args.is_verify {
         let report_path = args.artifact.clone().unwrap_or_else(|| args.artifact_dir.join(REPORT_FILE_NAME));
         let report_bytes = std::fs::read(&report_path)
             .map_err(|error| format!("read self-profile report {}: {error}", report_path.display()))?;
-        let report: model::SelfProfileReport = serde_json::from_slice(&report_bytes)
+        let report: model::CaptureReport = serde_json::from_slice(&report_bytes)
             .map_err(|error| format!("parse self-profile report {}: {error}", report_path.display()))?;
         let verification = replay::verify_report(&report, &profile, report_path.parent());
         let is_valid = verification.diagnostics.is_empty();
@@ -53,8 +53,8 @@ pub(crate) fn run_cli(args: &crate::cli::BenchmarkSelfProfileArgs) -> Result<i32
         artifact_dir: &args.artifact_dir,
         is_compare_configurations: args.is_compare,
         controlled_change_file: args.controlled_change.as_deref(),
-        driver_path: None,
-        lint_library_path: None,
+        driver_path: args.driver_path.as_deref(),
+        lint_library_path: args.lint_library_path.as_deref(),
     })?;
     let bytes = crate::benchmark::pretty_bytes(&report, "self-profile report")?;
     std::fs::write(args.artifact_dir.join(REPORT_FILE_NAME), &bytes)

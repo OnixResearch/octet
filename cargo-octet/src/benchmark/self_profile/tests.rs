@@ -1,6 +1,6 @@
 use super::measureme::parse_mm_profdata;
+use super::model::CaptureConfig;
 use super::model::ConfigMode;
-use super::model::DiagnosticProfileConfig;
 use super::model::UnitBuildStatus;
 use super::phases::collect_phase_records;
 use super::phases::write_engine_phase_record;
@@ -8,10 +8,10 @@ use super::replay::verify_report;
 use super::runner::RunOptions;
 use super::runner::execute;
 
-fn shipped_profile() -> (DiagnosticProfileConfig, String) {
+fn shipped_profile() -> (CaptureConfig, String) {
     let raw = include_str!("../../../../standards/benchmark/self-profile.json");
     let blake3 = format!("b3:{}", crate::evidence::artifact_blake3_hex(raw.as_bytes()));
-    let cfg: DiagnosticProfileConfig = serde_json::from_str(raw).expect("parse shipped self-profile.json");
+    let cfg: CaptureConfig = serde_json::from_str(raw).expect("parse shipped self-profile.json");
     (cfg, blake3)
 }
 
@@ -172,7 +172,7 @@ fn concurrent_and_engine_phase_records_collect_deterministically() {
     let dir = tempfile::TempDir::new().expect("phase temp dir");
     write_engine_phase_record(dir.path(), 1_250, 3_500).expect("write engine phase");
     for (unit, pid) in [("unit-b", 202u32), ("unit-a", 101u32)] {
-        let rec = super::model::OctetPhaseSpanRecord {
+        let rec = super::model::CollectorPhaseRecord {
             schema_version: super::model::PHASE_SPAN_SCHEMA_VERSION.to_owned(),
             unit_label: unit.to_owned(),
             process_id: pid,

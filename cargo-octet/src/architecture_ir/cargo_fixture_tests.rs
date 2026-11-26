@@ -297,7 +297,16 @@ fn run_body_fixture(all_features: bool, import_test_source: TestImport, no_std: 
         vec!["--all-targets".to_owned(), "--features".to_owned(), "extra".to_owned()]
     };
     if import_test_source == TestImport::Symlink {
-        let rejected = super::prepare_collector(root, &policy, TOOLCHAIN, &library, &scope, &args);
+        let rejected = super::prepare_collector(&super::CollectorPlanRequest {
+            workspace_root: root,
+            policy: &policy,
+            toolchain: TOOLCHAIN,
+            collector_path: &library,
+            scope_args: &scope,
+            cargo_check_args: &args,
+            is_semantic_enabled: false,
+            self_profile_phase_dir: None,
+        });
         let error = rejected.err().expect("source symlink must reject before collection");
         assert!(error.contains("source envelope contains a source symlink"), "{error}");
         assert!(!root.join(".octet").exists(), "source alias must not publish a collector context");
@@ -307,7 +316,16 @@ fn run_body_fixture(all_features: bool, import_test_source: TestImport, no_std: 
     if all_features {
         let mut incomplete = self::policy(root, &host, false);
         incomplete.policy.production.targets[0].features.clear();
-        let rejected = super::prepare_collector(root, &incomplete, TOOLCHAIN, &library, &scope, &args);
+        let rejected = super::prepare_collector(&super::CollectorPlanRequest {
+            workspace_root: root,
+            policy: &incomplete,
+            toolchain: TOOLCHAIN,
+            collector_path: &library,
+            scope_args: &scope,
+            cargo_check_args: &args,
+            is_semantic_enabled: false,
+            self_profile_phase_dir: None,
+        });
         assert!(rejected.err().expect("under-declared row must fail").contains("does not match"));
         assert!(!root.join(".octet").exists(), "mismatch must not publish a collector context");
     }
@@ -322,7 +340,16 @@ fn run_body_fixture(all_features: bool, import_test_source: TestImport, no_std: 
     conflicting.policy.production.source_scopes.retain(|scope| scope != "src");
     parse_project_architecture_policy(&serde_json::to_vec(&conflicting.policy).expect("negative policy"))
         .expect("negative policy is structurally valid before Cargo root binding");
-    let rejected = super::prepare_collector(root, &conflicting, TOOLCHAIN, &library, &scope, &args);
+    let rejected = super::prepare_collector(&super::CollectorPlanRequest {
+        workspace_root: root,
+        policy: &conflicting,
+        toolchain: TOOLCHAIN,
+        collector_path: &library,
+        scope_args: &scope,
+        cargo_check_args: &args,
+        is_semantic_enabled: false,
+        self_profile_phase_dir: None,
+    });
     assert!(
         rejected
             .err()
@@ -330,8 +357,17 @@ fn run_body_fixture(all_features: bool, import_test_source: TestImport, no_std: 
             .contains("conflicts with the declared compiler role")
     );
     assert!(!root.join(".octet").exists(), "invalid roots must not publish a collector context");
-    let prepared = super::prepare_collector(root, &policy, TOOLCHAIN, &library, &scope, &args)
-        .expect("plan actual Cargo compilation units");
+    let prepared = super::prepare_collector(&super::CollectorPlanRequest {
+        workspace_root: root,
+        policy: &policy,
+        toolchain: TOOLCHAIN,
+        collector_path: &library,
+        scope_args: &scope,
+        cargo_check_args: &args,
+        is_semantic_enabled: false,
+        self_profile_phase_dir: None,
+    })
+    .expect("plan actual Cargo compilation units");
     for kind in ["lib", "bin", "test", "example", "bench", "proc-macro", "custom-build"] {
         assert!(
             prepared

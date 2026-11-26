@@ -506,6 +506,7 @@ struct TrustedKeyMaterial {
     observed_at_unix: Option<u64>,
 }
 
+#[derive(Clone)]
 pub(crate) struct PreparedIntegratedClosure {
     policy: WorkspacePolicy,
     policy_bytes: Vec<u8>,
@@ -527,6 +528,15 @@ struct OptionalEffectProfiles<'a> {
     semantic: Option<&'a Path>,
 }
 
+struct AdmissionSpec<'a> {
+    profile: &'a str,
+    closure: bool,
+    policy_path: &'a Path,
+    optional_profiles: OptionalEffectProfiles<'a>,
+    scope_args: &'a [String],
+    cargo_check_args: Option<&'a [String]>,
+}
+
 // r[impl octet.effect_closure.boundaries.default]
 pub fn run(args: &AdmissionArgs) -> Result<i32, String> {
     match &args.mode {
@@ -538,18 +548,17 @@ pub fn run(args: &AdmissionArgs) -> Result<i32, String> {
             semantic_effect_profile,
             scope_args,
             cargo_check_args,
-        } => run_admission(
-            args,
+        } => run_admission(args, &AdmissionSpec {
             profile,
-            *closure,
-            policy,
-            &OptionalEffectProfiles {
+            closure: *closure,
+            policy_path: policy,
+            optional_profiles: OptionalEffectProfiles {
                 kamacite: kamacite_effect_profile.as_deref(),
                 semantic: semantic_effect_profile.as_deref(),
             },
             scope_args,
-            cargo_check_args.as_deref(),
-        ),
+            cargo_check_args: cargo_check_args.as_deref(),
+        }),
         AdmissionMode::Verify {
             auth_policy,
             auth_evidence,
@@ -562,16 +571,8 @@ pub fn run(args: &AdmissionArgs) -> Result<i32, String> {
 
 // r[impl octet.effect_closure.cli.admitted]
 // r[impl octet.effect_closure.cli.check_failure]
-fn run_admission(
-    args: &AdmissionArgs,
-    profile: &str,
-    closure: bool,
-    policy_path: &Path,
-    optional_profiles: &OptionalEffectProfiles<'_>,
-    scope_args: &[String],
-    cargo_check_args: Option<&[String]>,
-) -> Result<i32, String> {
-    if profile != effect_closure::DETERMINISTIC_CORE_PROFILE || !closure {
+fn run_admission(args: &AdmissionArgs, spec: &AdmissionSpec<'_>) -> Result<i32, String> {
+    if spec.profile != effect_closure::DETERMINISTIC_CORE_PROFILE || !spec.closure {
         return Err(format!(
             "effect closure v1 requires `--profile {} --closure`",
             effect_closure::DETERMINISTIC_CORE_PROFILE
@@ -582,63 +583,163 @@ fn run_admission(
     let cwd = env::current_dir().map_err(|error| format!("current_dir: {error}"))?;
     let workspace_config = crate::config::load(&cwd)?;
     let workspace_root = workspace_config.workspace_root;
-    let selected_profile = crate::strict_profile::prepare_selected_profile(Some(profile), &workspace_root)?
+    let selected_profile = crate::strict_profile::prepare_selected_profile(Some(spec.profile), &workspace_root)?
         .ok_or_else(|| "effect closure requires a selected strict profile".to_owned())?;
-    let prepared = prepare_inputs(&workspace_root, policy_path)?;
+    let prepared = prepare_inputs(&workspace_root, spec.policy_path)?;
     let artifact_dir = absolute_from_workspace(&workspace_root, &args.artifact_dir);
     let check_dir = artifact_dir.join(CHECK_DIR);
     let root = prepare_artifact_root(&artifact_dir)?;
     let command_bytes = normalized_text_bytes(&args.command_line);
 
-    let check = CheckArgs {
-        scope_args: scope_args.to_vec(),
-        cargo_check_args: cargo_check_args.map(<[String]>::to_vec),
-        profile: Some(profile.to_owned()),
+    let check = build_admission_check_args(spec, &check_dir, &prepared.baseline_path, &args.command_line);
+    let check_exit = if spec.optional_profiles.semantic.is_some() {
+        crate::engine::run_with_semantic_collection(&check)?
+    } else {
+        crate::engine::run(&check)?
+    };
+    if check_exit != EXIT_ADMITTED {
+        write_blocked_status(&root, spec.profile, check_exit, &command_bytes)?;
+        return Ok(check_exit);
+    }
+    verify_check_bundle(&check_dir)?;
+
+    let receipt = compute_admission_closure(&ClosureBuildRequest {
+        workspace_root: &workspace_root,
+        spec,
+        core_source_scopes: &selected_profile.core_source_scopes,
+        prepared: &prepared,
+        check_dir: &check_dir,
+        command_bytes: &command_bytes,
+    })?;
+    let kamacite = match spec.optional_profiles.kamacite {
+        Some(path) if receipt.status == AdmissionStatus::Admitted => {
+            Some(prepare_kamacite_bundle(&workspace_root, path, &receipt)?)
+        }
+        _ => None,
+    };
+    let deps_bundle = AdmissionBundleContext {
+        workspace_root: &workspace_root,
+        spec,
+        artifact_dir: &artifact_dir,
+        check_dir: &check_dir,
+        root: &root,
+        command_bytes: &command_bytes,
+        policy_bytes: &prepared.policy_bytes,
+    };
+    finalize_admission_outputs(args.output_format, &deps_bundle, &receipt, kamacite.as_ref())
+}
+
+struct ClosureBuildRequest<'a> {
+    workspace_root: &'a Path,
+    spec: &'a AdmissionSpec<'a>,
+    core_source_scopes: &'a [PathBuf],
+    prepared: &'a PreparedIntegratedClosure,
+    check_dir: &'a Path,
+    command_bytes: &'a [u8],
+}
+
+struct AdmissionBundleContext<'a> {
+    workspace_root: &'a Path,
+    spec: &'a AdmissionSpec<'a>,
+    artifact_dir: &'a Path,
+    check_dir: &'a Path,
+    root: &'a crate::cap_fs::ArtifactRoot,
+    command_bytes: &'a [u8],
+    policy_bytes: &'a [u8],
+}
+
+fn finalize_admission_outputs(
+    output_format: OutputFormat,
+    ctx: &AdmissionBundleContext<'_>,
+    receipt: &crate::effect_closure::EffectClosureReceipt,
+    kamacite: Option<&KamaciteBundle>,
+) -> Result<i32, String> {
+    let check_status_bytes = read_required(&ctx.check_dir.join(STATUS_FILE))?;
+    let function_address_bytes =
+        read_required(&ctx.check_dir.join(crate::function_address::FUNCTION_ADDRESS_ARTIFACT_NAME))?;
+    let (_, dependency_graph_bytes) = dependency_graph(
+        ctx.workspace_root,
+        ctx.spec.cargo_check_args.unwrap_or_default(),
+        &selected_target(ctx.spec.cargo_check_args.unwrap_or_default())?,
+        &parse_check_status(&check_status_bytes, ctx.spec.profile)?.metadata,
+    )?;
+    write_closure_bundle(
+        ctx.root,
+        ctx.artifact_dir,
+        ctx.command_bytes,
+        ctx.policy_bytes,
+        &dependency_graph_bytes,
+        &check_status_bytes,
+        &function_address_bytes,
+        receipt,
+        kamacite,
+    )?;
+    let is_semantic_admitted = evaluate_optional_semantic_admission(
+        ctx.workspace_root,
+        ctx.spec.optional_profiles.semantic,
+        ctx.artifact_dir,
+        receipt,
+    )?;
+    render_admission_output(output_format, ctx.artifact_dir, receipt, kamacite)?;
+    let admitted = receipt.status == AdmissionStatus::Admitted
+        && kamacite.is_none_or(|bundle| bundle.comparison.status == AdmissionStatus::Admitted)
+        && is_semantic_admitted;
+    Ok(if admitted { EXIT_ADMITTED } else { EXIT_DENIED })
+}
+
+fn build_admission_check_args(
+    spec: &AdmissionSpec<'_>,
+    check_dir: &Path,
+    baseline_path: &Path,
+    command_line: &str,
+) -> CheckArgs {
+    CheckArgs {
+        scope_args: spec.scope_args.to_vec(),
+        cargo_check_args: spec.cargo_check_args.map(<[String]>::to_vec),
+        profile: Some(spec.profile.to_owned()),
         output_format: OutputFormat::Human,
-        artifact_dir: Some(check_dir.clone()),
+        artifact_dir: Some(check_dir.to_path_buf()),
         baseline: None,
         write_baseline: None,
         cache: false,
         function_addresses: FunctionAddressCheck {
             mode: FunctionAddressMode::Off,
             paths: Vec::new(),
-            baseline: Some(prepared.baseline_path.clone()),
+            baseline: Some(baseline_path.to_path_buf()),
         },
-        command_line: args.command_line.clone(),
-    };
-    let check_exit = if optional_profiles.semantic.is_some() {
-        crate::engine::run_with_semantic_collection(&check)?
-    } else {
-        crate::engine::run(&check)?
-    };
-    if check_exit != EXIT_ADMITTED {
-        write_blocked_status(&root, profile, check_exit, &command_bytes)?;
-        return Ok(check_exit);
+        command_line: command_line.to_owned(),
     }
-    verify_check_bundle(&check_dir)?;
+}
 
-    let check_status_bytes = read_required(&check_dir.join(STATUS_FILE))?;
+fn compute_admission_closure(
+    req: &ClosureBuildRequest<'_>,
+) -> Result<crate::effect_closure::EffectClosureReceipt, String> {
+    let check_status_bytes = read_required(&req.check_dir.join(STATUS_FILE))?;
     let function_address_bytes =
-        read_required(&check_dir.join(crate::function_address::FUNCTION_ADDRESS_ARTIFACT_NAME))?;
-    let check_status = parse_check_status(&check_status_bytes, profile)?;
+        read_required(&req.check_dir.join(crate::function_address::FUNCTION_ADDRESS_ARTIFACT_NAME))?;
+    let check_status = parse_check_status(&check_status_bytes, req.spec.profile)?;
     let function_report = parse_function_report(&function_address_bytes)?;
-    let target = selected_target(cargo_check_args.unwrap_or_default())?;
-    let (dependency_graph, dependency_graph_bytes) =
-        dependency_graph(&workspace_root, cargo_check_args.unwrap_or_default(), &target, &check_status.metadata)?;
-    let sources = read_selected_sources(&workspace_root, &selected_profile.core_source_scopes)?;
+    let target = selected_target(req.spec.cargo_check_args.unwrap_or_default())?;
+    let (dependency_graph, dependency_graph_bytes) = dependency_graph(
+        req.workspace_root,
+        req.spec.cargo_check_args.unwrap_or_default(),
+        &target,
+        &check_status.metadata,
+    )?;
+    let sources = read_selected_sources(req.workspace_root, req.core_source_scopes)?;
     validate_function_source_envelopes(&sources, &function_report)?;
     let record_root = function_address_record_root(&function_report)?;
     let catalog = effect_closure::embedded_catalog()?;
 
-    let receipt = effect_closure::compute_closure(ClosureInput {
-        profile_id: profile.to_owned(),
+    Ok(effect_closure::compute_closure(ClosureInput {
+        profile_id: req.spec.profile.to_owned(),
         profile_hash: check_status.metadata.profile_hash.clone(),
         config_hash: check_status.metadata.config_hash.clone(),
-        command_blake3: crate::evidence::artifact_blake3_hex(&command_bytes),
+        command_blake3: crate::evidence::artifact_blake3_hex(req.command_bytes),
         check_status_blake3: crate::evidence::artifact_blake3_hex(&check_status_bytes),
         function_address_artifact_blake3: crate::evidence::artifact_blake3_hex(&function_address_bytes),
         function_address_record_root: record_root,
-        workspace_policy_blake3: crate::evidence::artifact_blake3_hex(&prepared.policy_bytes),
+        workspace_policy_blake3: crate::evidence::artifact_blake3_hex(&req.prepared.policy_bytes),
         cargo_graph_blake3: crate::evidence::artifact_blake3_hex(&dependency_graph_bytes),
         cargo_lock_blake3: dependency_graph.cargo_lock_blake3.clone(),
         target,
@@ -647,34 +748,8 @@ fn run_admission(
         function_addresses: function_report.records,
         resolved_providers: dependency_graph.providers.clone(),
         catalog,
-        policy: prepared.policy,
-    });
-
-    let kamacite = match optional_profiles.kamacite {
-        Some(path) if receipt.status == AdmissionStatus::Admitted => {
-            Some(prepare_kamacite_bundle(&workspace_root, path, &receipt)?)
-        }
-        _ => None,
-    };
-
-    write_closure_bundle(
-        &root,
-        &artifact_dir,
-        &command_bytes,
-        &prepared.policy_bytes,
-        &dependency_graph_bytes,
-        &check_status_bytes,
-        &function_address_bytes,
-        &receipt,
-        kamacite.as_ref(),
-    )?;
-    let is_semantic_admitted =
-        evaluate_optional_semantic_admission(&workspace_root, optional_profiles.semantic, &artifact_dir, &receipt)?;
-    render_admission_output(args.output_format, &artifact_dir, &receipt, kamacite.as_ref())?;
-    let admitted = receipt.status == AdmissionStatus::Admitted
-        && kamacite.as_ref().is_none_or(|bundle| bundle.comparison.status == AdmissionStatus::Admitted)
-        && is_semantic_admitted;
-    Ok(if admitted { EXIT_ADMITTED } else { EXIT_DENIED })
+        policy: req.prepared.policy.clone(),
+    }))
 }
 
 fn evaluate_optional_semantic_admission(
@@ -696,7 +771,7 @@ fn evaluate_optional_semantic_admission(
             source_identity: String::new(),
         })
         .collect::<Vec<_>>();
-    let semantic_receipt = crate::semantic_effect::admit::evaluate_admitted_semantic_profile(
+    let semantic_receipt = crate::semantic_effect::admit::evaluate_admitted_profile(
         workspace_root,
         semantic_path,
         artifact_dir,

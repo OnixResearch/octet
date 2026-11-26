@@ -4,7 +4,7 @@ mod optional_fixture;
 use std::fs;
 
 use crate::requirements::evaluation::decision::evaluate_contract;
-use crate::semantic_effect::model::SemanticEffectReceipt;
+use crate::semantic_effect::model::MirClosureReceipt;
 use crate::semantic_effect::model::compute_receipt_identity;
 
 #[test]
@@ -62,7 +62,7 @@ fn mismatched_core_or_weaker_tier_or_unapproved_assumption_blocks() {
     assert_eq!(unapproved.aggregate_result, "failed");
 
     let sem_path = dir.join("artifacts/semantic-effect-receipt.json");
-    let mut sem: SemanticEffectReceipt =
+    let mut sem: MirClosureReceipt =
         serde_json::from_slice(&fs::read(&sem_path).expect("read sem")).expect("parse sem");
     sem.claim_tier = "selected-source-token-effect-closure".to_owned();
     sem.receipt_identity = compute_receipt_identity(&sem).expect("rehash");

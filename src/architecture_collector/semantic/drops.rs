@@ -4,28 +4,43 @@ use rustc_middle::ty::TypeVisitableExt;
 
 const MAX_DROP_DEPTH: usize = 8;
 
+pub(super) struct DropContext<'a, 'tcx> {
+    pub(super) cx: &'a rustc_lint::LateContext<'tcx>,
+    pub(super) typing_env: rustc_middle::ty::TypingEnv<'tcx>,
+    pub(super) path_kind: octet_architecture_ir::semantic::DropPathKind,
+    pub(super) span_id: &'a str,
+}
+
+struct DropItem<'a, 'tcx> {
+    ty: rustc_middle::ty::Ty<'tcx>,
+    ty_display: &'a str,
+    depth: usize,
+}
+
 pub(super) fn collect_drop_edges<'tcx>(
-    cx: &rustc_lint::LateContext<'tcx>,
-    typing_env: rustc_middle::ty::TypingEnv<'tcx>,
+    ctx: &DropContext<'_, 'tcx>,
     dropped_ty: rustc_middle::ty::Ty<'tcx>,
-    path_kind: octet_architecture_ir::semantic::DropPathKind,
-    span_id: &str,
-    sinks: &mut super::SemanticSinks<'_>,
+    sinks: &mut super::MirSinks<'_>,
 ) {
     let mut visited = std::collections::BTreeSet::new();
     let mut work = Vec::with_capacity(16);
     work.push((dropped_ty, 0usize));
 
     while let Some((ty, depth)) = work.pop() {
-        let ty_display = super::super::qualified_type(cx, ty);
+        let ty_display = super::super::qualified_type(ctx.cx, ty);
         if !visited.insert(ty_display.clone()) || depth > MAX_DROP_DEPTH {
             continue;
         }
         if ty.has_param() || matches!(ty.kind(), rustc_middle::ty::Dynamic(..) | rustc_middle::ty::Alias(..)) {
-            record_unresolved_drop(&ty_display, path_kind, span_id, sinks);
+            record_unresolved_drop(&ty_display, ctx.path_kind, ctx.span_id, sinks);
             continue;
         }
-        process_concrete_drop(cx, typing_env, ty, &ty_display, path_kind, span_id, depth, &mut work, sinks);
+        let item = DropItem {
+            ty,
+            ty_display: &ty_display,
+            depth,
+        };
+        process_concrete_drop(ctx, &item, &mut work, sinks);
     }
 }
 
@@ -33,7 +48,7 @@ fn record_unresolved_drop(
     ty_display: &str,
     path_kind: octet_architecture_ir::semantic::DropPathKind,
     span_id: &str,
-    sinks: &mut super::SemanticSinks<'_>,
+    sinks: &mut super::MirSinks<'_>,
 ) {
     sinks.drops.insert(octet_architecture_ir::semantic::DropEdge {
         dropped_type: ty_display.to_owned(),
@@ -50,62 +65,54 @@ fn record_unresolved_drop(
     });
 }
 
-#[allow(clippy::too_many_arguments)]
 fn process_concrete_drop<'tcx>(
-    cx: &rustc_lint::LateContext<'tcx>,
-    typing_env: rustc_middle::ty::TypingEnv<'tcx>,
-    ty: rustc_middle::ty::Ty<'tcx>,
-    ty_display: &str,
-    path_kind: octet_architecture_ir::semantic::DropPathKind,
-    span_id: &str,
-    depth: usize,
+    ctx: &DropContext<'_, 'tcx>,
+    item: &DropItem<'_, 'tcx>,
     work: &mut Vec<(rustc_middle::ty::Ty<'tcx>, usize)>,
-    sinks: &mut super::SemanticSinks<'_>,
+    sinks: &mut super::MirSinks<'_>,
 ) {
-    match ty.kind() {
+    match item.ty.kind() {
         rustc_middle::ty::Adt(adt_def, args) => {
-            if let Some(dtor) = adt_def.destructor(cx.tcx) {
-                record_adt_dtor(cx, ty_display, dtor.did, path_kind, span_id, sinks);
+            if let Some(dtor) = adt_def.destructor(ctx.cx.tcx) {
+                record_adt_dtor(ctx, item.ty_display, dtor.did, sinks);
             }
             for field in adt_def.all_fields() {
-                let field_ty = field.ty(cx.tcx, args);
-                if field_ty.needs_drop(cx.tcx, typing_env) && work.len() < 128 {
-                    work.push((field_ty, depth + 1));
+                let field_ty = field.ty(ctx.cx.tcx, args);
+                if field_ty.needs_drop(ctx.cx.tcx, ctx.typing_env) && work.len() < 128 {
+                    work.push((field_ty, item.depth + 1));
                 }
             }
         }
         rustc_middle::ty::Tuple(elems) => {
             for elem in *elems {
-                if elem.needs_drop(cx.tcx, typing_env) && work.len() < 128 {
-                    work.push((elem, depth + 1));
+                if elem.needs_drop(ctx.cx.tcx, ctx.typing_env) && work.len() < 128 {
+                    work.push((elem, item.depth + 1));
                 }
             }
         }
         rustc_middle::ty::Array(elem, _) | rustc_middle::ty::Slice(elem)
-            if elem.needs_drop(cx.tcx, typing_env) && work.len() < 128 =>
+            if elem.needs_drop(ctx.cx.tcx, ctx.typing_env) && work.len() < 128 =>
         {
-            work.push((*elem, depth + 1));
+            work.push((*elem, item.depth + 1));
         }
         _ => {}
     }
 }
 
 fn record_adt_dtor(
-    cx: &rustc_lint::LateContext<'_>,
+    ctx: &DropContext<'_, '_>,
     ty_display: &str,
     dtor_did: rustc_span::def_id::DefId,
-    path_kind: octet_architecture_ir::semantic::DropPathKind,
-    span_id: &str,
-    sinks: &mut super::SemanticSinks<'_>,
+    sinks: &mut super::MirSinks<'_>,
 ) {
-    let dtor_path = super::super::qualified_definition(cx, dtor_did);
+    let dtor_path = super::super::qualified_definition(ctx.cx, dtor_did);
     sinks.drops.insert(octet_architecture_ir::semantic::DropEdge {
         dropped_type: ty_display.to_owned(),
         destructor_definition: Some(dtor_path.clone()),
-        path_kind,
+        path_kind: ctx.path_kind,
         is_resolved: true,
         has_effectful_candidate: true,
-        span_id: Some(span_id.to_owned()),
+        span_id: Some(ctx.span_id.to_owned()),
     });
     let resolution = if dtor_did.is_local() {
         octet_architecture_ir::semantic::CallResolutionKind::ConcreteLocal
@@ -118,6 +125,6 @@ fn record_adt_dtor(
         trait_definition: Some("core::ops::drop::Drop".to_owned()),
         resolution,
         has_generic_params: false,
-        span_id: Some(span_id.to_owned()),
+        span_id: Some(ctx.span_id.to_owned()),
     });
 }

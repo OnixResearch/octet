@@ -37,7 +37,7 @@ pub struct ConfigurationSpec {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct ProfileBudgets {
+pub struct CaptureBudgets {
     pub max_mm_profdata_bytes: usize,
     pub max_events_per_unit: usize,
     pub max_units: usize,
@@ -46,13 +46,13 @@ pub struct ProfileBudgets {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct DiagnosticProfileConfig {
+pub struct CaptureConfig {
     pub schema_version: String,
     pub profile_id: String,
     pub rustc_format_version: u32,
     pub self_profile_events: String,
     pub configurations: Vec<ConfigurationSpec>,
-    pub budgets: ProfileBudgets,
+    pub budgets: CaptureBudgets,
     pub non_claims: Vec<String>,
 }
 
@@ -68,7 +68,7 @@ pub struct QueryEventSummary {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct UnitProfileObservation {
+pub struct UnitObservation {
     pub unit_label: String,
     pub host_or_target_role: String,
     pub cache_state: String,
@@ -94,7 +94,7 @@ pub struct UnitProfileObservation {
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct OctetPhaseSpanRecord {
+pub struct CollectorPhaseRecord {
     pub schema_version: String,
     pub unit_label: String,
     pub process_id: u32,
@@ -120,13 +120,13 @@ pub struct ConfigurationComparisonRow {
     pub policy_exit_code: i32,
     pub policy_findings_count: usize,
     pub claim_coverage_note: String,
-    pub units: Vec<UnitProfileObservation>,
-    pub octet_phases: Vec<OctetPhaseSpanRecord>,
+    pub units: Vec<UnitObservation>,
+    pub octet_phases: Vec<CollectorPhaseRecord>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct SelfProfileReport {
+pub struct CaptureReport {
     pub schema_version: String,
     pub profile_id: String,
     pub workspace_source_blake3: String,
@@ -151,7 +151,7 @@ pub struct ReplayVerificationReport {
     pub non_claims: Vec<String>,
 }
 
-pub fn compute_report_blake3(report: &SelfProfileReport) -> Result<String, String> {
+pub fn compute_report_blake3(report: &CaptureReport) -> Result<String, String> {
     let mut normalized = report.clone();
     normalized.report_blake3 = String::new();
     let bytes = serde_json::to_vec(&normalized).map_err(|error| format!("serialize self-profile report: {error}"))?;

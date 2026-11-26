@@ -27,14 +27,14 @@ struct EffectIndependenceReceipt {
     is_interchange_theorem_passed: bool,
 }
 
-pub(super) struct OptionalVerifyCtx<'a> {
-    pub(super) profile: &'a super::EffectExtractionProfile,
+pub(super) struct VerifyCtx<'a> {
+    pub(super) profile: &'a super::BoundaryProfile,
     pub(super) contract: &'a super::super::contract::Definition,
     pub(super) evidence: &'a super::super::evidence::Bundle,
     pub(super) source_root: &'a std::path::Path,
 }
 
-pub(super) fn verify_normal_form_adapter(ctx: &OptionalVerifyCtx<'_>, clause_id: &str, diagnostics: &mut Vec<String>) {
+pub(super) fn verify_normal_form_adapter(ctx: &VerifyCtx<'_>, clause_id: &str, diagnostics: &mut Vec<String>) {
     let Some(policy) = &ctx.profile.optional_normal_form else {
         diagnostics.push("optional rule-relative normal form clause requested without policy".to_owned());
         return;
@@ -65,11 +65,7 @@ pub(super) fn verify_normal_form_adapter(ctx: &OptionalVerifyCtx<'_>, clause_id:
     }
 }
 
-pub(super) fn verify_effect_independence_adapter(
-    ctx: &OptionalVerifyCtx<'_>,
-    clause_id: &str,
-    diagnostics: &mut Vec<String>,
-) {
+pub(super) fn verify_effect_independence_adapter(ctx: &VerifyCtx<'_>, clause_id: &str, diagnostics: &mut Vec<String>) {
     let Some(policy) = &ctx.profile.optional_effect_independence else {
         diagnostics.push("optional effect-independence clause requested without policy".to_owned());
         return;
@@ -101,7 +97,7 @@ pub(super) fn verify_effect_independence_adapter(
 }
 
 pub(super) fn find_proof_artifact_path(
-    ctx: &OptionalVerifyCtx<'_>,
+    ctx: &VerifyCtx<'_>,
     clause_id: &str,
     suffix: &str,
     diagnostics: &mut Vec<String>,

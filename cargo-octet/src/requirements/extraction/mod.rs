@@ -23,7 +23,7 @@ pub(crate) struct SubjectRef {
 /// Frozen subjects and configuration inventory for effect-extraction admission.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct ExtractionSubjects {
+pub(crate) struct PilotSubjects {
     pub(crate) original_implementation: SubjectRef,
     pub(crate) extracted_core: SubjectRef,
     pub(crate) effect_driver: SubjectRef,
@@ -56,7 +56,7 @@ pub(crate) struct ObservationContract {
 /// Clause role mapping inside the effect-extraction contract.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct ExtractionClauses {
+pub(crate) struct ClauseBinding {
     pub(crate) subjects_clause_id: String,
     pub(crate) core_effects_clause_id: String,
     pub(crate) behavior_preservation_clause_id: String,
@@ -89,13 +89,13 @@ pub(crate) struct EffectIndependencePolicy {
 /// Contract-level effect-extraction profile definition.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct EffectExtractionProfile {
+pub(crate) struct BoundaryProfile {
     pub(crate) schema_version: String,
     pub(crate) profile_id: String,
     pub(crate) pilot_id: String,
-    pub(crate) subjects: ExtractionSubjects,
+    pub(crate) subjects: PilotSubjects,
     pub(crate) observation_contract: ObservationContract,
-    pub(crate) clauses: ExtractionClauses,
+    pub(crate) clauses: ClauseBinding,
     #[serde(default = "Vec::new")]
     pub(crate) approved_assumptions: Vec<String>,
     pub(crate) optional_normal_form: Option<NormalFormPolicy>,
@@ -105,7 +105,7 @@ pub(crate) struct EffectExtractionProfile {
 /// Emitted summary separating static analysis, formal proof, and accepted assumptions.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct ExtractionSummary {
+pub(crate) struct BoundarySummary {
     pub(crate) profile_id: String,
     pub(crate) strongest_supported_claim: String,
     pub(crate) static_analysis_evidence_ids: Vec<String>,
@@ -123,11 +123,11 @@ pub(in crate::requirements) fn evaluate(
     source_root: &std::path::Path,
     clauses: &[super::evaluation::decision::ClauseOutcome],
     diagnostics: &mut Vec<String>,
-) -> Option<ExtractionSummary> {
+) -> Option<BoundarySummary> {
     let profile = contract.effect_extraction.as_ref()?;
     let mut cross_diagnostics = Vec::new();
     validate_profile_header(profile, contract, &mut cross_diagnostics);
-    adapters::verify_all_adapters(profile, contract, evidence, source_root, &mut cross_diagnostics);
+    adapters::verify_registered(profile, contract, evidence, source_root, &mut cross_diagnostics);
     let is_cross_clause_verified = cross_diagnostics.is_empty();
     diagnostics.extend(cross_diagnostics.iter().cloned());
 
@@ -169,7 +169,7 @@ pub(in crate::requirements) fn evaluate(
         "effect-extraction-blocked".to_owned()
     };
 
-    Some(ExtractionSummary {
+    Some(BoundarySummary {
         profile_id: profile.profile_id.clone(),
         strongest_supported_claim,
         static_analysis_evidence_ids: static_ids,
@@ -181,7 +181,7 @@ pub(in crate::requirements) fn evaluate(
 }
 
 fn validate_profile_header(
-    profile: &EffectExtractionProfile,
+    profile: &BoundaryProfile,
     contract: &super::contract::Definition,
     diagnostics: &mut Vec<String>,
 ) {

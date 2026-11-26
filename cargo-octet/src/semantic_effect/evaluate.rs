@@ -3,7 +3,7 @@
 const EFFECT_COUNT: usize = 14;
 
 pub struct EvaluationInput<'a> {
-    pub profile: &'a super::model::SemanticEffectProfile,
+    pub profile: &'a super::model::MirClosureProfile,
     pub profile_blake3: &'a str,
     pub unit_summary: &'a octet_architecture_ir::semantic::UnitSummary,
     pub function_addresses: &'a [crate::effect_closure::FunctionAddressRecord],
@@ -11,12 +11,12 @@ pub struct EvaluationInput<'a> {
     pub cargo_lock_blake3: &'a str,
 }
 
-pub fn evaluate(input: &EvaluationInput<'_>) -> Result<super::model::SemanticEffectReceipt, String> {
+pub fn run_profile_evaluation(input: &EvaluationInput<'_>) -> Result<super::model::MirClosureReceipt, String> {
     let mut diagnostics = Vec::with_capacity(16);
     super::correspondence::validate_profile(input.profile, &mut diagnostics);
     super::correspondence::validate_unit_summary(input.unit_summary, input.profile, &mut diagnostics);
 
-    let (coverage, address_by_name) = super::correspondence::check_correspondence(
+    let (coverage, address_by_name) = super::correspondence::verify_links(
         input.unit_summary,
         input.function_addresses,
         input.profile,
@@ -47,7 +47,7 @@ pub fn evaluate(input: &EvaluationInput<'_>) -> Result<super::model::SemanticEff
         crate::effect_closure::AdmissionStatus::Denied
     };
 
-    let mut receipt = super::model::SemanticEffectReceipt {
+    let mut receipt = super::model::MirClosureReceipt {
         schema_version: super::model::RECEIPT_SCHEMA_VERSION.to_owned(),
         status,
         claim_tier: super::model::CLAIM_TIER.to_owned(),
@@ -88,31 +88,33 @@ struct NodeBuildCtx<'a> {
     used_summaries: &'a mut std::collections::BTreeSet<String>,
     unsupported_ops: &'a mut std::collections::BTreeSet<String>,
     call_adj: &'a mut Vec<Vec<String>>,
-    diagnostics: &'a mut Vec<super::model::SemanticDiagnostic>,
+    diagnostics: &'a mut Vec<super::model::ProfileDiagnostic>,
 }
 
 fn index_trusted_summaries<'a>(
     summaries: &'a [super::model::TrustedContractSummary],
     cargo_lock_blake3: &str,
-    diagnostics: &mut Vec<super::model::SemanticDiagnostic>,
+    diagnostics: &mut Vec<super::model::ProfileDiagnostic>,
 ) -> std::collections::BTreeMap<String, &'a super::model::TrustedContractSummary> {
-    let mut map = std::collections::BTreeMap::new();
-    for summary in summaries {
-        if summary.cargo_lock_blake3 != cargo_lock_blake3 || summary.implementation_blake3.trim().is_empty() {
-            push_diag(
-                diagnostics,
-                "trusted_summary_stale",
-                &format!("trusted summary `{}` failed lock/implementation binding", summary.summary_id),
-                Some(&summary.target_definition),
-            );
-            continue;
-        }
-        map.insert(summary.target_definition.clone(), summary);
-    }
-    map
+    summaries
+        .iter()
+        .filter_map(|summary| {
+            if summary.cargo_lock_blake3 != cargo_lock_blake3 || summary.implementation_blake3.trim().is_empty() {
+                push_diag(
+                    diagnostics,
+                    "trusted_summary_stale",
+                    &format!("trusted summary `{}` failed lock/implementation binding", summary.summary_id),
+                    Some(&summary.target_definition),
+                );
+                None
+            } else {
+                Some((summary.target_definition.clone(), summary))
+            }
+        })
+        .collect()
 }
 
-fn build_initial_nodes(ctx: &mut NodeBuildCtx<'_>) -> Vec<super::model::SemanticNodeResult> {
+fn build_initial_nodes(ctx: &mut NodeBuildCtx<'_>) -> Vec<super::model::MirNodeResult> {
     let mut nodes = Vec::with_capacity(ctx.input.unit_summary.bodies.len());
     for body in &ctx.input.unit_summary.bodies {
         let mut effects = std::collections::BTreeSet::new();
@@ -120,14 +122,14 @@ fn build_initial_nodes(ctx: &mut NodeBuildCtx<'_>) -> Vec<super::model::Semantic
         let mut unsupported_reasons = Vec::with_capacity(body.unsupported.len());
         let mut callees = Vec::with_capacity(body.calls.len());
 
-        let mut out = super::classify::BodyClassifyOut {
+        let mut out = super::classify::ClassifiedBodyOut {
             effects: &mut effects,
             summary_ids: &mut summary_ids,
             unsupported_reasons: &mut unsupported_reasons,
             callees: &mut callees,
             diagnostics: ctx.diagnostics,
         };
-        super::classify::classify_body_effects(body, ctx.input.profile, ctx.summary_index, &mut out);
+        super::classify::summarize_body_ops(body, ctx.input.profile, ctx.summary_index, &mut out);
         ctx.used_summaries.extend(summary_ids.iter().cloned());
         ctx.unsupported_ops.extend(unsupported_reasons.iter().cloned());
         ctx.call_adj.push(callees);
@@ -140,7 +142,7 @@ fn build_initial_nodes(ctx: &mut NodeBuildCtx<'_>) -> Vec<super::model::Semantic
             .cloned()
             .unwrap_or_else(|| body.item_id.clone());
         let direct = effects.into_iter().collect::<Vec<_>>();
-        nodes.push(super::model::SemanticNodeResult {
+        nodes.push(super::model::MirNodeResult {
             item_id: body.item_id.clone(),
             qualified_path: body.qualified_path.clone(),
             function_address,
@@ -159,10 +161,10 @@ fn build_initial_nodes(ctx: &mut NodeBuildCtx<'_>) -> Vec<super::model::Semantic
 }
 
 fn propagate_closure(
-    nodes: &mut [super::model::SemanticNodeResult],
+    nodes: &mut [super::model::MirNodeResult],
     call_adj: &[Vec<String>],
     max_rounds: usize,
-    diagnostics: &mut Vec<super::model::SemanticDiagnostic>,
+    diagnostics: &mut Vec<super::model::ProfileDiagnostic>,
 ) {
     let index_by_path = nodes
         .iter()
@@ -198,9 +200,9 @@ fn propagate_closure(
 }
 
 fn check_profile_policy(
-    nodes: &[super::model::SemanticNodeResult],
-    profile: &super::model::SemanticEffectProfile,
-    diagnostics: &mut Vec<super::model::SemanticDiagnostic>,
+    nodes: &[super::model::MirNodeResult],
+    profile: &super::model::MirClosureProfile,
+    diagnostics: &mut Vec<super::model::ProfileDiagnostic>,
 ) {
     let allowed = profile.allowed_effects.iter().copied().collect::<std::collections::BTreeSet<_>>();
     for node in nodes {
@@ -219,7 +221,7 @@ fn check_profile_policy(
     }
 }
 
-fn collect_observed_effects(nodes: &[super::model::SemanticNodeResult]) -> Vec<super::model::SemanticEffect> {
+fn collect_observed_effects(nodes: &[super::model::MirNodeResult]) -> Vec<super::model::MirOperation> {
     nodes
         .iter()
         .flat_map(|node| node.closure_effects.iter().copied())
@@ -229,12 +231,12 @@ fn collect_observed_effects(nodes: &[super::model::SemanticNodeResult]) -> Vec<s
 }
 
 fn push_diag(
-    diagnostics: &mut Vec<super::model::SemanticDiagnostic>,
+    diagnostics: &mut Vec<super::model::ProfileDiagnostic>,
     code: &str,
     message: &str,
     item_path: Option<&str>,
 ) {
-    diagnostics.push(super::model::SemanticDiagnostic {
+    diagnostics.push(super::model::ProfileDiagnostic {
         code: code.to_owned(),
         message: message.to_owned(),
         item_path: item_path.map(str::to_owned),

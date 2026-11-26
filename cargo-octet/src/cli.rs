@@ -107,6 +107,8 @@ pub struct BenchmarkSelfProfileArgs {
     pub is_verify: bool,
     pub controlled_change: Option<PathBuf>,
     pub output_format: OutputFormat,
+    pub driver_path: Option<PathBuf>,
+    pub lint_library_path: Option<PathBuf>,
 }
 
 #[derive(Debug)]
@@ -853,161 +855,170 @@ fn requirement_value(
     Ok(value)
 }
 
-// Flag parsing is one linear match over the subcommand's flags; splitting it would hide which flags
-// the command accepts.
-#[allow(clippy::too_many_lines)]
 fn parse_admission(args: &[String], command_line: String) -> Result<AdmissionArgs, String> {
     const DEFAULT_ARTIFACT_DIR: &str = "target/octet-admission";
     const DEFAULT_POLICY_PATH: &str = crate::effect_closure::WORKSPACE_POLICY_FILE;
-    const FLAG_AND_VALUE_ARGS: usize = 2;
 
     if args.first().is_some_and(|arg| arg == "verify") {
         return parse_admission_verify(&args[1..], command_line);
     }
 
-    let mut profile = None;
-    let mut closure = false;
-    let mut policy = PathBuf::from(DEFAULT_POLICY_PATH);
-    let mut kamacite_effect_profile = None;
-    let mut semantic_effect_profile = None;
-    let mut artifact_dir = PathBuf::from(DEFAULT_ARTIFACT_DIR);
-    let mut output_format = OutputFormat::Human;
-    let mut scope_args = Vec::new();
-    let mut cargo_check_args = None;
+    let mut state = AdmissionParseState {
+        profile: None,
+        closure: false,
+        policy: PathBuf::from(DEFAULT_POLICY_PATH),
+        kamacite_effect_profile: None,
+        semantic_effect_profile: None,
+        artifact_dir: PathBuf::from(DEFAULT_ARTIFACT_DIR),
+        output_format: OutputFormat::Human,
+        scope_args: Vec::new(),
+        cargo_check_args: None,
+    };
     let mut index = 0;
 
     while index < args.len() {
         let arg = &args[index];
         if arg == "--" {
-            cargo_check_args = Some(args[index + 1..].to_vec());
+            state.cargo_check_args = Some(args[index + 1..].to_vec());
             break;
         }
-        match arg.as_str() {
-            "--profile" => {
-                if profile.is_some() {
-                    return Err("`--profile` may be provided only once".to_owned());
-                }
-                profile = Some(required_arg_at(args, index, arg)?);
-                index += FLAG_AND_VALUE_ARGS;
-            }
-            "--closure" => {
-                if closure {
-                    return Err("`--closure` may be provided only once".to_owned());
-                }
-                closure = true;
-                index += 1;
-            }
-            "--policy" => {
-                policy = PathBuf::from(required_arg_at(args, index, arg)?);
-                index += FLAG_AND_VALUE_ARGS;
-            }
-            "--kamacite-effect-profile" => {
-                if kamacite_effect_profile.is_some() {
-                    return Err("`--kamacite-effect-profile` may be provided only once".to_owned());
-                }
-                kamacite_effect_profile = Some(PathBuf::from(required_arg_at(args, index, arg)?));
-                index += FLAG_AND_VALUE_ARGS;
-            }
-            "--semantic-effect-profile" => {
-                if semantic_effect_profile.is_some() {
-                    return Err("`--semantic-effect-profile` may be provided only once".to_owned());
-                }
-                semantic_effect_profile = Some(PathBuf::from(required_arg_at(args, index, arg)?));
-                index += FLAG_AND_VALUE_ARGS;
-            }
-            "--artifact-dir" => {
-                artifact_dir = PathBuf::from(required_arg_at(args, index, arg)?);
-                index += FLAG_AND_VALUE_ARGS;
-            }
-            "--output-format" | "--format" => {
-                output_format = parse_output_format(&required_arg_at(args, index, arg)?)?;
-                index += FLAG_AND_VALUE_ARGS;
-            }
-            "-p" | "--package" | "--exclude" => {
-                scope_args.push(arg.clone());
-                scope_args.push(required_arg_at(args, index, arg)?);
-                index += FLAG_AND_VALUE_ARGS;
-            }
-            "--workspace" => {
-                scope_args.push(arg.clone());
-                index += 1;
-            }
-            _ if arg.starts_with("--profile=") => {
-                if profile.is_some() {
-                    return Err("`--profile` may be provided only once".to_owned());
-                }
-                let value = arg.trim_start_matches("--profile=");
-                if value.is_empty() {
-                    return Err("missing value after `--profile`".to_owned());
-                }
-                profile = Some(value.to_owned());
-                index += 1;
-            }
-            _ if arg.starts_with("--policy=") => {
-                policy = PathBuf::from(arg.trim_start_matches("--policy="));
-                index += 1;
-            }
-            _ if arg.starts_with("--kamacite-effect-profile=") => {
-                if kamacite_effect_profile.is_some() {
-                    return Err("`--kamacite-effect-profile` may be provided only once".to_owned());
-                }
-                let value = arg.trim_start_matches("--kamacite-effect-profile=");
-                if value.is_empty() {
-                    return Err("missing value after `--kamacite-effect-profile`".to_owned());
-                }
-                kamacite_effect_profile = Some(PathBuf::from(value));
-                index += 1;
-            }
-            _ if arg.starts_with("--semantic-effect-profile=") => {
-                if semantic_effect_profile.is_some() {
-                    return Err("`--semantic-effect-profile` may be provided only once".to_owned());
-                }
-                let value = arg.trim_start_matches("--semantic-effect-profile=");
-                if value.is_empty() {
-                    return Err("missing value after `--semantic-effect-profile`".to_owned());
-                }
-                semantic_effect_profile = Some(PathBuf::from(value));
-                index += 1;
-            }
-            _ if arg.starts_with("--artifact-dir=") => {
-                artifact_dir = PathBuf::from(arg.trim_start_matches("--artifact-dir="));
-                index += 1;
-            }
-            _ if arg.starts_with("--output-format=") => {
-                output_format = parse_output_format(arg.trim_start_matches("--output-format="))?;
-                index += 1;
-            }
-            _ if arg.starts_with("--format=") => {
-                output_format = parse_output_format(arg.trim_start_matches("--format="))?;
-                index += 1;
-            }
-            _ => return Err(format!("unsupported admission argument `{arg}`")),
-        }
+        index += parse_admission_step(args, index, arg, &mut state)?;
     }
 
-    let profile =
-        profile.ok_or_else(|| "effect closure admission requires `--profile deterministic-core`".to_owned())?;
-    if !closure {
+    let profile = state
+        .profile
+        .ok_or_else(|| "effect closure admission requires `--profile deterministic-core`".to_owned())?;
+    if !state.closure {
         return Err("effect closure admission requires explicit `--closure`".to_owned());
     }
-    if output_format == OutputFormat::Sarif {
+    if state.output_format == OutputFormat::Sarif {
         return Err("effect closure admission supports human or json output, not SARIF".to_owned());
     }
 
     Ok(AdmissionArgs {
         mode: AdmissionMode::Run {
             profile,
-            closure,
-            policy,
-            kamacite_effect_profile,
-            semantic_effect_profile,
-            scope_args,
-            cargo_check_args,
+            closure: state.closure,
+            policy: state.policy,
+            kamacite_effect_profile: state.kamacite_effect_profile,
+            semantic_effect_profile: state.semantic_effect_profile,
+            scope_args: state.scope_args,
+            cargo_check_args: state.cargo_check_args,
         },
-        artifact_dir,
-        output_format,
+        artifact_dir: state.artifact_dir,
+        output_format: state.output_format,
         command_line,
     })
+}
+
+struct AdmissionParseState {
+    profile: Option<String>,
+    closure: bool,
+    policy: PathBuf,
+    kamacite_effect_profile: Option<PathBuf>,
+    semantic_effect_profile: Option<PathBuf>,
+    artifact_dir: PathBuf,
+    output_format: OutputFormat,
+    scope_args: Vec<String>,
+    cargo_check_args: Option<Vec<String>>,
+}
+
+fn parse_admission_step(
+    args: &[String],
+    index: usize,
+    arg: &str,
+    state: &mut AdmissionParseState,
+) -> Result<usize, String> {
+    const FLAG_AND_VALUE_ARGS: usize = 2;
+    match arg {
+        "--profile" => {
+            if state.profile.is_some() {
+                return Err("`--profile` may be provided only once".to_owned());
+            }
+            state.profile = Some(required_arg_at(args, index, arg)?);
+            Ok(FLAG_AND_VALUE_ARGS)
+        }
+        "--closure" => {
+            if state.closure {
+                return Err("`--closure` may be provided only once".to_owned());
+            }
+            state.closure = true;
+            Ok(1)
+        }
+        "--policy" => {
+            state.policy = PathBuf::from(required_arg_at(args, index, arg)?);
+            Ok(FLAG_AND_VALUE_ARGS)
+        }
+        "--kamacite-effect-profile" => {
+            if state.kamacite_effect_profile.is_some() {
+                return Err("`--kamacite-effect-profile` may be provided only once".to_owned());
+            }
+            state.kamacite_effect_profile = Some(PathBuf::from(required_arg_at(args, index, arg)?));
+            Ok(FLAG_AND_VALUE_ARGS)
+        }
+        "--semantic-effect-profile" => {
+            if state.semantic_effect_profile.is_some() {
+                return Err("`--semantic-effect-profile` may be provided only once".to_owned());
+            }
+            state.semantic_effect_profile = Some(PathBuf::from(required_arg_at(args, index, arg)?));
+            Ok(FLAG_AND_VALUE_ARGS)
+        }
+        "--artifact-dir" => {
+            state.artifact_dir = PathBuf::from(required_arg_at(args, index, arg)?);
+            Ok(FLAG_AND_VALUE_ARGS)
+        }
+        "--output-format" | "--format" => {
+            state.output_format = parse_output_format(&required_arg_at(args, index, arg)?)?;
+            Ok(FLAG_AND_VALUE_ARGS)
+        }
+        "-p" | "--package" | "--exclude" => {
+            state.scope_args.push(arg.to_owned());
+            state.scope_args.push(required_arg_at(args, index, arg)?);
+            Ok(FLAG_AND_VALUE_ARGS)
+        }
+        "--workspace" => {
+            state.scope_args.push(arg.to_owned());
+            Ok(1)
+        }
+        _ => parse_admission_inline_flag(arg, state),
+    }
+}
+
+fn parse_admission_inline_flag(arg: &str, state: &mut AdmissionParseState) -> Result<usize, String> {
+    if let Some(value) = arg.strip_prefix("--profile=") {
+        if state.profile.is_some() {
+            return Err("`--profile` may be provided only once".to_owned());
+        }
+        if value.is_empty() {
+            return Err("missing value after `--profile`".to_owned());
+        }
+        state.profile = Some(value.to_owned());
+    } else if let Some(value) = arg.strip_prefix("--policy=") {
+        state.policy = PathBuf::from(value);
+    } else if let Some(value) = arg.strip_prefix("--kamacite-effect-profile=") {
+        if state.kamacite_effect_profile.is_some() {
+            return Err("`--kamacite-effect-profile` may be provided only once".to_owned());
+        }
+        if value.is_empty() {
+            return Err("missing value after `--kamacite-effect-profile`".to_owned());
+        }
+        state.kamacite_effect_profile = Some(PathBuf::from(value));
+    } else if let Some(value) = arg.strip_prefix("--semantic-effect-profile=") {
+        if state.semantic_effect_profile.is_some() {
+            return Err("`--semantic-effect-profile` may be provided only once".to_owned());
+        }
+        if value.is_empty() {
+            return Err("missing value after `--semantic-effect-profile`".to_owned());
+        }
+        state.semantic_effect_profile = Some(PathBuf::from(value));
+    } else if let Some(value) = arg.strip_prefix("--artifact-dir=") {
+        state.artifact_dir = PathBuf::from(value);
+    } else if let Some(value) = arg.strip_prefix("--output-format=").or_else(|| arg.strip_prefix("--format=")) {
+        state.output_format = parse_output_format(value)?;
+    } else {
+        return Err(format!("unsupported admission argument `{arg}`"));
+    }
+    Ok(1)
 }
 
 fn parse_admission_verify(args: &[String], command_line: String) -> Result<AdmissionArgs, String> {
@@ -1181,6 +1192,8 @@ fn parse_benchmark_self_profile(args: &[String]) -> Result<BenchmarkSelfProfileA
         is_verify: false,
         controlled_change: None,
         output_format: OutputFormat::Human,
+        driver_path: std::env::var_os("OCTET_UI_DRIVER").map(PathBuf::from),
+        lint_library_path: std::env::var_os("OCTET_UI_LIBRARY").map(PathBuf::from),
     };
     let mut index = 0;
     while index < args.len() {

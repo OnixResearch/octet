@@ -12,14 +12,14 @@ use octet_architecture_ir::semantic::UnsupportedKind;
 use octet_architecture_ir::semantic::compute_unit_summary_blake3;
 
 use super::evaluate::EvaluationInput;
-use super::evaluate::evaluate;
-use super::model::SemanticEffect;
-use super::model::SemanticEffectProfile;
+use super::evaluate::run_profile_evaluation as evaluate;
+use super::model::MirClosureProfile;
+use super::model::MirOperation;
 use super::model::TrustedContractSummary;
 use super::model::UnwindMode;
 
-fn base_profile(unwind_mode: UnwindMode) -> SemanticEffectProfile {
-    let mut profile: SemanticEffectProfile =
+fn base_profile(unwind_mode: UnwindMode) -> MirClosureProfile {
+    let mut profile: MirClosureProfile =
         serde_json::from_str(include_str!("../../../standards/effect-closure/generated/semantic-effect-profile.json"))
             .expect("parse shipped semantic profile");
     profile.unwind_mode = unwind_mode;
@@ -185,10 +185,10 @@ fn effectful_drop_and_parametric_trait_and_alias_mutation_are_denied() {
     .expect("evaluate");
 
     assert_eq!(receipt.status, crate::effect_closure::AdmissionStatus::Denied);
-    assert!(receipt.observed_effects.contains(&SemanticEffect::Fs));
-    assert!(receipt.observed_effects.contains(&SemanticEffect::Unknown));
-    assert!(receipt.observed_effects.contains(&SemanticEffect::ExternalMutation));
-    assert!(receipt.observed_effects.contains(&SemanticEffect::InteriorMutation));
+    assert!(receipt.observed_effects.contains(&MirOperation::Fs));
+    assert!(receipt.observed_effects.contains(&MirOperation::Unknown));
+    assert!(receipt.observed_effects.contains(&MirOperation::ExternalMutation));
+    assert!(receipt.observed_effects.contains(&MirOperation::InteriorMutation));
 }
 
 #[test]
@@ -214,8 +214,8 @@ fn unwind_rejection_and_unsupported_constructs_and_correspondence_failures_block
     .expect("evaluate");
 
     assert_eq!(receipt.status, crate::effect_closure::AdmissionStatus::Denied);
-    assert!(receipt.observed_effects.contains(&SemanticEffect::UnwindDrop));
-    assert!(receipt.observed_effects.contains(&SemanticEffect::Unknown));
+    assert!(receipt.observed_effects.contains(&MirOperation::UnwindDrop));
+    assert!(receipt.observed_effects.contains(&MirOperation::Unknown));
     assert!(!receipt.coverage.is_complete);
     assert_eq!(receipt.coverage.missing_functions, vec!["missing_fn"]);
 
@@ -272,7 +272,7 @@ fn mutual_recursion_converges_and_stale_trusted_summary_is_rejected() {
         provider_version: "0.1.0".to_owned(),
         cargo_lock_blake3: "b3:lock".to_owned(),
         implementation_blake3: "b3:impl".to_owned(),
-        effects: vec![SemanticEffect::Alloc],
+        effects: vec![MirOperation::Alloc],
         review_label: "reviewed-alloc".to_owned(),
     }];
     let ok = evaluate(&EvaluationInput {
@@ -285,7 +285,7 @@ fn mutual_recursion_converges_and_stale_trusted_summary_is_rejected() {
     })
     .expect("evaluate");
     assert_eq!(ok.status, crate::effect_closure::AdmissionStatus::Admitted);
-    assert_eq!(ok.observed_effects, vec![SemanticEffect::Alloc]);
+    assert_eq!(ok.observed_effects, vec![MirOperation::Alloc]);
 
     let stale_receipt = evaluate(&EvaluationInput {
         profile: &profile,

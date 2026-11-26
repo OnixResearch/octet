@@ -4,8 +4,8 @@ use std::path::Path;
 use crate::requirements::hash_bytes;
 use crate::semantic_effect::model::CLAIM_TIER;
 use crate::semantic_effect::model::CoverageReport;
+use crate::semantic_effect::model::MirClosureReceipt;
 use crate::semantic_effect::model::RECEIPT_SCHEMA_VERSION;
-use crate::semantic_effect::model::SemanticEffectReceipt;
 use crate::semantic_effect::model::SubjectIdentities;
 use crate::semantic_effect::model::UnwindMode;
 use crate::semantic_effect::model::compute_receipt_identity;
@@ -56,7 +56,7 @@ pub(super) fn build_fixture(root: &Path) -> (Vec<u8>, Vec<u8>) {
 }
 
 fn write_semantic_receipt_fixture(root: &Path, h: &FixtureHashes) -> String {
-    let mut sem_receipt = SemanticEffectReceipt {
+    let mut sem_receipt = MirClosureReceipt {
         schema_version: RECEIPT_SCHEMA_VERSION.to_owned(),
         status: crate::effect_closure::AdmissionStatus::Admitted,
         claim_tier: CLAIM_TIER.to_owned(),

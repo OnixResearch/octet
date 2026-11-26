@@ -7,7 +7,7 @@ pub(crate) fn write_engine_phase_record(
 ) -> Result<(), String> {
     std::fs::create_dir_all(phase_dir)
         .map_err(|error| format!("create self-profile phase dir {}: {error}", phase_dir.display()))?;
-    let record = super::model::OctetPhaseSpanRecord {
+    let record = super::model::CollectorPhaseRecord {
         schema_version: super::model::PHASE_SPAN_SCHEMA_VERSION.to_owned(),
         unit_label: "cargo-octet-engine".to_owned(),
         process_id: std::process::id(),
@@ -32,8 +32,8 @@ pub(crate) fn collect_phase_records(
     wall_elapsed_ns: u64,
     phase_dir: Option<&std::path::Path>,
     max_records: usize,
-    units: &[super::model::UnitProfileObservation],
-) -> Result<Vec<super::model::OctetPhaseSpanRecord>, String> {
+    units: &[super::model::UnitObservation],
+) -> Result<Vec<super::model::CollectorPhaseRecord>, String> {
     if config_id == super::model::ConfigMode::PlainCompiler {
         return Ok(Vec::new());
     }
@@ -49,7 +49,7 @@ pub(crate) fn collect_phase_records(
     Ok(units
         .iter()
         .take(max_records)
-        .map(|unit| super::model::OctetPhaseSpanRecord {
+        .map(|unit| super::model::CollectorPhaseRecord {
             schema_version: super::model::PHASE_SPAN_SCHEMA_VERSION.to_owned(),
             unit_label: unit.unit_label.clone(),
             process_id: unit.process_id,
@@ -71,7 +71,7 @@ pub(crate) fn collect_phase_records(
 fn load_phase_files(
     dir: &std::path::Path,
     max_records: usize,
-) -> Result<Vec<super::model::OctetPhaseSpanRecord>, String> {
+) -> Result<Vec<super::model::CollectorPhaseRecord>, String> {
     let mut paths = Vec::with_capacity(max_records.min(32));
     for entry in std::fs::read_dir(dir).map_err(|error| format!("read phase dir {}: {error}", dir.display()))? {
         let entry = entry.map_err(|error| format!("read phase dir entry: {error}"))?;
@@ -87,7 +87,7 @@ fn load_phase_files(
     let mut records = Vec::with_capacity(paths.len());
     for path in paths {
         let bytes = std::fs::read(&path).map_err(|error| format!("read phase file {}: {error}", path.display()))?;
-        let record: super::model::OctetPhaseSpanRecord =
+        let record: super::model::CollectorPhaseRecord =
             serde_json::from_slice(&bytes).map_err(|error| format!("parse phase file {}: {error}", path.display()))?;
         if record.schema_version != super::model::PHASE_SPAN_SCHEMA_VERSION {
             return Err(format!("unsupported phase span schema `{}` in {}", record.schema_version, path.display()));
@@ -97,7 +97,7 @@ fn load_phase_files(
     Ok(records)
 }
 
-pub(crate) fn validate_profile_config(profile: &super::model::DiagnosticProfileConfig) -> Result<(), String> {
+pub(crate) fn validate_config(profile: &super::model::CaptureConfig) -> Result<(), String> {
     if profile.schema_version != super::model::CONFIG_SCHEMA_VERSION {
         return Err(format!("unsupported self-profile config schema `{}`", profile.schema_version));
     }

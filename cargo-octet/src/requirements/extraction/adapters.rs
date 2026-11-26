@@ -31,8 +31,8 @@ struct CorrespondenceReceipt {
     assumptions: Vec<String>,
 }
 
-pub(super) fn verify_all_adapters(
-    profile: &super::EffectExtractionProfile,
+pub(super) fn verify_registered(
+    profile: &super::BoundaryProfile,
     contract: &super::super::contract::Definition,
     evidence: &super::super::evidence::Bundle,
     source_root: &std::path::Path,
@@ -42,7 +42,7 @@ pub(super) fn verify_all_adapters(
     verify_semantic_effect_adapter(profile, contract, evidence, source_root, diagnostics);
     verify_preservation_adapter(profile, contract, evidence, source_root, diagnostics);
     verify_correspondence_adapter(profile, contract, evidence, source_root, diagnostics);
-    let ctx = super::optional::OptionalVerifyCtx {
+    let ctx = super::optional::VerifyCtx {
         profile,
         contract,
         evidence,
@@ -57,7 +57,7 @@ pub(super) fn verify_all_adapters(
 }
 
 fn verify_subject_files(
-    profile: &super::EffectExtractionProfile,
+    profile: &super::BoundaryProfile,
     source_root: &std::path::Path,
     diagnostics: &mut Vec<String>,
 ) {
@@ -109,7 +109,7 @@ pub(super) fn find_empirical_artifact_path(
 }
 
 fn verify_semantic_effect_adapter(
-    profile: &super::EffectExtractionProfile,
+    profile: &super::BoundaryProfile,
     contract: &super::super::contract::Definition,
     evidence: &super::super::evidence::Bundle,
     source_root: &std::path::Path,
@@ -123,7 +123,7 @@ fn verify_semantic_effect_adapter(
                 return;
             }
         };
-    let receipt: crate::semantic_effect::model::SemanticEffectReceipt = match super::super::read_json_bounded(&path) {
+    let receipt: crate::semantic_effect::model::MirClosureReceipt = match super::super::read_json_bounded(&path) {
         Ok(value) => value,
         Err(error) => {
             diagnostics.push(format!("parse semantic effect receipt {}: {error}", path.display()));
@@ -137,7 +137,7 @@ fn verify_semantic_effect_adapter(
     if !receipt.coverage.is_complete {
         diagnostics.push("semantic effect receipt coverage is incomplete".to_owned());
     }
-    if receipt.observed_effects.contains(&crate::semantic_effect::model::SemanticEffect::Unknown) {
+    if receipt.observed_effects.contains(&crate::semantic_effect::model::MirOperation::Unknown) {
         diagnostics.push("semantic effect receipt contains unresolved unknown effects".to_owned());
     }
     if receipt.profile_id != profile.subjects.semantic_profile_id {
@@ -158,13 +158,13 @@ fn verify_semantic_effect_adapter(
 }
 
 fn verify_preservation_adapter(
-    profile: &super::EffectExtractionProfile,
+    profile: &super::BoundaryProfile,
     contract: &super::super::contract::Definition,
     evidence: &super::super::evidence::Bundle,
     source_root: &std::path::Path,
     diagnostics: &mut Vec<String>,
 ) {
-    let ctx = super::optional::OptionalVerifyCtx {
+    let ctx = super::optional::VerifyCtx {
         profile,
         contract,
         evidence,
@@ -212,7 +212,7 @@ fn verify_preservation_adapter(
 }
 
 fn verify_correspondence_adapter(
-    profile: &super::EffectExtractionProfile,
+    profile: &super::BoundaryProfile,
     contract: &super::super::contract::Definition,
     evidence: &super::super::evidence::Bundle,
     source_root: &std::path::Path,

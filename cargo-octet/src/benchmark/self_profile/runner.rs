@@ -1,7 +1,7 @@
 //! Bounded execution runner for compiler `-Z self-profile` and configuration comparison (#25).
 
 pub(crate) struct RunOptions<'a> {
-    pub profile: &'a super::model::DiagnosticProfileConfig,
+    pub profile: &'a super::model::CaptureConfig,
     pub profile_config_blake3: &'a str,
     pub workspace_root: &'a std::path::Path,
     pub artifact_dir: &'a std::path::Path,
@@ -21,39 +21,45 @@ struct UnitRunRequest<'a> {
     cache_state: &'a str,
     source_hash: &'a str,
     toolchain: &'a str,
-    profile: &'a super::model::DiagnosticProfileConfig,
+    profile: &'a super::model::CaptureConfig,
     driver_path: Option<&'a std::path::Path>,
     lint_library_path: Option<&'a std::path::Path>,
 }
 
-pub(crate) fn execute(options: &RunOptions<'_>) -> Result<super::model::SelfProfileReport, String> {
-    super::phases::validate_profile_config(options.profile)?;
+struct RunEnv<'a> {
+    target_base: &'a std::path::Path,
+    raw_dir: &'a std::path::Path,
+    source_hash: &'a str,
+    toolchain: &'a str,
+}
+
+pub(crate) fn execute(options: &RunOptions<'_>) -> Result<super::model::CaptureReport, String> {
+    super::phases::validate_config(options.profile)?;
     std::fs::create_dir_all(options.artifact_dir)
         .map_err(|error| format!("create self-profile artifact dir: {error}"))?;
-
     let raw_dir = options.artifact_dir.join("raw-profdata");
     std::fs::create_dir_all(&raw_dir).map_err(|error| format!("create raw-profdata dir: {error}"))?;
     let source_hash = super::phases::hash_workspace_sources(options.workspace_root)?;
     let toolchain = super::phases::rustc_version_line()?;
-
     let target_base = options.artifact_dir.join("target-isolated");
     if target_base.exists() {
         std::fs::remove_dir_all(&target_base)
             .map_err(|error| format!("clear isolated target dir {}: {error}", target_base.display()))?;
     }
-
-    let (baseline_run, cold_run, warm_run) =
-        run_baseline_and_cache_runs(options, &target_base, &raw_dir, &source_hash, &toolchain)?;
+    let env_ctx = RunEnv {
+        target_base: &target_base,
+        raw_dir: &raw_dir,
+        source_hash: &source_hash,
+        toolchain: &toolchain,
+    };
+    let (baseline_run, cold_run, warm_run) = run_baseline_and_cache_runs(options, &env_ctx)?;
     let mut comparisons = vec![baseline_run.clone(), cold_run.clone(), warm_run];
     if let Some(rel_file) = options.controlled_change_file {
-        let session_dir = raw_dir.join("session");
-        let prof_target = target_base.join("instrumented");
-        comparisons.push(run_controlled_change(options, &prof_target, &session_dir, &raw_dir, rel_file, &toolchain)?);
+        comparisons.push(run_controlled_change(options, &env_ctx, rel_file)?);
     }
     if options.is_compare_configurations {
-        append_configuration_comparisons(options, &target_base, &raw_dir, &source_hash, &toolchain, &mut comparisons)?;
+        append_configuration_comparisons(options, &env_ctx, &mut comparisons)?;
     }
-
     let overhead_bps = if baseline_run.wall_elapsed_ns == 0 {
         0
     } else {
@@ -63,8 +69,7 @@ pub(crate) fn execute(options: &RunOptions<'_>) -> Result<super::model::SelfProf
             .checked_div(baseline_run.wall_elapsed_ns)
             .ok_or_else(|| "overhead computation divisor zero".to_owned())?
     };
-
-    let mut report = super::model::SelfProfileReport {
+    let mut report = super::model::CaptureReport {
         schema_version: super::model::REPORT_SCHEMA_VERSION.to_owned(),
         profile_id: options.profile.profile_id.clone(),
         workspace_source_blake3: source_hash,
@@ -85,37 +90,9 @@ pub(crate) fn execute(options: &RunOptions<'_>) -> Result<super::model::SelfProf
     Ok(report)
 }
 
-fn plain_run(
-    options: &RunOptions<'_>,
-    target_dir: &std::path::Path,
-    prof_dir: Option<&std::path::Path>,
-    archive_prof_dir: Option<&std::path::Path>,
-    cache_state: &str,
-    source_hash: &str,
-    toolchain: &str,
-) -> Result<super::model::ConfigurationComparisonRow, String> {
-    run_cargo_unit(&UnitRunRequest {
-        workspace_root: options.workspace_root,
-        target_dir,
-        prof_dir,
-        archive_prof_dir,
-        phase_dir: None,
-        config_id: super::model::ConfigMode::PlainCompiler,
-        cache_state,
-        source_hash,
-        toolchain,
-        profile: options.profile,
-        driver_path: None,
-        lint_library_path: None,
-    })
-}
-
 fn run_baseline_and_cache_runs(
     options: &RunOptions<'_>,
-    target_base: &std::path::Path,
-    raw_dir: &std::path::Path,
-    source_hash: &str,
-    toolchain: &str,
+    env_ctx: &RunEnv<'_>,
 ) -> Result<
     (
         super::model::ConfigurationComparisonRow,
@@ -124,60 +101,63 @@ fn run_baseline_and_cache_runs(
     ),
     String,
 > {
-    let baseline_target = target_base.join("baseline-uninstrumented");
-    let prof_target = target_base.join("instrumented");
-    let session_dir = raw_dir.join("session");
-    let baseline_run = plain_run(options, &baseline_target, None, None, "cold", source_hash, toolchain)?;
-    let cold_prof_dir = raw_dir.join("cold");
-    let cold_run =
-        plain_run(options, &prof_target, Some(&session_dir), Some(&cold_prof_dir), "cold", source_hash, toolchain)?;
-    let warm_prof_dir = raw_dir.join("warm-noop");
-    let warm_run = plain_run(
-        options,
-        &prof_target,
-        Some(&session_dir),
-        Some(&warm_prof_dir),
-        "warm-noop",
-        source_hash,
-        toolchain,
-    )?;
-    Ok((baseline_run, cold_run, warm_run))
+    let baseline_target = env_ctx.target_base.join("baseline-uninstrumented");
+    let prof_target = env_ctx.target_base.join("instrumented");
+    let session_dir = env_ctx.raw_dir.join("session");
+    let cold_prof_dir = env_ctx.raw_dir.join("cold");
+    let warm_prof_dir = env_ctx.raw_dir.join("warm-noop");
+    let specs = [
+        (&baseline_target, None, None, "cold"),
+        (&prof_target, Some(session_dir.as_path()), Some(cold_prof_dir.as_path()), "cold"),
+        (&prof_target, Some(session_dir.as_path()), Some(warm_prof_dir.as_path()), "warm-noop"),
+    ];
+    let mut rows = Vec::with_capacity(3);
+    for (target_dir, prof_dir, archive_prof_dir, cache_state) in specs {
+        rows.push(execute_unit_run(&UnitRunRequest {
+            workspace_root: options.workspace_root,
+            target_dir,
+            prof_dir,
+            archive_prof_dir,
+            phase_dir: None,
+            config_id: super::model::ConfigMode::PlainCompiler,
+            cache_state,
+            source_hash: env_ctx.source_hash,
+            toolchain: env_ctx.toolchain,
+            profile: options.profile,
+            driver_path: None,
+            lint_library_path: None,
+        })?);
+    }
+    let warm = rows.pop().ok_or_else(|| "missing warm run".to_owned())?;
+    let cold = rows.pop().ok_or_else(|| "missing cold run".to_owned())?;
+    let base = rows.pop().ok_or_else(|| "missing baseline run".to_owned())?;
+    Ok((base, cold, warm))
 }
 
 fn append_configuration_comparisons(
     options: &RunOptions<'_>,
-    target_base: &std::path::Path,
-    raw_dir: &std::path::Path,
-    source_hash: &str,
-    toolchain: &str,
+    env_ctx: &RunEnv<'_>,
     comparisons: &mut Vec<super::model::ConfigurationComparisonRow>,
 ) -> Result<(), String> {
     let phases_root = options.artifact_dir.join("phase-spans");
-    let driver_env = std::env::var_os("OCTET_UI_DRIVER").map(std::path::PathBuf::from);
-    let lib_env = std::env::var_os("OCTET_UI_LIBRARY").map(std::path::PathBuf::from);
-    let driver = options.driver_path.or(driver_env.as_deref());
-    let library = options.lint_library_path.or(lib_env.as_deref());
     for spec in &options.profile.configurations {
         if spec.config_id == super::model::ConfigMode::PlainCompiler || comparisons.len() >= 16 {
             continue;
         }
         let tag = format!("{:?}", spec.config_id).to_lowercase();
-        let mode_dir = raw_dir.join(&tag);
-        let mode_phases = phases_root.join(&tag);
-        let mode_target = target_base.join(format!("cmp-{tag}"));
-        let row = run_cargo_unit(&UnitRunRequest {
+        let row = execute_unit_run(&UnitRunRequest {
             workspace_root: options.workspace_root,
-            target_dir: &mode_target,
-            prof_dir: Some(&mode_dir),
+            target_dir: &env_ctx.target_base.join(format!("cmp-{tag}")),
+            prof_dir: Some(&env_ctx.raw_dir.join(&tag)),
             archive_prof_dir: None,
-            phase_dir: Some(&mode_phases),
+            phase_dir: Some(&phases_root.join(&tag)),
             config_id: spec.config_id,
             cache_state: "cold",
-            source_hash,
-            toolchain,
+            source_hash: env_ctx.source_hash,
+            toolchain: env_ctx.toolchain,
             profile: options.profile,
-            driver_path: driver,
-            lint_library_path: library,
+            driver_path: options.driver_path,
+            lint_library_path: options.lint_library_path,
         })?;
         comparisons.push(row);
     }
@@ -186,12 +166,11 @@ fn append_configuration_comparisons(
 
 fn run_controlled_change(
     options: &RunOptions<'_>,
-    prof_target: &std::path::Path,
-    session_prof_dir: &std::path::Path,
-    raw_dir: &std::path::Path,
+    env_ctx: &RunEnv<'_>,
     rel_file: &std::path::Path,
-    toolchain: &str,
 ) -> Result<super::model::ConfigurationComparisonRow, String> {
+    let prof_target = env_ctx.target_base.join("instrumented");
+    let session_prof_dir = env_ctx.raw_dir.join("session");
     let target_file = options.workspace_root.join(rel_file);
     let original = std::fs::read(&target_file)
         .map_err(|error| format!("read controlled change file {}: {error}", target_file.display()))?;
@@ -199,19 +178,18 @@ fn run_controlled_change(
     modified.extend_from_slice(b"\n// octet-self-profile-controlled-rebuild\n");
     std::fs::write(&target_file, &modified)
         .map_err(|error| format!("write controlled change file {}: {error}", target_file.display()))?;
-
     let new_hash = super::phases::hash_workspace_sources(options.workspace_root)?;
-    let change_dir = raw_dir.join("controlled-rebuild");
-    let result = run_cargo_unit(&UnitRunRequest {
+    let change_dir = env_ctx.raw_dir.join("controlled-rebuild");
+    let result = execute_unit_run(&UnitRunRequest {
         workspace_root: options.workspace_root,
-        target_dir: prof_target,
-        prof_dir: Some(session_prof_dir),
+        target_dir: &prof_target,
+        prof_dir: Some(&session_prof_dir),
         archive_prof_dir: Some(&change_dir),
         phase_dir: None,
         config_id: super::model::ConfigMode::PlainCompiler,
         cache_state: "controlled-rebuild",
         source_hash: &new_hash,
-        toolchain,
+        toolchain: env_ctx.toolchain,
         profile: options.profile,
         driver_path: None,
         lint_library_path: None,
@@ -222,19 +200,19 @@ fn run_controlled_change(
     result
 }
 
-fn run_cargo_unit(req: &UnitRunRequest<'_>) -> Result<super::model::ConfigurationComparisonRow, String> {
-    if let Some(dir) = req.prof_dir {
-        if dir.exists() {
-            std::fs::remove_dir_all(dir).map_err(|error| format!("clear prof dir {}: {error}", dir.display()))?;
-        }
-        std::fs::create_dir_all(dir).map_err(|error| format!("create prof dir: {error}"))?;
+fn reset_clean_dir(dir: Option<&std::path::Path>, label: &str) -> Result<(), String> {
+    let Some(dir) = dir else {
+        return Ok(());
+    };
+    if dir.exists() {
+        std::fs::remove_dir_all(dir).map_err(|error| format!("clear {label} dir {}: {error}", dir.display()))?;
     }
-    if let Some(dir) = req.phase_dir {
-        if dir.exists() {
-            std::fs::remove_dir_all(dir).map_err(|error| format!("clear phase dir {}: {error}", dir.display()))?;
-        }
-        std::fs::create_dir_all(dir).map_err(|error| format!("create phase dir: {error}"))?;
-    }
+    std::fs::create_dir_all(dir).map_err(|error| format!("create {label} dir: {error}"))
+}
+
+fn execute_unit_run(req: &UnitRunRequest<'_>) -> Result<super::model::ConfigurationComparisonRow, String> {
+    reset_clean_dir(req.prof_dir, "prof")?;
+    reset_clean_dir(req.phase_dir, "phase")?;
 
     let mut cmd = std::process::Command::new("cargo");
     cmd.arg("check")
@@ -270,7 +248,14 @@ fn run_cargo_unit(req: &UnitRunRequest<'_>) -> Result<super::model::Configuratio
             String::from_utf8_lossy(&output.stderr).trim()
         ));
     }
+    collect_unit_comparison_row(req, wall_elapsed_ns, exit_code)
+}
 
+fn collect_unit_comparison_row(
+    req: &UnitRunRequest<'_>,
+    wall_elapsed_ns: u64,
+    exit_code: i32,
+) -> Result<super::model::ConfigurationComparisonRow, String> {
     let driver_hash = super::phases::file_blake3_tag(req.driver_path)?;
     let lib_hash = super::phases::file_blake3_tag(req.lint_library_path)?;
     let units = super::units::collect_unit_rows(&super::units::UnitCollectRequest {
@@ -296,7 +281,6 @@ fn run_cargo_unit(req: &UnitRunRequest<'_>) -> Result<super::model::Configuratio
         req.profile.budgets.phase_record_budget,
         &units,
     )?;
-
     Ok(super::model::ConfigurationComparisonRow {
         config_id: req.config_id,
         cache_state: req.cache_state.to_owned(),

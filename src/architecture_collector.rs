@@ -93,6 +93,29 @@ struct MirValueFlowResult<'tcx> {
     observations: Vec<ProvenanceObservation<'tcx>>,
     argument_updates: Vec<((LocalDefId, usize), ValueOrigins)>,
 }
+
+type ProvenanceObservationMap<'tcx> =
+    BTreeMap<(String, ProvenanceObservationKey), (LocalDefId, ProvenanceObservation<'tcx>)>;
+
+struct ValueFlowRoundInputs<'a> {
+    body_def_ids: &'a [LocalDefId],
+    tracked_callees: &'a BTreeSet<String>,
+    tracked_types: &'a BTreeSet<String>,
+    root_definitions: &'a BTreeSet<String>,
+    propagation_definitions: &'a BTreeSet<String>,
+    caller_seeded_bodies: HashSet<LocalDefId>,
+}
+
+fn start_phase_timer(enabled: bool) -> Option<std::time::Instant> {
+    enabled.then(std::time::Instant::now)
+}
+
+fn finish_phase_timer_ns(started: Option<std::time::Instant>, label: &str) -> Result<u64, String> {
+    match started {
+        Some(t) => u64::try_from(t.elapsed().as_nanos()).map_err(|_| format!("{label} duration overflow")),
+        None => Ok(0),
+    }
+}
 // Compiler-resolved definition prefixes. `print!`, `println!`, `eprint!`,
 // `eprintln!`, and `dbg!` resolve to `std::io::_print` or `std::io::_eprint`.
 const EFFECT_PATHS: &[(&str, CapabilityFamily)] = &[
@@ -1037,26 +1060,13 @@ impl ArchitectureCollector {
         if self.context.value_flow_selections.is_empty() {
             return;
         }
-        let tracked_callees =
-            selected_names(&self.context.value_flow_selections, |selection| &selection.tracked_callee_definitions);
-        let tracked_types =
-            selected_names(&self.context.value_flow_selections, |selection| &selection.tracked_type_definitions);
-        let root_definitions =
-            selected_names(&self.context.value_flow_selections, |selection| &selection.root_origin_definitions);
-        let propagation_definitions =
-            selected_names(&self.context.value_flow_selections, |selection| &selection.propagation_definitions);
-        // A body that never holds or passes a tracked value yields no
-        // observation, argument update, or usable return origin, so it costs
-        // no transfer steps and does not count toward the body bound.
-        let mut tracked_definitions = HashMap::new();
-        let body_def_ids = self
-            .value_flow_body_def_ids(cx)
-            .into_iter()
-            .filter(|def_id| {
-                let body = cx.tcx.optimized_mir(def_id.to_def_id());
-                body_carries_tracked_values(cx, body, &tracked_types, &mut tracked_definitions)
-            })
-            .collect::<Vec<_>>();
+        let (tracked_callees, tracked_types, root_definitions, propagation_definitions) = (
+            selected_names(&self.context.value_flow_selections, |s| &s.tracked_callee_definitions),
+            selected_names(&self.context.value_flow_selections, |s| &s.tracked_type_definitions),
+            selected_names(&self.context.value_flow_selections, |s| &s.root_origin_definitions),
+            selected_names(&self.context.value_flow_selections, |s| &s.propagation_definitions),
+        );
+        let body_def_ids = self.select_tracked_body_ids(cx, &tracked_types);
         self.value_flow_bodies_analyzed = body_def_ids.len();
         if body_def_ids.len() > self.context.limits.max_value_flow_bodies {
             self.exceed_value_flow_limit(
@@ -1065,15 +1075,54 @@ impl ArchitectureCollector {
             );
             return;
         }
-        let caller_seeded_bodies = body_def_ids
-            .iter()
-            .copied()
-            .filter(|def_id| callers_supply_arguments(cx, *def_id, &self.indirect_functions))
-            .collect::<HashSet<_>>();
+        let inputs = ValueFlowRoundInputs {
+            body_def_ids: &body_def_ids,
+            tracked_callees: &tracked_callees,
+            tracked_types: &tracked_types,
+            root_definitions: &root_definitions,
+            propagation_definitions: &propagation_definitions,
+            caller_seeded_bodies: body_def_ids
+                .iter()
+                .copied()
+                .filter(|def_id| callers_supply_arguments(cx, *def_id, &self.indirect_functions))
+                .collect(),
+        };
+        let Ok((steps, rounds_run, converged, final_observations)) = self.execute_value_flow_rounds(cx, &inputs) else {
+            return;
+        };
+        self.value_flow_steps = steps;
+        self.value_flow_rounds = rounds_run;
+        if !converged {
+            self.exceed_value_flow_limit(
+                UnknownFactKind::AmbiguousValueProvenance,
+                "selected MIR provenance did not converge within the configured round bound",
+            );
+            return;
+        }
+        for (_, (caller_def_id, observation)) in final_observations {
+            self.push_value_provenance_fact(cx, caller_def_id, &observation);
+        }
+    }
+
+    fn select_tracked_body_ids(&self, cx: &LateContext<'_>, tracked_types: &BTreeSet<String>) -> Vec<LocalDefId> {
+        let mut tracked_definitions = HashMap::new();
+        self.value_flow_body_def_ids(cx)
+            .into_iter()
+            .filter(|def_id| {
+                let body = cx.tcx.optimized_mir(def_id.to_def_id());
+                body_carries_tracked_values(cx, body, tracked_types, &mut tracked_definitions)
+            })
+            .collect()
+    }
+
+    fn execute_value_flow_rounds<'tcx>(
+        &mut self,
+        cx: &LateContext<'tcx>,
+        inputs: &ValueFlowRoundInputs<'_>,
+    ) -> Result<(usize, usize, bool, ProvenanceObservationMap<'tcx>), ()> {
         let mut argument_origins = HashMap::<(LocalDefId, usize), ValueOrigins>::new();
         let mut return_origins = HashMap::<LocalDefId, ValueOrigins>::new();
-        let mut final_observations =
-            BTreeMap::<(String, ProvenanceObservationKey), (LocalDefId, ProvenanceObservation<'_>)>::new();
+        let mut final_observations = BTreeMap::new();
         let mut steps = 0usize;
         let mut rounds_run = 0usize;
         let mut converged = false;
@@ -1081,19 +1130,18 @@ impl ArchitectureCollector {
             rounds_run += 1;
             let mut next_argument_origins = HashMap::<(LocalDefId, usize), ValueOrigins>::new();
             let mut next_return_origins = HashMap::<LocalDefId, ValueOrigins>::new();
-            let mut round_observations =
-                BTreeMap::<(String, ProvenanceObservationKey), (LocalDefId, ProvenanceObservation<'_>)>::new();
-            for def_id in &body_def_ids {
+            let mut round_observations = BTreeMap::new();
+            for def_id in inputs.body_def_ids {
                 let body = cx.tcx.optimized_mir(def_id.to_def_id());
                 let result = analyze_selected_mir_body(
                     cx,
                     *def_id,
                     body,
-                    &tracked_callees,
-                    &tracked_types,
-                    &root_definitions,
-                    &propagation_definitions,
-                    caller_seeded_bodies.contains(def_id).then_some(&argument_origins),
+                    inputs.tracked_callees,
+                    inputs.tracked_types,
+                    inputs.root_definitions,
+                    inputs.propagation_definitions,
+                    inputs.caller_seeded_bodies.contains(def_id).then_some(&argument_origins),
                     &return_origins,
                     self.context.limits.max_value_flow_steps,
                     &mut steps,
@@ -1103,7 +1151,7 @@ impl ArchitectureCollector {
                         UnknownFactKind::UnsupportedCompilerShape,
                         "selected MIR transfer steps exceeded the configured value-flow bound",
                     );
-                    return;
+                    return Err(());
                 };
                 union_origin_map_entry(&mut next_return_origins, *def_id, &result.return_origins);
                 for (key, origins) in result.argument_updates {
@@ -1122,18 +1170,7 @@ impl ArchitectureCollector {
                 break;
             }
         }
-        self.value_flow_steps = steps;
-        self.value_flow_rounds = rounds_run;
-        if !converged {
-            self.exceed_value_flow_limit(
-                UnknownFactKind::AmbiguousValueProvenance,
-                "selected MIR provenance did not converge within the configured round bound",
-            );
-            return;
-        }
-        for (_, (caller_def_id, observation)) in final_observations {
-            self.push_value_provenance_fact(cx, caller_def_id, &observation);
-        }
+        Ok((steps, rounds_run, converged, final_observations))
     }
 
     // r[impl octet.compiler_architecture_ir.boundary]
@@ -1275,15 +1312,11 @@ impl ArchitectureCollector {
     fn emit_shard(&mut self, cx: &LateContext<'_>) -> Result<(), String> {
         let has_phase_dir = self.context.self_profile_phase_dir.is_some();
         self.collect_selected_type_shapes(cx);
-        let mir_started = has_phase_dir.then(std::time::Instant::now);
+        let mir_started = start_phase_timer(has_phase_dir);
         self.collect_selected_value_provenance(cx);
         self.collect_active_configuration(cx);
-        let mut selected_mir_analysis_ns = if let Some(t) = mir_started {
-            u64::try_from(t.elapsed().as_nanos()).map_err(|_| "MIR phase duration overflow".to_owned())?
-        } else {
-            0
-        };
-        let serialize_started = has_phase_dir.then(std::time::Instant::now);
+        let mut selected_mir_analysis_ns = finish_phase_timer_ns(mir_started, "MIR phase")?;
+        let serialize_started = start_phase_timer(has_phase_dir);
         let mut shard = CompilerArchitectureShard {
             schema_version: octet_architecture_ir::COMPILER_ARCHITECTURE_SHARD_SCHEMA_VERSION.to_owned(),
             shard_id: String::new(),
@@ -1316,19 +1349,12 @@ impl ArchitectureCollector {
         let temporary_path = output_path.with_extension(format!("{}.{TEMP_FILE_SUFFIX}", std::process::id()));
         publish_shard(&temporary_path, &output_path, &bytes)
             .map_err(|error| format!("publish compiler architecture shard {}: {error}", output_path.display()))?;
-        let shard_serialization_ns = if let Some(t) = serialize_started {
-            u64::try_from(t.elapsed().as_nanos()).map_err(|_| "serialization duration overflow".to_owned())?
-        } else {
-            0
-        };
+        let shard_serialization_ns = finish_phase_timer_ns(serialize_started, "serialization")?;
         if self.context.collect_semantic_effects {
-            let sem_started = has_phase_dir.then(std::time::Instant::now);
+            let sem_started = start_phase_timer(has_phase_dir);
             self.semantic_bodies_analyzed = semantic::collect_and_write_unit_summary(self, cx)?;
-            if let Some(t) = sem_started {
-                let sem_ns =
-                    u64::try_from(t.elapsed().as_nanos()).map_err(|_| "semantic duration overflow".to_owned())?;
-                selected_mir_analysis_ns = selected_mir_analysis_ns.saturating_add(sem_ns);
-            }
+            selected_mir_analysis_ns =
+                selected_mir_analysis_ns.saturating_add(finish_phase_timer_ns(sem_started, "semantic")?);
         }
         if let Some(phase_dir) = self.context.self_profile_phase_dir.as_deref() {
             self.publish_phase_spans(phase_dir, selected_mir_analysis_ns, shard_serialization_ns, bytes.len())?;
@@ -1344,7 +1370,7 @@ impl ArchitectureCollector {
         shard_bytes_written: usize,
     ) -> Result<(), String> {
         #[derive(serde::Serialize)]
-        struct CollectorPhaseSpan<'a> {
+        struct SpanRecord<'a> {
             schema_version: &'a str,
             unit_label: &'a str,
             process_id: u32,
@@ -1361,7 +1387,7 @@ impl ArchitectureCollector {
         }
         let dir = Path::new(phase_dir);
         fs::create_dir_all(dir).map_err(|error| format!("create self-profile phase dir {}: {error}", dir.display()))?;
-        let record = CollectorPhaseSpan {
+        let record = SpanRecord {
             schema_version: "octet-phase-span/v1",
             unit_label: &self.selected.unit.unit_id,
             process_id: std::process::id(),

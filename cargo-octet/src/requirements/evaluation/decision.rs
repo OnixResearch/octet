@@ -17,8 +17,8 @@ pub(crate) struct Outcome {
     pub(crate) limitations: Vec<String>,
     pub(crate) diagnostics: Vec<String>,
     pub(crate) non_claims: Vec<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) extraction_summary: Option<super::super::extraction::ExtractionSummary>,
+    #[serde(default = "super::super::default_none", skip_serializing_if = "Option::is_none")]
+    pub(crate) extraction_summary: Option<super::super::extraction::BoundarySummary>,
     pub(crate) decision_blake3: String,
 }
 

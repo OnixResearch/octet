@@ -5,7 +5,7 @@ mod calls;
 mod drops;
 mod places;
 
-pub(super) struct SemanticSinks<'a> {
+pub(super) struct MirSinks<'a> {
     pub(super) drops: &'a mut std::collections::BTreeSet<octet_architecture_ir::semantic::DropEdge>,
     pub(super) calls: &'a mut std::collections::BTreeSet<octet_architecture_ir::semantic::MirCallEdge>,
     pub(super) memory_writes: &'a mut std::collections::BTreeSet<octet_architecture_ir::semantic::MemoryWrite>,
@@ -35,7 +35,7 @@ pub(super) fn collect_and_write_unit_summary(
             skipped_bodies.push(qualified_path);
             continue;
         }
-        if let Ok(observation) = body::analyze_body(collector, cx, def_id, &qualified_path, &mut remaining_steps) {
+        if let Ok(observation) = body::inspect_mir(collector, cx, def_id, &qualified_path, &mut remaining_steps) {
             bodies.push(observation);
         } else {
             is_budget_exhausted = true;

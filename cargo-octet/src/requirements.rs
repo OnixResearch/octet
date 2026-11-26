@@ -181,6 +181,10 @@ fn default_true() -> bool {
     true
 }
 
+fn default_none<T>() -> Option<T> {
+    None
+}
+
 fn default_dot() -> String {
     ".".to_owned()
 }

@@ -4,13 +4,13 @@ pub(crate) const SEMANTIC_EFFECT_RECEIPT_ARTIFACT: &str = "semantic-effect-recei
 
 /// Evaluates an opt-in `--semantic-effect-profile` during `cargo octet admit` when
 /// compiler semantic MIR unit summaries are present under the workspace collector shard directory.
-pub(crate) fn evaluate_admitted_semantic_profile(
+pub(crate) fn evaluate_admitted_profile(
     workspace_root: &std::path::Path,
     profile_path: &std::path::Path,
     artifact_dir: &std::path::Path,
     function_addresses: &[crate::effect_closure::FunctionAddressRecord],
     cargo_lock_blake3: &str,
-) -> Result<super::model::SemanticEffectReceipt, String> {
+) -> Result<super::model::MirClosureReceipt, String> {
     let resolved_profile = if profile_path.is_absolute() {
         profile_path.to_path_buf()
     } else {
@@ -19,12 +19,12 @@ pub(crate) fn evaluate_admitted_semantic_profile(
     let profile_bytes = std::fs::read(&resolved_profile)
         .map_err(|error| format!("read semantic effect profile {}: {error}", resolved_profile.display()))?;
     let profile_blake3 = format!("b3:{}", crate::evidence::artifact_blake3_hex(&profile_bytes));
-    let profile: super::model::SemanticEffectProfile = serde_json::from_slice(&profile_bytes)
+    let profile: super::model::MirClosureProfile = serde_json::from_slice(&profile_bytes)
         .map_err(|error| format!("parse semantic effect profile {}: {error}", resolved_profile.display()))?;
 
     let shard_dir = workspace_root.join(crate::architecture_ir::ARCHITECTURE_SHARD_DIRECTORY);
-    let unit_summary = load_latest_semantic_unit_summary(&shard_dir)?;
-    let receipt = super::evaluate::evaluate(&super::evaluate::EvaluationInput {
+    let unit_summary = load_latest_unit_summary(&shard_dir)?;
+    let receipt = super::evaluate::run_profile_evaluation(&super::evaluate::EvaluationInput {
         profile: &profile,
         profile_blake3: &profile_blake3,
         unit_summary: &unit_summary,
@@ -41,7 +41,7 @@ pub(crate) fn evaluate_admitted_semantic_profile(
     Ok(receipt)
 }
 
-fn load_latest_semantic_unit_summary(
+fn load_latest_unit_summary(
     shard_dir: &std::path::Path,
 ) -> Result<octet_architecture_ir::semantic::UnitSummary, String> {
     let entries = std::fs::read_dir(shard_dir).map_err(|error| {

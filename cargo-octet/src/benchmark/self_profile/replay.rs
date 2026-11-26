@@ -1,8 +1,8 @@
 //! Replay validation for retained `.mm_profdata` artifacts and self-profile summaries (#25).
 
 pub(crate) fn verify_report(
-    report: &super::model::SelfProfileReport,
-    profile: &super::model::DiagnosticProfileConfig,
+    report: &super::model::CaptureReport,
+    profile: &super::model::CaptureConfig,
     artifact_root: Option<&std::path::Path>,
 ) -> super::model::ReplayVerificationReport {
     let mut diagnostics = Vec::with_capacity(16);
@@ -46,9 +46,9 @@ pub(crate) fn verify_report(
 }
 
 fn verify_unit_observation(
-    unit: &super::model::UnitProfileObservation,
-    report: &super::model::SelfProfileReport,
-    profile: &super::model::DiagnosticProfileConfig,
+    unit: &super::model::UnitObservation,
+    report: &super::model::CaptureReport,
+    profile: &super::model::CaptureConfig,
     artifact_root: Option<&std::path::Path>,
     diagnostics: &mut Vec<String>,
 ) -> bool {

@@ -2,12 +2,20 @@
 
 use rustc_middle::ty::TypeVisitableExt;
 
+struct ResolvedTarget<'a, 'tcx> {
+    cx: &'a rustc_lint::LateContext<'tcx>,
+    callee_def_id: rustc_span::def_id::DefId,
+    callee_path: &'a str,
+    trait_def: Option<String>,
+    instance: rustc_middle::ty::Instance<'tcx>,
+}
+
 pub(super) fn collect_call_edge<'tcx>(
     cx: &rustc_lint::LateContext<'tcx>,
     typing_env: rustc_middle::ty::TypingEnv<'tcx>,
     func: &rustc_middle::mir::Operand<'tcx>,
     span_id: &str,
-    sinks: &mut super::SemanticSinks<'_>,
+    sinks: &mut super::MirSinks<'_>,
 ) {
     let Some((callee_def_id, generic_args)) = func.const_fn_def() else {
         record_fn_ptr(span_id, sinks);
@@ -37,22 +45,28 @@ pub(super) fn collect_call_edge<'tcx>(
         return;
     }
 
+    let drop_ctx = super::drops::DropContext {
+        cx,
+        typing_env,
+        path_kind: octet_architecture_ir::semantic::DropPathKind::NormalAndUnwind,
+        span_id,
+    };
     for arg_ty in generic_args.types() {
         if arg_ty.needs_drop(cx.tcx, typing_env) {
-            super::drops::collect_drop_edges(
-                cx,
-                typing_env,
-                arg_ty,
-                octet_architecture_ir::semantic::DropPathKind::NormalAndUnwind,
-                span_id,
-                sinks,
-            );
+            super::drops::collect_drop_edges(&drop_ctx, arg_ty, sinks);
         }
     }
 
     match rustc_middle::ty::Instance::try_resolve(cx.tcx, typing_env, callee_def_id, generic_args) {
         Ok(Some(instance)) => {
-            classify_resolved_instance(cx, callee_def_id, &callee_path, trait_def, instance, span_id, sinks);
+            let target = ResolvedTarget {
+                cx,
+                callee_def_id,
+                callee_path: &callee_path,
+                trait_def,
+                instance,
+            };
+            classify_resolved_instance(target, span_id, sinks);
         }
         Ok(None) | Err(_) => {
             sinks.calls.insert(octet_architecture_ir::semantic::MirCallEdge {
@@ -67,7 +81,7 @@ pub(super) fn collect_call_edge<'tcx>(
     }
 }
 
-fn record_fn_ptr(span_id: &str, sinks: &mut super::SemanticSinks<'_>) {
+fn record_fn_ptr(span_id: &str, sinks: &mut super::MirSinks<'_>) {
     sinks.calls.insert(octet_architecture_ir::semantic::MirCallEdge {
         callee_definition: None,
         resolved_instance: None,
@@ -83,7 +97,7 @@ fn record_fn_ptr(span_id: &str, sinks: &mut super::SemanticSinks<'_>) {
     });
 }
 
-fn record_foreign_call(callee_path: &str, span_id: &str, sinks: &mut super::SemanticSinks<'_>) {
+fn record_foreign_call(callee_path: &str, span_id: &str, sinks: &mut super::MirSinks<'_>) {
     sinks.calls.insert(octet_architecture_ir::semantic::MirCallEdge {
         callee_definition: Some(callee_path.to_owned()),
         resolved_instance: None,
@@ -99,23 +113,14 @@ fn record_foreign_call(callee_path: &str, span_id: &str, sinks: &mut super::Sema
     });
 }
 
-#[allow(clippy::too_many_arguments)]
-fn classify_resolved_instance<'tcx>(
-    cx: &rustc_lint::LateContext<'tcx>,
-    callee_def_id: rustc_span::def_id::DefId,
-    callee_path: &str,
-    trait_def: Option<String>,
-    instance: rustc_middle::ty::Instance<'tcx>,
-    span_id: &str,
-    sinks: &mut super::SemanticSinks<'_>,
-) {
-    match instance.def {
+fn classify_resolved_instance(target: ResolvedTarget<'_, '_>, span_id: &str, sinks: &mut super::MirSinks<'_>) {
+    match target.instance.def {
         rustc_middle::ty::InstanceKind::Virtual(virt_def_id, _) => {
-            let virt_path = super::super::qualified_definition(cx, virt_def_id);
+            let virt_path = super::super::qualified_definition(target.cx, virt_def_id);
             sinks.calls.insert(octet_architecture_ir::semantic::MirCallEdge {
-                callee_definition: Some(callee_path.to_owned()),
+                callee_definition: Some(target.callee_path.to_owned()),
                 resolved_instance: Some(virt_path.clone()),
-                trait_definition: trait_def,
+                trait_definition: target.trait_def,
                 resolution: octet_architecture_ir::semantic::CallResolutionKind::DynamicDispatch,
                 has_generic_params: false,
                 span_id: Some(span_id.to_owned()),
@@ -128,28 +133,30 @@ fn classify_resolved_instance<'tcx>(
         }
         rustc_middle::ty::InstanceKind::Intrinsic(_) => {
             sinks.calls.insert(octet_architecture_ir::semantic::MirCallEdge {
-                callee_definition: Some(callee_path.to_owned()),
-                resolved_instance: Some(callee_path.to_owned()),
-                trait_definition: trait_def,
+                callee_definition: Some(target.callee_path.to_owned()),
+                resolved_instance: Some(target.callee_path.to_owned()),
+                trait_definition: target.trait_def,
                 resolution: octet_architecture_ir::semantic::CallResolutionKind::Intrinsic,
                 has_generic_params: false,
                 span_id: Some(span_id.to_owned()),
             });
         }
         _ => {
-            let resolved_def_id = instance.def_id();
-            let resolved_path = super::super::qualified_definition(cx, resolved_def_id);
-            let resolution = if resolved_def_id.is_local() && trait_def.is_none() {
+            let resolved_def_id = target.instance.def_id();
+            let resolved_path = super::super::qualified_definition(target.cx, resolved_def_id);
+            let resolution = if resolved_def_id.is_local() && target.trait_def.is_none() {
                 octet_architecture_ir::semantic::CallResolutionKind::ConcreteLocal
-            } else if resolved_def_id.is_local() || (trait_def.is_some() && resolved_def_id != callee_def_id) {
+            } else if resolved_def_id.is_local()
+                || (target.trait_def.is_some() && resolved_def_id != target.callee_def_id)
+            {
                 octet_architecture_ir::semantic::CallResolutionKind::ConcreteTraitImpl
             } else {
                 octet_architecture_ir::semantic::CallResolutionKind::ConcreteExternal
             };
             sinks.calls.insert(octet_architecture_ir::semantic::MirCallEdge {
-                callee_definition: Some(callee_path.to_owned()),
+                callee_definition: Some(target.callee_path.to_owned()),
                 resolved_instance: Some(resolved_path),
-                trait_definition: trait_def,
+                trait_definition: target.trait_def,
                 resolution,
                 has_generic_params: false,
                 span_id: Some(span_id.to_owned()),

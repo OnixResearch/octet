@@ -12,7 +12,7 @@ pub mod model;
 #[cfg(test)]
 mod tests;
 
-pub fn verify_receipt(receipt: &model::SemanticEffectReceipt) -> Vec<String> {
+pub fn verify_receipt(receipt: &model::MirClosureReceipt) -> Vec<String> {
     let mut errors = Vec::new();
     if receipt.schema_version != model::RECEIPT_SCHEMA_VERSION {
         errors.push(format!("unsupported semantic receipt schema `{}`", receipt.schema_version));
