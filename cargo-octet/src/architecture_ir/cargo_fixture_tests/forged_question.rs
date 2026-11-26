@@ -54,8 +54,17 @@ fn real_cargo_forged_question_retains_unknown_call_effect_and_blocks_gate() {
     let policy = policy_with_mode(root, &host, false, ArchitectureMode::Gate);
     let scope = vec!["--workspace".to_owned()];
     let args = vec!["--all-targets".to_owned(), "--all-features".to_owned()];
-    let prepared = super::super::prepare_collector(root, &policy, TOOLCHAIN, &library, &scope, &args)
-        .expect("plan selected source-bound Cargo units");
+    let prepared = super::super::prepare_collector(&super::super::CollectorPlanRequest {
+        workspace_root: root,
+        policy: &policy,
+        toolchain: TOOLCHAIN,
+        collector_path: &library,
+        scope_args: &scope,
+        cargo_check_args: &args,
+        is_semantic_enabled: false,
+        self_profile_phase_dir: None,
+    })
+    .expect("plan selected source-bound Cargo units");
     let selected = prepared
         .expected_units
         .iter()

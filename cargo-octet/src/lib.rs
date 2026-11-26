@@ -66,6 +66,7 @@ mod prove_core;
 mod provider_manifest;
 mod requirements;
 mod roadmap;
+pub(crate) mod semantic_effect;
 #[cfg(test)]
 mod source_acquisition_receipts;
 #[cfg(test)]
@@ -119,6 +120,7 @@ fn try_main() -> Result<i32, String> {
             };
             benchmark::experiment::run_cli(&args.experiment, runtime.as_ref())
         }
+        cli::CommandArgs::BenchmarkSelfProfile(args) => benchmark::self_profile::run_cli(&args),
         cli::CommandArgs::Check(check) => engine::run(&check),
         cli::CommandArgs::EvidenceIndex(args) => evidence_index::run(args),
         cli::CommandArgs::EvidenceRail(args) => evidence_rails::run(&args),

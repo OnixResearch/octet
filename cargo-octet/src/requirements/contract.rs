@@ -15,6 +15,8 @@ pub(crate) struct Definition {
     pub(crate) exclusions: Vec<ExcludedBehavior>,
     #[serde(default = "Vec::new")]
     pub(crate) non_claims: Vec<String>,
+    #[serde(default = "super::default_none")]
+    pub(crate) effect_extraction: Option<super::extraction::BoundaryProfile>,
 }
 
 /// Reviewed specification identity.

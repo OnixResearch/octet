@@ -17,6 +17,8 @@ pub(crate) struct Outcome {
     pub(crate) limitations: Vec<String>,
     pub(crate) diagnostics: Vec<String>,
     pub(crate) non_claims: Vec<String>,
+    #[serde(default = "super::super::default_none", skip_serializing_if = "Option::is_none")]
+    pub(crate) extraction_summary: Option<super::super::extraction::BoundarySummary>,
     pub(crate) decision_blake3: String,
 }
 
@@ -67,6 +69,8 @@ pub(in crate::requirements) fn evaluate_contract(
     for clause in &contract.clauses {
         clauses.push(super::clause::evaluate(&evaluator, clause, &mut diagnostics));
     }
+    let extraction_summary =
+        super::super::extraction::evaluate(contract, evidence, source_root, &clauses, &mut diagnostics);
     if clauses.iter().all(|clause| !clause.required) {
         diagnostics.push("requirement contract has an empty required inventory".to_owned());
     }
@@ -107,6 +111,7 @@ pub(in crate::requirements) fn evaluate_contract(
         limitations,
         diagnostics,
         non_claims: super::super::non_claims(contract),
+        extraction_summary,
         decision_blake3: String::new(),
     };
     decision.decision_blake3 = digest(&decision)?;

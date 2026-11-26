@@ -121,33 +121,47 @@ pub(crate) struct ArchitectureArtifacts {
     pub incomplete_error: Option<String>,
 }
 
-// Collector preparation binds policy, toolchain, Cargo graph, and unit identities in sequence;
-// helpers would thread the same partial state.
-#[allow(clippy::too_many_lines)]
-pub(crate) fn prepare_collector(
-    workspace_root: &Path,
-    policy: &SelectedProjectArchitecturePolicy,
-    toolchain: &str,
-    collector_path: &Path,
-    scope_args: &[String],
-    cargo_check_args: &[String],
-) -> Result<PreparedCollector, String> {
-    let package_roles = package_roles(policy);
-    let source_roles = source_roles(policy);
-    let selected_packages = selected_packages(scope_args, &policy.policy.production.packages)?;
-    let (toolchain_blake3, host_triple) = toolchain_identity(toolchain)?;
-    let collector_blake3 = file_blake3(collector_path, "compiler architecture collector")?;
-    let candidates = policy_target_candidates(cargo_check_args, &policy.policy.production.targets, &host_triple)?;
+pub(crate) struct CollectorPlanRequest<'a> {
+    pub workspace_root: &'a Path,
+    pub policy: &'a SelectedProjectArchitecturePolicy,
+    pub toolchain: &'a str,
+    pub collector_path: &'a Path,
+    pub scope_args: &'a [String],
+    pub cargo_check_args: &'a [String],
+    pub is_semantic_enabled: bool,
+    pub self_profile_phase_dir: Option<String>,
+}
+
+struct UnitSelectionInputs<'a> {
+    workspace_root: &'a Path,
+    policy: &'a SelectedProjectArchitecturePolicy,
+    source_roles: &'a [SourceRoleScope],
+    graph: &'a target_plan::CargoUnitGraph,
+    target: &'a octet_standards::project_architecture_policy::ArchitectureTarget,
+    host_triple: &'a str,
+    toolchain_blake3: &'a str,
+    collector_blake3: &'a str,
+    invocation_blake3: &'a str,
+}
+
+pub(crate) fn prepare_collector(request: &CollectorPlanRequest<'_>) -> Result<PreparedCollector, String> {
+    let package_roles = package_roles(request.policy);
+    let source_roles = source_roles(request.policy);
+    let selected_packages = selected_packages(request.scope_args, &request.policy.policy.production.packages)?;
+    let (toolchain_blake3, host_triple) = toolchain_identity(request.toolchain)?;
+    let collector_blake3 = file_blake3(request.collector_path, "compiler architecture collector")?;
+    let candidates =
+        policy_target_candidates(request.cargo_check_args, &request.policy.policy.production.targets, &host_triple)?;
     let (target, graph) = target_plan::select_policy_row(
-        workspace_root,
-        toolchain,
-        scope_args,
-        cargo_check_args,
+        request.workspace_root,
+        request.toolchain,
+        request.scope_args,
+        request.cargo_check_args,
         &candidates,
-        policy.policy.collection_limits.max_artifact_bytes,
+        request.policy.policy.collection_limits.max_artifact_bytes,
     )?;
-    let (metadata, cargo_graph_blake3) = load_locked_metadata(workspace_root, toolchain, target)?;
-    let lockfile_bytes = fs::read(workspace_root.join("Cargo.lock"))
+    let (metadata, cargo_graph_blake3) = load_locked_metadata(request.workspace_root, request.toolchain, target)?;
+    let lockfile_bytes = fs::read(request.workspace_root.join("Cargo.lock"))
         .map_err(|error| format!("read Cargo.lock for architecture identity: {error}"))?;
     let lockfile_blake3 = blake3::hash(&lockfile_bytes).to_hex().to_string();
     let cargo_graph = resolved_architecture_cargo_graph(
@@ -159,134 +173,203 @@ pub(crate) fn prepare_collector(
     )?;
     let invocation_blake3 = octet_architecture_ir::canonical_identity(
         "octet.compiler-architecture-ir.invocation/v1",
-        &(scope_args, cargo_check_args, &lockfile_blake3, &cargo_graph_blake3),
+        &(request.scope_args, request.cargo_check_args, &lockfile_blake3, &cargo_graph_blake3),
     )?;
+    let inputs = UnitSelectionInputs {
+        workspace_root: request.workspace_root,
+        policy: request.policy,
+        source_roles: &source_roles,
+        graph: &graph,
+        target,
+        host_triple: &host_triple,
+        toolchain_blake3: &toolchain_blake3,
+        collector_blake3: &collector_blake3,
+        invocation_blake3: &invocation_blake3,
+    };
+    let selected_units = collect_selected_units(&metadata, &selected_packages, &package_roles, &inputs)?;
+    publish_collector_context(request, selected_units, cargo_graph)
+}
+
+fn collect_selected_units(
+    metadata: &CargoMetadata,
+    selected_packages: &std::collections::BTreeSet<&str>,
+    package_roles: &BTreeMap<&str, CompilerArchitectureRole>,
+    inputs: &UnitSelectionInputs<'_>,
+) -> Result<Vec<CollectorCompilationUnit>, String> {
     let mut selected_units = Vec::new();
-    for package in metadata.packages {
+    for package in &metadata.packages {
         if !selected_packages.contains(package.name.as_str()) {
             continue;
         }
         let Some(role) = package_roles.get(package.name.as_str()).copied() else {
             continue;
         };
-        let manifest_dir = Path::new(&package.manifest_path)
-            .parent()
-            .ok_or_else(|| format!("Cargo package manifest has no parent: {}", package.manifest_path))?;
-        let manifest_dir = manifest_dir
-            .strip_prefix(workspace_root)
-            .map_err(|_| format!("Cargo package manifest is outside workspace: {}", package.manifest_path))?;
-        let manifest_dir = normalized_relative(manifest_dir)?;
-        let source_blake3 = package_source_identity(
-            workspace_root,
-            &manifest_dir,
-            policy.policy.collection_limits.max_spans,
-            policy.policy.collection_limits.max_artifact_bytes,
-        )?;
-        let mut package_unit_count = 0;
-        for planned in graph.units.iter().filter(|planned| planned.pkg_id == package.id) {
-            let test_configuration = match planned.mode.as_str() {
-                "run-custom-build" => continue,
-                "build" => false,
-                "test" => true,
-                other => return Err(format!("unsupported Cargo architecture unit mode `{other}`")),
-            };
-            if planned.platform.as_ref().is_some_and(|platform| platform != &target.triple) {
-                return Err("Cargo plan selects a target outside the declared architecture row".to_owned());
-            }
-            let cargo_target = &planned.target;
-            let root_path = Path::new(&cargo_target.src_path)
-                .strip_prefix(workspace_root)
-                .map_err(|_| "Cargo architecture source root is outside the workspace".to_owned())?;
-            if root_path
-                .components()
-                .any(|part| part.as_os_str().to_str().is_some_and(|name| SOURCE_BUILD_DIRECTORIES.contains(&name)))
-            {
-                return Err(
-                    "Cargo architecture source root is inside an excluded build or evidence directory".to_owned()
-                );
-            }
-            let source_path = normalized_relative(root_path)?;
-            let unit_invocation = octet_architecture_ir::canonical_identity(
-                "octet.compiler-architecture-ir.unit-invocation/v2",
-                &(&invocation_blake3, &source_path, test_configuration, &planned.profile),
-            )?;
-            let mut features = planned.features.clone();
-            features.sort();
-            features.dedup();
-            let mut crate_types = if test_configuration {
-                vec!["bin".to_owned()]
-            } else {
-                canonical_rustc_crate_types(cargo_target.crate_types.clone())
-            };
-            crate_types.sort();
-            crate_types.dedup();
-            let target_kind = if test_configuration {
-                format!("{}+test", cargo_target.kind.join("+"))
-            } else {
-                cargo_target.kind.join("+")
-            };
-            let unit_source_roles = source_roles
-                .iter()
-                .filter(|scope| manifest_dir.is_empty() || path_scopes_overlap(&scope.source_scope, &manifest_dir))
-                .cloned()
-                .collect::<Vec<_>>();
-            let unit_role = octet_architecture_ir::select_compilation_unit_role(
-                role,
-                &target_kind,
-                &source_path,
-                &unit_source_roles,
-            )
-            .map_err(|error| format!("Cargo unit `{}`: {error}", cargo_target.name))?;
-            let mut unit = CompilationUnit {
-                unit_id: String::new(),
-                package_name: package.name.clone(),
-                package_version: package.version.clone(),
-                target_name: cargo_target.name.clone(),
-                target_kind,
-                source_path: source_path.clone(),
-                crate_types,
-                target_triple: planned.platform.clone().unwrap_or_else(|| host_triple.clone()),
-                features,
-                default_features: target.default_features,
-                role: unit_role,
-                toolchain_blake3: toolchain_blake3.clone(),
-                collector_blake3: collector_blake3.clone(),
-                policy_blake3: policy.waiver_policy_blake3.clone(),
-                source_blake3: source_blake3.clone(),
-                invocation_blake3: unit_invocation,
-            };
-            unit.unit_id = octet_architecture_ir::compilation_unit_identity(&unit);
-            if selected_units.len() >= policy.policy.collection_limits.max_units {
-                return Err(format!(
-                    "selected compiler architecture units exceed policy limit {}",
-                    policy.policy.collection_limits.max_units
-                ));
-            }
-            selected_units.push(CollectorCompilationUnit {
-                rustc_crate_name: cargo_target.name.replace('-', "_"),
-                manifest_dir: manifest_dir.clone(),
-                source_path,
-                test_configuration,
-                source_roles: unit_source_roles,
-                unit,
-            });
-            package_unit_count += 1;
-        }
-        if package_unit_count == 0 {
-            return Err(format!("Cargo plan omits selected architecture package `{}`", package.name));
-        }
+        append_package_units(package, role, inputs, &mut selected_units)?;
     }
     octet_architecture_ir::validate_collector_units(&selected_units).map_err(|error| error.to_string())?;
     selected_units.sort_by(|left, right| left.unit.unit_id.cmp(&right.unit.unit_id));
     if selected_units.is_empty() {
         return Err("activated architecture policy selected no Cargo compilation units".to_owned());
     }
-    let shard_directory = workspace_root.join(ARCHITECTURE_SHARD_DIRECTORY);
+    Ok(selected_units)
+}
+
+fn append_package_units(
+    package: &CargoPackage,
+    role: CompilerArchitectureRole,
+    inputs: &UnitSelectionInputs<'_>,
+    selected_units: &mut Vec<CollectorCompilationUnit>,
+) -> Result<(), String> {
+    let manifest_dir = Path::new(&package.manifest_path)
+        .parent()
+        .ok_or_else(|| format!("Cargo package manifest has no parent: {}", package.manifest_path))?;
+    let manifest_dir = manifest_dir
+        .strip_prefix(inputs.workspace_root)
+        .map_err(|_| format!("Cargo package manifest is outside workspace: {}", package.manifest_path))?;
+    let manifest_dir = normalized_relative(manifest_dir)?;
+    let source_blake3 = package_source_identity(
+        inputs.workspace_root,
+        &manifest_dir,
+        inputs.policy.policy.collection_limits.max_spans,
+        inputs.policy.policy.collection_limits.max_artifact_bytes,
+    )?;
+    let meta = PackageUnitMeta {
+        package,
+        role,
+        manifest_dir: &manifest_dir,
+        source_blake3: &source_blake3,
+    };
+    let mut package_unit_count = 0;
+    for planned in inputs.graph.units.iter().filter(|planned| planned.pkg_id == package.id) {
+        let Some(collector_unit) = build_collector_unit(&meta, planned, inputs)? else {
+            continue;
+        };
+        if selected_units.len() >= inputs.policy.policy.collection_limits.max_units {
+            return Err(format!(
+                "selected compiler architecture units exceed policy limit {}",
+                inputs.policy.policy.collection_limits.max_units
+            ));
+        }
+        selected_units.push(collector_unit);
+        package_unit_count += 1;
+    }
+    if package_unit_count == 0 {
+        return Err(format!("Cargo plan omits selected architecture package `{}`", package.name));
+    }
+    Ok(())
+}
+
+struct PackageUnitMeta<'a> {
+    package: &'a CargoPackage,
+    role: CompilerArchitectureRole,
+    manifest_dir: &'a str,
+    source_blake3: &'a str,
+}
+
+fn build_collector_unit(
+    meta: &PackageUnitMeta<'_>,
+    planned: &target_plan::CargoPlannedUnit,
+    inputs: &UnitSelectionInputs<'_>,
+) -> Result<Option<CollectorCompilationUnit>, String> {
+    let test_configuration = match planned.mode.as_str() {
+        "run-custom-build" => return Ok(None),
+        "build" => false,
+        "test" => true,
+        other => return Err(format!("unsupported Cargo architecture unit mode `{other}`")),
+    };
+    if planned.platform.as_ref().is_some_and(|platform| platform != &inputs.target.triple) {
+        return Err("Cargo plan selects a target outside the declared architecture row".to_owned());
+    }
+    let cargo_target = &planned.target;
+    let root_path = Path::new(&cargo_target.src_path)
+        .strip_prefix(inputs.workspace_root)
+        .map_err(|_| "Cargo architecture source root is outside the workspace".to_owned())?;
+    if root_path
+        .components()
+        .any(|part| part.as_os_str().to_str().is_some_and(|name| SOURCE_BUILD_DIRECTORIES.contains(&name)))
+    {
+        return Err("Cargo architecture source root is inside an excluded build or evidence directory".to_owned());
+    }
+    let source_path = normalized_relative(root_path)?;
+    Ok(Some(assemble_collector_unit(meta, planned, inputs, source_path, test_configuration)?))
+}
+
+fn assemble_collector_unit(
+    meta: &PackageUnitMeta<'_>,
+    planned: &target_plan::CargoPlannedUnit,
+    inputs: &UnitSelectionInputs<'_>,
+    source_path: String,
+    test_configuration: bool,
+) -> Result<CollectorCompilationUnit, String> {
+    let cargo_target = &planned.target;
+    let unit_invocation = octet_architecture_ir::canonical_identity(
+        "octet.compiler-architecture-ir.unit-invocation/v2",
+        &(&inputs.invocation_blake3, &source_path, test_configuration, &planned.profile),
+    )?;
+    let mut features = planned.features.clone();
+    features.sort();
+    features.dedup();
+    let mut crate_types = if test_configuration {
+        vec!["bin".to_owned()]
+    } else {
+        canonical_rustc_crate_types(cargo_target.crate_types.clone())
+    };
+    crate_types.sort();
+    crate_types.dedup();
+    let target_kind = if test_configuration {
+        format!("{}+test", cargo_target.kind.join("+"))
+    } else {
+        cargo_target.kind.join("+")
+    };
+    let unit_source_roles = inputs
+        .source_roles
+        .iter()
+        .filter(|scope| meta.manifest_dir.is_empty() || path_scopes_overlap(&scope.source_scope, meta.manifest_dir))
+        .cloned()
+        .collect::<Vec<_>>();
+    let unit_role =
+        octet_architecture_ir::select_compilation_unit_role(meta.role, &target_kind, &source_path, &unit_source_roles)
+            .map_err(|error| format!("Cargo unit `{}`: {error}", cargo_target.name))?;
+    let mut unit = CompilationUnit {
+        unit_id: String::new(),
+        package_name: meta.package.name.clone(),
+        package_version: meta.package.version.clone(),
+        target_name: cargo_target.name.clone(),
+        target_kind,
+        source_path: source_path.clone(),
+        crate_types,
+        target_triple: planned.platform.clone().unwrap_or_else(|| inputs.host_triple.to_owned()),
+        features,
+        default_features: inputs.target.default_features,
+        role: unit_role,
+        toolchain_blake3: inputs.toolchain_blake3.to_owned(),
+        collector_blake3: inputs.collector_blake3.to_owned(),
+        policy_blake3: inputs.policy.waiver_policy_blake3.clone(),
+        source_blake3: meta.source_blake3.to_owned(),
+        invocation_blake3: unit_invocation,
+    };
+    unit.unit_id = octet_architecture_ir::compilation_unit_identity(&unit);
+    Ok(CollectorCompilationUnit {
+        rustc_crate_name: cargo_target.name.replace('-', "_"),
+        manifest_dir: meta.manifest_dir.to_owned(),
+        source_path,
+        test_configuration,
+        source_roles: unit_source_roles,
+        unit,
+    })
+}
+
+fn publish_collector_context(
+    request: &CollectorPlanRequest<'_>,
+    selected_units: Vec<CollectorCompilationUnit>,
+    cargo_graph: ArchitectureCargoGraph,
+) -> Result<PreparedCollector, String> {
+    let shard_directory = request.workspace_root.join(ARCHITECTURE_SHARD_DIRECTORY);
     let retained_shards = prepare_shard_directory(
         &shard_directory,
         &expected_unit_ids(&selected_units),
-        policy.policy.collection_limits.max_shards,
-        policy.policy.collection_limits.max_shard_bytes,
+        request.policy.policy.collection_limits.max_shards,
+        request.policy.policy.collection_limits.max_shard_bytes,
     )?;
     let context_path = shard_directory
         .parent()
@@ -305,12 +388,14 @@ pub(crate) fn prepare_collector(
         .collect::<Vec<_>>();
     let context = CompilerArchitectureCollectorContext {
         schema_version: COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_SCHEMA_VERSION.to_owned(),
-        workspace_root: workspace_root.display().to_string(),
+        workspace_root: request.workspace_root.display().to_string(),
         output_directory: shard_directory.display().to_string(),
-        limits: policy.policy.collection_limits.clone(),
+        limits: request.policy.policy.collection_limits.clone(),
         selected_units,
-        value_flow_selections: protected_value_flow_selections(&policy.policy),
-        non_claims: policy.policy.non_claims.clone(),
+        value_flow_selections: protected_value_flow_selections(&request.policy.policy),
+        collect_semantic_effects: request.is_semantic_enabled,
+        self_profile_phase_dir: request.self_profile_phase_dir.clone(),
+        non_claims: request.policy.policy.non_claims.clone(),
     };
     let context_bytes = serde_json::to_vec_pretty(&context)
         .map_err(|error| format!("serialize compiler architecture collector context: {error}"))?;
@@ -321,11 +406,11 @@ pub(crate) fn prepare_collector(
     Ok(PreparedCollector {
         context_path,
         shard_directory,
-        policy_blake3: policy.waiver_policy_blake3.clone(),
-        limits: policy.policy.collection_limits.clone(),
+        policy_blake3: request.policy.waiver_policy_blake3.clone(),
+        limits: request.policy.policy.collection_limits.clone(),
         expected_units,
         cargo_graph,
-        non_claims: policy.policy.non_claims.clone(),
+        non_claims: request.policy.policy.non_claims.clone(),
         retained_shards,
     })
 }

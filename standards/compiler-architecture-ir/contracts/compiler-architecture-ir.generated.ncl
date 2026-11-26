@@ -125,6 +125,8 @@ let Issue = {
     limits | Limits,
     selected_units | Array CollectorUnit,
     value_flow_selections | Array ValueFlowSelection,
+    collect_semantic_effects | Bool | default = false,
+    self_profile_phase_dir | Dyn | default = null,
     non_claims | Array NonEmptyString,
   },
   CompilerArchitectureShard = {
