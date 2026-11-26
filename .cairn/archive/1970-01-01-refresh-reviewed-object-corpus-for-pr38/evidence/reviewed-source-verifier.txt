@@ -1,0 +1,36 @@
+# $ python3 tools/verify-reviewed-object-source.py --repo . --valence-module /nix/store/h37xdw85zdfrpksjrvsiz0z3a2wglzds-source/crates/valence-core/src/function_object.rs
+reviewed-v2-source: ADMITTED exact owner-approved PR #38 refresh (not an independent audit, owner signature, correctness or release qualification)
+# $ python3 tools/test-verify-reviewed-object-source.py --repo . --valence-module /nix/store/h37xdw85zdfrpksjrvsiz0z3a2wglzds-source/crates/valence-core/src/function_object.rs
+reviewed-v2-source positive: approved bytes ADMITTED
+reviewed-v2-source traversal/absolute path controls: REJECTED
+reviewed-v2-source negative: token-stable source byte edit REJECTED
+reviewed-v2-source negative: missing reference REJECTED
+reviewed-v2-source negative: reference byte edit REJECTED
+reviewed-v2-source negative: false boundary REJECTED
+reviewed-v2-source negative: missing owner approval REJECTED
+reviewed-v2-source negative: altered owner approval REJECTED
+reviewed-v2-source negative: refresh note without owner decision REJECTED
+reviewed-v2-source negative: historical approval cannot authorize refresh REJECTED
+reviewed-v2-source negative: altered refresh decision REJECTED
+reviewed-v2-source negative: symlinked refresh decision REJECTED
+reviewed-v2-source negative: missing approved audit envelope REJECTED
+reviewed-v2-source negative: altered approved audit envelope REJECTED
+reviewed-v2-source negative: missing original producer source binding REJECTED
+reviewed-v2-source negative: altered producer source comparison REJECTED
+reviewed-v2-source negative: PENDING reviewed status REJECTED
+reviewed-v2-source negative: rebound candidate REJECTED
+reviewed-v2-source negative: unsorted reviewed selection REJECTED
+reviewed-v2-source negative: absolute selection REJECTED
+reviewed-v2-source negative: historical candidate cannot select current rails REJECTED
+reviewed-v2-source negative: historical approval cannot replace RC approval REJECTED
+reviewed-v2-source negative: superseded RC candidate cannot select current rails REJECTED
+reviewed-v2-source negative: superseded RC approval cannot replace current approval REJECTED
+reviewed-v2-source negative: wrong current producer version REJECTED
+reviewed-v2-source negative: wrong Cargo revision REJECTED
+reviewed-v2-source negative: wrong Nix lock revision REJECTED
+reviewed-v2-source negative: wrong Nix locked source bytes REJECTED
+reviewed-v2-source negative: wrong Nix transport REJECTED
+reviewed-v2-source negative: upstream flake evaluation REJECTED
+reviewed-v2-source negative: changed upstream Valence module REJECTED
+reviewed-v2-source negative: symlink escaping source REJECTED
+reviewed-v2-source tamper matrix: PASS

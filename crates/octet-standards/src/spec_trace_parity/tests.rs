@@ -570,3 +570,248 @@ fn malformed_requests_fail_closed_before_replay() {
     let result = run(&unbounded, Some(&mut PanicAdapter::new(declaration()))).expect("run");
     assert_eq!(denied_layers(&result.receipt), vec![DenialLayer::Request]);
 }
+
+#[test]
+fn dive_tracker_pin_records_schema4_main_commit_and_non_claims() {
+    let pin = super::external::dive_pin();
+    assert_eq!(pin.repository, "https://github.com/Chelis-Lang/dive");
+    assert_eq!(pin.tracker, "OnixResearch/trace-lab#6");
+    assert_eq!(pin.commit_sha, "0fc00914b7cd93d88e97e5d7d66aac805c06228b");
+    assert_eq!(pin.report_schema_version, 4);
+    assert_eq!(pin.doc_path, "docs/user/traces.md");
+    assert!(pin.non_claims.iter().any(|claim| claim.contains("default-off")));
+    assert!(pin.non_claims.iter().any(|claim| claim.contains("Aspen #62")));
+}
+
+#[test]
+fn dive_report_admission_binds_complete_schema4_stops_unsupported_and_denies_drift() {
+    let mut base = request();
+    base.pins.adapter_identity = None;
+    base.checker.identity = "b3:2a39fc7ca7c05679c7521c1f390183dc8182c5f9e2e4b7eca2ce50bfe8e7f09c".to_owned();
+    base.checker.version = "dive-main-0fc00914".to_owned();
+    base.pins.checker_identity = base.checker.identity.clone();
+    base.pins.checker_version = base.checker.version.clone();
+
+    let complete = super::external::DiveReport {
+        schema_version: 4,
+        dive_commit_sha: super::external::DIVE_MAIN_COMMIT.to_owned(),
+        checker_identity: base.checker.identity.clone(),
+        checker_version: base.checker.version.clone(),
+        model_bytes: Some(base.model_bytes.clone()),
+        seed: Some(base.seed),
+        mapped_set: Some(base.trace_set.clone()),
+    };
+    let admitted = super::external::admit_dive_report(&base.pins, &complete, base.bounds);
+    match admitted {
+        super::external::DiveAdmission::Admitted(identities) => {
+            assert_eq!(identities.checker_identity, base.pins.checker_identity);
+            assert_eq!(identities.model_identity, base.pins.model_identity);
+            assert_eq!(identities.seed, base.pins.seed);
+            assert_eq!(identities.trace_set_identity, base.pins.trace_set_identity);
+        }
+        other => panic!("expected complete schema-4 Dive report to admit, got {other:?}"),
+    }
+
+    // Incomplete schema-4 report (e.g. raw handoff without seed/mapped trace set) stops as Unsupported.
+    let mut incomplete = complete.clone();
+    incomplete.seed = None;
+    incomplete.mapped_set = None;
+    match super::external::admit_dive_report(&base.pins, &incomplete, base.bounds) {
+        super::external::DiveAdmission::Unsupported { reason, non_claims } => {
+            assert!(reason.contains("seed") && reason.contains("mapped_set"), "{reason}");
+            assert!(!non_claims.is_empty());
+        }
+        other => panic!("expected incomplete schema-4 report to stop as Unsupported, got {other:?}"),
+    }
+
+    // Dive 0.1.0 commit must be denied for trace-lab#6.
+    let mut old_pin = complete.clone();
+    old_pin.dive_commit_sha = "94cbbed9ae02ad3d30bbe2191bd2619a839b8795".to_owned();
+    match super::external::admit_dive_report(&base.pins, &old_pin, base.bounds) {
+        super::external::DiveAdmission::Denied { denials } => {
+            assert_eq!(denials.len(), 1);
+            assert_eq!(denials[0].layer, DenialLayer::CheckerVersion);
+        }
+        other => panic!("expected Dive 0.1.0 pin to be denied, got {other:?}"),
+    }
+
+    // Non-schema-4 report must be denied.
+    let mut wrong_schema = complete.clone();
+    wrong_schema.schema_version = 3;
+    match super::external::admit_dive_report(&base.pins, &wrong_schema, base.bounds) {
+        super::external::DiveAdmission::Denied { denials } => {
+            assert_eq!(denials.len(), 1);
+            assert_eq!(denials[0].layer, DenialLayer::TraceFormat);
+        }
+        other => panic!("expected non-schema-4 report to be denied, got {other:?}"),
+    }
+
+    // Stale model bytes fail closed through spec_trace_parity::admit.
+    let mut stale_model = complete;
+    stale_model.model_bytes = Some(b"drifted-model".to_vec());
+    match super::external::admit_dive_report(&base.pins, &stale_model, base.bounds) {
+        super::external::DiveAdmission::Denied { denials } => {
+            assert_eq!(denials.len(), 1);
+            assert_eq!(denials[0].layer, DenialLayer::Model);
+        }
+        other => panic!("expected stale model bytes to be denied, got {other:?}"),
+    }
+}
+
+fn dive_base_and_complete_report() -> (ParityRequest, super::external::DiveReport) {
+    let mut base = request();
+    base.pins.adapter_identity = None;
+    base.checker.identity = "b3:2a39fc7ca7c05679c7521c1f390183dc8182c5f9e2e4b7eca2ce50bfe8e7f09c".to_owned();
+    base.checker.version = "dive-main-0fc00914".to_owned();
+    base.pins.checker_identity = base.checker.identity.clone();
+    base.pins.checker_version = base.checker.version.clone();
+
+    let report = super::external::DiveReport {
+        schema_version: 4,
+        dive_commit_sha: super::external::DIVE_MAIN_COMMIT.to_owned(),
+        checker_identity: base.checker.identity.clone(),
+        checker_version: base.checker.version.clone(),
+        model_bytes: Some(base.model_bytes.clone()),
+        seed: Some(base.seed),
+        mapped_set: Some(base.trace_set.clone()),
+    };
+    (base, report)
+}
+
+#[test]
+fn dive_pin_serializes_and_dive_report_json_deserializes_with_deny_unknown_fields() {
+    let pin_json = serde_json::to_value(super::external::dive_pin()).expect("serialize DivePin");
+    assert_eq!(pin_json["repository"], "https://github.com/Chelis-Lang/dive");
+    assert_eq!(pin_json["tracker"], "OnixResearch/trace-lab#6");
+    assert_eq!(pin_json["commit_sha"], super::external::DIVE_MAIN_COMMIT);
+    assert_eq!(pin_json["report_schema_version"], 4);
+    assert_eq!(pin_json["doc_path"], "docs/user/traces.md");
+    assert_eq!(pin_json["non_claims"].as_array().map(Vec::len), Some(super::external::DIVE_NON_CLAIMS.len()));
+
+    let (base, complete) = dive_base_and_complete_report();
+    let complete_json = serde_json::to_string(&complete).expect("serialize DiveReport");
+    let decoded: super::external::DiveReport = serde_json::from_str(&complete_json).expect("deserialize DiveReport");
+    assert_eq!(decoded, complete);
+    assert!(matches!(
+        super::external::admit_dive_report(&base.pins, &decoded, base.bounds),
+        super::external::DiveAdmission::Admitted(_)
+    ));
+
+    let raw_without_bindings = r#"{
+        "schema_version": 4,
+        "dive_commit_sha": "0fc00914b7cd93d88e97e5d7d66aac805c06228b",
+        "checker_identity": "b3:2a39fc7ca7c05679c7521c1f390183dc8182c5f9e2e4b7eca2ce50bfe8e7f09c",
+        "checker_version": "dive-main-0fc00914",
+        "model_bytes": null,
+        "seed": null,
+        "mapped_set": null
+    }"#;
+    let partial: super::external::DiveReport =
+        serde_json::from_str(raw_without_bindings).expect("deserialize DiveReport with null bindings");
+    assert_eq!(partial.model_bytes, None);
+    assert_eq!(partial.seed, None);
+    assert_eq!(partial.mapped_set, None);
+
+    let unknown_field_json = r#"{
+        "schema_version": 4,
+        "dive_commit_sha": "0fc00914b7cd93d88e97e5d7d66aac805c06228b",
+        "checker_identity": "b3:2a39fc7ca7c05679c7521c1f390183dc8182c5f9e2e4b7eca2ce50bfe8e7f09c",
+        "checker_version": "dive-main-0fc00914",
+        "model_bytes": null,
+        "seed": null,
+        "mapped_set": null,
+        "extra_field": true
+    }"#;
+    let err = serde_json::from_str::<super::external::DiveReport>(unknown_field_json)
+        .expect_err("unknown field must be rejected");
+    assert!(err.to_string().contains("unknown field"), "{err}");
+}
+
+#[test]
+fn dive_report_missing_only_model_bytes_stops_as_unsupported() {
+    let (base, mut report) = dive_base_and_complete_report();
+    report.model_bytes = None;
+
+    match super::external::admit_dive_report(&base.pins, &report, base.bounds) {
+        super::external::DiveAdmission::Unsupported { reason, non_claims } => {
+            assert!(reason.contains("model_bytes"), "{reason}");
+            assert!(!reason.contains("seed"), "{reason}");
+            assert!(!reason.contains("mapped_set"), "{reason}");
+            assert_eq!(non_claims.len(), super::external::DIVE_NON_CLAIMS.len());
+        }
+        other => panic!("expected missing model_bytes alone to stop as Unsupported, got {other:?}"),
+    }
+}
+
+#[test]
+fn dive_report_with_simultaneous_schema_and_commit_drift_denies_both_layers() {
+    let (base, mut report) = dive_base_and_complete_report();
+    report.schema_version = 3;
+    report.dive_commit_sha = "94cbbed9ae02ad3d30bbe2191bd2619a839b8795".to_owned();
+    report.model_bytes = None;
+    report.seed = None;
+    report.mapped_set = None;
+
+    match super::external::admit_dive_report(&base.pins, &report, base.bounds) {
+        super::external::DiveAdmission::Denied { denials } => {
+            let layers: Vec<DenialLayer> = denials.into_iter().map(|denial| denial.layer).collect();
+            assert_eq!(layers, vec![DenialLayer::TraceFormat, DenialLayer::CheckerVersion]);
+        }
+        other => panic!("expected simultaneous schema and commit drift to deny both layers, got {other:?}"),
+    }
+}
+
+#[test]
+fn dive_report_admission_denies_checker_seed_trace_set_and_adapter_pin_drift() {
+    let (base, complete) = dive_base_and_complete_report();
+
+    let mut checker_id_drift = complete.clone();
+    checker_id_drift.checker_identity = prefixed_identity(b"other-dive-checker");
+    match super::external::admit_dive_report(&base.pins, &checker_id_drift, base.bounds) {
+        super::external::DiveAdmission::Denied { denials } => {
+            assert_eq!(denials.len(), 1);
+            assert_eq!(denials[0].layer, DenialLayer::CheckerIdentity);
+        }
+        other => panic!("expected checker_identity drift to be denied, got {other:?}"),
+    }
+
+    let mut checker_version_drift = complete.clone();
+    checker_version_drift.checker_version = "dive-0.1.0".to_owned();
+    match super::external::admit_dive_report(&base.pins, &checker_version_drift, base.bounds) {
+        super::external::DiveAdmission::Denied { denials } => {
+            assert_eq!(denials.len(), 1);
+            assert_eq!(denials[0].layer, DenialLayer::CheckerVersion);
+        }
+        other => panic!("expected checker_version drift to be denied, got {other:?}"),
+    }
+
+    let mut seed_drift = complete.clone();
+    seed_drift.seed = Some(base.seed + 1);
+    match super::external::admit_dive_report(&base.pins, &seed_drift, base.bounds) {
+        super::external::DiveAdmission::Denied { denials } => {
+            assert_eq!(denials.len(), 1);
+            assert_eq!(denials[0].layer, DenialLayer::Seed);
+        }
+        other => panic!("expected seed drift to be denied, got {other:?}"),
+    }
+
+    let mut mapped_set_drift = complete.clone();
+    mapped_set_drift.mapped_set.as_mut().expect("mapped_set").traces[0].trace_id = "tampered-trace".to_owned();
+    match super::external::admit_dive_report(&base.pins, &mapped_set_drift, base.bounds) {
+        super::external::DiveAdmission::Denied { denials } => {
+            assert_eq!(denials.len(), 1);
+            assert_eq!(denials[0].layer, DenialLayer::TraceSet);
+        }
+        other => panic!("expected mapped_set drift to be denied, got {other:?}"),
+    }
+
+    let mut adapter_pin = base.pins.clone();
+    adapter_pin.adapter_identity = Some(prefixed_identity(b"unexpected-adapter"));
+    match super::external::admit_dive_report(&adapter_pin, &complete, base.bounds) {
+        super::external::DiveAdmission::Denied { denials } => {
+            assert_eq!(denials.len(), 1);
+            assert_eq!(denials[0].layer, DenialLayer::AdapterIdentity);
+        }
+        other => panic!("expected adapter_identity pin to be denied, got {other:?}"),
+    }
+}

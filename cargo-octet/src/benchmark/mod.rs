@@ -224,6 +224,7 @@ pub(crate) mod request;
 mod resource_shell;
 mod resources;
 mod runtime;
+pub mod self_profile;
 pub mod shell;
 mod signal;
 mod validation;

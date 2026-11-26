@@ -111,6 +111,7 @@ struct ArchitectureRunArtifacts {
     compiler: Option<crate::architecture_ir::ArchitectureArtifacts>,
     project: Option<crate::project_architecture::ProjectArchitectureArtifacts>,
     closure: Option<crate::admit::IntegratedClosureArtifacts>,
+    cargo_lints: Option<crate::cargo::lints::LintAssessment>,
 }
 
 #[derive(Debug, Clone)]
@@ -133,8 +134,58 @@ fn apply_baseline_gate(
     outcome
 }
 
-#[allow(clippy::too_many_lines)]
 pub fn run(check: &CheckArgs) -> Result<i32, String> {
+    run_with_semantic_mode(check, false)
+}
+
+pub(crate) fn run_with_semantic_collection(check: &CheckArgs) -> Result<i32, String> {
+    run_with_semantic_mode(check, true)
+}
+
+struct PreparedRunContext {
+    cfg: config::WorkspaceConfig,
+    scope_args: Vec<String>,
+    cargo_check_args: Vec<String>,
+    selected_profile: Option<crate::strict_profile::SelectedStrictProfile>,
+    prepared_integrated_closure: Option<crate::admit::PreparedIntegratedClosure>,
+    effective_function_addresses: crate::function_address::FunctionAddressCheck,
+    lockfile_path: PathBuf,
+    skip_lockfile_guard: bool,
+    lockfile_before: LockfileSnapshot,
+    phase_dir: Option<String>,
+}
+
+struct PostCheckInputs<'a> {
+    check: &'a CheckArgs,
+    ctx: &'a PreparedRunContext,
+    run_metadata: &'a RunMetadata,
+    collector: Option<&'a crate::architecture_ir::PreparedCollector>,
+    meta_map: &'a std::collections::HashMap<&'a str, output::LintMeta>,
+}
+
+fn start_phase_clock(enabled: bool) -> Option<std::time::Instant> {
+    enabled.then(std::time::Instant::now)
+}
+
+fn elapsed_phase_ns(started: Option<std::time::Instant>) -> u64 {
+    started.and_then(|t| u64::try_from(t.elapsed().as_nanos()).ok()).unwrap_or(0)
+}
+
+fn run_with_semantic_mode(check: &CheckArgs, is_semantic_enabled: bool) -> Result<i32, String> {
+    let ctx = prepare_run_context(check)?;
+    let result = execute_run_core(check, &ctx, is_semantic_enabled);
+    if !ctx.skip_lockfile_guard
+        && let Some(lockfile_error) = restore_changed_lockfile(&ctx.lockfile_path, &ctx.lockfile_before)?
+    {
+        return Err(match result {
+            Err(error) => format!("{error}; {lockfile_error}"),
+            Ok(_) => lockfile_error,
+        });
+    }
+    result
+}
+
+fn prepare_run_context(check: &CheckArgs) -> Result<PreparedRunContext, String> {
     reject_process_dylint_toml_override()?;
     let cwd = env::current_dir().map_err(|error| format!("current_dir: {error}"))?;
     let cfg = config::load(&cwd)?;
@@ -148,38 +199,22 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
         check.scope_args.clone()
     };
     let cargo_check_args = check.cargo_check_args.clone().unwrap_or(cfg.cargo_check_args.clone());
+    if cargo_check_args.iter().any(|arg| arg.starts_with("--message-format")) {
+        return Err("`--message-format` is managed by `--output-format`; remove it from passthrough args".to_owned());
+    }
     let admission_binding = cfg.architecture_policy.as_ref().and_then(|policy| policy.policy.admission.as_ref());
     let selected_profile_id = selected_strict_profile_id(check.profile.as_deref(), admission_binding)?;
     let selected_profile = crate::strict_profile::prepare_selected_profile(selected_profile_id, &cfg.workspace_root)?;
     let prepared_integrated_closure = admission_binding
         .map(|binding| crate::admit::prepare_integrated_closure(&cfg.workspace_root, binding))
         .transpose()?;
-    let mut requested_function_addresses = check.function_addresses.clone();
-    if let (Some(prepared), Some(binding)) = (&prepared_integrated_closure, admission_binding) {
-        requested_function_addresses.baseline = Some(bound_function_address_baseline(
-            &cwd,
-            requested_function_addresses.baseline.as_deref(),
-            &prepared.baseline_path,
-            binding,
-        )?);
-    }
-    let effective_function_addresses = crate::strict_profile::effective_function_address_check(
-        selected_profile.as_ref(),
-        &requested_function_addresses,
-    )?;
-    // Effective paths differ from the requested ones only when the profile substitutes its core
-    // scopes for an empty `--function-address-path` list.
-    let function_address_scope_origin = if requested_function_addresses.paths.is_empty() {
-        crate::function_address::ScopeOrigin::CoreSourceScopes
-    } else {
-        crate::function_address::ScopeOrigin::FunctionAddressPathFlag
+    let address_ctx = AdmissionAddressContext {
+        workspace_root: &cfg.workspace_root,
+        admission_binding,
+        prepared_integrated_closure: prepared_integrated_closure.as_ref(),
+        selected_profile: selected_profile.as_ref(),
     };
-    effective_function_addresses.validate_paths(&cfg.workspace_root, function_address_scope_origin)?;
-
-    if cargo_check_args.iter().any(|arg| arg.starts_with("--message-format")) {
-        return Err("`--message-format` is managed by `--output-format`; remove it from passthrough args".to_owned());
-    }
-
+    let effective_function_addresses = prepare_effective_function_addresses(check, &cwd, &address_ctx)?;
     let lockfile_path = cfg.workspace_root.join("Cargo.lock");
     let skip_lockfile_guard =
         env::var("TIGERSTYLE_SKIP_LOCKFILE_CHECK").is_ok_and(|value| !value.is_empty() && value != "0");
@@ -188,294 +223,544 @@ pub fn run(check: &CheckArgs) -> Result<i32, String> {
     } else {
         snapshot_lockfile(&lockfile_path)?
     };
+    let phase_dir = env::var("OCTET_SELF_PROFILE_PHASE_DIR").ok().filter(|value| !value.trim().is_empty());
+    Ok(PreparedRunContext {
+        cfg,
+        scope_args,
+        cargo_check_args,
+        selected_profile,
+        prepared_integrated_closure,
+        effective_function_addresses,
+        lockfile_path,
+        skip_lockfile_guard,
+        lockfile_before,
+        phase_dir,
+    })
+}
 
-    let result = (|| {
-        let toolchain = resolve_toolchain()?;
-        let strict_profile_identity = selected_profile.as_ref().map(|selected| determinism::StrictProfileIdentity {
-            profile_id: &selected.policy.profile_id,
-            policy_hash: &selected.policy_hash,
-        });
-        let run_metadata = determinism::build_run_metadata(&determinism::MetadataInput {
-            workspace_root: &cfg.workspace_root,
-            toolchain: &toolchain,
-            scope_args: &scope_args,
-            cargo_check_args: &cargo_check_args,
-            output_format: check.output_format.as_str(),
-            strict_profile: strict_profile_identity,
-        });
-        let driver = resolve_driver(&toolchain)?;
-        let lint_lib = resolve_lint_lib(&toolchain)?;
-        let collector = cfg
-            .architecture_policy
-            .as_ref()
-            .map(|policy| {
-                crate::architecture_ir::prepare_collector(
-                    &cfg.workspace_root,
-                    policy,
-                    &toolchain,
-                    Path::new(lint_lib.path()),
-                    &scope_args,
-                    &cargo_check_args,
-                )
+struct AdmissionAddressContext<'a> {
+    workspace_root: &'a Path,
+    admission_binding: Option<&'a octet_standards::project_architecture_policy::ArchitectureAdmissionBinding>,
+    prepared_integrated_closure: Option<&'a crate::admit::PreparedIntegratedClosure>,
+    selected_profile: Option<&'a crate::strict_profile::SelectedStrictProfile>,
+}
+
+fn prepare_effective_function_addresses(
+    check: &CheckArgs,
+    cwd: &Path,
+    address_ctx: &AdmissionAddressContext<'_>,
+) -> Result<crate::function_address::FunctionAddressCheck, String> {
+    let mut requested = check.function_addresses.clone();
+    if let (Some(prepared), Some(binding)) = (address_ctx.prepared_integrated_closure, address_ctx.admission_binding) {
+        requested.baseline = Some(bound_function_address_baseline(
+            cwd,
+            requested.baseline.as_deref(),
+            &prepared.baseline_path,
+            binding,
+        )?);
+    }
+    let effective = crate::strict_profile::effective_function_address_check(address_ctx.selected_profile, &requested)?;
+    // Effective paths differ from the requested ones only when the profile substitutes its core
+    // scopes for an empty `--function-address-path` list.
+    let scope_origin = if requested.paths.is_empty() {
+        crate::function_address::ScopeOrigin::CoreSourceScopes
+    } else {
+        crate::function_address::ScopeOrigin::FunctionAddressPathFlag
+    };
+    effective.validate_paths(address_ctx.workspace_root, scope_origin)?;
+    Ok(effective)
+}
+
+fn execute_run_core(check: &CheckArgs, ctx: &PreparedRunContext, is_semantic_enabled: bool) -> Result<i32, String> {
+    let toolchain = resolve_toolchain()?;
+    let strict_profile_identity = ctx.selected_profile.as_ref().map(|selected| determinism::StrictProfileIdentity {
+        profile_id: &selected.policy.profile_id,
+        policy_hash: &selected.policy_hash,
+    });
+    let driver = resolve_driver(&toolchain)?;
+    let lint_lib = resolve_lint_lib(&toolchain)?;
+    let collector = ctx
+        .cfg
+        .architecture_policy
+        .as_ref()
+        .map(|policy| {
+            crate::architecture_ir::prepare_collector(&crate::architecture_ir::CollectorPlanRequest {
+                workspace_root: &ctx.cfg.workspace_root,
+                policy,
+                toolchain: &toolchain,
+                collector_path: Path::new(lint_lib.path()),
+                scope_args: &ctx.scope_args,
+                cargo_check_args: &ctx.cargo_check_args,
+                is_semantic_enabled,
+                self_profile_phase_dir: ctx.phase_dir.clone(),
             })
-            .transpose()?;
-        let dylint_libs = serde_json::to_string(&vec![lint_lib.path().to_owned()])
-            .map_err(|error| format!("encode DYLINT_LIBS: {error}"))?;
-        let diagnostic_paths =
-            DiagnosticPaths::from_cargo_metadata(&cfg.workspace_root, &toolchain, &scope_args, &cargo_check_args)?;
+        })
+        .transpose()?;
+    let diagnostic_paths = DiagnosticPaths::from_cargo_metadata(
+        &ctx.cfg.workspace_root,
+        &toolchain,
+        &ctx.scope_args,
+        &ctx.cargo_check_args,
+    )?;
+    let run_metadata = determinism::build_run_metadata(&determinism::MetadataInput {
+        workspace_root: &ctx.cfg.workspace_root,
+        member_dirs: Some(&diagnostic_paths.workspace_member_dirs),
+        toolchain: &toolchain,
+        scope_args: &ctx.scope_args,
+        cargo_check_args: &ctx.cargo_check_args,
+        output_format: check.output_format.as_str(),
+        strict_profile: strict_profile_identity,
+    });
+    let meta_map = output::lint_meta_map();
+    let spawn_input = SpawnBuildInput {
+        check,
+        ctx,
+        toolchain: &toolchain,
+        driver_path: driver.path(),
+        lint_lib_path: lint_lib.path(),
+        collector: collector.as_ref(),
+        meta_map: &meta_map,
+        run_metadata: &run_metadata,
+        diagnostic_paths: &diagnostic_paths,
+    };
+    let build_output = spawn_and_read_build(&spawn_input)?;
+    let post_inputs = PostCheckInputs {
+        check,
+        ctx,
+        run_metadata: &run_metadata,
+        collector: collector.as_ref(),
+        meta_map: &meta_map,
+    };
+    evaluate_and_emit_run(&post_inputs, build_output)
+}
 
-        let mut cmd = Command::new(CARGO_COMMAND);
-        cmd.arg(CARGO_CHECK_SUBCOMMAND).arg(CARGO_MESSAGE_FORMAT_JSON);
+struct SpawnBuildInput<'a> {
+    check: &'a CheckArgs,
+    ctx: &'a PreparedRunContext,
+    toolchain: &'a str,
+    driver_path: &'a str,
+    lint_lib_path: &'a str,
+    collector: Option<&'a crate::architecture_ir::PreparedCollector>,
+    meta_map: &'a std::collections::HashMap<&'a str, output::LintMeta>,
+    run_metadata: &'a RunMetadata,
+    diagnostic_paths: &'a DiagnosticPaths,
+}
 
-        if check.output_format == OutputFormat::Human
-            && std::io::stderr().is_terminal()
-            && !cargo_check_args.iter().any(|argument| argument.starts_with("--color"))
+struct SpawnBuildOutput {
+    findings: Vec<Finding>,
+    cargo_process_exit: output::CargoProcessExit,
+    cargo_lint_assessment: crate::cargo::lints::LintAssessment,
+}
+
+fn spawn_and_read_build(input: &SpawnBuildInput<'_>) -> Result<SpawnBuildOutput, String> {
+    let dylint_libs = serde_json::to_string(&vec![input.lint_lib_path.to_owned()])
+        .map_err(|error| format!("encode DYLINT_LIBS: {error}"))?;
+    let mut cmd = Command::new(CARGO_COMMAND);
+    cmd.arg(CARGO_CHECK_SUBCOMMAND).arg(CARGO_MESSAGE_FORMAT_JSON);
+    if input.check.output_format == OutputFormat::Human
+        && std::io::stderr().is_terminal()
+        && !input.ctx.cargo_check_args.iter().any(|argument| argument.starts_with("--color"))
+    {
+        cmd.arg(COLOR_ALWAYS_FLAG);
+    }
+    cmd.args(&input.ctx.scope_args)
+        .args(&input.ctx.cargo_check_args)
+        .current_dir(&input.ctx.cfg.workspace_root)
+        .env("RUSTC_WORKSPACE_WRAPPER", input.driver_path)
+        .env("DYLINT_LIBS", &dylint_libs)
+        .env("DYLINT_NO_DEPS", "1")
+        .env("RUSTUP_TOOLCHAIN", input.toolchain)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    cmd.env_remove(octet_lint_metadata::strict_profile::STRICT_PROFILE_ENV);
+    cmd.env_remove(octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_ENV);
+    if let Some(collector) = input.collector {
+        debug_assert!(collector.shard_directory.is_absolute());
+        cmd.env(octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_ENV, &collector.context_path);
+    }
+    if let Some(selected) = &input.ctx.selected_profile {
+        cmd.env(octet_lint_metadata::strict_profile::STRICT_PROFILE_ENV, &selected.policy.profile_id);
+    }
+    let mut child = cmd.spawn().map_err(|error| format!("run cargo check: {error}"))?;
+    let child_stdout = child.stdout.take().expect("stdout piped");
+    let child_stderr = child.stderr.take().ok_or_else(|| "stderr piped".to_owned())?;
+    let should_echo_stderr = input.check.output_format == OutputFormat::Human;
+    let stderr_handle =
+        std::thread::spawn(move || crate::cargo::lints::stream::read_bounded_stderr(child_stderr, should_echo_stderr));
+    let streamed_findings = read_cargo_messages(
+        BufReader::new(child_stdout),
+        input.check,
+        input.meta_map,
+        input.run_metadata,
+        input.diagnostic_paths,
+    );
+    if streamed_findings.is_err() {
+        // Stop Cargo before reaping it so an aborted read cannot leave it blocked on a full pipe.
+        let _ = child.kill();
+    }
+    let cargo_wait = child.wait().map_err(|error| format!("wait for cargo check: {error}"));
+    let captured_stderr = stderr_handle.join().map_err(|_| "cargo stderr reader thread panicked".to_owned())??;
+    let mut findings = streamed_findings?;
+    let cargo_process_exit = classify_cargo_process_exit(cargo_wait?);
+    let (stderr_findings, cargo_lint_assessment) = assess_native_lints(&NativeLintEvalInput {
+        workspace_root: &input.ctx.cfg.workspace_root,
+        toolchain: input.toolchain,
+        scope_args: &input.ctx.scope_args,
+        cargo_check_args: &input.ctx.cargo_check_args,
+        captured_stderr: &captured_stderr,
+        diagnostic_paths: input.diagnostic_paths,
+        existing_findings: &findings,
+        config_hash: &input.run_metadata.config_hash,
+        is_cache_enabled: input.check.cache,
+        is_command_success: cargo_process_exit.is_success(),
+    });
+    findings.extend(stderr_findings);
+    Ok(SpawnBuildOutput {
+        findings,
+        cargo_process_exit,
+        cargo_lint_assessment,
+    })
+}
+
+fn evaluate_and_emit_run(inputs: &PostCheckInputs<'_>, build_output: SpawnBuildOutput) -> Result<i32, String> {
+    let SpawnBuildOutput {
+        mut findings,
+        cargo_process_exit,
+        cargo_lint_assessment,
+    } = build_output;
+    let mut stdout_lock = std::io::stdout().lock();
+    let mut stderr_lock = std::io::stderr().lock();
+    let norm_started = start_phase_clock(inputs.ctx.phase_dir.is_some());
+    let architecture_artifacts = if cargo_process_exit.is_success() {
+        inputs.collector.map(crate::architecture_ir::normalize_collected_shards).transpose()?
+    } else {
+        None
+    };
+    let shard_normalization_ns = elapsed_phase_ns(norm_started);
+    let function_address_artifact =
+        collect_function_addresses_step(inputs, cargo_process_exit.is_success(), &mut findings, &mut stderr_lock)?;
+    canonicalize_findings(&mut findings);
+    let is_scan_complete = cargo_process_exit.is_success() && cargo_lint_assessment.fail_closed_message.is_none();
+    if inputs.check.cache {
+        update_lint_cache(&inputs.ctx.cfg.workspace_root, inputs.run_metadata, is_scan_complete, &mut findings)?;
+    }
+    let base_outcome = output::RunOutcome::classify(&findings, cargo_process_exit);
+    let baseline_evaluation = match inputs.check.baseline.as_deref() {
+        Some(path) => Some(baseline::evaluate_baseline(path, &findings, is_scan_complete)?),
+        None => None,
+    };
+    let architecture_error = architecture_artifacts.as_ref().and_then(|a| a.incomplete_error.clone());
+    let baseline_write_error = maybe_write_baseline_step(
+        inputs.check,
+        &base_outcome,
+        is_scan_complete,
+        architecture_error.is_none(),
+        cargo_lint_assessment.fail_closed_message.is_none(),
+        &findings,
+        inputs.run_metadata,
+    )?;
+    let lint_outcome = apply_baseline_gate(base_outcome, baseline_evaluation.as_ref());
+    let eval_started = start_phase_clock(inputs.ctx.phase_dir.is_some());
+    let mut project_architecture_artifacts =
+        evaluate_project_architecture_step(inputs, architecture_artifacts.as_ref(), &lint_outcome, None)?;
+    let policy_evaluation_ns = elapsed_phase_ns(eval_started);
+    if let Some(dir) = inputs.ctx.phase_dir.as_deref() {
+        crate::benchmark::self_profile::phases::write_engine_phase_record(
+            std::path::Path::new(dir),
+            shard_normalization_ns,
+            policy_evaluation_ns,
+        )?;
+    }
+    let closure_ctx = ClosureStepContext {
+        inputs,
+        lint_outcome: &lint_outcome,
+        baseline_evaluation: baseline_evaluation.as_ref(),
+        function_address_artifact: function_address_artifact.as_ref(),
+        architecture_artifacts: architecture_artifacts.as_ref(),
+        cargo_lint_assessment: &cargo_lint_assessment,
+    };
+    let integrated_closure_artifacts = run_integrated_closure_step(&closure_ctx, &mut project_architecture_artifacts)?;
+    // Every Cargo subprocess (including the integrated closure above) has finished; guard the lockfile
+    // before the bundle, summary, and exit code are settled so they all report the same final result.
+    let lockfile_error = if inputs.ctx.skip_lockfile_guard {
+        None
+    } else {
+        restore_changed_lockfile(&inputs.ctx.lockfile_path, &inputs.ctx.lockfile_before)?
+    };
+    let final_inputs = FinalizeOutcomeInputs {
+        post: inputs,
+        findings,
+        base_outcome: lint_outcome,
+        baseline_evaluation,
+        function_address_artifact,
+        architecture_artifacts,
+        project_architecture_artifacts,
+        integrated_closure_artifacts,
+        cargo_lint_assessment,
+        architecture_error,
+        baseline_write_error,
+        lockfile_error,
+    };
+    emit_finalized_run(final_inputs, &mut stdout_lock, &mut stderr_lock)
+}
+
+struct FinalizeOutcomeInputs<'a> {
+    post: &'a PostCheckInputs<'a>,
+    findings: Vec<Finding>,
+    base_outcome: output::RunOutcome,
+    baseline_evaluation: Option<BaselineEvaluation>,
+    function_address_artifact: Option<StructuredArtifact>,
+    architecture_artifacts: Option<crate::architecture_ir::ArchitectureArtifacts>,
+    project_architecture_artifacts: Option<crate::project_architecture::ProjectArchitectureArtifacts>,
+    integrated_closure_artifacts: Option<crate::admit::IntegratedClosureArtifacts>,
+    cargo_lint_assessment: crate::cargo::lints::LintAssessment,
+    architecture_error: Option<String>,
+    baseline_write_error: Option<String>,
+    lockfile_error: Option<String>,
+}
+
+fn emit_finalized_run(
+    inputs: FinalizeOutcomeInputs<'_>,
+    stdout_lock: &mut std::io::StdoutLock<'_>,
+    stderr_lock: &mut std::io::StderrLock<'_>,
+) -> Result<i32, String> {
+    let settled_outcome = settle_architecture_outcome(
+        &inputs.base_outcome,
+        inputs.project_architecture_artifacts.as_ref(),
+        inputs.architecture_error.is_some()
+            || inputs.lockfile_error.is_some()
+            || inputs.baseline_write_error.is_some()
+            || inputs.cargo_lint_assessment.fail_closed_message.is_some(),
+    );
+    let run_error = [
+        inputs.architecture_error.or_else(|| terminated_run_error(&inputs.base_outcome)),
+        inputs.baseline_write_error,
+        inputs.lockfile_error,
+        inputs.cargo_lint_assessment.fail_closed_message.clone(),
+    ]
+    .into_iter()
+    .flatten()
+    .reduce(|primary, secondary| format!("{primary}; {secondary}"));
+    let finalized_run = finalize_run(
+        inputs.post.check,
+        &inputs.findings,
+        inputs.post.meta_map,
+        settled_outcome,
+        inputs.post.run_metadata,
+        inputs.baseline_evaluation.as_ref(),
+        inputs.function_address_artifact,
+        ArchitectureRunArtifacts {
+            compiler: inputs.architecture_artifacts,
+            project: inputs.project_architecture_artifacts,
+            closure: inputs.integrated_closure_artifacts,
+            cargo_lints: Some(inputs.cargo_lint_assessment),
+        },
+        &inputs.base_outcome,
+        run_error,
+    )?;
+    if let Some(structured_output) = finalized_run.run_artifacts.structured_output.as_ref() {
+        stdout_lock
+            .write_all(structured_output.contents.as_bytes())
+            .map_err(|error| format!("write stdout: {error}"))?;
+    }
+    stderr_lock
+        .write_all(finalized_run.run_artifacts.summary.as_bytes())
+        .map_err(|error| format!("write summary: {error}"))?;
+    match finalized_run.error {
+        Some(error) => Err(error),
+        None => Ok(finalized_run.outcome.exit_code),
+    }
+}
+
+fn collect_function_addresses_step(
+    inputs: &PostCheckInputs<'_>,
+    cargo_succeeded: bool,
+    findings: &mut Vec<Finding>,
+    stderr_lock: &mut std::io::StderrLock<'_>,
+) -> Result<Option<StructuredArtifact>, String> {
+    if !cargo_succeeded {
+        return Ok(None);
+    }
+    match crate::function_address::collect_run(
+        &inputs.ctx.effective_function_addresses,
+        &inputs.ctx.cfg.workspace_root,
+        &inputs.run_metadata.config_hash,
+    )? {
+        Some(run) => {
+            for skipped in &run.skipped_directory_links {
+                let _ = writeln!(
+                    stderr_lock,
+                    "note: function-address evidence skipped directory link `{}` -> `{}`: it resolves \
+                     outside the workspace root; declare function-address paths to refuse it instead",
+                    skipped.path, skipped.target
+                );
+            }
+            findings.extend(run.findings);
+            Ok(Some(StructuredArtifact {
+                file_name: crate::function_address::FUNCTION_ADDRESS_ARTIFACT_NAME,
+                contents: run.artifact_json,
+            }))
+        }
+        None => Ok(None),
+    }
+}
+
+fn maybe_write_baseline_step(
+    check: &CheckArgs,
+    base_outcome: &output::RunOutcome,
+    is_scan_complete: bool,
+    is_architecture_complete: bool,
+    is_native_lints_complete: bool,
+    findings: &[Finding],
+    run_metadata: &RunMetadata,
+) -> Result<Option<String>, String> {
+    // A baseline must record a complete scan. Denied lints make Cargo fail and stop scheduling
+    // dependent crates, and fail-closed native-lint or architecture errors mean the scan is
+    // incomplete, so none of those runs may write a baseline.
+    match check.write_baseline.as_deref() {
+        Some(path) if is_scan_complete && is_architecture_complete => {
+            baseline::write_baseline(path, findings, run_metadata)?;
+            Ok(None)
+        }
+        Some(path)
+            if base_outcome.status == output::RunStatus::LintFailure
+                && is_native_lints_complete
+                && is_architecture_complete =>
         {
-            cmd.arg(COLOR_ALWAYS_FLAG);
-        }
-
-        cmd.args(&scope_args)
-            .args(&cargo_check_args)
-            .current_dir(&cfg.workspace_root)
-            .env("RUSTC_WORKSPACE_WRAPPER", driver.path())
-            .env("DYLINT_LIBS", &dylint_libs)
-            .env("DYLINT_NO_DEPS", "1")
-            .env("RUSTUP_TOOLCHAIN", &toolchain)
-            .stdout(Stdio::piped());
-        cmd.env_remove(octet_lint_metadata::strict_profile::STRICT_PROFILE_ENV);
-        cmd.env_remove(octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_ENV);
-        if let Some(collector) = &collector {
-            debug_assert!(collector.shard_directory.is_absolute());
-            cmd.env(octet_architecture_ir::COMPILER_ARCHITECTURE_COLLECTOR_CONTEXT_ENV, &collector.context_path);
-        }
-        if let Some(selected) = &selected_profile {
-            cmd.env(octet_lint_metadata::strict_profile::STRICT_PROFILE_ENV, &selected.policy.profile_id);
-        }
-
-        if check.output_format != OutputFormat::Human {
-            cmd.stderr(Stdio::null());
-        }
-
-        let mut child = cmd.spawn().map_err(|error| format!("run cargo check: {error}"))?;
-        let child_stdout = child.stdout.take().expect("stdout piped");
-
-        let meta_map = output::lint_meta_map();
-        let streamed_findings =
-            read_cargo_messages(BufReader::new(child_stdout), check, &meta_map, &run_metadata, &diagnostic_paths);
-        if streamed_findings.is_err() {
-            // Stop Cargo before reaping it so an aborted read cannot leave it blocked on a full pipe.
-            let _ = child.kill();
-        }
-        let cargo_wait = child.wait().map_err(|error| format!("wait for cargo check: {error}"));
-        let mut findings = streamed_findings?;
-        let cargo_process_exit = classify_cargo_process_exit(cargo_wait?);
-        let mut stdout_lock = std::io::stdout().lock();
-        let mut stderr_lock = std::io::stderr().lock();
-        let architecture_artifacts = if cargo_process_exit.is_success() {
-            collector.as_ref().map(crate::architecture_ir::normalize_collected_shards).transpose()?
-        } else {
-            None
-        };
-        let function_address_artifact = if cargo_process_exit.is_success() {
-            match crate::function_address::collect_run(
-                &effective_function_addresses,
-                &cfg.workspace_root,
-                &run_metadata.config_hash,
-            )? {
-                Some(run) => {
-                    for skipped in &run.skipped_directory_links {
-                        let _ = writeln!(
-                            stderr_lock,
-                            "note: function-address evidence skipped directory link `{}` -> `{}`: it resolves \
-                             outside the workspace root; declare function-address paths to refuse it instead",
-                            skipped.path, skipped.target
-                        );
-                    }
-                    findings.extend(run.findings);
-                    Some(StructuredArtifact {
-                        file_name: crate::function_address::FUNCTION_ADDRESS_ARTIFACT_NAME,
-                        contents: run.artifact_json,
-                    })
-                }
-                None => None,
-            }
-        } else {
-            None
-        };
-        canonicalize_findings(&mut findings);
-        if check.cache {
-            update_lint_cache(&cfg.workspace_root, &run_metadata, cargo_process_exit.is_success(), &mut findings)?;
-        }
-        let base_outcome = output::RunOutcome::classify(&findings, cargo_process_exit);
-        let baseline_evaluation = match check.baseline.as_deref() {
-            Some(path) => {
-                Some(baseline::evaluate_baseline(path, &findings, base_outcome.cargo_process_exit.is_success())?)
-            }
-            None => None,
-        };
-        // A baseline must record a complete scan. Denied lints make Cargo fail and stop scheduling
-        // dependent crates, so a lint-failure run without Cargo success cannot produce one.
-        let baseline_write_error = match check.write_baseline.as_deref() {
-            Some(path) if base_outcome.cargo_process_exit.is_success() => {
-                baseline::write_baseline(path, &findings, &run_metadata)?;
-                None
-            }
-            Some(path) if base_outcome.status == output::RunStatus::LintFailure => Some(format!(
+            Ok(Some(format!(
                 "`--write-baseline` did not write {}: denied lints made Cargo fail, so it stopped before every \
                  crate was checked; lower those lints to `warn` for the baseline run",
                 path.display()
-            )),
-            _ => None,
-        };
-        let architecture_error =
-            architecture_artifacts.as_ref().and_then(|artifacts| artifacts.incomplete_error.clone());
-        let lint_outcome = apply_baseline_gate(base_outcome, baseline_evaluation.as_ref());
-        let mut project_architecture_artifacts =
-            match (cfg.architecture_policy.as_ref(), collector.as_ref(), architecture_artifacts.as_ref()) {
-                (Some(policy), Some(prepared), Some(architecture)) if architecture.incomplete_error.is_none() => {
-                    Some(crate::project_architecture::evaluate(
-                        policy,
-                        prepared,
-                        architecture,
-                        &check.command_line,
-                        lint_outcome.status.as_str(),
-                        None,
-                    )?)
-                }
-                _ => None,
-            };
-        let mut integrated_closure_artifacts = None;
-        if lint_outcome.status == output::RunStatus::Clean
-            && project_architecture_artifacts.as_ref().is_some_and(|project| {
-                project.receipt.status
-                    == octet_standards::project_architecture_gate::ArchitecturePhaseStatus::ClosureRequired
-            })
-        {
-            let binding = admission_binding.ok_or_else(|| "architecture admission binding disappeared".to_owned())?;
-            let selected = selected_profile
-                .as_ref()
-                .ok_or_else(|| "architecture admission requires its selected strict profile".to_owned())?;
-            let function_json = function_address_artifact
-                .as_ref()
-                .map(|artifact| artifact.contents.as_str())
-                .ok_or_else(|| "architecture admission requires deny-mode function-address evidence".to_owned())?;
-            let prepared_closure = prepared_integrated_closure
-                .ok_or_else(|| "architecture admission closure policy was not prepared before Cargo".to_owned())?;
-            let pre_closure_architecture = project_architecture_artifacts
-                .as_ref()
-                .ok_or_else(|| "architecture admission prerequisite receipt disappeared".to_owned())?;
-            let parent_status_json = output::render_integrated_status_json(
-                &lint_outcome,
-                &lint_outcome,
-                check.output_format.as_str(),
-                &run_metadata,
-                baseline_evaluation.as_ref(),
-                &pre_closure_architecture.receipt,
-            )?;
-            let closure = crate::admit::run_integrated_closure(
-                &cfg.workspace_root,
-                binding,
-                selected,
-                &cargo_check_args,
-                &run_metadata,
-                &check.command_line,
-                &parent_status_json,
-                function_json,
-                prepared_closure,
-            )?;
-            project_architecture_artifacts =
-                match (cfg.architecture_policy.as_ref(), collector.as_ref(), architecture_artifacts.as_ref()) {
-                    (Some(policy), Some(prepared), Some(architecture)) => Some(crate::project_architecture::evaluate(
-                        policy,
-                        prepared,
-                        architecture,
-                        &check.command_line,
-                        lint_outcome.status.as_str(),
-                        Some(&closure.parent),
-                    )?),
-                    _ => return Err("architecture admission inputs disappeared before closure composition".to_owned()),
-                };
-            integrated_closure_artifacts = Some(closure);
+            )))
         }
-        // Every Cargo subprocess (including the integrated closure above) has finished; guard the lockfile
-        // before the bundle, summary, and exit code are settled so they all report the same final result.
-        let lockfile_error = if skip_lockfile_guard {
-            None
-        } else {
-            restore_changed_lockfile(&lockfile_path, &lockfile_before)?
-        };
-        let base_outcome = if architecture_error.is_some() || lockfile_error.is_some() || baseline_write_error.is_some()
-        {
-            lint_outcome.force_integration_failure()
-        } else if let Some(project) = &project_architecture_artifacts {
-            match project.receipt.status {
-                octet_standards::project_architecture_gate::ArchitecturePhaseStatus::IntegrationFailure => {
-                    lint_outcome.force_integration_failure()
-                }
-                octet_standards::project_architecture_gate::ArchitecturePhaseStatus::Blocked
-                | octet_standards::project_architecture_gate::ArchitecturePhaseStatus::ClosureRequired => {
-                    lint_outcome.force_lint_failure()
-                }
-                octet_standards::project_architecture_gate::ArchitecturePhaseStatus::Findings
-                    if lint_outcome.status == output::RunStatus::Clean =>
-                {
-                    lint_outcome.force_warning_only()
-                }
-                _ => lint_outcome.clone(),
-            }
-        } else {
-            lint_outcome.clone()
-        };
-        let run_error = [
-            architecture_error.or_else(|| terminated_run_error(&lint_outcome)),
-            baseline_write_error,
-            lockfile_error,
-        ]
-        .into_iter()
-        .flatten()
-        .reduce(|primary, secondary| format!("{primary}; {secondary}"));
-        let architecture_run_artifacts = ArchitectureRunArtifacts {
-            compiler: architecture_artifacts,
-            project: project_architecture_artifacts,
-            closure: integrated_closure_artifacts,
-        };
-        let finalized_run = finalize_run(
-            check,
-            &findings,
-            &meta_map,
-            base_outcome,
-            &run_metadata,
-            baseline_evaluation.as_ref(),
-            function_address_artifact,
-            architecture_run_artifacts,
-            &lint_outcome,
-            run_error,
-        )?;
-
-        if let Some(structured_output) = finalized_run.run_artifacts.structured_output.as_ref() {
-            stdout_lock
-                .write_all(structured_output.contents.as_bytes())
-                .map_err(|error| format!("write stdout: {error}"))?;
-        }
-
-        stderr_lock
-            .write_all(finalized_run.run_artifacts.summary.as_bytes())
-            .map_err(|error| format!("write summary: {error}"))?;
-
-        match finalized_run.error {
-            Some(error) => Err(error),
-            None => Ok(finalized_run.outcome.exit_code),
-        }
-    })();
-
-    if !skip_lockfile_guard && let Some(lockfile_error) = restore_changed_lockfile(&lockfile_path, &lockfile_before)? {
-        return Err(match result {
-            Err(error) => format!("{error}; {lockfile_error}"),
-            Ok(_) => lockfile_error,
-        });
+        _ => Ok(None),
     }
+}
 
-    result
+fn evaluate_project_architecture_step(
+    inputs: &PostCheckInputs<'_>,
+    architecture_artifacts: Option<&crate::architecture_ir::ArchitectureArtifacts>,
+    lint_outcome: &output::RunOutcome,
+    closure_parent: Option<&octet_standards::project_architecture_gate::EffectClosureParent>,
+) -> Result<Option<crate::project_architecture::ProjectArchitectureArtifacts>, String> {
+    match (inputs.ctx.cfg.architecture_policy.as_ref(), inputs.collector, architecture_artifacts) {
+        (Some(policy), Some(prepared), Some(architecture))
+            if closure_parent.is_some() || architecture.incomplete_error.is_none() =>
+        {
+            Ok(Some(crate::project_architecture::evaluate(
+                policy,
+                prepared,
+                architecture,
+                &inputs.check.command_line,
+                lint_outcome.status.as_str(),
+                closure_parent,
+            )?))
+        }
+        _ => Ok(None),
+    }
+}
+
+struct ClosureStepContext<'a> {
+    inputs: &'a PostCheckInputs<'a>,
+    lint_outcome: &'a output::RunOutcome,
+    baseline_evaluation: Option<&'a BaselineEvaluation>,
+    function_address_artifact: Option<&'a StructuredArtifact>,
+    architecture_artifacts: Option<&'a crate::architecture_ir::ArchitectureArtifacts>,
+    cargo_lint_assessment: &'a crate::cargo::lints::LintAssessment,
+}
+
+fn run_integrated_closure_step(
+    step: &ClosureStepContext<'_>,
+    project_architecture_artifacts: &mut Option<crate::project_architecture::ProjectArchitectureArtifacts>,
+) -> Result<Option<crate::admit::IntegratedClosureArtifacts>, String> {
+    let inputs = step.inputs;
+    let lint_outcome = step.lint_outcome;
+    let needs_closure = lint_outcome.status == output::RunStatus::Clean
+        && step.cargo_lint_assessment.fail_closed_message.is_none()
+        && project_architecture_artifacts.as_ref().is_some_and(|project| {
+            project.receipt.status
+                == octet_standards::project_architecture_gate::ArchitecturePhaseStatus::ClosureRequired
+        });
+    if !needs_closure {
+        return Ok(None);
+    }
+    let admission_binding =
+        inputs.ctx.cfg.architecture_policy.as_ref().and_then(|policy| policy.policy.admission.as_ref());
+    let binding = admission_binding.ok_or_else(|| "architecture admission binding disappeared".to_owned())?;
+    let selected = inputs
+        .ctx
+        .selected_profile
+        .as_ref()
+        .ok_or_else(|| "architecture admission requires its selected strict profile".to_owned())?;
+    let function_json = step
+        .function_address_artifact
+        .map(|artifact| artifact.contents.as_str())
+        .ok_or_else(|| "architecture admission requires deny-mode function-address evidence".to_owned())?;
+    let prepared_closure = inputs
+        .ctx
+        .prepared_integrated_closure
+        .as_ref()
+        .ok_or_else(|| "architecture admission closure policy was not prepared before Cargo".to_owned())?
+        .clone();
+    let pre_closure_architecture = project_architecture_artifacts
+        .as_ref()
+        .ok_or_else(|| "architecture admission prerequisite receipt disappeared".to_owned())?;
+    let base_parent_status_json = output::render_integrated_status_json(
+        lint_outcome,
+        lint_outcome,
+        inputs.check.output_format.as_str(),
+        inputs.run_metadata,
+        step.baseline_evaluation,
+        &pre_closure_architecture.receipt,
+    )?;
+    let parent_status_json = output::attach_native_lint_status(
+        base_parent_status_json,
+        step.cargo_lint_assessment.to_structured_status().as_ref(),
+    )?;
+    let closure = crate::admit::run_integrated_closure(
+        &inputs.ctx.cfg.workspace_root,
+        binding,
+        selected,
+        &inputs.ctx.cargo_check_args,
+        inputs.run_metadata,
+        &inputs.check.command_line,
+        &parent_status_json,
+        function_json,
+        prepared_closure,
+    )?;
+    *project_architecture_artifacts = Some(
+        evaluate_project_architecture_step(inputs, step.architecture_artifacts, lint_outcome, Some(&closure.parent))?
+            .ok_or_else(|| "architecture admission inputs disappeared before closure composition".to_owned())?,
+    );
+    Ok(Some(closure))
+}
+
+fn settle_architecture_outcome(
+    lint_outcome: &output::RunOutcome,
+    project_architecture_artifacts: Option<&crate::project_architecture::ProjectArchitectureArtifacts>,
+    has_integration_error: bool,
+) -> output::RunOutcome {
+    if has_integration_error {
+        return lint_outcome.force_integration_failure();
+    }
+    let Some(project) = project_architecture_artifacts else {
+        return lint_outcome.clone();
+    };
+    match project.receipt.status {
+        octet_standards::project_architecture_gate::ArchitecturePhaseStatus::IntegrationFailure => {
+            lint_outcome.force_integration_failure()
+        }
+        octet_standards::project_architecture_gate::ArchitecturePhaseStatus::Blocked
+        | octet_standards::project_architecture_gate::ArchitecturePhaseStatus::ClosureRequired => {
+            lint_outcome.force_lint_failure()
+        }
+        octet_standards::project_architecture_gate::ArchitecturePhaseStatus::Findings
+            if lint_outcome.status == output::RunStatus::Clean =>
+        {
+            lint_outcome.force_warning_only()
+        }
+        _ => lint_outcome.clone(),
+    }
 }
 
 // Run artifacts are assembled from one set of rendered outputs; helpers would pass the same inputs
@@ -496,8 +781,9 @@ fn build_run_artifacts(
         compiler,
         project,
         closure,
+        cargo_lints,
     } = architecture_artifacts;
-    let summary = match &project {
+    let base_summary = match &project {
         Some(project) => output::render_integrated_summary(
             findings,
             outcome,
@@ -508,7 +794,12 @@ fn build_run_artifacts(
         )?,
         None => output::render_summary(findings, outcome, metadata, baseline_evaluation)?,
     };
-    let status_json = match &project {
+    let summary = match cargo_lints.as_ref() {
+        Some(assessment) => output::append_native_lint_summary(base_summary, assessment)?,
+        None => base_summary,
+    };
+    let lint_status = cargo_lints.as_ref().and_then(crate::cargo::lints::LintAssessment::to_structured_status);
+    let base_status_json = match &project {
         Some(project) => output::render_integrated_status_json(
             outcome,
             lint_outcome,
@@ -519,7 +810,8 @@ fn build_run_artifacts(
         )?,
         None => output::render_status_json(outcome, check.output_format.as_str(), metadata, baseline_evaluation)?,
     };
-    let structured_output = render_structured_output(
+    let status_json = output::attach_native_lint_status(base_status_json, lint_status.as_ref())?;
+    let mut structured_output = render_structured_output(
         check,
         findings,
         meta_map,
@@ -529,6 +821,12 @@ fn build_run_artifacts(
         baseline_evaluation,
         project.as_ref(),
     )?;
+    if check.output_format == OutputFormat::Sarif
+        && let Some(artifact) = structured_output.as_mut()
+    {
+        artifact.contents =
+            output::attach_native_lint_sarif(std::mem::take(&mut artifact.contents), lint_status.as_ref())?;
+    }
     let mut additional_artifacts = function_address_artifact.into_iter().collect::<Vec<_>>();
     if let Some(architecture) = compiler {
         additional_artifacts.extend([
@@ -1062,6 +1360,71 @@ fn remove_extra_artifact_paths(artifact_root: &ArtifactRoot, expected_files: &[&
 /// rendered diagnostics and progress to stderr. Cargo passes through anything rustc writes to its
 /// own stdout, such as a proc macro printing during expansion, so lines that are not JSON objects
 /// are not Cargo messages: they are echoed in human mode and otherwise skipped.
+struct NativeLintEvalInput<'a> {
+    workspace_root: &'a Path,
+    toolchain: &'a str,
+    scope_args: &'a [String],
+    cargo_check_args: &'a [String],
+    captured_stderr: &'a crate::cargo::lints::stream::CapturedStderr,
+    diagnostic_paths: &'a DiagnosticPaths,
+    existing_findings: &'a [Finding],
+    config_hash: &'a str,
+    is_cache_enabled: bool,
+    is_command_success: bool,
+}
+
+fn assess_native_lints(input: &NativeLintEvalInput<'_>) -> (Vec<Finding>, crate::cargo::lints::LintAssessment) {
+    let parsed_stderr = crate::cargo::lints::parse::extract_stderr_report_with_flags(
+        &input.captured_stderr.text,
+        crate::cargo::lints::CaptureIntegrity {
+            is_truncated: input.captured_stderr.is_truncated,
+            has_invalid_utf8: input.captured_stderr.has_invalid_utf8,
+        },
+    );
+    let settings =
+        crate::cargo::lints::policy::scan_workspace(input.workspace_root, &input.diagnostic_paths.member_package_dirs);
+    let should_probe_version = settings.has_any_cargo_lints
+        || parsed_stderr.has_unused_manifest_key_lints_cargo
+        || parsed_stderr.has_unknown_cargo_lint
+        || parsed_stderr.capture.has_invalid_utf8
+        || !parsed_stderr.diagnostics.is_empty();
+    let toolchain_version = should_probe_version
+        .then(|| crate::cargo::lints::ToolchainVersion::probe(input.toolchain))
+        .flatten();
+    let (stderr_findings, diagnostic_path_error) = match crate::cargo::lints::findings_from_diagnostics(
+        &parsed_stderr.diagnostics,
+        input.existing_findings,
+        input.config_hash,
+        input.is_cache_enabled,
+        &|raw_path| input.diagnostic_paths.normalize_manifest_diagnostic(raw_path),
+    ) {
+        Ok(added) => (added, None),
+        Err(error) => (Vec::new(), Some(error)),
+    };
+    let has_rustc_compile_errors = input
+        .existing_findings
+        .iter()
+        .chain(stderr_findings.iter())
+        .any(|finding| finding.severity_is_error() && !output::is_known_lint_finding(finding));
+    let has_octet_error_findings = input
+        .existing_findings
+        .iter()
+        .any(|finding| finding.severity_is_error() && output::is_built_in_lint_finding(finding));
+    let assessment = crate::cargo::lints::policy::assess_coverage(&crate::cargo::lints::policy::AssessmentInput {
+        workspace_root: input.workspace_root,
+        toolchain_version: toolchain_version.as_ref(),
+        settings: &settings,
+        scope_args: input.scope_args,
+        check_args: input.cargo_check_args,
+        parsed_stderr: &parsed_stderr,
+        has_rustc_compile_errors,
+        has_octet_error_findings,
+        is_command_success: input.is_command_success,
+        diagnostic_path_error: diagnostic_path_error.as_deref(),
+    });
+    (stderr_findings, assessment)
+}
+
 fn read_cargo_messages(
     reader: impl BufRead,
     check: &CheckArgs,
@@ -1071,14 +1434,13 @@ fn read_cargo_messages(
 ) -> Result<Vec<Finding>, String> {
     let mut findings: Vec<Finding> = Vec::new();
     let mut finding_counter: usize = 0;
-    let mut stderr_lock = std::io::stderr().lock();
 
     for line in reader.lines() {
         let line = line.map_err(|error| format!("read cargo stdout: {error}"))?;
         let Some(json) = serde_json::from_str::<serde_json::Value>(&line).ok().filter(serde_json::Value::is_object)
         else {
             if check.output_format == OutputFormat::Human {
-                let _ = writeln!(stderr_lock, "{line}");
+                echo_human_stderr_line(&line);
             }
             continue;
         };
@@ -1092,7 +1454,7 @@ fn read_cargo_messages(
                 if check.output_format == OutputFormat::Human
                     && let Some(rendered) = message["rendered"].as_str()
                 {
-                    let _ = write!(stderr_lock, "{rendered}");
+                    echo_human_stderr_raw(rendered);
                 }
 
                 if is_informational_compiler_level(message["level"].as_str()) || is_rustc_abort_summary(message) {
@@ -1102,7 +1464,7 @@ fn read_cargo_messages(
                 let code = message["code"]["code"].as_str().unwrap_or("");
                 let lint_name = normalize_lint_name(code);
 
-                let meta = meta_map.get(lint_name.as_str()).unwrap_or(&output::UNKNOWN_LINT_META);
+                let meta = output::lint_meta_for(&lint_name, meta_map);
                 finding_counter += 1;
                 findings.push(build_finding(
                     finding_counter,
@@ -1116,13 +1478,13 @@ fn read_cargo_messages(
             }
             "compiler-artifact" if check.output_format == OutputFormat::Human => {
                 if let Some(banner) = format_compiling_banner(&json) {
-                    let _ = writeln!(stderr_lock, "{banner}");
+                    echo_human_stderr_line(&banner);
                 }
             }
             "build-finished" if check.output_format == OutputFormat::Human => {
                 let success = json["success"].as_bool().unwrap_or(false);
                 if success {
-                    let _ = writeln!(stderr_lock, "    Finished checking");
+                    echo_human_stderr_line("    Finished checking");
                 }
             }
             _ => {}
@@ -1130,6 +1492,16 @@ fn read_cargo_messages(
     }
 
     Ok(findings)
+}
+
+fn echo_human_stderr_line(text: &str) {
+    let mut stderr_lock = std::io::stderr().lock();
+    if let Err(_err) = writeln!(stderr_lock, "{text}") {}
+}
+
+fn echo_human_stderr_raw(text: &str) {
+    let mut stderr_lock = std::io::stderr().lock();
+    if let Err(_err) = write!(stderr_lock, "{text}") {}
 }
 
 fn classify_cargo_process_exit(status: std::process::ExitStatus) -> output::CargoProcessExit {
@@ -1350,13 +1722,117 @@ fn json_u64_to_u32(value: Option<u64>) -> u32 {
     value.and_then(|line| u32::try_from(line).ok()).filter(|line| *line > 0).unwrap_or(1)
 }
 
+const MAX_DIAGNOSTIC_PATH_BYTES: usize = 4096;
+const MAX_DIAGNOSTIC_COMPONENTS: usize = 256;
+
 // r[impl octet.runner_self_check.inventory]
 // r[verify octet.runner_self_check.inventory.paths]
 struct DiagnosticPaths {
     root: PathBuf,
     reported_root: PathBuf,
     package_dirs: BTreeMap<String, PathBuf>,
+    manifest_packages: BTreeMap<String, (String, String)>,
+    workspace_member_dirs: Vec<PathBuf>,
+    member_package_dirs: Vec<PathBuf>,
     dir: Dir,
+}
+
+struct LocalPackageEntry {
+    id: String,
+    directory: PathBuf,
+    manifest_rel: String,
+    package_name: Option<String>,
+}
+
+struct LocalPackagePaths {
+    package_dirs: BTreeMap<String, PathBuf>,
+    manifest_packages: BTreeMap<String, (String, String)>,
+    workspace_member_dirs: Vec<PathBuf>,
+    member_package_dirs: Vec<PathBuf>,
+}
+
+fn parse_local_package_entry(root: &Path, package: &serde_json::Value) -> Result<Option<LocalPackageEntry>, String> {
+    // Registry/git packages may have paths under an ambient Cargo cache;
+    // only local packages can anchor a compiler-origin workspace path.
+    match package.get("source") {
+        Some(serde_json::Value::Null) => {}
+        Some(_) => return Ok(None),
+        None => return Err("diagnostic Cargo metadata package lacks source provenance".to_owned()),
+    }
+    let (Some(id), Some(manifest)) = (package["id"].as_str(), package["manifest_path"].as_str()) else {
+        return Err("diagnostic Cargo metadata package lacks ID or manifest".to_owned());
+    };
+    let manifest = fs::canonicalize(manifest)
+        .map_err(|error| format!("canonicalize diagnostic package manifest `{manifest}`: {error}"))?;
+    let directory = manifest.parent().ok_or("diagnostic package manifest has no parent")?;
+    let Ok(relative) = directory.strip_prefix(root) else {
+        return Ok(None);
+    };
+    let directory = if relative.as_os_str().is_empty() {
+        PathBuf::new()
+    } else {
+        RootRelativePath::new(relative)
+            .map_err(|error| format!("invalid diagnostic package directory: {error}"))?
+            .as_path()
+            .to_path_buf()
+    };
+    let manifest_rel = if directory.as_os_str().is_empty() {
+        "Cargo.toml".to_owned()
+    } else {
+        format!("{}/Cargo.toml", determinism::normalize_path(&directory))
+    };
+    Ok(Some(LocalPackageEntry {
+        id: id.to_owned(),
+        directory,
+        manifest_rel,
+        package_name: package["name"].as_str().map(ToOwned::to_owned),
+    }))
+}
+
+fn collect_local_package_paths(root: &Path, metadata: &serde_json::Value) -> Result<LocalPackagePaths, String> {
+    let packages = metadata["packages"].as_array().ok_or("diagnostic Cargo metadata has no packages")?;
+    let entries = packages
+        .iter()
+        .filter_map(|package| parse_local_package_entry(root, package).transpose())
+        .collect::<Result<Vec<_>, String>>()?;
+    let package_dirs: BTreeMap<String, PathBuf> =
+        entries.iter().map(|entry| (entry.id.clone(), entry.directory.clone())).collect();
+    if package_dirs.len() != entries.len() {
+        let mut sorted_ids: Vec<&str> = entries.iter().map(|entry| entry.id.as_str()).collect();
+        sorted_ids.sort_unstable();
+        if let Some([dup, ..]) = sorted_ids.windows(2).find(|pair| pair[0] == pair[1]) {
+            return Err(format!("duplicate diagnostic Cargo package ID `{dup}`"));
+        }
+    }
+    let manifest_packages: BTreeMap<String, (String, String)> = entries
+        .iter()
+        .filter_map(|entry| {
+            let pkg_name = entry.package_name.as_ref()?;
+            Some((entry.manifest_rel.clone(), (entry.id.clone(), pkg_name.clone())))
+        })
+        .collect();
+    let workspace_member_ids: std::collections::BTreeSet<&str> = metadata["workspace_members"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(serde_json::Value::as_str)
+        .collect();
+    let workspace_member_dirs = entries
+        .iter()
+        .filter(|entry| !entry.directory.as_os_str().is_empty() && workspace_member_ids.contains(entry.id.as_str()))
+        .map(|entry| entry.directory.clone())
+        .collect();
+    let member_package_dirs = entries
+        .iter()
+        .filter(|entry| workspace_member_ids.contains(entry.id.as_str()))
+        .map(|entry| entry.directory.clone())
+        .collect();
+    Ok(LocalPackagePaths {
+        package_dirs,
+        manifest_packages,
+        workspace_member_dirs,
+        member_package_dirs,
+    })
 }
 
 impl DiagnosticPaths {
@@ -1414,44 +1890,60 @@ impl DiagnosticPaths {
         {
             return Err("diagnostic Cargo metadata workspace root differs from the check workspace".to_owned());
         }
-        let mut package_dirs = BTreeMap::new();
-        let packages = metadata["packages"].as_array().ok_or("diagnostic Cargo metadata has no packages")?;
-        for package in packages {
-            // Registry/git packages may have paths under an ambient Cargo cache;
-            // only local packages can anchor a compiler-origin workspace path.
-            match package.get("source") {
-                Some(serde_json::Value::Null) => {}
-                Some(_) => continue,
-                None => return Err("diagnostic Cargo metadata package lacks source provenance".to_owned()),
-            }
-            let (Some(id), Some(manifest)) = (package["id"].as_str(), package["manifest_path"].as_str()) else {
-                return Err("diagnostic Cargo metadata package lacks ID or manifest".to_owned());
-            };
-            let manifest = fs::canonicalize(manifest)
-                .map_err(|error| format!("canonicalize diagnostic package manifest `{manifest}`: {error}"))?;
-            let directory = manifest.parent().ok_or("diagnostic package manifest has no parent")?;
-            if let Ok(relative) = directory.strip_prefix(&root) {
-                let directory = if relative.as_os_str().is_empty() {
-                    PathBuf::new()
-                } else {
-                    RootRelativePath::new(relative)
-                        .map_err(|error| format!("invalid diagnostic package directory: {error}"))?
-                        .as_path()
-                        .to_path_buf()
-                };
-                if package_dirs.insert(id.to_owned(), directory).is_some() {
-                    return Err(format!("duplicate diagnostic Cargo package ID `{id}`"));
-                }
-            }
-        }
+        let local_paths = collect_local_package_paths(&root, &metadata)?;
         let dir = Dir::open_ambient_dir(&root, ambient_authority())
             .map_err(|error| format!("open diagnostic workspace root: {error}"))?;
         Ok(Self {
             root,
             reported_root,
-            package_dirs,
+            package_dirs: local_paths.package_dirs,
+            manifest_packages: local_paths.manifest_packages,
+            workspace_member_dirs: local_paths.workspace_member_dirs,
+            member_package_dirs: local_paths.member_package_dirs,
             dir,
         })
+    }
+
+    fn package_name_for_manifest(&self, file: &str) -> &str {
+        self.manifest_packages.get(file).map_or("unknown", |(_, pkg_name)| pkg_name.as_str())
+    }
+
+    fn normalize_manifest_diagnostic(&self, raw_path: &str) -> Result<(String, String), String> {
+        if raw_path.len() > MAX_DIAGNOSTIC_PATH_BYTES {
+            return Err("invalid Cargo diagnostic path: oversized path".to_owned());
+        }
+        let slash_normalized = determinism::normalize_path_text(raw_path);
+        let candidate = Path::new(&slash_normalized);
+        let relative_text = if candidate.is_absolute() {
+            let stripped = candidate
+                .strip_prefix(&self.reported_root)
+                .or_else(|_| candidate.strip_prefix(&self.root))
+                .map_err(|_| "invalid Cargo diagnostic path: absolute path is outside the workspace root".to_owned())?;
+            determinism::normalize_path(stripped)
+        } else {
+            slash_normalized
+        };
+        #[cfg(unix)]
+        let normalized = self.normalize_physical_relative(&relative_text)?;
+        #[cfg(not(unix))]
+        let normalized = {
+            let rel_path = Path::new(&relative_text);
+            if rel_path.is_absolute() || rel_path.components().any(|part| part == Component::ParentDir) {
+                return Err(
+                    "invalid Cargo diagnostic path: absolute and parent-bearing compiler paths are unsupported on this platform".to_owned(),
+                );
+            }
+            RootRelativePath::new(rel_path)
+                .map(|path| path.display())
+                .map_err(|error| format!("invalid Cargo diagnostic path: {error}"))?
+        };
+        if let Some((_, pkg_name)) = self.manifest_packages.get(&normalized) {
+            Ok((normalized, pkg_name.clone()))
+        } else if normalized == "Cargo.toml" {
+            Ok((normalized, "unknown".to_owned()))
+        } else {
+            Err(format!("invalid Cargo diagnostic path: `{normalized}` is not a workspace package manifest"))
+        }
     }
 
     fn normalize(&self, package_id: Option<&str>, reported_path: &str) -> Result<String, String> {
@@ -1475,8 +1967,6 @@ impl DiagnosticPaths {
 
     #[cfg(unix)]
     fn normalize_physical(&self, package_id: Option<&str>, reported_path: &str, path: &Path) -> Result<String, String> {
-        const MAX_DIAGNOSTIC_PATH_BYTES: usize = 4096;
-        const MAX_DIAGNOSTIC_COMPONENTS: usize = 256;
         if reported_path.len() > MAX_DIAGNOSTIC_PATH_BYTES {
             return Err("invalid Cargo diagnostic path: oversized path".to_owned());
         }
@@ -1493,12 +1983,17 @@ impl DiagnosticPaths {
         if !path.is_absolute() && !relative.starts_with(package) {
             return Err("invalid Cargo diagnostic path: parent traversal lacks matching package directory".to_owned());
         }
+        let text = relative.to_str().ok_or("invalid Cargo diagnostic path: non-UTF-8 component")?;
+        self.normalize_physical_relative(text)
+    }
+
+    #[cfg(unix)]
+    fn normalize_physical_relative(&self, relative_text: &str) -> Result<String, String> {
         let mut physical = self.root.clone();
         let mut count = 0;
         // Path::components() elides interior `.` and trailing separators:
         // `file/./..` must still fail ENOTDIR rather than becoming `file/..`.
-        let text = relative.to_str().ok_or("invalid Cargo diagnostic path: non-UTF-8 component")?;
-        let mut components = text.split('/').filter(|part| !part.is_empty()).peekable();
+        let mut components = relative_text.split('/').filter(|part| !part.is_empty()).peekable();
         while let Some(part) = components.next() {
             count += 1;
             if count > MAX_DIAGNOSTIC_COMPONENTS {
@@ -1517,7 +2012,7 @@ impl DiagnosticPaths {
             if !physical.starts_with(&self.root) {
                 return Err("invalid Cargo diagnostic path: component escapes the workspace root".to_owned());
             }
-            if (components.peek().is_some() || part == "." || text.ends_with('/'))
+            if (components.peek().is_some() || part == "." || relative_text.ends_with('/'))
                 && !fs::metadata(&physical)
                     .map_err(|error| format!("inspect Cargo diagnostic component: {error}"))?
                     .is_dir()
@@ -1525,18 +2020,20 @@ impl DiagnosticPaths {
                 return Err("invalid Cargo diagnostic path: intermediate component is not a directory".to_owned());
             }
         }
-        let relative = physical.strip_prefix(&self.root).expect("checked path containment");
+        let relative = physical
+            .strip_prefix(&self.root)
+            .map_err(|_| "invalid Cargo diagnostic path: component escapes the workspace root".to_owned())?;
         let locator =
             RootRelativePath::new(relative).map_err(|error| format!("invalid Cargo diagnostic path: {error}"))?;
         // The root-relative capability open prevents a swapped directory from
         // redirecting the checked target outside the workspace before open.
         // O_NONBLOCK ensures a swapped-in FIFO cannot stall the check.
-        let file = {
-            let mut options = OpenOptions::new();
-            options.read(true).custom_flags(libc::O_NONBLOCK);
-            self.dir.open_with(locator.as_path(), &options)
-        };
-        let file = file.map_err(|error| format!("invalid Cargo diagnostic path: cannot open source file: {error}"))?;
+        let mut options = OpenOptions::new();
+        options.read(true).custom_flags(libc::O_NONBLOCK);
+        let file = self
+            .dir
+            .open_with(locator.as_path(), &options)
+            .map_err(|error| format!("invalid Cargo diagnostic path: cannot open source file: {error}"))?;
         let opened = file.metadata().map_err(|error| format!("inspect Cargo diagnostic file: {error}"))?;
         if !opened.is_file() {
             return Err("invalid Cargo diagnostic path: source is not a regular file".to_owned());
@@ -1546,10 +2043,6 @@ impl DiagnosticPaths {
         if physical_again != physical || !physical_again.starts_with(&self.root) {
             return Err("invalid Cargo diagnostic path: source changed during verification".to_owned());
         }
-        // This detects an inode replacement between capability-open and the
-        // final path check on Unix. It is not a snapshot of the compiler's FD:
-        // a concurrent swap-back remains possible, so containment is the
-        // security guarantee, not immutable source identity.
         let current = self
             .dir
             .metadata(locator.as_path())
@@ -1595,7 +2088,12 @@ fn build_finding(
     let msg_text =
         normalize_finding_message(&diagnostic_paths.reported_root, message["message"].as_str().unwrap_or(""));
     let severity = compiler_finding_severity(message["level"].as_str()).to_owned();
-    let crate_name = cargo_msg["target"]["name"].as_str().unwrap_or("unknown").to_owned();
+    let raw_crate = cargo_msg["target"]["name"].as_str().unwrap_or("unknown");
+    let crate_name = if raw_crate == "unknown" && crate::cargo::lints::is_native_lint_name(lint_name) {
+        diagnostic_paths.package_name_for_manifest(&file).to_owned()
+    } else {
+        raw_crate.to_owned()
+    };
 
     let (suggestion, applicability) = extract_suggestion(message);
     let normalized_snippet_hash = primary_span
@@ -1827,6 +2325,22 @@ pub(crate) fn reject_dylint_toml_override(lookup: &impl Fn(&str) -> Option<OsStr
 
 pub(crate) fn reject_process_dylint_toml_override() -> Result<(), String> {
     reject_dylint_toml_override(&process_env)
+}
+
+pub(crate) fn effective_rustflags_from(lookup: &impl Fn(&str) -> Option<OsString>) -> Result<String, String> {
+    for (name, label) in [
+        ("CARGO_ENCODED_RUSTFLAGS", "`CARGO_ENCODED_RUSTFLAGS`"),
+        ("RUSTFLAGS", "`RUSTFLAGS`"),
+    ] {
+        if let Some(value) = lookup(name) {
+            return value.into_string().map_err(|_| format!("non-utf8 {label} is not supported"));
+        }
+    }
+    Ok(String::new())
+}
+
+pub(crate) fn effective_process_rustflags() -> Result<String, String> {
+    effective_rustflags_from(&process_env)
 }
 
 fn resolve_driver(toolchain: &str) -> Result<ManagedPath, String> {
@@ -2945,6 +3459,117 @@ mod tests {
         assert!(finding.message.contains("retained excluded dependency error"));
     }
 
+    #[test]
+    fn member_package_dirs_includes_non_virtual_root_and_excludes_local_path_deps() {
+        let temporary = tempfile::tempdir().expect("member_package_dirs fixture");
+        let root = temporary.path();
+        for dir in ["app", "dep"] {
+            fs::create_dir_all(root.join(dir).join("src")).expect("create src dir");
+            fs::write(root.join(dir).join("src/lib.rs"), "pub fn ok() {}\n").expect("write lib.rs");
+            let manifest = if dir == "app" {
+                "[package]\nname = \"app\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[dependencies]\ndep = { path = \"../dep\" }\n"
+            } else {
+                "[package]\nname = \"dep\"\nversion = \"0.1.0\"\nedition = \"2021\"\n"
+            };
+            fs::write(root.join(dir).join("Cargo.toml"), manifest).expect("write manifest");
+        }
+        fs::create_dir_all(root.join("src")).expect("create root src dir");
+        fs::write(root.join("src/lib.rs"), "pub fn root_ok() {}\n").expect("write root lib.rs");
+        let toolchain = std::env::var("RUSTUP_TOOLCHAIN").unwrap_or_else(|_| "stable".to_owned());
+
+        // Virtual workspace with excluded local path dependency `dep`:
+        // `package_dirs` retains `dep` for compiler-span provenance, whereas `member_package_dirs` only has
+        // `app`.
+        fs::write(root.join("Cargo.toml"), "[workspace]\nmembers = [\"app\"]\nexclude = [\"dep\"]\nresolver = \"2\"\n")
+            .expect("write virtual workspace");
+        let virtual_paths = DiagnosticPaths::from_cargo_metadata(root, &toolchain, &[], &["--offline".to_owned()])
+            .expect("virtual metadata");
+        assert!(virtual_paths.package_dirs.values().any(|dir| dir == Path::new("app")));
+        assert!(virtual_paths.package_dirs.values().any(|dir| dir == Path::new("dep")));
+        assert_eq!(virtual_paths.member_package_dirs, vec![PathBuf::from("app")]);
+
+        // Non-virtual root `[package]` + `[workspace] members = ["app"], exclude = ["dep"]`:
+        // `member_package_dirs` includes `""` (root) and `"app"`, never `"dep"`.
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"root_pkg\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[dependencies]\ndep = { path = \"dep\" }\n\n[workspace]\nmembers = [\"app\"]\nexclude = [\"dep\"]\nresolver = \"2\"\n",
+        )
+        .expect("write non-virtual workspace with sub-member");
+        let non_virtual_paths = DiagnosticPaths::from_cargo_metadata(root, &toolchain, &[], &["--offline".to_owned()])
+            .expect("non-virtual metadata");
+        let mut sorted_member_dirs = non_virtual_paths.member_package_dirs;
+        sorted_member_dirs.sort();
+        assert_eq!(sorted_member_dirs, vec![PathBuf::new(), PathBuf::from("app")]);
+
+        // Non-virtual root `[package]` + `[workspace] members = [], exclude = ["dep"]`:
+        // `member_package_dirs` contains only `""`, never `"dep"`.
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"root_pkg\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[dependencies]\ndep = { path = \"dep\" }\n\n[workspace]\nmembers = []\nexclude = [\"dep\"]\nresolver = \"2\"\n",
+        )
+        .expect("write non-virtual workspace without sub-members");
+        let root_only_paths = DiagnosticPaths::from_cargo_metadata(root, &toolchain, &[], &["--offline".to_owned()])
+            .expect("root-only metadata");
+        assert_eq!(root_only_paths.member_package_dirs, vec![PathBuf::new()]);
+    }
+
+    #[test]
+    fn config_hash_omitted_member_dirs_matches_live_cargo_metadata() {
+        let temporary = tempfile::tempdir().expect("metadata parity fixture");
+        let root = temporary.path();
+        for (dir, name) in [
+            ("crates/included", "included"),
+            ("crates/ex", "ex"),
+            ("crates/excluded", "excluded"),
+            ("wip/demo", "demo"),
+            ("deep/a/sub", "sub"),
+        ] {
+            fs::create_dir_all(root.join(dir).join("src")).expect("create member src");
+            fs::write(
+                root.join(dir).join("Cargo.toml"),
+                format!(
+                    "[package]\nname = \"{name}\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[lints.cargo]\nunused_dependencies = \"warn\"\n"
+                ),
+            )
+            .expect("write member manifest");
+            fs::write(root.join(dir).join("src/lib.rs"), "pub fn ok() {}\n").expect("write member lib");
+        }
+        fs::write(root.join("dylint.toml"), "[octet]\n").expect("write dylint.toml");
+        let toolchain = std::env::var("RUSTUP_TOOLCHAIN").unwrap_or_else(|_| "stable".to_owned());
+        let scope = ["--workspace".to_owned()];
+        let check = ["--offline".to_owned()];
+
+        for manifest in [
+            "[workspace]\nmembers = [\"./crates/included/\", \"./crates/*/\", \"./wip/*\", \"deep/*/*\"]\nexclude = [\"./crates/ex/\", \"wip/*\"]\nresolver = \"2\"\n",
+            "[workspace]\nmembers = [\"crates/*\", \"wip/*\"]\nexclude = [\"crates/ex\", \"wip/\"]\nresolver = \"2\"\n",
+            "[workspace]\nmembers = [\"./crates/included/\", \"wip/demo/\"]\nexclude = [\"wip\"]\nresolver = \"2\"\n",
+            "[workspace]\nmembers = [\"crates/included\", \"wip/demo\"]\nexclude = [\"wip/*\"]\nresolver = \"2\"\n",
+        ] {
+            fs::write(root.join("Cargo.toml"), manifest).expect("write workspace manifest");
+            let paths =
+                DiagnosticPaths::from_cargo_metadata(root, &toolchain, &scope, &check).expect("live cargo metadata");
+            let with_none = crate::determinism::build_run_metadata(&crate::determinism::MetadataInput {
+                workspace_root: root,
+                member_dirs: None,
+                toolchain: &toolchain,
+                scope_args: &scope,
+                cargo_check_args: &check,
+                output_format: "json",
+                strict_profile: None,
+            });
+            let with_some = crate::determinism::build_run_metadata(&crate::determinism::MetadataInput {
+                workspace_root: root,
+                member_dirs: Some(&paths.workspace_member_dirs),
+                toolchain: &toolchain,
+                scope_args: &scope,
+                cargo_check_args: &check,
+                output_format: "json",
+                strict_profile: None,
+            });
+            assert_eq!(with_none.config_hash, with_some.config_hash, "manifest:\n{manifest}");
+        }
+    }
+
     #[cfg(unix)]
     #[test]
     fn fifo_diagnostic_path_returns_without_blocking() {
@@ -3122,6 +3747,37 @@ mod tests {
             "TIGERSTYLE_DYLINT_REV",
         ] {
             assert!(missing.contains(name), "{missing}");
+        }
+    }
+
+    #[test]
+    fn effective_rustflags_respects_cargo_encoded_precedence_and_rejects_non_utf8() {
+        assert_eq!(super::effective_rustflags_from(&env_lookup(&[])), Ok(String::new()));
+        assert_eq!(
+            super::effective_rustflags_from(&env_lookup(&[("RUSTFLAGS", "-C opt-level=2")])),
+            Ok("-C opt-level=2".to_owned())
+        );
+        assert_eq!(
+            super::effective_rustflags_from(&env_lookup(&[
+                ("CARGO_ENCODED_RUSTFLAGS", "-D\x1fwarnings"),
+                ("RUSTFLAGS", "-C opt-level=2"),
+            ])),
+            Ok("-D\x1fwarnings".to_owned())
+        );
+        assert_eq!(
+            super::effective_rustflags_from(&env_lookup(&[
+                ("CARGO_ENCODED_RUSTFLAGS", ""),
+                ("RUSTFLAGS", "-C opt-level=2"),
+            ])),
+            Ok(String::new())
+        );
+        #[cfg(unix)]
+        {
+            use std::os::unix::ffi::OsStringExt;
+
+            let lookup = |name: &str| (name == "RUSTFLAGS").then(|| OsString::from_vec(vec![0xff]));
+            let error = super::effective_rustflags_from(&lookup).expect_err("non-utf8 RUSTFLAGS must fail");
+            assert!(error.contains("RUSTFLAGS"), "{error}");
         }
     }
 }

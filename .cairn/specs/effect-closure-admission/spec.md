@@ -170,7 +170,8 @@ r[octet.effect_closure.evidence.tamper]
 - GIVEN a receipt, parent check artifact, source identity, workspace policy, dependency identity, status, summary, or provenance artifact is modified after admission
 - WHEN admission verification runs
 - THEN it MUST fail closed with a deterministic artifact or identity diagnostic.
-- AND a stored receipt whose `schema_version` is not the current receipt schema (`octet-effect-closure-receipt/v2`) MUST be reported as an unsupported receipt schema before its body is decoded.
+- AND a stored receipt whose `schema_version` is not the current receipt schema (`octet-effect-closure-receipt/v3`) MUST be reported as an unsupported receipt schema before its body is decoded.
+- AND historical lockfile-only workspace policies (`octet-effect-closure-workspace-policy/v1` / `lockfile-only-v1`) MUST NOT silently satisfy `implementation-bound-v1` freshness, and reviewed assumptions MUST NOT be promoted to formal proofs.
 
 ### Requirement: Compatibility and claim boundaries
 

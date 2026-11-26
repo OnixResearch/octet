@@ -1,0 +1,55 @@
+{
+  "assumptions": [],
+  "clauses": [
+    {
+      "allowed_evidence_ids": [
+        "cairn.pilot.checked_add"
+      ],
+      "allowed_source_requirement_ids": [
+        "octet.structural_linkage.pilot.checked_add"
+      ],
+      "checked_scope": [
+        "pilot/fn:checked_add#0"
+      ],
+      "clause_id": "octet.structural_linkage.pilot.checked_add",
+      "disposition": "formal_proof",
+      "expected_evidence_tier": "formal_proof",
+      "required": true,
+      "required_bindings": {
+        "artifact_hashes": [],
+        "checked_scope": [
+          "pilot/fn:checked_add#0"
+        ],
+        "evidence_tier": "formal_proof",
+        "policy_ids": [
+          "cairn-structural-trace-v2"
+        ],
+        "source_ids": [
+          "standards/structural-linkage/fixtures/target.rs"
+        ],
+        "tool_identity_hashes": []
+      },
+      "required_evidence_classes": [
+        "proof_card"
+      ],
+      "required_negative_controls": [],
+      "source_bindings": [
+        {
+          "blake3": "bb1f75d6c43eefe8bd026e244f6d14db95e4f17d60bbd439c90ce21a312ab3c8",
+          "locator": "standards/structural-linkage/fixtures/target.rs"
+        }
+      ],
+      "statement": "Requires formal proof for checked_add; structural linkage alone must leave this clause unmet."
+    }
+  ],
+  "contract_id": "octet.structural_linkage.pilot.negative_formal",
+  "exclusions": [],
+  "non_claims": [
+    "negative control proving structural linkage cannot satisfy formal_proof obligations"
+  ],
+  "reviewed_specification": {
+    "blake3": "09b6db8b5874245230f5335fbef7a7bad45cc358a57d7f9df4d9f49b58c1d9bf",
+    "path": "standards/structural-linkage/spec.md"
+  },
+  "schema_version": "octet-requirement-contract/v1"
+}

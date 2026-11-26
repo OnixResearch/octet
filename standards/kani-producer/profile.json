@@ -1,0 +1,60 @@
+{
+  "cargo_cfg": [
+    "kani"
+  ],
+  "cargo_features": [],
+  "command_prefix": [
+    "cargo",
+    "kani",
+    "--locked",
+    "--offline",
+    "-p",
+    "octet-kani-boundary-pilot",
+    "--lib"
+  ],
+  "default_unwind": 8,
+  "evidence_tier": "transcript_assertion",
+  "harnesses": [
+    {
+      "cover_properties": [
+        "cover_valid_window_reachable"
+      ],
+      "kind": "panic_freedom",
+      "name": "check_checked_window_bounds",
+      "unwind": 8
+    }
+  ],
+  "kani_pin": {
+    "cbmc_version": "6.5.0",
+    "closure_identity": "nix:kani-0.68.0-x86_64-unknown-linux-gnu",
+    "export_flags": [
+      "-Z",
+      "unstable-options",
+      "--export-json"
+    ],
+    "kani_version": "0.68.0",
+    "provider_revision": "kani-0.68.0-release",
+    "rustc_release": "1.87.0-nightly",
+    "solver_identity": "cbmc-builtin-cadical",
+    "solver_mode": "cbmc_builtin"
+  },
+  "limits": {
+    "max_export_bytes": 2097152,
+    "max_output_bytes": 524288,
+    "max_source_files": 64,
+    "poll_interval_ms": 25,
+    "teardown_timeout_ms": 5000,
+    "timeout_seconds": 180
+  },
+  "non_claims": [
+    "Kani checks bounded symbolic execution over declared harnesses and unwind bounds only; it does not prove whole-program correctness, verifier soundness, or release eligibility",
+    "Native Kani producer execution records bounded transcript_assertion evidence gated by separate human assumption review and reachable cover witnesses, never formal_proof"
+  ],
+  "package": "octet-kani-boundary-pilot",
+  "profile_id": "kani-0.68.0-panic-freedom",
+  "require_assumption_review": true,
+  "require_reachable_cover": true,
+  "require_unwind_assertions": true,
+  "schema_version": "octet-kani-producer-profile/v1",
+  "target": "lib"
+}

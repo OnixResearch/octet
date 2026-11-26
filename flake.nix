@@ -2389,40 +2389,135 @@
               cd ${./.}
               generated_profiles=$(mktemp)
               generated_laws=$(mktemp)
-              expected_profile_identity=10e01458cca9ccc821a3adbf56afa70d21161c4bfdaf888525a5f61c64c913de
-              expected_law_identity=33710ac60efb4a7edca25de746d9740d75233b372d0016f54a2e138ec1a038eb
+              generated_matrix=$(mktemp)
+              expected_profile_identity=3ed6d5d1bda858a5293491f65f8279451edf3ec18de2638615b4ffaa18f8d365
+              expected_law_identity=669888e630d46dc95c394fe91afd2af736239864441985630194d1be5add6f3f
+              expected_matrix_identity=120ed01f3e77145b6f5186a880a578714189cdf64f4911311e891d179ede6e0a
               nickel typecheck standards/hegel/profiles.ncl
               nickel typecheck standards/hegel/laws.ncl
+              nickel typecheck standards/hegel/buoy-mutation-matrix.ncl
               nickel export --format json standards/hegel/profiles.ncl > "$generated_profiles"
               nickel export --format json standards/hegel/laws.ncl > "$generated_laws"
+              nickel export --format json standards/hegel/buoy-mutation-matrix.ncl > "$generated_matrix"
               diff -u standards/hegel/profiles.json "$generated_profiles"
               diff -u standards/hegel/laws.json "$generated_laws"
+              diff -u standards/hegel/buoy-mutation-matrix.json "$generated_matrix"
               test "$(b3sum "$generated_profiles" | cut -d ' ' -f 1)" = "$expected_profile_identity"
               test "$(b3sum "$generated_laws" | cut -d ' ' -f 1)" = "$expected_law_identity"
+              test "$(b3sum "$generated_matrix" | cut -d ' ' -f 1)" = "$expected_matrix_identity"
               jq --exit-status '
                 .schema_version == "octet-hegel-producer-profiles/v1"
-                and (.profiles | length) == 1
+                and (.profiles | length) == 7
                 and .profiles[0].profile_id == "octet-pure-core-laws-v1"
-                and .profiles[0].producer.hegel_version == "0.14.27"
-                and .profiles[0].producer.backend == "native"
-                and .profiles[0].settings.case_budget == 64
-                and .profiles[0].settings.derandomized
-                and .profiles[0].evidence_tier == "transcript_assertion"
-                and .profiles[0].verification_role == "recorded_only"
-                and (.profiles[0].command_argv[0:2] == ["cargo", "test"])
+                and all(.profiles[];
+                  .producer.hegel_version == "0.14.27"
+                  and .producer.backend == "native"
+                  and .settings.case_budget == 64
+                  and .settings.derandomized
+                  and .evidence_tier == "transcript_assertion"
+                  and .verification_role == "recorded_only"
+                  and (.command_argv[0:2] == ["cargo", "test"])
+                )
               ' "$generated_profiles" >/dev/null
               jq --exit-status '
                 .schema_version == "octet-hegel-law-catalog/v1"
-                and (.laws | length) == 1
-                and .laws[0].effect_free
-                and .laws[0].case_budget == 64
-                and (.laws[0].positive_property | length) > 0
-                and (.laws[0].negative_property | length) > 0
-                and (.laws[0].generated_input_benefit | length) > 0
+                and (.laws | length) == 13
+                and all(.laws[];
+                  .effect_free
+                  and .case_budget == 64
+                  and (.positive_property | length) > 0
+                  and (.negative_property | length) > 0
+                  and (.generated_input_benefit | length) > 0
+                )
               ' "$generated_laws" >/dev/null
+              jq --exit-status '
+                .schema_version == "octet-hegel-buoy-mutation-matrix/v1"
+                and (.dimensions | length) == 16
+                and ([.dimensions[].dimension_index] == [range(1; 17)])
+                and all(.dimensions[];
+                  (.disposition == "already_enforced_and_tested"
+                    or .disposition == "enforced_missing_control"
+                    or .disposition == "missing_in_selected_profile"
+                    or .disposition == "not_applicable")
+                  and (.native_contract | length) > 0
+                  and (.production_validator | length) > 0
+                  and (.mutant_operator | length) > 0
+                )
+              ' "$generated_matrix" >/dev/null
               nickel export --format json standards/evidence/fixtures/valid/hegel_hardened_details_v1.ncl >/dev/null
+              nickel export --format json standards/evidence/fixtures/valid/hegel_hardened_family_details_v1.ncl >/dev/null
               if nickel export --format json standards/evidence/fixtures/invalid/hegel_hardened_wrong_profile.ncl >/dev/null 2>&1; then
                 echo "invalid Hegel evidence fixture passed" >&2
+                exit 1
+              fi
+              if nickel export --format json standards/evidence/fixtures/invalid/hegel_hardened_wrong_family_tier.ncl >/dev/null 2>&1; then
+                echo "invalid Hegel family evidence fixture passed" >&2
+                exit 1
+              fi
+              mkdir -p "$out"
+            '';
+
+        dynamicQualificationCheck =
+          pkgs.runCommand "octet-dynamic-qualification-check"
+            {
+              nativeBuildInputs = with pkgs; [
+                b3sum
+                diffutils
+                jq
+                nickel
+              ];
+            }
+            ''
+              cd ${./.}
+              generated=$(mktemp)
+              expected_identity=7aa345b6df1e329bf43aa6dbb4799e9dd07629caaca3b2827f07707b9ea2cf84
+              nickel typecheck standards/dynamic-evidence/qualified-profiles.ncl
+              nickel export --format json standards/dynamic-evidence/qualified-profiles.ncl > "$generated"
+              diff -u standards/dynamic-evidence/qualified-profiles.json "$generated"
+              test "$(b3sum "$generated" | cut -d ' ' -f 1)" = "$expected_identity"
+              jq --exit-status '
+                .schema_version == "octet-dynamic-qualified-profiles/v1"
+                and (.profiles | length) == 2
+                and all(.profiles[]; .evidence_tier == "transcript_assertion" and (.test_inventory | length) > 0 and (.matrix_cells | length) > 0)
+              ' "$generated" >/dev/null
+              nickel export --format json standards/evidence/fixtures/valid/dynamic_qualification_details_v1.ncl >/dev/null
+              if nickel export --format json standards/evidence/fixtures/invalid/dynamic_qualification_wrong_identity.ncl >/dev/null 2>&1; then
+                echo "invalid dynamic qualification fixture passed" >&2
+                exit 1
+              fi
+              mkdir -p "$out"
+            '';
+
+        kaniProducerCheck =
+          pkgs.runCommand "octet-kani-producer-check"
+            {
+              nativeBuildInputs = with pkgs; [
+                b3sum
+                diffutils
+                jq
+                nickel
+              ];
+            }
+            ''
+              cd ${./.}
+              generated=$(mktemp)
+              expected_identity=2194d49b606a2a75ec957fc270c9a3b3b2f100e38f7f6f683458aaf12951a378
+              nickel typecheck standards/kani-producer/profile.ncl
+              nickel export --format json standards/kani-producer/profile.ncl > "$generated"
+              diff -u standards/kani-producer/profile.json "$generated"
+              test "$(b3sum "$generated" | cut -d ' ' -f 1)" = "$expected_identity"
+              jq --exit-status '
+                .schema_version == "octet-kani-producer-profile/v1"
+                and .profile_id == "kani-0.68.0-panic-freedom"
+                and .kani_pin.kani_version == "0.68.0"
+                and .evidence_tier == "transcript_assertion"
+                and (.harnesses | length) > 0
+                and .require_reachable_cover
+                and .require_assumption_review
+              ' "$generated" >/dev/null
+              nickel export --format json standards/evidence/fixtures/valid/kani_producer_details_v1.ncl >/dev/null
+              if nickel export --format json standards/evidence/fixtures/invalid/kani_producer_formal_proof_overclaim.ncl >/dev/null 2>&1; then
+                echo "invalid kani producer fixture passed" >&2
                 exit 1
               fi
               mkdir -p "$out"
@@ -2612,9 +2707,16 @@
             ''
               cd ${./.}
               generated_catalog=$(mktemp)
+              generated_envelope=$(mktemp)
               nickel typecheck standards/effect-closure/catalog.ncl
               nickel export --format json standards/effect-closure/catalog.ncl > "$generated_catalog"
               cmp "$generated_catalog" standards/effect-closure/generated/effect-closure-catalog.json
+
+              nickel typecheck standards/effect-closure/envelope-policy.ncl
+              nickel export --format json standards/effect-closure/envelope-policy.ncl > "$generated_envelope"
+              cmp "$generated_envelope" standards/effect-closure/generated/envelope-policy.json
+
+              nickel typecheck standards/effect-closure/contracts/effect-closure-receipt.generated.ncl
 
               for file in standards/effect-closure/fixtures/valid/*.ncl; do
                 nickel export --format json "$file" >/dev/null
@@ -3581,8 +3683,8 @@
                   sentinel_bin="$scratch/sentinel-bin"
                   sentinel_marker="$scratch/cargo-invoked"
                   baseline_relative="standards/self-check-warning-budget/octet-baseline.json"
-                  accepted_warning_total=4239
-                  accepted_identity_total=3030
+                  accepted_warning_total=4182
+                  accepted_identity_total=2992
                   lint_failure_exit=1
                   integration_failure_exit=2
                   sentinel_exit=99
@@ -4557,9 +4659,21 @@
                   generated_negative_cases=$(mktemp)
                   generated_source_token_receipt=$(mktemp)
                   generated_comparison_parent=$(mktemp)
+                  generated_direct_call=$(mktemp)
+                  generated_trait_helper=$(mktemp)
+                  generated_consumer_parent=$(mktemp)
                   nickel typecheck standards/charon-semantic/profile.ncl
                   nickel export --format json standards/charon-semantic/profile.ncl > "$generated_profile"
                   diff -u standards/charon-semantic/generated/profile.json "$generated_profile"
+                  nickel typecheck standards/charon-semantic/consumer-direct-call.ncl
+                  nickel export --format json standards/charon-semantic/consumer-direct-call.ncl > "$generated_direct_call"
+                  diff -u standards/charon-semantic/generated/consumer-direct-call.json "$generated_direct_call"
+                  nickel typecheck standards/charon-semantic/consumer-trait-helper.ncl
+                  nickel export --format json standards/charon-semantic/consumer-trait-helper.ncl > "$generated_trait_helper"
+                  diff -u standards/charon-semantic/generated/consumer-trait-helper.json "$generated_trait_helper"
+                  nickel typecheck standards/charon-semantic/comparison/consumer-direct-call-parent.ncl
+                  nickel export --format json standards/charon-semantic/comparison/consumer-direct-call-parent.ncl > "$generated_consumer_parent"
+                  diff -u standards/charon-semantic/generated/consumer-direct-call-parent.json "$generated_consumer_parent"
                   nickel typecheck standards/charon-semantic/negative-cases.ncl
                   nickel export --format json standards/charon-semantic/negative-cases.ncl > "$generated_negative_cases"
                   diff -u standards/charon-semantic/generated/negative-cases.json "$generated_negative_cases"
@@ -4658,6 +4772,74 @@
                      and .missing == ["octet.effect_closure.cli.check_failure"]
                      and .dangling == []' \
                     "$out/negative.json" >/dev/null
+                '';
+            cairnStructuralLinkageCheck =
+              pkgs.runCommand "octet-cairn-structural-linkage-check"
+                {
+                  nativeBuildInputs = with pkgs; [
+                    coreutils
+                    diffutils
+                    jq
+                    nickel
+                  ];
+                }
+                ''
+                  cd ${./.}
+                  mkdir -p "$out"
+                  nickel typecheck standards/structural-linkage/profiles.ncl
+                  nickel export --format json standards/structural-linkage/profiles.ncl > "$TMPDIR/profiles.json"
+                  diff -u standards/structural-linkage/generated/profiles.json "$TMPDIR/profiles.json"
+                  nickel export --format json standards/structural-linkage/contract.ncl > "$TMPDIR/contract.json"
+                  diff -u standards/structural-linkage/generated/contract.json "$TMPDIR/contract.json"
+                  nickel export --format json standards/structural-linkage/negative-formal-contract.ncl > "$TMPDIR/neg-contract.json"
+                  diff -u standards/structural-linkage/generated/negative-formal-contract.json "$TMPDIR/neg-contract.json"
+
+                  ${cargoOctetUnwrapped}/bin/cargo-octet octet requirements check \
+                    --contract standards/structural-linkage/generated/contract.json \
+                    --evidence standards/structural-linkage/fixtures/valid/evidence.json \
+                    --source-root . \
+                    --format json \
+                    --output "$out/decision.json"
+                  jq --exit-status '.aggregate_result == "passed" and .clauses[0].status == "passed"' \
+                    "$out/decision.json" >/dev/null
+
+                  ${cargoOctetUnwrapped}/bin/cargo-octet octet requirements verify \
+                    --contract standards/structural-linkage/generated/contract.json \
+                    --evidence standards/structural-linkage/fixtures/valid/evidence.json \
+                    --decision "$out/decision.json" \
+                    --source-root . \
+                    --format json > "$out/verify.json"
+                  jq --exit-status '.status == "passed" and .aggregate_result == "passed"' \
+                    "$out/verify.json" >/dev/null
+
+                  ${cargoOctetUnwrapped}/bin/cargo-octet octet requirements freshness \
+                    --contract standards/structural-linkage/generated/contract.json \
+                    --index standards/structural-linkage/fixtures/valid/index.json \
+                    --format json > "$out/freshness-valid.json"
+                  jq --exit-status '.aggregate_result == "current" and .clauses[0].status == "current"' \
+                    "$out/freshness-valid.json" >/dev/null
+
+                  if ${cargoOctetUnwrapped}/bin/cargo-octet octet requirements check \
+                    --contract standards/structural-linkage/generated/negative-formal-contract.json \
+                    --evidence standards/structural-linkage/fixtures/invalid/evidence-formal-escalation.json \
+                    --source-root . \
+                    --format json \
+                    --output "$out/negative-formal.json" 2> "$out/negative-formal.stderr"; then
+                    echo 'structural linkage unexpectedly satisfied formal_proof clause' >&2
+                    exit 1
+                  fi
+                  jq --exit-status '.aggregate_result == "failed" and .clauses[0].status == "missing"' \
+                    "$out/negative-formal.json" >/dev/null
+
+                  if ${cargoOctetUnwrapped}/bin/cargo-octet octet requirements freshness \
+                    --contract standards/structural-linkage/generated/contract.json \
+                    --index standards/structural-linkage/fixtures/invalid/index-historical.json \
+                    --format json > "$out/freshness-historical.json" 2> "$out/freshness-historical.stderr"; then
+                    echo 'historical structural linkage unexpectedly reported current freshness' >&2
+                    exit 1
+                  fi
+                  jq --exit-status '.aggregate_result == "failed" and .clauses[0].status == "stale_binding"' \
+                    "$out/freshness-historical.json" >/dev/null
                 '';
             cairnCobPilotCheck =
               pkgs.runCommand "octet-cairn-cob-pilot-check"
@@ -4943,12 +5125,15 @@
             policy-registry = policyRegistryCheck;
             cargo-octet-self-check = cargoOctetSelfCheck;
             cairn-traceability = cairnTraceabilityCheck;
+            cairn-structural-linkage = cairnStructuralLinkageCheck;
             cairn-cob-pilot = cairnCobPilotCheck;
             cairn-cob-conflict-pilot = cairnCobConflictPilotCheck;
             ast-grep-structural-rail = astGrepStructuralRailCheck;
             wasm-artifact-rail = wasmArtifactRailCheck;
             binary-debug-map-rail = binaryDebugMapRailCheck;
             dynamic-evidence-profiles = dynamicEvidenceProfilesCheck;
+            dynamic-qualification = dynamicQualificationCheck;
+            kani-producer = kaniProducerCheck;
             sarif-profiles = sarifProfilesCheck;
             coverage-profiles = coverageProfilesCheck;
             benchmark-profiles = benchmarkProfilesCheck;
@@ -5029,6 +5214,8 @@
                   "binary-debug-map-rail"
                   "ast-grep-structural-rail"
                   "dynamic-evidence-profiles"
+                  "dynamic-qualification"
+                  "kani-producer"
                   "sarif-profiles"
                   "coverage-profiles"
                   "benchmark-profiles"

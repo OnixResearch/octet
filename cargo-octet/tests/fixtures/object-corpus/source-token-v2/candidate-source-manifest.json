@@ -94,7 +94,7 @@
     },
     {
       "path": "cargo-octet/src/cli.rs",
-      "blake3": "c5ffaef2934cc62002c01da52165015e935964d3a5df2aeb5e428a6defa49f68"
+      "blake3": "d181d2d9a38551c4aef2ad5ec7a7074ebc436846a5b7171f9cc1f2b0746ecd1d"
     },
     {
       "path": "cargo-octet/src/config.rs",
@@ -244,18 +244,18 @@
   "reference_hashes": [
     {
       "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/expanded-internal-corpus-caveat-taxonomy.json",
-      "blake3": "49a2169054172094d5ad78da78506d0d4929bae38005969f1fedd08d4b67b773",
-      "object_count": 1764
+      "blake3": "8e06ff67bba21629f57b3f50fa01b44ef22b8de5de1d83e11d765e27e8297160",
+      "object_count": 1766
     },
     {
       "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/expanded-internal-corpus-receipt.json",
-      "blake3": "567e15bbb0ea26394b838676c9c945fd7f2342d3e208bd15095e6315f77e4ee6",
-      "object_count": 1764
+      "blake3": "6f33995f86d5d01f2967d34c22a1cc8e63aaf88936f5b21fdcad20943d9993e1",
+      "object_count": 1766
     },
     {
       "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/internal-corpus-receipt.json",
-      "blake3": "f191fb19df00871d9c7b68322a218fa827704429e04268733d9782c81abeac21",
-      "object_count": 1155
+      "blake3": "35fadd05afc428c70a9c5187814b7f38f8b3fd1bc3f4af2152f99b69bcfb03f8",
+      "object_count": 1157
     },
     {
       "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/positive-v2-receipt.json",

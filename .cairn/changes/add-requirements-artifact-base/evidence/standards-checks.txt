@@ -1,0 +1,431 @@
+$ cargo test -p octet-standards
+    Blocking waiting for file lock on build directory
+   Compiling unicode-ident v1.0.24
+   Compiling rustix v1.1.4
+   Compiling linux-raw-sys v0.12.1
+   Compiling yansi v1.0.1
+   Compiling once_cell v1.21.4
+   Compiling diff v0.1.13
+   Compiling getrandom v0.4.3
+   Compiling pretty_assertions v1.4.1
+   Compiling proc-macro2 v1.0.106
+   Compiling quote v1.0.46
+   Compiling syn v2.0.118
+   Compiling tempfile v3.27.0
+   Compiling serde_derive v1.0.228
+   Compiling thiserror-impl v2.0.18
+   Compiling clap_derive v4.6.1
+   Compiling thiserror v2.0.18
+   Compiling clap v4.6.1
+   Compiling serde v1.0.228
+   Compiling nickel-export-core v0.1.0 (https://github.com/OnixResearch/nickel-export?rev=257fafc1c746f1faf156207043a4c826bfb16d49#257fafc1)
+   Compiling octet-architecture-ir v0.1.1-rc.1 (/home/brittonr/wt/octet-followups/crates/octet-architecture-ir)
+   Compiling octet-standards v0.1.1-rc.1 (/home/brittonr/wt/octet-followups/crates/octet-standards)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 37.05s
+     Running unittests src/lib.rs (/home/brittonr/.cargo-target/debug/deps/octet_standards-e42b05cc1345ef38)
+
+running 312 tests
+test aeneas_consumer::envelope_tests::consumer_receipt_schema_rejects_unknown_fields ... ok
+test aeneas_consumer::tests::checked_profile_is_exact_and_complete ... ok
+test aeneas_consumer::tests::def_id_changes_do_not_change_durable_binding ... ok
+test aeneas_consumer::envelope_tests::checked_consumer_receipt_preserves_exact_stage_resource_and_policy_links ... ok
+test aeneas_consumer::tests::profile_json_rejects_unknown_fields ... ok
+test aeneas_consumer::envelope_tests::consumer_receipt_missing_stage_artifact_roles_cannot_survive_validation ... ok
+test aeneas_consumer::tests::checked_provider_artifacts_match_the_external_consumer_profile ... ok
+test aeneas_consumer::tests::ambiguous_malformed_stale_and_trust_inputs_fail_closed ... ok
+test aeneas_consumer::tests::provider_source_item_and_theorem_drift_fail_closed ... ok
+test aeneas_consumer::tests::incomplete_blocker_and_receipt_tampering_cannot_promote ... ok
+test aeneas_consumer::tests::supported_blocked_and_failed_outcomes_are_distinct ... ok
+test aeneas_consumer::tests::selected_item_in_multi_item_source_matches_its_line_span ... ok
+test aeneas_observation::tests::aeneas_lean_trust_closure_classifies_axioms_lean_reports ... ok
+test aeneas_observation::tests::aeneas_lean_trust_closure_rejects_malformed_or_foreign_reports ... ok
+test aeneas_consumer::tests::selected_item_source_text_drift_fails_closed ... ok
+test aeneas_observation::tests::aeneas_trust_closure_accepts_clean_sources_and_ignores_comments_and_strings ... ok
+test aeneas_observation::tests::aeneas_trust_closure_interpolates_only_strings_lean_parses_as_interpolated ... ok
+test aeneas_consumer::tests::exact_source_translation_and_theorem_build_a_stable_binding ... ok
+test aeneas_observation::tests::aeneas_trust_closure_reports_undeclared_axioms_opaque_and_native_trust ... ok
+test aeneas_consumer::tests::receipt_stage_artifacts_must_cover_exact_roles_and_bound_identities ... ok
+test aeneas_observation::tests::aeneas_trust_closure_treats_french_quoted_identifiers_as_names_not_keywords ... ok
+test aeneas_observation::tests::aeneas_trust_closure_scans_string_interpolations_as_code ... ok
+test artifacts::tests::duplicate_manifest_paths_fail_closed ... ok
+test artifacts::tests::check_config_output_is_stable ... ok
+test aeneas_observation::tests::aeneas_observed_charon_policy_matches_reviewed_contract_for_real_llbc ... ok
+test artifacts::tests::seed_manifest_artifact_preserves_registry_schema ... ok
+test aeneas_observation::tests::aeneas_observed_translation_links_real_llbc_and_generated_lean ... ok
+test customs::tests::complete_package_passes_with_deterministic_report ... ok
+test customs::tests::duplicate_artifact_manifest_paths_fail_closed ... ok
+test customs::tests::missing_registry_fixture_artifact_provenance_and_source_fail ... ok
+test customs::tests::secret_bearing_and_remote_fetch_packages_fail_closed ... ok
+test customs::tests::promotable_package_requires_registry_family_coverage ... ok
+test customs::tests::secret_scan_covers_fixtures_and_generated_artifacts ... ok
+test customs::tests::promotable_export_kinds_require_generated_artifact_or_export_coverage ... ok
+test customs::tests::secret_exclusion_rationale_only_excuses_non_candidate_packages ... ok
+test customs::tests::secret_scan_matches_key_headers_and_assignment_spellings ... ok
+test customs::tests::secret_scan_rejects_alternate_spellings_in_package_sources ... ok
+test dependency_direction::tests::declared_manifest_path_matches_whole_components ... ok
+test customs::tests::package_kind_must_match_contract_enum ... ok
+test dependency_direction::tests::declared_lib_path_matches_manifest_whole_components ... ok
+test dependency_direction::tests::pure_core_can_include_dev_dependencies ... ok
+test dependency_direction::tests::pure_core_accepts_clean_inward_graph ... ok
+test aeneas_consumer::envelope_tests::consumer_receipt_tampering_cannot_survive_formal_or_valence_validation ... ok
+test dependency_direction::tests::pure_core_excludes_dev_dependencies_by_default ... ok
+test dependency_direction::tests::pure_core_rejects_core_to_adapter_direct_edge ... ok
+test dependency_direction::tests::pure_core_rejects_core_to_adapter_transitive_edge ... ok
+test dependency_direction::tests::pure_core_rejects_adapter_without_inward_core_dependency ... ok
+test dependency_direction::tests::pure_core_rejects_core_to_external_infrastructure ... ok
+test dependency_direction::tests::pure_core_rejects_shell_outward_adapter_edge ... ok
+test formal_proof::tests::aeneas_envelope_rejects_unlinked_package_and_source_stage_identities ... ok
+test formal_proof::tests::aeneas_theorem_source_assessment_accepts_non_vacuous_statement ... ok
+test formal_proof::tests::aeneas_theorem_statement_approval_accepts_match_and_rejects_missing_or_mismatched ... ok
+test formal_proof::tests::aeneas_theorem_source_assessment_rejects_vacuous_and_forbidden_statements ... ok
+test formal_proof::tests::aeneas_payload_rejects_environment_allowlist_drift_from_reviewed_profile ... ok
+test formal_proof::tests::aeneas_stage_chain_rejects_stale_swapped_duplicate_and_malformed_links ... ok
+test formal_proof::tests::verus_adapter_rejects_unknown_receipt_status_without_reinterpretation ... ok
+test formal_proof::tests::aeneas_payload_rejects_provider_pin_drift ... ok
+test formal_proof::tests::translation_manifest_rejects_stale_links_bad_inventory_and_durable_def_id ... ok
+test formal_proof::tests::charon_extraction_contract_accepts_reviewed_profile ... ok
+test formal_proof::tests::verus_adapter_preserves_receipt_and_uses_common_identity ... ok
+test formal_proof::tests::translation_manifest_accepts_complete_current_run_links ... ok
+test formal_proof::tests::aeneas_stage_chain_accepts_ordered_hash_linked_pipeline ... ok
+test formal_proof::tests::aeneas_translation_only_output_remains_recorded_only ... ok
+test formal_proof::tests::aeneas_formal_proof_rejects_false_and_vacuous_theorems ... ok
+test formal_proof::tests::aeneas_payload_rejects_broken_stage_link_before_provider_admission ... ok
+test formal_proof::tests::aeneas_formal_proof_rejects_missing_theorem_trust_gaps_and_role_promotion ... ok
+test nickel_export::imports::tests::closure_scans_dependencies_by_effective_import_format ... ok
+test nickel_export::imports::tests::scanner_reports_code_and_interpolated_imports_only ... ok
+test formal_proof::tests::aeneas_preflight_accepts_supported_fixture ... ok
+test nickel_export::imports::tests::closure_resolves_relative_imports_and_follows_supplied_nickel_dependencies ... ok
+test nickel_export::imports::tests::string_delimiters_and_interpolations_follow_the_nickel_lexer ... ok
+test formal_proof::tests::charon_extraction_contract_rejects_drift_and_weakened_options ... ok
+test formal_proof::tests::aeneas_export_tamper_matrix_rejects_digest_role_status_theorem_and_receipt_links ... ok
+test nickel_export::tests::evaluator_identity_cannot_replace_policy_or_be_substituted ... ok
+test nickel_export::tests::export_acceptance_rejects_missing_source_contract_failure_and_unsupported_format ... ok
+test formal_proof::tests::aeneas_preflight_rejects_unsupported_inputs_and_promotion ... ok
+test nickel_export::tests::manifest_construction_rejects_empty_error_and_mixed_evaluator_observations ... ok
+test nickel_export::tests::secret_bearing_source_is_rejected_before_manifest_acceptance ... ok
+test formal_proof::tests::aeneas_payload_and_envelope_accept_complete_typed_contract ... ok
+test nickel_export::tests::standalone_admission_rejects_dependency_material_drift ... ok
+test nickel_export::tests::manifest_verification_rejects_stale_source_dependency_output_bytes_and_extra_entries ... ok
+test nickel_export::tests::import_closure_resolves_relative_paths_and_skips_comments_and_strings ... ok
+test formal_proof::tests::aeneas_theorem_source_assessment_reads_multi_line_named_theorem ... ok
+test formal_proof::tests::aeneas_theorem_source_assessment_sees_through_binder_colons ... ok
+test nickel_export::tests::undeclared_or_unused_imports_block_acceptance_and_manifest ... ok
+test project_architecture_gate::tests::generated_receipt_contract_is_fresh ... ok
+test formal_proof::tests::aeneas_payload_rejects_weak_contract_and_unknown_fields ... ok
+test nickel_export::tests::standalone_admission_accepts_consumer_owned_contract_labels ... ok
+test nickel_export::tests::manifest_verification_rejects_identity_metadata_drift_and_duplicate_outputs ... ok
+test project_architecture_gate::tests::clean_role_graph_passes_and_receipt_repeats ... ok
+test aeneas_observation::tests::aeneas_observed_translation_rejects_stale_spans_names_files_and_crates ... ok
+test project_architecture_gate::tests::incomplete_compiler_coverage_is_an_integration_failure_in_advisory_mode ... ok
+test project_architecture_gate::tests::core_effect_and_required_unknown_block_gate ... ok
+test project_architecture_gate::tests::complete_port_placement_passes_and_shell_implementation_blocks ... ok
+test nickel_export::tests::stable_manifest_records_json_toml_yaml_and_raw_exports ... ok
+test project_architecture_gate::tests::integration_findings_cannot_be_waived ... ok
+test project_architecture_gate::tests::admission_keeps_effect_closure_separate ... ok
+test project_architecture_gate::tests::conflicting_source_and_package_roles_fail_closed ... ok
+test project_architecture_gate::tests::exact_waiver_is_retained_while_stale_waiver_fails_closed ... ok
+test project_architecture_gate::tests::ownership::excluding_test_only_types_cannot_turn_production_reference_checks_into_skips ... ok
+test project_architecture_gate::tests::ownership::test_only_effects_and_unknowns_have_explicit_dispositions_and_full_input_identity ... ok
+test project_architecture_gate::tests::forbidden_role_edge_blocks_gate_but_not_inventory ... ok
+test project_architecture_gate::tests::matching_source_and_package_roles_pass ... ok
+test project_architecture_gate::tests::production_and_library_test_imports_cannot_claim_test_source ... ok
+test project_architecture_gate::tests::ownership::test_only_port_declarations_cannot_discharge_production_port_ownership ... ok
+test project_architecture_gate::tests::receipt_verifier_rejects_tampering_and_missing_non_claims ... ok
+test project_architecture_gate::tests::unclassified_external_provider_blocks_strict_mode ... ok
+test project_architecture_gate::tests::policy_feature_order_does_not_change_target_selection ... ok
+test project_architecture_gate::tests::integration_root_binding_precedes_production_evaluation ... ok
+test aeneas_observation::tests::aeneas_observed_charon_policy_rejects_weakened_or_missing_options ... ok
+test project_architecture_policy::tests::protected_effect_executor_scope_must_be_an_outbound_adapter ... ok
+test project_architecture_gate::tests::receipt_verifier_rejects_protocol_overclaim_and_tampering ... ok
+test project_architecture_policy::tests::invalid_policy_rejects_unknown_role_overlap_and_missing_coverage ... ok
+test project_architecture_gate::tests::unclassified_outbound_effect_blocks_strict_mode ... ok
+test project_architecture_gate::tests::unprotected_classification_does_not_hide_another_unclassified_effect ... ok
+test project_architecture_gate::tests::ownership::receipt_partition_is_required_identity_bound_and_structurally_checked ... ok
+test project_architecture_gate::tests::unprotected_receipt_cannot_promote_authority_without_identities ... ok
+test project_architecture_gate::tests::consume_witness_constructor_must_take_the_authorized_output_by_value ... ok
+test project_architecture_policy::tests::waiver_binding_accepts_current_and_rejects_stale_facts ... ok
+test project_architecture_gate::tests::unprotected_receipt_retains_identity_and_non_claim_checks ... ok
+test project_architecture_policy::tests::protected_effect_protocol_accepts_complete_consume_and_borrow_forms ... ok
+test proof::tests::checker_registry_rejects_unknown_checker_id ... ok
+test proof::tests::exact_and_glob_path_matching_are_normalized ... ok
+test project_architecture_policy::tests::protected_effect_protocol_rejects_missing_protocol_aliases_and_implicit_borrow ... ok
+test proof::tests::every_production_verifier_command_rail_requires_pinned_verifier_identity ... ok
+test proof::tests::legacy_receipt_accepts_recomputed_closure_graph_digest ... ok
+test project_architecture_gate::tests::unprotected_effect_receipt_self_verifies_without_authorization_identities ... ok
+test project_architecture_policy::tests::valid_policy_accepts_every_mode_and_role ... ok
+test proof::tests::legacy_receipt_rejects_failed_recorded_exit_status ... ok
+test proof::tests::legacy_receipt_accepts_recomputed_closure_manifest_digests ... ok
+test proof::tests::path_matching_rejects_empty_missing_and_ambiguous_exact_patterns ... ok
+test proof::tests::production_verifier_identity_requires_solver_and_closure_identity ... ok
+test proof::tests::legacy_receipt_rejects_malformed_closure_graph_instead_of_configured_digest ... ok
+test project_architecture_gate::tests::receipt_constructor_requires_exactly_one_approved_observation ... ok
+test proof::tests::legacy_receipt_rejects_missing_closure_graph_instead_of_configured_digest ... ok
+test project_architecture_gate::tests::ownership::shared_production_effects_and_unknowns_remain_findings ... ok
+test proof::tests::structured_verus_receipt_rejects_malformed_json ... ok
+test proof::tests::legacy_receipt_rejects_missing_closure_manifests_instead_of_configured_digests ... ok
+test proof::tests::substring_only_patterns_do_not_match ... ok
+test project_architecture_gate::tests::ownership::shared_effect_and_constructor_checks_visit_every_production_observation ... ok
+test proof::tests::verifier_identity_report_must_match_pinned_digests ... ok
+test project_architecture_gate::tests::waiver_bound_to_waiver_free_policy_identity_applies_until_policy_changes ... ok
+test proof::tests::verus_proof_package_lock_rejects_missing_closure_graph_offline ... ok
+test project_architecture_gate::tests::protected_effect_protocol_rejects_public_replayable_and_ambient_witness_shapes ... ok
+test proof::tests::structured_verus_receipt_rejects_stale_source_hash ... ok
+test proof::tests::structured_verus_receipt_rejects_stale_proof_hash ... ok
+test proof::tests::verus_proof_package_lock_rejects_missing_nix_closure_manifest_offline ... ok
+test proof::tests::verus_proof_receipt_builder_rejects_missing_checker_identity ... ok
+test proof::tests::structured_verus_receipt_accepts_matching_fields ... ok
+test proof::tests::second_production_pilot_rejects_swapped_proof_binding_without_first_rail_noise ... ok
+test proof::tests::structured_verus_receipt_rejects_self_asserted_producer_only_promotion ... ok
+test proof::tests::verus_proof_receipt_contract_is_fresh ... ok
+test proof::tests::verus_proof_package_lock_validates_exact_material ... ok
+test proof::tests::verus_proof_package_lock_derives_nix_closure_digest_from_configured_paths ... ok
+test proof::tests::verus_proof_package_lock_rejects_stale_material_and_invalid_shape ... ok
+test proof::tests::structured_receipt_records_recomputed_closure_graph_digest_and_rejects_drift ... ok
+test proof::tests::structured_verus_receipt_rejects_fixture_promoted_as_production_scope ... ok
+test proof::tests::structured_verus_receipt_rejects_wrong_verifier_identity ... ok
+test proof_artifact::tests::canonical_closure_graph_sorts_records_and_references ... ok
+test proof::tests::verus_proof_package_lock_rejects_malformed_closure_graph_offline ... ok
+test project_architecture_gate::tests::protected_effect_protocol_rejects_public_and_unsafe_witness_constructors ... ok
+test proof::tests::structured_verus_receipt_rejects_missing_proof_artifact_identity ... ok
+test proof::tests::verus_v1_compatibility_golden_preserves_package_lock_and_receipt_contract ... ok
+test project_architecture_gate::tests::ownership::package_no_std_binds_library_units_not_build_scripts_or_binaries ... ok
+test proof::tests::structured_receipt_records_recomputed_nix_closure_digest_and_rejects_drift ... ok
+test proof_artifact::tests::closure_graph_digest_rejects_malformed_matched_graph ... ok
+test proof_artifact::tests::closure_graph_digest_rejects_unmatched_configured_paths ... ok
+test proof_artifact::tests::closure_manifest_digest_rejects_unmatched_configured_paths ... ok
+test proof_artifact::tests::malformed_closure_graph_fails_deterministically ... ok
+test proof_artifact::tests::path_diagnostics_reject_missing_and_ambiguous_exact_patterns ... ok
+test proof_artifact::tests::relevant_rail_matches_source_or_receipt_paths ... ok
+test proof::tests::structured_verus_receipt_rejects_package_lock_hash_drift ... ok
+test proof_artifact::tests::same_content_has_same_identity_for_text_and_bytes ... ok
+test project_architecture_gate::tests::consume_executor_must_take_its_witness_by_value_while_borrow_may_reference_it ... ok
+test proof_artifact::tests::path_patterns_escaping_the_source_root_bind_nothing ... ok
+test spec_trace_parity::tests::adapter_missing_projection_or_loss_bound_is_rejected ... ok
+test proof_artifact::tests::receipt_binding_lines_are_stable_and_sorted ... ok
+test spec_trace_parity::tests::divergence_is_classified_with_bounded_samples ... ok
+test spec_trace_parity::tests::replay_plan_records_projection_and_loss_bound ... ok
+test spec_trace_parity::tests::seed_drift_fails_closed ... ok
+test spec_trace_parity::tests::malformed_requests_fail_closed_before_replay ... ok
+test spec_trace_parity::tests::fresh_parity_is_deterministic_and_identity_bound ... ok
+test spec_trace_parity::tests::step_budget_denial_terminates_before_replay ... ok
+test spec_trace_parity::tests::stale_checker_identity_and_version_fail_closed ... ok
+test spec_trace_parity::tests::replay_is_bound_to_the_admitted_seed ... ok
+test spec_trace_parity::tests::unsupported_verifier_without_adapter_emits_no_parity_claim ... ok
+test spec_trace_parity::tests::tampered_trace_set_fails_closed ... ok
+test spec_trace_parity::tests::stale_model_identity_fails_closed_before_replay ... ok
+test spec_trace_parity::tests::receipt_json_round_trips_with_a_stable_identity ... ok
+test project_architecture_gate::tests::protected_and_mixed_receipts_reject_each_missing_identity_array_after_resealing ... ok
+test spec_trace_parity::tests::unsupported_trace_format_fails_closed ... ok
+test spec_trace_parity::tests::receipt_identity_binds_every_pin_and_bound ... ok
+test project_architecture_gate::tests::ownership::test_only_witness_shape_and_provenance_cannot_discharge_production_protocol ... ok
+test project_architecture_gate::tests::protected_effect_protocol_accepts_borrow_inside_declared_scope ... ok
+test storage_fault::tests::bounded_claim_scope_is_the_only_accepted_scope ... ok
+test spec_trace_parity::tests::lossy_adapter_surfaces_projection_instead_of_undisclosed_parity ... ok
+test project_architecture_gate::tests::protected_effect_protocol_accepts_exact_authority_and_observation_provenance ... ok
+test storage_fault::tests::stale_missing_failed_and_overclaiming_evidence_is_rejected ... ok
+test storage_fault::tests::receipt_identity_drift_and_unknown_fields_are_rejected ... ok
+test spec_trace_parity::tests::receipt_rejects_record_and_step_count_tampering ... ok
+test storage_fault::tests::current_evidence_passes_without_a_producer ... ok
+test spec_trace_parity::tests::time_budget_denial_terminates_after_one_observed_step ... ok
+test suppression::tests::blanket_waiver_scope_fails_closed ... ok
+test suppression::tests::missing_structured_waiver_fields_fail_closed ... ok
+test tests::architecture_checks_do_not_use_implicit_consumer_fallbacks ... ok
+test tests::architecture_checks_accept_artifact_backed_shell_constructor_scope ... ok
+test tests::architecture_checks_accept_artifact_backed_type_state_api ... ok
+test tests::architecture_checks_accept_compliant_workspace_shape ... ok
+test tests::architecture_checks_reject_artifact_backed_ambient_capability ... ok
+test tests::architecture_checks_name_direct_effect_capability_families ... ok
+test tests::architecture_checks_reject_external_domain_leakage ... ok
+test tests::advisory_rule_accepts_small_public_surface ... ok
+test tests::architecture_dependency_direction_excludes_dev_dependencies_when_not_declared ... ok
+test tests::architecture_dependency_direction_defaults_empty_edge_kinds_to_normal_and_build ... ok
+test tests::architecture_checks_reject_core_runtime_dependency ... ok
+test project_architecture_gate::tests::ownership::no_std_requires_each_production_unit_not_a_package_or_test_witness ... ok
+test project_architecture_gate::tests::ownership::malformed_and_noncanonical_memberships_reject_even_after_resealing ... ok
+test project_architecture_gate::tests::protected_effect_protocol_blocks_ambiguous_origin_and_forging_constructor ... ok
+test project_architecture_gate::tests::scope_findings_bind_their_unit_sources_so_source_edits_stale_waivers ... ok
+test tests::architecture_checks_reject_artifact_backed_raw_type_state ... ok
+test tests::advisory_rule_reports_through_run_checks_without_blocking ... ok
+test tests::architecture_dependency_direction_rejects_core_to_adapter ... ok
+test project_architecture_gate::tests::adapter_constructs_its_own_type_while_core_shell_and_peer_adapters_cannot ... ok
+test tests::architecture_checks_reject_missing_core_no_std ... ok
+test tests::architecture_dependency_direction_rejects_declared_crate_outside_resolved_workspace ... ok
+test tests::architecture_checks_reject_multiple_core_fixture_shapes ... ok
+test tests::architecture_dependency_direction_reports_unknown_edge_kinds ... ok
+test tests::architecture_dependency_direction_rejects_metadata_without_resolve_graph ... ok
+test tests::architecture_port_mechanism_accepts_adapter_impl ... ok
+test tests::architecture_dependency_direction_rejects_shell_outward_edge ... ok
+test tests::architecture_dependency_direction_reports_transitive_leakage_distinctly ... ok
+test tests::architecture_checks_reject_thick_root_file ... ok
+test tests::architecture_port_mechanism_noops_without_declared_ports ... ok
+test tests::architecture_dependency_direction_includes_configured_dev_dependencies ... ok
+test tests::architecture_dependency_direction_rejects_declared_crates_missing_from_metadata ... ok
+test tests::architecture_dependency_direction_rejects_core_to_external_infrastructure ... ok
+test suppression::tests::advertised_waiver_markers_validate_with_complete_metadata ... ok
+test tests::architecture_port_mechanism_rejects_legacy_core_owner_scope ... ok
+test tests::architecture_port_mechanism_rejects_application_concrete_impl ... ok
+test tests::architecture_dependency_direction_rejects_adapter_missing_core_edge ... ok
+test tests::architecture_dependency_direction_accepts_clean_metadata_fixture ... ok
+test release_cohort::tests::blocked_cohort_cannot_be_admitted_with_valid_receipts ... ok
+test tests::custom_boundary_checks_accept_compliant_domain_layout ... ok
+test tests::architecture_port_mechanism_rejects_missing_application_port_trait ... ok
+test tests::architecture_port_mechanism_reserved_keeps_application_purity_check ... ok
+test tests::architecture_port_mechanism_requires_exact_code_adapter_impl ... ok
+test tests::custom_boundary_checks_reject_core_no_std_with_domain_layout ... ok
+test tests::custom_boundary_checks_ignore_forbidden_names_outside_dependency_tables ... ok
+test tests::custom_boundary_checks_accept_shell_core_dependency_in_dotted_key_or_table_header ... ok
+test tests::architecture_port_mechanism_requires_exact_code_trait_declaration ... ok
+test tests::custom_boundary_checks_reject_external_leakage_with_domain_layout ... ok
+test tests::custom_boundary_checks_reject_forbidden_dependency_with_domain_layout ... ok
+test tests::custom_boundary_checks_cover_every_declared_core_and_shell_crate ... ok
+test tests::architecture_port_mechanism_reserved_suppresses_missing_impl ... ok
+test tests::external_and_human_policies_are_not_run_and_not_completed_local_checks ... ok
+test tests::custom_boundary_checks_reject_shell_core_name_only_in_features ... ok
+test tests::capability_manifest_matches_handler_artifacts_on_whole_path_components ... ok
+test tests::capability_manifest_rejects_ambiguous_strict_scope_resolution ... ok
+test tests::blanket_suppression_scope_is_rejected ... ok
+test tests::capability_manifest_rejects_missing_handler_failure_coverage ... ok
+test tests::architecture_port_mechanism_rejects_missing_adapter_impl ... ok
+test tests::capability_manifest_report_preserves_non_claim_boundaries ... ok
+test tests::capability_manifest_report_records_direct_and_injected_observations ... ok
+test tests::capability_manifest_requires_whole_word_handler_coverage_markers ... ok
+test tests::checker_failure_reports_tool_error_and_blocks_strict_coverage ... ok
+test tests::capability_manifest_requires_a_replay_command_and_artifact_per_handler ... ok
+test tests::fixture_manifest_accepts_covered_hard_policies ... ok
+test tests::family_selection_skips_unselected_policy ... ok
+test tests::fixture_manifest_rejects_missing_noncompliant_fixture ... ok
+test tests::idioms_selection_skips_architecture_family_diagnostics ... ok
+test tests::implemented_passing_policy_reports_passed_with_scope ... ok
+test tests::family_exclusion_and_missing_source_scope_are_not_applicable ... ok
+test tests::missing_execution_record_blocks_strict_coverage ... ok
+test tests::line_suppression_lets_the_annotated_line_pass ... ok
+test tests::markdown_output_is_stable ... ok
+test tests::next_line_suppression_drops_only_the_covered_hard_rule_diagnostic ... ok
+test tests::custom_boundary_checks_reject_forbidden_dependency_in_dotted_key_or_table_header ... ok
+test tests::proof_rail_family_isolation_skips_verification_diagnostics ... ok
+test tests::missing_suppression_metadata_returns_blocking_diagnostics ... ok
+test tests::resource_checks_accept_bounded_channel ... ok
+test tests::checker_violation_reports_failed_execution ... ok
+test tests::proof_rail_checks_accept_passing_receipt ... ok
+test tests::unimplemented_hard_local_policies_are_unsupported ... ok
+test tests::proof_rail_default_selection_rejects_relevant_noncompliant_receipt ... ok
+test tests::suppression_does_not_cover_other_policies_or_files ... ok
+test tests::unknown_policy_is_rejected ... ok
+test tests::verified_module_coverage_reports_manual_review_for_unbacked_claim ... ok
+test tests::json_output_is_stable ... ok
+test tests::suppression_does_not_cover_suppression_validation_diagnostics ... ok
+test tests::resource_checks_reject_unbounded_channel ... ok
+test tests::json_and_markdown_agree_on_policy_execution_status ... ok
+test tests::valid_suppression_is_reported_as_active ... ok
+test vermilion::tests::nat_lemma_route_is_incomparable_with_the_u64_contract ... ok
+test vermilion::tests::semantic_and_tool_outcomes_map_to_existing_vocabulary ... ok
+test vermilion::tests::u64_route_agreement_does_not_merge_authority ... ok
+test vermilion::tests::u64_pilot_routes_remain_incomparable_until_executable_bridges_close ... ok
+test tests::proof_rail_checks_reject_missing_pass_signal ... ok
+test tests::markdown_lists_suppressed_findings_separately ... ok
+test tests::verified_module_coverage_accepts_matching_verus_receipt ... ok
+test vermilion::tests::comparison_requires_at_least_two_routes_and_visible_bridges ... ok
+test project_architecture_gate::tests::protected_effect_protocol_rejects_missing_witness_and_pre_decision_origin ... ok
+test vermilion::tests::receipt_fixture_is_sealed_and_round_trips ... ok
+test vermilion::tests::checked_profile_and_contract_are_exact_and_complete ... ok
+test vermilion::tests::contract_binds_the_actual_pilot_bytes_and_statement ... ok
+test tests::verified_module_coverage_rejects_matching_verus_receipt_without_pass_signal ... ok
+test release_cohort::tests::negative_controls_are_rejected ... ok
+test vermilion::tests::absent_toolchain_is_blocked_not_supported ... ok
+test vermilion::tests::complete_contract_fixture_is_supported_but_recorded_only ... ok
+test project_architecture_gate::tests::protected_effect_protocol_blocks_unguarded_effect_and_receipt_promotion ... ok
+test project_architecture_gate::tests::protected_effect_protocol_rejects_missing_binding_decision_output_and_borrow_escape ... ok
+test project_architecture_gate::tests::protected_effect_protocol_accepts_only_narrow_witness_conversions ... ok
+test vermilion::tests::negative_controls_fail_at_their_declared_gate ... ok
+
+test result: ok. 312 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running unittests src/bin/generate-project-architecture-contract.rs (/home/brittonr/.cargo-target/debug/deps/generate_project_architecture_contract-98ea7734c058a931)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/home/brittonr/.cargo-target/debug/deps/octet_standards-2660acd0d8cc3ffd)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/slotcar-standards.rs (/home/brittonr/.cargo-target/debug/deps/slotcar_standards-ea750cf952cd2f6f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/tigerstyle-standards.rs (/home/brittonr/.cargo-target/debug/deps/tigerstyle_standards-8413e29dfaae1f9e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/advisory_cli.rs (/home/brittonr/.cargo-target/debug/deps/advisory_cli-03e10589954e8432)
+
+running 41 tests
+test octet_identity_surfaces ... ok
+test export_artifacts_receipt_requires_profile_json ... ok
+test artifact_backed_manifest_rejects_missing_manifest_before_policy_json_parse ... ok
+test architecture_check_rejects_sources_outside_any_cargo_workspace ... ok
+test check_rejects_unknown_family ... ok
+test advisory_only_cli_report_exits_successfully ... ok
+test architecture_check_reports_cargo_metadata_that_cannot_run ... ok
+test export_artifacts_receipt_rejects_non_blake3_profile_digest ... ok
+test artifact_backed_manifest_rejects_missing_manifest_file ... ok
+test architecture_check_reports_cargo_metadata_non_utf8_output ... ok
+test artifact_backed_manifest_rejects_tampered_generated_artifact ... ok
+test architecture_check_runs_cargo_metadata_for_relative_source_paths ... ok
+test architecture_check_reports_cargo_metadata_nonzero_exit ... ok
+test check_skips_non_utf8_files_in_source_directories_but_rejects_named_ones ... ok
+test export_artifacts_emits_profile_bound_acceptance_receipt ... ok
+test export_artifacts_receipt_without_recorded_commands_lists_its_own_passing_run ... ok
+test standards_alias_bins_preserve_help_and_version ... ok
+test receipt_only_proof_rail_rejects_verifier_receipt_without_binary_digest ... ok
+test receipt_only_proof_rail_rejects_hash_bound_receipt_without_provenance ... ok
+test execute_proof_rails_rejects_malformed_nix_closure_graph ... ok
+test proof_artifact_dir_requires_execute_proof_rails ... ok
+test execute_proof_rails_rejects_missing_build_closure_manifest ... ok
+test execute_proof_rails_rejects_missing_nix_closure_manifest ... ok
+test execute_proof_rails_replaces_committed_receipt_at_receipt_path ... ok
+test check_rejects_selection_without_policies ... ok
+test execute_proof_rails_rejects_pass_signal_with_failing_exit_status ... ok
+test receipt_only_proof_rail_rejects_unbound_stale_receipt ... ok
+test exported_proof_bundle_preserves_verified_rail_schema ... ok
+test artifact_backed_proof_bundle_accepts_complete_bundle ... ok
+test hard_policy_cli_report_exits_with_failure ... ok
+test exported_policy_artifacts_drive_checker ... ok
+test execute_proof_rails_replaces_stale_committed_receipt ... ok
+test receipt_only_proof_rail_rejects_provenance_receipt_without_verifier_digest ... ok
+test execute_proof_rails_rejects_missing_nix_closure_graph ... ok
+test execute_proof_rails_uses_command_output_as_receipt ... ok
+test artifact_backed_proof_bundle_rejects_missing_bundle_file ... ok
+test execute_proof_rails_rejects_failing_execution_despite_valid_committed_receipt ... ok
+test artifact_backed_proof_bundle_rejects_unsupported_schema_version ... ok
+test receipt_only_proof_rail_rejects_verifier_receipt_without_nix_closure_digest ... ok
+test receipt_only_proof_rail_rejects_verifier_receipt_without_build_closure_digest ... ok
+test receipt_only_proof_rail_rejects_verifier_receipt_without_nix_closure_graph_digest ... ok
+
+test result: ok. 41 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
+
+     Running tests/vermilion_canary.rs (/home/brittonr/.cargo-target/debug/deps/vermilion_canary-69b1b3beff2485b6)
+
+running 5 tests
+test missing_non_claim_is_rejected ... ok
+test measured_canary_is_accepted_and_identity_is_exact ... ok
+test outcome_drift_is_rejected ... ok
+test toolchain_drift_is_rejected ... ok
+test source_drift_is_rejected ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests octet_standards
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+exit 0

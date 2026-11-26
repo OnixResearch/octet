@@ -407,7 +407,19 @@ pub struct CompilerArchitectureCollectorContext {
     pub selected_units: Vec<CollectorCompilationUnit>,
     #[serde(default)]
     pub value_flow_selections: Vec<CompilerValueFlowSelection>,
+    #[serde(default = "default_false")]
+    pub collect_semantic_effects: bool,
+    #[serde(default = "default_none_string")]
+    pub self_profile_phase_dir: Option<String>,
     pub non_claims: Vec<String>,
+}
+
+fn default_false() -> bool {
+    false
+}
+
+fn default_none_string() -> Option<String> {
+    None
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

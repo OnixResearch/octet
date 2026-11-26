@@ -11,56 +11,69 @@ pub(super) fn write_decision(
     }
     match format {
         crate::cli::OutputFormat::Json => println!("{text}"),
-        crate::cli::OutputFormat::Human | crate::cli::OutputFormat::Sarif => {
-            println!(
-                "octet requirements check contract={} status={} clauses={} assumptions={} exclusions={} diagnostics={}",
-                decision.contract_id,
-                decision.aggregate_result,
-                decision.clauses.len(),
-                decision.assumptions.len(),
-                decision.exclusions.len(),
-                decision.diagnostics.len()
-            );
-            for clause in &decision.clauses {
-                println!(
-                    "clause={} disposition={} required={} status={} evidence=[{}]",
-                    clause.clause_id,
-                    clause.disposition,
-                    clause.required,
-                    clause.status,
-                    clause.evidence_ids.join(",")
-                );
-                for diagnostic in &clause.diagnostics {
-                    println!("  clause-diagnostic: {diagnostic}");
-                }
-            }
-            for assumption in &decision.assumptions {
-                println!(
-                    "assumption={} status={} identity={} supporting=[{}]",
-                    assumption.assumption_id,
-                    assumption.status,
-                    assumption.identity,
-                    assumption.supporting_evidence_ids.join(",")
-                );
-            }
-            for exclusion in &decision.exclusions {
-                println!(
-                    "excluded={} clause={} reason={}",
-                    exclusion.exclusion_id, exclusion.clause_id, exclusion.reason
-                );
-            }
-            for limitation in &decision.limitations {
-                println!("limitation: {limitation}");
-            }
-            for diagnostic in &decision.diagnostics {
-                println!("diagnostic: {diagnostic}");
-            }
-            for non_claim in &decision.non_claims {
-                println!("non-claim: {non_claim}");
-            }
-        }
+        crate::cli::OutputFormat::Human | crate::cli::OutputFormat::Sarif => print_decision_human(decision),
     }
     Ok(())
+}
+
+fn print_decision_human(decision: &super::evaluation::decision::Outcome) {
+    println!(
+        "octet requirements check contract={} status={} clauses={} assumptions={} exclusions={} diagnostics={}",
+        decision.contract_id,
+        decision.aggregate_result,
+        decision.clauses.len(),
+        decision.assumptions.len(),
+        decision.exclusions.len(),
+        decision.diagnostics.len()
+    );
+    for clause in &decision.clauses {
+        println!(
+            "clause={} disposition={} required={} status={} evidence=[{}]",
+            clause.clause_id,
+            clause.disposition,
+            clause.required,
+            clause.status,
+            clause.evidence_ids.join(",")
+        );
+        for diagnostic in &clause.diagnostics {
+            println!("  clause-diagnostic: {diagnostic}");
+        }
+    }
+    for assumption in &decision.assumptions {
+        println!(
+            "assumption={} status={} identity={} supporting=[{}]",
+            assumption.assumption_id,
+            assumption.status,
+            assumption.identity,
+            assumption.supporting_evidence_ids.join(",")
+        );
+    }
+    for exclusion in &decision.exclusions {
+        println!("excluded={} clause={} reason={}", exclusion.exclusion_id, exclusion.clause_id, exclusion.reason);
+    }
+    for limitation in &decision.limitations {
+        println!("limitation: {limitation}");
+    }
+    if let Some(summary) = &decision.extraction_summary {
+        println!(
+            "effect-extraction profile={} strongest_claim={} cross_clause_verified={} static=[{}] formal=[{}] assumptions=[{}]",
+            summary.profile_id,
+            summary.strongest_supported_claim,
+            summary.is_cross_clause_verified,
+            summary.static_analysis_evidence_ids.join(","),
+            summary.formal_proof_evidence_ids.join(","),
+            summary.accepted_assumption_ids.join(",")
+        );
+        for obligation in &summary.remaining_obligations {
+            println!("remaining-obligation: {obligation}");
+        }
+    }
+    for diagnostic in &decision.diagnostics {
+        println!("diagnostic: {diagnostic}");
+    }
+    for non_claim in &decision.non_claims {
+        println!("non-claim: {non_claim}");
+    }
 }
 
 pub(super) fn print_freshness_human(report: &super::freshness::InventoryReport) {

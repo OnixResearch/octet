@@ -17,7 +17,11 @@ const COVERAGE_DETAILS_CONTRACT_NAME: &str = "CoverageBaselineReceiptDetailsV1";
 const MUTATION_DETAILS_CONTRACT_NAME: &str = "CargoMutantsReceiptDetailsV1";
 const BENCHMARK_DETAILS_CONTRACT_NAME: &str = "BenchmarkEvidenceReceiptDetailsV1";
 const BINARY_DEBUG_MAP_DETAILS_CONTRACT_NAME: &str = "BinaryDebugMapReceiptDetailsV1";
+const DYNAMIC_QUALIFICATION_DETAILS_CONTRACT_NAME: &str = "DynamicQualificationReceiptDetailsV1";
+const KANI_PRODUCER_DETAILS_CONTRACT_NAME: &str = "KaniProducerReceiptDetailsV1";
 const CHAOSCONTROL_PROOF_STYLE_INPUT_CONTRACT_NAME: &str = "ChaosControlProofStyleInputContractV1";
+const STRUCTURAL_LINKAGE_PROJECTION_CONTRACT_NAME: &str = "StructuralLinkageProjectionV1";
+const STRUCTURAL_LINKAGE_RECEIPT_CONTRACT_NAME: &str = "StructuralLinkageReceiptV1";
 const CHAOSCONTROL_PROOF_STYLE_INPUT_SCHEMA_VERSION: &str = "octet-chaoscontrol-proof-style-input-contract/v1";
 const CHAOSCONTROL_CONSUMER_REPO: &str = "github:OnixResearch/chaoscontrol";
 const CHAOSCONTROL_SELECTED_PROFILE: &str = "proof-style-focused";
@@ -109,7 +113,10 @@ static HEGEL_PROPERTY_DETAILS_FIELDS: &[ContractField] = &[
 
 static HEGEL_HARDENED_DETAILS_FIELDS: &[ContractField] = &[
     ContractField::required("schema_version", FieldKind::ExactString(crate::hegel::RECEIPT_SCHEMA)),
-    ContractField::required("profile_id", FieldKind::ExactString(crate::hegel::PROFILE_ID)),
+    ContractField::required(
+        "profile_id",
+        FieldKind::OneOfStrings(&crate::hegel::profile_validation::REGISTERED_PROFILE_IDS),
+    ),
     ContractField::required("profile_identity", FieldKind::NonEmptyString),
     ContractField::required("law_catalog_identity", FieldKind::NonEmptyString),
     ContractField::required("property_id", FieldKind::NonEmptyString),
@@ -125,6 +132,7 @@ static HEGEL_HARDENED_DETAILS_FIELDS: &[ContractField] = &[
     ContractField::required("generator_manifest_identity", FieldKind::NonEmptyString),
     ContractField::required("summary_identity", FieldKind::NonEmptyString),
     ContractField::required("bounded_log_identity", FieldKind::NonEmptyString),
+    ContractField::nullable_string("counterexample_identity"),
     ContractField::required("result", FieldKind::NonEmptyString),
     ContractField::required("cases_completed", FieldKind::Number),
     ContractField::required("issue_codes", FieldKind::StringArray),
@@ -132,6 +140,9 @@ static HEGEL_HARDENED_DETAILS_FIELDS: &[ContractField] = &[
     ContractField::required("evidence_tier", FieldKind::EvidenceTier),
     ContractField::required("verification_role", FieldKind::NonEmptyString),
     ContractField::required("non_claims", FieldKind::StringArray),
+    ContractField::optional("expected_laws", FieldKind::StringArray),
+    ContractField::optional("executed_laws", FieldKind::DynArray),
+    ContractField::optional("unexecuted_laws", FieldKind::StringArray),
 ];
 
 static MIRAI_PILOT_DECISION_FIELDS: &[ContractField] = &[
@@ -273,6 +284,59 @@ static BINARY_DEBUG_MAP_DETAILS_FIELDS: &[ContractField] = &[
     ContractField::required("non_claims", FieldKind::StringArray),
 ];
 
+static DYNAMIC_QUALIFICATION_DETAILS_FIELDS: &[ContractField] = &[
+    ContractField::required("schema_version", FieldKind::ExactString(crate::dynamic::RECEIPT_SCHEMA)),
+    ContractField::required("profile_id", FieldKind::NonEmptyString),
+    ContractField::required("profile_identity", FieldKind::ExactString(crate::dynamic::EXPECTED_PROFILE_IDENTITY)),
+    ContractField::required("tool", FieldKind::NonEmptyString),
+    ContractField::required("package", FieldKind::NonEmptyString),
+    ContractField::required("target", FieldKind::NonEmptyString),
+    ContractField::required("command_argv", FieldKind::StringArray),
+    ContractField::required("source_manifest_identity", FieldKind::NonEmptyString),
+    ContractField::optional_string("lockfile_identity"),
+    ContractField::required("compiler_probe", FieldKind::Dyn),
+    ContractField::required("qualification_status", FieldKind::NonEmptyString),
+    ContractField::required("matrix_cells", FieldKind::DynArray),
+    ContractField::required("tests_started", FieldKind::Number),
+    ContractField::required("tests_passed", FieldKind::Number),
+    ContractField::required("tests_failed", FieldKind::Number),
+    ContractField::required("tests_ignored", FieldKind::Number),
+    ContractField::required("tests_filtered_out", FieldKind::Number),
+    ContractField::required("executed_tests", FieldKind::StringArray),
+    ContractField::required("filters", FieldKind::StringArray),
+    ContractField::required("model_entered", FieldKind::Bool),
+    ContractField::required("model_completed", FieldKind::Bool),
+    ContractField::required("permutations_explored", FieldKind::Number),
+    ContractField::required("bounded_log_identity", FieldKind::NonEmptyString),
+    ContractField::required("evidence_tier", FieldKind::ExactString(crate::dynamic::EVIDENCE_TIER)),
+    ContractField::required("non_claims", FieldKind::StringArray),
+];
+
+static KANI_PRODUCER_DETAILS_FIELDS: &[ContractField] = &[
+    ContractField::required("schema_version", FieldKind::ExactString(crate::kani::RECEIPT_SCHEMA)),
+    ContractField::required("profile_id", FieldKind::ExactString(crate::kani::PRODUCER_PROFILE_ID)),
+    ContractField::required("profile_identity", FieldKind::ExactString(crate::kani::EXPECTED_PROFILE_IDENTITY)),
+    ContractField::required("package", FieldKind::NonEmptyString),
+    ContractField::required("target", FieldKind::NonEmptyString),
+    ContractField::required("command_argv", FieldKind::StringArray),
+    ContractField::required("source_manifest_identity", FieldKind::NonEmptyString),
+    ContractField::optional_string("lockfile_identity"),
+    ContractField::required("toolchain", FieldKind::Dyn),
+    ContractField::required("selected_harnesses", FieldKind::StringArray),
+    ContractField::required("executed_harnesses", FieldKind::StringArray),
+    ContractField::required("harnesses", FieldKind::DynArray),
+    ContractField::required("property_totals", FieldKind::Dyn),
+    ContractField::required("execution_status", FieldKind::NonEmptyString),
+    ContractField::required("assumption_status", FieldKind::NonEmptyString),
+    ContractField::required("assumptions_reviewed", FieldKind::Bool),
+    ContractField::optional_string("assumption_review_identity"),
+    ContractField::required("raw_export_identity", FieldKind::NonEmptyString),
+    ContractField::required("normalized_summary_identity", FieldKind::NonEmptyString),
+    ContractField::required("bounded_log_identity", FieldKind::NonEmptyString),
+    ContractField::required("evidence_tier", FieldKind::ExactString(crate::kani::EVIDENCE_TIER)),
+    ContractField::required("non_claims", FieldKind::StringArray),
+];
+
 static CHAOSCONTROL_PROOF_STYLE_INPUT_FIELDS: &[ContractField] = &[
     ContractField::required("schema_version", FieldKind::ExactString(CHAOSCONTROL_PROOF_STYLE_INPUT_SCHEMA_VERSION)),
     ContractField::required("consumer_repo", FieldKind::NonEmptyString),
@@ -383,12 +447,61 @@ static EVIDENCE_RAIL_RECEIPT_FIELDS: &[ContractField] = &[
     },
     ContractField::optional("dependency_trust", FieldKind::Dyn),
     ContractField::optional("binary_debug_map", FieldKind::Dyn),
+    ContractField::optional("dynamic_qualification", FieldKind::Dyn),
+    ContractField::optional("kani_producer", FieldKind::Dyn),
+];
+
+static STRUCTURAL_LINKAGE_PROJECTION_FIELDS: &[ContractField] = &[
+    ContractField::required("schema_version", FieldKind::ExactString(crate::structural_linkage::PROJECTION_SCHEMA_V1)),
+    ContractField::required("profile_id", FieldKind::NonEmptyString),
+    ContractField::required("producer", FieldKind::NonEmptyString),
+    ContractField::required("original_report_schema", FieldKind::NonEmptyString),
+    ContractField::required("original_report_blake3", FieldKind::NonEmptyString),
+    ContractField::required("mapping_id", FieldKind::NonEmptyString),
+    ContractField::required("mapping_version", FieldKind::NonEmptyString),
+    ContractField::required("namespace", FieldKind::NonEmptyString),
+    ContractField::required("evidence_class", FieldKind::ExactString(crate::structural_linkage::EVIDENCE_CLASS_NAME)),
+    ContractField::required("evidence_tier", FieldKind::ExactString(crate::structural_linkage::EVIDENCE_TIER_NAME)),
+    ContractField::required("records", FieldKind::DynArray),
+    ContractField::required("historical_records", FieldKind::DynArray),
+    ContractField::required("unsupported_reasons", FieldKind::StringArray),
+    ContractField::required("non_claims", FieldKind::StringArray),
+    ContractField::required("projection_blake3", FieldKind::NonEmptyString),
+];
+
+static STRUCTURAL_LINKAGE_RECEIPT_FIELDS: &[ContractField] = &[
+    ContractField::required("schema_version", FieldKind::ExactString(crate::structural_linkage::RECEIPT_SCHEMA_V1)),
+    ContractField::required("profile_id", FieldKind::NonEmptyString),
+    ContractField::required("producer", FieldKind::NonEmptyString),
+    ContractField::required("original_report_schema", FieldKind::NonEmptyString),
+    ContractField::required("original_report_blake3", FieldKind::NonEmptyString),
+    ContractField::required(
+        "projection_schema_version",
+        FieldKind::ExactString(crate::structural_linkage::PROJECTION_SCHEMA_V1),
+    ),
+    ContractField::required("projection_blake3", FieldKind::NonEmptyString),
+    ContractField::required("mapping_id", FieldKind::NonEmptyString),
+    ContractField::required("mapping_version", FieldKind::NonEmptyString),
+    ContractField::required("namespace", FieldKind::NonEmptyString),
+    ContractField::required("evidence_class", FieldKind::ExactString(crate::structural_linkage::EVIDENCE_CLASS_NAME)),
+    ContractField::required("evidence_tier", FieldKind::ExactString(crate::structural_linkage::EVIDENCE_TIER_NAME)),
+    ContractField::required("status", FieldKind::NonEmptyString),
+    ContractField::required("command_executed", FieldKind::Bool),
+    ContractField::required("replay_deterministic", FieldKind::Bool),
+    ContractField::required("active_record_count", FieldKind::Number),
+    ContractField::required("historical_record_count", FieldKind::Number),
+    ContractField::required("source_checks", FieldKind::DynArray),
+    ContractField::required("diagnostics", FieldKind::StringArray),
+    ContractField::required("non_claims", FieldKind::StringArray),
+    ContractField::required("receipt_blake3", FieldKind::NonEmptyString),
 ];
 
 #[derive(Clone, Copy)]
 enum FieldKind {
+    Bool,
     ExactNumber(u32),
     ExactString(&'static str),
+    OneOfStrings(&'static [&'static str]),
     NonEmptyString,
     String,
     NullableString,
@@ -429,8 +542,12 @@ pub fn render_generated_contracts() -> String {
         mutation_details_schema(),
         benchmark_details_schema(),
         binary_debug_map_details_schema(),
+        dynamic_qualification_details_schema(),
+        kani_producer_details_schema(),
         evidence_rail_receipt_schema(),
         chaoscontrol_proof_style_input_schema(),
+        structural_linkage_projection_schema(),
+        structural_linkage_receipt_schema(),
     ];
     let mut rendered = String::new();
     rendered.push_str("# @generated by cargo-octet/src/evidence_contracts.rs; do not edit by hand.\n");
@@ -545,6 +662,20 @@ fn binary_debug_map_details_schema() -> ContractSchema {
     }
 }
 
+fn dynamic_qualification_details_schema() -> ContractSchema {
+    ContractSchema {
+        name: DYNAMIC_QUALIFICATION_DETAILS_CONTRACT_NAME,
+        fields: DYNAMIC_QUALIFICATION_DETAILS_FIELDS,
+    }
+}
+
+fn kani_producer_details_schema() -> ContractSchema {
+    ContractSchema {
+        name: KANI_PRODUCER_DETAILS_CONTRACT_NAME,
+        fields: KANI_PRODUCER_DETAILS_FIELDS,
+    }
+}
+
 fn evidence_rail_receipt_schema() -> ContractSchema {
     ContractSchema {
         name: EVIDENCE_RAIL_RECEIPT_CONTRACT_NAME,
@@ -556,6 +687,20 @@ fn chaoscontrol_proof_style_input_schema() -> ContractSchema {
     ContractSchema {
         name: CHAOSCONTROL_PROOF_STYLE_INPUT_CONTRACT_NAME,
         fields: CHAOSCONTROL_PROOF_STYLE_INPUT_FIELDS,
+    }
+}
+
+fn structural_linkage_projection_schema() -> ContractSchema {
+    ContractSchema {
+        name: STRUCTURAL_LINKAGE_PROJECTION_CONTRACT_NAME,
+        fields: STRUCTURAL_LINKAGE_PROJECTION_FIELDS,
+    }
+}
+
+fn structural_linkage_receipt_schema() -> ContractSchema {
+    ContractSchema {
+        name: STRUCTURAL_LINKAGE_RECEIPT_CONTRACT_NAME,
+        fields: STRUCTURAL_LINKAGE_RECEIPT_FIELDS,
     }
 }
 
@@ -619,9 +764,19 @@ fn render_default(value: &str) -> String {
 
 fn render_field_kind(kind: FieldKind) -> String {
     match kind {
+        FieldKind::Bool => "Bool".to_owned(),
         FieldKind::ExactNumber(value) => format!("std.contract.from_predicate (fun value => value == {value})"),
         FieldKind::ExactString(value) => {
             format!("std.contract.from_predicate (fun value => value == {value:?})")
+        }
+        FieldKind::OneOfStrings(values) => {
+            let mut rendered_values = String::new();
+            for value in values {
+                write!(&mut rendered_values, "{value:?}, ").expect("render allowed string");
+            }
+            format!(
+                "std.contract.from_predicate (fun value => std.is_string value && std.array.elem value [{rendered_values}])"
+            )
         }
         FieldKind::NonEmptyString => "NonEmptyString".to_owned(),
         FieldKind::String => "String".to_owned(),
@@ -636,28 +791,28 @@ fn render_field_kind(kind: FieldKind) -> String {
 }
 
 #[derive(Clone, Debug)]
-struct ChaosControlProofStyleInputContract {
-    schema_version: String,
-    consumer_repo: String,
-    selected_profile: String,
-    focused_crates: Vec<String>,
-    policy_registry_digest: String,
-    trellis_primitive_manifest_digest: Option<String>,
-    input_revision: String,
-    expected_command: Vec<String>,
-    non_claims: Vec<String>,
+pub(crate) struct ChaosControlProofStyleInputContract {
+    pub(crate) schema_version: String,
+    pub(crate) consumer_repo: String,
+    pub(crate) selected_profile: String,
+    pub(crate) focused_crates: Vec<String>,
+    pub(crate) policy_registry_digest: String,
+    pub(crate) trellis_primitive_manifest_digest: Option<String>,
+    pub(crate) input_revision: String,
+    pub(crate) expected_command: Vec<String>,
+    pub(crate) non_claims: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct ChaosControlProofStyleInputReceipt {
-    valid: bool,
-    issues: Vec<&'static str>,
-    consumer_repo: String,
-    selected_profile: String,
-    supported_claim: &'static str,
+pub(crate) struct ChaosControlProofStyleInputReceipt {
+    pub(crate) valid: bool,
+    pub(crate) issues: Vec<&'static str>,
+    pub(crate) consumer_repo: String,
+    pub(crate) selected_profile: String,
+    pub(crate) supported_claim: &'static str,
 }
 
-fn validate_chaoscontrol_proof_style_input(
+pub(crate) fn validate_chaoscontrol_proof_style_input(
     contract: &ChaosControlProofStyleInputContract,
 ) -> ChaosControlProofStyleInputReceipt {
     let mut issues = Vec::new();
@@ -748,12 +903,15 @@ mod tests {
         "standards/evidence/fixtures/valid/provenance_record_v1.ncl",
         "standards/evidence/fixtures/valid/hegel_property_details_v1.ncl",
         "standards/evidence/fixtures/valid/hegel_hardened_details_v1.ncl",
+        "standards/evidence/fixtures/valid/hegel_hardened_family_details_v1.ncl",
         "standards/evidence/fixtures/valid/mirai_pilot_decision_v1.ncl",
         "standards/evidence/fixtures/valid/cargo_fuzz_details_v1.ncl",
         "standards/evidence/fixtures/valid/sarif_import_details_v1.ncl",
         "standards/evidence/fixtures/valid/coverage_baseline_details_v1.ncl",
         "standards/evidence/fixtures/valid/cargo_mutants_details_v1.ncl",
         "standards/evidence/fixtures/valid/binary_debug_map_details_v1.ncl",
+        "standards/evidence/fixtures/valid/dynamic_qualification_details_v1.ncl",
+        "standards/evidence/fixtures/valid/kani_producer_details_v1.ncl",
         "standards/evidence/fixtures/valid/evidence_rail_receipt_v1.ncl",
         "standards/evidence/fixtures/valid/chaoscontrol_proof_style_input_v1.ncl",
     ];
@@ -765,12 +923,15 @@ mod tests {
         "standards/evidence/fixtures/invalid/provenance_bad_tier.ncl",
         "standards/evidence/fixtures/invalid/hegel_property_missing_property_id.ncl",
         "standards/evidence/fixtures/invalid/hegel_hardened_wrong_profile.ncl",
+        "standards/evidence/fixtures/invalid/hegel_hardened_wrong_family_tier.ncl",
         "standards/evidence/fixtures/invalid/mirai_pilot_wrong_decision.ncl",
         "standards/evidence/fixtures/invalid/cargo_fuzz_wrong_profile.ncl",
         "standards/evidence/fixtures/invalid/sarif_import_bad_version.ncl",
         "standards/evidence/fixtures/invalid/coverage_baseline_bad_profile.ncl",
         "standards/evidence/fixtures/invalid/cargo_mutants_bad_profile.ncl",
         "standards/evidence/fixtures/invalid/binary_debug_map_missing_non_claims.ncl",
+        "standards/evidence/fixtures/invalid/dynamic_qualification_wrong_identity.ncl",
+        "standards/evidence/fixtures/invalid/kani_producer_formal_proof_overclaim.ncl",
         "standards/evidence/fixtures/invalid/evidence_rail_receipt_missing_non_claims.ncl",
         "standards/evidence/fixtures/invalid/evidence_rail_receipt_missing_finding_counts.ncl",
         "standards/evidence/fixtures/invalid/chaoscontrol_missing_profile.ncl",
@@ -949,6 +1110,18 @@ mod tests {
                 Some("regression-fixtures"),
                 Some("cargo test verifier_fixture_normalization"),
             )),
+            emitted_receipt_record(&rail_receipt(
+                evidence_rails::EvidenceRailKind::DynamicEvidence,
+                &sample_dynamic_qualification_input(),
+                Some(crate::dynamic::MIRI_QUALIFIED_PROFILE_ID),
+                None,
+            )),
+            emitted_receipt_record(&rail_receipt(
+                evidence_rails::EvidenceRailKind::KaniModelCheck,
+                &sample_kani_producer_input(),
+                Some(crate::kani::PRODUCER_PROFILE_ID),
+                None,
+            )),
         ];
 
         let emitted_keys: std::collections::BTreeSet<String> = records.iter().flat_map(wire_keys).collect();
@@ -959,10 +1132,266 @@ mod tests {
             "tool_exit_code",
             "z4_solver",
             "verifier_fixtures",
+            "dynamic_qualification",
+            "kani_producer",
         ] {
             assert!(emitted_keys.contains(key), "sampled receipts never emitted `{key}`");
         }
         assert_records_satisfy_contract(EVIDENCE_RAIL_RECEIPT_CONTRACT_NAME, &records);
+    }
+
+    #[test]
+    fn emitted_hegel_hardened_receipt_details_satisfy_generated_contract() {
+        let mut records = Vec::new();
+        let contract_fields = contract_field_names(HEGEL_HARDENED_DETAILS_FIELDS);
+        for profile_id in crate::hegel::profile_validation::REGISTERED_PROFILE_IDS {
+            let (input, profile) = crate::hegel::tests::valid_input_for(profile_id);
+            let text = serde_json::to_string(&input).expect("serialize hegel input");
+            let command = profile.command_argv.join(" ");
+            let receipt = evidence_rails::evaluate(evidence_rails::EvaluationInput {
+                rail: evidence_rails::EvidenceRailKind::HegelProperty,
+                mode: "run",
+                import_text: &text,
+                workspace_scope: ".",
+                config_path: Some("standards/hegel/profiles.json"),
+                baseline_identity: None,
+                lockfile_identity: Some(input.cargo_lock_identity.clone()),
+                locked: true,
+                advisory_updated_by_prior_step: false,
+                profile: Some(profile_id),
+                requested_command: Some(&command),
+                parent_artifacts: Vec::new(),
+                tool_exit_code: Some(0),
+            });
+            let details = receipt
+                .hegel_property
+                .and_then(|details| details.hardened)
+                .unwrap_or_else(|| panic!("missing hardened details for {profile_id}"));
+            assert_eq!(hegel_hardened_wire_fields(&details), contract_fields);
+            records.push(serde_json::to_value(&details).expect("serialize hardened ReceiptDetails"));
+        }
+
+        // Counterexample sample with retained counterexample_identity, achieved_size, and unexecuted_laws.
+        let mut ce_details: crate::hegel::ReceiptDetails =
+            serde_json::from_value(records.last().expect("freshness record").clone()).expect("clone details");
+        ce_details.result = "counterexample".to_owned();
+        ce_details.cases_completed = 3;
+        ce_details.counterexample_identity =
+            Some("b3:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".to_owned());
+        let dropped = ce_details.executed_laws.pop().expect("executed law");
+        ce_details.unexecuted_laws.push(dropped.law_id);
+        ce_details.executed_laws[0].status = "counterexample".to_owned();
+        ce_details.executed_laws[0].cases_completed = 3;
+        ce_details.executed_laws[0].shrink_termination = "shrunk".to_owned();
+        ce_details.executed_laws[0].achieved_size = Some(18);
+        assert_eq!(hegel_hardened_wire_fields(&ce_details), contract_fields);
+        records.push(serde_json::to_value(&ce_details).expect("serialize counterexample details"));
+
+        // Legacy `octet-pure-core-laws-v1` sample with empty law inventories omitted via
+        // skip_serializing_if.
+        let mut legacy_details: crate::hegel::ReceiptDetails =
+            serde_json::from_value(records[0].clone()).expect("clone pure details");
+        legacy_details.expected_laws.clear();
+        legacy_details.executed_laws.clear();
+        legacy_details.unexecuted_laws.clear();
+        let legacy_val = serde_json::to_value(&legacy_details).expect("serialize legacy details");
+        assert!(wire_keys(&legacy_val).is_subset(&contract_fields));
+        records.push(legacy_val);
+
+        assert_records_satisfy_contract(HEGEL_HARDENED_DETAILS_CONTRACT_NAME, &records);
+    }
+
+    fn hegel_hardened_wire_fields(details: &crate::hegel::ReceiptDetails) -> std::collections::BTreeSet<String> {
+        let crate::hegel::ReceiptDetails {
+            schema_version: _,
+            profile_id: _,
+            profile_identity: _,
+            law_catalog_identity: _,
+            property_id: _,
+            linked_ids: _,
+            source_scope: _,
+            producer: _,
+            settings: _,
+            generator: _,
+            command_argv: _,
+            cargo_lock_identity: _,
+            package_manifest_identity: _,
+            source_manifest_identity: _,
+            generator_manifest_identity: _,
+            summary_identity: _,
+            bounded_log_identity: _,
+            counterexample_identity: _,
+            result: _,
+            cases_completed: _,
+            issue_codes: _,
+            projection_identity: _,
+            evidence_tier: _,
+            verification_role: _,
+            non_claims: _,
+            expected_laws: _,
+            executed_laws: _,
+            unexecuted_laws: _,
+        } = details;
+        [
+            "schema_version",
+            "profile_id",
+            "profile_identity",
+            "law_catalog_identity",
+            "property_id",
+            "linked_ids",
+            "source_scope",
+            "producer",
+            "settings",
+            "generator",
+            "command_argv",
+            "cargo_lock_identity",
+            "package_manifest_identity",
+            "source_manifest_identity",
+            "generator_manifest_identity",
+            "summary_identity",
+            "bounded_log_identity",
+            "counterexample_identity",
+            "result",
+            "cases_completed",
+            "issue_codes",
+            "projection_identity",
+            "evidence_tier",
+            "verification_role",
+            "non_claims",
+            "expected_laws",
+            "executed_laws",
+            "unexecuted_laws",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect()
+    }
+
+    #[test]
+    fn structural_linkage_contracts_match_emitted_wire_fields() {
+        let proj_fields = crate::structural_linkage::Projection {
+            schema_version: crate::structural_linkage::PROJECTION_SCHEMA_V1.to_owned(),
+            profile_id: "cairn-structural-trace-v2".to_owned(),
+            producer: "cairn".to_owned(),
+            original_report_schema: "cairn.content-bound-trace-index.v2".to_owned(),
+            original_report_blake3: "1".repeat(64),
+            mapping_id: "octet-cairn-structural-linkage-v1".to_owned(),
+            mapping_version: "1".to_owned(),
+            namespace: "cairn".to_owned(),
+            evidence_class: crate::structural_linkage::EVIDENCE_CLASS_NAME.to_owned(),
+            evidence_tier: crate::structural_linkage::EVIDENCE_TIER_NAME.to_owned(),
+            records: Vec::new(),
+            historical_records: Vec::new(),
+            unsupported_reasons: Vec::new(),
+            non_claims: vec!["not formal proof".to_owned()],
+            projection_blake3: "2".repeat(64),
+        };
+        let proj_val = serde_json::to_value(&proj_fields).expect("serialize projection");
+        assert_eq!(wire_keys(&proj_val), contract_field_names(STRUCTURAL_LINKAGE_PROJECTION_FIELDS));
+        assert_records_satisfy_contract(STRUCTURAL_LINKAGE_PROJECTION_CONTRACT_NAME, &[proj_val]);
+
+        let rcpt_fields = crate::structural_linkage::ConversionReceipt {
+            schema_version: crate::structural_linkage::RECEIPT_SCHEMA_V1.to_owned(),
+            profile_id: "cairn-structural-trace-v2".to_owned(),
+            producer: "cairn".to_owned(),
+            original_report_schema: "cairn.content-bound-trace-index.v2".to_owned(),
+            original_report_blake3: "1".repeat(64),
+            projection_schema_version: crate::structural_linkage::PROJECTION_SCHEMA_V1.to_owned(),
+            projection_blake3: "2".repeat(64),
+            mapping_id: "octet-cairn-structural-linkage-v1".to_owned(),
+            mapping_version: "1".to_owned(),
+            namespace: "cairn".to_owned(),
+            evidence_class: crate::structural_linkage::EVIDENCE_CLASS_NAME.to_owned(),
+            evidence_tier: crate::structural_linkage::EVIDENCE_TIER_NAME.to_owned(),
+            status: crate::structural_linkage::STATUS_VALID.to_owned(),
+            command_executed: false,
+            replay_deterministic: true,
+            active_record_count: 0,
+            historical_record_count: 0,
+            source_checks: Vec::new(),
+            diagnostics: Vec::new(),
+            non_claims: vec!["not formal proof".to_owned()],
+            receipt_blake3: "3".repeat(64),
+        };
+        let rcpt_val = serde_json::to_value(&rcpt_fields).expect("serialize receipt");
+        assert_eq!(wire_keys(&rcpt_val), contract_field_names(STRUCTURAL_LINKAGE_RECEIPT_FIELDS));
+        assert_records_satisfy_contract(STRUCTURAL_LINKAGE_RECEIPT_CONTRACT_NAME, &[rcpt_val]);
+    }
+
+    fn sample_dynamic_qualification_input() -> String {
+        serde_json::json!({
+            "schema_version": crate::dynamic::MATRIX_RECEIPT_SCHEMA,
+            "profile_id": crate::dynamic::MIRI_QUALIFIED_PROFILE_ID,
+            "profile_identity": crate::dynamic::EXPECTED_PROFILE_IDENTITY,
+            "source_manifest_identity": crate::dynamic::prefixed_identity(b"src"),
+            "command_argv": crate::dynamic::selected_profile(crate::dynamic::MIRI_QUALIFIED_PROFILE_ID).expect("profile").command_argv,
+            "compiler_probe": {
+                "cargo_version": "cargo 1.98.0-nightly",
+                "rustc_release": "1.98.0-nightly",
+                "commit_hash": "31a9463c6e2794a59ce57a8f37abc6966afc2a58",
+                "host_triple": "x86_64-unknown-linux-gnu",
+                "tool_kind": "miri",
+                "tool_version": "miri 0.1.0",
+                "sysroot_identity": crate::dynamic::prefixed_identity(b"sysroot"),
+            },
+            "observed_runs": [{
+                "cell_id": "miri-x86_64-tree-borrows-seed1",
+                "disposition": "passed",
+                "target_triple": "x86_64-unknown-linux-gnu",
+                "tool_version": "miri 0.1.0",
+                "rustc_release": "1.98.0-nightly",
+                "miri_flags": ["-Zmiri-strict-provenance", "-Zmiri-tree-borrows", "-Zmiri-seed=1"],
+                "tests_started": 2,
+                "tests_passed": 2,
+                "tests_failed": 0,
+                "tests_ignored": 0,
+                "tests_filtered_out": 0,
+                "executed_tests": ["tests::checked_slice_window_sound", "tests::raw_pointer_read_aligned"],
+                "exit_code": 0,
+                "bounded_log_identity": crate::dynamic::prefixed_identity(b"log"),
+            }]
+        })
+        .to_string()
+    }
+
+    fn sample_kani_producer_input() -> String {
+        serde_json::json!({
+            "schema_version": crate::kani::OBSERVATION_SCHEMA,
+            "profile_id": crate::kani::PRODUCER_PROFILE_ID,
+            "profile_identity": crate::kani::EXPECTED_PROFILE_IDENTITY,
+            "source_manifest_identity": crate::kani::prefixed_identity(b"kani-src"),
+            "command_argv": ["cargo", "kani", "--locked", "--offline", "-p", "octet-kani-boundary-pilot", "--lib", "--harness", "check_checked_window_bounds", "--default-unwind", "8", "-Z", "unstable-options", "--export-json", "kani-export.json"],
+            "toolchain": {
+                "kani_version": "cargo-kani 0.68.0",
+                "provider_revision": "kani-0.68.0-release",
+                "closure_identity": "nix:kani-0.68.0-x86_64-unknown-linux-gnu",
+                "rustc_release": "1.87.0-nightly",
+                "rustc_commit_hash": "1111111111111111111111111111111111111111",
+                "cbmc_version": "6.5.0",
+                "solver_mode": "cbmc_builtin",
+                "solver_identity": "cbmc-builtin-cadical",
+            },
+            "exit_code": 0,
+            "bounded_log_identity": crate::kani::prefixed_identity(b"kani-log"),
+            "raw_export_json": serde_json::json!({
+                "schema_version": crate::kani::EXPORT_SCHEMA,
+                "kani_version": "0.68.0",
+                "harnesses": [{
+                    "package": "octet-kani-boundary-pilot",
+                    "target": "lib",
+                    "name": "check_checked_window_bounds",
+                    "verification_status": "SUCCESS",
+                    "unwind_bound": 8,
+                    "properties": [
+                        { "name": "a1", "check_type": "assert", "status": "SUCCESS" },
+                        { "name": "cover_valid_window_reachable", "check_type": "cover", "status": "SATISFIED" },
+                        { "name": "u1", "check_type": "unwind", "status": "SUCCESS" },
+                    ]
+                }]
+            })
+            .to_string(),
+        })
+        .to_string()
     }
 
     fn emitted_finding(suggestion: Option<&str>, applicability: Option<&str>) -> output::Finding {
@@ -1061,6 +1490,8 @@ mod tests {
             benchmark_evidence: _,
             dependency_trust: _,
             binary_debug_map: _,
+            dynamic_qualification: _,
+            kani_producer: _,
         } = receipt;
         [
             "schema_version",
@@ -1100,6 +1531,8 @@ mod tests {
             "benchmark_evidence",
             "dependency_trust",
             "binary_debug_map",
+            "dynamic_qualification",
+            "kani_producer",
         ]
         .into_iter()
         .map(str::to_owned)
@@ -1165,5 +1598,101 @@ mod tests {
 
     fn repo_root() -> std::path::PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR")).parent().expect("repo root").to_path_buf()
+    }
+
+    const WRPC_REGISTRY_JSON: &str = include_str!("../../standards/wasm-artifact/generated/profiles.json");
+    const WRPC_BASELINE_PROFILE_ID: &str = "portable-component-baseline";
+    const WRPC_PROFILE_ID: &str = "wrpc-reference";
+    const WRPC_HELLO_SERVER: &[u8] =
+        include_bytes!("../../standards/wasm-artifact/fixtures/positive/wrpc-hello-component.wasm");
+    const WRPC_HELLO_CLIENT: &[u8] =
+        include_bytes!("../../standards/wasm-artifact/fixtures/positive/wrpc-hello-client-component.wasm");
+    const WRPC_TELEMETRY_PROFILE_ID: &str = "wrpc-telemetry-reference";
+    const WRPC_TELEMETRY_EMITTER: &[u8] =
+        include_bytes!("../../standards/wasm-artifact/fixtures/positive/wrpc-telemetry-emitter-component.wasm");
+    const WRPC_TELEMETRY_IMPORTS: [&str; 3] = [
+        "component::wasi:clocks/wall-clock@0.2.3::Instance(1)",
+        "component::wasi:otel/tracing@0.2.0-rc.2::Instance(5)",
+        "component::wasi:otel/types@0.2.0-rc.2::Instance(0)",
+    ];
+
+    fn wrpc_registry() -> (crate::wasm_artifact::WasmProfileRegistry, String) {
+        let registry = crate::wasm_artifact::parse_registry(WRPC_REGISTRY_JSON).expect("parse wasm profile registry");
+        let diagnostics = crate::wasm_artifact::validate_registry(&registry);
+        assert!(diagnostics.is_empty(), "{diagnostics:?}");
+        let identity = crate::wasm_artifact::registry_identity(WRPC_REGISTRY_JSON.as_bytes());
+        (registry, identity)
+    }
+
+    fn analyze_wrpc_profile(bytes: &[u8], profile_id: &str) -> crate::wasm_artifact::WasmArtifactEnvelope {
+        let (registry, identity) = wrpc_registry();
+        crate::wasm_artifact::analyze_bytes(bytes, &registry, profile_id, identity, &[]).expect("analyze wasm artifact")
+    }
+
+    #[test]
+    fn wrpc_reference_profile_admits_the_exact_hello_component_and_keeps_the_baseline_closed() {
+        for component in [WRPC_HELLO_SERVER, WRPC_HELLO_CLIENT] {
+            let report = analyze_wrpc_profile(component, WRPC_PROFILE_ID);
+            assert!(report.details.findings.is_empty(), "{:?}", report.details.findings);
+            assert_eq!(report.details.verification_role, crate::wasm_artifact::RECORDED_ONLY_ROLE);
+            let baseline = analyze_wrpc_profile(component, WRPC_BASELINE_PROFILE_ID);
+            assert!(
+                baseline.details.findings.iter().any(|finding| finding.issue_code == "disallowed-import"),
+                "{:?}",
+                baseline.details.findings
+            );
+        }
+        let baseline = analyze_wrpc_profile(WRPC_HELLO_SERVER, WRPC_BASELINE_PROFILE_ID);
+        assert!(
+            baseline.details.findings.iter().any(|finding| finding.issue_code == "disallowed-proposal"),
+            "{:?}",
+            baseline.details.findings
+        );
+    }
+
+    #[test]
+    fn wrpc_telemetry_profile_admits_the_exact_emitter_and_other_profiles_stay_closed() {
+        let report = analyze_wrpc_profile(WRPC_TELEMETRY_EMITTER, WRPC_TELEMETRY_PROFILE_ID);
+        assert!(report.details.findings.is_empty(), "{:?}", report.details.findings);
+        assert_eq!(report.details.verification_role, crate::wasm_artifact::RECORDED_ONLY_ROLE);
+        let reference = analyze_wrpc_profile(WRPC_TELEMETRY_EMITTER, WRPC_PROFILE_ID);
+        for import in WRPC_TELEMETRY_IMPORTS {
+            assert!(
+                reference
+                    .details
+                    .findings
+                    .iter()
+                    .any(|finding| finding.issue_code == "disallowed-import" && finding.message.contains(import)),
+                "{import}: {:?}",
+                reference.details.findings
+            );
+        }
+        assert!(
+            reference.details.findings.iter().any(|finding| finding.issue_code == "resource-limit"),
+            "{:?}",
+            reference.details.findings
+        );
+        let baseline = analyze_wrpc_profile(WRPC_TELEMETRY_EMITTER, WRPC_BASELINE_PROFILE_ID);
+        assert!(
+            baseline.details.findings.iter().any(|finding| finding.issue_code == "disallowed-import"),
+            "{:?}",
+            baseline.details.findings
+        );
+    }
+
+    #[test]
+    fn wrpc_telemetry_profile_refuses_a_component_without_its_required_imports() {
+        let report = analyze_wrpc_profile(WRPC_HELLO_SERVER, WRPC_TELEMETRY_PROFILE_ID);
+        for import in WRPC_TELEMETRY_IMPORTS {
+            assert!(
+                report
+                    .details
+                    .findings
+                    .iter()
+                    .any(|finding| finding.issue_code == "abi-mismatch" && finding.message.contains(import)),
+                "{import}: {:?}",
+                report.details.findings
+            );
+        }
     }
 }

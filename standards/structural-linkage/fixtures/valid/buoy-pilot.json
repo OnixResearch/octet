@@ -1,0 +1,85 @@
+{
+  "boundary": "bounded pilot comparison only",
+  "cases": [
+    {
+      "comparison": "agreement",
+      "declared_upstream": {
+        "disposition": "declared_current",
+        "reason": "current pilot case",
+        "report_blake3": "af9ddc8a7ec82bbbb81a654b4d154671cdd63f72c0fdd82570e4e574ef78eed3",
+        "report_schema": "buoy.check.v1",
+        "semantic": "current"
+      },
+      "execution_mode": "verify_base_index",
+      "fixture_blake3": "2d88bd4a81ed7870ca597bd17d0a716364425f84a963a5eb70a20b7c45f1bf72",
+      "id": "pilot-case-1",
+      "native": {
+        "executed": true,
+        "valid": true
+      },
+      "native_semantic": "current",
+      "outcome": "agreement",
+      "reason": "matches Cairn current binding"
+    }
+  ],
+  "command": "traceability compare",
+  "comparison_identity": "03baa5de1c0145e1e66a59bb349aa03db3d849dcf9128d22ccd6ab807309a179",
+  "complete": true,
+  "decision": {
+    "disposition": "agreement",
+    "reason": "bounded comparison pilot",
+    "runtime_adoption": false
+  },
+  "execution": {
+    "case_count": 1,
+    "declared_only_case_count": 0,
+    "executed_case_count": 1,
+    "native_executed": true,
+    "upstream_executed": false
+  },
+  "issues": [],
+  "manifest_blake3": "0d197521d9a48760576da1c87dfd828a60d397ea1e16f92a5b7c44b4f4060ce1",
+  "mapping": {
+    "external_projection_is_authority": false,
+    "id": "octet-buoy-comparison-pilot-v1",
+    "original_authority": "cairn",
+    "preserves_original_identities": true,
+    "projection_version": "1",
+    "semantic_subset": "current-agreement-only"
+  },
+  "non_claims": [
+    "not upstream execution",
+    "not formal proof"
+  ],
+  "policy_blake3": "ff096070fb25d5456f50000af78f1c92fda605bdb7bc3d1e7d1cc0091204e61c",
+  "schema": "cairn.buoy-comparison.receipt.v1",
+  "upstream": {
+    "artifact_available": true,
+    "command_behavior": [
+      "declared_only"
+    ],
+    "commands": [
+      "buoy check"
+    ],
+    "consumer_package": "cairn",
+    "digest_feature": "default",
+    "disposition": "artifact_available_not_executed",
+    "evidence": [
+      "pilot-fixture"
+    ],
+    "executed": false,
+    "producer": "buoy",
+    "reason": "pinned comparison fixture",
+    "report_schemas": [
+      "buoy.check.v1"
+    ],
+    "repository": "https://github.com/Chelis-Lang/buoy",
+    "revision": "01096fbdd0b9bf39b2fec468f90e7b1db958f615",
+    "rust_toolchain": "1.88.0",
+    "source_content_hash": "sha256-1+/x0hY3+YMYgLVXs0uoUmA1VPPlg5i/7qt19NrBruc=",
+    "source_content_hash_algorithm": "sha256",
+    "source_content_hash_mode": "recursive-nar"
+  },
+  "valid": true,
+  "verdict": "pass"
+}

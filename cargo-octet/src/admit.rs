@@ -27,7 +27,6 @@ use crate::effect_closure::ClosureInput;
 use crate::effect_closure::EffectClosureReceipt;
 use crate::effect_closure::FunctionAddressRecord;
 use crate::effect_closure::ProviderIdentity;
-use crate::effect_closure::ProviderKind;
 use crate::effect_closure::SourceEnvelope;
 use crate::effect_closure::WorkspacePolicy;
 use crate::evidence::EvidenceTier;
@@ -45,7 +44,7 @@ const EXIT_ADMITTED: i32 = 0;
 const EXIT_DENIED: i32 = 1;
 const ADMISSION_STATUS_SCHEMA: &str = "octet-effect-closure-status/v1";
 const ADMISSION_VERIFICATION_SCHEMA: &str = "octet-effect-closure-verification/v1";
-const DEPENDENCY_GRAPH_SCHEMA: &str = "octet-effect-closure-dependency-graph/v1";
+pub(crate) const DEPENDENCY_GRAPH_SCHEMA: &str = "octet-effect-closure-dependency-graph/v2";
 const STATUS_ADMITTED: &str = "admitted";
 const STATUS_DENIED: &str = "denied";
 const STATUS_VALID: &str = "valid";
@@ -76,9 +75,6 @@ const TOOLCHAIN_ENV: &str = "RUSTUP_TOOLCHAIN";
 const CHECKED_SCOPE_PREFIX: &str = "effect-closure:";
 const PROVENANCE_SOURCE_ID: &str = "octet.runner.effect-closure";
 const CHECKER_ID: &str = "cargo-octet";
-const PROVIDER_SOURCE_TOOLCHAIN: &str = "rustc-toolchain";
-const PROVIDER_SOURCE_WORKSPACE: &str = "workspace";
-const PROVIDER_SOURCE_PATH_PREFIX: &str = "path-manifest:";
 const TOOLCHAIN_PROVIDER_NAMES: &[&str] = &["alloc", "core", "rustc", "std"];
 const TOP_LEVEL_ARTIFACTS: &[&str] = &[
     COMMAND_FILE,
@@ -214,29 +210,72 @@ struct CanonicalRoot {
 
 #[derive(Clone, Debug, Deserialize)]
 struct CargoMetadata {
-    packages: Vec<CargoPackage>,
+    packages: Vec<MetadataPackage>,
     workspace_members: Vec<String>,
     resolve: Option<CargoResolve>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
-struct CargoPackage {
+struct MetadataPackage {
     id: String,
     name: String,
     version: String,
     source: Option<String>,
     manifest_path: String,
+    #[serde(default = "empty_targets")]
+    targets: Vec<MetadataTarget>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct MetadataTarget {
+    #[serde(default = "empty_strings")]
+    kind: Vec<String>,
+    src_path: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 struct CargoResolve {
-    nodes: Vec<CargoNode>,
+    nodes: Vec<MetadataNode>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
-struct CargoNode {
+struct MetadataNode {
     id: String,
     features: Vec<String>,
+    #[serde(default = "empty_resolve_deps")]
+    deps: Vec<MetadataResolveDep>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct MetadataResolveDep {
+    pkg: String,
+    #[serde(default = "empty_dep_kinds")]
+    dep_kinds: Vec<MetadataDepKind>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct MetadataDepKind {
+    kind: Option<String>,
+}
+
+fn empty_targets() -> Vec<MetadataTarget> {
+    Vec::new()
+}
+
+fn empty_strings() -> Vec<String> {
+    Vec::new()
+}
+
+fn empty_resolve_deps() -> Vec<MetadataResolveDep> {
+    Vec::new()
+}
+
+fn empty_dep_kinds() -> Vec<MetadataDepKind> {
+    Vec::new()
+}
+
+fn empty_string() -> String {
+    String::new()
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -246,7 +285,13 @@ pub(crate) struct DependencyGraphArtifact {
     pub toolchain: String,
     pub rustc_version: String,
     pub cargo_lock_blake3: String,
+    pub build_context_blake3: String,
+    #[serde(default = "empty_strings", skip_serializing_if = "Vec::is_empty")]
+    pub metadata_cargo_args: Vec<String>,
+    #[serde(default = "empty_string", skip_serializing_if = "String::is_empty")]
+    pub rustflags: String,
     pub providers: Vec<ProviderIdentity>,
+    pub provider_envelopes: Vec<crate::envelope::ProviderRecord>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -256,12 +301,24 @@ struct AdmissionStatusArtifact {
     exit_code: i32,
     phase: String,
     profile_id: String,
+    #[serde(default = "none_binding_profile", skip_serializing_if = "Option::is_none")]
+    binding_profile: Option<crate::envelope::BindingProfile>,
+    #[serde(default = "none_justification_summary", skip_serializing_if = "Option::is_none")]
+    justification_summary: Option<crate::envelope::JustificationSummary>,
     #[serde(skip_serializing_if = "Option::is_none")]
     receipt_identity: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     kamacite: Option<KamaciteStatusArtifact>,
     diagnostics: Vec<String>,
     non_claims: Vec<String>,
+}
+
+fn none_binding_profile() -> Option<crate::envelope::BindingProfile> {
+    None
+}
+
+fn none_justification_summary() -> Option<crate::envelope::JustificationSummary> {
+    None
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -506,6 +563,7 @@ struct TrustedKeyMaterial {
     observed_at_unix: Option<u64>,
 }
 
+#[derive(Clone)]
 pub(crate) struct PreparedIntegratedClosure {
     policy: WorkspacePolicy,
     policy_bytes: Vec<u8>,
@@ -522,6 +580,20 @@ pub(crate) struct IntegratedClosureArtifacts {
 }
 
 // r[impl octet.effect_closure.cli]
+struct OptionalEffectProfiles<'a> {
+    kamacite: Option<&'a Path>,
+    semantic: Option<&'a Path>,
+}
+
+struct AdmissionSpec<'a> {
+    profile: &'a str,
+    closure: bool,
+    policy_path: &'a Path,
+    optional_profiles: OptionalEffectProfiles<'a>,
+    scope_args: &'a [String],
+    cargo_check_args: Option<&'a [String]>,
+}
+
 // r[impl octet.effect_closure.boundaries.default]
 pub fn run(args: &AdmissionArgs) -> Result<i32, String> {
     match &args.mode {
@@ -530,17 +602,20 @@ pub fn run(args: &AdmissionArgs) -> Result<i32, String> {
             closure,
             policy,
             kamacite_effect_profile,
+            semantic_effect_profile,
             scope_args,
             cargo_check_args,
-        } => run_admission(
-            args,
+        } => run_admission(args, &AdmissionSpec {
             profile,
-            *closure,
-            policy,
-            kamacite_effect_profile.as_deref(),
+            closure: *closure,
+            policy_path: policy,
+            optional_profiles: OptionalEffectProfiles {
+                kamacite: kamacite_effect_profile.as_deref(),
+                semantic: semantic_effect_profile.as_deref(),
+            },
             scope_args,
-            cargo_check_args.as_deref(),
-        ),
+            cargo_check_args: cargo_check_args.as_deref(),
+        }),
         AdmissionMode::Verify {
             auth_policy,
             auth_evidence,
@@ -553,16 +628,8 @@ pub fn run(args: &AdmissionArgs) -> Result<i32, String> {
 
 // r[impl octet.effect_closure.cli.admitted]
 // r[impl octet.effect_closure.cli.check_failure]
-fn run_admission(
-    args: &AdmissionArgs,
-    profile: &str,
-    closure: bool,
-    policy_path: &Path,
-    kamacite_effect_profile: Option<&Path>,
-    scope_args: &[String],
-    cargo_check_args: Option<&[String]>,
-) -> Result<i32, String> {
-    if profile != effect_closure::DETERMINISTIC_CORE_PROFILE || !closure {
+fn run_admission(args: &AdmissionArgs, spec: &AdmissionSpec<'_>) -> Result<i32, String> {
+    if spec.profile != effect_closure::DETERMINISTIC_CORE_PROFILE || !spec.closure {
         return Err(format!(
             "effect closure v1 requires `--profile {} --closure`",
             effect_closure::DETERMINISTIC_CORE_PROFILE
@@ -573,92 +640,205 @@ fn run_admission(
     let cwd = env::current_dir().map_err(|error| format!("current_dir: {error}"))?;
     let workspace_config = crate::config::load(&cwd)?;
     let workspace_root = workspace_config.workspace_root;
-    let selected_profile = crate::strict_profile::prepare_selected_profile(Some(profile), &workspace_root)?
+    let selected_profile = crate::strict_profile::prepare_selected_profile(Some(spec.profile), &workspace_root)?
         .ok_or_else(|| "effect closure requires a selected strict profile".to_owned())?;
-    let prepared = prepare_inputs(&workspace_root, policy_path)?;
+    let prepared = prepare_inputs(&workspace_root, spec.policy_path)?;
     let artifact_dir = absolute_from_workspace(&workspace_root, &args.artifact_dir);
     let check_dir = artifact_dir.join(CHECK_DIR);
     let root = prepare_artifact_root(&artifact_dir)?;
     let command_bytes = normalized_text_bytes(&args.command_line);
 
-    let check = CheckArgs {
-        scope_args: scope_args.to_vec(),
-        cargo_check_args: cargo_check_args.map(<[String]>::to_vec),
-        profile: Some(profile.to_owned()),
+    let check = build_admission_check_args(spec, &check_dir, &prepared.baseline_path, &args.command_line);
+    let check_exit = if spec.optional_profiles.semantic.is_some() {
+        crate::engine::run_with_semantic_collection(&check)?
+    } else {
+        crate::engine::run(&check)?
+    };
+    if check_exit != EXIT_ADMITTED {
+        write_blocked_status(&root, spec.profile, check_exit, &command_bytes)?;
+        return Ok(check_exit);
+    }
+    verify_check_bundle(&check_dir)?;
+
+    let receipt = compute_admission_closure(&ClosureBuildRequest {
+        workspace_root: &workspace_root,
+        spec,
+        core_source_scopes: &selected_profile.core_source_scopes,
+        prepared: &prepared,
+        check_dir: &check_dir,
+        command_bytes: &command_bytes,
+    })?;
+    let kamacite = match spec.optional_profiles.kamacite {
+        Some(path) if receipt.status == AdmissionStatus::Admitted => {
+            Some(prepare_kamacite_bundle(&workspace_root, path, &receipt)?)
+        }
+        _ => None,
+    };
+    let deps_bundle = AdmissionBundleContext {
+        workspace_root: &workspace_root,
+        spec,
+        artifact_dir: &artifact_dir,
+        check_dir: &check_dir,
+        root: &root,
+        command_bytes: &command_bytes,
+        policy_bytes: &prepared.policy_bytes,
+    };
+    finalize_admission_outputs(args.output_format, &deps_bundle, &receipt, kamacite.as_ref())
+}
+
+struct ClosureBuildRequest<'a> {
+    workspace_root: &'a Path,
+    spec: &'a AdmissionSpec<'a>,
+    core_source_scopes: &'a [PathBuf],
+    prepared: &'a PreparedIntegratedClosure,
+    check_dir: &'a Path,
+    command_bytes: &'a [u8],
+}
+
+struct AdmissionBundleContext<'a> {
+    workspace_root: &'a Path,
+    spec: &'a AdmissionSpec<'a>,
+    artifact_dir: &'a Path,
+    check_dir: &'a Path,
+    root: &'a crate::cap_fs::ArtifactRoot,
+    command_bytes: &'a [u8],
+    policy_bytes: &'a [u8],
+}
+
+fn finalize_admission_outputs(
+    output_format: OutputFormat,
+    ctx: &AdmissionBundleContext<'_>,
+    receipt: &crate::effect_closure::EffectClosureReceipt,
+    kamacite: Option<&KamaciteBundle>,
+) -> Result<i32, String> {
+    let check_status_bytes = read_required(&ctx.check_dir.join(STATUS_FILE))?;
+    let function_address_bytes =
+        read_required(&ctx.check_dir.join(crate::function_address::FUNCTION_ADDRESS_ARTIFACT_NAME))?;
+    let (_, dependency_graph_bytes) = dependency_graph(
+        ctx.workspace_root,
+        ctx.spec.cargo_check_args.unwrap_or_default(),
+        &selected_target(ctx.spec.cargo_check_args.unwrap_or_default())?,
+        &parse_check_status(&check_status_bytes, ctx.spec.profile)?.metadata,
+    )?;
+    write_closure_bundle(
+        ctx.root,
+        ctx.artifact_dir,
+        ctx.command_bytes,
+        ctx.policy_bytes,
+        &dependency_graph_bytes,
+        &check_status_bytes,
+        &function_address_bytes,
+        receipt,
+        kamacite,
+    )?;
+    let is_semantic_admitted = evaluate_optional_semantic_admission(
+        ctx.workspace_root,
+        ctx.spec.optional_profiles.semantic,
+        ctx.artifact_dir,
+        receipt,
+    )?;
+    render_admission_output(output_format, ctx.artifact_dir, receipt, kamacite)?;
+    let admitted = receipt.status == AdmissionStatus::Admitted
+        && kamacite.is_none_or(|bundle| bundle.comparison.status == AdmissionStatus::Admitted)
+        && is_semantic_admitted;
+    Ok(if admitted { EXIT_ADMITTED } else { EXIT_DENIED })
+}
+
+fn build_admission_check_args(
+    spec: &AdmissionSpec<'_>,
+    check_dir: &Path,
+    baseline_path: &Path,
+    command_line: &str,
+) -> CheckArgs {
+    CheckArgs {
+        scope_args: spec.scope_args.to_vec(),
+        cargo_check_args: spec.cargo_check_args.map(<[String]>::to_vec),
+        profile: Some(spec.profile.to_owned()),
         output_format: OutputFormat::Human,
-        artifact_dir: Some(check_dir.clone()),
+        artifact_dir: Some(check_dir.to_path_buf()),
         baseline: None,
         write_baseline: None,
         cache: false,
         function_addresses: FunctionAddressCheck {
             mode: FunctionAddressMode::Off,
             paths: Vec::new(),
-            baseline: Some(prepared.baseline_path.clone()),
+            baseline: Some(baseline_path.to_path_buf()),
         },
-        command_line: args.command_line.clone(),
-    };
-    let check_exit = crate::engine::run(&check)?;
-    if check_exit != EXIT_ADMITTED {
-        write_blocked_status(&root, profile, check_exit, &command_bytes)?;
-        return Ok(check_exit);
+        command_line: command_line.to_owned(),
     }
-    verify_check_bundle(&check_dir)?;
+}
 
-    let check_status_bytes = read_required(&check_dir.join(STATUS_FILE))?;
+fn compute_admission_closure(
+    req: &ClosureBuildRequest<'_>,
+) -> Result<crate::effect_closure::EffectClosureReceipt, String> {
+    let check_status_bytes = read_required(&req.check_dir.join(STATUS_FILE))?;
     let function_address_bytes =
-        read_required(&check_dir.join(crate::function_address::FUNCTION_ADDRESS_ARTIFACT_NAME))?;
-    let check_status = parse_check_status(&check_status_bytes, profile)?;
+        read_required(&req.check_dir.join(crate::function_address::FUNCTION_ADDRESS_ARTIFACT_NAME))?;
+    let check_status = parse_check_status(&check_status_bytes, req.spec.profile)?;
     let function_report = parse_function_report(&function_address_bytes)?;
-    let target = selected_target(cargo_check_args.unwrap_or_default())?;
-    let (dependency_graph, dependency_graph_bytes) =
-        dependency_graph(&workspace_root, cargo_check_args.unwrap_or_default(), &target, &check_status.metadata)?;
-    let sources = read_selected_sources(&workspace_root, &selected_profile.core_source_scopes)?;
+    let target = selected_target(req.spec.cargo_check_args.unwrap_or_default())?;
+    let (dependency_graph, dependency_graph_bytes) = dependency_graph(
+        req.workspace_root,
+        req.spec.cargo_check_args.unwrap_or_default(),
+        &target,
+        &check_status.metadata,
+    )?;
+    let sources = read_selected_sources(req.workspace_root, req.core_source_scopes)?;
     validate_function_source_envelopes(&sources, &function_report)?;
     let record_root = function_address_record_root(&function_report)?;
     let catalog = effect_closure::embedded_catalog()?;
 
-    let receipt = effect_closure::compute_closure(ClosureInput {
-        profile_id: profile.to_owned(),
+    Ok(effect_closure::compute_closure(ClosureInput {
+        profile_id: req.spec.profile.to_owned(),
         profile_hash: check_status.metadata.profile_hash.clone(),
         config_hash: check_status.metadata.config_hash.clone(),
-        command_blake3: crate::evidence::artifact_blake3_hex(&command_bytes),
+        command_blake3: crate::evidence::artifact_blake3_hex(req.command_bytes),
         check_status_blake3: crate::evidence::artifact_blake3_hex(&check_status_bytes),
         function_address_artifact_blake3: crate::evidence::artifact_blake3_hex(&function_address_bytes),
         function_address_record_root: record_root,
-        workspace_policy_blake3: crate::evidence::artifact_blake3_hex(&prepared.policy_bytes),
+        workspace_policy_blake3: crate::evidence::artifact_blake3_hex(&req.prepared.policy_bytes),
         cargo_graph_blake3: crate::evidence::artifact_blake3_hex(&dependency_graph_bytes),
         cargo_lock_blake3: dependency_graph.cargo_lock_blake3.clone(),
+        build_context_blake3: dependency_graph.build_context_blake3.clone(),
         target,
         toolchain: check_status.metadata.toolchain.clone(),
+        required_binding_profile: crate::envelope::BindingProfile::ImplementationBoundV1,
         sources,
         function_addresses: function_report.records,
-        resolved_providers: dependency_graph.providers.clone(),
+        resolved_providers: dependency_graph.providers,
+        resolved_envelopes: dependency_graph.provider_envelopes,
         catalog,
-        policy: prepared.policy,
-    });
+        policy: req.prepared.policy.clone(),
+    }))
+}
 
-    let kamacite = match kamacite_effect_profile {
-        Some(path) if receipt.status == AdmissionStatus::Admitted => {
-            Some(prepare_kamacite_bundle(&workspace_root, path, &receipt)?)
-        }
-        _ => None,
+fn evaluate_optional_semantic_admission(
+    workspace_root: &Path,
+    semantic_profile: Option<&Path>,
+    artifact_dir: &Path,
+    receipt: &crate::effect_closure::EffectClosureReceipt,
+) -> Result<bool, String> {
+    let Some(semantic_path) = semantic_profile else {
+        return Ok(true);
     };
-
-    write_closure_bundle(
-        &root,
-        &artifact_dir,
-        &command_bytes,
-        &prepared.policy_bytes,
-        &dependency_graph_bytes,
-        &check_status_bytes,
-        &function_address_bytes,
-        &receipt,
-        kamacite.as_ref(),
+    let function_records = receipt
+        .nodes
+        .iter()
+        .map(|node| FunctionAddressRecord {
+            path: node.path.clone(),
+            name: node.name.clone(),
+            function_address: node.function_address.clone(),
+            source_identity: String::new(),
+        })
+        .collect::<Vec<_>>();
+    let semantic_receipt = crate::semantic_effect::admit::evaluate_admitted_profile(
+        workspace_root,
+        semantic_path,
+        artifact_dir,
+        &function_records,
+        &receipt.inputs.cargo_lock_blake3,
     )?;
-    render_admission_output(args.output_format, &artifact_dir, &receipt, kamacite.as_ref())?;
-    let admitted = receipt.status == AdmissionStatus::Admitted
-        && kamacite.as_ref().is_none_or(|bundle| bundle.comparison.status == AdmissionStatus::Admitted);
-    Ok(if admitted { EXIT_ADMITTED } else { EXIT_DENIED })
+    Ok(semantic_receipt.status == AdmissionStatus::Admitted)
 }
 
 pub(crate) fn run_verification_with(
@@ -899,6 +1079,8 @@ fn write_blocked_status(
         exit_code: check_exit,
         phase: PHASE_DIRECT_CHECK.to_owned(),
         profile_id: profile.to_owned(),
+        binding_profile: None,
+        justification_summary: None,
         receipt_identity: None,
         kamacite: None,
         diagnostics: vec![diagnostic.clone()],
@@ -1003,11 +1185,14 @@ pub(crate) fn run_integrated_closure(
         workspace_policy_blake3: crate::evidence::artifact_blake3_hex(&prepared.policy_bytes),
         cargo_graph_blake3: crate::evidence::artifact_blake3_hex(&dependency_graph_bytes),
         cargo_lock_blake3: dependency_graph.cargo_lock_blake3.clone(),
+        build_context_blake3: dependency_graph.build_context_blake3.clone(),
         target,
         toolchain: metadata.toolchain.clone(),
+        required_binding_profile: crate::envelope::BindingProfile::ImplementationBoundV1,
         sources,
         function_addresses: function_report.records,
-        resolved_providers: dependency_graph.providers.clone(),
+        resolved_providers: dependency_graph.providers,
+        resolved_envelopes: dependency_graph.provider_envelopes,
         catalog: effect_closure::embedded_catalog()?,
         policy: prepared.policy,
     });
@@ -1101,13 +1286,91 @@ fn validate_function_source_envelopes(
     }
 }
 
-fn dependency_graph(
-    workspace_root: &Path,
-    cargo_check_args: &[String],
-    target: &str,
-    check_metadata: &CheckMetadata,
-) -> Result<(DependencyGraphArtifact, Vec<u8>), String> {
-    let cargo_lock = read_required(&workspace_root.join("Cargo.lock"))?;
+fn resolve_packages_from_metadata(
+    metadata: CargoMetadata,
+    workspace_members: &BTreeSet<String>,
+) -> (bool, Vec<crate::envelope::ResolvedPackageInput>) {
+    let has_resolve_graph = metadata.resolve.is_some();
+    let resolve_map = metadata
+        .resolve
+        .map(|resolve| {
+            resolve
+                .nodes
+                .into_iter()
+                .map(|node| {
+                    let mut features = node.features;
+                    features.sort();
+                    features.dedup();
+                    let deps = node
+                        .deps
+                        .into_iter()
+                        .map(|dep| {
+                            let mut dep_kinds = dep
+                                .dep_kinds
+                                .into_iter()
+                                .map(|kind| kind.kind.unwrap_or_else(|| "normal".to_owned()))
+                                .collect::<Vec<_>>();
+                            dep_kinds.sort();
+                            dep_kinds.dedup();
+                            crate::envelope::ResolvedDepEdge {
+                                pkg_id: dep.pkg,
+                                dep_kinds,
+                            }
+                        })
+                        .collect::<Vec<_>>();
+                    (node.id, (features, deps))
+                })
+                .collect::<BTreeMap<_, _>>()
+        })
+        .unwrap_or_default();
+    let packages = metadata
+        .packages
+        .into_iter()
+        .filter_map(|package| {
+            let resolved = resolve_map.get(&package.id);
+            if has_resolve_graph && resolved.is_none() {
+                return None;
+            }
+            let (features, deps) = resolved.cloned().unwrap_or_default();
+            let targets = package
+                .targets
+                .into_iter()
+                .map(|target_meta| crate::envelope::scan::PackageTargetMeta {
+                    kind: target_meta.kind,
+                    src_path: target_meta.src_path,
+                })
+                .collect::<Vec<_>>();
+            let is_workspace_member = workspace_members.contains(&package.id);
+            Some(crate::envelope::ResolvedPackageInput {
+                id: package.id,
+                name: package.name,
+                version: package.version,
+                source: package.source,
+                manifest_path: PathBuf::from(package.manifest_path),
+                is_workspace_member,
+                features,
+                targets,
+                deps,
+            })
+        })
+        .collect::<Vec<_>>();
+    (has_resolve_graph, packages)
+}
+
+pub(crate) struct EnvelopeRecomputeRequest<'a> {
+    pub workspace_root: &'a Path,
+    pub target: &'a str,
+    pub toolchain: &'a str,
+    pub rustc_version: &'a str,
+    pub metadata_cargo_args: &'a [String],
+    pub rustflags: &'a str,
+}
+
+pub(crate) fn recompute_dependency_envelopes(
+    request: &EnvelopeRecomputeRequest<'_>,
+    settings: &crate::envelope::policy::Settings,
+) -> Result<(String, crate::envelope::policy::BuildContextOutcome, Vec<crate::envelope::ProviderRecord>), String> {
+    let cargo_lock = crate::envelope::read_regular_non_symlink_file(&request.workspace_root.join("Cargo.lock"))?;
     let cargo_lock_blake3 = crate::evidence::artifact_blake3_hex(&cargo_lock);
     let mut command = Command::new(CARGO_COMMAND);
     command
@@ -1116,10 +1379,12 @@ fn dependency_graph(
         .arg(CARGO_METADATA_FORMAT_VERSION)
         .arg("--locked")
         .arg("--filter-platform")
-        .arg(target)
-        .args(metadata_cargo_args(cargo_check_args)?)
-        .current_dir(workspace_root)
-        .env(TOOLCHAIN_ENV, &check_metadata.toolchain);
+        .arg(request.target)
+        .args(request.metadata_cargo_args)
+        .current_dir(request.workspace_root);
+    if !request.toolchain.is_empty() {
+        command.env(TOOLCHAIN_ENV, request.toolchain);
+    }
     let output = command.output().map_err(|error| format!("run cargo metadata: {error}"))?;
     if !output.status.success() {
         return Err(format!(
@@ -1130,52 +1395,54 @@ fn dependency_graph(
     }
     let metadata = serde_json::from_slice::<CargoMetadata>(&output.stdout)
         .map_err(|error| format!("parse cargo metadata JSON: {error}"))?;
-    let workspace_members = metadata.workspace_members.into_iter().collect::<BTreeSet<_>>();
-    let feature_map = metadata
-        .resolve
-        .map(|resolve| {
-            resolve
-                .nodes
-                .into_iter()
-                .map(|node| {
-                    let mut features = node.features;
-                    features.sort();
-                    features.dedup();
-                    (node.id, features)
-                })
-                .collect::<BTreeMap<_, _>>()
-        })
-        .unwrap_or_default();
-    let mut providers = Vec::new();
-    for package in metadata.packages {
-        let Some(features) = feature_map.get(&package.id).cloned() else {
-            continue;
-        };
-        let workspace_package = workspace_members.contains(&package.id);
-        let source = package_source(&package, workspace_package);
-        providers.push(ProviderIdentity {
-            kind: if workspace_package {
-                ProviderKind::Workspace
-            } else {
-                ProviderKind::CargoPackage
-            },
-            name: package.name,
-            version: package.version,
-            source,
-            target: target.to_owned(),
-            features,
-        });
-    }
-    for name in TOOLCHAIN_PROVIDER_NAMES {
-        providers.push(ProviderIdentity {
-            kind: ProviderKind::Toolchain,
-            name: (*name).to_owned(),
-            version: check_metadata.rustc_version.clone(),
-            source: PROVIDER_SOURCE_TOOLCHAIN.to_owned(),
-            target: target.to_owned(),
-            features: Vec::new(),
-        });
-    }
+    let build_context = crate::envelope::policy::compute_build_context(
+        &crate::envelope::policy::BuildContextInput {
+            workspace_root: request.workspace_root,
+            target: request.target,
+            toolchain: request.toolchain,
+            rustc_version: request.rustc_version,
+            cargo_lock_blake3: &cargo_lock_blake3,
+            metadata_cargo_args: request.metadata_cargo_args,
+            rustflags: request.rustflags,
+        },
+        settings,
+    );
+    let workspace_members = metadata.workspace_members.iter().cloned().collect::<BTreeSet<_>>();
+    let (has_resolve_graph, packages) = resolve_packages_from_metadata(metadata, &workspace_members);
+    let closure_meta = crate::envelope::ClosureMetadataInput {
+        target: request.target.to_owned(),
+        toolchain: request.toolchain.to_owned(),
+        cargo_lock_blake3: cargo_lock_blake3.clone(),
+        build_context: build_context.clone(),
+        has_resolve_graph,
+        packages,
+        toolchain_provider_names: TOOLCHAIN_PROVIDER_NAMES.iter().map(|name| (*name).to_owned()).collect(),
+    };
+    let provider_envelopes = crate::envelope::closure::compute_provider_envelopes(&closure_meta, settings);
+    Ok((cargo_lock_blake3, build_context, provider_envelopes))
+}
+
+fn dependency_graph(
+    workspace_root: &Path,
+    cargo_check_args: &[String],
+    target: &str,
+    check_metadata: &CheckMetadata,
+) -> Result<(DependencyGraphArtifact, Vec<u8>), String> {
+    let metadata_args = metadata_cargo_args(cargo_check_args)?;
+    let envelope_policy = crate::envelope::policy::embedded_settings()?;
+    let rustflags = crate::engine::effective_process_rustflags()?;
+    let (cargo_lock_blake3, build_context, provider_envelopes) = recompute_dependency_envelopes(
+        &EnvelopeRecomputeRequest {
+            workspace_root,
+            target,
+            toolchain: &check_metadata.toolchain,
+            rustc_version: &check_metadata.rustc_version,
+            metadata_cargo_args: &metadata_args,
+            rustflags: &rustflags,
+        },
+        &envelope_policy,
+    )?;
+    let mut providers = provider_envelopes.iter().map(|env| env.provider.clone()).collect::<Vec<_>>();
     providers.sort();
     providers.dedup();
     let graph = DependencyGraphArtifact {
@@ -1184,23 +1451,14 @@ fn dependency_graph(
         toolchain: check_metadata.toolchain.clone(),
         rustc_version: check_metadata.rustc_version.clone(),
         cargo_lock_blake3,
+        build_context_blake3: build_context.blake3,
+        metadata_cargo_args: metadata_args,
+        rustflags,
         providers,
+        provider_envelopes,
     };
     let bytes = pretty_json_bytes(&graph)?;
     Ok((graph, bytes))
-}
-
-fn package_source(package: &CargoPackage, workspace_package: bool) -> String {
-    if workspace_package {
-        return PROVIDER_SOURCE_WORKSPACE.to_owned();
-    }
-    package.source.clone().unwrap_or_else(|| {
-        let manifest_hash = fs::read(&package.manifest_path).map_or_else(
-            |_| crate::determinism::full_hash(&package.manifest_path),
-            |bytes| crate::evidence::artifact_blake3_hex(&bytes),
-        );
-        format!("{PROVIDER_SOURCE_PATH_PREFIX}{manifest_hash}")
-    })
 }
 
 /// Selects the direct Cargo arguments that change which manifest, configuration, or feature set
@@ -1366,6 +1624,8 @@ fn status_from_receipt(
         }
         .to_owned(),
         profile_id: receipt.inputs.profile_id.clone(),
+        binding_profile: Some(receipt.binding_profile),
+        justification_summary: Some(receipt.justification_summary.clone()),
         receipt_identity: Some(receipt.receipt_identity.clone()),
         kamacite,
         diagnostics,
@@ -1390,7 +1650,16 @@ fn render_summary(receipt: &EffectClosureReceipt, kamacite: Option<&KamaciteBund
     let _ = writeln!(&mut summary, "Octet effect closure admission");
     let _ = writeln!(&mut summary, "Status: {}", status.status);
     let _ = writeln!(&mut summary, "Claim scope: {}", receipt.claim_scope);
-    let _ = writeln!(&mut summary, "Profile: {}", receipt.inputs.profile_id);
+    let _ = writeln!(
+        &mut summary,
+        "Profile: {}\nBinding profile: {}\nJustification summary: reviewed-assumptions={}, checked-proofs={}, unresolved-obligations={}, formal-proof-promoted={}",
+        receipt.inputs.profile_id,
+        receipt.binding_profile.as_str(),
+        receipt.justification_summary.reviewed_assumptions,
+        receipt.justification_summary.checked_proofs,
+        receipt.justification_summary.unresolved_obligations,
+        receipt.justification_summary.formal_proof_promoted
+    );
     let _ = writeln!(&mut summary, "Profile hash: {}", receipt.inputs.profile_hash);
     let _ = writeln!(&mut summary, "Config hash: {}", receipt.inputs.config_hash);
     let _ = writeln!(&mut summary, "Receipt identity: {}", receipt.receipt_identity);
@@ -2302,6 +2571,7 @@ fn verify_bundle_inner(
         if let Some(graph) = &graph {
             if graph.schema_version != DEPENDENCY_GRAPH_SCHEMA
                 || graph.cargo_lock_blake3 != receipt.inputs.cargo_lock_blake3
+                || graph.build_context_blake3 != receipt.inputs.build_context_blake3
                 || graph.target != receipt.inputs.target
                 || graph.toolchain != receipt.inputs.toolchain
             {
@@ -2310,6 +2580,10 @@ fn verify_bundle_inner(
             let providers = graph.providers.iter().collect::<BTreeSet<_>>();
             if receipt.providers.iter().any(|provider| !providers.contains(provider)) {
                 diagnostics.push("receipt uses a provider absent from dependency-graph.json".to_owned());
+            }
+            let envelopes = graph.provider_envelopes.iter().collect::<BTreeSet<_>>();
+            if receipt.provider_envelopes.iter().any(|env| !envelopes.contains(env)) {
+                diagnostics.push("receipt uses a provider envelope absent from dependency-graph.json".to_owned());
             }
         }
         if let Some(check_status) = &check_status {
@@ -2323,7 +2597,13 @@ fn verify_bundle_inner(
                 diagnostics.push("direct check status identity does not match the effect-closure receipt".to_owned());
             }
         }
-        diagnostics.extend(verify_bound_closure_inputs(receipt, function_report.as_ref(), policy.as_ref()));
+        let provider_envelopes = graph.as_ref().map_or(&[][..], |graph| graph.provider_envelopes.as_slice());
+        diagnostics.extend(verify_bound_closure_inputs(
+            receipt,
+            function_report.as_ref(),
+            policy.as_ref(),
+            provider_envelopes,
+        ));
         if let Some(status) = &status {
             let expected = status_from_receipt(
                 receipt,
@@ -2534,6 +2814,7 @@ pub(crate) fn verify_bound_closure_inputs(
     receipt: &EffectClosureReceipt,
     function_report: Option<&FunctionAddressReport>,
     policy: Option<&WorkspacePolicy>,
+    provider_envelopes: &[crate::envelope::ProviderRecord],
 ) -> Vec<String> {
     let mut diagnostics = policy.map(effect_closure::validate_workspace_policy).unwrap_or_default();
     if let Some(function_report) = function_report {
@@ -2559,7 +2840,12 @@ pub(crate) fn verify_bound_closure_inputs(
         }
     }
     if let (Some(function_report), Some(policy)) = (function_report, policy) {
-        diagnostics.extend(effect_closure::validate_admitted_bindings(receipt, &function_report.records, policy));
+        diagnostics.extend(effect_closure::validate_admitted_bindings(
+            receipt,
+            &function_report.records,
+            policy,
+            provider_envelopes,
+        ));
     }
     diagnostics
 }
@@ -2655,9 +2941,11 @@ mod tests {
     use ed25519_dalek::SigningKey;
 
     use super::*;
+    use crate::effect_closure::ProviderKind;
 
     const TEST_PROFILE: &str = "deterministic-core";
     const TEST_HASH: &str = "b3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const PROVIDER_SOURCE_TOOLCHAIN: &str = "rustc-toolchain";
 
     // r[verify octet.effect_closure.dependency_summaries.target]
     #[test]
@@ -2750,6 +3038,52 @@ mod tests {
         format!("b3:{}", fill.to_string().repeat(64))
     }
 
+    fn fixture_envelopes(providers: &[ProviderIdentity]) -> Vec<crate::envelope::ProviderRecord> {
+        providers
+            .iter()
+            .cloned()
+            .map(|provider| crate::envelope::ProviderRecord {
+                source_envelope_kind: match provider.kind {
+                    ProviderKind::Toolchain => crate::envelope::SourceKind::Toolchain,
+                    ProviderKind::Workspace => crate::envelope::SourceKind::LocalSourceTree,
+                    ProviderKind::CargoPackage => {
+                        if provider.source.starts_with("path-envelope:") {
+                            crate::envelope::SourceKind::LocalSourceTree
+                        } else {
+                            crate::envelope::SourceKind::LockedRegistryOrGit
+                        }
+                    }
+                },
+                provider,
+                completeness: crate::envelope::CompletenessStatus::Complete,
+                completeness_diagnostics: Vec::new(),
+                package_envelope_blake3: TEST_HASH.to_owned(),
+                build_context_blake3: TEST_HASH.to_owned(),
+                implementation_closure_blake3: TEST_HASH.to_owned(),
+                generated_inputs: Vec::new(),
+                transitive_providers: Vec::new(),
+            })
+            .collect()
+    }
+
+    fn fixture_graph(
+        providers: Vec<ProviderIdentity>,
+        provider_envelopes: Vec<crate::envelope::ProviderRecord>,
+    ) -> DependencyGraphArtifact {
+        DependencyGraphArtifact {
+            schema_version: DEPENDENCY_GRAPH_SCHEMA.to_owned(),
+            target: TEST_TARGET.to_owned(),
+            toolchain: TEST_TOOLCHAIN.to_owned(),
+            rustc_version: TEST_RUSTC_VERSION.to_owned(),
+            cargo_lock_blake3: TEST_HASH.to_owned(),
+            build_context_blake3: TEST_HASH.to_owned(),
+            metadata_cargo_args: Vec::new(),
+            rustflags: String::new(),
+            providers,
+            provider_envelopes,
+        }
+    }
+
     fn bundle_fixture(
         source: &str,
         records: &[(&str, char)],
@@ -2798,6 +3132,8 @@ mod tests {
         let policy = WorkspacePolicy {
             schema_version: effect_closure::WORKSPACE_POLICY_SCHEMA_VERSION.to_owned(),
             profile_id: TEST_PROFILE.to_owned(),
+            binding_profile: Some(crate::envelope::BindingProfile::ImplementationBoundV1),
+            envelope_policy_blake3: None,
             function_address_baseline: "function-addresses.json".to_owned(),
             module_roles: vec![effect_closure::ModuleRoleAssignment {
                 path: TEST_SOURCE_PATH.to_owned(),
@@ -2807,14 +3143,8 @@ mod tests {
             non_claims: vec!["bounded test policy".to_owned()],
         };
         let policy_bytes = pretty_json_bytes(&policy).expect("policy JSON");
-        let graph = DependencyGraphArtifact {
-            schema_version: DEPENDENCY_GRAPH_SCHEMA.to_owned(),
-            target: TEST_TARGET.to_owned(),
-            toolchain: TEST_TOOLCHAIN.to_owned(),
-            rustc_version: TEST_RUSTC_VERSION.to_owned(),
-            cargo_lock_blake3: TEST_HASH.to_owned(),
-            providers: providers.clone(),
-        };
+        let provider_envelopes = fixture_envelopes(&providers);
+        let graph = fixture_graph(providers.clone(), provider_envelopes.clone());
         let graph_bytes = pretty_json_bytes(&graph).expect("graph JSON");
         let input = ClosureInput {
             profile_id: TEST_PROFILE.to_owned(),
@@ -2827,8 +3157,10 @@ mod tests {
             workspace_policy_blake3: crate::evidence::artifact_blake3_hex(&policy_bytes),
             cargo_graph_blake3: crate::evidence::artifact_blake3_hex(&graph_bytes),
             cargo_lock_blake3: TEST_HASH.to_owned(),
+            build_context_blake3: TEST_HASH.to_owned(),
             target: TEST_TARGET.to_owned(),
             toolchain: TEST_TOOLCHAIN.to_owned(),
+            required_binding_profile: crate::envelope::BindingProfile::ImplementationBoundV1,
             sources: vec![SourceEnvelope {
                 path: TEST_SOURCE_PATH.to_owned(),
                 source: source.to_owned(),
@@ -2836,6 +3168,7 @@ mod tests {
             }],
             function_addresses: records,
             resolved_providers: providers,
+            resolved_envelopes: provider_envelopes,
             catalog: effect_closure::embedded_catalog().expect("catalog"),
             policy,
         };
@@ -3130,6 +3463,14 @@ mod tests {
                 locator: "rustc-version#alloc".to_owned(),
                 blake3: effect_closure::provider_identity_blake3(&provider),
             },
+            implementation_binding: Some(crate::envelope::ImplementationBinding {
+                profile: crate::envelope::BindingProfile::ImplementationBoundV1,
+                package_envelope_blake3: TEST_HASH.to_owned(),
+                closure_blake3: TEST_HASH.to_owned(),
+                build_context_blake3: TEST_HASH.to_owned(),
+                justification: crate::envelope::SummaryJustification::ReviewedAssumption,
+                generated_inputs: Vec::new(),
+            }),
         };
         (summary, provider)
     }
@@ -3174,6 +3515,25 @@ mod tests {
             !report.diagnostics.iter().any(|diagnostic| diagnostic.contains("malformed")),
             "{:?}",
             report.diagnostics
+        );
+
+        let mut v2_value = serde_json::to_value(&receipt).expect("receipt JSON");
+        v2_value["schema_version"] = serde_json::Value::from("octet-effect-closure-receipt/v2");
+        fs::write(
+            temp.path().join(effect_closure::RECEIPT_FILE),
+            serde_json::to_vec_pretty(&v2_value).expect("v2 receipt JSON"),
+        )
+        .expect("write v2 receipt");
+        let v2_report = verify_bundle_inner(temp.path(), false).expect("v2 verification report");
+        assert_eq!(v2_report.status, STATUS_INVALID);
+        assert!(
+            v2_report
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("unsupported effect-closure receipt schema")
+                    && diagnostic.contains("octet-effect-closure-receipt/v2")),
+            "{:?}",
+            v2_report.diagnostics
         );
     }
 
@@ -3250,9 +3610,12 @@ mod tests {
         call.effects.clone_from(&summary.effects);
         call.review_label = Some(summary.review_label.clone());
         call.evidence = Some(summary.evidence.clone());
+        call.implementation_binding = summary.implementation_binding.clone();
+        call.justification = Some(crate::envelope::SummaryJustification::ReviewedAssumption);
         node.direct_effects.clone_from(&summary.effects);
         node.closure_effects.clone_from(&summary.effects);
         receipt.providers = vec![summary.provider.clone()];
+        receipt.justification_summary.reviewed_assumptions = 1;
         forge_admitted(receipt)
     }
 
@@ -3344,7 +3707,7 @@ mod tests {
         assert_forgery_rejected(
             &fixture,
             &forge_reviewed_edge(stale_toolchain, &summary),
-            "is not bound to the recorded Cargo.lock or provider identity",
+            "summary_evidence_digest_mismatch",
         );
     }
 
@@ -3363,7 +3726,7 @@ mod tests {
             features: Vec::new(),
         };
         summary.evidence = effect_closure::EvidenceReference {
-            kind: "cargo-lock-review-v1".to_owned(),
+            kind: "reviewed-implementation-summary-v1".to_owned(),
             locator: "Cargo.lock#vecs".to_owned(),
             blake3: TEST_HASH.to_owned(),
         };
@@ -3382,7 +3745,7 @@ mod tests {
         assert_forgery_rejected(
             &fixture,
             &forge_reviewed_edge(stale_lock, &summary),
-            "is not bound to the recorded Cargo.lock or provider identity",
+            "summary_evidence_digest_mismatch",
         );
     }
 

@@ -1,0 +1,13 @@
+$ cargo-octet octet requirements verify --contract ... --evidence ... --decision standards/requirements/fixtures/cairn-pilot/decision.json --source-root /home/brittonr/wt/octet-rev --artifact-base /tmp/octet-artifact-base-b
+octet requirements verify contract=octet.cairn-pilot.aeneas-consumer status=failed aggregate=failed recorded=e7f07cd37d8fe03b5a6792797136518ef3b2d623fe57ab42b336c84fbf729d5b recomputed=fda42a09b6699e2b0f4e5e4fadf641d33da3a1af6e9ed4b1017ce7dfa26f01f4 diagnostics=3
+diagnostic: recorded clause decisions do not match the recomputed decisions
+diagnostic: recorded decision aggregate_result `passed` does not match recomputed `failed`
+diagnostic: recorded decision identity e7f07cd37d8fe03b5a6792797136518ef3b2d623fe57ab42b336c84fbf729d5b does not match the recomputed identity fda42a09b6699e2b0f4e5e4fadf641d33da3a1af6e9ed4b1017ce7dfa26f01f4
+non-claim: does not establish release eligibility
+non-claim: does not prove Aeneas or Charon translation soundness
+non-claim: does not prove Lean or verifier soundness
+non-claim: does not prove rustc compiler correctness
+non-claim: does not prove semantic equivalence
+non-claim: evaluates supplied reviewed contracts and evidence only; does not authenticate reviewers or producers, prove verifier soundness, or establish whole-program correctness
+non-claim: phase-1 pilot non-claim: the evidence is a fixture theorem over a fixture rail; it is not a production theorem, not whole-program correctness, and not release eligibility
+exit 1

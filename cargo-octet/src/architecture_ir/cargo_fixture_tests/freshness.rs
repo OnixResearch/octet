@@ -82,8 +82,17 @@ impl FreshnessFixture<'_> {
     }
 
     fn prepare(&self, policy: &SelectedProjectArchitecturePolicy) -> PreparedCollector {
-        super::super::prepare_collector(self.root, policy, TOOLCHAIN, self.library, &self.scope, &self.args)
-            .expect("plan actual Cargo compilation units")
+        super::super::prepare_collector(&super::super::CollectorPlanRequest {
+            workspace_root: self.root,
+            policy,
+            toolchain: TOOLCHAIN,
+            collector_path: self.library,
+            scope_args: &self.scope,
+            cargo_check_args: &self.args,
+            is_semantic_enabled: false,
+            self_profile_phase_dir: None,
+        })
+        .expect("plan actual Cargo compilation units")
     }
 
     fn collect(&self, step: &str, policy: &SelectedProjectArchitecturePolicy) -> CollectedRun {

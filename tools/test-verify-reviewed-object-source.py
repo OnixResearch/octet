@@ -20,6 +20,7 @@ def copy_reviewed_inputs(source: Path, destination: Path) -> None:
         verifier.REVIEWED_PATH,
         verifier.CANDIDATE_PATH,
         verifier.APPROVAL_PATH,
+        verifier.REFRESH_APPROVAL_PATH,
         verifier.AUDIT_PATH,
         verifier.SOURCE_BINDING_PATH,
         "cargo-octet/Cargo.toml",
@@ -88,6 +89,11 @@ def main() -> None:
     reject_after(source, module, "false boundary", lambda repo: mutate_json(repo / receipt, lambda value: value["boundary"].update(claims_correctness=True)), "saved reference byte drift")
     reject_after(source, module, "missing owner approval", lambda repo: (repo / verifier.APPROVAL_PATH).unlink(), "missing path")
     reject_after(source, module, "altered owner approval", lambda repo: (repo / verifier.APPROVAL_PATH).write_text((repo / verifier.APPROVAL_PATH).read_text() + " "), "owner approval byte drift")
+    refresh_approval = verifier.REFRESH_APPROVAL_PATH
+    reject_after(source, module, "refresh note without owner decision", lambda repo: (repo / refresh_approval).unlink(), f"missing path {refresh_approval}")
+    reject_after(source, module, "historical approval cannot authorize refresh", lambda repo: shutil.copyfile(repo / verifier.APPROVAL_PATH, repo / refresh_approval), "PR #38 owner decision byte drift")
+    reject_after(source, module, "altered refresh decision", lambda repo: (repo / refresh_approval).write_text((repo / refresh_approval).read_text().replace("approve_exact_refreshed_candidate_and_references", "hold")), "PR #38 owner decision byte drift")
+    reject_after(source, module, "symlinked refresh decision", lambda repo: ((repo / refresh_approval).unlink(), (repo / refresh_approval).symlink_to(source / refresh_approval)), "symlink path")
     reject_after(source, module, "missing approved audit envelope", lambda repo: (repo / verifier.AUDIT_PATH).unlink(), "missing path")
     reject_after(source, module, "altered approved audit envelope", lambda repo: (repo / verifier.AUDIT_PATH).write_text((repo / verifier.AUDIT_PATH).read_text() + " "), "approved audit envelope byte drift")
     reject_after(source, module, "missing original producer source binding", lambda repo: (repo / verifier.SOURCE_BINDING_PATH).unlink(), "missing path")

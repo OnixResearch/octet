@@ -1,0 +1,48 @@
+# Reference re-capture for PR #38 (capture before approval)
+# date: 2026-11-23
+# producer: /nix/store/1caf2mjpb6bs33w2s05lbmhwladysqn3-cargo-octet-0.1.1-rc.1/bin/cargo-octet
+#           cargo-octet 0.1.1-rc.1  BLAKE3 9c06f2760abff9431d40597d849a3e4d83cd0dc9536df179f76662f22712ba60
+
+## Step 1: baseline reproduction on origin/main (git worktree /tmp/octet-main at 3ddd21ef)
+$ cd /tmp/octet-main && \
+  /nix/store/1caf2mjpb6bs33w2s05lbmhwladysqn3-cargo-octet-0.1.1-rc.1/bin/cargo-octet object corpus receipt --output /tmp/tmphfii_3zq.json cargo-octet/src/baseline.rs cargo-octet/src/bin/cargo-slotcar.rs cargo-octet/src/bin/cargo-tigerstyle.rs cargo-octet/src/cli.rs cargo-octet/src/config.rs cargo-octet/src/determinism.rs cargo-octet/src/engine.rs cargo-octet/src/evidence.rs cargo-octet/src/evidence_rails.rs cargo-octet/src/fingerprint.rs cargo-octet/src/lib.rs cargo-octet/src/main.rs cargo-octet/src/migrate.rs cargo-octet/src/object.rs cargo-octet/src/output.rs cargo-octet/src/provider_manifest.rs cargo-octet/src/roadmap.rs cargo-octet/src/transcript.rs
+exit 0 bytes_equal True
+$ cd /tmp/octet-main && \
+  /nix/store/1caf2mjpb6bs33w2s05lbmhwladysqn3-cargo-octet-0.1.1-rc.1/bin/cargo-octet object corpus receipt --output /tmp/tmpra4iqhac.json cargo-octet/src/baseline.rs cargo-octet/src/bin/cargo-slotcar.rs cargo-octet/src/bin/cargo-tigerstyle.rs cargo-octet/src/cli.rs cargo-octet/src/config.rs cargo-octet/src/determinism.rs cargo-octet/src/engine.rs cargo-octet/src/evidence.rs cargo-octet/src/evidence_rails.rs cargo-octet/src/fingerprint.rs cargo-octet/src/lib.rs cargo-octet/src/main.rs cargo-octet/src/migrate.rs cargo-octet/src/object.rs cargo-octet/src/output.rs cargo-octet/src/proof_ref.rs cargo-octet/src/provider_manifest.rs cargo-octet/src/roadmap.rs cargo-octet/src/transcript.rs crates/octet-standards/src/architecture.rs crates/octet-standards/src/artifacts.rs crates/octet-standards/src/bin/slotcar-standards.rs crates/octet-standards/src/bin/tigerstyle-standards.rs crates/octet-standards/src/cli_shell.rs crates/octet-standards/src/diagnostic.rs crates/octet-standards/src/fixture.rs crates/octet-standards/src/lib.rs crates/octet-standards/src/main.rs crates/octet-standards/src/model.rs crates/octet-standards/src/proof.rs crates/octet-standards/src/receipt.rs crates/octet-standards/src/report.rs crates/octet-standards/src/report/presentation.rs crates/octet-standards/src/resource.rs crates/octet-standards/src/runner.rs crates/octet-standards/src/runner/planning.rs crates/octet-standards/src/runner/tracking.rs crates/octet-standards/src/source.rs crates/octet-standards/src/suppression.rs
+exit 0 bytes_equal True
+$ cd /tmp/octet-main && \
+  /nix/store/1caf2mjpb6bs33w2s05lbmhwladysqn3-cargo-octet-0.1.1-rc.1/bin/cargo-octet object corpus caveats --output-format=json cargo-octet/src/baseline.rs cargo-octet/src/bin/cargo-slotcar.rs cargo-octet/src/bin/cargo-tigerstyle.rs cargo-octet/src/cli.rs cargo-octet/src/config.rs cargo-octet/src/determinism.rs cargo-octet/src/engine.rs cargo-octet/src/evidence.rs cargo-octet/src/evidence_rails.rs cargo-octet/src/fingerprint.rs cargo-octet/src/lib.rs cargo-octet/src/main.rs cargo-octet/src/migrate.rs cargo-octet/src/object.rs cargo-octet/src/output.rs cargo-octet/src/proof_ref.rs cargo-octet/src/provider_manifest.rs cargo-octet/src/roadmap.rs cargo-octet/src/transcript.rs crates/octet-standards/src/architecture.rs crates/octet-standards/src/artifacts.rs crates/octet-standards/src/bin/slotcar-standards.rs crates/octet-standards/src/bin/tigerstyle-standards.rs crates/octet-standards/src/cli_shell.rs crates/octet-standards/src/diagnostic.rs crates/octet-standards/src/fixture.rs crates/octet-standards/src/lib.rs crates/octet-standards/src/main.rs crates/octet-standards/src/model.rs crates/octet-standards/src/proof.rs crates/octet-standards/src/receipt.rs crates/octet-standards/src/report.rs crates/octet-standards/src/report/presentation.rs crates/octet-standards/src/resource.rs crates/octet-standards/src/runner.rs crates/octet-standards/src/runner/planning.rs crates/octet-standards/src/runner/tracking.rs crates/octet-standards/src/source.rs crates/octet-standards/src/suppression.rs
+exit 0 bytes_equal True
+$ cd /tmp/octet-main/cargo-octet/tests/fixtures/object-corpus/source-token-v2/ && \
+  /nix/store/1caf2mjpb6bs33w2s05lbmhwladysqn3-cargo-octet-0.1.1-rc.1/bin/cargo-octet object corpus receipt --output /tmp/tmpumstl3qa.json src/lib.rs
+exit 0 bytes_equal True
+
+## Step 2: re-capture on the PR #38 tree
+$ cargo-octet object corpus receipt --output RECEIPT.json <source_selections.internal_corpus>
+  -> cargo-octet/tests/fixtures/object-corpus/source-token-v2/internal-corpus-receipt.json
+     object_count 1155 -> 1157
+     blake3 f191fb19df00871d9c7b68322a218fa827704429e04268733d9782c81abeac21
+         -> 35fadd05afc428c70a9c5187814b7f38f8b3fd1bc3f4af2152f99b69bcfb03f8
+     object_set_hash b3:c56a0eb81843e0745a5715556dc566c41ae979950b5c781ea2a5577b1b408861
+         -> b3:daf54ee1705ad3c3f8f63e94fec70d75fd3b7ffd901724524250e78c135bfee2
+$ cargo-octet object corpus receipt --output RECEIPT.json <source_selections.expanded_internal_corpus>
+  -> cargo-octet/tests/fixtures/object-corpus/source-token-v2/expanded-internal-corpus-receipt.json
+     object_count 1764 -> 1766
+     blake3 567e15bbb0ea26394b838676c9c945fd7f2342d3e208bd15095e6315f77e4ee6
+         -> 6f33995f86d5d01f2967d34c22a1cc8e63aaf88936f5b21fdcad20943d9993e1
+     object_set_hash b3:15f7a4408ad4d3ca24080e09e8b702a75de87a335a2aa27b3d5a4321c9a8ffbb
+         -> b3:25214d4f72c1e930bfbb228010b971370c2ccc3b0ec267599bceceb45cda74d7
+$ cargo-octet object corpus caveats --output-format=json <source_selections.expanded_internal_corpus>
+  -> cargo-octet/tests/fixtures/object-corpus/source-token-v2/expanded-internal-corpus-caveat-taxonomy.json
+     object_count 1764 -> 1766 (source buckets sum 1764 -> 1766; source_paths unchanged)
+     blake3 49a2169054172094d5ad78da78506d0d4929bae38005969f1fedd08d4b67b773
+         -> 8e06ff67bba21629f57b3f50fa01b44ef22b8de5de1d83e11d765e27e8297160
+
+positive-v2-receipt.json: NOT re-captured; still 890ef71644eb7af0e9c6c3ff7b20fd0fb9630547c434490ed1096b765a7de8b8 (object_count 1).
+
+## Step 3: fresh-build parity
+$ "$HOME/.cargo-target/debug/cargo-octet" (branch-built 0.1.1-rc.1) reproduces all three re-captured files byte-for-byte.
+
+## Why two objects appeared
+$ cargo-octet object emit --output-format=json cargo-octet/src/cli.rs
+  origin/main: 112 objects; PR #38: 114 objects; added exactly RawLogRetention::as_str and RawLogRetention::parse.

@@ -144,9 +144,22 @@ as an ordinary derivation: it runs actual `cargo-octet prove` and
 preserves the original report, envelope and full artifact payload tree. Cached
 output bytes record their original acceptance; reuse is not fresh proof work.
 
+The job runs `cargo-octet prove --raw-log-retention build-log`. Provider
+progress lines, timings and Cargo completion text stay in the Nix build log
+instead of the content-addressed bundle, so two builds of the same derivation
+produce byte-identical bundles. In that mode the bundle has no
+`proofs/*.stdout`/`stderr` files and no `evidence-log-manifest.json`;
+`status.json` and `summary.txt` record `raw_log_retention: build-log` and state
+that the raw logs are in the build log and are not bound by the bundle
+identity. The `lake build` `sorry` scan and the Lean axiom check still consume
+the in-memory capture and still fail the stage. `cargo-octet artifact verify`
+accepts this bundle shape and rejects a bundle that claims `build-log` yet
+contains raw logs or a manifest.
+
 The producer fails closed at each stage. On failure it prints the stage and
 original exit status, emitted producer/verification reports, and original proof
-stdout, stderr and receipts into the Nix build log. It also copies original
+receipts into the Nix build log; raw proof stage stdout/stderr already reached
+that log through `--raw-log-retention build-log`. It also copies original
 reports and the artifact tree to `$TMPDIR/producer-diagnostics` before failed
 output cleanup. Use `nix build --keep-failed -L` for a diagnostic execution and
 retain that directory from Nix's reported failed build directory. These bytes

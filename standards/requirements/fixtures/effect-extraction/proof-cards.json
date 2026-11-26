@@ -1,0 +1,36 @@
+{
+  "schema_version": "octet-proof-cards/v1",
+  "cards": [
+    {
+      "proof_or_property_id": "proof.preservation",
+      "source_requirement_or_policy_id": "extraction.behavior_preservation",
+      "policy_id": "octet.effect_extraction.pilot",
+      "rail_index": 0,
+      "checked_rust_source_scope": "pilot:effect-extraction:core",
+      "source_paths": [
+        "standards/requirements/fixtures/effect-extraction/original.rs",
+        "standards/requirements/fixtures/effect-extraction/extracted_core.rs",
+        "standards/requirements/fixtures/effect-extraction/driver.rs"
+      ],
+      "proof_target_paths": [
+        "standards/requirements/fixtures/effect-extraction/preservation-proof.json"
+      ],
+      "verifier_mode": "fixture",
+      "verifier_identity_summary": "aeneas-lean@0.1.0",
+      "solver_identity_summary": "",
+      "toolchain_identity_summary": "leanprover/lean4:v4.31.0",
+      "receipt_path": "standards/requirements/fixtures/effect-extraction/preservation-proof.json",
+      "evidence_tier": "formal_proof",
+      "status": "passed",
+      "artifact_blake3_identities": [
+        {
+          "artifact": "standards/requirements/fixtures/effect-extraction/preservation-proof.json",
+          "blake3": "9d95c4027bb63c69d1d380d8c58097f89c9cd496b569a2d98294a73787638282"
+        }
+      ],
+      "non_claims": [
+        "bounded sequential pilot preservation proof only"
+      ]
+    }
+  ]
+}

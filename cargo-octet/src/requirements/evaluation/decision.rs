@@ -17,6 +17,8 @@ pub(crate) struct Outcome {
     pub(crate) limitations: Vec<String>,
     pub(crate) diagnostics: Vec<String>,
     pub(crate) non_claims: Vec<String>,
+    #[serde(default = "super::super::default_none", skip_serializing_if = "Option::is_none")]
+    pub(crate) extraction_summary: Option<super::super::extraction::BoundarySummary>,
     pub(crate) decision_blake3: String,
 }
 
@@ -49,6 +51,7 @@ pub(in crate::requirements) fn evaluate_contract(
     contract_bytes: &[u8],
     evidence_bytes: &[u8],
     source_root: &std::path::Path,
+    artifact_base: Option<&std::path::Path>,
 ) -> Result<Outcome, String> {
     let contract_blake3 = super::super::hash_bytes(contract_bytes);
     let evidence_blake3 = super::super::hash_bytes(evidence_bytes);
@@ -62,11 +65,14 @@ pub(in crate::requirements) fn evaluate_contract(
         contract,
         evidence,
         source_root,
+        artifact_base,
         assumptions: &assumptions,
     };
     for clause in &contract.clauses {
         clauses.push(super::clause::evaluate(&evaluator, clause, &mut diagnostics));
     }
+    let extraction_summary =
+        super::super::extraction::evaluate(contract, evidence, source_root, &clauses, &mut diagnostics);
     if clauses.iter().all(|clause| !clause.required) {
         diagnostics.push("requirement contract has an empty required inventory".to_owned());
     }
@@ -107,6 +113,7 @@ pub(in crate::requirements) fn evaluate_contract(
         limitations,
         diagnostics,
         non_claims: super::super::non_claims(contract),
+        extraction_summary,
         decision_blake3: String::new(),
     };
     decision.decision_blake3 = digest(&decision)?;
@@ -146,7 +153,7 @@ pub(in crate::requirements) fn validate_evidence_identity(
         diagnostics.push("requirement evidence contract_blake3 does not match the supplied contract bytes".to_owned());
     }
     let spec_path = super::super::resolve_path(source_root, &contract.reviewed_specification.path);
-    match std::fs::read(&spec_path) {
+    match crate::envelope::read_regular_non_symlink_file(&spec_path) {
         Ok(bytes) => {
             let actual = super::super::hash_bytes(&bytes);
             if actual != contract.reviewed_specification.blake3 {

@@ -29,20 +29,16 @@ pub(crate) struct ClauseInventory {
     pub(crate) diagnostics: Vec<String>,
 }
 
-pub(super) fn evaluate(
-    contract: &super::contract::Definition,
+fn index_completeness(
     index: &crate::valence_core_shim::evidence_codebase_index::EvidenceCodebaseIndex,
-    contract_bytes: &[u8],
-) -> InventoryReport {
-    let mut diagnostics = super::contract::validation::validate(contract);
-    let contract_blake3 = super::hash_bytes(contract_bytes);
+) -> crate::evidence_multihop::SnapshotCompleteness {
     let has_index_errors = index.issues.iter().any(|issue| {
         issue.severity == crate::valence_core_shim::evidence_codebase_index::EvidenceIndexIssueSeverity::Error
     });
     let has_index_caveats = index.issues.iter().any(|issue| {
         issue.severity == crate::valence_core_shim::evidence_codebase_index::EvidenceIndexIssueSeverity::Caveat
     });
-    let completeness = if index.index_hash.is_empty() {
+    if index.index_hash.is_empty() {
         crate::evidence_multihop::SnapshotCompleteness::Undeclared
     } else if has_index_errors || has_index_caveats {
         crate::evidence_multihop::SnapshotCompleteness::DeclaredPartial {
@@ -50,31 +46,81 @@ pub(super) fn evaluate(
         }
     } else {
         crate::evidence_multihop::SnapshotCompleteness::DeclaredComplete
-    };
-    let completeness_label = match &completeness {
-        crate::evidence_multihop::SnapshotCompleteness::DeclaredComplete => "declared_complete",
-        crate::evidence_multihop::SnapshotCompleteness::DeclaredPartial { .. } => "declared_partial",
-        crate::evidence_multihop::SnapshotCompleteness::Undeclared => "undeclared",
     }
-    .to_owned();
-    let snapshot = crate::evidence_multihop::EvidenceSnapshot::from_index_declared(index, completeness);
+}
+
+fn verify_live_reviewed_specification(
+    contract: &super::contract::Definition,
+    source_root: Option<&std::path::Path>,
+    diagnostics: &mut Vec<String>,
+) -> bool {
+    let Some(root) = source_root else {
+        return false;
+    };
+    let spec_path = super::resolve_path(root, &contract.reviewed_specification.path);
+    match crate::envelope::read_regular_non_symlink_file(&spec_path) {
+        Ok(bytes) => {
+            let actual = super::hash_bytes(&bytes);
+            if actual != contract.reviewed_specification.blake3 {
+                diagnostics.push(format!(
+                    "reviewed specification `{}` changed: expected {}, actual {actual}",
+                    contract.reviewed_specification.path, contract.reviewed_specification.blake3
+                ));
+            }
+            false
+        }
+        Err(error) => {
+            diagnostics.push(format!(
+                "reviewed specification `{}` is missing, symlinked, or unreadable: {error}",
+                contract.reviewed_specification.path
+            ));
+            true
+        }
+    }
+}
+
+pub(super) fn evaluate(
+    contract: &super::contract::Definition,
+    index: &crate::valence_core_shim::evidence_codebase_index::EvidenceCodebaseIndex,
+    contract_bytes: &[u8],
+    source_root: Option<&std::path::Path>,
+) -> InventoryReport {
+    let mut diagnostics = super::contract::validation::validate(contract);
+    let is_live_spec_incomplete = verify_live_reviewed_specification(contract, source_root, &mut diagnostics);
+    let contract_blake3 = super::hash_bytes(contract_bytes);
+    let completeness = index_completeness(index);
+    let snapshot = crate::evidence_multihop::EvidenceSnapshot::from_index_declared(index, completeness.clone());
     let clauses = contract
         .clauses
         .iter()
-        .map(|clause| evaluate_clause(index, &snapshot, clause, &mut diagnostics))
+        .map(|clause| evaluate_clause(index, &snapshot, clause, source_root, &mut diagnostics))
         .collect::<Vec<_>>();
     let mut required_clauses = clauses.iter().filter(|clause| clause.required).peekable();
     let aggregate_result = if required_clauses.peek().is_none() {
         diagnostics.push("required inventory is empty".to_owned());
         super::STATUS_FAILED
-    } else if required_clauses.clone().any(|clause| clause.status != super::STATUS_CURRENT) {
-        if required_clauses.clone().any(|clause| clause.status == super::STATUS_INCOMPLETE) {
-            super::STATUS_INCOMPLETE
-        } else {
-            super::STATUS_FAILED
-        }
+    } else if is_live_spec_incomplete
+        || required_clauses.clone().any(|clause| clause.status == super::STATUS_INCOMPLETE)
+    {
+        super::STATUS_INCOMPLETE
+    } else if !diagnostics.is_empty() || required_clauses.clone().any(|clause| clause.status != super::STATUS_CURRENT) {
+        super::STATUS_FAILED
     } else {
         super::STATUS_CURRENT
+    }
+    .to_owned();
+    let completeness_label = match &completeness {
+        crate::evidence_multihop::SnapshotCompleteness::DeclaredComplete => {
+            if source_root.is_some() && aggregate_result == super::STATUS_INCOMPLETE {
+                "live_incomplete"
+            } else if source_root.is_some() {
+                "live_verified"
+            } else {
+                "declared_complete"
+            }
+        }
+        crate::evidence_multihop::SnapshotCompleteness::DeclaredPartial { .. } => "declared_partial",
+        crate::evidence_multihop::SnapshotCompleteness::Undeclared => "undeclared",
     }
     .to_owned();
     diagnostics.sort();
@@ -98,6 +144,7 @@ pub(super) fn evaluate_clause(
     index: &crate::valence_core_shim::evidence_codebase_index::EvidenceCodebaseIndex,
     snapshot: &crate::evidence_multihop::EvidenceSnapshot,
     clause: &super::contract::RequirementClause,
+    source_root: Option<&std::path::Path>,
     diagnostics: &mut Vec<String>,
 ) -> ClauseInventory {
     if clause.disposition == super::DISPOSITION_EXCLUDED {
@@ -133,6 +180,16 @@ pub(super) fn evaluate_clause(
         .collect::<Vec<_>>();
     let mut clause_diagnostics = Vec::new();
     let mut status = classify(index, snapshot, clause, (&candidates, &matched), &mut clause_diagnostics);
+    if let Some(root) = source_root
+        && let Some(live_status) =
+            super::evaluation::source::verify_clause_live_sources(clause, root, &mut clause_diagnostics)
+        && status != super::STATUS_FAILED
+        && (status == super::STATUS_CURRENT
+            || live_status == super::STATUS_INCOMPLETE
+            || live_status == super::STATUS_UNSUPPORTED)
+    {
+        status = live_status;
+    }
     if related.is_truncated
         || matches!(snapshot.completeness, crate::evidence_multihop::SnapshotCompleteness::Undeclared)
     {
@@ -154,6 +211,22 @@ pub(super) fn evaluate_clause(
     }
 }
 
+fn is_tier_overclaim_only(
+    index: &crate::valence_core_shim::evidence_codebase_index::EvidenceCodebaseIndex,
+    candidates: &[&valence_core::evidence_codebase_index::EvidenceIndexRecord],
+    matched: &[String],
+    clause: &super::contract::RequirementClause,
+) -> bool {
+    (clause.disposition != super::DISPOSITION_FORMAL_PROOF && super::contract::validation::targets_formal_proof(clause))
+        || (candidates.iter().any(|record| super::related::record_is_tier_overclaim(record, clause))
+            && matched.iter().all(|id| {
+                index
+                    .records
+                    .iter()
+                    .any(|r| &r.record_id == id && super::related::record_is_tier_overclaim(r, clause))
+            }))
+}
+
 pub(super) fn classify(
     index: &crate::valence_core_shim::evidence_codebase_index::EvidenceCodebaseIndex,
     snapshot: &crate::evidence_multihop::EvidenceSnapshot,
@@ -162,6 +235,24 @@ pub(super) fn classify(
     clause_diagnostics: &mut Vec<String>,
 ) -> &'static str {
     let (candidates, matched) = records;
+    if clause.disposition == super::DISPOSITION_UNRESOLVED {
+        clause_diagnostics.push("required clause remains unresolved".to_owned());
+        return super::STATUS_UNRESOLVED;
+    }
+    if is_tier_overclaim_only(index, candidates, matched, clause) {
+        clause_diagnostics.push(format!(
+            "clause `{}` cannot promote reviewed assumption or policy-check evidence to formal_proof",
+            clause.clause_id
+        ));
+        return super::STATUS_UNSUPPORTED;
+    }
+    if candidates.iter().any(|record| super::related::record_is_legacy_lockfile(record, clause)) {
+        clause_diagnostics.push(format!(
+            "clause `{}` rejects historical lockfile-only summary under `implementation-bound-v1`",
+            clause.clause_id
+        ));
+        return super::STATUS_UNSUPPORTED;
+    }
     if matched.is_empty() {
         if candidates.is_empty() {
             if matches!(snapshot.completeness, crate::evidence_multihop::SnapshotCompleteness::DeclaredComplete) {

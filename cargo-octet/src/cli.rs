@@ -23,6 +23,7 @@ pub enum CommandArgs {
     Admit(AdmissionArgs),
     Artifact(ArtifactArgs),
     Benchmark(BenchmarkArgs),
+    BenchmarkSelfProfile(BenchmarkSelfProfileArgs),
     Check(CheckArgs),
     EvidenceIndex(EvidenceIndexArgs),
     EvidenceRail(EvidenceRailArgs),
@@ -74,6 +75,7 @@ pub enum AdmissionMode {
         closure: bool,
         policy: PathBuf,
         kamacite_effect_profile: Option<PathBuf>,
+        semantic_effect_profile: Option<PathBuf>,
         scope_args: Vec<String>,
         cargo_check_args: Option<Vec<String>>,
     },
@@ -93,6 +95,20 @@ pub struct ArtifactArgs {
 #[derive(Debug)]
 pub struct BenchmarkArgs {
     pub experiment: BenchmarkExperimentArgs,
+}
+
+#[derive(Debug)]
+pub struct BenchmarkSelfProfileArgs {
+    pub profile_config: PathBuf,
+    pub workspace_root: PathBuf,
+    pub artifact_dir: PathBuf,
+    pub artifact: Option<PathBuf>,
+    pub is_compare: bool,
+    pub is_verify: bool,
+    pub controlled_change: Option<PathBuf>,
+    pub output_format: OutputFormat,
+    pub driver_path: Option<PathBuf>,
+    pub lint_library_path: Option<PathBuf>,
 }
 
 #[derive(Debug)]
@@ -310,6 +326,34 @@ pub struct ProviderManifestArgs {
     pub mode: ProviderManifestMode,
 }
 
+/// Where `cargo octet prove` retains the raw stage stdout/stderr it captures.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum RawLogRetention {
+    /// Write the raw capture into the bundle as `proofs/*.stdout|stderr` and manifest it.
+    #[default]
+    Bundle,
+    /// Write the raw capture to the cargo-octet build log and keep it out of the bundle.
+    BuildLog,
+}
+
+impl RawLogRetention {
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Bundle => "bundle",
+            Self::BuildLog => "build-log",
+        }
+    }
+
+    fn parse(value: &str) -> Result<Self, String> {
+        match value {
+            "bundle" => Ok(Self::Bundle),
+            "build-log" => Ok(Self::BuildLog),
+            _ => Err(format!("unsupported --raw-log-retention `{value}`; expected `bundle` or `build-log`")),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct ProveArgs {
     pub registry: Option<PathBuf>,
@@ -327,6 +371,7 @@ pub struct ProveArgs {
     pub proof_refs: Vec<PathBuf>,
     pub trust_boundary: Option<PathBuf>,
     pub negative_check: Option<NegativeCheckArgs>,
+    pub raw_log_retention: RawLogRetention,
 }
 
 #[derive(Debug)]
@@ -374,6 +419,7 @@ pub struct RequirementsCheckArgs {
     pub contract: PathBuf,
     pub evidence: PathBuf,
     pub source_root: PathBuf,
+    pub artifact_base: Option<PathBuf>,
     pub output: Option<PathBuf>,
     pub output_format: OutputFormat,
 }
@@ -384,6 +430,7 @@ pub struct RequirementsVerifyArgs {
     pub evidence: PathBuf,
     pub decision: PathBuf,
     pub source_root: PathBuf,
+    pub artifact_base: Option<PathBuf>,
     pub output_format: OutputFormat,
 }
 
@@ -391,6 +438,7 @@ pub struct RequirementsVerifyArgs {
 pub struct RequirementsFreshnessArgs {
     pub contract: PathBuf,
     pub index: PathBuf,
+    pub source_root: Option<PathBuf>,
     pub output_format: OutputFormat,
 }
 
@@ -453,7 +501,7 @@ pub fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<CommandArgs, St
         Some("artifact") if artifact_wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Artifact)),
         Some("artifact") => parse_artifact(&argv[1..]).map(CommandArgs::Artifact),
         Some("benchmark") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Benchmark)),
-        Some("benchmark") => parse_benchmark(&argv[1..]).map(CommandArgs::Benchmark),
+        Some("benchmark") => parse_benchmark_command(&argv[1..]),
         Some("check") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::Check)),
         Some("check") => parse_check(&argv[1..], command_line).map(CommandArgs::Check),
         Some("evidence-index") if wants_help(&argv[1..]) => Ok(CommandArgs::Help(HelpTopic::EvidenceIndex)),
@@ -560,8 +608,8 @@ Usage:
   cargo octet prove --record-negative-check --proof-cards PATH --mutant-cards PATH --proof-or-property-id ID --mutant-source PATH --verifier-evidence PATH [--output PATH]
   cargo octet proof-ref validate --proof-cards PATH --ref PATH [--output-format human|json]
   cargo octet proof-ref scaffold --proof-cards PATH --proof-or-property-id ID --reference-id ID --consumer-context TEXT --consumer-source PATH --anchor TEXT [--output PATH]
-  cargo octet requirements check --contract PATH --evidence PATH [--source-root PATH] [--output PATH] [--output-format human|json]
-  cargo octet requirements verify --contract PATH --evidence PATH --decision PATH [--source-root PATH] [--output-format human|json]
+  cargo octet requirements check --contract PATH --evidence PATH [--source-root PATH] [--artifact-base PATH] [--output PATH] [--output-format human|json]
+  cargo octet requirements verify --contract PATH --evidence PATH --decision PATH [--source-root PATH] [--artifact-base PATH] [--output-format human|json]
   cargo octet requirements freshness --contract PATH --index PATH [--output-format human|json]
   cargo octet roadmap <artifact|capsule|ability|pointer|session|pure-cache> ...
   cargo octet transcript <PATH>
@@ -704,9 +752,11 @@ Modes:
       from the evidence baseline run. Retained artifacts are recomputed during `proof-ref`
       validation rather than trusting the annotated status.
 
-Run options: --registry PATH or --policy-artifacts-dir PATH, --source PATH (repeatable), --family NAME, --rail POLICY[#rail-N], --artifact-dir PATH (default artifacts/octet-proofs), --list, --explain, --output-format human|json.
+Run options: --registry PATH or --policy-artifacts-dir PATH, --source PATH (repeatable), --family NAME, --rail POLICY[#rail-N], --artifact-dir PATH (default artifacts/octet-proofs), --raw-log-retention bundle|build-log, --list, --explain, --output-format human|json.
 
 Runs selected standards proof rails through argv-based commands, writes structured proof receipts under the artifact directory, emits formal_proof provenance only for validated receipts with verifier identity and proof artifact identity, and keeps ordinary cargo octet check behavior unchanged. Use --rail to narrow selection to one policy or property ID, --list to show selected rails without executing them, and --explain to prefix failure diagnostics with remediation context.
+
+--raw-log-retention bundle (default) writes each rail's captured stdout/stderr to proofs/*.stdout|stderr, lists them in evidence-log-manifest.json and hashes them in the bundle. --raw-log-retention build-log instead streams the same raw capture to cargo-octet's stderr, framed per rail, stage and stream, and keeps it out of the bundle: no log files, no evidence-log-manifest.json, and nothing in the bundle hashes the raw text. status.json and summary.txt then record raw_log_retention: build-log and a non-claim that the raw logs are in the build log and are not bound by the bundle identity. Checks that consume the capture (pass signals, truncation flags, exit statuses, the Aeneas sorry scan and axiom check) still run on the in-memory capture and their verdicts stay in the receipt.
 ";
 
 const PROOF_REF_HELP: &str = "cargo octet proof-ref
@@ -721,11 +771,13 @@ Validates a Rust-owned ProofEvidenceRef JSON record against a saved proof-cards.
 const REQUIREMENTS_HELP: &str = "cargo octet requirements
 
 Commands:
-  check --contract PATH --evidence PATH [--source-root PATH] [--output PATH] [--output-format human|json]
-  verify --contract PATH --evidence PATH --decision PATH [--source-root PATH] [--output-format human|json]
+  check --contract PATH --evidence PATH [--source-root PATH] [--artifact-base PATH] [--output PATH] [--output-format human|json]
+  verify --contract PATH --evidence PATH --decision PATH [--source-root PATH] [--artifact-base PATH] [--output-format human|json]
   freshness --contract PATH --index PATH [--output-format human|json]
 
 Evaluates a reviewed, Nickel-authored requirement contract against retained evidence. Each clause carries a stable ID, reviewed specification identity, implementation scope, disposition, allowed evidence, required negative controls, and explicit exclusions. Formal-proof clauses require a passing proof card with matching scope, source identities, retained artifact hashes, and provider evidence; empirical checks cannot satisfy a formal-proof requirement. Assumptions are bound to an identity, trusted boundary, and required empirical evidence. A decision is recomputable from the same contract and evidence without an AI model or hosted provider.
+
+--source-root names the reviewed checkout. Proof decks and their artifact roots resolve under it by default; --artifact-base names the realized producer output instead, so retained evidence can use relative locators (for example deck `artifacts/proof-cards.json` and artifact root `.`). A relative locator must stay inside that base: empty, root, prefix, and `..` components are refused. Absolute locators keep resolving exactly as before, with or without the flag, and the base path is never recorded in the decision, so identical producer outputs in different directories yield the same decision bytes.
 
 Freshness consumes the same contract as its required-obligation inventory and compares it with an evidence codebase index. It reports current, stale_binding, missing, failed, unsupported, and incomplete outcomes, shows old/new bindings, and uses bounded typed traversal for related records. Shared labels and content identity establish relatedness only; they never establish causal dependency or proof support. This command never executes providers.
 ";
@@ -772,6 +824,8 @@ fn parse_requirements(args: &[String]) -> Result<RequirementsArgs, String> {
     let mut decision = None;
     let mut index = None;
     let mut source_root = PathBuf::from(".");
+    let mut artifact_base = None;
+    let mut has_source_root = false;
     let mut output = None;
     let mut output_format = OutputFormat::Human;
     let mut position = 0;
@@ -786,6 +840,10 @@ fn parse_requirements(args: &[String]) -> Result<RequirementsArgs, String> {
             "--index" => index = Some(PathBuf::from(requirement_value(rest, &mut position, flag, inline_value)?)),
             "--source-root" => {
                 source_root = PathBuf::from(requirement_value(rest, &mut position, flag, inline_value)?);
+                has_source_root = true;
+            }
+            "--artifact-base" => {
+                artifact_base = Some(PathBuf::from(requirement_value(rest, &mut position, flag, inline_value)?));
             }
             "--output" => output = Some(PathBuf::from(requirement_value(rest, &mut position, flag, inline_value)?)),
             "--output-format" | "--format" => {
@@ -793,7 +851,7 @@ fn parse_requirements(args: &[String]) -> Result<RequirementsArgs, String> {
             }
             other => {
                 return Err(format!(
-                    "unsupported requirements {mode} argument `{other}`; expected --contract, --evidence, --decision, --index, --source-root, --output, or --output-format"
+                    "unsupported requirements {mode} argument `{other}`; expected --contract, --evidence, --decision, --index, --source-root, --artifact-base, --output, or --output-format"
                 ));
             }
         }
@@ -804,7 +862,8 @@ fn parse_requirements(args: &[String]) -> Result<RequirementsArgs, String> {
         RequirementAction::Check => RequirementsMode::Check(RequirementsCheckArgs {
             contract,
             evidence: evidence.ok_or_else(|| "requirements check requires `--evidence PATH`".to_owned())?,
-            source_root,
+            source_root: source_root.clone(),
+            artifact_base: artifact_base.clone(),
             output,
             output_format,
         }),
@@ -812,12 +871,14 @@ fn parse_requirements(args: &[String]) -> Result<RequirementsArgs, String> {
             contract,
             evidence: evidence.ok_or_else(|| "requirements verify requires `--evidence PATH`".to_owned())?,
             decision: decision.ok_or_else(|| "requirements verify requires `--decision PATH`".to_owned())?,
-            source_root,
+            source_root: source_root.clone(),
+            artifact_base,
             output_format,
         }),
         RequirementAction::Freshness => RequirementsMode::Freshness(RequirementsFreshnessArgs {
             contract,
             index: index.ok_or_else(|| "requirements freshness requires `--index PATH`".to_owned())?,
+            source_root: has_source_root.then_some(source_root),
             output_format,
         }),
     };
@@ -839,141 +900,170 @@ fn requirement_value(
     Ok(value)
 }
 
-// Flag parsing is one linear match over the subcommand's flags; splitting it would hide which flags
-// the command accepts.
-#[allow(clippy::too_many_lines)]
 fn parse_admission(args: &[String], command_line: String) -> Result<AdmissionArgs, String> {
     const DEFAULT_ARTIFACT_DIR: &str = "target/octet-admission";
     const DEFAULT_POLICY_PATH: &str = crate::effect_closure::WORKSPACE_POLICY_FILE;
-    const FLAG_AND_VALUE_ARGS: usize = 2;
 
     if args.first().is_some_and(|arg| arg == "verify") {
         return parse_admission_verify(&args[1..], command_line);
     }
 
-    let mut profile = None;
-    let mut closure = false;
-    let mut policy = PathBuf::from(DEFAULT_POLICY_PATH);
-    let mut kamacite_effect_profile = None;
-    let mut artifact_dir = PathBuf::from(DEFAULT_ARTIFACT_DIR);
-    let mut output_format = OutputFormat::Human;
-    let mut scope_args = Vec::new();
-    let mut cargo_check_args = None;
+    let mut state = AdmissionParseState {
+        profile: None,
+        closure: false,
+        policy: PathBuf::from(DEFAULT_POLICY_PATH),
+        kamacite_effect_profile: None,
+        semantic_effect_profile: None,
+        artifact_dir: PathBuf::from(DEFAULT_ARTIFACT_DIR),
+        output_format: OutputFormat::Human,
+        scope_args: Vec::new(),
+        cargo_check_args: None,
+    };
     let mut index = 0;
 
     while index < args.len() {
         let arg = &args[index];
         if arg == "--" {
-            cargo_check_args = Some(args[index + 1..].to_vec());
+            state.cargo_check_args = Some(args[index + 1..].to_vec());
             break;
         }
-        match arg.as_str() {
-            "--profile" => {
-                if profile.is_some() {
-                    return Err("`--profile` may be provided only once".to_owned());
-                }
-                profile = Some(required_arg_at(args, index, arg)?);
-                index += FLAG_AND_VALUE_ARGS;
-            }
-            "--closure" => {
-                if closure {
-                    return Err("`--closure` may be provided only once".to_owned());
-                }
-                closure = true;
-                index += 1;
-            }
-            "--policy" => {
-                policy = PathBuf::from(required_arg_at(args, index, arg)?);
-                index += FLAG_AND_VALUE_ARGS;
-            }
-            "--kamacite-effect-profile" => {
-                if kamacite_effect_profile.is_some() {
-                    return Err("`--kamacite-effect-profile` may be provided only once".to_owned());
-                }
-                kamacite_effect_profile = Some(PathBuf::from(required_arg_at(args, index, arg)?));
-                index += FLAG_AND_VALUE_ARGS;
-            }
-            "--artifact-dir" => {
-                artifact_dir = PathBuf::from(required_arg_at(args, index, arg)?);
-                index += FLAG_AND_VALUE_ARGS;
-            }
-            "--output-format" | "--format" => {
-                output_format = parse_output_format(&required_arg_at(args, index, arg)?)?;
-                index += FLAG_AND_VALUE_ARGS;
-            }
-            "-p" | "--package" | "--exclude" => {
-                scope_args.push(arg.clone());
-                scope_args.push(required_arg_at(args, index, arg)?);
-                index += FLAG_AND_VALUE_ARGS;
-            }
-            "--workspace" => {
-                scope_args.push(arg.clone());
-                index += 1;
-            }
-            _ if arg.starts_with("--profile=") => {
-                if profile.is_some() {
-                    return Err("`--profile` may be provided only once".to_owned());
-                }
-                let value = arg.trim_start_matches("--profile=");
-                if value.is_empty() {
-                    return Err("missing value after `--profile`".to_owned());
-                }
-                profile = Some(value.to_owned());
-                index += 1;
-            }
-            _ if arg.starts_with("--policy=") => {
-                policy = PathBuf::from(arg.trim_start_matches("--policy="));
-                index += 1;
-            }
-            _ if arg.starts_with("--kamacite-effect-profile=") => {
-                if kamacite_effect_profile.is_some() {
-                    return Err("`--kamacite-effect-profile` may be provided only once".to_owned());
-                }
-                let value = arg.trim_start_matches("--kamacite-effect-profile=");
-                if value.is_empty() {
-                    return Err("missing value after `--kamacite-effect-profile`".to_owned());
-                }
-                kamacite_effect_profile = Some(PathBuf::from(value));
-                index += 1;
-            }
-            _ if arg.starts_with("--artifact-dir=") => {
-                artifact_dir = PathBuf::from(arg.trim_start_matches("--artifact-dir="));
-                index += 1;
-            }
-            _ if arg.starts_with("--output-format=") => {
-                output_format = parse_output_format(arg.trim_start_matches("--output-format="))?;
-                index += 1;
-            }
-            _ if arg.starts_with("--format=") => {
-                output_format = parse_output_format(arg.trim_start_matches("--format="))?;
-                index += 1;
-            }
-            _ => return Err(format!("unsupported admission argument `{arg}`")),
-        }
+        index += parse_admission_step(args, index, arg, &mut state)?;
     }
 
-    let profile =
-        profile.ok_or_else(|| "effect closure admission requires `--profile deterministic-core`".to_owned())?;
-    if !closure {
+    let profile = state
+        .profile
+        .ok_or_else(|| "effect closure admission requires `--profile deterministic-core`".to_owned())?;
+    if !state.closure {
         return Err("effect closure admission requires explicit `--closure`".to_owned());
     }
-    if output_format == OutputFormat::Sarif {
+    if state.output_format == OutputFormat::Sarif {
         return Err("effect closure admission supports human or json output, not SARIF".to_owned());
     }
 
     Ok(AdmissionArgs {
         mode: AdmissionMode::Run {
             profile,
-            closure,
-            policy,
-            kamacite_effect_profile,
-            scope_args,
-            cargo_check_args,
+            closure: state.closure,
+            policy: state.policy,
+            kamacite_effect_profile: state.kamacite_effect_profile,
+            semantic_effect_profile: state.semantic_effect_profile,
+            scope_args: state.scope_args,
+            cargo_check_args: state.cargo_check_args,
         },
-        artifact_dir,
-        output_format,
+        artifact_dir: state.artifact_dir,
+        output_format: state.output_format,
         command_line,
     })
+}
+
+struct AdmissionParseState {
+    profile: Option<String>,
+    closure: bool,
+    policy: PathBuf,
+    kamacite_effect_profile: Option<PathBuf>,
+    semantic_effect_profile: Option<PathBuf>,
+    artifact_dir: PathBuf,
+    output_format: OutputFormat,
+    scope_args: Vec<String>,
+    cargo_check_args: Option<Vec<String>>,
+}
+
+fn parse_admission_step(
+    args: &[String],
+    index: usize,
+    arg: &str,
+    state: &mut AdmissionParseState,
+) -> Result<usize, String> {
+    const FLAG_AND_VALUE_ARGS: usize = 2;
+    match arg {
+        "--profile" => {
+            if state.profile.is_some() {
+                return Err("`--profile` may be provided only once".to_owned());
+            }
+            state.profile = Some(required_arg_at(args, index, arg)?);
+            Ok(FLAG_AND_VALUE_ARGS)
+        }
+        "--closure" => {
+            if state.closure {
+                return Err("`--closure` may be provided only once".to_owned());
+            }
+            state.closure = true;
+            Ok(1)
+        }
+        "--policy" => {
+            state.policy = PathBuf::from(required_arg_at(args, index, arg)?);
+            Ok(FLAG_AND_VALUE_ARGS)
+        }
+        "--kamacite-effect-profile" => {
+            if state.kamacite_effect_profile.is_some() {
+                return Err("`--kamacite-effect-profile` may be provided only once".to_owned());
+            }
+            state.kamacite_effect_profile = Some(PathBuf::from(required_arg_at(args, index, arg)?));
+            Ok(FLAG_AND_VALUE_ARGS)
+        }
+        "--semantic-effect-profile" => {
+            if state.semantic_effect_profile.is_some() {
+                return Err("`--semantic-effect-profile` may be provided only once".to_owned());
+            }
+            state.semantic_effect_profile = Some(PathBuf::from(required_arg_at(args, index, arg)?));
+            Ok(FLAG_AND_VALUE_ARGS)
+        }
+        "--artifact-dir" => {
+            state.artifact_dir = PathBuf::from(required_arg_at(args, index, arg)?);
+            Ok(FLAG_AND_VALUE_ARGS)
+        }
+        "--output-format" | "--format" => {
+            state.output_format = parse_output_format(&required_arg_at(args, index, arg)?)?;
+            Ok(FLAG_AND_VALUE_ARGS)
+        }
+        "-p" | "--package" | "--exclude" => {
+            state.scope_args.push(arg.to_owned());
+            state.scope_args.push(required_arg_at(args, index, arg)?);
+            Ok(FLAG_AND_VALUE_ARGS)
+        }
+        "--workspace" => {
+            state.scope_args.push(arg.to_owned());
+            Ok(1)
+        }
+        _ => parse_admission_inline_flag(arg, state),
+    }
+}
+
+fn parse_admission_inline_flag(arg: &str, state: &mut AdmissionParseState) -> Result<usize, String> {
+    if let Some(value) = arg.strip_prefix("--profile=") {
+        if state.profile.is_some() {
+            return Err("`--profile` may be provided only once".to_owned());
+        }
+        if value.is_empty() {
+            return Err("missing value after `--profile`".to_owned());
+        }
+        state.profile = Some(value.to_owned());
+    } else if let Some(value) = arg.strip_prefix("--policy=") {
+        state.policy = PathBuf::from(value);
+    } else if let Some(value) = arg.strip_prefix("--kamacite-effect-profile=") {
+        if state.kamacite_effect_profile.is_some() {
+            return Err("`--kamacite-effect-profile` may be provided only once".to_owned());
+        }
+        if value.is_empty() {
+            return Err("missing value after `--kamacite-effect-profile`".to_owned());
+        }
+        state.kamacite_effect_profile = Some(PathBuf::from(value));
+    } else if let Some(value) = arg.strip_prefix("--semantic-effect-profile=") {
+        if state.semantic_effect_profile.is_some() {
+            return Err("`--semantic-effect-profile` may be provided only once".to_owned());
+        }
+        if value.is_empty() {
+            return Err("missing value after `--semantic-effect-profile`".to_owned());
+        }
+        state.semantic_effect_profile = Some(PathBuf::from(value));
+    } else if let Some(value) = arg.strip_prefix("--artifact-dir=") {
+        state.artifact_dir = PathBuf::from(value);
+    } else if let Some(value) = arg.strip_prefix("--output-format=").or_else(|| arg.strip_prefix("--format=")) {
+        state.output_format = parse_output_format(value)?;
+    } else {
+        return Err(format!("unsupported admission argument `{arg}`"));
+    }
+    Ok(1)
 }
 
 fn parse_admission_verify(args: &[String], command_line: String) -> Result<AdmissionArgs, String> {
@@ -1130,6 +1220,75 @@ fn parse_artifact_verify(args: &[String]) -> Result<ArtifactArgs, String> {
 
 // Flag parsing is one linear match over the subcommand's flags; splitting it would hide which flags
 // the command accepts.
+fn parse_benchmark_command(args: &[String]) -> Result<CommandArgs, String> {
+    if args.first().map(String::as_str) == Some("self-profile") {
+        return parse_benchmark_self_profile(&args[1..]).map(CommandArgs::BenchmarkSelfProfile);
+    }
+    parse_benchmark(args).map(CommandArgs::Benchmark)
+}
+
+fn parse_benchmark_self_profile(args: &[String]) -> Result<BenchmarkSelfProfileArgs, String> {
+    let mut parsed = BenchmarkSelfProfileArgs {
+        profile_config: PathBuf::from("standards/benchmark/self-profile.json"),
+        workspace_root: PathBuf::from("."),
+        artifact_dir: PathBuf::from("artifacts/octet-self-profile"),
+        artifact: None,
+        is_compare: false,
+        is_verify: false,
+        controlled_change: None,
+        output_format: OutputFormat::Human,
+        driver_path: std::env::var_os("OCTET_UI_DRIVER").map(PathBuf::from),
+        lint_library_path: std::env::var_os("OCTET_UI_LIBRARY").map(PathBuf::from),
+    };
+    let mut index = 0;
+    while index < args.len() {
+        let arg = &args[index];
+        let (flag, inline_value) = arg.split_once('=').map_or((arg.as_str(), None), |(f, v)| (f, Some(v)));
+        match flag {
+            "--profile-config" => {
+                parsed.profile_config = PathBuf::from(benchmark_value(args, &mut index, flag, inline_value)?);
+            }
+            "--workspace-root" => {
+                parsed.workspace_root = PathBuf::from(benchmark_value(args, &mut index, flag, inline_value)?);
+            }
+            "--artifact-dir" => {
+                parsed.artifact_dir = PathBuf::from(benchmark_value(args, &mut index, flag, inline_value)?);
+            }
+            "--artifact" => {
+                parsed.artifact = Some(PathBuf::from(benchmark_value(args, &mut index, flag, inline_value)?));
+            }
+            "--controlled-change" => {
+                parsed.controlled_change = Some(PathBuf::from(benchmark_value(args, &mut index, flag, inline_value)?));
+            }
+            "--output-format" | "--format" => {
+                parsed.output_format = parse_output_format(&benchmark_value(args, &mut index, flag, inline_value)?)?;
+            }
+            "--compare" => {
+                if inline_value.is_some() {
+                    return Err("`--compare` does not take a value".to_owned());
+                }
+                parsed.is_compare = true;
+            }
+            "--verify" => {
+                if inline_value.is_some() {
+                    return Err("`--verify` does not take a value".to_owned());
+                }
+                parsed.is_verify = true;
+            }
+            other => {
+                return Err(format!(
+                    "unsupported benchmark self-profile argument `{other}`; expected --profile-config, --workspace-root, --artifact-dir, --artifact, --controlled-change, --compare, --verify, or --output-format"
+                ));
+            }
+        }
+        index += 1;
+    }
+    if parsed.output_format == OutputFormat::Sarif {
+        return Err("benchmark self-profile supports human or json output, not SARIF".to_owned());
+    }
+    Ok(parsed)
+}
+
 fn parse_benchmark(args: &[String]) -> Result<BenchmarkArgs, String> {
     if args.first().map(String::as_str) != Some("experiment") {
         return Err("unknown benchmark action; expected `experiment`".to_owned());
@@ -2630,6 +2789,7 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
     let mut mutant_source = None;
     let mut verifier_evidence = None;
     let mut output = None;
+    let mut raw_log_retention = None;
     let mut index = 0;
     while index < args.len() {
         let arg = &args[index];
@@ -2714,6 +2874,10 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
                 output = Some(PathBuf::from(required_arg_at(args, index, arg)?));
                 index += 2;
             }
+            "--raw-log-retention" => {
+                raw_log_retention = Some(RawLogRetention::parse(&required_arg_at(args, index, arg)?)?);
+                index += 2;
+            }
             _ if arg.starts_with("--registry=") => {
                 registry = Some(PathBuf::from(arg.trim_start_matches("--registry=")));
                 index += 1;
@@ -2770,6 +2934,10 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
                 output = Some(PathBuf::from(arg.trim_start_matches("--output=")));
                 index += 1;
             }
+            _ if arg.starts_with("--raw-log-retention=") => {
+                raw_log_retention = Some(RawLogRetention::parse(arg.trim_start_matches("--raw-log-retention="))?);
+                index += 1;
+            }
             _ if arg.starts_with("--output-format=") => {
                 output_format = parse_output_format(arg.trim_start_matches("--output-format="))?;
                 index += 1;
@@ -2785,6 +2953,10 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
     if output_format == OutputFormat::Sarif {
         return Err("prove does not support SARIF output; use human or json".to_owned());
     }
+    if (candidates || record_negative_check) && raw_log_retention.is_some() {
+        return Err("`--raw-log-retention` applies only when running proof rails".to_owned());
+    }
+    let raw_log_retention = raw_log_retention.unwrap_or_default();
 
     if record_negative_check {
         if candidates || list || explain {
@@ -2823,6 +2995,7 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
                 verifier_evidence,
                 output,
             }),
+            raw_log_retention,
         });
     }
 
@@ -2857,6 +3030,7 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
             proof_refs,
             trust_boundary,
             negative_check: None,
+            raw_log_retention,
         });
     }
 
@@ -2883,6 +3057,7 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
         proof_refs,
         trust_boundary,
         negative_check: None,
+        raw_log_retention,
     })
 }
 
@@ -3353,6 +3528,7 @@ mod tests {
                         closure,
                         policy,
                         kamacite_effect_profile,
+                        semantic_effect_profile: _,
                         scope_args,
                         cargo_check_args,
                     } => {
@@ -5474,6 +5650,8 @@ mod tests {
                 "--evidence=standards/requirements/fixtures/example/evidence.json",
                 "--source-root",
                 ".",
+                "--artifact-base",
+                "producer-output",
                 "--output",
                 "artifacts/requirements/decision.json",
                 "--output-format",
@@ -5494,6 +5672,7 @@ mod tests {
                         std::path::PathBuf::from("standards/requirements/fixtures/example/evidence.json")
                     );
                     assert_eq!(check.source_root, std::path::PathBuf::from("."));
+                    assert_eq!(check.artifact_base, Some(std::path::PathBuf::from("producer-output")));
                     assert_eq!(check.output, Some(std::path::PathBuf::from("artifacts/requirements/decision.json")));
                     assert_eq!(check.output_format, OutputFormat::Json);
                 }
@@ -5514,18 +5693,22 @@ mod tests {
                 "evidence.json",
                 "--decision",
                 "decision.json",
+                "--artifact-base=producer-output",
             ]
             .map(OsString::from),
         )
         .expect("parse requirements verify");
         match parsed {
-            CommandArgs::Requirements(args) => {
-                assert!(matches!(args.mode, RequirementsMode::Verify(_)));
-            }
+            CommandArgs::Requirements(args) => match args.mode {
+                RequirementsMode::Verify(verify) => {
+                    assert_eq!(verify.artifact_base, Some(std::path::PathBuf::from("producer-output")));
+                }
+                other => panic!("expected requirements verify, got {other:?}"),
+            },
             other => panic!("expected requirements args, got {other:?}"),
         }
 
-        let parsed = parse(
+        let parsed_no_root = parse(
             [
                 "cargo",
                 "octet",
@@ -5539,10 +5722,40 @@ mod tests {
             .map(OsString::from),
         )
         .expect("parse requirements freshness");
+        match parsed_no_root {
+            CommandArgs::Requirements(args) => match args.mode {
+                RequirementsMode::Freshness(fresh) => assert!(fresh.source_root.is_none()),
+                other => panic!("expected freshness mode, got {other:?}"),
+            },
+            other => panic!("expected requirements args, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn requirements_parse_accepts_freshness_source_root() {
+        let parsed = parse(
+            [
+                "cargo",
+                "octet",
+                "requirements",
+                "freshness",
+                "--contract",
+                "contract.json",
+                "--index",
+                "index.json",
+                "--source-root",
+                "ws",
+            ]
+            .map(OsString::from),
+        )
+        .expect("parse requirements freshness with source root");
         match parsed {
-            CommandArgs::Requirements(args) => {
-                assert!(matches!(args.mode, RequirementsMode::Freshness(_)));
-            }
+            CommandArgs::Requirements(args) => match args.mode {
+                RequirementsMode::Freshness(fresh) => {
+                    assert_eq!(fresh.source_root, Some(std::path::PathBuf::from("ws")));
+                }
+                other => panic!("expected freshness mode, got {other:?}"),
+            },
             other => panic!("expected requirements args, got {other:?}"),
         }
     }

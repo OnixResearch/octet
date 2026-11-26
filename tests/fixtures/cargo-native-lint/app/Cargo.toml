@@ -1,0 +1,28 @@
+[package]
+name = "app"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "app-bin"
+path = "src/main.rs"
+
+[features]
+extra = ["dep:feature_dep"]
+
+[dependencies]
+used_dep = { path = "../used_dep" }
+unused_dep = { path = "../unused_dep" }
+feature_dep = { path = "../feature_dep", optional = true }
+
+[dev-dependencies]
+unused_dev_dep = { path = "../unused_dev_dep" }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+target_dep = { path = "../target_dep" }
+
+[lints.cargo]
+unused_dependencies = "warn"

@@ -1,0 +1,35 @@
+{
+  "assumption_records": [],
+  "contract_blake3": "aee73e409fccc7899ca9a31fdf27d818a34c8e5645264f8771ed9ccd88a07989",
+  "contract_id": "octet.structural_linkage.pilot.negative_formal",
+  "empirical_checks": [],
+  "non_claims": [
+    "negative fixture proving formal_proof stays unmet"
+  ],
+  "proof_decks": [],
+  "schema_version": "octet-requirement-evidence/v1",
+  "source_snapshot": [
+    {
+      "blake3": "bb1f75d6c43eefe8bd026e244f6d14db95e4f17d60bbd439c90ce21a312ab3c8",
+      "locator": "standards/structural-linkage/fixtures/target.rs"
+    }
+  ],
+  "structural_links": [
+    {
+      "artifact_root": ".",
+      "checked_scope": [
+        "pilot/fn:checked_add#0"
+      ],
+      "evidence_class": "structural_linkage",
+      "evidence_id": "cairn.pilot.checked_add",
+      "non_claims": [
+        "structural linkage does not satisfy formal_proof clauses"
+      ],
+      "profile_id": "cairn-structural-trace-v2",
+      "profiles": "standards/structural-linkage/generated/profiles.json",
+      "projection": "standards/structural-linkage/fixtures/valid/projection.json",
+      "receipt": "standards/structural-linkage/fixtures/valid/receipt.json",
+      "report": "standards/structural-linkage/fixtures/valid/cairn-report.json"
+    }
+  ]
+}

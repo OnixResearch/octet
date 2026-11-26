@@ -1,0 +1,83 @@
+{
+  "status": "Owner approved this exact source/reference refresh for PR #38",
+  "reason": "PR #38 adds the --raw-log-retention and --artifact-base flag fields and the RawLogRetention::as_str/parse functions to cargo-octet/src/cli.rs, a selected reviewed object-corpus source.",
+  "candidate_manifest": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/candidate-source-manifest.json",
+  "reviewed_manifest": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/reviewed-source-manifest.json",
+  "candidate_blake3": "c30ccca70b8297c2114a05386046d6e065b7d8b45ac5efe2a07146f4c816c244",
+  "reviewed_blake3": "cfbab738bb93a3d24865586f1dd46fd0e0ac1793345565fa585c177d8125513d",
+  "previous_candidate_blake3": "be3647f9c72a598defa192f4ff0cda440fef22eeb5e2bc7dd6c162abce43d862",
+  "previous_reviewed_blake3": "63a4cc8c1e5dbdda1e74182ebb13f830d33772dc97636143b82cc400dcf94961",
+  "changed_source": "cargo-octet/src/cli.rs",
+  "changed_source_previous_blake3": "c5ffaef2934cc62002c01da52165015e935964d3a5df2aeb5e428a6defa49f68",
+  "changed_source_blake3": "d181d2d9a38551c4aef2ad5ec7a7074ebc436846a5b7171f9cc1f2b0746ecd1d",
+  "changed_source_objects": {
+    "previous_object_count": 112,
+    "object_count": 114,
+    "added": ["RawLogRetention::as_str", "RawLogRetention::parse"]
+  },
+  "verifier_anchors_updated": true,
+  "refresh_owner_decision": {
+    "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/pr38-object-refresh-owner-approval.txt",
+    "blake3": "f8a9cc935157a44555737e92be5d929e2295651f77f6effe00752f038fed46ba"
+  },
+  "sealed_bindings": {
+    "audit_envelope_blake3": "5892eae1dfa1658381e95684243a252bc8757dad6e21ef14d3950bfadd0d49fc",
+    "producer_source_binding_blake3": "a3ab4aa9674aecd8ec9648dc436b285ebfff1288a78c94414d561c97acb8d2f4",
+    "historical_owner_approval_record_blake3": "3f7b40b37e9eb0d5d58de205fd1d18b1da4733e929982d52ed7b27959399b4f7",
+    "unchanged": true
+  },
+  "reference_recapture": {
+    "producer": "/nix/store/1caf2mjpb6bs33w2s05lbmhwladysqn3-cargo-octet-0.1.1-rc.1/bin/cargo-octet",
+    "producer_blake3": "9c06f2760abff9431d40597d849a3e4d83cd0dc9536df179f76662f22712ba60",
+    "baseline": "origin/main 3ddd21ef reproduces all four earlier references byte-for-byte with this producer",
+    "references": [
+      {
+        "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/internal-corpus-receipt.json",
+        "object_count": 1157,
+        "previous_object_count": 1155,
+        "blake3": "35fadd05afc428c70a9c5187814b7f38f8b3fd1bc3f4af2152f99b69bcfb03f8",
+        "previous_blake3": "f191fb19df00871d9c7b68322a218fa827704429e04268733d9782c81abeac21",
+        "object_set_hash": "b3:daf54ee1705ad3c3f8f63e94fec70d75fd3b7ffd901724524250e78c135bfee2",
+        "previous_object_set_hash": "b3:c56a0eb81843e0745a5715556dc566c41ae979950b5c781ea2a5577b1b408861"
+      },
+      {
+        "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/expanded-internal-corpus-receipt.json",
+        "object_count": 1766,
+        "previous_object_count": 1764,
+        "blake3": "6f33995f86d5d01f2967d34c22a1cc8e63aaf88936f5b21fdcad20943d9993e1",
+        "previous_blake3": "567e15bbb0ea26394b838676c9c945fd7f2342d3e208bd15095e6315f77e4ee6",
+        "object_set_hash": "b3:25214d4f72c1e930bfbb228010b971370c2ccc3b0ec267599bceceb45cda74d7",
+        "previous_object_set_hash": "b3:15f7a4408ad4d3ca24080e09e8b702a75de87a335a2aa27b3d5a4321c9a8ffbb"
+      },
+      {
+        "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/expanded-internal-corpus-caveat-taxonomy.json",
+        "object_count": 1766,
+        "previous_object_count": 1764,
+        "blake3": "8e06ff67bba21629f57b3f50fa01b44ef22b8de5de1d83e11d765e27e8297160",
+        "previous_blake3": "49a2169054172094d5ad78da78506d0d4929bae38005969f1fedd08d4b67b773"
+      },
+      {
+        "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/positive-v2-receipt.json",
+        "object_count": 1,
+        "previous_object_count": 1,
+        "blake3": "890ef71644eb7af0e9c6c3ff7b20fd0fb9630547c434490ed1096b765a7de8b8",
+        "previous_blake3": "890ef71644eb7af0e9c6c3ff7b20fd0fb9630547c434490ed1096b765a7de8b8",
+        "unchanged": true
+      }
+    ]
+  },
+  "verifier_result": "reviewed-v2-source: ADMITTED exact owner-approved PR #38 refresh (not an independent audit, owner signature, correctness or release qualification)",
+  "verifier_tamper_matrix": "PASS",
+  "local_object_test_filters": {
+    "object-corpus-gate": "pass",
+    "object-corpus-compatibility-gate": "pass",
+    "object-corpus-caveat-taxonomy-gate": "pass",
+    "object-corpus-fixture-freshness": "pass",
+    "supplement-compatibility-gate": "pass",
+    "thir-supplement-inventory-gate": "pass",
+    "mir-supplement-fixture-gate": "pass",
+    "mir-supplement-inventory-gate": "pass",
+    "branch_built_binary_fixture_parity": "pass"
+  },
+  "scope": "Selected source/reference identities only. No new independent audit, owner signature, correctness, semantic equivalence or release qualification. Local test results do not attest the Nix aggregate or GitHub CI."
+}
