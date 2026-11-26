@@ -26,14 +26,36 @@ fn write_and_hash(root: &Path, rel: &str, bytes: &[u8]) -> String {
     hash_bytes(bytes)
 }
 
-pub(super) fn build_fixture(root: &Path) -> (Vec<u8>, Vec<u8>) {
-    let spec_h = write_and_hash(root, "spec.md", b"# Sequential Extraction Spec\n");
-    let orig_h = write_and_hash(root, "src/original.rs", b"pub fn orig(x: u32) -> u32 { x + 1 }\n");
-    let core_h = write_and_hash(root, "src/core.rs", b"pub fn core(x: u32) -> u32 { x + 1 }\n");
-    let drv_h = write_and_hash(root, "src/driver.rs", b"pub fn run(x: u32) -> u32 { core(x) }\n");
-    let lock_h = format!("b3:{}", "1".repeat(64));
-    let tool_h = format!("b3:{}", "2".repeat(64));
+struct FixtureHashes {
+    spec: String,
+    orig: String,
+    core: String,
+    drv: String,
+    lock: String,
+    tool: String,
+}
 
+pub(super) fn build_fixture(root: &Path) -> (Vec<u8>, Vec<u8>) {
+    let h = FixtureHashes {
+        spec: write_and_hash(root, "spec.md", b"# Sequential Extraction Spec\n"),
+        orig: write_and_hash(root, "src/original.rs", b"pub fn orig(x: u32) -> u32 { x + 1 }\n"),
+        core: write_and_hash(root, "src/core.rs", b"pub fn core(x: u32) -> u32 { x + 1 }\n"),
+        drv: write_and_hash(root, "src/driver.rs", b"pub fn run(x: u32) -> u32 { core(x) }\n"),
+        lock: format!("b3:{}", "1".repeat(64)),
+        tool: format!("b3:{}", "2".repeat(64)),
+    };
+
+    let sem_h = write_semantic_receipt_fixture(root, &h);
+    let obs_contract = fixture_observation_contract();
+    let pres_h = write_preservation_proof_fixture(root, &h, &obs_contract);
+    let correspondence_h = write_correspondence_and_cards(root, &h.orig, &h.core, &pres_h);
+
+    let contract_bytes = build_fixture_contract_bytes(&h, &obs_contract);
+    let evidence_bytes = build_fixture_evidence_bytes(&h, &correspondence_h, &sem_h);
+    (contract_bytes, evidence_bytes)
+}
+
+fn write_semantic_receipt_fixture(root: &Path, h: &FixtureHashes) -> String {
     let mut sem_receipt = SemanticEffectReceipt {
         schema_version: RECEIPT_SCHEMA_VERSION.to_owned(),
         status: crate::effect_closure::AdmissionStatus::Admitted,
@@ -44,10 +66,10 @@ pub(super) fn build_fixture(root: &Path) -> (Vec<u8>, Vec<u8>) {
             unit_id: "u1".to_owned(),
             package_name: "pilot".to_owned(),
             target_name: "pilot".to_owned(),
-            toolchain_blake3: tool_h.clone(),
-            source_blake3: core_h.clone(),
+            toolchain_blake3: h.tool.clone(),
+            source_blake3: h.core.clone(),
             profile_blake3: "b3:prof".to_owned(),
-            cargo_lock_blake3: lock_h.clone(),
+            cargo_lock_blake3: h.lock.clone(),
             compiler_stage: "rustc-mir-optimized".to_owned(),
         },
         coverage: CoverageReport {
@@ -67,13 +89,15 @@ pub(super) fn build_fixture(root: &Path) -> (Vec<u8>, Vec<u8>) {
         receipt_identity: String::new(),
     };
     sem_receipt.receipt_identity = compute_receipt_identity(&sem_receipt).expect("sem identity");
-    let sem_h = write_and_hash(
+    write_and_hash(
         root,
         "artifacts/semantic-effect-receipt.json",
         &serde_json::to_vec_pretty(&sem_receipt).expect("serialize sem receipt"),
-    );
+    )
+}
 
-    let obs_contract = serde_json::json!({
+fn fixture_observation_contract() -> serde_json::Value {
+    serde_json::json!({
         "relation": "observational-equivalence",
         "return_values": "exact-value-equality",
         "explicit_errors": "preserved-error-variant",
@@ -87,26 +111,31 @@ pub(super) fn build_fixture(root: &Path) -> (Vec<u8>, Vec<u8>) {
         "input_domain": "u32",
         "preconditions": "x < u32::MAX",
         "causal_environment": "deterministic-sequential-driver"
-    });
+    })
+}
+
+fn write_preservation_proof_fixture(root: &Path, h: &FixtureHashes, obs_contract: &serde_json::Value) -> String {
     let pres_bytes = serde_json::to_vec_pretty(&serde_json::json!({
         "schema_version": "octet-extraction-preservation-proof/v1",
         "status": "passed",
         "has_timeout": false,
         "has_checker_error": false,
-        "original_blake3": orig_h,
-        "extracted_core_blake3": core_h,
-        "driver_blake3": drv_h,
-        "specification_blake3": spec_h,
-        "dependency_closure_blake3": lock_h,
+        "original_blake3": h.orig,
+        "extracted_core_blake3": h.core,
+        "driver_blake3": h.drv,
+        "specification_blake3": h.spec,
+        "dependency_closure_blake3": h.lock,
         "target_triple": "x86_64-unknown-linux-gnu",
-        "toolchain_blake3": tool_h,
+        "toolchain_blake3": h.tool,
         "observation_contract": obs_contract,
         "assumptions": []
     }))
     .expect("pres bytes");
-    let pres_h = write_and_hash(root, "artifacts/preservation-proof.json", &pres_bytes);
+    write_and_hash(root, "artifacts/preservation-proof.json", &pres_bytes)
+}
 
-    let corr_bytes = serde_json::to_vec_pretty(&serde_json::json!({
+fn write_correspondence_and_cards(root: &Path, orig_h: &str, core_h: &str, pres_h: &str) -> String {
+    let correspondence_bytes = serde_json::to_vec_pretty(&serde_json::json!({
         "schema_version": "octet-extraction-correspondence/v1",
         "status": "passed",
         "original_blake3": orig_h,
@@ -117,7 +146,7 @@ pub(super) fn build_fixture(root: &Path) -> (Vec<u8>, Vec<u8>) {
         "assumptions": []
     }))
     .expect("corr bytes");
-    let corr_h = write_and_hash(root, "artifacts/correspondence.json", &corr_bytes);
+    let correspondence_h = write_and_hash(root, "artifacts/correspondence.json", &correspondence_bytes);
 
     let deck_bytes = serde_json::to_vec_pretty(&serde_json::json!({
         "schema_version": "octet-proof-cards/v1",
@@ -135,11 +164,14 @@ pub(super) fn build_fixture(root: &Path) -> (Vec<u8>, Vec<u8>) {
     }))
     .expect("deck bytes");
     write_and_hash(root, "artifacts/proof-cards.json", &deck_bytes);
+    correspondence_h
+}
 
-    let contract_bytes = serde_json::to_vec_pretty(&serde_json::json!({
+fn build_fixture_contract_bytes(h: &FixtureHashes, obs_contract: &serde_json::Value) -> Vec<u8> {
+    serde_json::to_vec_pretty(&serde_json::json!({
         "schema_version": "octet-requirement-contract/v1",
         "contract_id": "octet.effect_extraction.pilot",
-        "reviewed_specification": { "path": "spec.md", "blake3": spec_h },
+        "reviewed_specification": { "path": "spec.md", "blake3": h.spec },
         "clauses": [
             {
                 "clause_id": "extraction.subjects",
@@ -149,7 +181,7 @@ pub(super) fn build_fixture(root: &Path) -> (Vec<u8>, Vec<u8>) {
                 "checked_scope": ["pilot:subjects"],
                 "expected_evidence_tier": "empirical_check",
                 "allowed_evidence_ids": ["check.subjects"],
-                "source_bindings": [{ "locator": "src/original.rs", "blake3": orig_h }]
+                "source_bindings": [{ "locator": "src/original.rs", "blake3": h.orig }]
             },
             {
                 "clause_id": "extraction.core_effects",
@@ -159,7 +191,7 @@ pub(super) fn build_fixture(root: &Path) -> (Vec<u8>, Vec<u8>) {
                 "checked_scope": ["pilot:core"],
                 "expected_evidence_tier": "empirical_check",
                 "allowed_evidence_ids": ["check.core_effects"],
-                "source_bindings": [{ "locator": "src/core.rs", "blake3": core_h }]
+                "source_bindings": [{ "locator": "src/core.rs", "blake3": h.core }]
             },
             {
                 "clause_id": "extraction.behavior_preservation",
@@ -170,7 +202,7 @@ pub(super) fn build_fixture(root: &Path) -> (Vec<u8>, Vec<u8>) {
                 "expected_evidence_tier": "formal_proof",
                 "allowed_evidence_ids": ["proof.preservation"],
                 "allowed_source_requirement_ids": ["extraction.behavior_preservation"],
-                "source_bindings": [{ "locator": "src/driver.rs", "blake3": drv_h }]
+                "source_bindings": [{ "locator": "src/driver.rs", "blake3": h.drv }]
             },
             {
                 "clause_id": "extraction.correspondence",
@@ -180,7 +212,7 @@ pub(super) fn build_fixture(root: &Path) -> (Vec<u8>, Vec<u8>) {
                 "checked_scope": ["pilot:core"],
                 "expected_evidence_tier": "empirical_check",
                 "allowed_evidence_ids": ["check.correspondence"],
-                "source_bindings": [{ "locator": "src/core.rs", "blake3": core_h }]
+                "source_bindings": [{ "locator": "src/core.rs", "blake3": h.core }]
             },
             {
                 "clause_id": "extraction.freshness",
@@ -190,7 +222,7 @@ pub(super) fn build_fixture(root: &Path) -> (Vec<u8>, Vec<u8>) {
                 "checked_scope": ["pilot:subjects"],
                 "expected_evidence_tier": "empirical_check",
                 "allowed_evidence_ids": ["check.subjects"],
-                "source_bindings": [{ "locator": "src/original.rs", "blake3": orig_h }]
+                "source_bindings": [{ "locator": "src/original.rs", "blake3": h.orig }]
             }
         ],
         "non_claims": ["pilot extraction profile only"],
@@ -199,14 +231,14 @@ pub(super) fn build_fixture(root: &Path) -> (Vec<u8>, Vec<u8>) {
             "profile_id": "effect-extraction-sequential-v1",
             "pilot_id": "compiler-lab-194",
             "subjects": {
-                "original_implementation": { "locator": "src/original.rs", "blake3": orig_h, "role": "original" },
-                "extracted_core": { "locator": "src/core.rs", "blake3": core_h, "role": "core" },
-                "effect_driver": { "locator": "src/driver.rs", "blake3": drv_h, "role": "driver" },
-                "specification": { "locator": "spec.md", "blake3": spec_h, "role": "spec" },
-                "dependency_closure_blake3": lock_h,
+                "original_implementation": { "locator": "src/original.rs", "blake3": h.orig, "role": "original" },
+                "extracted_core": { "locator": "src/core.rs", "blake3": h.core, "role": "core" },
+                "effect_driver": { "locator": "src/driver.rs", "blake3": h.drv, "role": "driver" },
+                "specification": { "locator": "spec.md", "blake3": h.spec, "role": "spec" },
+                "dependency_closure_blake3": h.lock,
                 "semantic_profile_id": "semantic-mir-core",
                 "target_triple": "x86_64-unknown-linux-gnu",
-                "toolchain_blake3": tool_h
+                "toolchain_blake3": h.tool
             },
             "observation_contract": obs_contract,
             "clauses": {
@@ -215,21 +247,23 @@ pub(super) fn build_fixture(root: &Path) -> (Vec<u8>, Vec<u8>) {
                 "behavior_preservation_clause_id": "extraction.behavior_preservation",
                 "correspondence_clause_id": "extraction.correspondence",
                 "freshness_clause_id": "extraction.freshness",
-                "rule_normal_form_clause_id": null,
+                "optional_normal_form_clause": null,
                 "effect_independence_clause_id": null
             },
             "approved_assumptions": []
         }
     }))
-    .expect("contract bytes");
+    .expect("contract bytes")
+}
 
-    let evidence_bytes = serde_json::to_vec_pretty(&serde_json::json!({
+fn build_fixture_evidence_bytes(h: &FixtureHashes, correspondence_h: &str, sem_h: &str) -> Vec<u8> {
+    serde_json::to_vec_pretty(&serde_json::json!({
         "schema_version": "octet-requirement-evidence/v1",
         "contract_id": "octet.effect_extraction.pilot",
         "source_snapshot": [
-            { "locator": "src/original.rs", "blake3": orig_h },
-            { "locator": "src/core.rs", "blake3": core_h },
-            { "locator": "src/driver.rs", "blake3": drv_h }
+            { "locator": "src/original.rs", "blake3": h.orig },
+            { "locator": "src/core.rs", "blake3": h.core },
+            { "locator": "src/driver.rs", "blake3": h.drv }
         ],
         "proof_decks": [{
             "evidence_id": "proof.preservation",
@@ -244,9 +278,9 @@ pub(super) fn build_fixture(root: &Path) -> (Vec<u8>, Vec<u8>) {
                 "checker_id": "b3sum",
                 "command_argv": ["b3sum"],
                 "checked_scope": ["pilot:subjects"],
-                "source_bindings": [{ "locator": "src/original.rs", "blake3": orig_h }],
+                "source_bindings": [{ "locator": "src/original.rs", "blake3": h.orig }],
                 "artifact": "artifacts/correspondence.json",
-                "artifact_blake3": corr_h,
+                "artifact_blake3": correspondence_h,
                 "non_claims": ["digest check only"]
             },
             {
@@ -256,7 +290,7 @@ pub(super) fn build_fixture(root: &Path) -> (Vec<u8>, Vec<u8>) {
                 "checker_id": "cargo-octet",
                 "command_argv": ["cargo-octet", "admit"],
                 "checked_scope": ["pilot:core"],
-                "source_bindings": [{ "locator": "src/core.rs", "blake3": core_h }],
+                "source_bindings": [{ "locator": "src/core.rs", "blake3": h.core }],
                 "artifact": "artifacts/semantic-effect-receipt.json",
                 "artifact_blake3": sem_h,
                 "non_claims": ["bounded sequential MIR"]
@@ -268,15 +302,13 @@ pub(super) fn build_fixture(root: &Path) -> (Vec<u8>, Vec<u8>) {
                 "checker_id": "charon-aeneas",
                 "command_argv": ["charon"],
                 "checked_scope": ["pilot:core"],
-                "source_bindings": [{ "locator": "src/core.rs", "blake3": core_h }],
+                "source_bindings": [{ "locator": "src/core.rs", "blake3": h.core }],
                 "artifact": "artifacts/correspondence.json",
-                "artifact_blake3": corr_h,
+                "artifact_blake3": correspondence_h,
                 "non_claims": ["translation correspondence only"]
             }
         ],
         "non_claims": ["pilot evidence"]
     }))
-    .expect("evidence bytes");
-
-    (contract_bytes, evidence_bytes)
+    .expect("evidence bytes")
 }

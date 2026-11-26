@@ -543,7 +543,7 @@ pub fn run(args: &AdmissionArgs) -> Result<i32, String> {
             profile,
             *closure,
             policy,
-            OptionalEffectProfiles {
+            &OptionalEffectProfiles {
                 kamacite: kamacite_effect_profile.as_deref(),
                 semantic: semantic_effect_profile.as_deref(),
             },
@@ -567,7 +567,7 @@ fn run_admission(
     profile: &str,
     closure: bool,
     policy_path: &Path,
-    optional_profiles: OptionalEffectProfiles<'_>,
+    optional_profiles: &OptionalEffectProfiles<'_>,
     scope_args: &[String],
     cargo_check_args: Option<&[String]>,
 ) -> Result<i32, String> {
@@ -668,32 +668,42 @@ fn run_admission(
         &receipt,
         kamacite.as_ref(),
     )?;
-    let is_semantic_admitted = if let Some(semantic_path) = optional_profiles.semantic {
-        let semantic_receipt = crate::semantic_effect::admit::evaluate_admitted_semantic_profile(
-            &workspace_root,
-            semantic_path,
-            &artifact_dir,
-            &receipt
-                .nodes
-                .iter()
-                .map(|node| FunctionAddressRecord {
-                    path: node.path.clone(),
-                    name: node.name.clone(),
-                    function_address: node.function_address.clone(),
-                    source_identity: String::new(),
-                })
-                .collect::<Vec<_>>(),
-            &receipt.inputs.cargo_lock_blake3,
-        )?;
-        semantic_receipt.status == AdmissionStatus::Admitted
-    } else {
-        true
-    };
+    let is_semantic_admitted =
+        evaluate_optional_semantic_admission(&workspace_root, optional_profiles.semantic, &artifact_dir, &receipt)?;
     render_admission_output(args.output_format, &artifact_dir, &receipt, kamacite.as_ref())?;
     let admitted = receipt.status == AdmissionStatus::Admitted
         && kamacite.as_ref().is_none_or(|bundle| bundle.comparison.status == AdmissionStatus::Admitted)
         && is_semantic_admitted;
     Ok(if admitted { EXIT_ADMITTED } else { EXIT_DENIED })
+}
+
+fn evaluate_optional_semantic_admission(
+    workspace_root: &Path,
+    semantic_profile: Option<&Path>,
+    artifact_dir: &Path,
+    receipt: &crate::effect_closure::EffectClosureReceipt,
+) -> Result<bool, String> {
+    let Some(semantic_path) = semantic_profile else {
+        return Ok(true);
+    };
+    let function_records = receipt
+        .nodes
+        .iter()
+        .map(|node| FunctionAddressRecord {
+            path: node.path.clone(),
+            name: node.name.clone(),
+            function_address: node.function_address.clone(),
+            source_identity: String::new(),
+        })
+        .collect::<Vec<_>>();
+    let semantic_receipt = crate::semantic_effect::admit::evaluate_admitted_semantic_profile(
+        workspace_root,
+        semantic_path,
+        artifact_dir,
+        &function_records,
+        &receipt.inputs.cargo_lock_blake3,
+    )?;
+    Ok(semantic_receipt.status == AdmissionStatus::Admitted)
 }
 
 pub(crate) fn run_verification_with(

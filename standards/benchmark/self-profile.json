@@ -2,7 +2,7 @@
   "budgets": {
     "max_events_per_unit": 500000,
     "max_mm_profdata_bytes": 67108864,
-    "max_phase_records": 256,
+    "phase_record_budget": 256,
     "max_units": 64
   },
   "configurations": [

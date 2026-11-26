@@ -18,7 +18,7 @@ let contracts = import "../../../semantic-contracts.ncl" in
     max_blocks_per_body = 64,
     max_steps = 1024,
     max_rounds = 8,
-    max_call_edges = 256,
+    call_edge_limit = 256,
   },
   non_claims = ["Invalid claim tier must fail contract validation."],
 } | contracts.SemanticEffectProfile

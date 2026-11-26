@@ -116,7 +116,7 @@
       "correspondence_clause_id": "extraction.correspondence",
       "effect_independence_clause_id": null,
       "freshness_clause_id": "extraction.freshness",
-      "rule_normal_form_clause_id": null,
+      "optional_normal_form_clause": null,
       "subjects_clause_id": "extraction.subjects"
     },
     "observation_contract": {

@@ -34,7 +34,7 @@ let BudgetsContract = {
   max_blocks_per_body | PositiveInt,
   max_steps | PositiveInt,
   max_rounds | PositiveInt,
-  max_call_edges | PositiveInt,
+  call_edge_limit | PositiveInt,
 } in
 let SubsetContract = {
   subset_id | NonEmptyString,

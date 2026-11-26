@@ -34,7 +34,7 @@ let ConfigModeContract = OneOf [
       max_mm_profdata_bytes | PositiveInt,
       max_events_per_unit | PositiveInt,
       max_units | PositiveInt,
-      max_phase_records | PositiveInt,
+      phase_record_budget | PositiveInt,
     },
     non_claims | NonEmptyArray | Array NonEmptyString,
   },

@@ -70,7 +70,7 @@ pub struct SemanticBudgets {
     pub max_blocks_per_body: usize,
     pub max_steps: usize,
     pub max_rounds: usize,
-    pub max_call_edges: usize,
+    pub call_edge_limit: usize,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

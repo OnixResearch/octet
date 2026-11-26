@@ -158,7 +158,7 @@ let tool_h = "50692525e10589e3a1060a0ed0adc77f695ad5617121b572e549ef9855ceb7a8" 
       behavior_preservation_clause_id = "extraction.behavior_preservation",
       correspondence_clause_id = "extraction.correspondence",
       freshness_clause_id = "extraction.freshness",
-      rule_normal_form_clause_id = null,
+      optional_normal_form_clause = null,
       effect_independence_clause_id = null,
     },
     approved_assumptions = [],

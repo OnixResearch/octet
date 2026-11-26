@@ -1110,15 +1110,7 @@ impl ArchitectureCollector {
                     union_origin_map_entry(&mut next_argument_origins, key, &origins);
                 }
                 for observation in result.observations {
-                    let key = (qualified_definition(cx, def_id.to_def_id()), observation.key.clone());
-                    match round_observations.get_mut(&key) {
-                        Some((_, existing)) => {
-                            existing.origins.extend(observation.origins);
-                        }
-                        None => {
-                            round_observations.insert(key, (*def_id, observation));
-                        }
-                    }
+                    Self::merge_round_observation(cx, *def_id, observation, &mut round_observations);
                 }
             }
             let changed = next_argument_origins != argument_origins || next_return_origins != return_origins;
@@ -1149,6 +1141,26 @@ impl ArchitectureCollector {
     fn exceed_value_flow_limit(&mut self, kind: UnknownFactKind, detail: &str) {
         self.incomplete = true;
         self.push_unknown(kind, None, Some(VALUE_FLOW_LIMIT_TARGET), None, detail);
+    }
+
+    fn merge_round_observation<'tcx>(
+        cx: &LateContext<'tcx>,
+        def_id: LocalDefId,
+        observation: ProvenanceObservation<'tcx>,
+        round_observations: &mut BTreeMap<
+            (String, ProvenanceObservationKey),
+            (LocalDefId, ProvenanceObservation<'tcx>),
+        >,
+    ) {
+        let key = (qualified_definition(cx, def_id.to_def_id()), observation.key.clone());
+        match round_observations.get_mut(&key) {
+            Some((_, existing)) => {
+                existing.origins.extend(observation.origins);
+            }
+            None => {
+                round_observations.insert(key, (def_id, observation));
+            }
+        }
     }
 
     fn push_value_provenance_fact(
@@ -1266,8 +1278,11 @@ impl ArchitectureCollector {
         let mir_started = has_phase_dir.then(std::time::Instant::now);
         self.collect_selected_value_provenance(cx);
         self.collect_active_configuration(cx);
-        let mut selected_mir_analysis_ns =
-            mir_started.and_then(|t| u64::try_from(t.elapsed().as_nanos()).ok()).unwrap_or(0);
+        let mut selected_mir_analysis_ns = if let Some(t) = mir_started {
+            u64::try_from(t.elapsed().as_nanos()).map_err(|_| "MIR phase duration overflow".to_owned())?
+        } else {
+            0
+        };
         let serialize_started = has_phase_dir.then(std::time::Instant::now);
         let mut shard = CompilerArchitectureShard {
             schema_version: octet_architecture_ir::COMPILER_ARCHITECTURE_SHARD_SCHEMA_VERSION.to_owned(),
@@ -1301,14 +1316,18 @@ impl ArchitectureCollector {
         let temporary_path = output_path.with_extension(format!("{}.{TEMP_FILE_SUFFIX}", std::process::id()));
         publish_shard(&temporary_path, &output_path, &bytes)
             .map_err(|error| format!("publish compiler architecture shard {}: {error}", output_path.display()))?;
-        let shard_serialization_ns =
-            serialize_started.and_then(|t| u64::try_from(t.elapsed().as_nanos()).ok()).unwrap_or(0);
+        let shard_serialization_ns = if let Some(t) = serialize_started {
+            u64::try_from(t.elapsed().as_nanos()).map_err(|_| "serialization duration overflow".to_owned())?
+        } else {
+            0
+        };
         if self.context.collect_semantic_effects {
             let sem_started = has_phase_dir.then(std::time::Instant::now);
             self.semantic_bodies_analyzed = semantic::collect_and_write_unit_summary(self, cx)?;
             if let Some(t) = sem_started {
-                selected_mir_analysis_ns =
-                    selected_mir_analysis_ns.saturating_add(u64::try_from(t.elapsed().as_nanos()).unwrap_or(0));
+                let sem_ns =
+                    u64::try_from(t.elapsed().as_nanos()).map_err(|_| "semantic duration overflow".to_owned())?;
+                selected_mir_analysis_ns = selected_mir_analysis_ns.saturating_add(sem_ns);
             }
         }
         if let Some(phase_dir) = self.context.self_profile_phase_dir.as_deref() {

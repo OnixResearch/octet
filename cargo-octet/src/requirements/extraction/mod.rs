@@ -62,7 +62,7 @@ pub(crate) struct ExtractionClauses {
     pub(crate) behavior_preservation_clause_id: String,
     pub(crate) correspondence_clause_id: String,
     pub(crate) freshness_clause_id: String,
-    pub(crate) rule_normal_form_clause_id: Option<String>,
+    pub(crate) optional_normal_form_clause: Option<String>,
     pub(crate) effect_independence_clause_id: Option<String>,
 }
 
@@ -96,7 +96,7 @@ pub(crate) struct EffectExtractionProfile {
     pub(crate) subjects: ExtractionSubjects,
     pub(crate) observation_contract: ObservationContract,
     pub(crate) clauses: ExtractionClauses,
-    #[serde(default)]
+    #[serde(default = "Vec::new")]
     pub(crate) approved_assumptions: Vec<String>,
     pub(crate) optional_normal_form: Option<NormalFormPolicy>,
     pub(crate) optional_effect_independence: Option<EffectIndependencePolicy>,
@@ -131,8 +131,8 @@ pub(in crate::requirements) fn evaluate(
     let is_cross_clause_verified = cross_diagnostics.is_empty();
     diagnostics.extend(cross_diagnostics.iter().cloned());
 
-    let mut static_ids = Vec::new();
-    let mut formal_ids = Vec::new();
+    let mut static_ids = Vec::with_capacity(clauses.len());
+    let mut formal_ids = Vec::with_capacity(clauses.len());
     let mut remaining = cross_diagnostics;
 
     for clause in clauses {

@@ -27,25 +27,26 @@ struct EffectIndependenceReceipt {
     is_interchange_theorem_passed: bool,
 }
 
-pub(super) fn verify_normal_form_adapter(
-    profile: &super::EffectExtractionProfile,
-    clause_id: &str,
-    contract: &super::super::contract::Definition,
-    evidence: &super::super::evidence::Bundle,
-    source_root: &std::path::Path,
-    diagnostics: &mut Vec<String>,
-) {
-    let Some(policy) = &profile.optional_normal_form else {
+pub(super) struct OptionalVerifyCtx<'a> {
+    pub(super) profile: &'a super::EffectExtractionProfile,
+    pub(super) contract: &'a super::super::contract::Definition,
+    pub(super) evidence: &'a super::super::evidence::Bundle,
+    pub(super) source_root: &'a std::path::Path,
+}
+
+pub(super) fn verify_normal_form_adapter(ctx: &OptionalVerifyCtx<'_>, clause_id: &str, diagnostics: &mut Vec<String>) {
+    let Some(policy) = &ctx.profile.optional_normal_form else {
         diagnostics.push("optional rule-relative normal form clause requested without policy".to_owned());
         return;
     };
-    let path = match super::adapters::find_empirical_artifact_path(clause_id, contract, evidence, source_root) {
-        Ok(path) => path,
-        Err(error) => {
-            diagnostics.push(error);
-            return;
-        }
-    };
+    let path =
+        match super::adapters::find_empirical_artifact_path(clause_id, ctx.contract, ctx.evidence, ctx.source_root) {
+            Ok(path) => path,
+            Err(error) => {
+                diagnostics.push(error);
+                return;
+            }
+        };
     let receipt: NormalFormReceipt = match super::super::read_json_bounded(&path) {
         Ok(value) => value,
         Err(error) => {
@@ -65,20 +66,15 @@ pub(super) fn verify_normal_form_adapter(
 }
 
 pub(super) fn verify_effect_independence_adapter(
-    profile: &super::EffectExtractionProfile,
+    ctx: &OptionalVerifyCtx<'_>,
     clause_id: &str,
-    contract: &super::super::contract::Definition,
-    evidence: &super::super::evidence::Bundle,
-    source_root: &std::path::Path,
     diagnostics: &mut Vec<String>,
 ) {
-    let Some(policy) = &profile.optional_effect_independence else {
+    let Some(policy) = &ctx.profile.optional_effect_independence else {
         diagnostics.push("optional effect-independence clause requested without policy".to_owned());
         return;
     };
-    let Some(path) =
-        find_proof_artifact_path(clause_id, "effect-independence.json", contract, evidence, source_root, diagnostics)
-    else {
+    let Some(path) = find_proof_artifact_path(ctx, clause_id, "effect-independence.json", diagnostics) else {
         return;
     };
     let receipt: EffectIndependenceReceipt = match super::super::read_json_bounded(&path) {
@@ -92,8 +88,8 @@ pub(super) fn verify_effect_independence_adapter(
         || receipt.status != "passed"
         || !receipt.is_footprint_soundness_proved
         || !receipt.is_interchange_theorem_passed
-        || receipt.extracted_core_blake3 != profile.subjects.extracted_core.blake3
-        || receipt.driver_blake3 != profile.subjects.effect_driver.blake3
+        || receipt.extracted_core_blake3 != ctx.profile.subjects.extracted_core.blake3
+        || receipt.driver_blake3 != ctx.profile.subjects.effect_driver.blake3
         || receipt.original_schedule_blake3 != policy.original_schedule_blake3
         || receipt.reordered_schedule_blake3 != policy.reordered_schedule_blake3
         || receipt.resource_mapping_blake3 != policy.resource_mapping_blake3
@@ -105,29 +101,27 @@ pub(super) fn verify_effect_independence_adapter(
 }
 
 pub(super) fn find_proof_artifact_path(
+    ctx: &OptionalVerifyCtx<'_>,
     clause_id: &str,
     suffix: &str,
-    contract: &super::super::contract::Definition,
-    evidence: &super::super::evidence::Bundle,
-    source_root: &std::path::Path,
     diagnostics: &mut Vec<String>,
 ) -> Option<std::path::PathBuf> {
-    let Some(clause) = contract.clauses.iter().find(|c| c.clause_id == clause_id) else {
+    let Some(clause) = ctx.contract.clauses.iter().find(|c| c.clause_id == clause_id) else {
         diagnostics.push(format!("missing formal clause `{clause_id}`"));
         return None;
     };
-    for deck in &evidence.proof_decks {
+    for deck in &ctx.evidence.proof_decks {
         if !clause.allowed_evidence_ids.contains(&deck.evidence_id) {
             continue;
         }
-        let deck_path = super::super::resolve_path(source_root, &deck.deck);
+        let deck_path = super::super::resolve_path(ctx.source_root, &deck.deck);
         let Ok(deck_json) = super::super::read_json_bounded::<serde_json::Value>(&deck_path) else {
             continue;
         };
         let Some(cards) = deck_json.get("cards").and_then(serde_json::Value::as_array) else {
             continue;
         };
-        let artifact_root = super::super::resolve_path(source_root, &deck.artifact_root);
+        let artifact_root = super::super::resolve_path(ctx.source_root, &deck.artifact_root);
         for card in cards {
             let Some(card_id) = card.get("proof_or_property_id").and_then(serde_json::Value::as_str) else {
                 continue;

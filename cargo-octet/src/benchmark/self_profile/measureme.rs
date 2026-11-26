@@ -79,32 +79,14 @@ fn parse_sections(bytes: &[u8]) -> Result<SectionOffsets, String> {
             super::model::EXPECTED_MEASUREME_FORMAT_VERSION
         ));
     }
-    let (tag0, len0) = read_section_dir(bytes, 8)?;
-    let sec0_start = 13usize;
-    let sec0_end = sec0_start.checked_add(len0).ok_or_else(|| "event section overflow".to_owned())?;
-    if tag0 != 0 || sec0_end + 5 > bytes.len() || len0 < 8 || &bytes[sec0_start..sec0_start + 4] != MMES_MAGIC {
-        return Err("invalid measureme MMES event stream section".to_owned());
+    let (sec0_start, sec0_end) = expect_section(bytes, 8, 0, *MMES_MAGIC, version)?;
+    if !(sec0_end - sec0_start - 8).is_multiple_of(EVENT_RECORD_BYTES) {
+        return Err("malformed MMES event stream length".to_owned());
     }
-    if read_u32(bytes, sec0_start + 4)? != version || !(len0 - 8).is_multiple_of(EVENT_RECORD_BYTES) {
-        return Err("malformed MMES event stream length or version".to_owned());
-    }
-    let (tag1, len1) = read_section_dir(bytes, sec0_end)?;
-    let sec1_start = sec0_end + 5;
-    let sec1_end = sec1_start.checked_add(len1).ok_or_else(|| "string data overflow".to_owned())?;
-    if tag1 != 1 || sec1_end + 5 > bytes.len() || len1 < 8 || &bytes[sec1_start..sec1_start + 4] != MMSD_MAGIC {
-        return Err("invalid measureme MMSD string data section".to_owned());
-    }
-    if read_u32(bytes, sec1_start + 4)? != version {
-        return Err("mismatched MMSD format version".to_owned());
-    }
-    let (tag2, len2) = read_section_dir(bytes, sec1_end)?;
-    let sec2_start = sec1_end + 5;
-    let sec2_end = sec2_start.checked_add(len2).ok_or_else(|| "string index overflow".to_owned())?;
-    if tag2 != 2 || sec2_end != bytes.len() || len2 < 8 || &bytes[sec2_start..sec2_start + 4] != MMSI_MAGIC {
-        return Err("invalid measureme MMSI string index section".to_owned());
-    }
-    if read_u32(bytes, sec2_start + 4)? != version || !(len2 - 8).is_multiple_of(INDEX_ENTRY_BYTES) {
-        return Err("malformed MMSI string index length or version".to_owned());
+    let (sec1_start, sec1_end) = expect_section(bytes, sec0_end, 1, *MMSD_MAGIC, version)?;
+    let (sec2_start, sec2_end) = expect_section(bytes, sec1_end, 2, *MMSI_MAGIC, version)?;
+    if sec2_end != bytes.len() || !(sec2_end - sec2_start - 8).is_multiple_of(INDEX_ENTRY_BYTES) {
+        return Err("malformed MMSI string index length".to_owned());
     }
     Ok(SectionOffsets {
         version,
@@ -115,6 +97,25 @@ fn parse_sections(bytes: &[u8]) -> Result<SectionOffsets, String> {
         mmsi_start: sec2_start + 8,
         mmsi_end: sec2_end,
     })
+}
+
+fn expect_section(
+    bytes: &[u8],
+    offset: usize,
+    expected_tag: u8,
+    magic: [u8; 4],
+    version: u32,
+) -> Result<(usize, usize), String> {
+    let (tag, len) = read_section_dir(bytes, offset)?;
+    let start = offset + 5;
+    let end = start.checked_add(len).ok_or_else(|| "measureme section overflow".to_owned())?;
+    if tag != expected_tag || end > bytes.len() || len < 8 || bytes[start..start + 4] != magic {
+        return Err(format!("invalid measureme section tag {expected_tag}"));
+    }
+    if read_u32(bytes, start + 4)? != version {
+        return Err(format!("mismatched measureme section {expected_tag} version"));
+    }
+    Ok((start, end))
 }
 
 fn parse_string_index(
@@ -138,11 +139,46 @@ fn resolve_string(
     mmsd: &[u8],
     index: &std::collections::HashMap<u64, usize>,
     sid: u64,
-    depth: usize,
+    _depth: usize,
 ) -> Result<String, String> {
-    if depth > MAX_STRING_REF_DEPTH {
-        return Err("measureme string reference exceeded max recursion depth".to_owned());
+    let mut stack = Vec::with_capacity(MAX_STRING_REF_DEPTH + 1);
+    stack.push((resolve_offset(mmsd, index, sid)?, 0usize));
+    let mut out = String::new();
+    while let Some((mut pos, depth)) = stack.pop() {
+        while pos < mmsd.len() {
+            let byte = mmsd[pos];
+            if byte == 0xff {
+                break;
+            }
+            if byte == 0xfe {
+                if pos + 9 > mmsd.len() {
+                    return Err("truncated measureme string ref component".to_owned());
+                }
+                if depth >= MAX_STRING_REF_DEPTH {
+                    return Err("measureme string reference exceeded max recursion depth".to_owned());
+                }
+                let ref_id = read_u64(mmsd, pos + 1)?;
+                stack.push((pos + 9, depth));
+                stack.push((resolve_offset(mmsd, index, ref_id)?, depth + 1));
+                break;
+            }
+            let mut end = pos;
+            while end < mmsd.len() && mmsd[end] != 0xfe && mmsd[end] != 0xff {
+                end += 1;
+            }
+            let chunk = std::str::from_utf8(&mmsd[pos..end])
+                .map_err(|error| format!("invalid UTF-8 in measureme string table: {error}"))?;
+            out.push_str(&chunk.replace('\x1e', " "));
+            pos = end;
+        }
+        if pos >= mmsd.len() {
+            return Err("unterminated measureme string entry".to_owned());
+        }
     }
+    Ok(out)
+}
+
+fn resolve_offset(mmsd: &[u8], index: &std::collections::HashMap<u64, usize>, sid: u64) -> Result<usize, String> {
     let start = if let Some(&offset) = index.get(&sid) {
         offset
     } else if sid >= FIRST_DIRECT_ADDR_ID {
@@ -153,32 +189,19 @@ fn resolve_string(
     if start < 8 || start >= mmsd.len() {
         return Err(format!("measureme string offset {start} out of bounds for {sid:#x}"));
     }
-    let mut pos = start;
-    let mut out = String::new();
-    while pos < mmsd.len() {
-        let byte = mmsd[pos];
-        if byte == 0xff {
-            return Ok(out);
-        }
-        if byte == 0xfe {
-            if pos + 9 > mmsd.len() {
-                return Err("truncated measureme string ref component".to_owned());
-            }
-            let ref_id = read_u64(mmsd, pos + 1)?;
-            out.push_str(&resolve_string(mmsd, index, ref_id, depth + 1)?);
-            pos += 9;
-            continue;
-        }
-        let mut end = pos;
-        while end < mmsd.len() && mmsd[end] != 0xfe && mmsd[end] != 0xff {
-            end += 1;
-        }
-        let chunk = std::str::from_utf8(&mmsd[pos..end])
-            .map_err(|error| format!("invalid UTF-8 in measureme string table: {error}"))?;
-        out.push_str(&chunk.replace('\x1e', " "));
-        pos = end;
-    }
-    Err("unterminated measureme string entry".to_owned())
+    Ok(start)
+}
+
+struct EventAccumulator<'a> {
+    mmsd: &'a [u8],
+    index: &'a std::collections::HashMap<u64, usize>,
+    threads: std::collections::BTreeSet<u32>,
+    per_query: std::collections::BTreeMap<(String, String), (u64, u64, u64)>,
+    query_events: usize,
+    activity_events: usize,
+    cache_hit_events: usize,
+    artifact_size_events: usize,
+    summed_query_span_ns: u64,
 }
 
 fn aggregate_events(
@@ -193,57 +216,25 @@ fn aggregate_events(
     if total_events > max_events {
         return Err(format!("measureme event count {total_events} exceeds budget {max_events}"));
     }
-    let mut threads = std::collections::BTreeSet::new();
-    let mut per_query = std::collections::BTreeMap::<(String, String), (u64, u64, u64)>::new();
-    let mut query_events = 0usize;
-    let mut activity_events = 0usize;
-    let mut cache_hit_events = 0usize;
-    let mut artifact_size_events = 0usize;
-    let mut summed_query_span_ns = 0u64;
-
+    let mut acc = EventAccumulator {
+        mmsd,
+        index,
+        threads: std::collections::BTreeSet::new(),
+        per_query: std::collections::BTreeMap::new(),
+        query_events: 0,
+        activity_events: 0,
+        cache_hit_events: 0,
+        artifact_size_events: 0,
+        summed_query_span_ns: 0,
+    };
     let mut pos = sections.events_start;
     while pos < sections.events_end {
-        let kind_id = read_u64(bytes, pos)?;
-        let event_id = read_u64(bytes, pos + 8)?;
-        let thread_id = read_u32(bytes, pos + 16)?;
-        let p1_lo = u64::from(read_u32(bytes, pos + 20)?);
-        let p2_lo = u64::from(read_u32(bytes, pos + 24)?);
-        let upper = u64::from(read_u32(bytes, pos + 28)?);
-        let p1 = p1_lo | (((upper >> 16) & 0xFFFF) << 32);
-        let p2 = p2_lo | ((upper & 0xFFFF) << 32);
+        record_single_event(&mut acc, bytes, pos)?;
         pos += EVENT_RECORD_BYTES;
-
-        threads.insert(thread_id);
-        let kind = resolve_string(mmsd, index, kind_id, 0)?;
-        let name = resolve_string(mmsd, index, event_id, 0)?;
-        match kind.as_str() {
-            "Query" => query_events += 1,
-            "GenericActivity" => activity_events += 1,
-            "QueryCacheHitCount" => cache_hit_events += 1,
-            "ArtifactSize" => artifact_size_events += 1,
-            _ => {}
-        }
-        let (dur, int_val) = if p2 == INSTANT_MARKER {
-            (0, 0)
-        } else if p2 == INTEGER_MARKER {
-            (0, p1)
-        } else {
-            if p2 < p1 {
-                return Err(format!("measureme interval event `{name}` has end < start"));
-            }
-            let delta = p2 - p1;
-            if kind == "Query" {
-                summed_query_span_ns = summed_query_span_ns.saturating_add(delta);
-            }
-            (delta, 0)
-        };
-        let entry = per_query.entry((kind, name)).or_insert((0, 0, 0));
-        entry.0 = entry.0.saturating_add(1);
-        entry.1 = entry.1.saturating_add(dur);
-        entry.2 = entry.2.saturating_add(int_val);
     }
 
-    let mut top_queries = per_query
+    let mut top_queries = acc
+        .per_query
         .into_iter()
         .map(|((kind, name), (count, summed_duration_ns, integer_value_sum))| super::model::QueryEventSummary {
             kind,
@@ -266,14 +257,55 @@ fn aggregate_events(
         process_id: metadata.process_id,
         cmd: metadata.cmd,
         total_events,
-        query_events,
-        activity_events,
-        cache_hit_events,
-        artifact_size_events,
-        distinct_threads: threads.len(),
-        summed_query_span_ns,
+        query_events: acc.query_events,
+        activity_events: acc.activity_events,
+        cache_hit_events: acc.cache_hit_events,
+        artifact_size_events: acc.artifact_size_events,
+        distinct_threads: acc.threads.len(),
+        summed_query_span_ns: acc.summed_query_span_ns,
         top_queries,
     })
+}
+
+fn record_single_event(acc: &mut EventAccumulator<'_>, bytes: &[u8], pos: usize) -> Result<(), String> {
+    let kind_id = read_u64(bytes, pos)?;
+    let event_id = read_u64(bytes, pos + 8)?;
+    let thread_id = read_u32(bytes, pos + 16)?;
+    let p1_lo = u64::from(read_u32(bytes, pos + 20)?);
+    let p2_lo = u64::from(read_u32(bytes, pos + 24)?);
+    let upper = u64::from(read_u32(bytes, pos + 28)?);
+    let p1 = p1_lo | (((upper >> 16) & 0xFFFF) << 32);
+    let p2 = p2_lo | ((upper & 0xFFFF) << 32);
+
+    acc.threads.insert(thread_id);
+    let kind = resolve_string(acc.mmsd, acc.index, kind_id, 0)?;
+    let name = resolve_string(acc.mmsd, acc.index, event_id, 0)?;
+    match kind.as_str() {
+        "Query" => acc.query_events += 1,
+        "GenericActivity" => acc.activity_events += 1,
+        "QueryCacheHitCount" => acc.cache_hit_events += 1,
+        "ArtifactSize" => acc.artifact_size_events += 1,
+        _ => {}
+    }
+    let (dur, int_val) = if p2 == INSTANT_MARKER {
+        (0, 0)
+    } else if p2 == INTEGER_MARKER {
+        (0, p1)
+    } else {
+        if p2 < p1 {
+            return Err(format!("measureme interval event `{name}` has end < start"));
+        }
+        let delta = p2 - p1;
+        if kind == "Query" {
+            acc.summed_query_span_ns = acc.summed_query_span_ns.saturating_add(delta);
+        }
+        (delta, 0)
+    };
+    let entry = acc.per_query.entry((kind, name)).or_insert((0, 0, 0));
+    entry.0 = entry.0.saturating_add(1);
+    entry.1 = entry.1.saturating_add(dur);
+    entry.2 = entry.2.saturating_add(int_val);
+    Ok(())
 }
 
 fn read_section_dir(bytes: &[u8], offset: usize) -> Result<(u8, usize), String> {

@@ -72,18 +72,18 @@ fn load_phase_files(
     dir: &std::path::Path,
     max_records: usize,
 ) -> Result<Vec<super::model::OctetPhaseSpanRecord>, String> {
-    let mut paths = Vec::new();
+    let mut paths = Vec::with_capacity(max_records.min(32));
     for entry in std::fs::read_dir(dir).map_err(|error| format!("read phase dir {}: {error}", dir.display()))? {
         let entry = entry.map_err(|error| format!("read phase dir entry: {error}"))?;
         let path = entry.path();
         if path.file_name().and_then(|name| name.to_str()).is_some_and(|name| name.ends_with(".phases.json")) {
+            if paths.len() >= max_records {
+                return Err(format!("phase record count exceeds budget {max_records}"));
+            }
             paths.push(path);
         }
     }
     paths.sort();
-    if paths.len() > max_records {
-        return Err(format!("phase record count {} exceeds budget {max_records}", paths.len()));
-    }
     let mut records = Vec::with_capacity(paths.len());
     for path in paths {
         let bytes = std::fs::read(&path).map_err(|error| format!("read phase file {}: {error}", path.display()))?;
@@ -116,9 +116,7 @@ pub(crate) fn validate_profile_config(profile: &super::model::DiagnosticProfileC
 
 pub(crate) fn hash_workspace_sources(root: &std::path::Path) -> Result<String, String> {
     let mut hasher = blake3::Hasher::new();
-    let mut files = Vec::new();
-    collect_rs_files(root, root, &mut files)?;
-    files.sort();
+    let files = collect_rs_files(root)?;
     for rel in files {
         hasher.update(rel.as_bytes());
         let bytes = std::fs::read(root.join(&rel)).map_err(|error| format!("hash source file {rel}: {error}"))?;
@@ -127,23 +125,30 @@ pub(crate) fn hash_workspace_sources(root: &std::path::Path) -> Result<String, S
     Ok(format!("b3:{}", hasher.finalize().to_hex()))
 }
 
-fn collect_rs_files(base: &std::path::Path, dir: &std::path::Path, out: &mut Vec<String>) -> Result<(), String> {
-    for entry in std::fs::read_dir(dir).map_err(|error| format!("read dir {}: {error}", dir.display()))? {
-        let entry = entry.map_err(|error| format!("read dir entry: {error}"))?;
-        let path = entry.path();
-        let name = entry.file_name();
-        let name_str = name.to_string_lossy();
-        if path.is_dir() {
-            if !matches!(name_str.as_ref(), "target" | ".git" | ".octet" | "artifacts") {
-                collect_rs_files(base, &path, out)?;
+fn collect_rs_files(base: &std::path::Path) -> Result<Vec<String>, String> {
+    let mut out = Vec::with_capacity(32);
+    let mut dirs = Vec::with_capacity(16);
+    dirs.push(base.to_path_buf());
+    while let Some(dir) = dirs.pop() {
+        for entry in std::fs::read_dir(&dir).map_err(|error| format!("read dir {}: {error}", dir.display()))? {
+            let entry = entry.map_err(|error| format!("read dir entry: {error}"))?;
+            let path = entry.path();
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy();
+            if path.is_dir() {
+                if !matches!(name_str.as_ref(), "target" | ".git" | ".octet" | "artifacts") && dirs.len() < 4096 {
+                    dirs.push(path);
+                }
+            } else if matches!(path.extension().and_then(|e| e.to_str()), Some("rs" | "toml"))
+                && let Ok(rel) = path.strip_prefix(base)
+                && out.len() < 16_384
+            {
+                out.push(rel.to_string_lossy().into_owned());
             }
-        } else if matches!(path.extension().and_then(|e| e.to_str()), Some("rs" | "toml"))
-            && let Ok(rel) = path.strip_prefix(base)
-        {
-            out.push(rel.to_string_lossy().into_owned());
         }
     }
-    Ok(())
+    out.sort();
+    Ok(out)
 }
 
 pub(crate) fn rustc_version_line() -> Result<String, String> {

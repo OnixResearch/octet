@@ -34,7 +34,7 @@ fn body(name: &str) -> BodyObservation {
         is_unsafe: false,
         is_async: false,
         has_unwind_edges: false,
-        has_implicit_panic_assert: false,
+        implicit_panic_assert_count: 0,
         basic_block_count: 2,
         step_count: 8,
         drops: Vec::new(),

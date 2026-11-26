@@ -41,7 +41,7 @@ pub struct ProfileBudgets {
     pub max_mm_profdata_bytes: usize,
     pub max_events_per_unit: usize,
     pub max_units: usize,
-    pub max_phase_records: usize,
+    pub phase_record_budget: usize,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

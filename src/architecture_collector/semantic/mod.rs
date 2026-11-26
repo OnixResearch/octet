@@ -5,15 +5,18 @@ mod calls;
 mod drops;
 mod places;
 
-use rustc_hir::def::DefKind;
-use rustc_lint::LateContext;
-use rustc_span::def_id::LocalDefId;
+pub(super) struct SemanticSinks<'a> {
+    pub(super) drops: &'a mut std::collections::BTreeSet<octet_architecture_ir::semantic::DropEdge>,
+    pub(super) calls: &'a mut std::collections::BTreeSet<octet_architecture_ir::semantic::MirCallEdge>,
+    pub(super) memory_writes: &'a mut std::collections::BTreeSet<octet_architecture_ir::semantic::MemoryWrite>,
+    pub(super) unsupported: &'a mut std::collections::BTreeSet<octet_architecture_ir::semantic::UnsupportedConstruct>,
+}
 
 /// Collects semantic MIR observations for the active compilation unit and publishes
 /// `<unit_id>.semantic.json` inside the collector output directory.
 pub(super) fn collect_and_write_unit_summary(
     collector: &mut super::ArchitectureCollector,
-    cx: &LateContext<'_>,
+    cx: &rustc_lint::LateContext<'_>,
 ) -> Result<usize, String> {
     let mut body_ids = collect_mir_body_ids(collector, cx);
     body_ids.sort_by_key(|def_id| super::qualified_definition(cx, def_id.to_def_id()));
@@ -22,7 +25,7 @@ pub(super) fn collect_and_write_unit_summary(
     let max_bodies = collector.context.limits.max_value_flow_bodies.max(1);
     let mut remaining_steps = collector.context.limits.max_value_flow_steps.max(1);
     let mut is_budget_exhausted = false;
-    let mut skipped_bodies = Vec::new();
+    let mut skipped_bodies = Vec::with_capacity(body_ids.len());
     let mut bodies = Vec::with_capacity(body_ids.len().min(max_bodies));
 
     for def_id in body_ids {
@@ -32,12 +35,11 @@ pub(super) fn collect_and_write_unit_summary(
             skipped_bodies.push(qualified_path);
             continue;
         }
-        match body::analyze_body(collector, cx, def_id, &qualified_path, &mut remaining_steps) {
-            Ok(observation) => bodies.push(observation),
-            Err(()) => {
-                is_budget_exhausted = true;
-                skipped_bodies.push(qualified_path);
-            }
+        if let Ok(observation) = body::analyze_body(collector, cx, def_id, &qualified_path, &mut remaining_steps) {
+            bodies.push(observation);
+        } else {
+            is_budget_exhausted = true;
+            skipped_bodies.push(qualified_path);
         }
     }
 
@@ -70,13 +72,22 @@ pub(super) fn collect_and_write_unit_summary(
     Ok(observed_bodies)
 }
 
-fn collect_mir_body_ids(collector: &super::ArchitectureCollector, cx: &LateContext<'_>) -> Vec<LocalDefId> {
-    let mut ids = Vec::with_capacity(collector.item_ids.len());
+fn collect_mir_body_ids(
+    collector: &super::ArchitectureCollector,
+    cx: &rustc_lint::LateContext<'_>,
+) -> Vec<rustc_span::def_id::LocalDefId> {
+    let max_ids = collector.item_ids.len();
+    let mut ids = Vec::with_capacity(max_ids);
     for def_id in collector.item_ids.keys().copied() {
         let kind = cx.tcx.def_kind(def_id);
-        let is_body_kind =
-            matches!(kind, DefKind::Fn | DefKind::AssocFn | DefKind::Closure | DefKind::SyntheticCoroutineBody);
-        if is_body_kind && cx.tcx.is_mir_available(def_id.to_def_id()) {
+        let is_body_kind = matches!(
+            kind,
+            rustc_hir::def::DefKind::Fn
+                | rustc_hir::def::DefKind::AssocFn
+                | rustc_hir::def::DefKind::Closure
+                | rustc_hir::def::DefKind::SyntheticCoroutineBody
+        );
+        if is_body_kind && cx.tcx.is_mir_available(def_id.to_def_id()) && ids.len() < max_ids {
             ids.push(def_id);
         }
     }

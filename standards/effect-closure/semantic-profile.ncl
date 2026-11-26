@@ -72,7 +72,7 @@ let contracts = import "semantic-contracts.ncl" in
     max_blocks_per_body = 512,
     max_steps = 8192,
     max_rounds = 16,
-    max_call_edges = 2048,
+    call_edge_limit = 2048,
   },
   non_claims = [
     "This profile covers only the declared bounded sequential Rust/MIR subset and selected compilation units; it does not claim arbitrary Rust support, whole-program correctness, rustc soundness, or verified termination.",

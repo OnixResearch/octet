@@ -1,10 +1,9 @@
 //! Profile, unit summary, and selected-function correspondence validation (#17).
 
-use super::model::CoverageReport;
-use super::model::SemanticDiagnostic;
-use super::model::SemanticEffectProfile;
-
-pub(super) fn validate_profile(profile: &SemanticEffectProfile, diagnostics: &mut Vec<SemanticDiagnostic>) {
+pub(super) fn validate_profile(
+    profile: &super::model::SemanticEffectProfile,
+    diagnostics: &mut Vec<super::model::SemanticDiagnostic>,
+) {
     if profile.schema_version != super::model::PROFILE_SCHEMA_VERSION {
         push_diag(diagnostics, "profile_schema_invalid", "unsupported semantic effect profile schema", None);
     }
@@ -30,8 +29,8 @@ pub(super) fn validate_profile(profile: &SemanticEffectProfile, diagnostics: &mu
 
 pub(super) fn validate_unit_summary(
     summary: &octet_architecture_ir::semantic::UnitSummary,
-    profile: &SemanticEffectProfile,
-    diagnostics: &mut Vec<SemanticDiagnostic>,
+    profile: &super::model::SemanticEffectProfile,
+    diagnostics: &mut Vec<super::model::SemanticDiagnostic>,
 ) {
     if summary.schema_version != octet_architecture_ir::semantic::SEMANTIC_MIR_UNIT_SCHEMA_VERSION {
         push_diag(diagnostics, "unit_schema_invalid", "unsupported semantic MIR unit schema", None);
@@ -54,9 +53,9 @@ pub(super) fn validate_unit_summary(
 pub(super) fn check_correspondence(
     summary: &octet_architecture_ir::semantic::UnitSummary,
     addresses: &[crate::effect_closure::FunctionAddressRecord],
-    profile: &SemanticEffectProfile,
-    diagnostics: &mut Vec<SemanticDiagnostic>,
-) -> (CoverageReport, std::collections::BTreeMap<String, String>) {
+    profile: &super::model::SemanticEffectProfile,
+    diagnostics: &mut Vec<super::model::SemanticDiagnostic>,
+) -> (super::model::CoverageReport, std::collections::BTreeMap<String, String>) {
     let mut address_by_name = std::collections::BTreeMap::new();
     for record in addresses {
         address_by_name.insert(record.name.clone(), record.function_address.clone());
@@ -67,7 +66,7 @@ pub(super) fn check_correspondence(
         .map(|body| body.qualified_path.rsplit("::").next().unwrap_or(&body.qualified_path).to_owned())
         .collect::<std::collections::BTreeSet<_>>();
 
-    let mut missing = Vec::new();
+    let mut missing = Vec::with_capacity(addresses.len());
     for record in addresses {
         if !observed_short_names.contains(&record.name)
             && !summary.bodies.iter().any(|body| body.qualified_path == record.name)
@@ -95,7 +94,7 @@ pub(super) fn check_correspondence(
         && summary.skipped_bodies.is_empty()
         && missing.is_empty()
         && !summary.bodies.is_empty();
-    let report = CoverageReport {
+    let report = super::model::CoverageReport {
         is_complete,
         expected_function_count: addresses.len(),
         observed_body_count: summary.bodies.len(),
@@ -106,8 +105,13 @@ pub(super) fn check_correspondence(
     (report, address_by_name)
 }
 
-fn push_diag(diagnostics: &mut Vec<SemanticDiagnostic>, code: &str, message: &str, item_path: Option<&str>) {
-    diagnostics.push(SemanticDiagnostic {
+fn push_diag(
+    diagnostics: &mut Vec<super::model::SemanticDiagnostic>,
+    code: &str,
+    message: &str,
+    item_path: Option<&str>,
+) {
+    diagnostics.push(super::model::SemanticDiagnostic {
         code: code.to_owned(),
         message: message.to_owned(),
         item_path: item_path.map(str::to_owned),

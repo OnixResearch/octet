@@ -45,7 +45,7 @@ let SubjectRef = {
       behavior_preservation_clause_id | NonEmptyString,
       correspondence_clause_id | NonEmptyString,
       freshness_clause_id | NonEmptyString,
-      rule_normal_form_clause_id | Dyn,
+      optional_normal_form_clause | Dyn,
       effect_independence_clause_id | Dyn,
     },
     approved_assumptions | Array NonEmptyString,

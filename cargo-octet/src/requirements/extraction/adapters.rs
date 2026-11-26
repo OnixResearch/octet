@@ -42,18 +42,17 @@ pub(super) fn verify_all_adapters(
     verify_semantic_effect_adapter(profile, contract, evidence, source_root, diagnostics);
     verify_preservation_adapter(profile, contract, evidence, source_root, diagnostics);
     verify_correspondence_adapter(profile, contract, evidence, source_root, diagnostics);
-    if let Some(clause_id) = profile.clauses.rule_normal_form_clause_id.as_deref() {
-        super::optional::verify_normal_form_adapter(profile, clause_id, contract, evidence, source_root, diagnostics);
+    let ctx = super::optional::OptionalVerifyCtx {
+        profile,
+        contract,
+        evidence,
+        source_root,
+    };
+    if let Some(clause_id) = profile.clauses.optional_normal_form_clause.as_deref() {
+        super::optional::verify_normal_form_adapter(&ctx, clause_id, diagnostics);
     }
     if let Some(clause_id) = profile.clauses.effect_independence_clause_id.as_deref() {
-        super::optional::verify_effect_independence_adapter(
-            profile,
-            clause_id,
-            contract,
-            evidence,
-            source_root,
-            diagnostics,
-        );
+        super::optional::verify_effect_independence_adapter(&ctx, clause_id, diagnostics);
     }
 }
 
@@ -165,12 +164,16 @@ fn verify_preservation_adapter(
     source_root: &std::path::Path,
     diagnostics: &mut Vec<String>,
 ) {
-    let Some(path) = super::optional::find_proof_artifact_path(
-        &profile.clauses.behavior_preservation_clause_id,
-        "preservation-proof.json",
+    let ctx = super::optional::OptionalVerifyCtx {
+        profile,
         contract,
         evidence,
         source_root,
+    };
+    let Some(path) = super::optional::find_proof_artifact_path(
+        &ctx,
+        &profile.clauses.behavior_preservation_clause_id,
+        "preservation-proof.json",
         diagnostics,
     ) else {
         return;

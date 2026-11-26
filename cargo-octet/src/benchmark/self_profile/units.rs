@@ -1,20 +1,27 @@
 //! Per-unit `.mm_profdata` collection and session archival (#25).
 
+pub(crate) struct UnitCollectRequest<'a> {
+    pub(crate) prof_dir: Option<&'a std::path::Path>,
+    pub(crate) archive_prof_dir: Option<&'a std::path::Path>,
+    pub(crate) cache_state: &'a str,
+    pub(crate) source_hash: &'a str,
+    pub(crate) toolchain: &'a str,
+    pub(crate) profile: &'a super::model::DiagnosticProfileConfig,
+    pub(crate) driver_blake3: Option<&'a str>,
+    pub(crate) lint_lib_blake3: Option<&'a str>,
+}
+
 pub(crate) fn collect_unit_rows(
-    prof_dir: Option<&std::path::Path>,
-    archive_prof_dir: Option<&std::path::Path>,
-    cache_state: &str,
-    source_hash: &str,
-    toolchain: &str,
-    profile: &super::model::DiagnosticProfileConfig,
-    driver_blake3: Option<&str>,
-    lint_lib_blake3: Option<&str>,
+    req: &UnitCollectRequest<'_>,
 ) -> Result<Vec<super::model::UnitProfileObservation>, String> {
-    let Some(dir) = prof_dir else {
+    let Some(dir) = req.prof_dir else {
         return Ok(Vec::new());
     };
-    let read_dir = if let Some(archive) = archive_prof_dir {
-        let _ = std::fs::remove_dir_all(archive);
+    let read_dir = if let Some(archive) = req.archive_prof_dir {
+        if archive.exists() {
+            std::fs::remove_dir_all(archive)
+                .map_err(|error| format!("clear archive prof dir {}: {error}", archive.display()))?;
+        }
         std::fs::create_dir_all(archive).map_err(|error| format!("create archive prof dir: {error}"))?;
         for entry in std::fs::read_dir(dir).map_err(|error| format!("read session prof dir: {error}"))? {
             let entry = entry.map_err(|error| format!("read session entry: {error}"))?;
@@ -30,29 +37,29 @@ pub(crate) fn collect_unit_rows(
     } else {
         dir
     };
-    let mut units = collect_profdata_units(read_dir, cache_state, source_hash, toolchain, profile)?;
+    let mut units = collect_profdata_units(read_dir, req.cache_state, req.source_hash, req.toolchain, req.profile)?;
     for unit in &mut units {
-        unit.driver_blake3 = driver_blake3.map(str::to_owned);
-        unit.lint_lib_blake3 = lint_lib_blake3.map(str::to_owned);
+        unit.driver_blake3 = req.driver_blake3.map(str::to_owned);
+        unit.lint_lib_blake3 = req.lint_lib_blake3.map(str::to_owned);
     }
-    if units.is_empty() && cache_state == "cold" {
+    if units.is_empty() && req.cache_state == "cold" {
         return Err("cold instrumented compilation emitted zero .mm_profdata files".to_owned());
     }
     if units.is_empty() {
         units.push(super::model::UnitProfileObservation {
             unit_label: "workspace-unchanged".to_owned(),
             host_or_target_role: "target".to_owned(),
-            cache_state: cache_state.to_owned(),
+            cache_state: req.cache_state.to_owned(),
             build_status: super::model::UnitBuildStatus::NotCompiled,
             process_id: 0,
             command_line: String::new(),
             raw_profdata_path: String::new(),
             raw_profdata_blake3: String::new(),
             raw_bytes: 0,
-            compiler_identity: toolchain.to_owned(),
-            driver_blake3: driver_blake3.map(str::to_owned),
-            lint_lib_blake3: lint_lib_blake3.map(str::to_owned),
-            source_blake3: source_hash.to_owned(),
+            compiler_identity: req.toolchain.to_owned(),
+            driver_blake3: req.driver_blake3.map(str::to_owned),
+            lint_lib_blake3: req.lint_lib_blake3.map(str::to_owned),
+            source_blake3: req.source_hash.to_owned(),
             total_events: 0,
             query_events: 0,
             activity_events: 0,
@@ -73,18 +80,18 @@ pub(crate) fn collect_profdata_units(
     toolchain: &str,
     profile: &super::model::DiagnosticProfileConfig,
 ) -> Result<Vec<super::model::UnitProfileObservation>, String> {
-    let mut files = Vec::new();
+    let mut files = Vec::with_capacity(profile.budgets.max_units.min(64));
     for entry in std::fs::read_dir(dir).map_err(|error| format!("read profdata dir {}: {error}", dir.display()))? {
         let entry = entry.map_err(|error| format!("read profdata entry: {error}"))?;
         let path = entry.path();
         if path.extension().and_then(|ext| ext.to_str()) == Some("mm_profdata") {
+            if files.len() >= profile.budgets.max_units {
+                return Err(format!("profdata unit count exceeds budget {}", profile.budgets.max_units));
+            }
             files.push(path);
         }
     }
     files.sort();
-    if files.len() > profile.budgets.max_units {
-        return Err(format!("profdata unit count {} exceeds budget {}", files.len(), profile.budgets.max_units));
-    }
     let mut observations = Vec::with_capacity(files.len());
     for path in files {
         let bytes = std::fs::read(&path).map_err(|error| format!("read {}: {error}", path.display()))?;

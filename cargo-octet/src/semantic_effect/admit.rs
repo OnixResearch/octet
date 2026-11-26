@@ -1,15 +1,13 @@
 //! Admission integration for the opt-in semantic MIR effect profile (#17).
 
-use std::path::Path;
-
 pub(crate) const SEMANTIC_EFFECT_RECEIPT_ARTIFACT: &str = "semantic-effect-receipt.json";
 
 /// Evaluates an opt-in `--semantic-effect-profile` during `cargo octet admit` when
 /// compiler semantic MIR unit summaries are present under the workspace collector shard directory.
 pub(crate) fn evaluate_admitted_semantic_profile(
-    workspace_root: &Path,
-    profile_path: &Path,
-    artifact_dir: &Path,
+    workspace_root: &std::path::Path,
+    profile_path: &std::path::Path,
+    artifact_dir: &std::path::Path,
     function_addresses: &[crate::effect_closure::FunctionAddressRecord],
     cargo_lock_blake3: &str,
 ) -> Result<super::model::SemanticEffectReceipt, String> {
@@ -43,15 +41,19 @@ pub(crate) fn evaluate_admitted_semantic_profile(
     Ok(receipt)
 }
 
-fn load_latest_semantic_unit_summary(shard_dir: &Path) -> Result<octet_architecture_ir::semantic::UnitSummary, String> {
+fn load_latest_semantic_unit_summary(
+    shard_dir: &std::path::Path,
+) -> Result<octet_architecture_ir::semantic::UnitSummary, String> {
     let entries = std::fs::read_dir(shard_dir).map_err(|error| {
         format!("semantic effect profile requires compiler MIR shard directory {}: {error}", shard_dir.display())
     })?;
-    let mut paths = Vec::new();
+    let mut paths = Vec::with_capacity(16);
     for entry in entries {
         let entry = entry.map_err(|error| format!("read shard entry: {error}"))?;
         let path = entry.path();
-        if path.file_name().and_then(|name| name.to_str()).is_some_and(|name| name.ends_with(".semantic.json")) {
+        if path.file_name().and_then(|name| name.to_str()).is_some_and(|name| name.ends_with(".semantic.json"))
+            && paths.len() < 4096
+        {
             paths.push(path);
         }
     }

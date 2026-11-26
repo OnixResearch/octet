@@ -47,7 +47,7 @@ let contracts = import "self-profile-contracts.ncl" in
     max_mm_profdata_bytes = 67108864,
     max_events_per_unit = 500000,
     max_units = 64,
-    max_phase_records = 256,
+    phase_record_budget = 256,
   },
   non_claims = [
     "Instrumented -Z self-profile runs measure diagnostic compiler/collector behavior and remain separate from uninstrumented scored wall-time baselines.",

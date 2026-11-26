@@ -48,7 +48,7 @@ let contracts = import "../../../semantic-contracts.ncl" in
     max_blocks_per_body = 64,
     max_steps = 1024,
     max_rounds = 8,
-    max_call_edges = 256,
+    call_edge_limit = 256,
   },
   non_claims = [
     "Rejects any operation or destructor requiring unwind cleanup under this profile.",

@@ -125,7 +125,7 @@ pub struct BodyObservation {
     pub is_unsafe: bool,
     pub is_async: bool,
     pub has_unwind_edges: bool,
-    pub has_implicit_panic_assert: bool,
+    pub implicit_panic_assert_count: u32,
     pub basic_block_count: usize,
     pub step_count: usize,
     pub drops: Vec<DropEdge>,
@@ -155,6 +155,10 @@ pub struct UnitSummary {
 }
 
 /// Computes the canonical BLAKE3 identity over a semantic MIR unit summary.
+///
+/// # Errors
+///
+/// Returns an error if canonical serialization of `summary` fails.
 pub fn compute_unit_summary_blake3(summary: &UnitSummary) -> Result<String, String> {
     let mut normalized = summary.clone();
     normalized.summary_blake3 = String::new();
