@@ -7,10 +7,10 @@
     "rustc_version": "rustc 1.96.0-nightly (ac7f9ec7d 2026-03-20)",
     "toolchain": "nightly-2026-03-21-x86_64-unknown-linux-gnu",
     "profile_name": "workspace-metadata",
-    "profile_hash": "b3:cab68b88c47e365a83bcff8760701a148e90217e605daee7c7d0fe8ec2e83e45",
+    "profile_hash": "b3:5ebc1b358e0e776e5a3d281656f6abc77498cde8246f27b333783eec419163f9",
     "config_hash": "b3:c51d1ae1c55fee2a9d155a7b8abe18cb7a6b14ac30476d513f3f5162fe5360c7"
   },
-  "baseline_hash": "b3:97c195b6f296e9eb6b7ef38b237c8a45fb9738f2e657740d02b5d283b146c4cf",
+  "baseline_hash": "b3:03ccf6e28fe3fd97b501173075fcef9ccb3a9477cbfec2219cf7e3759c653296",
   "findings": [
     {
       "stable_id": "b3:00261e8fb80f3de5",
@@ -306,7 +306,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 609,
+      "line": 613,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -1242,7 +1242,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 2434,
+      "line": 2653,
       "column": 9,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -1792,6 +1792,19 @@
       "column": 1,
       "message": "item name `imports_only_trait` repeats `imports` from ancestor path segment `renamed_imports`",
       "crate_name": "octet"
+    },
+    {
+      "stable_id": "b3:0bb11248e244f1bd",
+      "semantic_id": "b3:0bb11248e244f1bd",
+      "identity_status": "computed",
+      "lint": "path_segment_repetition",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/evidence_rails.rs",
+      "line": 3171,
+      "column": 1,
+      "message": "item name `parse_dynamic_evidence` repeats `evidence` from ancestor path segment `evidence_rails`",
+      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:0bb1783b9f894f01",
@@ -2542,7 +2555,7 @@
       "group": "tigerstyle::purity",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 5222,
+      "line": 5595,
       "column": 53,
       "message": "direct `std::env::var_os` access reads or mutates ambient process state",
       "crate_name": "cargo_octet"
@@ -2607,7 +2620,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 6177,
+      "line": 6577,
       "column": 13,
       "message": "boolean binding `saw_percentage` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -3478,7 +3491,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 722,
+      "line": 726,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -4778,7 +4791,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 641,
+      "line": 645,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -5688,7 +5701,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 5860,
+      "line": 6260,
       "column": 1,
       "message": "item name `cargo_deny_diagnostic_is_uncounted` repeats `cargo` from ancestor path segment `cargo_octet`",
       "crate_name": "cargo_octet"
@@ -5743,19 +5756,6 @@
       "line": 1230,
       "column": 13,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
-      "crate_name": "cargo_octet"
-    },
-    {
-      "stable_id": "b3:26b46f2ad0fad8b8",
-      "semantic_id": "b3:26b46f2ad0fad8b8",
-      "identity_status": "computed",
-      "lint": "underscore_in_module_filename",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 1,
-      "column": 1,
-      "message": "module filename `evidence_rails.rs` contains an underscore; prefer `evidence/rails.rs`",
       "crate_name": "cargo_octet"
     },
     {
@@ -5844,7 +5844,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 4324,
+      "line": 4607,
       "column": 9,
       "message": "boolean binding `property_claim` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -5909,7 +5909,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 560,
+      "line": 564,
       "column": 1,
       "message": "item name `EvidenceRailFinding` repeats `evidence` from ancestor path segment `evidence_rails`",
       "crate_name": "cargo_octet"
@@ -6325,7 +6325,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 3710,
+      "line": 3993,
       "column": 9,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -6407,19 +6407,6 @@
       "column": 1,
       "message": "function has 6 parameters (limit: 5) — consider an options struct",
       "crate_name": "octet_standards"
-    },
-    {
-      "stable_id": "b3:2ad21c0774c8e499",
-      "semantic_id": "b3:2ad21c0774c8e499",
-      "identity_status": "computed",
-      "lint": "function_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 1183,
-      "column": 68,
-      "message": "function `evaluate` is 80 lines (limit: 70)",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:2ad99f516f856cda",
@@ -7248,7 +7235,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 5871,
+      "line": 6271,
       "column": 78,
       "message": "function `cargo_deny_report_from_json_lines` is 90 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -7547,7 +7534,7 @@
       "group": "tigerstyle::purity",
       "severity": "warning",
       "file": "cargo-octet/src/lib.rs",
-      "line": 114,
+      "line": 117,
       "column": 35,
       "message": "direct `std::env::temp_dir` access reads or mutates ambient process state",
       "crate_name": "cargo_octet"
@@ -7833,7 +7820,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 2782,
+      "line": 3001,
       "column": 1,
       "message": "item name `cargo_vet_package` repeats `cargo` from ancestor path segment `cargo_octet`",
       "crate_name": "cargo_octet"
@@ -8509,7 +8496,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 5779,
+      "line": 6179,
       "column": 1,
       "message": "item name `cargo_deny_check_and_category` repeats `cargo` from ancestor path segment `cargo_octet`",
       "crate_name": "cargo_octet"
@@ -9113,6 +9100,19 @@
       "crate_name": "cargo_octet"
     },
     {
+      "stable_id": "b3:3b98c64233695e3f",
+      "semantic_id": "b3:3b98c64233695e3f",
+      "identity_status": "computed",
+      "lint": "ambient_env",
+      "group": "tigerstyle::purity",
+      "severity": "warning",
+      "file": "cargo-octet/src/lib.rs",
+      "line": 103,
+      "column": 70,
+      "message": "direct `std::env::vars_os` access reads or mutates ambient process state",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:3bb4936fc17dbc83",
       "semantic_id": "b3:3bb4936fc17dbc83",
       "identity_status": "computed",
@@ -9588,7 +9588,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 4468,
+      "line": 4751,
       "column": 1,
       "message": "item name `KaniClaimEvidence` repeats `evidence` from ancestor path segment `evidence_rails`",
       "crate_name": "cargo_octet"
@@ -11096,7 +11096,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 2839,
+      "line": 3058,
       "column": 1,
       "message": "item name `cargo_vet_import` repeats `cargo` from ancestor path segment `cargo_octet`",
       "crate_name": "cargo_octet"
@@ -11590,7 +11590,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 4319,
+      "line": 4602,
       "column": 9,
       "message": "boolean binding `review_complete` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -12127,19 +12127,6 @@
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "octet_lint_metadata"
-    },
-    {
-      "stable_id": "b3:502a689fc75e9909",
-      "semantic_id": "b3:502a689fc75e9909",
-      "identity_status": "computed",
-      "lint": "excessive_file_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 1,
-      "column": 1,
-      "message": "source file is 10245 lines (limit: 300)",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:5032c4e72f0d851b",
@@ -13345,7 +13332,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 3548,
+      "line": 3799,
       "column": 13,
       "message": "boolean binding `boundary_stub_seen` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -13722,7 +13709,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 2802,
+      "line": 3021,
       "column": 1,
       "message": "item name `cargo_vet_store_path` repeats `cargo` from ancestor path segment `cargo_octet`",
       "crate_name": "cargo_octet"
@@ -14372,7 +14359,7 @@
       "group": "tigerstyle::purity",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 5075,
+      "line": 5448,
       "column": 53,
       "message": "direct `std::env::var_os` access reads or mutates ambient process state",
       "crate_name": "cargo_octet"
@@ -14424,7 +14411,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 4913,
+      "line": 5286,
       "column": 8,
       "message": "extreme sentinel fallback masks absence or failure",
       "crate_name": "cargo_octet"
@@ -14983,7 +14970,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 1446,
+      "line": 1611,
       "column": 98,
       "message": "function `specialized_provenance` is 102 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -15425,7 +15412,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 2787,
+      "line": 3006,
       "column": 1,
       "message": "item name `cargo_vet_finding` repeats `cargo` from ancestor path segment `cargo_octet`",
       "crate_name": "cargo_octet"
@@ -15704,19 +15691,6 @@
       "crate_name": "octet_merge_rail"
     },
     {
-      "stable_id": "b3:654a587905d64731",
-      "semantic_id": "b3:654a587905d64731",
-      "identity_status": "computed",
-      "lint": "path_segment_repetition",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 2952,
-      "column": 1,
-      "message": "item name `parse_dynamic_evidence` repeats `evidence` from ancestor path segment `evidence_rails`",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:655381af97c7aa5a",
       "semantic_id": "b3:655381af97c7aa5a",
       "identity_status": "computed",
@@ -15867,7 +15841,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 611,
+      "line": 615,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -16036,7 +16010,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 2767,
+      "line": 2986,
       "column": 1,
       "message": "item name `cargo_vet_array` repeats `cargo` from ancestor path segment `cargo_octet`",
       "crate_name": "cargo_octet"
@@ -17505,7 +17479,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 635,
+      "line": 639,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -17934,7 +17908,7 @@
       "group": "tigerstyle::purity",
       "severity": "warning",
       "file": "cargo-octet/src/lib.rs",
-      "line": 101,
+      "line": 104,
       "column": 22,
       "message": "direct `std::env::args_os` access reads or mutates ambient process state",
       "crate_name": "cargo_octet"
@@ -18181,7 +18155,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 6309,
+      "line": 6709,
       "column": 13,
       "message": "function calls itself recursively",
       "crate_name": "cargo_octet"
@@ -18562,6 +18536,19 @@
       "column": 1,
       "message": "non-trait import `ObservableIdentity` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "octet_merge_rail"
+    },
+    {
+      "stable_id": "b3:7753fcf12fafd2cd",
+      "semantic_id": "b3:7753fcf12fafd2cd",
+      "identity_status": "computed",
+      "lint": "function_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/evidence_rails.rs",
+      "line": 815,
+      "column": 26,
+      "message": "function `run_with_environment` is 122 lines (limit: 70)",
+      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:776d0d2b6db873ae",
@@ -19052,7 +19039,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 724,
+      "line": 728,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -19208,7 +19195,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 4913,
+      "line": 5286,
       "column": 8,
       "message": "fallible integer conversion hides an out-of-range error behind a sentinel fallback",
       "crate_name": "cargo_octet"
@@ -20508,7 +20495,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 738,
+      "line": 742,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -20677,7 +20664,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 5914,
+      "line": 6314,
       "column": 21,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -21015,7 +21002,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 637,
+      "line": 641,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -21044,6 +21031,19 @@
       "line": 317,
       "column": 13,
       "message": "boolean binding `replace` should have a predicate prefix",
+      "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:879928bf3a489b0c",
+      "semantic_id": "b3:879928bf3a489b0c",
+      "identity_status": "computed",
+      "lint": "path_segment_repetition",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/evidence_rails.rs",
+      "line": 686,
+      "column": 1,
+      "message": "item name `EvidenceRailReceipt` repeats `evidence` from ancestor path segment `evidence_rails`",
       "crate_name": "cargo_octet"
     },
     {
@@ -21379,7 +21379,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 3174,
+      "line": 3422,
       "column": 13,
       "message": "boolean binding `metadata_present` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -22529,6 +22529,19 @@
       "crate_name": "cargo_octet"
     },
     {
+      "stable_id": "b3:9169a96db212257d",
+      "semantic_id": "b3:9169a96db212257d",
+      "identity_status": "computed",
+      "lint": "function_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/evidence_rails.rs",
+      "line": 2455,
+      "column": 96,
+      "message": "function `expected_bundle_files_for_receipt` is 74 lines (limit: 70)",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:9194615528b4359a",
       "semantic_id": "b3:9194615528b4359a",
       "identity_status": "computed",
@@ -22731,7 +22744,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 4446,
+      "line": 4729,
       "column": 13,
       "message": "boolean binding `boundary_stub_seen` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -22744,7 +22757,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 4808,
+      "line": 5181,
       "column": 1,
       "message": "item name `read_cargo_fuzz_receipt` repeats `cargo` from ancestor path segment `cargo_octet`",
       "crate_name": "cargo_octet"
@@ -23476,19 +23489,6 @@
       "column": 1,
       "message": "non-trait import `ProductionView` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "octet_standards"
-    },
-    {
-      "stable_id": "b3:98dbcd2da9944966",
-      "semantic_id": "b3:98dbcd2da9944966",
-      "identity_status": "computed",
-      "lint": "ambient_env",
-      "group": "tigerstyle::purity",
-      "severity": "warning",
-      "file": "cargo-octet/src/lib.rs",
-      "line": 108,
-      "column": 42,
-      "message": "direct `std::env::var_os` access reads or mutates ambient process state",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:9927aaa62fcb1bbc",
@@ -24330,7 +24330,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 5340,
+      "line": 5713,
       "column": 9,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -24434,7 +24434,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 677,
+      "line": 681,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -24577,7 +24577,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 712,
+      "line": 716,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -25851,7 +25851,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 4485,
+      "line": 4768,
       "column": 9,
       "message": "boolean binding `property_claim` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -26059,7 +26059,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 457,
+      "line": 461,
       "column": 40,
       "message": "function `non_claims` is 98 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -26696,7 +26696,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 5779,
+      "line": 6179,
       "column": 86,
       "message": "function `cargo_deny_check_and_category` is 75 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -26813,7 +26813,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 3294,
+      "line": 3542,
       "column": 1,
       "message": "item name `parse_benchmark_evidence` repeats `evidence` from ancestor path segment `evidence_rails`",
       "crate_name": "cargo_octet"
@@ -27281,7 +27281,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 162,
+      "line": 166,
       "column": 1,
       "message": "item name `EvidenceRailKind` repeats `evidence` from ancestor path segment `evidence_rails`",
       "crate_name": "cargo_octet"
@@ -27489,7 +27489,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 3547,
+      "line": 3798,
       "column": 13,
       "message": "boolean binding `contract_passed` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -27736,7 +27736,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 639,
+      "line": 643,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -27840,7 +27840,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 5705,
+      "line": 6105,
       "column": 1,
       "message": "item name `is_existing_evidence_bundle` repeats `evidence` from ancestor path segment `evidence_rails`",
       "crate_name": "cargo_octet"
@@ -28243,7 +28243,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 4055,
+      "line": 4338,
       "column": 34,
       "message": "function `parse_hegel_property_details` is 87 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -29738,7 +29738,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 5871,
+      "line": 6271,
       "column": 1,
       "message": "item name `cargo_deny_report_from_json_lines` repeats `cargo` from ancestor path segment `cargo_octet`",
       "crate_name": "cargo_octet"
@@ -30063,7 +30063,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 3546,
+      "line": 3797,
       "column": 13,
       "message": "boolean binding `unwind_passed` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -30505,7 +30505,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 6126,
+      "line": 6526,
       "column": 1,
       "message": "function has 6 parameters (limit: 5) — consider an options struct",
       "crate_name": "cargo_octet"
@@ -30687,7 +30687,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 714,
+      "line": 718,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -30986,7 +30986,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 4426,
+      "line": 4709,
       "column": 13,
       "message": "boolean binding `contract_passed` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -33729,7 +33729,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 4478,
+      "line": 4761,
       "column": 9,
       "message": "boolean binding `unbounded_claim` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -33885,7 +33885,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 3215,
+      "line": 3463,
       "column": 75,
       "message": "function `parse_mutation_testing` is 76 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -34327,7 +34327,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 5715,
+      "line": 6115,
       "column": 1,
       "message": "item name `is_evidence_bundle_artifact` repeats `evidence` from ancestor path segment `evidence_rails`",
       "crate_name": "cargo_octet"
@@ -34834,7 +34834,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 5527,
+      "line": 5927,
       "column": 1,
       "message": "item name `AdvisoryFetchEvidence` repeats `evidence` from ancestor path segment `evidence_rails`",
       "crate_name": "cargo_octet"
@@ -35185,7 +35185,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 2707,
+      "line": 2926,
       "column": 1,
       "message": "item name `push_cargo_vet_findings` repeats `cargo` from ancestor path segment `cargo_octet`",
       "crate_name": "cargo_octet"
@@ -35698,19 +35698,6 @@
       "crate_name": "octet"
     },
     {
-      "stable_id": "b3:e76cc4c5e83d7264",
-      "semantic_id": "b3:e76cc4c5e83d7264",
-      "identity_status": "computed",
-      "lint": "function_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 799,
-      "column": 60,
-      "message": "function `run` is 117 lines (limit: 70)",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:e77dbbbfc6789462",
       "semantic_id": "b3:e77dbbbfc6789462",
       "identity_status": "computed",
@@ -36147,7 +36134,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 3351,
+      "line": 3599,
       "column": 13,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -36680,7 +36667,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 2413,
+      "line": 2632,
       "column": 17,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -36697,19 +36684,6 @@
       "column": 17,
       "message": "catch-all `_` on enum match returns deny value — new variants will be silently handled",
       "crate_name": "octet"
-    },
-    {
-      "stable_id": "b3:edca7e99c21551eb",
-      "semantic_id": "b3:edca7e99c21551eb",
-      "identity_status": "computed",
-      "lint": "path_segment_repetition",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 682,
-      "column": 1,
-      "message": "item name `EvidenceRailReceipt` repeats `evidence` from ancestor path segment `evidence_rails`",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:edf82a63b8ec5843",
@@ -36735,6 +36709,19 @@
       "line": 221,
       "column": 9,
       "message": "boolean binding `valid` should have a predicate prefix",
+      "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:ee21c908ddee917a",
+      "semantic_id": "b3:ee21c908ddee917a",
+      "identity_status": "computed",
+      "lint": "excessive_file_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/evidence_rails.rs",
+      "line": 1,
+      "column": 1,
+      "message": "source file is 10785 lines (limit: 300)",
       "crate_name": "cargo_octet"
     },
     {
@@ -37765,6 +37752,19 @@
       "crate_name": "octet"
     },
     {
+      "stable_id": "b3:f42834ab13dd1919",
+      "semantic_id": "b3:f42834ab13dd1919",
+      "identity_status": "computed",
+      "lint": "underscore_in_module_filename",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/evidence_rails.rs",
+      "line": 1,
+      "column": 1,
+      "message": "module filename `evidence_rails.rs` contains an underscore; prefer `evidence/rails.rs`",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:f43b7926fd86f2d5",
       "semantic_id": "b3:f43b7926fd86f2d5",
       "identity_status": "computed",
@@ -37980,7 +37980,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 6094,
+      "line": 6494,
       "column": 1,
       "message": "function has 6 parameters (limit: 5) — consider an options struct",
       "crate_name": "cargo_octet"
@@ -38318,7 +38318,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 5905,
+      "line": 6305,
       "column": 17,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -38955,7 +38955,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 726,
+      "line": 730,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
