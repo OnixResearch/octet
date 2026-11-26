@@ -3,7 +3,7 @@
   "approval_status": "REVIEWED_SOURCE_AND_REFERENCES",
   "candidate_manifest": {
     "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/candidate-source-manifest.json",
-    "blake3": "be3647f9c72a598defa192f4ff0cda440fef22eeb5e2bc7dd6c162abce43d862"
+    "blake3": "c30ccca70b8297c2114a05386046d6e065b7d8b45ac5efe2a07146f4c816c244"
   },
   "normalization_algorithm": "octet-source-token-v2",
   "tested_octet_version": "0.1.1-rc.1",
@@ -88,7 +88,7 @@
     },
     {
       "path": "cargo-octet/src/cli.rs",
-      "blake3": "c5ffaef2934cc62002c01da52165015e935964d3a5df2aeb5e428a6defa49f68"
+      "blake3": "d181d2d9a38551c4aef2ad5ec7a7074ebc436846a5b7171f9cc1f2b0746ecd1d"
     },
     {
       "path": "cargo-octet/src/config.rs",
@@ -238,18 +238,18 @@
   "reference_hashes": [
     {
       "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/expanded-internal-corpus-caveat-taxonomy.json",
-      "blake3": "49a2169054172094d5ad78da78506d0d4929bae38005969f1fedd08d4b67b773",
-      "object_count": 1764
+      "blake3": "8e06ff67bba21629f57b3f50fa01b44ef22b8de5de1d83e11d765e27e8297160",
+      "object_count": 1766
     },
     {
       "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/expanded-internal-corpus-receipt.json",
-      "blake3": "567e15bbb0ea26394b838676c9c945fd7f2342d3e208bd15095e6315f77e4ee6",
-      "object_count": 1764
+      "blake3": "6f33995f86d5d01f2967d34c22a1cc8e63aaf88936f5b21fdcad20943d9993e1",
+      "object_count": 1766
     },
     {
       "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/internal-corpus-receipt.json",
-      "blake3": "f191fb19df00871d9c7b68322a218fa827704429e04268733d9782c81abeac21",
-      "object_count": 1155
+      "blake3": "35fadd05afc428c70a9c5187814b7f38f8b3fd1bc3f4af2152f99b69bcfb03f8",
+      "object_count": 1157
     },
     {
       "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/positive-v2-receipt.json",
@@ -299,5 +299,41 @@
     "claims_owner_signature": false,
     "claims_correctness": false,
     "claims_release_eligibility": false
+  },
+  "mechanical_refresh": {
+    "scope": "mechanical refresh of the selected source manifests, verifier anchors and the three affected references prepared for PR #38; the original independent audit was not repeated",
+    "changed_source": "cargo-octet/src/cli.rs",
+    "changed_source_previous_blake3": "c5ffaef2934cc62002c01da52165015e935964d3a5df2aeb5e428a6defa49f68",
+    "changed_source_blake3": "d181d2d9a38551c4aef2ad5ec7a7074ebc436846a5b7171f9cc1f2b0746ecd1d",
+    "reason": "PR #38 adds the --raw-log-retention and --artifact-base flag fields and the RawLogRetention::as_str/parse functions to a selected reviewed source; the corpus gains exactly those two function objects.",
+    "unchanged_bindings": "The approved audit envelope, the original producer/source binding, the approval block above and the reviewed Valence module/revision binding are byte-identical; the sealed records still describe the earlier audited source and reference bytes.",
+    "reference_recapture": {
+      "producer": {
+        "path": "/nix/store/1caf2mjpb6bs33w2s05lbmhwladysqn3-cargo-octet-0.1.1-rc.1/bin/cargo-octet",
+        "blake3": "9c06f2760abff9431d40597d849a3e4d83cd0dc9536df179f76662f22712ba60",
+        "baseline": "on origin/main 3ddd21ef this producer reproduces all four earlier references byte-for-byte"
+      },
+      "references": [
+        {
+          "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/expanded-internal-corpus-caveat-taxonomy.json",
+          "previous_blake3": "49a2169054172094d5ad78da78506d0d4929bae38005969f1fedd08d4b67b773",
+          "previous_object_count": 1764
+        },
+        {
+          "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/expanded-internal-corpus-receipt.json",
+          "previous_blake3": "567e15bbb0ea26394b838676c9c945fd7f2342d3e208bd15095e6315f77e4ee6",
+          "previous_object_count": 1764
+        },
+        {
+          "path": "cargo-octet/tests/fixtures/object-corpus/source-token-v2/internal-corpus-receipt.json",
+          "previous_blake3": "f191fb19df00871d9c7b68322a218fa827704429e04268733d9782c81abeac21",
+          "previous_object_count": 1155
+        }
+      ],
+      "unchanged_references": [
+        "cargo-octet/tests/fixtures/object-corpus/source-token-v2/positive-v2-receipt.json"
+      ]
+    },
+    "owner_decision": "none recorded; this note is not an owner approval or owner decision"
   }
 }

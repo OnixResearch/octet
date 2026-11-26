@@ -1,0 +1,418 @@
+building '/nix/store/2zc3siki8yniz9ypwn7kybga02x83b84-octet-standards-0.1.1-rc.1.drv' on 'ssh-ng://brittonr@leviathan.cymric-daggertooth.ts.net'...
+copying 1 paths...
+copying path '/nix/store/b6przqvgd3cj910sj9s55bn30gxsbndk-source' to 'ssh-ng://brittonr@leviathan.cymric-daggertooth.ts.net'...
+copying 1 paths...
+copying path '/nix/store/2zc3siki8yniz9ypwn7kybga02x83b84-octet-standards-0.1.1-rc.1.drv' to 'ssh-ng://brittonr@leviathan.cymric-daggertooth.ts.net'...
+building '/nix/store/2zc3siki8yniz9ypwn7kybga02x83b84-octet-standards-0.1.1-rc.1.drv'...
+copying 1 paths...
+copying path '/nix/store/kmpmxyzx5n1gvq0yv11q8j9wi8qawlxq-octet-standards-0.1.1-rc.1' from 'ssh-ng://brittonr@leviathan.cymric-daggertooth.ts.net'...
+building '/nix/store/whz55lhvvfkvdkrimfj9izd3dv5vx942-nix-shell-env.drv'...
+   Compiling quote v1.0.46
+   Compiling proc-macro2 v1.0.106
+   Compiling unicode-ident v1.0.24
+   Compiling serde_core v1.0.228
+   Compiling find-msvc-tools v0.1.9
+   Compiling shlex v2.0.1
+    Checking cfg-if v1.0.4
+   Compiling serde v1.0.228
+    Checking arrayref v0.3.9
+   Compiling version_check v0.9.5
+    Checking cpufeatures v0.3.0
+    Checking arrayvec v0.7.8
+    Checking constant_time_eq v0.4.2
+   Compiling zmij v1.0.21
+    Checking bitflags v2.13.0
+    Checking typenum v1.20.1
+    Checking memchr v2.8.3
+   Compiling serde_json v1.0.150
+   Compiling rustix v1.1.4
+   Compiling io-lifetimes v2.0.4
+    Checking itoa v1.0.18
+   Compiling semver v1.0.28
+    Checking foldhash v0.2.0
+    Checking utf8parse v0.2.2
+    Checking linux-raw-sys v0.12.1
+   Compiling cfg_aliases v0.2.2
+   Compiling cc v1.2.67
+    Checking anstyle-parse v1.0.0
+    Checking anstyle-query v1.1.5
+   Compiling libc v0.2.186
+    Checking colorchoice v1.0.5
+   Compiling io-extras v0.18.4
+    Checking equivalent v1.0.2
+    Checking cpufeatures v0.2.17
+    Checking is_terminal_polyfill v1.70.2
+    Checking anstyle v1.0.14
+   Compiling nix v0.30.1
+   Compiling generic-array v0.14.7
+   Compiling rustc_version v0.4.1
+   Compiling heck v0.5.0
+    Checking allocator-api2 v0.2.21
+    Checking signature v2.2.0
+    Checking anstream v1.0.0
+    Checking clap_lex v1.1.0
+    Checking once_cell v1.21.4
+   Compiling curve25519-dalek v4.1.3
+    Checking subtle v2.6.1
+   Compiling thiserror v2.0.18
+   Compiling cap-primitives v3.4.5
+    Checking strsim v0.11.1
+    Checking hashbrown v0.16.1
+    Checking ed25519 v2.2.3
+   Compiling cap-std v3.4.5
+    Checking winnow v1.0.3
+    Checking maybe-owned v0.3.4
+    Checking ipnet v2.12.0
+    Checking ambient-authority v0.0.2
+   Compiling object v0.37.3
+    Checking toml_writer v1.1.1+spec-1.1.0
+    Checking clap_builder v4.6.0
+    Checking rustc-demangle v0.1.28
+    Checking gimli v0.34.0
+    Checking toml_parser v1.1.2+spec-1.1.0
+    Checking crypto-common v0.1.7
+    Checking block-buffer v0.10.4
+   Compiling blake3 v1.8.5
+    Checking digest v0.10.7
+   Compiling syn v2.0.118
+    Checking iddqd v0.4.5
+    Checking sha2 v0.10.9
+    Checking hashbrown v0.17.1
+    Checking serde_spanned v1.1.1
+    Checking toml_datetime v1.1.1+spec-1.1.0
+    Checking toml v1.1.2+spec-1.1.0
+    Checking indexmap v2.14.0
+    Checking rustix-linux-procfs v0.1.1
+    Checking fs-set-times v0.20.3
+    Checking bounded-exec-core v0.1.0 (ssh://git@github.com/OnixResearch/bounded-exec.git?rev=44eb74eb639194665ee820562d5b2ce2c3ff6a94#44eb74eb)
+   Compiling cargo-octet v0.1.1-rc.1 (/home/brittonr/.gemini/antigravity/scratch/kiln-ecosystem-swarm/octet/cargo-octet)
+    Checking bounded-exec v0.1.0 (ssh://git@github.com/OnixResearch/bounded-exec.git?rev=44eb74eb639194665ee820562d5b2ce2c3ff6a94#44eb74eb)
+   Compiling serde_derive v1.0.228
+   Compiling curve25519-dalek-derive v0.1.1
+   Compiling clap_derive v4.6.1
+   Compiling thiserror-impl v2.0.18
+    Checking ed25519-dalek v2.2.0
+    Checking clap v4.6.1
+    Checking artifact-auth-core v0.1.0 (/home/brittonr/.gemini/antigravity/scratch/kiln-ecosystem-swarm/octet/vendor/sources/artifact/crates/artifact-auth-core)
+    Checking octet-architecture-ir v0.1.1-rc.1 (/home/brittonr/.gemini/antigravity/scratch/kiln-ecosystem-swarm/octet/crates/octet-architecture-ir)
+    Checking nickel-export-core v0.1.0 (https://github.com/OnixResearch/nickel-export?rev=257fafc1c746f1faf156207043a4c826bfb16d49#257fafc1)
+    Checking valence-core v0.1.0 (ssh://git@github.com/OnixResearch/valence.git?rev=7546a78b4eeef8686c6837e187aa12420f4f03bb#7546a78b)
+    Checking octet-lint-metadata v0.1.1-rc.1 (/home/brittonr/.gemini/antigravity/scratch/kiln-ecosystem-swarm/octet/crates/octet-lint-metadata)
+    Checking wasmparser v0.253.0
+    Checking artifact-auth-ed25519 v0.1.0 (/home/brittonr/.gemini/antigravity/scratch/kiln-ecosystem-swarm/octet/vendor/sources/artifact/crates/artifact-auth-ed25519)
+    Checking octet-standards v0.1.1-rc.1 (/home/brittonr/.gemini/antigravity/scratch/kiln-ecosystem-swarm/octet/crates/octet-standards)
+    Finished `dev` profile [unoptimized] target(s) in 33.48s
+    Checking memchr v2.8.3
+   Compiling crc32fast v1.5.0
+   Compiling syn v2.0.118
+   Compiling object v0.37.3
+   Compiling zerocopy v0.8.54
+    Checking foldhash v0.1.5
+   Compiling cargo-octet v0.1.1-rc.1 (/home/brittonr/.gemini/antigravity/scratch/kiln-ecosystem-swarm/octet/cargo-octet)
+    Checking rand_core v0.10.1
+   Compiling getrandom v0.4.3
+    Checking fnv v1.0.7
+   Compiling rustversion v1.0.23
+   Compiling parking_lot_core v0.9.12
+   Compiling dashu-int v0.4.3
+    Checking scopeguard v1.2.0
+   Compiling paste v1.0.15
+    Checking smallvec v1.15.2
+    Checking ciborium-io v0.2.2
+    Checking leb128fmt v0.1.0
+    Checking static_assertions v1.1.0
+    Checking dashu-base v0.4.3
+    Checking gimli v0.34.0
+    Checking hashbrown v0.15.5
+    Checking lock_api v0.4.14
+    Checking chacha20 v0.10.2
+    Checking num-modular v0.6.4
+    Checking bumpalo v3.20.3
+    Checking wasm-encoder v0.253.0
+    Checking fastrand v2.4.1
+    Checking unicode-width v0.2.2
+    Checking rustc-hash v2.1.3
+    Checking serde_json v1.0.150
+    Checking parking_lot v0.12.5
+    Checking wast v253.0.0
+    Checking rand v0.10.2
+    Checking tempfile v3.27.0
+   Compiling serde_derive v1.0.228
+   Compiling curve25519-dalek-derive v0.1.1
+   Compiling clap_derive v4.6.1
+   Compiling thiserror-impl v2.0.18
+   Compiling zerocopy-derive v0.8.54
+   Compiling hegeltest-macros v0.14.27
+    Checking curve25519-dalek v4.1.3
+    Checking thiserror v2.0.18
+    Checking ed25519-dalek v2.2.0
+    Checking clap v4.6.1
+    Checking wat v1.253.0
+    Checking serde v1.0.228
+    Checking octet-architecture-ir v0.1.1-rc.1 (/home/brittonr/.gemini/antigravity/scratch/kiln-ecosystem-swarm/octet/crates/octet-architecture-ir)
+    Checking artifact-auth-core v0.1.0 (/home/brittonr/.gemini/antigravity/scratch/kiln-ecosystem-swarm/octet/vendor/sources/artifact/crates/artifact-auth-core)
+    Checking nickel-export-core v0.1.0 (https://github.com/OnixResearch/nickel-export?rev=257fafc1c746f1faf156207043a4c826bfb16d49#257fafc1)
+    Checking wasmparser v0.253.0
+    Checking octet-lint-metadata v0.1.1-rc.1 (/home/brittonr/.gemini/antigravity/scratch/kiln-ecosystem-swarm/octet/crates/octet-lint-metadata)
+    Checking valence-core v0.1.0 (ssh://git@github.com/OnixResearch/valence.git?rev=7546a78b4eeef8686c6837e187aa12420f4f03bb#7546a78b)
+    Checking artifact-auth-ed25519 v0.1.0 (/home/brittonr/.gemini/antigravity/scratch/kiln-ecosystem-swarm/octet/vendor/sources/artifact/crates/artifact-auth-ed25519)
+    Checking half v2.7.1
+    Checking octet-standards v0.1.1-rc.1 (/home/brittonr/.gemini/antigravity/scratch/kiln-ecosystem-swarm/octet/crates/octet-standards)
+    Checking ciborium-ll v0.2.2
+    Checking ciborium v0.2.2
+    Checking hegeltest v0.14.27
+    Finished `dev` profile [unoptimized] target(s) in 53.04s
+   Compiling bitflags v2.13.0
+   Compiling memchr v2.8.3
+   Compiling typenum v1.20.1
+   Compiling foldhash v0.2.0
+   Compiling linux-raw-sys v0.12.1
+   Compiling equivalent v1.0.2
+   Compiling itoa v1.0.18
+   Compiling serde_core v1.0.228
+   Compiling libc v0.2.186
+   Compiling zmij v1.0.21
+   Compiling once_cell v1.21.4
+   Compiling utf8parse v0.2.2
+   Compiling rand_core v0.10.1
+   Compiling io-lifetimes v2.0.4
+   Compiling cpufeatures v0.2.17
+   Compiling colorchoice v1.0.5
+   Compiling zerocopy v0.8.54
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling anstyle v1.0.14
+   Compiling anstyle-query v1.1.5
+   Compiling leb128fmt v0.1.0
+   Compiling anstyle-parse v1.0.0
+   Compiling smallvec v1.15.2
+   Compiling signature v2.2.0
+   Compiling subtle v2.6.1
+   Compiling strsim v0.11.1
+   Compiling scopeguard v1.2.0
+   Compiling ciborium-io v0.2.2
+   Compiling clap_lex v1.1.0
+   Compiling allocator-api2 v0.2.21
+   Compiling io-extras v0.18.4
+   Compiling ed25519 v2.2.3
+   Compiling chacha20 v0.10.2
+   Compiling lock_api v0.4.14
+   Compiling wasm-encoder v0.253.0
+   Compiling crc32fast v1.5.0
+   Compiling proc-macro2 v1.0.106
+   Compiling anstream v1.0.0
+   Compiling bumpalo v3.20.3
+   Compiling winnow v1.0.3
+   Compiling fastrand v2.4.1
+   Compiling dashu-base v0.4.3
+   Compiling maybe-owned v0.3.4
+   Compiling rustix v1.1.4
+   Compiling ipnet v2.12.0
+   Compiling num-modular v0.6.4
+   Compiling unicode-width v0.2.2
+   Compiling static_assertions v1.1.0
+   Compiling foldhash v0.1.5
+   Compiling ambient-authority v0.0.2
+   Compiling hashbrown v0.16.1
+   Compiling clap_builder v4.6.0
+   Compiling thiserror v2.0.18
+   Compiling bounded-exec-core v0.1.0 (ssh://git@github.com/OnixResearch/bounded-exec.git?rev=44eb74eb639194665ee820562d5b2ce2c3ff6a94#44eb74eb)
+   Compiling rustc-hash v2.1.3
+   Compiling fnv v1.0.7
+   Compiling semver v1.0.28
+   Compiling hashbrown v0.15.5
+   Compiling toml_writer v1.1.1+spec-1.1.0
+   Compiling toml_parser v1.1.2+spec-1.1.0
+   Compiling rustc-demangle v0.1.28
+   Compiling quote v1.0.46
+   Compiling generic-array v0.14.7
+   Compiling syn v2.0.118
+   Compiling iddqd v0.4.5
+   Compiling dashu-int v0.4.3
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling wast v253.0.0
+   Compiling digest v0.10.7
+   Compiling sha2 v0.10.9
+   Compiling curve25519-dalek v4.1.3
+   Compiling getrandom v0.4.3
+   Compiling parking_lot_core v0.9.12
+   Compiling nix v0.30.1
+   Compiling rand v0.10.2
+   Compiling parking_lot v0.12.5
+   Compiling bounded-exec v0.1.0 (ssh://git@github.com/OnixResearch/bounded-exec.git?rev=44eb74eb639194665ee820562d5b2ce2c3ff6a94#44eb74eb)
+   Compiling serde v1.0.228
+   Compiling serde_json v1.0.150
+   Compiling hashbrown v0.17.1
+   Compiling serde_spanned v1.1.1
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling ed25519-dalek v2.2.0
+   Compiling toml v1.1.2+spec-1.1.0
+   Compiling clap v4.6.1
+   Compiling artifact-auth-core v0.1.0 (/home/brittonr/.gemini/antigravity/scratch/kiln-ecosystem-swarm/octet/vendor/sources/artifact/crates/artifact-auth-core)
+   Compiling indexmap v2.14.0
+   Compiling rustix-linux-procfs v0.1.1
+   Compiling fs-set-times v0.20.3
+   Compiling tempfile v3.27.0
+   Compiling nickel-export-core v0.1.0 (https://github.com/OnixResearch/nickel-export?rev=257fafc1c746f1faf156207043a4c826bfb16d49#257fafc1)
+   Compiling octet-architecture-ir v0.1.1-rc.1 (/home/brittonr/.gemini/antigravity/scratch/kiln-ecosystem-swarm/octet/crates/octet-architecture-ir)
+   Compiling octet-lint-metadata v0.1.1-rc.1 (/home/brittonr/.gemini/antigravity/scratch/kiln-ecosystem-swarm/octet/crates/octet-lint-metadata)
+   Compiling valence-core v0.1.0 (ssh://git@github.com/OnixResearch/valence.git?rev=7546a78b4eeef8686c6837e187aa12420f4f03bb#7546a78b)
+   Compiling cap-primitives v3.4.5
+   Compiling artifact-auth-ed25519 v0.1.0 (/home/brittonr/.gemini/antigravity/scratch/kiln-ecosystem-swarm/octet/vendor/sources/artifact/crates/artifact-auth-ed25519)
+   Compiling half v2.7.1
+   Compiling gimli v0.34.0
+   Compiling object v0.37.3
+   Compiling wasmparser v0.253.0
+   Compiling cap-std v3.4.5
+   Compiling ciborium-ll v0.2.2
+   Compiling ciborium v0.2.2
+   Compiling hegeltest v0.14.27
+   Compiling octet-standards v0.1.1-rc.1 (/home/brittonr/.gemini/antigravity/scratch/kiln-ecosystem-swarm/octet/crates/octet-standards)
+   Compiling wat v1.253.0
+   Compiling cargo-octet v0.1.1-rc.1 (/home/brittonr/.gemini/antigravity/scratch/kiln-ecosystem-swarm/octet/cargo-octet)
+    Finished `test` profile [unoptimized] target(s) in 1m 20s
+     Running unittests src/lib.rs (/dev/shm/kiln-swarm-octet/debug/deps/cargo_octet-bf4dda9ecaf28c9e)
+
+running 139 tests
+test artifact::tests::evidence_log_only_manifest_directory_rejects_stale_sidecar ... ok
+test artifact::tests::complete_human_json_and_sarif_bundles_pass ... ok
+test artifact::tests::build_log_prove_bundle_rejects_stray_raw_log_or_manifest ... ok
+test artifact::tests::check_bundle_rejects_evidence_log_manifest_sidecars ... ok
+test artifact::tests::evidence_rail_bundle_rejects_relabelled_checked_scope ... ok
+test artifact::tests::evidence_log_only_manifest_directory_passes ... ok
+test artifact::tests::evidence_log_manifest_tampering_fails_closed ... ok
+test artifact::tests::build_log_prove_bundle_without_raw_logs_is_valid ... ok
+test artifact::tests::exact_coverage_rejects_duplicate_and_unmatched_records ... ok
+test artifact::tests::evidence_rail_bundle_passes_and_rejects_tampering_missing_parent_and_stale_sidecar ... ok
+test artifact::tests::compiler_architecture_sidecar_bundle_passes_and_rejects_wrong_source ... ok
+test artifact::tests::evidence_log_manifest_extends_prove_bundle_verification ... ok
+test artifact::tests::function_address_sidecar_bundle_passes_verification ... ok
+test artifact::tests::hash_mismatch_unknown_checker_invalid_tier_and_missing_manual_action_fail_closed ... ok
+test artifact::tests::stale_extra_artifact_fails_closed ... ok
+test artifact::tests::valence_export_emits_replayable_receipts_and_typed_edges ... ok
+test artifact::tests::missing_expected_artifact_fails_closed ... ok
+test artifact::tests::malformed_jsonl_fails_closed ... ok
+test artifact::tests::ownership::declared_architecture_phases_verify_when_their_artifacts_are_present ... ok
+test artifact::tests::ownership::declared_architecture_phase_without_project_artifacts_fails_closed ... ok
+test artifact::tests::prove_bundle_accepts_withheld_manual_review_proof_records_only ... ok
+test artifact::tests::prove_bundle_rejects_evidence_logs_outside_the_proofs_dir ... ok
+test artifact::tests::integrated_closure::integrated_previous_receipt_schema_is_reported_unsupported ... ok
+test artifact::tests::ownership::full_bundle_replay_rejects_resealed_orphan_test_unknown ... ok
+test artifact::tests::prove_bundle_binds_formal_proof_checked_scope_to_its_receipt_or_proof_card ... ok
+test artifact::tests::valence_export_rejects_stale_hash_missing_parent_and_tier_promotion ... ok
+test artifact::tests::valence_export_positive_fixtures_cover_lint_policy_and_formal_proof ... ok
+test artifact::tests::valence_export_preserves_hegel_property_receipt_boundary ... ok
+test artifact::tests::ownership::declared_effect_closure_phase_without_closure_artifacts_fails_closed ... ok
+test artifact::tests::valence_export_preserves_ast_grep_candidate_boundary ... ok
+test artifact::tests::valence_export_refuses_output_paths_inside_the_artifact_dir ... ok
+test prove::tests::aeneas_theorem_name_and_adequacy_select_the_same_multi_line_theorem ... ok
+test prove::tests::aeneas_theorem_name_extraction_accepts_named_theorem ... ok
+test prove::tests::aeneas_theorem_name_extraction_rejects_missing_theorem ... ok
+test artifact::tests::ownership::full_bundle_replay_rejects_resealed_test_disposition_drift ... ok
+test artifact::tests::ownership::status_effect_closure_phase_must_match_the_project_receipt_link ... ok
+test artifact::tests::valence_export_preserves_static_lint_and_manual_review_tiers ... ok
+test artifact::tests::wasm_artifact_bundle_rejects_status_and_config_identity_drift ... ok
+test artifact::tests::valence_export_preserves_failed_receipt_reason_without_passing_claim ... ok
+test prove::tests::canary_rail_validates_measured_receipt_and_emits_manual_review_card ... ok
+test artifact::tests::integrated_closure::integrated_admitted_closure_must_match_function_address_root_and_envelopes ... ok
+test prove::tests::live_provider_builds_external_consumer_binding ... ignored, requires the pinned Aeneas/Charon/Lean provider closure
+test artifact::tests::wasm_artifact_bundle_verifies_exact_bytes_and_exports_bounded_valence_role ... ok
+test prove::tests::proof_card_validation_rejects_missing_fields_fixture_mode_and_overclaims ... ok
+test prove::tests::proof_card_validation_rejects_imported_trellis_formal_proof_overclaim ... ok
+test prove::tests::proof_card_for_imported_trellis_bundle_stays_manual_review ... ok
+test prove::tests::proof_card_linkage_rejects_stale_receipt_and_provenance_links ... ok
+test artifact::tests::valence_export_preserves_cargo_fuzz_transcript_boundary ... ok
+test artifact::tests::valence_export_validation_rejects_bad_edges_missing_non_claims_and_failed_receipts ... ok
+test prove::tests::aeneas_receipts_for_different_rails_use_disjoint_artifact_locators ... ok
+test prove::tests::prove_list_reports_selected_rail_without_artifacts ... ok
+test prove::tests::prove_list_fails_closed_for_unmatched_or_malformed_rail_selector ... ok
+test prove::tests::prove_rail_selector_partial_miss_fails_before_any_verifier_execution ... ok
+test prove::tests::prove_rail_selector_missing_fails_without_verifier_execution ... ok
+test prove::tests::prove_refuses_artifact_dir_that_is_or_encloses_the_proof_workspace_root ... ok
+test requirements::tests::evaluation::changed_assumption_identity_cannot_inherit_acceptance ... ok
+test requirements::tests::evaluation::absolute_deck_locators_keep_their_resolution ... ok
+test prove::tests::goal_state_checks_receipt_bytes_against_formal_provenance ... ok
+test requirements::tests::evaluation::empirical_evidence_cannot_satisfy_formal_clause ... ok
+test requirements::tests::evaluation::changed_source_and_spec_fail_closed ... ok
+test requirements::tests::evaluation::duplicate_clause_ids_and_empty_required_inventory_fail ... ok
+test requirements::tests::evaluation::escaping_relative_and_base_prefixed_decks_are_refused ... ok
+test prove::tests::selected_rails_use_shared_receipt_path_relevance ... ok
+test requirements::tests::evaluation::missing_evidence_fails_closed ... ok
+test requirements::tests::evaluation::relative_deck_resolves_inside_two_artifact_bases_identically ... ok
+test artifact::tests::integrated_closure::integrated_admitted_closure_verifies_and_denied_relabel_is_rejected ... ok
+test prove::tests::goal_state_blocks_on_demoted_proof_card_diagnostics ... ok
+test requirements::tests::freshness::stale_binding_and_missing_freshness_are_distinct ... ok
+test prove::tests::prove_rejects_missing_command_argv_without_shell_execution ... ok
+test requirements::tests::evaluation::required_exclusion_does_not_pass ... ok
+test requirements::tests::evaluation::valid_formal_clause_passes_and_recomputes ... ok
+test requirements::tests::evaluation::tampered_decision_bytes_are_rejected ... ok
+test wasm_artifact::tests::checked_in_registry_and_cohort_identity_are_fresh ... ok
+test prove::tests::prove_deduplicates_overlapping_source_arguments ... ok
+test wasm_artifact::tests::cohort_drift_fails_registry_validation_without_a_severity_knob ... ok
+test wasm_artifact::tests::duplicate_metadata_and_disallowed_world_policy_are_negative_fixtures ... ok
+test wasm_artifact::tests::checked_in_spacewasm_external_reports_bind_current_profile_and_reject_overclaims ... ok
+test wasm_artifact::tests::custom_metadata_duplicates_are_local_to_each_binary_scope ... ok
+test prove::tests::prove_fails_closed_when_verifier_output_exceeds_log_limit ... ok
+test prove::tests::prove_fails_without_pass_signal_and_does_not_emit_formal_proof ... ok
+test requirements::tests::evaluation::verify_recomputes_and_reports_changed_proof_card_bytes ... ok
+test prove::tests::prove_drains_verifier_output_larger_than_pipe_buffer ... ok
+test wasm_artifact::tests::effects_admits_overlong_zero_table_encoding_without_reference_types ... ok
+test wasm_artifact::tests::bound_adapters_are_not_external_imports_or_extra_resources ... ok
+test requirements::tests::evaluation::checked_example_contract_passes_and_is_recomputable ... ok
+test wasm_artifact::tests::external_orchestrator_handoff_binds_valid_external_identities ... ok
+test wasm_artifact::tests::exact_and_interface_identities_remain_distinct_roles ... ok
+test prove::tests::verus_v1_compatibility_golden_preserves_receipt_card_and_artifact_verification ... ok
+test wasm_artifact::tests::effects_instance_from_exports_does_not_append_generative_indices ... ok
+test wasm_artifact::tests::effects_function_budget_multiplies_canonical_definitions_by_enclosing_instances ... ok
+test wasm_artifact::tests::malformed_import_growth_start_and_resource_cases_fail_closed ... ok
+test prove::tests::prove_refuses_non_empty_artifact_directory_that_is_not_a_prove_bundle_before_running_rails ... ok
+test prove::tests::prove_writes_valid_formal_proof_artifact_bundle ... ok
+test wasm_artifact::tests::effects_resource_limits_preserve_exported_module_and_component_indices ... ok
+test wasm_artifact::tests::effects_profile_requires_exact_structural_boundary_and_keeps_baselines_closed ... ok
+test wasm_artifact::tests::effects_resource_limits_count_independent_instantiations_and_check_declarations ... ok
+test requirements::tests::freshness::checked_example_contract_freshness_reports_current_obligations ... ok
+test wasm_artifact::tests::receipt_validation_rejects_identity_confusion_and_role_promotion ... ok
+test wasm_artifact::tests::registry_rejects_unknown_severity_and_duplicate_section_postures ... ok
+test wasm_artifact::tests::mantle_handoff_binds_exact_bytes_without_claim_transfer ... ok
+test wasm_artifact::tests::receipt_validation_recomputes_interface_identity_from_facts ... ok
+test wasm_artifact::tests::parse_stage_findings_use_their_issue_severity ... ok
+test wasm_artifact::tests::molten_profile_validates_bulk_memory_and_padded_indirect_calls_without_reference_types ... ok
+test wasm_artifact::tests::non_handoff_parent_artifacts_keep_standalone_role ... ok
+test wasm_artifact::tests::sarif_projection_uses_sarif_levels_and_omits_unknown_regions ... ok
+test wasm_artifact::tests::linked_cohort_versions_match_cargo_lock ... ok
+test wasm_artifact::tests::registry_cohort_must_claim_the_linked_wasm_tools_versions ... ok
+test wasm_artifact::tests::receipt_validation_rejects_handoff_role_identity_mismatches ... ok
+test wasm_artifact::tests::effects_function_budget_counts_canonical_lower_definitions ... ok
+test wasm_artifact::tests::report_bytes_and_finding_order_are_deterministic ... ok
+test wasm_artifact::tests::spacewasm_external_reports_are_recorded_only_and_do_not_change_static_policy ... ok
+test wasm_artifact::tests::spacewasm_profile_binds_reviewed_cohort_and_static_resources ... ok
+test wasm_artifact::tests::valid_module_and_component_produce_execution_free_facts ... ok
+test wasm_artifact::tests::spacewasm_profile_rejects_stale_cohort_and_target_role_promotion ... ok
+test wasm_artifact::tests::rejected_external_report_findings_identify_the_failing_report ... ok
+test wasm_artifact::tests::unresolved_exports_mark_escaping_scopes_in_constant_work ... ok
+test wasm_artifact::tests::unresolved_exports_retain_authority_of_every_definition ... ok
+test wasm_artifact::tests::registry_rejects_unknown_fields_duplicate_rules_and_invalid_worlds ... ok
+test wasm_artifact::tests::spacewasm_corpus_replays_exact_bytes_and_expected_issue_classes ... ok
+test prove::tests::prove_resolves_one_source_root_independent_of_argument_order ... ok
+test wasm_artifact::tests::rejected_external_reports_take_the_declared_external_evidence_severity ... ok
+test prove::tests::prove_reuses_prove_bundle_directory_without_stale_proof_artifacts ... ok
+test prove::tests::prove_reports_spawn_failure_nonzero_exit_and_timeout ... ok
+test wasm_artifact::tests::spacewasm_profile_rejects_feature_abi_and_resource_boundaries ... ok
+test wasm_artifact::tests::effects_function_budget_counts_resource_intrinsics_but_not_aliases_or_lifts ... ok
+test prove::tests::prove_rail_selector_runs_matching_policy_rail ... ok
+test prove::tests::blocked_goal_state_explain_remediation_is_a_runnable_prove_command ... ok
+test prove::tests::blocked_goal_withholds_formal_proof_provenance_and_bundle_still_verifies ... ok
+test prove::tests::prove_production_rail_probes_verifier_whatever_its_backend_label ... ok
+test prove::tests::prove_production_verifier_failure_is_fail_closed ... ok
+test prove::tests::prove_production_rail_accepts_verifier_with_pinned_identity ... ok
+test prove::tests::prove_production_rail_refuses_verifier_without_pinned_identity ... ok
+test prove::tests::aeneas_receipt_records_charon_options_observed_from_the_produced_llbc ... ok
+test prove::tests::aeneas_receipt_rejects_trust_inputs_lean_reports ... ok
+test prove::tests::aeneas_receipt_records_the_effectively_enforced_limits ... ok
+test prove::tests::build_log_mode_keeps_raw_logs_out_of_the_bundle ... ok
+test prove::tests::build_log_mode_still_fails_the_stage_on_a_sorry_warning ... ok
+test prove::tests::build_log_mode_is_byte_reproducible_where_bundle_mode_is_not ... ok
+test prove::tests::prove_teardown_does_not_wait_for_descendants_holding_output_pipes ... ok
+
+test result: ok. 138 passed; 0 failed; 1 ignored; 0 measured; 842 filtered out; finished in 1.08s
+

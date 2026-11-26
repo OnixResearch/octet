@@ -31,6 +31,24 @@ authority, provenance, or release claim. Positive fixtures and a
 baseline-denial test accompany the profile. It ports the profile first
 recorded on Octet's pre-rewrite history at `f081ed96`, which Mantle pins.
 
+## Unreleased
+
+`cargo octet prove --raw-log-retention bundle|build-log` now selects where raw
+tool stdout/stderr is retained. `bundle` is unchanged: the capture is written
+under `proofs/` and listed in `evidence-log-manifest.json`. `build-log` streams
+the same capture to cargo-octet's stderr, framed by rail, stage and stream, and
+keeps it out of the bundle; `status.json` and `summary.txt` record
+`raw_log_retention: build-log` and the non-claim that the raw logs are not bound
+by the bundle identity. `cargo octet artifact verify` accepts that bundle shape
+and rejects a `build-log` bundle that still contains raw logs or a manifest. The
+Mantle Aeneas consumer job uses `build-log`, making its output byte-reproducible
+while keeping the `sorry` scan and axiom check in force.
+
+The object-corpus rails require a separate exact owner decision for the PR #38
+refresh. The CLI change adds two selected function objects; the internal and
+expanded references now cover 1,157 and 1,766 objects. The original audit and
+release approval are unchanged.
+
 ## 0.1.1-rc.1 — published immutable prerelease
 
 `OnixResearch/octet` is the sole canonical source, release and support home.
@@ -161,6 +179,24 @@ The obsolete `docs_positioning` prose-only tests are removed rather than
 repinned to rewritten marketing text. Onboarding acceptance remains the actual
 packaged denied-division, guarded-fix, original-artifact verification, and
 tampered-copy rejection path, not the presence of particular sentences.
+
+## 2026-11-22: Location-independent proof-deck evidence
+
+`cargo octet requirements check` and `requirements verify` accept
+`--artifact-base PATH`. Relative `proof_decks[].artifact_root` and `deck`
+locators resolve inside that base — a realized producer output — instead of
+under `--source-root`. A relative locator must stay inside the base: empty,
+root, prefix, and `..` components are refused, and an absolute locator that
+names a location inside the base is refused if its stripped remainder escapes.
+Absolute locators keep their previous resolution with or without the flag. The
+base path is never recorded in the decision, so identical producer outputs in
+different directories now produce byte-identical decisions and the same
+`decision_blake3`.
+
+The Cairn pilot evidence now uses `artifact_root: "."` and
+`deck: "artifacts/proof-cards.json"`, which changes its `evidence_blake3` and
+therefore the committed pilot `decision.json` once. The proof cards, contract,
+reviewed sources, and specification bytes are unchanged.
 
 ## 2026-11-21: Same-repository pull requests fill the CI cache
 

@@ -1,0 +1,6 @@
+$ NIX_CONFIG=$'min-free = 0\nbuilders =' nix eval --raw .#octet-mantle-aeneas-consumer-job.drvPath
+/nix/store/y8gk7jxxjhbssgb1yh89a9j1k7xzmc21-octet-mantle-aeneas-consumer-job-v1.drv
+exit 0
+19:  # this build log with `--raw-log-retention build-log`, so they are already
+40:      printf '\nRaw proof stage stdout/stderr were written to this build log by `cargo-octet prove --raw-log-retention build-log`.\n' >&2
+115:    --raw-log-retention build-log \

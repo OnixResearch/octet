@@ -310,6 +310,34 @@ pub struct ProviderManifestArgs {
     pub mode: ProviderManifestMode,
 }
 
+/// Where `cargo octet prove` retains the raw stage stdout/stderr it captures.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum RawLogRetention {
+    /// Write the raw capture into the bundle as `proofs/*.stdout|stderr` and manifest it.
+    #[default]
+    Bundle,
+    /// Write the raw capture to the cargo-octet build log and keep it out of the bundle.
+    BuildLog,
+}
+
+impl RawLogRetention {
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Bundle => "bundle",
+            Self::BuildLog => "build-log",
+        }
+    }
+
+    fn parse(value: &str) -> Result<Self, String> {
+        match value {
+            "bundle" => Ok(Self::Bundle),
+            "build-log" => Ok(Self::BuildLog),
+            _ => Err(format!("unsupported --raw-log-retention `{value}`; expected `bundle` or `build-log`")),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct ProveArgs {
     pub registry: Option<PathBuf>,
@@ -327,6 +355,7 @@ pub struct ProveArgs {
     pub proof_refs: Vec<PathBuf>,
     pub trust_boundary: Option<PathBuf>,
     pub negative_check: Option<NegativeCheckArgs>,
+    pub raw_log_retention: RawLogRetention,
 }
 
 #[derive(Debug)]
@@ -374,6 +403,7 @@ pub struct RequirementsCheckArgs {
     pub contract: PathBuf,
     pub evidence: PathBuf,
     pub source_root: PathBuf,
+    pub artifact_base: Option<PathBuf>,
     pub output: Option<PathBuf>,
     pub output_format: OutputFormat,
 }
@@ -384,6 +414,7 @@ pub struct RequirementsVerifyArgs {
     pub evidence: PathBuf,
     pub decision: PathBuf,
     pub source_root: PathBuf,
+    pub artifact_base: Option<PathBuf>,
     pub output_format: OutputFormat,
 }
 
@@ -560,8 +591,8 @@ Usage:
   cargo octet prove --record-negative-check --proof-cards PATH --mutant-cards PATH --proof-or-property-id ID --mutant-source PATH --verifier-evidence PATH [--output PATH]
   cargo octet proof-ref validate --proof-cards PATH --ref PATH [--output-format human|json]
   cargo octet proof-ref scaffold --proof-cards PATH --proof-or-property-id ID --reference-id ID --consumer-context TEXT --consumer-source PATH --anchor TEXT [--output PATH]
-  cargo octet requirements check --contract PATH --evidence PATH [--source-root PATH] [--output PATH] [--output-format human|json]
-  cargo octet requirements verify --contract PATH --evidence PATH --decision PATH [--source-root PATH] [--output-format human|json]
+  cargo octet requirements check --contract PATH --evidence PATH [--source-root PATH] [--artifact-base PATH] [--output PATH] [--output-format human|json]
+  cargo octet requirements verify --contract PATH --evidence PATH --decision PATH [--source-root PATH] [--artifact-base PATH] [--output-format human|json]
   cargo octet requirements freshness --contract PATH --index PATH [--output-format human|json]
   cargo octet roadmap <artifact|capsule|ability|pointer|session|pure-cache> ...
   cargo octet transcript <PATH>
@@ -704,9 +735,11 @@ Modes:
       from the evidence baseline run. Retained artifacts are recomputed during `proof-ref`
       validation rather than trusting the annotated status.
 
-Run options: --registry PATH or --policy-artifacts-dir PATH, --source PATH (repeatable), --family NAME, --rail POLICY[#rail-N], --artifact-dir PATH (default artifacts/octet-proofs), --list, --explain, --output-format human|json.
+Run options: --registry PATH or --policy-artifacts-dir PATH, --source PATH (repeatable), --family NAME, --rail POLICY[#rail-N], --artifact-dir PATH (default artifacts/octet-proofs), --raw-log-retention bundle|build-log, --list, --explain, --output-format human|json.
 
 Runs selected standards proof rails through argv-based commands, writes structured proof receipts under the artifact directory, emits formal_proof provenance only for validated receipts with verifier identity and proof artifact identity, and keeps ordinary cargo octet check behavior unchanged. Use --rail to narrow selection to one policy or property ID, --list to show selected rails without executing them, and --explain to prefix failure diagnostics with remediation context.
+
+--raw-log-retention bundle (default) writes each rail's captured stdout/stderr to proofs/*.stdout|stderr, lists them in evidence-log-manifest.json and hashes them in the bundle. --raw-log-retention build-log instead streams the same raw capture to cargo-octet's stderr, framed per rail, stage and stream, and keeps it out of the bundle: no log files, no evidence-log-manifest.json, and nothing in the bundle hashes the raw text. status.json and summary.txt then record raw_log_retention: build-log and a non-claim that the raw logs are in the build log and are not bound by the bundle identity. Checks that consume the capture (pass signals, truncation flags, exit statuses, the Aeneas sorry scan and axiom check) still run on the in-memory capture and their verdicts stay in the receipt.
 ";
 
 const PROOF_REF_HELP: &str = "cargo octet proof-ref
@@ -721,11 +754,13 @@ Validates a Rust-owned ProofEvidenceRef JSON record against a saved proof-cards.
 const REQUIREMENTS_HELP: &str = "cargo octet requirements
 
 Commands:
-  check --contract PATH --evidence PATH [--source-root PATH] [--output PATH] [--output-format human|json]
-  verify --contract PATH --evidence PATH --decision PATH [--source-root PATH] [--output-format human|json]
+  check --contract PATH --evidence PATH [--source-root PATH] [--artifact-base PATH] [--output PATH] [--output-format human|json]
+  verify --contract PATH --evidence PATH --decision PATH [--source-root PATH] [--artifact-base PATH] [--output-format human|json]
   freshness --contract PATH --index PATH [--output-format human|json]
 
 Evaluates a reviewed, Nickel-authored requirement contract against retained evidence. Each clause carries a stable ID, reviewed specification identity, implementation scope, disposition, allowed evidence, required negative controls, and explicit exclusions. Formal-proof clauses require a passing proof card with matching scope, source identities, retained artifact hashes, and provider evidence; empirical checks cannot satisfy a formal-proof requirement. Assumptions are bound to an identity, trusted boundary, and required empirical evidence. A decision is recomputable from the same contract and evidence without an AI model or hosted provider.
+
+--source-root names the reviewed checkout. Proof decks and their artifact roots resolve under it by default; --artifact-base names the realized producer output instead, so retained evidence can use relative locators (for example deck `artifacts/proof-cards.json` and artifact root `.`). A relative locator must stay inside that base: empty, root, prefix, and `..` components are refused. Absolute locators keep resolving exactly as before, with or without the flag, and the base path is never recorded in the decision, so identical producer outputs in different directories yield the same decision bytes.
 
 Freshness consumes the same contract as its required-obligation inventory and compares it with an evidence codebase index. It reports current, stale_binding, missing, failed, unsupported, and incomplete outcomes, shows old/new bindings, and uses bounded typed traversal for related records. Shared labels and content identity establish relatedness only; they never establish causal dependency or proof support. This command never executes providers.
 ";
@@ -772,6 +807,7 @@ fn parse_requirements(args: &[String]) -> Result<RequirementsArgs, String> {
     let mut decision = None;
     let mut index = None;
     let mut source_root = PathBuf::from(".");
+    let mut artifact_base = None;
     let mut output = None;
     let mut output_format = OutputFormat::Human;
     let mut position = 0;
@@ -787,13 +823,16 @@ fn parse_requirements(args: &[String]) -> Result<RequirementsArgs, String> {
             "--source-root" => {
                 source_root = PathBuf::from(requirement_value(rest, &mut position, flag, inline_value)?);
             }
+            "--artifact-base" => {
+                artifact_base = Some(PathBuf::from(requirement_value(rest, &mut position, flag, inline_value)?));
+            }
             "--output" => output = Some(PathBuf::from(requirement_value(rest, &mut position, flag, inline_value)?)),
             "--output-format" | "--format" => {
                 output_format = parse_output_format(&requirement_value(rest, &mut position, flag, inline_value)?)?;
             }
             other => {
                 return Err(format!(
-                    "unsupported requirements {mode} argument `{other}`; expected --contract, --evidence, --decision, --index, --source-root, --output, or --output-format"
+                    "unsupported requirements {mode} argument `{other}`; expected --contract, --evidence, --decision, --index, --source-root, --artifact-base, --output, or --output-format"
                 ));
             }
         }
@@ -804,7 +843,8 @@ fn parse_requirements(args: &[String]) -> Result<RequirementsArgs, String> {
         RequirementAction::Check => RequirementsMode::Check(RequirementsCheckArgs {
             contract,
             evidence: evidence.ok_or_else(|| "requirements check requires `--evidence PATH`".to_owned())?,
-            source_root,
+            source_root: source_root.clone(),
+            artifact_base: artifact_base.clone(),
             output,
             output_format,
         }),
@@ -812,7 +852,8 @@ fn parse_requirements(args: &[String]) -> Result<RequirementsArgs, String> {
             contract,
             evidence: evidence.ok_or_else(|| "requirements verify requires `--evidence PATH`".to_owned())?,
             decision: decision.ok_or_else(|| "requirements verify requires `--decision PATH`".to_owned())?,
-            source_root,
+            source_root: source_root.clone(),
+            artifact_base,
             output_format,
         }),
         RequirementAction::Freshness => RequirementsMode::Freshness(RequirementsFreshnessArgs {
@@ -2630,6 +2671,7 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
     let mut mutant_source = None;
     let mut verifier_evidence = None;
     let mut output = None;
+    let mut raw_log_retention = None;
     let mut index = 0;
     while index < args.len() {
         let arg = &args[index];
@@ -2714,6 +2756,10 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
                 output = Some(PathBuf::from(required_arg_at(args, index, arg)?));
                 index += 2;
             }
+            "--raw-log-retention" => {
+                raw_log_retention = Some(RawLogRetention::parse(&required_arg_at(args, index, arg)?)?);
+                index += 2;
+            }
             _ if arg.starts_with("--registry=") => {
                 registry = Some(PathBuf::from(arg.trim_start_matches("--registry=")));
                 index += 1;
@@ -2770,6 +2816,10 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
                 output = Some(PathBuf::from(arg.trim_start_matches("--output=")));
                 index += 1;
             }
+            _ if arg.starts_with("--raw-log-retention=") => {
+                raw_log_retention = Some(RawLogRetention::parse(arg.trim_start_matches("--raw-log-retention="))?);
+                index += 1;
+            }
             _ if arg.starts_with("--output-format=") => {
                 output_format = parse_output_format(arg.trim_start_matches("--output-format="))?;
                 index += 1;
@@ -2785,6 +2835,10 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
     if output_format == OutputFormat::Sarif {
         return Err("prove does not support SARIF output; use human or json".to_owned());
     }
+    if (candidates || record_negative_check) && raw_log_retention.is_some() {
+        return Err("`--raw-log-retention` applies only when running proof rails".to_owned());
+    }
+    let raw_log_retention = raw_log_retention.unwrap_or_default();
 
     if record_negative_check {
         if candidates || list || explain {
@@ -2823,6 +2877,7 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
                 verifier_evidence,
                 output,
             }),
+            raw_log_retention,
         });
     }
 
@@ -2857,6 +2912,7 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
             proof_refs,
             trust_boundary,
             negative_check: None,
+            raw_log_retention,
         });
     }
 
@@ -2883,6 +2939,7 @@ fn parse_prove(args: &[String], command_line: String) -> Result<ProveArgs, Strin
         proof_refs,
         trust_boundary,
         negative_check: None,
+        raw_log_retention,
     })
 }
 
@@ -5474,6 +5531,8 @@ mod tests {
                 "--evidence=standards/requirements/fixtures/example/evidence.json",
                 "--source-root",
                 ".",
+                "--artifact-base",
+                "producer-output",
                 "--output",
                 "artifacts/requirements/decision.json",
                 "--output-format",
@@ -5494,6 +5553,7 @@ mod tests {
                         std::path::PathBuf::from("standards/requirements/fixtures/example/evidence.json")
                     );
                     assert_eq!(check.source_root, std::path::PathBuf::from("."));
+                    assert_eq!(check.artifact_base, Some(std::path::PathBuf::from("producer-output")));
                     assert_eq!(check.output, Some(std::path::PathBuf::from("artifacts/requirements/decision.json")));
                     assert_eq!(check.output_format, OutputFormat::Json);
                 }
@@ -5514,14 +5574,18 @@ mod tests {
                 "evidence.json",
                 "--decision",
                 "decision.json",
+                "--artifact-base=producer-output",
             ]
             .map(OsString::from),
         )
         .expect("parse requirements verify");
         match parsed {
-            CommandArgs::Requirements(args) => {
-                assert!(matches!(args.mode, RequirementsMode::Verify(_)));
-            }
+            CommandArgs::Requirements(args) => match args.mode {
+                RequirementsMode::Verify(verify) => {
+                    assert_eq!(verify.artifact_base, Some(std::path::PathBuf::from("producer-output")));
+                }
+                other => panic!("expected requirements verify, got {other:?}"),
+            },
             other => panic!("expected requirements args, got {other:?}"),
         }
 

@@ -1,0 +1,21 @@
+Command:
+/nix/store/l8ahzypxrihxk73vpwp52kw7zf5xfj2q-cargo-octet-0.1.1-rc.1/bin/cargo-octet check --output-format json --artifact-dir /tmp/octet-budget-refresh-4/artifacts --write-baseline /tmp/octet-budget-refresh-4/octet-baseline.json
+
+Result:
+status: warning-only
+exit_code: 0
+total_findings: 4230
+warning_findings: 4230
+error_findings: 0
+baseline.schema_version: 1
+baseline.finding_schema_version: 2
+baseline.findings.length: 3021
+baseline.baseline_hash: b3:f9865bc1d48bb2a198ad76d518e38fcb7846d46bd0f6416ed36d683d5c67116a
+baseline.file_blake3: b3:09074b80d19a2bb63fca88b66d16d505ae1df5a5639d0ddadcf556bce0fc43fd
+tool: cargo-octet 0.1.1-rc.1
+toolchain: nightly-2026-03-21-x86_64-unknown-linux-gnu
+profile: workspace-metadata
+config_hash: b3:c51d1ae1c55fee2a9d155a7b8abe18cb7a6b14ac30476d513f3f5162fe5360c7
+profile_hash: b3:cab68b88c47e365a83bcff8760701a148e90217e605daee7c7d0fe8ec2e83e45
+delta_vs_prior: -9 unique stable identities (+6 added, -15 removed), -9 warning occurrences (4239 -> 4230)
+invariants: unique stable_ids=3021, absolute_locators=0, negated_predicate=0

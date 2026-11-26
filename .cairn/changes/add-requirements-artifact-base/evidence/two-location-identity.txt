@@ -1,0 +1,8 @@
+$ cargo-octet octet requirements check --artifact-base /tmp/octet-artifact-base-a ... --output /tmp/octet-decision-a.json
+a exit 0
+$ cargo-octet octet requirements check --artifact-base /tmp/octet-artifact-base-b ... --output /tmp/octet-decision-b.json
+b exit 0
+$ cmp /tmp/octet-decision-a.json /tmp/octet-decision-b.json
+cmp exit 0
+$ cmp /tmp/octet-decision-a.json standards/requirements/fixtures/cairn-pilot/decision.json
+cmp exit 0

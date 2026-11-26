@@ -257,6 +257,7 @@ struct RawProofCardDeck {
 struct BundleStatus {
     output_format: Option<OutputFormat>,
     bundle_kind: BundleKind,
+    raw_log_retention: RawLogRetention,
     checked_scope: Option<String>,
     diagnostics: Vec<String>,
 }
@@ -265,6 +266,13 @@ struct BundleStatus {
 enum BundleKind {
     Check,
     Prove,
+}
+
+/// Raw-log retention declared by a prove bundle's `status.json`; absent means `bundle`.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum RawLogRetention {
+    Bundle,
+    BuildLog,
 }
 
 #[derive(Clone, Copy)]
@@ -1034,6 +1042,9 @@ pub fn verify_bundle(input: ArtifactBundleInput) -> ArtifactVerificationReport {
     let mut expected_files = provenance_expected_files.clone();
     if status.bundle_kind == BundleKind::Prove {
         extend_expected_evidence_log_files(&file_map, &mut expected_files, &mut diagnostics);
+        if status.raw_log_retention == RawLogRetention::BuildLog {
+            reject_build_log_raw_artifacts(&file_map, &mut diagnostics);
+        }
     }
 
     validate_file_set(&file_map, &expected_files, &mut diagnostics);
@@ -1686,25 +1697,26 @@ fn validate_benchmark_artifact_binding(
     diagnostics.extend(crate::benchmark::validate_bundle(details, file_map));
 }
 
+/// A rejected status artifact names the check bundle's defaults; the caller adds the diagnostic.
+fn rejected_status(diagnostics: Vec<String>) -> BundleStatus {
+    BundleStatus {
+        output_format: None,
+        bundle_kind: BundleKind::Check,
+        raw_log_retention: RawLogRetention::Bundle,
+        checked_scope: None,
+        diagnostics,
+    }
+}
+
 fn inspect_status(file_map: &BTreeMap<String, Vec<u8>>) -> BundleStatus {
     let Some(status_bytes) = file_map.get(STATUS_ARTIFACT_NAME) else {
-        return BundleStatus {
-            output_format: None,
-            bundle_kind: BundleKind::Check,
-            checked_scope: None,
-            diagnostics: vec![format!("missing expected artifact `{STATUS_ARTIFACT_NAME}`")],
-        };
+        return rejected_status(vec![format!("missing expected artifact `{STATUS_ARTIFACT_NAME}`")]);
     };
 
     let status_json: serde_json::Value = match serde_json::from_slice(status_bytes) {
         Ok(value) => value,
         Err(error) => {
-            return BundleStatus {
-                output_format: None,
-                bundle_kind: BundleKind::Check,
-                checked_scope: None,
-                diagnostics: vec![format!("malformed {STATUS_ARTIFACT_NAME}: {error}")],
-            };
+            return rejected_status(vec![format!("malformed {STATUS_ARTIFACT_NAME}: {error}")]);
         }
     };
 
@@ -1713,26 +1725,31 @@ fn inspect_status(file_map: &BTreeMap<String, Vec<u8>>) -> BundleStatus {
         Some("json") => Some(OutputFormat::Json),
         Some("sarif") => Some(OutputFormat::Sarif),
         Some(other) => {
-            return BundleStatus {
-                output_format: None,
-                bundle_kind: BundleKind::Check,
-                checked_scope: None,
-                diagnostics: vec![format!("unsupported {STATUS_ARTIFACT_NAME} output_format `{other}`")],
-            };
+            return rejected_status(vec![format!("unsupported {STATUS_ARTIFACT_NAME} output_format `{other}`")]);
         }
         None => {
-            return BundleStatus {
-                output_format: None,
-                bundle_kind: BundleKind::Check,
-                checked_scope: None,
-                diagnostics: vec![format!("missing {STATUS_ARTIFACT_NAME} output_format")],
-            };
+            return rejected_status(vec![format!("missing {STATUS_ARTIFACT_NAME} output_format")]);
         }
     };
 
     let bundle_kind = match status_json.get("bundle_kind").and_then(serde_json::Value::as_str) {
         Some(STATUS_BUNDLE_KIND_PROVE) => BundleKind::Prove,
         Some(_) | None => BundleKind::Check,
+    };
+    let raw_log_retention = match status_json.get("raw_log_retention").and_then(serde_json::Value::as_str) {
+        None | Some("bundle") => RawLogRetention::Bundle,
+        Some("build-log") => RawLogRetention::BuildLog,
+        Some(other) => {
+            return BundleStatus {
+                output_format,
+                bundle_kind,
+                raw_log_retention: RawLogRetention::Bundle,
+                checked_scope: None,
+                diagnostics: vec![format!(
+                    "unsupported {STATUS_ARTIFACT_NAME} raw_log_retention `{other}`"
+                )],
+            };
+        }
     };
 
     let checked_scope = status_json
@@ -1751,6 +1768,7 @@ fn inspect_status(file_map: &BTreeMap<String, Vec<u8>>) -> BundleStatus {
     BundleStatus {
         output_format,
         bundle_kind,
+        raw_log_retention,
         checked_scope,
         diagnostics,
     }
@@ -1866,6 +1884,24 @@ fn extend_expected_evidence_log_files(
     }
     expected_files.sort();
     expected_files.dedup();
+}
+
+/// A `build-log` bundle keeps raw tool output in the build log, so a manifest or a
+/// `proofs/*.stdout|stderr` artifact inside it contradicts the declared retention mode.
+fn reject_build_log_raw_artifacts(file_map: &BTreeMap<String, Vec<u8>>, diagnostics: &mut Vec<String>) {
+    if file_map.contains_key(crate::evidence_log::EVIDENCE_LOG_MANIFEST_ARTIFACT) {
+        diagnostics.push(format!(
+            "build-log prove bundle must not contain `{}`",
+            crate::evidence_log::EVIDENCE_LOG_MANIFEST_ARTIFACT
+        ));
+    }
+    for locator in file_map.keys() {
+        let is_raw_log = locator.starts_with(PROOF_ARTIFACT_PREFIX)
+            && (locator.ends_with(".stdout") || locator.ends_with(".stderr"));
+        if is_raw_log {
+            diagnostics.push(format!("build-log prove bundle must not contain raw log artifact `{locator}`"));
+        }
+    }
 }
 
 fn parse_evidence_log_manifest(
@@ -2588,6 +2624,46 @@ mod tests {
     }
 
     #[test]
+    fn build_log_prove_bundle_without_raw_logs_is_valid() {
+        let status = prove_status_contents()
+            .replace("\n  \"metadata\"", "\n  \"raw_log_retention\": \"build-log\",\n  \"metadata\"");
+        let input = prove_input_with_status(PROOF_RECEIPT_CONTENTS, None, PROOF_CHECKED_SCOPE, &status);
+
+        let report = verify_bundle(input);
+
+        assert_eq!(report.status, STATUS_VALID, "unexpected diagnostics: {:?}", report.diagnostics);
+        assert!(report.diagnostics.is_empty());
+        assert!(!report.artifacts.iter().any(|artifact| artifact.artifact.ends_with(".stdout")));
+    }
+
+    #[test]
+    fn build_log_prove_bundle_rejects_stray_raw_log_or_manifest() {
+        let status = prove_status_contents()
+            .replace("\n  \"metadata\"", "\n  \"raw_log_retention\": \"build-log\",\n  \"metadata\"");
+        let mut with_manifest = prove_input_with_status(PROOF_RECEIPT_CONTENTS, None, PROOF_CHECKED_SCOPE, &status);
+        append_valid_evidence_log_manifest(&mut with_manifest);
+        let report = verify_bundle(with_manifest);
+        assert_eq!(report.status, STATUS_INVALID);
+        assert!(report.diagnostics.iter().any(|diagnostic| {
+            diagnostic.contains("build-log prove bundle must not contain `evidence-log-manifest.json`")
+        }));
+
+        let mut with_raw_log = prove_input_with_status(PROOF_RECEIPT_CONTENTS, None, PROOF_CHECKED_SCOPE, &status);
+        with_raw_log.files.push(BundleFile {
+            name: "proofs/stray-rail-0.stdout".to_owned(),
+            contents: b"progress\n".to_vec(),
+        });
+        let report = verify_bundle(with_raw_log);
+        assert_eq!(report.status, STATUS_INVALID);
+        assert!(
+            report
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("must not contain raw log artifact `proofs/stray-rail-0.stdout`"))
+        );
+    }
+
+    #[test]
     fn evidence_log_manifest_tampering_fails_closed() {
         let mut input = valid_prove_input();
         append_valid_evidence_log_manifest(&mut input);
@@ -2963,6 +3039,17 @@ mod tests {
     /// Builds a prove bundle around one formal-proof receipt; `card_scope` adds the proof card's
     /// `checked_rust_source_scope` and `record_scope` labels the receipt's provenance record.
     fn prove_input(receipt_contents: &[u8], card_scope: Option<&str>, record_scope: &str) -> ArtifactBundleInput {
+        prove_input_with_status(receipt_contents, card_scope, record_scope, &prove_status_contents())
+    }
+
+    /// Like [`prove_input`], with an explicit `status.json` body so retention-mode shapes can be
+    /// exercised without hand-rebuilding the provenance record.
+    fn prove_input_with_status(
+        receipt_contents: &[u8],
+        card_scope: Option<&str>,
+        record_scope: &str,
+        status: &str,
+    ) -> ArtifactBundleInput {
         let proof_card =
             sample_valence_proof_card("octet-rerun", EvidenceTier::FormalProof.as_str(), PROOF_RECEIPT_ARTIFACT_NAME);
         let mut proof_card = serde_json::to_value(&proof_card).expect("serialize proof card");
@@ -2978,7 +3065,7 @@ mod tests {
         record_scope.clone_into(&mut proof_record.checked_scope);
         let mut records = vec![
             record(COMMAND_ARTIFACT_NAME, COMMAND_CONTENTS, EvidenceTier::ManualReviewRequired),
-            record(STATUS_ARTIFACT_NAME, prove_status_contents().as_bytes(), EvidenceTier::ManualReviewRequired),
+            record(STATUS_ARTIFACT_NAME, status.as_bytes(), EvidenceTier::ManualReviewRequired),
             record(SUMMARY_ARTIFACT_NAME, SUMMARY_CONTENTS, EvidenceTier::ManualReviewRequired),
             record(PROOF_CARDS_ARTIFACT_NAME, &proof_cards_bytes, EvidenceTier::ManualReviewRequired),
             proof_record,
@@ -2993,7 +3080,7 @@ mod tests {
                 },
                 BundleFile {
                     name: STATUS_ARTIFACT_NAME.to_owned(),
-                    contents: prove_status_contents().into_bytes(),
+                    contents: status.as_bytes().to_vec(),
                 },
                 BundleFile {
                     name: SUMMARY_ARTIFACT_NAME.to_owned(),

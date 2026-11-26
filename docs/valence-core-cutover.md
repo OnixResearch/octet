@@ -16,8 +16,7 @@ The old Octet-hosted source remains only at `crates/valence-core/` as the non-pu
 
 The selected upstream `function_object.rs` remains at BLAKE3
 `11f0f4233aaf3153966f6aa37de570c2dcd0e75335591934461ae2b25ab3ecb1`.
-The active `source-token-v2/candidate-source-manifest.json` is the exact
-`0.1.1-rc.1` candidate, BLAKE3
+The original audited `0.1.1-rc.1` candidate had BLAKE3
 `be3647f9c72a598defa192f4ff0cda440fef22eeb5e2bc7dd6c162abce43d862`.
 Its frozen `PENDING`, unselected and null-approval fields are preserved. A
 separate reviewed manifest, BLAKE3
@@ -41,9 +40,18 @@ producer only; it does not establish final H3/release-source qualification.
 Neither candidate bytes nor earlier CLI captures are relabelled as a later build.
 
 Native lifecycle closure moved the owner record to the archive without changing
-its bytes or the sealed candidate/review/reference records. The reviewed
-manifest retains its original pre-archive `evidence_path`; admission reads only
-the archived owner record and enforces its unchanged BLAKE3 identity.
+its bytes. The historical approval block retains its original pre-archive
+`evidence_path`; the verifier opens the historical record at its fixed archive
+location and checks its unchanged digest.
+
+The active source/reference tuple is the separate
+[owner-approved PR #38 refresh](../cargo-octet/tests/fixtures/object-corpus/source-token-v2/pr38-object-refresh-owner-approval.txt).
+The frozen manifests still describe their preparation-time status. The verifier
+requires the new owner record, pins both manifest digests, and uses the refresh
+mapping only to compare earlier hashes against the unmodified historical audit
+and producer binding. Of the four references, the fixed one is unchanged and
+the three recaptured references have counts 1,157, 1,766 and 1,766. The refresh
+was not a new independent audit; the Valence dependency and binding did not move.
 
 The prior `0.1.0` candidate, reviewed manifest and four references remain
 byte-preserved and unselected in `source-token-v2/historical-0.1.0/`. The old
@@ -57,8 +65,8 @@ another is insufficient. Report PASS only after the actual derivation builds.
 The verifier checks exact hashes and scoped structured bindings, not approval
 prose phrases. Its code and expected digests remain co-located in the same
 PR-controlled tree: an in-repository PASS is not authentication against an
-adversarial simultaneous edit. Compare the exact candidate/audit identities
-with the actual owner decision outside that edit. Approval excludes future
+adversarial simultaneous edit. Compare the exact live and historical identities
+with their respective owner decisions outside that edit. Approval excludes future
 consumer-test code, other future edits, warning-budget changes, correctness,
 semantic equivalence and release eligibility. Re-review future producer/test
 changes; do not regenerate a current expected reference merely to obtain PASS.

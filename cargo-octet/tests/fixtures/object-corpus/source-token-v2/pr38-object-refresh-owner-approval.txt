@@ -1,0 +1,21 @@
+Direct interactive repository-owner decision recorded 2026-11-23 for Octet PR #38.
+Exact submission:
+object_h3 = approve_exact_refreshed_candidate_and_references
+owner_note = ""
+
+Selected source and reference identities only:
+Candidate BLAKE3: c30ccca70b8297c2114a05386046d6e065b7d8b45ac5efe2a07146f4c816c244
+Reviewed BLAKE3: cfbab738bb93a3d24865586f1dd46fd0e0ac1793345565fa585c177d8125513d
+cargo-octet/src/cli.rs BLAKE3: d181d2d9a38551c4aef2ad5ec7a7074ebc436846a5b7171f9cc1f2b0746ecd1d
+
+References (object count, BLAKE3):
+positive-v2-receipt.json (unchanged): 1, 890ef71644eb7af0e9c6c3ff7b20fd0fb9630547c434490ed1096b765a7de8b8
+internal-corpus-receipt.json: 1157, 35fadd05afc428c70a9c5187814b7f38f8b3fd1bc3f4af2152f99b69bcfb03f8
+expanded-internal-corpus-receipt.json: 1766, 6f33995f86d5d01f2967d34c22a1cc8e63aaf88936f5b21fdcad20943d9993e1
+expanded-internal-corpus-caveat-taxonomy.json: 1766, 8e06ff67bba21629f57b3f50fa01b44ef22b8de5de1d83e11d765e27e8297160
+
+The 2026-11-13 approval, audit envelope and original producer/source binding
+still describe the earlier source and references; their bytes are unchanged.
+The original independent audit was not repeated. This record is not an owner
+signature, a correctness or semantic equivalence claim, approval of future
+edits or tests, or release qualification.

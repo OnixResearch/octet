@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use serde_json::json;
 
 use super::*;
+use crate::cli::RawLogRetention;
 
 const PROPERTY_ID: &str = "octet.verus_proof_rails.addition-bound-production#rail-0";
 const POLICY_ID: &str = "octet.verus_proof_rails.addition-bound-production";
@@ -42,6 +43,7 @@ fn candidate_args(
         proof_refs,
         trust_boundary,
         negative_check: None,
+        raw_log_retention: RawLogRetention::default(),
     }
 }
 

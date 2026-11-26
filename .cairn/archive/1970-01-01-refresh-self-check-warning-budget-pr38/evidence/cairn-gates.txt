@@ -1,0 +1,37 @@
+$ cairn validate --root . --policy cairn-policy/generated/cairn-policy.json
+{
+  "valid": true,
+  "policy": "octet-default",
+  "changes": 3,
+  "issues": [],
+  "change_issues": [],
+  "spec_issues": [],
+  "profile_issues": []
+}
+$ cairn gate proposal refresh-self-check-warning-budget-pr38 --root . --policy cairn-policy/generated/cairn-policy.json
+{
+  "change": "refresh-self-check-warning-budget-pr38",
+  "policy": "octet-default",
+  "issues": [],
+  "verdict": "PASS"
+}
+$ cairn gate design refresh-self-check-warning-budget-pr38 --root . --policy cairn-policy/generated/cairn-policy.json
+{
+  "change": "refresh-self-check-warning-budget-pr38",
+  "policy": "octet-default",
+  "issues": [],
+  "verdict": "PASS"
+}
+$ cairn gate tasks refresh-self-check-warning-budget-pr38 --root . --policy cairn-policy/generated/cairn-policy.json
+{
+  "change": "refresh-self-check-warning-budget-pr38",
+  "policy": "octet-default",
+  "issues": [],
+  "verdict": "PASS"
+}
+$ cairn traceability coverage --root . --policy cairn-policy/generated/cairn-policy.json --profile octet-default --json
+{
+  "valid": true,
+  "missing": [],
+  "dangling": []
+}
