@@ -402,3 +402,221 @@ fn verify_recomputes_and_reports_changed_proof_card_bytes() {
         "{diagnostics:?}"
     );
 }
+
+#[test]
+fn proof_card_and_empirical_check_gaps_fail_closed() {
+    let root = fixture_root();
+    let spec = write_file(root.path(), SPEC_PATH, b"reviewed specification");
+    let source = write_file(root.path(), SOURCE_PATH, b"pub fn add(a: u8, b: u8) -> u8 { a + b }");
+
+    // 1. Missing checked_rust_source_scope, source_requirement_or_policy_id, or empty
+    //    artifact_blake3_identities fails.
+    let contract_base = contract(source.clone(), spec.blake3.clone(), DISPOSITION_FORMAL_PROOF);
+    let contract_bytes = serde_json::to_vec(&contract_base).expect("serialize contract");
+    let bad_deck = serde_json::json!({
+        "schema_version": PROOF_CARDS_SCHEMA_VERSION,
+        "cards": [{
+            "proof_or_property_id": PROOF_CARD_ID,
+            "evidence_tier": "formal_proof",
+            "status": "passed",
+            "non_claims": ["bounded"],
+            "diagnostics": [],
+            "artifact_blake3_identities": [],
+        }],
+    });
+    fs::write(root.path().join(PROOF_DECK), serde_json::to_vec_pretty(&bad_deck).expect("deck")).expect("write");
+    let mut bad_evidence = evidence(hash_bytes(&contract_bytes), source.clone());
+    bad_evidence.proof_decks = vec![ProofDeck {
+        evidence_id: PROOF_CARD_ID.to_owned(),
+        deck: PROOF_DECK.to_owned(),
+        artifact_root: ".".to_owned(),
+    }];
+    let bad_card_decision =
+        evaluate_contract(&contract_base, &bad_evidence, &contract_bytes, b"ev", root.path(), None).expect("eval");
+    assert_eq!(bad_card_decision.aggregate_result, STATUS_FAILED);
+    assert!(bad_card_decision.diagnostics.iter().any(|d| d.contains("checked_rust_source_scope")));
+    assert!(bad_card_decision.diagnostics.iter().any(|d| d.contains("source_requirement_or_policy_id")));
+    assert!(bad_card_decision.diagnostics.iter().any(|d| d.contains("empty artifact_blake3_identities")));
+
+    // 2. Empirical check with empty checker_id or mismatched checked_scope fails.
+    let mut emp_contract = contract(source.clone(), spec.blake3.clone(), DISPOSITION_EMPIRICAL_CHECK);
+    emp_contract.clauses[0].checked_scope = vec!["scope:expected".to_owned()];
+    emp_contract.clauses[0].expected_evidence_tier = DISPOSITION_EMPIRICAL_CHECK.to_owned();
+    emp_contract.clauses[0].required_evidence_classes = vec![DISPOSITION_EMPIRICAL_CHECK.to_owned()];
+    let emp_bytes = serde_json::to_vec(&emp_contract).expect("emp contract");
+    let mut emp_evidence = evidence(hash_bytes(&emp_bytes), source);
+    fs::write(root.path().join("emp.txt"), b"ok").expect("write emp");
+    emp_evidence.empirical_checks.push(EmpiricalCheck {
+        evidence_id: PROOF_CARD_ID.to_owned(),
+        evidence_class: DISPOSITION_EMPIRICAL_CHECK.to_owned(),
+        status: CHECK_STATUS_PASSED.to_owned(),
+        checker_id: String::new(),
+        command_argv: vec!["cargo".to_owned(), "test".to_owned()],
+        checked_scope: vec!["scope:other".to_owned()],
+        source_bindings: vec![emp_contract.clauses[0].source_bindings[0].clone()],
+        artifact: Some("emp.txt".to_owned()),
+        artifact_blake3: Some(hash_bytes(b"ok")),
+        diagnostics: Vec::new(),
+        non_claims: Vec::new(),
+    });
+    let emp_decision =
+        evaluate_contract(&emp_contract, &emp_evidence, &emp_bytes, b"ev", root.path(), None).expect("eval");
+    assert_eq!(emp_decision.aggregate_result, STATUS_FAILED);
+    assert!(emp_decision.diagnostics.iter().any(|d| d.contains("checker_id")));
+    assert!(emp_decision.diagnostics.iter().any(|d| d.contains("checked_scope")));
+}
+
+#[test]
+fn negative_control_and_exclusion_gaps_fail_closed() {
+    let root = fixture_root();
+    let spec = write_file(root.path(), SPEC_PATH, b"reviewed specification");
+    let source = write_file(root.path(), SOURCE_PATH, b"pub fn add(a: u8, b: u8) -> u8 { a + b }");
+    let contract_base = contract(source.clone(), spec.blake3, DISPOSITION_FORMAL_PROOF);
+
+    // 1. Required negative control checks mutant_card_status == "failed" and required mutation_id.
+    let mut neg_contract = contract_base.clone();
+    neg_contract.clauses[0].required_negative_controls = vec!["mut.overflow".to_owned()];
+    let neg_bytes = serde_json::to_vec(&neg_contract).expect("neg contract");
+    let artifact_bytes = b"{\"status\":\"passed\"}";
+    fs::write(root.path().join("proof.receipt"), artifact_bytes).expect("write receipt");
+    let mut neg_card = serde_json::json!({
+        "proof_or_property_id": PROOF_CARD_ID,
+        "source_requirement_or_policy_id": "clause.add",
+        "checked_rust_source_scope": "formal-proof:fixture",
+        "evidence_tier": "formal_proof",
+        "status": "passed",
+        "non_claims": ["bounded"],
+        "diagnostics": [],
+        "artifact_blake3_identities": [{"artifact": "proof.receipt", "blake3": hash_bytes(artifact_bytes)}],
+        "negative_check": {
+            "schema_version": NEGATIVE_CHECK_SCHEMA_VERSION_V2,
+            "status": NEGATIVE_STATUS_DEMONSTRATED,
+            "mutant_card_status": "failed",
+            "mutant_card_evidence_tier": "formal_proof",
+            "evidence": {
+                "verifier": "aeneas-lean",
+                "proof_or_property_id": PROOF_CARD_ID,
+                "approved_specification_id": "spec.1",
+                "source_requirement_or_policy_id": "clause.add",
+                "checked_rust_source_scope": "formal-proof:fixture",
+                "evidence_tier": "formal_proof",
+                "baseline": { "outcome": "accepted" },
+                "mutant": { "outcome": "rejected", "rejection_attribution": PROOF_CARD_ID },
+                "mutation": {
+                    "mutation_id": "mut.overflow",
+                    "patch_blake3": "a".repeat(64),
+                    "baseline_source_blake3": "b".repeat(64),
+                    "mutant_source_blake3": "c".repeat(64)
+                }
+            },
+            "measured": {
+                "mutation_id": "mut.overflow",
+                "patch_blake3": "a".repeat(64),
+                "baseline_source_blake3": "b".repeat(64),
+                "mutant_source_blake3": "c".repeat(64)
+            }
+        }
+    });
+    let write_neg_deck = |card_val: &serde_json::Value| {
+        let deck = serde_json::json!({
+            "schema_version": PROOF_CARDS_SCHEMA_VERSION,
+            "cards": [card_val],
+        });
+        fs::write(root.path().join(PROOF_DECK), serde_json::to_vec_pretty(&deck).expect("deck")).expect("write");
+    };
+    write_neg_deck(&neg_card);
+    let mut neg_evidence = evidence(hash_bytes(&neg_bytes), source);
+    neg_evidence.proof_decks = vec![ProofDeck {
+        evidence_id: PROOF_CARD_ID.to_owned(),
+        deck: PROOF_DECK.to_owned(),
+        artifact_root: ".".to_owned(),
+    }];
+    let valid_neg =
+        evaluate_contract(&neg_contract, &neg_evidence, &neg_bytes, b"ev", root.path(), None).expect("eval");
+    assert_eq!(valid_neg.aggregate_result, STATUS_PASSED, "{:?}", valid_neg.diagnostics);
+
+    neg_card["negative_check"]["evidence"]["mutation"]["mutation_id"] = serde_json::json!("mut.other");
+    neg_card["negative_check"]["measured"]["mutation_id"] = serde_json::json!("mut.other");
+    write_neg_deck(&neg_card);
+    let wrong_mut =
+        evaluate_contract(&neg_contract, &neg_evidence, &neg_bytes, b"ev", root.path(), None).expect("eval");
+    assert_eq!(wrong_mut.aggregate_result, STATUS_FAILED);
+    assert!(wrong_mut.diagnostics.iter().any(|d| d.contains("mut.overflow")));
+
+    // 4. Stale exclusion reviewed_specification_blake3 fails contract validation.
+    let mut excl_contract = contract_base;
+    excl_contract.clauses.push(RequirementClause {
+        clause_id: "clause.excl".to_owned(),
+        statement: "excluded".to_owned(),
+        required: false,
+        disposition: DISPOSITION_EXCLUDED.to_owned(),
+        checked_scope: Vec::new(),
+        expected_evidence_tier: String::new(),
+        allowed_evidence_ids: Vec::new(),
+        allowed_source_requirement_ids: Vec::new(),
+        required_evidence_classes: Vec::new(),
+        required_negative_controls: Vec::new(),
+        required_bindings: RequirementBindings::default(),
+        source_bindings: Vec::new(),
+        dependency_bindings: Vec::new(),
+        assumption_id: None,
+        exclusion_reason: Some("outside scope".to_owned()),
+        required_provider_id: None,
+    });
+    excl_contract.exclusions.push(ExcludedBehavior {
+        exclusion_id: "excl.1".to_owned(),
+        clause_id: "clause.excl".to_owned(),
+        reason: "outside scope".to_owned(),
+        reviewed_specification_blake3: "f".repeat(64),
+    });
+    let excl_diags = validate(&excl_contract);
+    assert!(excl_diags.iter().any(|d| d.contains("reviewed_specification_blake3")));
+}
+
+#[test]
+fn empirical_clause_cannot_promote_to_formal_proof_via_tier_or_bindings() {
+    for use_binding_tier in [false, true] {
+        for with_empirical_check in [false, true] {
+            let root = fixture_root();
+            let spec = write_file(root.path(), SPEC_PATH, b"spec");
+            let source = write_file(root.path(), SOURCE_PATH, b"source");
+            let mut contract = contract(source.clone(), spec.blake3, DISPOSITION_EMPIRICAL_CHECK);
+            contract.clauses[0].required_evidence_classes = vec![DISPOSITION_EMPIRICAL_CHECK.to_owned()];
+            if use_binding_tier {
+                contract.clauses[0].expected_evidence_tier = DISPOSITION_EMPIRICAL_CHECK.to_owned();
+                contract.clauses[0].required_bindings.evidence_tier = Some(DISPOSITION_FORMAL_PROOF.to_owned());
+            } else {
+                contract.clauses[0].expected_evidence_tier = DISPOSITION_FORMAL_PROOF.to_owned();
+                contract.clauses[0].required_bindings.evidence_tier = None;
+            }
+            let contract_bytes = serde_json::to_vec(&contract).expect("serialize contract");
+            let mut evidence = evidence(hash_bytes(&contract_bytes), source.clone());
+            if with_empirical_check {
+                fs::write(root.path().join("check.txt"), b"check output").expect("write check artifact");
+                evidence.empirical_checks.push(EmpiricalCheck {
+                    evidence_id: PROOF_CARD_ID.to_owned(),
+                    evidence_class: DISPOSITION_EMPIRICAL_CHECK.to_owned(),
+                    status: CHECK_STATUS_PASSED.to_owned(),
+                    checker_id: "test".to_owned(),
+                    command_argv: vec!["cargo".to_owned(), "test".to_owned()],
+                    checked_scope: vec!["test".to_owned()],
+                    source_bindings: vec![source],
+                    artifact: Some("check.txt".to_owned()),
+                    artifact_blake3: Some(hash_bytes(b"check output")),
+                    diagnostics: Vec::new(),
+                    non_claims: Vec::new(),
+                });
+            }
+            let decision =
+                evaluate_contract(&contract, &evidence, &contract_bytes, b"evidence", root.path(), None)
+                    .expect("evaluate");
+            assert_eq!(decision.aggregate_result, STATUS_FAILED, "{:?}", decision.diagnostics);
+            assert_eq!(decision.clauses[0].status, STATUS_FAILED);
+            assert!(
+                decision.diagnostics.iter().any(|d| d.contains("formal_proof") || d.contains("formal-proof")),
+                "{:?}",
+                decision.diagnostics
+            );
+        }
+    }
+}

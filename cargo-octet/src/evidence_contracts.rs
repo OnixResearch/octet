@@ -109,7 +109,10 @@ static HEGEL_PROPERTY_DETAILS_FIELDS: &[ContractField] = &[
 
 static HEGEL_HARDENED_DETAILS_FIELDS: &[ContractField] = &[
     ContractField::required("schema_version", FieldKind::ExactString(crate::hegel::RECEIPT_SCHEMA)),
-    ContractField::required("profile_id", FieldKind::ExactString(crate::hegel::PROFILE_ID)),
+    ContractField::required(
+        "profile_id",
+        FieldKind::OneOfStrings(&crate::hegel::profile_validation::REGISTERED_PROFILE_IDS),
+    ),
     ContractField::required("profile_identity", FieldKind::NonEmptyString),
     ContractField::required("law_catalog_identity", FieldKind::NonEmptyString),
     ContractField::required("property_id", FieldKind::NonEmptyString),
@@ -125,6 +128,7 @@ static HEGEL_HARDENED_DETAILS_FIELDS: &[ContractField] = &[
     ContractField::required("generator_manifest_identity", FieldKind::NonEmptyString),
     ContractField::required("summary_identity", FieldKind::NonEmptyString),
     ContractField::required("bounded_log_identity", FieldKind::NonEmptyString),
+    ContractField::nullable_string("counterexample_identity"),
     ContractField::required("result", FieldKind::NonEmptyString),
     ContractField::required("cases_completed", FieldKind::Number),
     ContractField::required("issue_codes", FieldKind::StringArray),
@@ -132,6 +136,9 @@ static HEGEL_HARDENED_DETAILS_FIELDS: &[ContractField] = &[
     ContractField::required("evidence_tier", FieldKind::EvidenceTier),
     ContractField::required("verification_role", FieldKind::NonEmptyString),
     ContractField::required("non_claims", FieldKind::StringArray),
+    ContractField::optional("expected_laws", FieldKind::StringArray),
+    ContractField::optional("executed_laws", FieldKind::DynArray),
+    ContractField::optional("unexecuted_laws", FieldKind::StringArray),
 ];
 
 static MIRAI_PILOT_DECISION_FIELDS: &[ContractField] = &[
@@ -389,6 +396,7 @@ static EVIDENCE_RAIL_RECEIPT_FIELDS: &[ContractField] = &[
 enum FieldKind {
     ExactNumber(u32),
     ExactString(&'static str),
+    OneOfStrings(&'static [&'static str]),
     NonEmptyString,
     String,
     NullableString,
@@ -623,6 +631,15 @@ fn render_field_kind(kind: FieldKind) -> String {
         FieldKind::ExactString(value) => {
             format!("std.contract.from_predicate (fun value => value == {value:?})")
         }
+        FieldKind::OneOfStrings(values) => {
+            let mut rendered_values = String::new();
+            for value in values {
+                write!(&mut rendered_values, "{value:?}, ").expect("render allowed string");
+            }
+            format!(
+                "std.contract.from_predicate (fun value => std.is_string value && std.array.elem value [{rendered_values}])"
+            )
+        }
         FieldKind::NonEmptyString => "NonEmptyString".to_owned(),
         FieldKind::String => "String".to_owned(),
         FieldKind::NullableString => "NullableString".to_owned(),
@@ -636,28 +653,28 @@ fn render_field_kind(kind: FieldKind) -> String {
 }
 
 #[derive(Clone, Debug)]
-struct ChaosControlProofStyleInputContract {
-    schema_version: String,
-    consumer_repo: String,
-    selected_profile: String,
-    focused_crates: Vec<String>,
-    policy_registry_digest: String,
-    trellis_primitive_manifest_digest: Option<String>,
-    input_revision: String,
-    expected_command: Vec<String>,
-    non_claims: Vec<String>,
+pub(crate) struct ChaosControlProofStyleInputContract {
+    pub(crate) schema_version: String,
+    pub(crate) consumer_repo: String,
+    pub(crate) selected_profile: String,
+    pub(crate) focused_crates: Vec<String>,
+    pub(crate) policy_registry_digest: String,
+    pub(crate) trellis_primitive_manifest_digest: Option<String>,
+    pub(crate) input_revision: String,
+    pub(crate) expected_command: Vec<String>,
+    pub(crate) non_claims: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct ChaosControlProofStyleInputReceipt {
-    valid: bool,
-    issues: Vec<&'static str>,
-    consumer_repo: String,
-    selected_profile: String,
-    supported_claim: &'static str,
+pub(crate) struct ChaosControlProofStyleInputReceipt {
+    pub(crate) valid: bool,
+    pub(crate) issues: Vec<&'static str>,
+    pub(crate) consumer_repo: String,
+    pub(crate) selected_profile: String,
+    pub(crate) supported_claim: &'static str,
 }
 
-fn validate_chaoscontrol_proof_style_input(
+pub(crate) fn validate_chaoscontrol_proof_style_input(
     contract: &ChaosControlProofStyleInputContract,
 ) -> ChaosControlProofStyleInputReceipt {
     let mut issues = Vec::new();
@@ -748,6 +765,7 @@ mod tests {
         "standards/evidence/fixtures/valid/provenance_record_v1.ncl",
         "standards/evidence/fixtures/valid/hegel_property_details_v1.ncl",
         "standards/evidence/fixtures/valid/hegel_hardened_details_v1.ncl",
+        "standards/evidence/fixtures/valid/hegel_hardened_family_details_v1.ncl",
         "standards/evidence/fixtures/valid/mirai_pilot_decision_v1.ncl",
         "standards/evidence/fixtures/valid/cargo_fuzz_details_v1.ncl",
         "standards/evidence/fixtures/valid/sarif_import_details_v1.ncl",
@@ -765,6 +783,7 @@ mod tests {
         "standards/evidence/fixtures/invalid/provenance_bad_tier.ncl",
         "standards/evidence/fixtures/invalid/hegel_property_missing_property_id.ncl",
         "standards/evidence/fixtures/invalid/hegel_hardened_wrong_profile.ncl",
+        "standards/evidence/fixtures/invalid/hegel_hardened_wrong_family_tier.ncl",
         "standards/evidence/fixtures/invalid/mirai_pilot_wrong_decision.ncl",
         "standards/evidence/fixtures/invalid/cargo_fuzz_wrong_profile.ncl",
         "standards/evidence/fixtures/invalid/sarif_import_bad_version.ncl",
@@ -963,6 +982,133 @@ mod tests {
             assert!(emitted_keys.contains(key), "sampled receipts never emitted `{key}`");
         }
         assert_records_satisfy_contract(EVIDENCE_RAIL_RECEIPT_CONTRACT_NAME, &records);
+    }
+
+    #[test]
+    fn emitted_hegel_hardened_receipt_details_satisfy_generated_contract() {
+        let mut records = Vec::new();
+        let contract_fields = contract_field_names(HEGEL_HARDENED_DETAILS_FIELDS);
+        for profile_id in crate::hegel::profile_validation::REGISTERED_PROFILE_IDS {
+            let (input, profile) = crate::hegel::tests::valid_input_for(profile_id);
+            let text = serde_json::to_string(&input).expect("serialize hegel input");
+            let command = profile.command_argv.join(" ");
+            let receipt = evidence_rails::evaluate(evidence_rails::EvaluationInput {
+                rail: evidence_rails::EvidenceRailKind::HegelProperty,
+                mode: "run",
+                import_text: &text,
+                workspace_scope: ".",
+                config_path: Some("standards/hegel/profiles.json"),
+                baseline_identity: None,
+                lockfile_identity: Some(input.cargo_lock_identity.clone()),
+                locked: true,
+                advisory_updated_by_prior_step: false,
+                profile: Some(profile_id),
+                requested_command: Some(&command),
+                parent_artifacts: Vec::new(),
+                tool_exit_code: Some(0),
+            });
+            let details = receipt
+                .hegel_property
+                .and_then(|details| details.hardened)
+                .unwrap_or_else(|| panic!("missing hardened details for {profile_id}"));
+            assert_eq!(hegel_hardened_wire_fields(&details), contract_fields);
+            records.push(serde_json::to_value(&details).expect("serialize hardened ReceiptDetails"));
+        }
+
+        // Counterexample sample with retained counterexample_identity, achieved_size, and unexecuted_laws.
+        let mut ce_details: crate::hegel::ReceiptDetails =
+            serde_json::from_value(records.last().expect("freshness record").clone()).expect("clone details");
+        ce_details.result = "counterexample".to_owned();
+        ce_details.cases_completed = 3;
+        ce_details.counterexample_identity =
+            Some("b3:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".to_owned());
+        let dropped = ce_details.executed_laws.pop().expect("executed law");
+        ce_details.unexecuted_laws.push(dropped.law_id);
+        ce_details.executed_laws[0].status = "counterexample".to_owned();
+        ce_details.executed_laws[0].cases_completed = 3;
+        ce_details.executed_laws[0].shrink_termination = "shrunk".to_owned();
+        ce_details.executed_laws[0].achieved_size = Some(18);
+        assert_eq!(hegel_hardened_wire_fields(&ce_details), contract_fields);
+        records.push(serde_json::to_value(&ce_details).expect("serialize counterexample details"));
+
+        // Legacy `octet-pure-core-laws-v1` sample with empty law inventories omitted via
+        // skip_serializing_if.
+        let mut legacy_details: crate::hegel::ReceiptDetails =
+            serde_json::from_value(records[0].clone()).expect("clone pure details");
+        legacy_details.expected_laws.clear();
+        legacy_details.executed_laws.clear();
+        legacy_details.unexecuted_laws.clear();
+        let legacy_val = serde_json::to_value(&legacy_details).expect("serialize legacy details");
+        assert!(wire_keys(&legacy_val).is_subset(&contract_fields));
+        records.push(legacy_val);
+
+        assert_records_satisfy_contract(HEGEL_HARDENED_DETAILS_CONTRACT_NAME, &records);
+    }
+
+    fn hegel_hardened_wire_fields(details: &crate::hegel::ReceiptDetails) -> std::collections::BTreeSet<String> {
+        let crate::hegel::ReceiptDetails {
+            schema_version: _,
+            profile_id: _,
+            profile_identity: _,
+            law_catalog_identity: _,
+            property_id: _,
+            linked_ids: _,
+            source_scope: _,
+            producer: _,
+            settings: _,
+            generator: _,
+            command_argv: _,
+            cargo_lock_identity: _,
+            package_manifest_identity: _,
+            source_manifest_identity: _,
+            generator_manifest_identity: _,
+            summary_identity: _,
+            bounded_log_identity: _,
+            counterexample_identity: _,
+            result: _,
+            cases_completed: _,
+            issue_codes: _,
+            projection_identity: _,
+            evidence_tier: _,
+            verification_role: _,
+            non_claims: _,
+            expected_laws: _,
+            executed_laws: _,
+            unexecuted_laws: _,
+        } = details;
+        [
+            "schema_version",
+            "profile_id",
+            "profile_identity",
+            "law_catalog_identity",
+            "property_id",
+            "linked_ids",
+            "source_scope",
+            "producer",
+            "settings",
+            "generator",
+            "command_argv",
+            "cargo_lock_identity",
+            "package_manifest_identity",
+            "source_manifest_identity",
+            "generator_manifest_identity",
+            "summary_identity",
+            "bounded_log_identity",
+            "counterexample_identity",
+            "result",
+            "cases_completed",
+            "issue_codes",
+            "projection_identity",
+            "evidence_tier",
+            "verification_role",
+            "non_claims",
+            "expected_laws",
+            "executed_laws",
+            "unexecuted_laws",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect()
     }
 
     fn emitted_finding(suggestion: Option<&str>, applicability: Option<&str>) -> output::Finding {

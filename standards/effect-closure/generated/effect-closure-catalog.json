@@ -16,7 +16,7 @@
   ],
   "non_claims": [
     "The receipt covers conservative selected Rust source-token inference and reviewed call summaries, not complete Rust name resolution, macro expansion, trait dispatch, MIR call-graph semantics, runtime reachability, or runtime ordering.",
-    "Reviewed dependency summaries bind exact provider identity but do not verify dependency implementations, panic freedom, semantic determinism, compiler correctness, whole-program correctness, verifier soundness, or release eligibility."
+    "Reviewed dependency summaries bind exact provider and implementation-envelope identity as reviewed assumptions, and do not verify dependency implementation semantics, promote policy checks to formal proof, or establish panic freedom, semantic determinism, compiler correctness, whole-program correctness, verifier soundness, or release eligibility."
   ],
   "profiles": [
     {

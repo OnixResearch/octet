@@ -2389,40 +2389,69 @@
               cd ${./.}
               generated_profiles=$(mktemp)
               generated_laws=$(mktemp)
-              expected_profile_identity=10e01458cca9ccc821a3adbf56afa70d21161c4bfdaf888525a5f61c64c913de
-              expected_law_identity=33710ac60efb4a7edca25de746d9740d75233b372d0016f54a2e138ec1a038eb
+              generated_matrix=$(mktemp)
+              expected_profile_identity=3ed6d5d1bda858a5293491f65f8279451edf3ec18de2638615b4ffaa18f8d365
+              expected_law_identity=669888e630d46dc95c394fe91afd2af736239864441985630194d1be5add6f3f
+              expected_matrix_identity=120ed01f3e77145b6f5186a880a578714189cdf64f4911311e891d179ede6e0a
               nickel typecheck standards/hegel/profiles.ncl
               nickel typecheck standards/hegel/laws.ncl
+              nickel typecheck standards/hegel/buoy-mutation-matrix.ncl
               nickel export --format json standards/hegel/profiles.ncl > "$generated_profiles"
               nickel export --format json standards/hegel/laws.ncl > "$generated_laws"
+              nickel export --format json standards/hegel/buoy-mutation-matrix.ncl > "$generated_matrix"
               diff -u standards/hegel/profiles.json "$generated_profiles"
               diff -u standards/hegel/laws.json "$generated_laws"
+              diff -u standards/hegel/buoy-mutation-matrix.json "$generated_matrix"
               test "$(b3sum "$generated_profiles" | cut -d ' ' -f 1)" = "$expected_profile_identity"
               test "$(b3sum "$generated_laws" | cut -d ' ' -f 1)" = "$expected_law_identity"
+              test "$(b3sum "$generated_matrix" | cut -d ' ' -f 1)" = "$expected_matrix_identity"
               jq --exit-status '
                 .schema_version == "octet-hegel-producer-profiles/v1"
-                and (.profiles | length) == 1
+                and (.profiles | length) == 7
                 and .profiles[0].profile_id == "octet-pure-core-laws-v1"
-                and .profiles[0].producer.hegel_version == "0.14.27"
-                and .profiles[0].producer.backend == "native"
-                and .profiles[0].settings.case_budget == 64
-                and .profiles[0].settings.derandomized
-                and .profiles[0].evidence_tier == "transcript_assertion"
-                and .profiles[0].verification_role == "recorded_only"
-                and (.profiles[0].command_argv[0:2] == ["cargo", "test"])
+                and all(.profiles[];
+                  .producer.hegel_version == "0.14.27"
+                  and .producer.backend == "native"
+                  and .settings.case_budget == 64
+                  and .settings.derandomized
+                  and .evidence_tier == "transcript_assertion"
+                  and .verification_role == "recorded_only"
+                  and (.command_argv[0:2] == ["cargo", "test"])
+                )
               ' "$generated_profiles" >/dev/null
               jq --exit-status '
                 .schema_version == "octet-hegel-law-catalog/v1"
-                and (.laws | length) == 1
-                and .laws[0].effect_free
-                and .laws[0].case_budget == 64
-                and (.laws[0].positive_property | length) > 0
-                and (.laws[0].negative_property | length) > 0
-                and (.laws[0].generated_input_benefit | length) > 0
+                and (.laws | length) == 13
+                and all(.laws[];
+                  .effect_free
+                  and .case_budget == 64
+                  and (.positive_property | length) > 0
+                  and (.negative_property | length) > 0
+                  and (.generated_input_benefit | length) > 0
+                )
               ' "$generated_laws" >/dev/null
+              jq --exit-status '
+                .schema_version == "octet-hegel-buoy-mutation-matrix/v1"
+                and (.dimensions | length) == 16
+                and ([.dimensions[].dimension_index] == [range(1; 17)])
+                and all(.dimensions[];
+                  (.disposition == "already_enforced_and_tested"
+                    or .disposition == "enforced_missing_control"
+                    or .disposition == "missing_in_selected_profile"
+                    or .disposition == "not_applicable")
+                  and (.native_contract | length) > 0
+                  and (.production_validator | length) > 0
+                  and (.mutant_operator | length) > 0
+                )
+              ' "$generated_matrix" >/dev/null
               nickel export --format json standards/evidence/fixtures/valid/hegel_hardened_details_v1.ncl >/dev/null
+              nickel export --format json standards/evidence/fixtures/valid/hegel_hardened_family_details_v1.ncl >/dev/null
               if nickel export --format json standards/evidence/fixtures/invalid/hegel_hardened_wrong_profile.ncl >/dev/null 2>&1; then
                 echo "invalid Hegel evidence fixture passed" >&2
+                exit 1
+              fi
+              if nickel export --format json standards/evidence/fixtures/invalid/hegel_hardened_wrong_family_tier.ncl >/dev/null 2>&1; then
+                echo "invalid Hegel family evidence fixture passed" >&2
                 exit 1
               fi
               mkdir -p "$out"
@@ -2612,9 +2641,16 @@
             ''
               cd ${./.}
               generated_catalog=$(mktemp)
+              generated_envelope=$(mktemp)
               nickel typecheck standards/effect-closure/catalog.ncl
               nickel export --format json standards/effect-closure/catalog.ncl > "$generated_catalog"
               cmp "$generated_catalog" standards/effect-closure/generated/effect-closure-catalog.json
+
+              nickel typecheck standards/effect-closure/envelope-policy.ncl
+              nickel export --format json standards/effect-closure/envelope-policy.ncl > "$generated_envelope"
+              cmp "$generated_envelope" standards/effect-closure/generated/envelope-policy.json
+
+              nickel typecheck standards/effect-closure/contracts/effect-closure-receipt.generated.ncl
 
               for file in standards/effect-closure/fixtures/valid/*.ncl; do
                 nickel export --format json "$file" >/dev/null
@@ -3581,8 +3617,8 @@
                   sentinel_bin="$scratch/sentinel-bin"
                   sentinel_marker="$scratch/cargo-invoked"
                   baseline_relative="standards/self-check-warning-budget/octet-baseline.json"
-                  accepted_warning_total=4233
-                  accepted_identity_total=3023
+                  accepted_warning_total=4197
+                  accepted_identity_total=3006
                   lint_failure_exit=1
                   integration_failure_exit=2
                   sentinel_exit=99

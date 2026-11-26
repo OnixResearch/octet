@@ -1,6 +1,18 @@
 # Profiled Hegel property evidence
 
-Octet provides one optional Hegel evidence profile. The profile runs selected laws for pure, deterministic cores.
+Octet provides reviewed Hegel evidence profiles across its pure, deterministic cores. Each profile runs selected laws under pinned `hegeltest = 0.14.27` (`native` backend).
+
+Registered profiles in `standards/hegel/profiles.ncl`:
+
+- `octet-pure-core-laws-v1` (`pure_core` normalization laws)
+- `octet-evidence-identity-laws-v1` (`identity` laws over `roadmap`, `requirements`, `envelope`, `effect_closure`)
+- `octet-evidence-lineage-laws-v1` (`lineage` laws over `evidence_multihop`, `roadmap`)
+- `octet-catalog-composition-laws-v1` (`catalog_composition` laws over `effect_closure`, `hegel`, `evidence_contracts` ChaosControl boundary)
+- `octet-reduction-acceptance-laws-v1` (`reduction_acceptance` laws over `proof_ref`, `proof_candidates`, `roadmap`)
+- `octet-requirement-admission-laws-v1` (`requirement_admission` laws over `requirements`, `effect_closure`)
+- `octet-freshness-mutation-laws-v1` (`freshness` laws and 16-dimension Buoy mutation matrix over `requirements`, `envelope`)
+
+`standards/hegel/buoy-mutation-matrix.ncl` (`buoy-mutation-matrix.json`) maps all 16 Buoy `proof_invalidation_reasons` dimensions to Octet native contracts, production validators, dispositions, and single-role mutant controls.
 
 This rail is not part of `cargo octet check`. A Hegel result is transcript evidence, not formal proof.
 
@@ -53,15 +65,15 @@ A stale value causes a deterministic failure. Unsafe paths, symbolic-link substi
 
 Each law records:
 
-- the pure core and stable law identifier;
-- the bounded generator;
+- the pure core, domain boundary, and stable law identifier;
+- the bounded generator and any explicitly deferred domains (such as ChaosControl `#27` runtime fields until admission lands);
 - positive and negative properties;
 - the generated-input benefit;
 - the case budget and replay method;
 - a complementary concrete fixture;
 - the effect-free boundary.
 
-The first catalog law checks issue-code normalization. Generated duplicates, whitespace, ordering, and Unicode values extend the concrete fixture matrix.
+Each producer summary and receipt records `expected_laws`, `executed_laws` (with per-law `status`, `cases_completed`, `shrink_termination`, and `achieved_size`), and `unexecuted_laws`. Zero selected laws, ignored/filtered laws, zero generated cases, output truncation, or resource exhaustion fail closed.
 
 ## Counterexamples and replay
 

@@ -940,8 +940,8 @@ fn input_identities(
         args.rail == EvidenceRailKind::MutationTesting && args.profile.as_deref() == Some(crate::mutation::PROFILE_ID);
     let is_profiled_benchmark = args.rail == EvidenceRailKind::BenchmarkEvidence
         && args.profile.as_deref() == Some(crate::benchmark::PROFILE_ID);
-    let is_profiled_hegel =
-        args.rail == EvidenceRailKind::HegelProperty && args.profile.as_deref() == Some(crate::hegel::PROFILE_ID);
+    let is_profiled_hegel = args.rail == EvidenceRailKind::HegelProperty
+        && args.profile.as_deref().is_some_and(crate::hegel::is_registered_profile);
     let config = if is_profiled_coverage {
         Some(crate::coverage::PROFILE_IDENTITY.to_owned())
     } else if is_profiled_mutation {
@@ -1002,9 +1002,11 @@ fn normalized_run_command(
         }
         return Ok(args.command.clone());
     }
-    if args.rail == EvidenceRailKind::HegelProperty && args.profile.as_deref() == Some(crate::hegel::PROFILE_ID) {
-        return crate::hegel::selected_profile(crate::hegel::PROFILE_ID)
-            .map(|profile| Some(profile.command_argv.join(" ")));
+    if args.rail == EvidenceRailKind::HegelProperty
+        && let Some(profile_id) = args.profile.as_deref()
+        && crate::hegel::is_registered_profile(profile_id)
+    {
+        return crate::hegel::selected_profile(profile_id).map(|profile| Some(profile.command_argv.join(" ")));
     }
     if !args.run {
         return Ok(args.command.clone());
@@ -1012,8 +1014,9 @@ fn normalized_run_command(
     match args.rail {
         EvidenceRailKind::CharonSemantic => Ok(Some(crate::charon_semantic::profile_command_argv()?.join(" "))),
         EvidenceRailKind::BenchmarkEvidence => Ok(None),
-        EvidenceRailKind::HegelProperty if args.profile.as_deref() == Some(crate::hegel::PROFILE_ID) => {
-            crate::hegel::selected_profile(crate::hegel::PROFILE_ID).map(|profile| Some(profile.command_argv.join(" ")))
+        EvidenceRailKind::HegelProperty if args.profile.as_deref().is_some_and(crate::hegel::is_registered_profile) => {
+            let profile_id = args.profile.as_deref().unwrap_or(crate::hegel::PROFILE_ID);
+            crate::hegel::selected_profile(profile_id).map(|profile| Some(profile.command_argv.join(" ")))
         }
         EvidenceRailKind::AstGrepStructural => required_ast_grep(prepared_ast_grep)
             .map(|prepared| Some(crate::ast_grep_rail::scan_command_argv(&prepared.profile).join(" "))),
@@ -1838,13 +1841,14 @@ fn hegel_diagnostics(rail: EvidenceRailKind, receipt: &EvidenceRailReceipt) -> V
             }
             if let Some(hardened) = details.hardened.as_ref() {
                 diagnostics.extend(crate::hegel::validate(hardened));
-                if receipt.profile.as_deref() != Some(crate::hegel::PROFILE_ID)
+                if receipt.profile.as_deref() != Some(hardened.profile_id.as_str())
+                    || !crate::hegel::is_registered_profile(&hardened.profile_id)
                     || receipt.config_identity.as_deref() != Some(crate::hegel::PROFILE_IDENTITY)
                     || receipt.command_argv != hardened.command_argv
                 {
                     diagnostics.push("profiled Hegel receipt profile, config, or command identity is stale".to_owned());
                 }
-            } else if receipt.profile.as_deref() == Some(crate::hegel::PROFILE_ID) {
+            } else if receipt.profile.as_deref().is_some_and(crate::hegel::is_registered_profile) {
                 diagnostics.push("profiled Hegel receipt is missing hardened measurements".to_owned());
             }
         }
@@ -3572,8 +3576,10 @@ fn parse_kani_model_check(input: &EvaluationInput<'_>) -> RailParseOutput {
 }
 
 fn parse_hegel_property(input: &EvaluationInput<'_>) -> RailParseOutput {
-    if input.profile == Some(crate::hegel::PROFILE_ID) {
-        return parse_profiled_hegel_property(input);
+    if let Some(profile_id) = input.profile
+        && crate::hegel::is_registered_profile(profile_id)
+    {
+        return parse_profiled_hegel_property(input, profile_id);
     }
     let mut diagnostics = Vec::new();
     let mut findings = Vec::new();
@@ -3595,8 +3601,8 @@ fn parse_hegel_property(input: &EvaluationInput<'_>) -> RailParseOutput {
     }
 }
 
-fn parse_profiled_hegel_property(input: &EvaluationInput<'_>) -> RailParseOutput {
-    let evaluation = crate::hegel::request::evaluate(input.import_text, crate::hegel::PROFILE_ID);
+fn parse_profiled_hegel_property(input: &EvaluationInput<'_>, profile_id: &str) -> RailParseOutput {
+    let evaluation = crate::hegel::request::evaluate(input.import_text, profile_id);
     let mut findings = Vec::new();
     if evaluation.details.as_ref().is_some_and(|details| details.result == "counterexample") {
         findings.push(EvidenceRailFinding {
@@ -3617,7 +3623,7 @@ fn parse_profiled_hegel_property(input: &EvaluationInput<'_>) -> RailParseOutput
         finding_counts,
         diagnostics: evaluation.diagnostics,
         status,
-        profile: Some(crate::hegel::PROFILE_ID.to_owned()),
+        profile: Some(profile_id.to_owned()),
         property_classes: Vec::new(),
         hegel_property,
         z4_solver: None,
@@ -4542,7 +4548,9 @@ fn input_text(
     if args.rail == EvidenceRailKind::BenchmarkEvidence {
         return analyze_profiled_benchmark_input(args);
     }
-    if args.rail == EvidenceRailKind::HegelProperty && args.profile.as_deref() == Some(crate::hegel::PROFILE_ID) {
+    if args.rail == EvidenceRailKind::HegelProperty
+        && args.profile.as_deref().is_some_and(crate::hegel::is_registered_profile)
+    {
         return analyze_profiled_hegel_input(args);
     }
     if args.rail == EvidenceRailKind::DynamicEvidence
@@ -5490,11 +5498,14 @@ fn run_mode_command_argv(args: &EvidenceRailArgs) -> Result<Vec<String>, String>
             .map(|workload| workload.command_argv.clone())
             .ok_or_else(|| "benchmark profile has no workloads".to_owned());
     }
-    if args.rail == EvidenceRailKind::HegelProperty && args.profile.as_deref() == Some(crate::hegel::PROFILE_ID) {
+    if args.rail == EvidenceRailKind::HegelProperty
+        && let Some(profile_id) = args.profile.as_deref()
+        && crate::hegel::is_registered_profile(profile_id)
+    {
         if args.command.as_deref().is_some_and(|command| !command.is_empty()) {
             return Err("profiled Hegel evidence rejects arbitrary --command authority".to_owned());
         }
-        return crate::hegel::selected_profile(crate::hegel::PROFILE_ID).map(|profile| profile.command_argv);
+        return crate::hegel::selected_profile(profile_id).map(|profile| profile.command_argv);
     }
     if args.rail == EvidenceRailKind::HegelProperty {
         return Err(

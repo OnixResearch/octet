@@ -1,13 +1,3 @@
-use super::FileIdentity;
-use super::PROFILE_IDENTITY;
-use super::ProducerSummary;
-use super::Profile;
-use super::REQUEST_SCHEMA;
-use super::prefixed_identity;
-use super::profile_validation;
-use super::request;
-use super::safe_read;
-
 const CARGO_HOME_ROOT: &str = ".octet/hegel-cargo-home";
 const TEMP_ROOT: &str = ".octet/hegel-tmp";
 const TARGET_ROOT: &str = ".octet/hegel-target";
@@ -29,11 +19,11 @@ pub struct RuntimeTools {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RunObservation {
-    pub input: request::Input,
+    pub input: super::request::Input,
     pub exit_code: i32,
 }
 
-pub fn run(workspace_root: &std::path::Path, profile: &Profile) -> Result<RunObservation, String> {
+pub fn run(workspace_root: &std::path::Path, profile: &super::Profile) -> Result<RunObservation, String> {
     run_with(workspace_root, profile, &production_tools()?)
 }
 
@@ -48,7 +38,7 @@ pub fn production_tools() -> Result<RuntimeTools, String> {
 
 pub fn run_with(
     workspace_root: &std::path::Path,
-    profile: &Profile,
+    profile: &super::Profile,
     tools: &RuntimeTools,
 ) -> Result<RunObservation, String> {
     reject_profile_drift(profile)?;
@@ -99,20 +89,25 @@ pub fn run_with(
     let root = crate::cap_fs::SourceRoot::open_existing(&workspace_root)?;
     let summary_path = crate::cap_fs::RootRelativePath::new(&profile.summary_path)?;
     let summary_bytes =
-        safe_read::read_no_symlinks(&workspace_root, &root, &summary_path, profile.limits.max_summary_bytes)?;
+        super::safe_read::read_no_symlinks(&workspace_root, &root, &summary_path, profile.limits.max_summary_bytes)?;
     let summary_text =
         String::from_utf8(summary_bytes).map_err(|error| format!("Hegel producer summary is not UTF-8: {error}"))?;
-    let summary: ProducerSummary = serde_json::from_str(&summary_text)
+    let summary: super::ProducerSummary = serde_json::from_str(&summary_text)
         .map_err(|error| format!("parse dedicated Hegel producer summary after run: {error}"))?;
     let counterexample = if summary.counterexample_identity.is_some() {
         let path = crate::cap_fs::RootRelativePath::new(&profile.counterexample_path)?;
-        Some(safe_read::read_no_symlinks(&workspace_root, &root, &path, profile.limits.max_counterexample_bytes)?)
+        Some(super::safe_read::read_no_symlinks(
+            &workspace_root,
+            &root,
+            &path,
+            profile.limits.max_counterexample_bytes,
+        )?)
     } else {
         None
     };
     Ok(RunObservation {
-        input: request::Input {
-            schema_version: REQUEST_SCHEMA.to_owned(),
+        input: super::request::Input {
+            schema_version: super::REQUEST_SCHEMA.to_owned(),
             summary_text,
             bounded_log,
             source_manifest: measured.source_manifest,
@@ -126,31 +121,36 @@ pub fn run_with(
 }
 
 struct MeasuredInputs {
-    source_manifest: Vec<FileIdentity>,
-    generator_manifest: Vec<FileIdentity>,
+    source_manifest: Vec<super::FileIdentity>,
+    generator_manifest: Vec<super::FileIdentity>,
     source_manifest_identity: String,
     generator_manifest_identity: String,
     cargo_lock_identity: String,
     package_manifest_identity: String,
 }
 
-fn measure_inputs(workspace_root: &std::path::Path, profile: &Profile) -> Result<MeasuredInputs, String> {
+pub(super) fn source_file_limit(profile: &super::Profile) -> Result<u64, String> {
+    u64::try_from(profile.limits.max_log_bytes).map_err(|_| "Hegel source file limit does not fit u64".to_owned())
+}
+
+fn measure_inputs(workspace_root: &std::path::Path, profile: &super::Profile) -> Result<MeasuredInputs, String> {
     let root = crate::cap_fs::SourceRoot::open_existing(workspace_root)?;
-    let source_manifest =
-        measure_manifest(workspace_root, &root, &profile.source_scope, profile.limits.max_summary_bytes)?;
-    let generator_manifest =
-        measure_manifest(workspace_root, &root, &profile.generator_inputs, profile.limits.max_summary_bytes)?;
+    let file_limit = source_file_limit(profile)?;
+    let source_manifest = measure_manifest(workspace_root, &root, &profile.source_scope, file_limit)?;
+    let generator_manifest = measure_manifest(workspace_root, &root, &profile.generator_inputs, file_limit)?;
     let cargo_lock_path = crate::cap_fs::RootRelativePath::new(CARGO_LOCK_PATH)?;
-    let cargo_lock =
-        safe_read::read_no_symlinks(workspace_root, &root, &cargo_lock_path, profile.limits.max_log_bytes as u64)?;
+    let cargo_lock = super::safe_read::read_no_symlinks(workspace_root, &root, &cargo_lock_path, file_limit)?;
     let package_path = crate::cap_fs::RootRelativePath::new(PACKAGE_MANIFEST_PATH)?;
     let package_manifest =
-        safe_read::read_no_symlinks(workspace_root, &root, &package_path, profile.limits.max_summary_bytes)?;
+        super::safe_read::read_no_symlinks(workspace_root, &root, &package_path, profile.limits.max_summary_bytes)?;
     Ok(MeasuredInputs {
-        source_manifest_identity: request::manifest_identity(&source_manifest, "Hegel source manifest")?,
-        generator_manifest_identity: request::manifest_identity(&generator_manifest, "Hegel generator manifest")?,
-        cargo_lock_identity: prefixed_identity(&cargo_lock),
-        package_manifest_identity: prefixed_identity(&package_manifest),
+        source_manifest_identity: super::request::manifest_identity(&source_manifest, "Hegel source manifest")?,
+        generator_manifest_identity: super::request::manifest_identity(
+            &generator_manifest,
+            "Hegel generator manifest",
+        )?,
+        cargo_lock_identity: super::prefixed_identity(&cargo_lock),
+        package_manifest_identity: super::prefixed_identity(&package_manifest),
         source_manifest,
         generator_manifest,
     })
@@ -161,15 +161,15 @@ fn measure_manifest(
     root: &crate::cap_fs::SourceRoot,
     paths: &[String],
     max_bytes: u64,
-) -> Result<Vec<FileIdentity>, String> {
+) -> Result<Vec<super::FileIdentity>, String> {
     let mut files = paths
         .iter()
         .map(|path| {
             let relative = crate::cap_fs::RootRelativePath::new(path)?;
-            let bytes = safe_read::read_no_symlinks(workspace_root, root, &relative, max_bytes)?;
-            Ok(FileIdentity {
+            let bytes = super::safe_read::read_no_symlinks(workspace_root, root, &relative, max_bytes)?;
+            Ok(super::FileIdentity {
                 locator: path.clone(),
-                identity: prefixed_identity(&bytes),
+                identity: super::prefixed_identity(&bytes),
                 bytes: u64::try_from(bytes.len()).map_err(|_| "Hegel source byte count does not fit u64".to_owned())?,
             })
         })
@@ -180,7 +180,7 @@ fn measure_manifest(
 
 fn prepare_directories(
     workspace_root: &std::path::Path,
-    profile: &Profile,
+    profile: &super::Profile,
     cargo_config: &std::path::Path,
 ) -> Result<(), String> {
     let root = crate::cap_fs::ArtifactRoot::open_or_create(workspace_root)?;
@@ -198,7 +198,7 @@ fn explicit_environment(
     workspace_root: &std::path::Path,
     tools: &RuntimeTools,
     measured: &MeasuredInputs,
-    profile: &Profile,
+    profile: &super::Profile,
 ) -> Vec<(std::ffi::OsString, std::ffi::OsString)> {
     vec![
         ("PATH".into(), tools.path.clone()),
@@ -213,7 +213,8 @@ fn explicit_environment(
             "OCTET_HEGEL_COUNTEREXAMPLE".into(),
             workspace_root.join(&profile.counterexample_path).into_os_string(),
         ),
-        ("OCTET_HEGEL_PROFILE_IDENTITY".into(), PROFILE_IDENTITY.into()),
+        ("OCTET_HEGEL_PROFILE_ID".into(), profile.profile_id.clone().into()),
+        ("OCTET_HEGEL_PROFILE_IDENTITY".into(), super::PROFILE_IDENTITY.into()),
         ("OCTET_HEGEL_SOURCE_IDENTITY".into(), measured.source_manifest_identity.clone().into()),
         ("OCTET_HEGEL_GENERATOR_IDENTITY".into(), measured.generator_manifest_identity.clone().into()),
         ("OCTET_HEGEL_LOCK_IDENTITY".into(), measured.cargo_lock_identity.clone().into()),
@@ -238,8 +239,8 @@ fn combined_log(stdout: &[u8], stderr: &[u8], max_bytes: usize) -> Result<Vec<u8
     Ok(bytes)
 }
 
-fn reject_profile_drift(profile: &Profile) -> Result<(), String> {
-    let diagnostics = profile_validation::validate(profile);
+fn reject_profile_drift(profile: &super::Profile) -> Result<(), String> {
+    let diagnostics = super::profile_validation::validate(profile);
     if diagnostics.is_empty() {
         Ok(())
     } else {
@@ -261,8 +262,7 @@ fn read_bounded_file(path: &std::path::Path, limit: u64, label: &str) -> Result<
 }
 
 fn required_absolute_path(name: &str) -> Result<std::path::PathBuf, String> {
-    let path =
-        std::path::PathBuf::from(std::env::var_os(name).ok_or_else(|| format!("Hegel runtime is missing {name}"))?);
+    let path = std::path::PathBuf::from(required_environment(name)?);
     if !path.is_absolute() {
         return Err(format!("Hegel runtime {name} is not absolute"));
     }

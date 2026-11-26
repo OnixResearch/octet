@@ -16,7 +16,7 @@ mod output;
 mod related;
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 use serde::Deserialize;
 
@@ -151,7 +151,7 @@ fn run_freshness(args: &crate::cli::RequirementsFreshnessArgs) -> Result<i32, St
     let index_bytes = read_bounded(&args.index)?;
     let index: crate::valence_core_shim::evidence_codebase_index::EvidenceCodebaseIndex =
         parse_json(&index_bytes, &args.index)?;
-    let report = freshness::evaluate(&contract, &index, &contract_bytes);
+    let report = freshness::evaluate(&contract, &index, &contract_bytes, args.source_root.as_deref());
     match args.output_format {
         crate::cli::OutputFormat::Json => println!(
             "{}",
