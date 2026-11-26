@@ -150,6 +150,7 @@ pub(crate) mod hooks {
             contract_bytes,
             evidence_bytes,
             source_root,
+            None,
         )
     }
 

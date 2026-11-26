@@ -265,6 +265,7 @@ fn relative_deck_fixture() -> (tempfile::TempDir, Definition, Bundle) {
         proof_decks: Vec::new(),
         empirical_checks: Vec::new(),
         assumption_records: Vec::new(),
+        structural_links: Vec::new(),
         non_claims: Vec::new(),
     };
     (source, contract, evidence)
@@ -608,9 +609,8 @@ fn empirical_clause_cannot_promote_to_formal_proof_via_tier_or_bindings() {
                     non_claims: Vec::new(),
                 });
             }
-            let decision =
-                evaluate_contract(&contract, &evidence, &contract_bytes, b"evidence", root.path(), None)
-                    .expect("evaluate");
+            let decision = evaluate_contract(&contract, &evidence, &contract_bytes, b"evidence", root.path(), None)
+                .expect("evaluate");
             assert_eq!(decision.aggregate_result, STATUS_FAILED, "{:?}", decision.diagnostics);
             assert_eq!(decision.clauses[0].status, STATUS_FAILED);
             assert!(

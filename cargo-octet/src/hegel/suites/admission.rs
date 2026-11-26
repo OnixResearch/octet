@@ -161,6 +161,7 @@ pub(super) fn contract_evaluation_permutation_and_tier_separation(tc: hegel::Tes
             reviewed_specification_blake3: spec_hash,
         }],
         non_claims: Vec::new(),
+        effect_extraction: None,
     };
     let contract_bytes = serde_json::to_vec(&contract).expect("serialize contract");
     let evidence = hooks::Bundle {
@@ -194,6 +195,7 @@ pub(super) fn contract_evaluation_permutation_and_tier_separation(tc: hegel::Tes
             supporting_evidence_ids: vec!["check.1".to_owned()],
             diagnostics: Vec::new(),
         }],
+        structural_links: Vec::new(),
         non_claims: Vec::new(),
     };
     let evidence_bytes = serde_json::to_vec(&evidence).expect("serialize evidence");

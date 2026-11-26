@@ -14,8 +14,22 @@ use super::MIRI_QUALIFIED_PROFILE_ID;
 use super::evaluate::run_input as evaluate_input;
 use super::probe::ToolRuntime;
 use super::selected_profile;
-use super::shell::run_with;
+use super::shell::run_with as raw_run_with;
 use super::validate;
+
+fn run_with(workspace_root: &Path, profile: &super::Profile, runtime: &ToolRuntime) -> Result<(String, i32), String> {
+    // Multithreaded `cargo test` can briefly inherit an open writable script fd across a concurrent
+    // `fork()` in another test thread, causing transient ETXTBSY when executing fake shims.
+    for attempt in 0..5 {
+        match raw_run_with(workspace_root, profile, runtime) {
+            Err(error) if attempt < 4 && error.contains("Text file busy") => {
+                std::thread::sleep(std::time::Duration::from_millis(25));
+            }
+            other => return other,
+        }
+    }
+    unreachable!("loop always returns on attempt 4")
+}
 
 fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).parent().expect("workspace root").to_path_buf()

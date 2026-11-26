@@ -150,7 +150,6 @@ struct FixtureSupport {
     host_search_paths: Vec<PathBuf>,
     externs: Vec<(String, PathBuf)>,
     saw_fresh_artifact: bool,
-    #[allow(dead_code)]
     owned_target: Option<ScratchDir>,
 }
 
@@ -696,6 +695,7 @@ fn build_fixture_support(toolchain: &str, manifest_path: &Path) -> FixtureSuppor
     };
     let mut support = build_fixture_support_with_options(&options).unwrap_or_else(|error| panic!("{error}"));
     support.owned_target = Some(target_dir);
+    debug_assert!(support.owned_target.is_some());
     support
 }
 

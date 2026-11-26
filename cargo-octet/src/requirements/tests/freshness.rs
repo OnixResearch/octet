@@ -418,7 +418,7 @@ fn historical_wrong_role_and_incomplete_freshness_stay_non_current() {
         artifact_locator: "receipt.json".to_owned(),
         artifact_blake3: "1".repeat(64),
         evidence_tier: "structural_linkage".to_owned(),
-        source_ids: vec!["src/pilot.rs".to_owned()],
+        source_ids: vec!["src/pilot.rs".to_owned(), "checked_add".to_owned()],
         requirement_ids: vec!["clause.add".to_owned()],
         lint_ids: Vec::new(),
         policy_ids: vec!["cairn-structural-trace-v2".to_owned()],
@@ -470,7 +470,7 @@ fn historical_wrong_role_and_incomplete_freshness_stay_non_current() {
 
     contract.clauses[0].required_bindings.evidence_tier = Some(DISPOSITION_FORMAL_PROOF.to_owned());
     let wrong_tier_report = super::super::freshness::evaluate(&contract, &index, b"contract", None);
-    assert_eq!(wrong_tier_report.clauses[0].status, STATUS_STALE_BINDING);
+    assert_eq!(wrong_tier_report.clauses[0].status, STATUS_UNSUPPORTED);
 
     // Unsupported caveat reports STATUS_UNSUPPORTED.
     contract.clauses[0].required_bindings.evidence_tier = Some(DISPOSITION_STRUCTURAL_LINKAGE.to_owned());

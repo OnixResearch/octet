@@ -16,8 +16,8 @@ fn positive_extraction_pilot_passes_and_separates_evidence_classes() {
     let evidence: crate::requirements::evidence::Bundle =
         serde_json::from_slice(&evidence_bytes).expect("parse evidence");
 
-    let outcome =
-        evaluate_contract(&contract, &evidence, &contract_bytes, &evidence_bytes, &dir).expect("evaluate contract");
+    let outcome = evaluate_contract(&contract, &evidence, &contract_bytes, &evidence_bytes, &dir, None)
+        .expect("evaluate contract");
     assert_eq!(outcome.aggregate_result, "passed", "diagnostics: {:?}", outcome.diagnostics);
     let summary = outcome.extraction_summary.expect("extraction summary");
     assert!(summary.is_cross_clause_verified);
@@ -43,7 +43,7 @@ fn mismatched_core_or_weaker_tier_or_unapproved_assumption_blocks() {
     pres["extracted_core_blake3"] = serde_json::json!("wrong-core-digest");
     fs::write(&pres_path, serde_json::to_vec_pretty(&pres).expect("ser")).expect("write");
     let mismatched =
-        evaluate_contract(&contract, &evidence, &contract_bytes, &evidence_bytes, &dir).expect("eval mismatched");
+        evaluate_contract(&contract, &evidence, &contract_bytes, &evidence_bytes, &dir, None).expect("eval mismatched");
     assert_eq!(mismatched.aggregate_result, "failed");
     assert!(!mismatched.extraction_summary.expect("sum").is_cross_clause_verified);
 
@@ -51,14 +51,14 @@ fn mismatched_core_or_weaker_tier_or_unapproved_assumption_blocks() {
     reordered["observation_contract"]["operation_order_multiplicity"] = serde_json::json!("unordered-multiset");
     fs::write(&pres_path, serde_json::to_vec_pretty(&reordered).expect("ser")).expect("write");
     let order_changed =
-        evaluate_contract(&contract, &evidence, &contract_bytes, &evidence_bytes, &dir).expect("eval reordered");
+        evaluate_contract(&contract, &evidence, &contract_bytes, &evidence_bytes, &dir, None).expect("eval reordered");
     assert_eq!(order_changed.aggregate_result, "failed");
 
     let mut pres_assumed = orig_pres;
     pres_assumed["assumptions"] = serde_json::json!(["unreviewed-axiom"]);
     fs::write(&pres_path, serde_json::to_vec_pretty(&pres_assumed).expect("ser")).expect("write");
     let unapproved =
-        evaluate_contract(&contract, &evidence, &contract_bytes, &evidence_bytes, &dir).expect("eval unapproved");
+        evaluate_contract(&contract, &evidence, &contract_bytes, &evidence_bytes, &dir, None).expect("eval unapproved");
     assert_eq!(unapproved.aggregate_result, "failed");
 
     let sem_path = dir.join("artifacts/semantic-effect-receipt.json");
@@ -67,7 +67,8 @@ fn mismatched_core_or_weaker_tier_or_unapproved_assumption_blocks() {
     sem.claim_tier = "selected-source-token-effect-closure".to_owned();
     sem.receipt_identity = compute_receipt_identity(&sem).expect("rehash");
     fs::write(&sem_path, serde_json::to_vec_pretty(&sem).expect("ser")).expect("write");
-    let weaker = evaluate_contract(&contract, &evidence, &contract_bytes, &evidence_bytes, &dir).expect("eval weaker");
+    let weaker =
+        evaluate_contract(&contract, &evidence, &contract_bytes, &evidence_bytes, &dir, None).expect("eval weaker");
     assert_eq!(weaker.aggregate_result, "failed");
 
     let _ = fs::remove_dir_all(dir);
@@ -82,7 +83,7 @@ fn optional_normal_form_and_effect_independence_clauses_verify_and_reject_mismat
     let evidence: crate::requirements::evidence::Bundle =
         serde_json::from_slice(&evidence_bytes).expect("parse evidence");
 
-    let outcome = evaluate_contract(&contract, &evidence, &contract_bytes, &evidence_bytes, &dir)
+    let outcome = evaluate_contract(&contract, &evidence, &contract_bytes, &evidence_bytes, &dir, None)
         .expect("evaluate optional clauses");
     assert_eq!(outcome.aggregate_result, "passed", "diagnostics: {:?}", outcome.diagnostics);
     assert!(outcome.extraction_summary.expect("summary").is_cross_clause_verified);
@@ -92,7 +93,7 @@ fn optional_normal_form_and_effect_independence_clauses_verify_and_reject_mismat
         serde_json::from_slice(&fs::read(&ind_path).expect("read ind")).expect("parse ind");
     ind["is_footprint_soundness_proved"] = serde_json::json!(false);
     fs::write(&ind_path, serde_json::to_vec_pretty(&ind).expect("ser")).expect("write");
-    let failed_ind = evaluate_contract(&contract, &evidence, &contract_bytes, &evidence_bytes, &dir)
+    let failed_ind = evaluate_contract(&contract, &evidence, &contract_bytes, &evidence_bytes, &dir, None)
         .expect("eval failed independence");
     assert_eq!(failed_ind.aggregate_result, "failed");
 
@@ -111,7 +112,7 @@ fn retained_effect_extraction_pilot_passes_check_verify_and_freshness() {
     let evidence: crate::requirements::evidence::Bundle =
         serde_json::from_slice(&evidence_bytes).expect("parse pilot evidence");
 
-    let outcome = evaluate_contract(&contract, &evidence, &contract_bytes, &evidence_bytes, root)
+    let outcome = evaluate_contract(&contract, &evidence, &contract_bytes, &evidence_bytes, root, None)
         .expect("evaluate retained pilot");
     assert_eq!(outcome.aggregate_result, "passed", "diagnostics: {:?}", outcome.diagnostics);
     let summary = outcome.extraction_summary.as_ref().expect("extraction summary");
@@ -136,5 +137,5 @@ fn retained_effect_extraction_pilot_passes_check_verify_and_freshness() {
         crate::valence_core_shim::evidence_codebase_index::EvidenceIndexBuildMode::Strict,
     );
     assert!(index.issues.is_empty(), "{:?}", index.issues);
-    let _freshness = crate::requirements::freshness::evaluate(&contract, &index, &contract_bytes);
+    let _freshness = crate::requirements::freshness::evaluate(&contract, &index, &contract_bytes, None);
 }

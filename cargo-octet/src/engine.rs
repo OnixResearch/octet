@@ -385,9 +385,8 @@ fn spawn_and_read_build(input: &SpawnBuildInput<'_>) -> Result<SpawnBuildOutput,
     let child_stdout = child.stdout.take().expect("stdout piped");
     let child_stderr = child.stderr.take().ok_or_else(|| "stderr piped".to_owned())?;
     let should_echo_stderr = input.check.output_format == OutputFormat::Human;
-    let stderr_handle = std::thread::spawn(move || {
-        crate::cargo::lints::stream::read_bounded_stderr(child_stderr, should_echo_stderr)
-    });
+    let stderr_handle =
+        std::thread::spawn(move || crate::cargo::lints::stream::read_bounded_stderr(child_stderr, should_echo_stderr));
     let streamed_findings = read_cargo_messages(
         BufReader::new(child_stdout),
         input.check,

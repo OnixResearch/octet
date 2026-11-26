@@ -51,6 +51,7 @@ pub(super) fn buoy_single_role_mutation_and_role_confusion(tc: hegel::TestCase, 
         assumptions: Vec::new(),
         exclusions: Vec::new(),
         non_claims: Vec::new(),
+        effect_extraction: None,
     };
 
     let mut primary = valence_core::evidence_codebase_index::EvidenceIndexRecord {

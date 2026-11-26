@@ -27,7 +27,8 @@
         "octet.structural_linkage.pilot.checked_add"
       ],
       "source_ids": [
-        "standards/structural-linkage/fixtures/target.rs"
+        "standards/structural-linkage/fixtures/target.rs",
+        "pilot/fn:checked_add#0"
       ],
       "stable_id": "cairn.pilot.checked_add",
       "summary": "pilot/fn:checked_add#0"

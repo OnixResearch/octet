@@ -81,6 +81,7 @@ pub(super) fn canonical_hash_permutation_invariance(tc: hegel::TestCase, db_path
         assumptions: Vec::new(),
         exclusions: Vec::new(),
         limitations: vec![tag_a],
+        extraction_summary: None,
         diagnostics: Vec::new(),
         non_claims: vec!["bounded".to_owned()],
         decision_blake3: String::new(),

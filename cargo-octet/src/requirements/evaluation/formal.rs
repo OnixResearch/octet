@@ -58,14 +58,7 @@ pub(in crate::requirements) fn evaluate(
         }
     }
     if !clause.required_negative_controls.is_empty() && !evidence_ids.is_empty() {
-        verify_required_negative_controls(
-            evidence,
-            clause,
-            source_root,
-            artifact_base,
-            &evidence_ids,
-            diagnostics,
-        );
+        verify_required_negative_controls(evidence, clause, source_root, artifact_base, &evidence_ids, diagnostics);
     }
     if evidence_ids.is_empty() && diagnostics.is_empty() {
         diagnostics.push(format!(

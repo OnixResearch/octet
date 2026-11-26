@@ -169,6 +169,7 @@ impl DimensionFixture {
                 reviewed_specification_blake3: spec_hash.to_owned(),
             }],
             non_claims: Vec::new(),
+            effect_extraction: None,
         }
     }
 
@@ -262,6 +263,7 @@ impl DimensionFixture {
                 supporting_evidence_ids: vec!["check.1".to_owned()],
                 diagnostics: Vec::new(),
             }],
+            structural_links: Vec::new(),
             non_claims: Vec::new(),
         }
     }
