@@ -20,6 +20,7 @@ mod config;
 mod coverage;
 mod determinism;
 mod domain_types;
+mod dynamic;
 mod effect_closure;
 mod effect_ports;
 mod engine;
@@ -46,6 +47,7 @@ mod function_address;
 mod hegel;
 mod imported_proof;
 mod kamacite_effect_closure;
+mod kani;
 #[cfg(test)]
 mod legacy_alias_contracts;
 mod migrate;
@@ -102,6 +104,7 @@ pub fn run_cli_from_env() -> std::process::ExitCode {
 }
 
 fn try_main() -> Result<i32, String> {
+    let process_env: Vec<(std::ffi::OsString, std::ffi::OsString)> = std::env::vars_os().collect();
     match cli::parse(std::env::args_os())? {
         cli::CommandArgs::Admit(args) => admit::run(&args),
         cli::CommandArgs::Artifact(args) => artifact::run(&args),
@@ -109,8 +112,8 @@ fn try_main() -> Result<i32, String> {
             let runtime = if args.experiment.execute && !args.experiment.verify {
                 let mut environment = Vec::with_capacity(benchmark::experiment::PRESERVED_ENVIRONMENT.len());
                 for name in benchmark::experiment::PRESERVED_ENVIRONMENT {
-                    if let Some(value) = std::env::var_os(name) {
-                        environment.push((std::ffi::OsString::from(name), value));
+                    if let Some((_, value)) = process_env.iter().find(|(key, _)| *key == *name) {
+                        environment.push((std::ffi::OsString::from(name), value.clone()));
                     }
                 }
                 Some(benchmark::experiment::Runtime {
@@ -126,7 +129,7 @@ fn try_main() -> Result<i32, String> {
         cli::CommandArgs::BenchmarkSelfProfile(args) => benchmark::self_profile::run_cli(&args),
         cli::CommandArgs::Check(check) => engine::run(&check),
         cli::CommandArgs::EvidenceIndex(args) => evidence_index::run(args),
-        cli::CommandArgs::EvidenceRail(args) => evidence_rails::run(&args),
+        cli::CommandArgs::EvidenceRail(args) => evidence_rails::run_with_environment(&args, &process_env),
         cli::CommandArgs::Fingerprint(args) => fingerprint::run(&args),
         cli::CommandArgs::Migrate(args) => migrate::run(args),
         cli::CommandArgs::Object(args) => object::run(&args),

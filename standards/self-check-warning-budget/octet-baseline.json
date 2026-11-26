@@ -10,7 +10,7 @@
     "profile_hash": "b3:5ebc1b358e0e776e5a3d281656f6abc77498cde8246f27b333783eec419163f9",
     "config_hash": "b3:c51d1ae1c55fee2a9d155a7b8abe18cb7a6b14ac30476d513f3f5162fe5360c7"
   },
-  "baseline_hash": "b3:9d833ebdb5e9303c95e0af7aec2cf2b3e8b4576d6eaee16cf433c811751a60c2",
+  "baseline_hash": "b3:03ccf6e28fe3fd97b501173075fcef9ccb3a9477cbfec2219cf7e3759c653296",
   "findings": [
     {
       "stable_id": "b3:00261e8fb80f3de5",
@@ -306,7 +306,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 610,
+      "line": 613,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -878,7 +878,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 455,
+      "line": 363,
       "column": 22,
       "message": "extreme sentinel fallback masks absence or failure",
       "crate_name": "cargo_octet"
@@ -1242,7 +1242,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 2450,
+      "line": 2653,
       "column": 9,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -1586,19 +1586,6 @@
       "crate_name": "cargo_octet"
     },
     {
-      "stable_id": "b3:0a9f3a2a50764236",
-      "semantic_id": "b3:0a9f3a2a50764236",
-      "identity_status": "computed",
-      "lint": "sentinel_fallback",
-      "group": "tigerstyle::safety",
-      "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 453,
-      "column": 21,
-      "message": "extreme sentinel fallback masks absence or failure",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:0aca5bb0b7f214ff",
       "semantic_id": "b3:0aca5bb0b7f214ff",
       "identity_status": "computed",
@@ -1762,7 +1749,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/mod.rs",
-      "line": 19,
+      "line": 17,
       "column": 1,
       "message": "non-trait import `EXPECTED_COMPATIBILITY_IDENTITY` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -1805,6 +1792,19 @@
       "column": 1,
       "message": "item name `imports_only_trait` repeats `imports` from ancestor path segment `renamed_imports`",
       "crate_name": "octet"
+    },
+    {
+      "stable_id": "b3:0bb11248e244f1bd",
+      "semantic_id": "b3:0bb11248e244f1bd",
+      "identity_status": "computed",
+      "lint": "path_segment_repetition",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/evidence_rails.rs",
+      "line": 3171,
+      "column": 1,
+      "message": "item name `parse_dynamic_evidence` repeats `evidence` from ancestor path segment `evidence_rails`",
+      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:0bb1783b9f894f01",
@@ -2197,19 +2197,6 @@
       "crate_name": "cargo_octet"
     },
     {
-      "stable_id": "b3:0dc60c74341a0b89",
-      "semantic_id": "b3:0dc60c74341a0b89",
-      "identity_status": "computed",
-      "lint": "explicit_defaults",
-      "group": "tigerstyle::safety",
-      "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/model.rs",
-      "line": 192,
-      "column": 5,
-      "message": "implicit default on external type — construct with explicit values",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:0dd419b1a9b77308",
       "semantic_id": "b3:0dd419b1a9b77308",
       "identity_status": "computed",
@@ -2568,7 +2555,7 @@
       "group": "tigerstyle::purity",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 5233,
+      "line": 5595,
       "column": 53,
       "message": "direct `std::env::var_os` access reads or mutates ambient process state",
       "crate_name": "cargo_octet"
@@ -2633,7 +2620,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 6188,
+      "line": 6577,
       "column": 13,
       "message": "boolean binding `saw_percentage` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -2819,19 +2806,6 @@
       "column": 1,
       "message": "non-trait import `COMPILER_ARCHITECTURE_COVERAGE_SCHEMA_VERSION` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "octet_architecture_ir"
-    },
-    {
-      "stable_id": "b3:110072100b53725b",
-      "semantic_id": "b3:110072100b53725b",
-      "identity_status": "computed",
-      "lint": "function_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/shell.rs",
-      "line": 23,
-      "column": 108,
-      "message": "function `execute_from_profile` is 82 lines (limit: 70)",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:110ec7770f360f6b",
@@ -3517,22 +3491,9 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 723,
+      "line": 726,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
-      "crate_name": "cargo_octet"
-    },
-    {
-      "stable_id": "b3:15c171ef5554530f",
-      "semantic_id": "b3:15c171ef5554530f",
-      "identity_status": "computed",
-      "lint": "function_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/mod.rs",
-      "line": 118,
-      "column": 73,
-      "message": "function `evaluate_envelope` is 75 lines (limit: 70)",
       "crate_name": "cargo_octet"
     },
     {
@@ -3781,6 +3742,19 @@
       "column": 17,
       "message": "function calls itself recursively",
       "crate_name": "octet"
+    },
+    {
+      "stable_id": "b3:186c5044a4209955",
+      "semantic_id": "b3:186c5044a4209955",
+      "identity_status": "computed",
+      "lint": "unbounded_collection_growth",
+      "group": "tigerstyle::safety",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 943,
+      "column": 9,
+      "message": "collection grows in loop without a prior reservation or explicit local bound",
+      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:18717449db35d6be",
@@ -4492,7 +4466,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/mod.rs",
-      "line": 29,
+      "line": 26,
       "column": 1,
       "message": "non-trait import `execute_from_profile` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -4622,7 +4596,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 522,
+      "line": 428,
       "column": 9,
       "message": "boolean binding `little_endian` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -4752,7 +4726,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 1308,
+      "line": 998,
       "column": 13,
       "message": "function calls itself recursively",
       "crate_name": "cargo_octet"
@@ -4817,7 +4791,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 642,
+      "line": 645,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -4977,19 +4951,6 @@
       "column": 13,
       "message": "catch-all `_` on enum match returns deny value — new variants will be silently handled",
       "crate_name": "octet_standards"
-    },
-    {
-      "stable_id": "b3:2144ea66de499882",
-      "semantic_id": "b3:2144ea66de499882",
-      "identity_status": "computed",
-      "lint": "excessive_file_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/mod.rs",
-      "line": 1,
-      "column": 1,
-      "message": "source file is 553 lines (limit: 300)",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:214f5138f981c6be",
@@ -5408,6 +5369,19 @@
       "crate_name": "cargo_octet"
     },
     {
+      "stable_id": "b3:244e919312546724",
+      "semantic_id": "b3:244e919312546724",
+      "identity_status": "computed",
+      "lint": "function_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/mod.rs",
+      "line": 46,
+      "column": 73,
+      "message": "function `evaluate_envelope` is 92 lines (limit: 70)",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:2496d725d1105cc5",
       "semantic_id": "b3:2496d725d1105cc5",
       "identity_status": "computed",
@@ -5445,6 +5419,19 @@
       "column": 1,
       "message": "item name `FormalProofEvidenceTier` repeats `formal` from ancestor path segment `formal_proof`",
       "crate_name": "octet_standards"
+    },
+    {
+      "stable_id": "b3:24aaf8c990ae4381",
+      "semantic_id": "b3:24aaf8c990ae4381",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 23,
+      "column": 1,
+      "message": "non-trait import `TargetMetadata` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:24cfbb1c5477839b",
@@ -5714,7 +5701,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 5871,
+      "line": 6260,
       "column": 1,
       "message": "item name `cargo_deny_diagnostic_is_uncounted` repeats `cargo` from ancestor path segment `cargo_octet`",
       "crate_name": "cargo_octet"
@@ -5811,6 +5798,19 @@
       "crate_name": "octet_standards"
     },
     {
+      "stable_id": "b3:26e3d97d601178d8",
+      "semantic_id": "b3:26e3d97d601178d8",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 8,
+      "column": 1,
+      "message": "non-trait import `EXPECTED_CHARON_REVISION` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:26ef7bdc16bb1376",
       "semantic_id": "b3:26ef7bdc16bb1376",
       "identity_status": "computed",
@@ -5844,7 +5844,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 4340,
+      "line": 4607,
       "column": 9,
       "message": "boolean binding `property_claim` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -5909,7 +5909,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 561,
+      "line": 564,
       "column": 1,
       "message": "item name `EvidenceRailFinding` repeats `evidence` from ancestor path segment `evidence_rails`",
       "crate_name": "cargo_octet"
@@ -6004,19 +6004,6 @@
       "column": 1,
       "message": "item name `collect_local_use_sites` repeats `use` from ancestor path segment `use_site_collector`",
       "crate_name": "octet"
-    },
-    {
-      "stable_id": "b3:282f2511348c312b",
-      "semantic_id": "b3:282f2511348c312b",
-      "identity_status": "computed",
-      "lint": "fallible_int_fallback",
-      "group": "tigerstyle::safety",
-      "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 454,
-      "column": 21,
-      "message": "fallible integer conversion hides an out-of-range error behind a sentinel fallback",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:2839d02f1d05c1c7",
@@ -6338,7 +6325,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 3726,
+      "line": 3993,
       "column": 9,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -6422,19 +6409,6 @@
       "crate_name": "octet_standards"
     },
     {
-      "stable_id": "b3:2ad21c0774c8e499",
-      "semantic_id": "b3:2ad21c0774c8e499",
-      "identity_status": "computed",
-      "lint": "function_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 1197,
-      "column": 68,
-      "message": "function `evaluate` is 80 lines (limit: 70)",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:2ad99f516f856cda",
       "semantic_id": "b3:2ad99f516f856cda",
       "identity_status": "computed",
@@ -6445,19 +6419,6 @@
       "line": 2,
       "column": 1,
       "message": "non-trait import `MutantRecord` hides the owner path; prefer the qualified path at the use site",
-      "crate_name": "cargo_octet"
-    },
-    {
-      "stable_id": "b3:2ae4196d70faa639",
-      "semantic_id": "b3:2ae4196d70faa639",
-      "identity_status": "computed",
-      "lint": "non_trait_imports",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/mod.rs",
-      "line": 18,
-      "column": 1,
-      "message": "non-trait import `ENVELOPE_SCHEMA_V2` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
     },
     {
@@ -6494,7 +6455,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/model.rs",
-      "line": 253,
+      "line": 244,
       "column": 1,
       "message": "item name `SemanticComparison` repeats `semantic` from ancestor path segment `charon_semantic`",
       "crate_name": "cargo_octet"
@@ -6923,7 +6884,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 411,
+      "line": 377,
       "column": 18,
       "message": "`.expect()` in production code will panic on failure",
       "crate_name": "cargo_octet"
@@ -6988,7 +6949,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/mod.rs",
-      "line": 25,
+      "line": 22,
       "column": 1,
       "message": "non-trait import `RAW_SNAPSHOT_ARTIFACT` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -7044,19 +7005,6 @@
       "column": 1,
       "message": "non-trait import `RoleBinding` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "octet_merge_rail"
-    },
-    {
-      "stable_id": "b3:2e612d0950b68f57",
-      "semantic_id": "b3:2e612d0950b68f57",
-      "identity_status": "computed",
-      "lint": "function_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 939,
-      "column": 3,
-      "message": "function `normalize_functions` is 141 lines (limit: 70)",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:2e66f0ccc32b82c7",
@@ -7131,7 +7079,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/mod.rs",
-      "line": 11,
+      "line": 10,
       "column": 1,
       "message": "non-trait import `COMPARISON_ARTIFACT` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -7287,7 +7235,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 5882,
+      "line": 6271,
       "column": 78,
       "message": "function `cargo_deny_report_from_json_lines` is 90 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -7342,19 +7290,6 @@
       "line": 3311,
       "column": 9,
       "message": "boolean binding `key_material` should have a predicate prefix",
-      "crate_name": "cargo_octet"
-    },
-    {
-      "stable_id": "b3:3045de11e0b1c32e",
-      "semantic_id": "b3:3045de11e0b1c32e",
-      "identity_status": "computed",
-      "lint": "unbounded_collection_growth",
-      "group": "tigerstyle::safety",
-      "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 966,
-      "column": 13,
-      "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
     },
     {
@@ -7462,19 +7397,6 @@
       "crate_name": "octet"
     },
     {
-      "stable_id": "b3:31697c08b0d78332",
-      "semantic_id": "b3:31697c08b0d78332",
-      "identity_status": "computed",
-      "lint": "explicit_defaults",
-      "group": "tigerstyle::safety",
-      "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/model.rs",
-      "line": 150,
-      "column": 5,
-      "message": "implicit default on external type — construct with explicit values",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:319de509485e4e89",
       "semantic_id": "b3:319de509485e4e89",
       "identity_status": "computed",
@@ -7499,19 +7421,6 @@
       "column": 1,
       "message": "non-trait import `ValueProvenanceStatus` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "octet"
-    },
-    {
-      "stable_id": "b3:31c06f7443ed688f",
-      "semantic_id": "b3:31c06f7443ed688f",
-      "identity_status": "computed",
-      "lint": "function_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 632,
-      "column": 23,
-      "message": "function `project_raw_functions` is 85 lines (limit: 70)",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:31c2c6487255b1f0",
@@ -7560,7 +7469,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/mod.rs",
-      "line": 20,
+      "line": 18,
       "column": 1,
       "message": "non-trait import `EXPECTED_PROFILE_IDENTITY` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -7625,7 +7534,7 @@
       "group": "tigerstyle::purity",
       "severity": "warning",
       "file": "cargo-octet/src/lib.rs",
-      "line": 115,
+      "line": 117,
       "column": 35,
       "message": "direct `std::env::temp_dir` access reads or mutates ambient process state",
       "crate_name": "cargo_octet"
@@ -7654,6 +7563,19 @@
       "line": 5,
       "column": 1,
       "message": "non-trait import `COMPARISON_SCHEMA` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:327d0e94af6cecff",
+      "semantic_id": "b3:327d0e94af6cecff",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 18,
+      "column": 1,
+      "message": "non-trait import `SemanticEdge` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
     },
     {
@@ -7898,7 +7820,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 2798,
+      "line": 3001,
       "column": 1,
       "message": "item name `cargo_vet_package` repeats `cargo` from ancestor path segment `cargo_octet`",
       "crate_name": "cargo_octet"
@@ -8138,19 +8060,6 @@
       "crate_name": "cargo_octet"
     },
     {
-      "stable_id": "b3:34faf4ed6f2a185d",
-      "semantic_id": "b3:34faf4ed6f2a185d",
-      "identity_status": "computed",
-      "lint": "path_segment_repetition",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 439,
-      "column": 1,
-      "message": "item name `build_core_output` repeats `core` from ancestor path segment `core`",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:3526de31beabcd18",
       "semantic_id": "b3:3526de31beabcd18",
       "identity_status": "computed",
@@ -8359,6 +8268,19 @@
       "crate_name": "cargo_octet"
     },
     {
+      "stable_id": "b3:36263ee90d496ef9",
+      "semantic_id": "b3:36263ee90d496ef9",
+      "identity_status": "computed",
+      "lint": "fallible_int_fallback",
+      "group": "tigerstyle::safety",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 362,
+      "column": 21,
+      "message": "fallible integer conversion hides an out-of-range error behind a sentinel fallback",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:362b10d51775fa93",
       "semantic_id": "b3:362b10d51775fa93",
       "identity_status": "computed",
@@ -8447,6 +8369,19 @@
       "line": 9,
       "column": 5,
       "message": "non-trait import `EvidenceIndexIssueSeverity` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:367b7038bcb97d14",
+      "semantic_id": "b3:367b7038bcb97d14",
+      "identity_status": "computed",
+      "lint": "function_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 664,
+      "column": 85,
+      "message": "function `normalize_functions` is 116 lines (limit: 70)",
       "crate_name": "cargo_octet"
     },
     {
@@ -8561,7 +8496,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 5790,
+      "line": 6179,
       "column": 1,
       "message": "item name `cargo_deny_check_and_category` repeats `cargo` from ancestor path segment `cargo_octet`",
       "crate_name": "cargo_octet"
@@ -9061,6 +8996,19 @@
       "crate_name": "octet_standards"
     },
     {
+      "stable_id": "b3:3ab16d95d5afb2a0",
+      "semantic_id": "b3:3ab16d95d5afb2a0",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 7,
+      "column": 1,
+      "message": "non-trait import `CharonSemanticProfile` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:3ac013032afe6606",
       "semantic_id": "b3:3ac013032afe6606",
       "identity_status": "computed",
@@ -9133,7 +9081,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/mod.rs",
-      "line": 470,
+      "line": 321,
       "column": 17,
       "message": "`.expect()` in production code will panic on failure",
       "crate_name": "cargo_octet"
@@ -9149,6 +9097,19 @@
       "line": 4,
       "column": 1,
       "message": "non-trait import `RetainedArtifact` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:3b98c64233695e3f",
+      "semantic_id": "b3:3b98c64233695e3f",
+      "identity_status": "computed",
+      "lint": "ambient_env",
+      "group": "tigerstyle::purity",
+      "severity": "warning",
+      "file": "cargo-octet/src/lib.rs",
+      "line": 103,
+      "column": 70,
+      "message": "direct `std::env::vars_os` access reads or mutates ambient process state",
       "crate_name": "cargo_octet"
     },
     {
@@ -9224,7 +9185,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/mod.rs",
-      "line": 16,
+      "line": 15,
       "column": 1,
       "message": "non-trait import `DETAILS_SCHEMA` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -9627,7 +9588,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 4484,
+      "line": 4751,
       "column": 1,
       "message": "item name `KaniClaimEvidence` repeats `evidence` from ancestor path segment `evidence_rails`",
       "crate_name": "cargo_octet"
@@ -9659,19 +9620,6 @@
       "crate_name": "octet_standards"
     },
     {
-      "stable_id": "b3:3f85870c3f93135b",
-      "semantic_id": "b3:3f85870c3f93135b",
-      "identity_status": "computed",
-      "lint": "path_segment_repetition",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/model.rs",
-      "line": 129,
-      "column": 1,
-      "message": "item name `CharonSemanticReceiptDetails` repeats `charon` from ancestor path segment `charon_semantic`",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:3f8d4c26ba837365",
       "semantic_id": "b3:3f8d4c26ba837365",
       "identity_status": "computed",
@@ -9692,7 +9640,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/mod.rs",
-      "line": 13,
+      "line": 12,
       "column": 1,
       "message": "non-trait import `CharonSemanticEvaluation` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -9809,7 +9757,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/mod.rs",
-      "line": 328,
+      "line": 203,
       "column": 13,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -9945,19 +9893,6 @@
       "crate_name": "octet"
     },
     {
-      "stable_id": "b3:414503dbaa301a21",
-      "semantic_id": "b3:414503dbaa301a21",
-      "identity_status": "computed",
-      "lint": "function_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 800,
-      "column": 60,
-      "message": "function `run` is 123 lines (limit: 70)",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:41e9e7df9b9b9b14",
       "semantic_id": "b3:41e9e7df9b9b9b14",
       "identity_status": "computed",
@@ -10059,19 +9994,6 @@
       "line": 1229,
       "column": 13,
       "message": "boolean binding `cache` should have a predicate prefix",
-      "crate_name": "cargo_octet"
-    },
-    {
-      "stable_id": "b3:42b7aea3bce67b5c",
-      "semantic_id": "b3:42b7aea3bce67b5c",
-      "identity_status": "computed",
-      "lint": "excessive_file_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/comparison.rs",
-      "line": 1,
-      "column": 1,
-      "message": "source file is 386 lines (limit: 300)",
       "crate_name": "cargo_octet"
     },
     {
@@ -10251,7 +10173,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/model.rs",
-      "line": 31,
+      "line": 28,
       "column": 1,
       "message": "item name `CharonSemanticProfile` repeats `charon` from ancestor path segment `charon_semantic`",
       "crate_name": "cargo_octet"
@@ -10498,7 +10420,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/model.rs",
-      "line": 211,
+      "line": 202,
       "column": 1,
       "message": "item name `SemanticAnalysis` repeats `semantic` from ancestor path segment `charon_semantic`",
       "crate_name": "cargo_octet"
@@ -10511,7 +10433,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/mod.rs",
-      "line": 17,
+      "line": 16,
       "column": 1,
       "message": "non-trait import `ENVELOPE_SCHEMA` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -10654,7 +10576,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/shell.rs",
-      "line": 110,
+      "line": 80,
       "column": 1,
       "message": "item name `run_pinned_charon_stage` repeats `charon` from ancestor path segment `charon_semantic`",
       "crate_name": "cargo_octet"
@@ -10719,7 +10641,7 @@
       "group": "tigerstyle::purity",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/shell.rs",
-      "line": 166,
+      "line": 136,
       "column": 9,
       "message": "direct `std::env::var_os` access reads or mutates ambient process state",
       "crate_name": "cargo_octet"
@@ -11024,6 +10946,19 @@
       "crate_name": "octet_standards"
     },
     {
+      "stable_id": "b3:48b2d1ed982bdfe0",
+      "semantic_id": "b3:48b2d1ed982bdfe0",
+      "identity_status": "computed",
+      "lint": "excessive_file_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/comparison.rs",
+      "line": 1,
+      "column": 1,
+      "message": "source file is 385 lines (limit: 300)",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:48cea2a6cbb490fe",
       "semantic_id": "b3:48cea2a6cbb490fe",
       "identity_status": "computed",
@@ -11161,7 +11096,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 2855,
+      "line": 3058,
       "column": 1,
       "message": "item name `cargo_vet_import` repeats `cargo` from ancestor path segment `cargo_octet`",
       "crate_name": "cargo_octet"
@@ -11388,6 +11323,19 @@
       "crate_name": "octet_standards"
     },
     {
+      "stable_id": "b3:4af228cdb8f07e9b",
+      "semantic_id": "b3:4af228cdb8f07e9b",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 22,
+      "column": 1,
+      "message": "non-trait import `SourceIdentity` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:4afc6009b567a5e4",
       "semantic_id": "b3:4afc6009b567a5e4",
       "identity_status": "computed",
@@ -11538,7 +11486,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/mod.rs",
-      "line": 14,
+      "line": 13,
       "column": 1,
       "message": "non-trait import `CharonSemanticReceiptDetails` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -11642,7 +11590,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 4335,
+      "line": 4602,
       "column": 9,
       "message": "boolean binding `review_complete` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -12006,7 +11954,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 1098,
+      "line": 798,
       "column": 41,
       "message": "fallible integer conversion hides an out-of-range error behind a sentinel fallback",
       "crate_name": "cargo_octet"
@@ -12331,7 +12279,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/model.rs",
-      "line": 281,
+      "line": 272,
       "column": 1,
       "message": "item name `SemanticFinding` repeats `semantic` from ancestor path segment `charon_semantic`",
       "crate_name": "cargo_octet"
@@ -12539,7 +12487,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 1157,
+      "line": 847,
       "column": 17,
       "message": "function calls itself recursively",
       "crate_name": "cargo_octet"
@@ -12946,6 +12894,19 @@
       "column": 1,
       "message": "non-trait import `source` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "octet"
+    },
+    {
+      "stable_id": "b3:54db11103ccd8279",
+      "semantic_id": "b3:54db11103ccd8279",
+      "identity_status": "computed",
+      "lint": "sentinel_fallback",
+      "group": "tigerstyle::safety",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 361,
+      "column": 21,
+      "message": "extreme sentinel fallback masks absence or failure",
+      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:5538a3acec717ccf",
@@ -13371,7 +13332,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 3564,
+      "line": 3799,
       "column": 13,
       "message": "boolean binding `boundary_stub_seen` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -13479,6 +13440,19 @@
       "column": 21,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "octet"
+    },
+    {
+      "stable_id": "b3:5865713738d01ac1",
+      "semantic_id": "b3:5865713738d01ac1",
+      "identity_status": "computed",
+      "lint": "path_segment_repetition",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/model.rs",
+      "line": 108,
+      "column": 1,
+      "message": "item name `CharonSemanticEnvelope` repeats `charon` from ancestor path segment `charon_semantic`",
+      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:586fd62cd33276f1",
@@ -13735,7 +13709,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 2818,
+      "line": 3021,
       "column": 1,
       "message": "item name `cargo_vet_store_path` repeats `cargo` from ancestor path segment `cargo_octet`",
       "crate_name": "cargo_octet"
@@ -14385,7 +14359,7 @@
       "group": "tigerstyle::purity",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 5086,
+      "line": 5448,
       "column": 53,
       "message": "direct `std::env::var_os` access reads or mutates ambient process state",
       "crate_name": "cargo_octet"
@@ -14437,7 +14411,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 4924,
+      "line": 5286,
       "column": 8,
       "message": "extreme sentinel fallback masks absence or failure",
       "crate_name": "cargo_octet"
@@ -14742,6 +14716,19 @@
       "crate_name": "octet"
     },
     {
+      "stable_id": "b3:5f85bbbd10002d5e",
+      "semantic_id": "b3:5f85bbbd10002d5e",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 25,
+      "column": 1,
+      "message": "non-trait import `UnknownFact` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:5f9e4f9cecb23339",
       "semantic_id": "b3:5f9e4f9cecb23339",
       "identity_status": "computed",
@@ -14983,7 +14970,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 1460,
+      "line": 1611,
       "column": 98,
       "message": "function `specialized_provenance` is 102 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -15425,7 +15412,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 2803,
+      "line": 3006,
       "column": 1,
       "message": "item name `cargo_vet_finding` repeats `cargo` from ancestor path segment `cargo_octet`",
       "crate_name": "cargo_octet"
@@ -15704,19 +15691,6 @@
       "crate_name": "octet_merge_rail"
     },
     {
-      "stable_id": "b3:654a587905d64731",
-      "semantic_id": "b3:654a587905d64731",
-      "identity_status": "computed",
-      "lint": "path_segment_repetition",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 2968,
-      "column": 1,
-      "message": "item name `parse_dynamic_evidence` repeats `evidence` from ancestor path segment `evidence_rails`",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:655381af97c7aa5a",
       "semantic_id": "b3:655381af97c7aa5a",
       "identity_status": "computed",
@@ -15867,7 +15841,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 612,
+      "line": 615,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -16036,7 +16010,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 2783,
+      "line": 2986,
       "column": 1,
       "message": "item name `cargo_vet_array` repeats `cargo` from ancestor path segment `cargo_octet`",
       "crate_name": "cargo_octet"
@@ -17004,6 +16978,19 @@
       "crate_name": "octet_standards"
     },
     {
+      "stable_id": "b3:6dacde52e0f8fa5b",
+      "semantic_id": "b3:6dacde52e0f8fa5b",
+      "identity_status": "computed",
+      "lint": "unbounded_collection_growth",
+      "group": "tigerstyle::safety",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 676,
+      "column": 9,
+      "message": "collection grows in loop without a prior reservation or explicit local bound",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:6dbac5594f214ccb",
       "semantic_id": "b3:6dbac5594f214ccb",
       "identity_status": "computed",
@@ -17336,7 +17323,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 1184,
+      "line": 874,
       "column": 9,
       "message": "catch-all `_` on enum match returns deny value — new variants will be silently handled",
       "crate_name": "cargo_octet"
@@ -17492,7 +17479,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 636,
+      "line": 639,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -17921,7 +17908,7 @@
       "group": "tigerstyle::purity",
       "severity": "warning",
       "file": "cargo-octet/src/lib.rs",
-      "line": 102,
+      "line": 104,
       "column": 22,
       "message": "direct `std::env::args_os` access reads or mutates ambient process state",
       "crate_name": "cargo_octet"
@@ -17947,7 +17934,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 151,
+      "line": 164,
       "column": 13,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -18168,7 +18155,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 6320,
+      "line": 6709,
       "column": 13,
       "message": "function calls itself recursively",
       "crate_name": "cargo_octet"
@@ -18289,6 +18276,19 @@
       "column": 1,
       "message": "non-trait import `AeneasTranslationDeclaration` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "octet_standards"
+    },
+    {
+      "stable_id": "b3:7585dc6d4ec59d76",
+      "semantic_id": "b3:7585dc6d4ec59d76",
+      "identity_status": "computed",
+      "lint": "path_segment_repetition",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 79,
+      "column": 1,
+      "message": "item name `CoreOutput` repeats `core` from ancestor path segment `core`",
+      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:7590ed7d14c43598",
@@ -18486,19 +18486,6 @@
       "crate_name": "cargo_octet"
     },
     {
-      "stable_id": "b3:76763ddcae86bab0",
-      "semantic_id": "b3:76763ddcae86bab0",
-      "identity_status": "computed",
-      "lint": "non_trait_imports",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/mod.rs",
-      "line": 22,
-      "column": 1,
-      "message": "non-trait import `PROFILE_ARTIFACT` hides the owner path; prefer the qualified path at the use site",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:769c3a6e83660e67",
       "semantic_id": "b3:769c3a6e83660e67",
       "identity_status": "computed",
@@ -18549,6 +18536,19 @@
       "column": 1,
       "message": "non-trait import `ObservableIdentity` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "octet_merge_rail"
+    },
+    {
+      "stable_id": "b3:7753fcf12fafd2cd",
+      "semantic_id": "b3:7753fcf12fafd2cd",
+      "identity_status": "computed",
+      "lint": "function_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/evidence_rails.rs",
+      "line": 815,
+      "column": 26,
+      "message": "function `run_with_environment` is 122 lines (limit: 70)",
+      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:776d0d2b6db873ae",
@@ -19026,7 +19026,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 950,
+      "line": 675,
       "column": 13,
       "message": "boolean binding `unsupported` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -19039,7 +19039,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 725,
+      "line": 728,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -19195,7 +19195,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 4924,
+      "line": 5286,
       "column": 8,
       "message": "fallible integer conversion hides an out-of-range error behind a sentinel fallback",
       "crate_name": "cargo_octet"
@@ -20033,19 +20033,6 @@
       "crate_name": "cargo_octet"
     },
     {
-      "stable_id": "b3:810d50d472bdcf1f",
-      "semantic_id": "b3:810d50d472bdcf1f",
-      "identity_status": "computed",
-      "lint": "unbounded_collection_growth",
-      "group": "tigerstyle::safety",
-      "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 881,
-      "column": 13,
-      "message": "collection grows in loop without a prior reservation or explicit local bound",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:811558fd9d330935",
       "semantic_id": "b3:811558fd9d330935",
       "identity_status": "computed",
@@ -20508,7 +20495,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 739,
+      "line": 742,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -20677,7 +20664,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 5925,
+      "line": 6314,
       "column": 21,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -21015,7 +21002,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 638,
+      "line": 641,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -21044,6 +21031,19 @@
       "line": 317,
       "column": 13,
       "message": "boolean binding `replace` should have a predicate prefix",
+      "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:879928bf3a489b0c",
+      "semantic_id": "b3:879928bf3a489b0c",
+      "identity_status": "computed",
+      "lint": "path_segment_repetition",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/evidence_rails.rs",
+      "line": 686,
+      "column": 1,
+      "message": "item name `EvidenceRailReceipt` repeats `evidence` from ancestor path segment `evidence_rails`",
       "crate_name": "cargo_octet"
     },
     {
@@ -21379,7 +21379,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 3190,
+      "line": 3422,
       "column": 13,
       "message": "boolean binding `metadata_present` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -21444,7 +21444,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 1190,
+      "line": 880,
       "column": 59,
       "message": "function calls itself recursively",
       "crate_name": "cargo_octet"
@@ -21535,7 +21535,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/model.rs",
-      "line": 114,
+      "line": 111,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -21590,6 +21590,19 @@
       "line": 10,
       "column": 1,
       "message": "non-trait import `ProviderManifestMode` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:8b09fa76c1d7f737",
+      "semantic_id": "b3:8b09fa76c1d7f737",
+      "identity_status": "computed",
+      "lint": "excessive_file_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/mod.rs",
+      "line": 1,
+      "column": 1,
+      "message": "source file is 401 lines (limit: 300)",
       "crate_name": "cargo_octet"
     },
     {
@@ -21795,7 +21808,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/mod.rs",
-      "line": 28,
+      "line": 25,
       "column": 1,
       "message": "non-trait import `SemanticFinding` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -21877,6 +21890,19 @@
       "column": 99,
       "message": "function calls itself recursively",
       "crate_name": "octet"
+    },
+    {
+      "stable_id": "b3:8cd6a833bb34703f",
+      "semantic_id": "b3:8cd6a833bb34703f",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 9,
+      "column": 1,
+      "message": "non-trait import `EXPECTED_CHARON_RUDRA_REVISION` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:8cdc02e2b580c6d2",
@@ -22033,19 +22059,6 @@
       "column": 1,
       "message": "item name `canonical_lint_name` repeats `lint` from ancestor path segment `octet_lint_metadata`",
       "crate_name": "octet_lint_metadata"
-    },
-    {
-      "stable_id": "b3:8d764455bea00a23",
-      "semantic_id": "b3:8d764455bea00a23",
-      "identity_status": "computed",
-      "lint": "unbounded_collection_growth",
-      "group": "tigerstyle::safety",
-      "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 951,
-      "column": 9,
-      "message": "collection grows in loop without a prior reservation or explicit local bound",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:8d7acd1a3d968eba",
@@ -22250,7 +22263,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/model.rs",
-      "line": 155,
+      "line": 148,
       "column": 1,
       "message": "item name `SemanticProjection` repeats `semantic` from ancestor path segment `charon_semantic`",
       "crate_name": "cargo_octet"
@@ -22266,19 +22279,6 @@
       "line": 274,
       "column": 1,
       "message": "item name `ProofRefReport` repeats `proof` from ancestor path segment `proof_ref`",
-      "crate_name": "cargo_octet"
-    },
-    {
-      "stable_id": "b3:8f37a30118114fa2",
-      "semantic_id": "b3:8f37a30118114fa2",
-      "identity_status": "computed",
-      "lint": "path_segment_repetition",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 58,
-      "column": 1,
-      "message": "item name `CoreOutput` repeats `core` from ancestor path segment `core`",
       "crate_name": "cargo_octet"
     },
     {
@@ -22529,6 +22529,19 @@
       "crate_name": "cargo_octet"
     },
     {
+      "stable_id": "b3:9169a96db212257d",
+      "semantic_id": "b3:9169a96db212257d",
+      "identity_status": "computed",
+      "lint": "function_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/evidence_rails.rs",
+      "line": 2455,
+      "column": 96,
+      "message": "function `expected_bundle_files_for_receipt` is 74 lines (limit: 70)",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:9194615528b4359a",
       "semantic_id": "b3:9194615528b4359a",
       "identity_status": "computed",
@@ -22685,19 +22698,6 @@
       "crate_name": "cargo_octet"
     },
     {
-      "stable_id": "b3:92c7e7c690a6e989",
-      "semantic_id": "b3:92c7e7c690a6e989",
-      "identity_status": "computed",
-      "lint": "path_segment_repetition",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "cargo-octet/src/requirements/evidence.rs",
-      "line": 35,
-      "column": 1,
-      "message": "item name `StructuralLinkEvidence` repeats `evidence` from ancestor path segment `evidence`",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:92f4ca8334f41cae",
       "semantic_id": "b3:92f4ca8334f41cae",
       "identity_status": "computed",
@@ -22718,7 +22718,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/mod.rs",
-      "line": 23,
+      "line": 20,
       "column": 1,
       "message": "non-trait import `PROFILE_ID` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -22744,7 +22744,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 4462,
+      "line": 4729,
       "column": 13,
       "message": "boolean binding `boundary_stub_seen` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -22757,7 +22757,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 4824,
+      "line": 5181,
       "column": 1,
       "message": "item name `read_cargo_fuzz_receipt` repeats `cargo` from ancestor path segment `cargo_octet`",
       "crate_name": "cargo_octet"
@@ -23114,6 +23114,19 @@
       "crate_name": "octet_standards"
     },
     {
+      "stable_id": "b3:955726eaa58db2a3",
+      "semantic_id": "b3:955726eaa58db2a3",
+      "identity_status": "computed",
+      "lint": "path_segment_repetition",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/model.rs",
+      "line": 124,
+      "column": 1,
+      "message": "item name `CharonSemanticReceiptDetails` repeats `charon` from ancestor path segment `charon_semantic`",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:9560817923d3b9f1",
       "semantic_id": "b3:9560817923d3b9f1",
       "identity_status": "computed",
@@ -23229,6 +23242,19 @@
       "column": 9,
       "message": "`.expect()` in production code will panic on failure",
       "crate_name": "octet_merge_rail"
+    },
+    {
+      "stable_id": "b3:962680dfce655e0d",
+      "semantic_id": "b3:962680dfce655e0d",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 20,
+      "column": 1,
+      "message": "non-trait import `SemanticItem` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:9635cccff49bedde",
@@ -23463,19 +23489,6 @@
       "column": 1,
       "message": "non-trait import `ProductionView` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "octet_standards"
-    },
-    {
-      "stable_id": "b3:98dbcd2da9944966",
-      "semantic_id": "b3:98dbcd2da9944966",
-      "identity_status": "computed",
-      "lint": "ambient_env",
-      "group": "tigerstyle::purity",
-      "severity": "warning",
-      "file": "cargo-octet/src/lib.rs",
-      "line": 109,
-      "column": 42,
-      "message": "direct `std::env::var_os` access reads or mutates ambient process state",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:9927aaa62fcb1bbc",
@@ -23736,19 +23749,6 @@
       "column": 13,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "octet_standards"
-    },
-    {
-      "stable_id": "b3:9b016019bf2706f7",
-      "semantic_id": "b3:9b016019bf2706f7",
-      "identity_status": "computed",
-      "lint": "path_segment_repetition",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/model.rs",
-      "line": 111,
-      "column": 1,
-      "message": "item name `CharonSemanticEnvelope` repeats `charon` from ancestor path segment `charon_semantic`",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:9b16fc6a12c6b7ec",
@@ -24070,22 +24070,9 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 1098,
+      "line": 798,
       "column": 41,
       "message": "extreme sentinel fallback masks absence or failure",
-      "crate_name": "cargo_octet"
-    },
-    {
-      "stable_id": "b3:9c7ef10c134593bd",
-      "semantic_id": "b3:9c7ef10c134593bd",
-      "identity_status": "computed",
-      "lint": "fallible_int_fallback",
-      "group": "tigerstyle::safety",
-      "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 453,
-      "column": 21,
-      "message": "fallible integer conversion hides an out-of-range error behind a sentinel fallback",
       "crate_name": "cargo_octet"
     },
     {
@@ -24258,6 +24245,19 @@
       "crate_name": "octet_merge_rail"
     },
     {
+      "stable_id": "b3:9d70900d208e25e9",
+      "semantic_id": "b3:9d70900d208e25e9",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 16,
+      "column": 1,
+      "message": "non-trait import `PROJECTION_SCHEMA` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:9d799473e754ed39",
       "semantic_id": "b3:9d799473e754ed39",
       "identity_status": "computed",
@@ -24330,7 +24330,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 5351,
+      "line": 5713,
       "column": 9,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -24434,9 +24434,22 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 678,
+      "line": 681,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
+      "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:9e9aeec27dcae0f7",
+      "semantic_id": "b3:9e9aeec27dcae0f7",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 24,
+      "column": 1,
+      "message": "non-trait import `TraitResolutionRow` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
     },
     {
@@ -24564,7 +24577,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 713,
+      "line": 716,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -24590,7 +24603,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/model.rs",
-      "line": 290,
+      "line": 281,
       "column": 1,
       "message": "item name `CharonSemanticEvaluation` repeats `charon` from ancestor path segment `charon_semantic`",
       "crate_name": "cargo_octet"
@@ -24980,7 +24993,7 @@
       "group": "tigerstyle::purity",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/shell.rs",
-      "line": 178,
+      "line": 148,
       "column": 5,
       "message": "direct `std::env::temp_dir` access reads or mutates ambient process state",
       "crate_name": "cargo_octet"
@@ -25322,19 +25335,6 @@
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "octet_standards"
-    },
-    {
-      "stable_id": "b3:a48bdedb839c228e",
-      "semantic_id": "b3:a48bdedb839c228e",
-      "identity_status": "computed",
-      "lint": "excessive_file_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 1,
-      "column": 1,
-      "message": "source file is 10256 lines (limit: 300)",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:a48bf115253be7cc",
@@ -25851,7 +25851,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 4501,
+      "line": 4768,
       "column": 9,
       "message": "boolean binding `property_claim` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -26039,6 +26039,19 @@
       "crate_name": "octet_standards"
     },
     {
+      "stable_id": "b3:a959db5ddb63f8bb",
+      "semantic_id": "b3:a959db5ddb63f8bb",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 10,
+      "column": 1,
+      "message": "non-trait import `EXPECTED_COMPATIBILITY_IDENTITY` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:a95e772e5254ef7f",
       "semantic_id": "b3:a95e772e5254ef7f",
       "identity_status": "computed",
@@ -26046,7 +26059,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 458,
+      "line": 461,
       "column": 40,
       "message": "function `non_claims` is 98 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -26442,19 +26455,6 @@
       "crate_name": "cargo_octet"
     },
     {
-      "stable_id": "b3:ab36ded31b296e66",
-      "semantic_id": "b3:ab36ded31b296e66",
-      "identity_status": "computed",
-      "lint": "path_segment_repetition",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/model.rs",
-      "line": 180,
-      "column": 1,
-      "message": "item name `SemanticItem` repeats `semantic` from ancestor path segment `charon_semantic`",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:ab3fc2c10cc1c2e1",
       "semantic_id": "b3:ab3fc2c10cc1c2e1",
       "identity_status": "computed",
@@ -26527,7 +26527,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/model.rs",
-      "line": 148,
+      "line": 143,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -26663,6 +26663,19 @@
       "crate_name": "octet_standards"
     },
     {
+      "stable_id": "b3:ac5d11380abd09dc",
+      "semantic_id": "b3:ac5d11380abd09dc",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 15,
+      "column": 1,
+      "message": "non-trait import `PROFILE_SCHEMA` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:ac80e162cc4e4332",
       "semantic_id": "b3:ac80e162cc4e4332",
       "identity_status": "computed",
@@ -26683,7 +26696,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 5790,
+      "line": 6179,
       "column": 86,
       "message": "function `cargo_deny_check_and_category` is 75 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -26800,7 +26813,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 3310,
+      "line": 3542,
       "column": 1,
       "message": "item name `parse_benchmark_evidence` repeats `evidence` from ancestor path segment `evidence_rails`",
       "crate_name": "cargo_octet"
@@ -26884,6 +26897,19 @@
       "crate_name": "cargo_octet"
     },
     {
+      "stable_id": "b3:ade9ee18767ac42f",
+      "semantic_id": "b3:ade9ee18767ac42f",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 19,
+      "column": 1,
+      "message": "non-trait import `SemanticFinding` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:adff22a34794a56e",
       "semantic_id": "b3:adff22a34794a56e",
       "identity_status": "computed",
@@ -26891,7 +26917,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/mod.rs",
-      "line": 26,
+      "line": 23,
       "column": 1,
       "message": "non-trait import `RECORDED_ONLY_ROLE` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -27216,7 +27242,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 1238,
+      "line": 928,
       "column": 42,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -27255,7 +27281,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 163,
+      "line": 166,
       "column": 1,
       "message": "item name `EvidenceRailKind` repeats `evidence` from ancestor path segment `evidence_rails`",
       "crate_name": "cargo_octet"
@@ -27385,7 +27411,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/model.rs",
-      "line": 91,
+      "line": 88,
       "column": 1,
       "message": "item name `SemanticLimits` repeats `semantic` from ancestor path segment `charon_semantic`",
       "crate_name": "cargo_octet"
@@ -27463,7 +27489,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 3563,
+      "line": 3798,
       "column": 13,
       "message": "boolean binding `contract_passed` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -27710,7 +27736,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 640,
+      "line": 643,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -27814,7 +27840,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 5716,
+      "line": 6105,
       "column": 1,
       "message": "item name `is_existing_evidence_bundle` repeats `evidence` from ancestor path segment `evidence_rails`",
       "crate_name": "cargo_octet"
@@ -28217,7 +28243,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 4071,
+      "line": 4338,
       "column": 34,
       "message": "function `parse_hegel_property_details` is 87 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -28295,7 +28321,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 622,
+      "line": 503,
       "column": 22,
       "message": "fallible integer conversion hides an out-of-range error behind a sentinel fallback",
       "crate_name": "cargo_octet"
@@ -28470,16 +28496,16 @@
       "crate_name": "cargo_octet"
     },
     {
-      "stable_id": "b3:b806dd41752bd75f",
-      "semantic_id": "b3:b806dd41752bd75f",
+      "stable_id": "b3:b7f8354e9b7d3c97",
+      "semantic_id": "b3:b7f8354e9b7d3c97",
       "identity_status": "computed",
-      "lint": "unbounded_collection_growth",
-      "group": "tigerstyle::safety",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 863,
-      "column": 21,
-      "message": "collection grows in loop without a prior reservation or explicit local bound",
+      "line": 14,
+      "column": 1,
+      "message": "non-trait import `PROFILE_ID` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
     },
     {
@@ -28779,6 +28805,19 @@
       "line": 146,
       "column": 9,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
+      "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:b9e1e7e929e9f62c",
+      "semantic_id": "b3:b9e1e7e929e9f62c",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 11,
+      "column": 1,
+      "message": "non-trait import `EXPECTED_MECHANIZED_LLBC_REVISION` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
     },
     {
@@ -29471,6 +29510,19 @@
       "crate_name": "octet_standards"
     },
     {
+      "stable_id": "b3:be5665cb4cb98ad1",
+      "semantic_id": "b3:be5665cb4cb98ad1",
+      "identity_status": "computed",
+      "lint": "path_segment_repetition",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/model.rs",
+      "line": 173,
+      "column": 1,
+      "message": "item name `SemanticItem` repeats `semantic` from ancestor path segment `charon_semantic`",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:be7217b142cec914",
       "semantic_id": "b3:be7217b142cec914",
       "identity_status": "computed",
@@ -29686,7 +29738,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 5882,
+      "line": 6271,
       "column": 1,
       "message": "item name `cargo_deny_report_from_json_lines` repeats `cargo` from ancestor path segment `cargo_octet`",
       "crate_name": "cargo_octet"
@@ -29712,7 +29764,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/mod.rs",
-      "line": 9,
+      "line": 8,
       "column": 1,
       "message": "non-trait import `ANALYSIS_ARTIFACT` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -29777,7 +29829,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/model.rs",
-      "line": 197,
+      "line": 188,
       "column": 1,
       "message": "item name `SemanticEdge` repeats `semantic` from ancestor path segment `charon_semantic`",
       "crate_name": "cargo_octet"
@@ -30011,7 +30063,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 3562,
+      "line": 3797,
       "column": 13,
       "message": "boolean binding `unwind_passed` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -30024,7 +30076,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/mod.rs",
-      "line": 486,
+      "line": 337,
       "column": 27,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -30132,19 +30184,6 @@
       "column": 1,
       "message": "module filename `architecture_collector.rs` contains an underscore; prefer `architecture/collector.rs`",
       "crate_name": "octet"
-    },
-    {
-      "stable_id": "b3:c29a15d233a4fe63",
-      "semantic_id": "b3:c29a15d233a4fe63",
-      "identity_status": "computed",
-      "lint": "excessive_file_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 1,
-      "column": 1,
-      "message": "source file is 1573 lines (limit: 300)",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:c2cbd0e75158f5c9",
@@ -30420,6 +30459,19 @@
       "crate_name": "octet"
     },
     {
+      "stable_id": "b3:c463d2a92547763d",
+      "semantic_id": "b3:c463d2a92547763d",
+      "identity_status": "computed",
+      "lint": "function_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 305,
+      "column": 38,
+      "message": "function `analyze_snapshot` is 88 lines (limit: 70)",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:c47f0822bb556ec0",
       "semantic_id": "b3:c47f0822bb556ec0",
       "identity_status": "computed",
@@ -30453,7 +30505,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 6137,
+      "line": 6526,
       "column": 1,
       "message": "function has 6 parameters (limit: 5) — consider an options struct",
       "crate_name": "cargo_octet"
@@ -30511,19 +30563,6 @@
       "crate_name": "cargo_octet"
     },
     {
-      "stable_id": "b3:c519f9432b7bdca6",
-      "semantic_id": "b3:c519f9432b7bdca6",
-      "identity_status": "computed",
-      "lint": "unbounded_collection_growth",
-      "group": "tigerstyle::safety",
-      "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 989,
-      "column": 21,
-      "message": "collection grows in loop without a prior reservation or explicit local bound",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:c533c19efb936966",
       "semantic_id": "b3:c533c19efb936966",
       "identity_status": "computed",
@@ -30548,19 +30587,6 @@
       "column": 1,
       "message": "module filename `vermilion_canary.rs` contains an underscore; prefer `vermilion/canary.rs`",
       "crate_name": "octet_standards"
-    },
-    {
-      "stable_id": "b3:c5472ee46708f938",
-      "semantic_id": "b3:c5472ee46708f938",
-      "identity_status": "computed",
-      "lint": "unbounded_collection_growth",
-      "group": "tigerstyle::safety",
-      "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 1012,
-      "column": 13,
-      "message": "collection grows in loop without a prior reservation or explicit local bound",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:c56894f8b4500b99",
@@ -30661,7 +30687,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 715,
+      "line": 718,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -30856,7 +30882,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 455,
+      "line": 363,
       "column": 22,
       "message": "fallible integer conversion hides an out-of-range error behind a sentinel fallback",
       "crate_name": "cargo_octet"
@@ -30960,7 +30986,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 4442,
+      "line": 4709,
       "column": 13,
       "message": "boolean binding `contract_passed` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -31772,6 +31798,32 @@
       "crate_name": "cargo_octet"
     },
     {
+      "stable_id": "b3:cd8f9cdb6e81d601",
+      "semantic_id": "b3:cd8f9cdb6e81d601",
+      "identity_status": "computed",
+      "lint": "excessive_file_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 1,
+      "column": 1,
+      "message": "source file is 1262 lines (limit: 300)",
+      "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:cd953c43cfcf9181",
+      "semantic_id": "b3:cd953c43cfcf9181",
+      "identity_status": "computed",
+      "lint": "unbounded_collection_growth",
+      "group": "tigerstyle::safety",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 690,
+      "column": 13,
+      "message": "collection grows in loop without a prior reservation or explicit local bound",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:cdc9bc40f72cf44e",
       "semantic_id": "b3:cdc9bc40f72cf44e",
       "identity_status": "computed",
@@ -31874,19 +31926,6 @@
       "column": 1,
       "message": "non-trait import `ObservableCompleteness` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "octet_merge_rail"
-    },
-    {
-      "stable_id": "b3:ce3d028e8b8448b4",
-      "semantic_id": "b3:ce3d028e8b8448b4",
-      "identity_status": "computed",
-      "lint": "unbounded_collection_growth",
-      "group": "tigerstyle::safety",
-      "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 1253,
-      "column": 9,
-      "message": "collection grows in loop without a prior reservation or explicit local bound",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:ce69996709837bc0",
@@ -32107,19 +32146,6 @@
       "line": 3,
       "column": 1,
       "message": "non-trait import `ProducerSummary` hides the owner path; prefer the qualified path at the use site",
-      "crate_name": "cargo_octet"
-    },
-    {
-      "stable_id": "b3:cfb59c9f6977a002",
-      "semantic_id": "b3:cfb59c9f6977a002",
-      "identity_status": "computed",
-      "lint": "unbounded_collection_growth",
-      "group": "tigerstyle::safety",
-      "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 782,
-      "column": 9,
-      "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
     },
     {
@@ -32511,19 +32537,6 @@
       "column": 1,
       "message": "source file is 443 lines (limit: 300)",
       "crate_name": "octet"
-    },
-    {
-      "stable_id": "b3:d275dbbfa4492698",
-      "semantic_id": "b3:d275dbbfa4492698",
-      "identity_status": "computed",
-      "lint": "excessive_file_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/shell.rs",
-      "line": 1,
-      "column": 1,
-      "message": "source file is 308 lines (limit: 300)",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:d291a48c021c6590",
@@ -33339,7 +33352,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/mod.rs",
-      "line": 27,
+      "line": 24,
       "column": 1,
       "message": "non-trait import `SemanticComparison` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -33404,7 +33417,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 1182,
+      "line": 872,
       "column": 59,
       "message": "function calls itself recursively",
       "crate_name": "cargo_octet"
@@ -33716,7 +33729,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 4494,
+      "line": 4761,
       "column": 9,
       "message": "boolean binding `unbounded_claim` should have a predicate prefix",
       "crate_name": "cargo_octet"
@@ -33800,6 +33813,19 @@
       "crate_name": "octet_standards"
     },
     {
+      "stable_id": "b3:daef1456d1c17092",
+      "semantic_id": "b3:daef1456d1c17092",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 12,
+      "column": 1,
+      "message": "non-trait import `EXPECTED_PROVIDER_PROFILE_IDENTITY` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:db3276ce6139212d",
       "semantic_id": "b3:db3276ce6139212d",
       "identity_status": "computed",
@@ -33859,7 +33885,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 3231,
+      "line": 3463,
       "column": 75,
       "message": "function `parse_mutation_testing` is 76 lines (limit: 70)",
       "crate_name": "cargo_octet"
@@ -34301,7 +34327,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 5726,
+      "line": 6115,
       "column": 1,
       "message": "item name `is_evidence_bundle_artifact` repeats `evidence` from ancestor path segment `evidence_rails`",
       "crate_name": "cargo_octet"
@@ -34405,7 +34431,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/mod.rs",
-      "line": 24,
+      "line": 21,
       "column": 1,
       "message": "non-trait import `PROJECTION_ARTIFACT` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -34658,6 +34684,19 @@
       "crate_name": "octet_merge_rail"
     },
     {
+      "stable_id": "b3:e0dd0164f9a5a6a2",
+      "semantic_id": "b3:e0dd0164f9a5a6a2",
+      "identity_status": "computed",
+      "lint": "unbounded_collection_growth",
+      "group": "tigerstyle::safety",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 723,
+      "column": 13,
+      "message": "collection grows in loop without a prior reservation or explicit local bound",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:e0f21a265477c893",
       "semantic_id": "b3:e0f21a265477c893",
       "identity_status": "computed",
@@ -34795,7 +34834,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 5538,
+      "line": 5927,
       "column": 1,
       "message": "item name `AdvisoryFetchEvidence` repeats `evidence` from ancestor path segment `evidence_rails`",
       "crate_name": "cargo_octet"
@@ -35113,19 +35152,6 @@
       "crate_name": "octet_standards"
     },
     {
-      "stable_id": "b3:e2fc30e51b461f66",
-      "semantic_id": "b3:e2fc30e51b461f66",
-      "identity_status": "computed",
-      "lint": "unbounded_collection_growth",
-      "group": "tigerstyle::safety",
-      "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 699,
-      "column": 9,
-      "message": "collection grows in loop without a prior reservation or explicit local bound",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:e301167bd6dd4ba0",
       "semantic_id": "b3:e301167bd6dd4ba0",
       "identity_status": "computed",
@@ -35159,7 +35185,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 2723,
+      "line": 2926,
       "column": 1,
       "message": "item name `push_cargo_vet_findings` repeats `cargo` from ancestor path segment `cargo_octet`",
       "crate_name": "cargo_octet"
@@ -35308,6 +35334,19 @@
       "crate_name": "cargo_octet"
     },
     {
+      "stable_id": "b3:e41d809a952dd7bf",
+      "semantic_id": "b3:e41d809a952dd7bf",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 6,
+      "column": 1,
+      "message": "non-trait import `ANALYSIS_SCHEMA` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:e41db64b64b02b78",
       "semantic_id": "b3:e41db64b64b02b78",
       "identity_status": "computed",
@@ -35318,6 +35357,19 @@
       "line": 771,
       "column": 8,
       "message": "extreme sentinel fallback masks absence or failure",
+      "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:e4473569fab5bc9e",
+      "semantic_id": "b3:e4473569fab5bc9e",
+      "identity_status": "computed",
+      "lint": "no_recursion",
+      "group": "tigerstyle::safety",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 809,
+      "column": 17,
+      "message": "function calls itself recursively",
       "crate_name": "cargo_octet"
     },
     {
@@ -35432,9 +35484,22 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 622,
+      "line": 503,
       "column": 22,
       "message": "extreme sentinel fallback masks absence or failure",
+      "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:e56904fe394d0cb1",
+      "semantic_id": "b3:e56904fe394d0cb1",
+      "identity_status": "computed",
+      "lint": "unbounded_collection_growth",
+      "group": "tigerstyle::safety",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 716,
+      "column": 17,
+      "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
     },
     {
@@ -35510,7 +35575,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/mod.rs",
-      "line": 12,
+      "line": 11,
       "column": 1,
       "message": "non-trait import `CharonSemanticEnvelope` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -35666,7 +35731,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 1101,
+      "line": 801,
       "column": 9,
       "message": "catch-all `_` on enum match returns deny value — new variants will be silently handled",
       "crate_name": "cargo_octet"
@@ -35835,7 +35900,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/mod.rs",
-      "line": 10,
+      "line": 9,
       "column": 1,
       "message": "non-trait import `ArtifactBinding` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -35971,16 +36036,16 @@
       "crate_name": "cargo_octet"
     },
     {
-      "stable_id": "b3:e9de45c704a19214",
-      "semantic_id": "b3:e9de45c704a19214",
+      "stable_id": "b3:e9dfbd7f397c11f7",
+      "semantic_id": "b3:e9dfbd7f397c11f7",
       "identity_status": "computed",
-      "lint": "explicit_defaults",
+      "lint": "unbounded_collection_growth",
       "group": "tigerstyle::safety",
       "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/model.rs",
-      "line": 116,
-      "column": 5,
-      "message": "implicit default on external type — construct with explicit values",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 577,
+      "column": 9,
+      "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
     },
     {
@@ -36069,7 +36134,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 3367,
+      "line": 3599,
       "column": 13,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -36112,6 +36177,19 @@
       "column": 90,
       "message": "function `admit` is 91 lines (limit: 70)",
       "crate_name": "octet_standards"
+    },
+    {
+      "stable_id": "b3:ea5283b268873ad9",
+      "semantic_id": "b3:ea5283b268873ad9",
+      "identity_status": "computed",
+      "lint": "non_trait_imports",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 17,
+      "column": 1,
+      "message": "non-trait import `SemanticAnalysis` hides the owner path; prefer the qualified path at the use site",
+      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:ea7b20a261c201df",
@@ -36241,6 +36319,19 @@
       "line": 2650,
       "column": 17,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
+      "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:eb7a6ac8566d743e",
+      "semantic_id": "b3:eb7a6ac8566d743e",
+      "identity_status": "computed",
+      "lint": "function_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 513,
+      "column": 23,
+      "message": "function `project_raw_functions` is 81 lines (limit: 70)",
       "crate_name": "cargo_octet"
     },
     {
@@ -36576,7 +36667,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 2429,
+      "line": 2632,
       "column": 17,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -36593,19 +36684,6 @@
       "column": 17,
       "message": "catch-all `_` on enum match returns deny value — new variants will be silently handled",
       "crate_name": "octet"
-    },
-    {
-      "stable_id": "b3:edca7e99c21551eb",
-      "semantic_id": "b3:edca7e99c21551eb",
-      "identity_status": "computed",
-      "lint": "path_segment_repetition",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 683,
-      "column": 1,
-      "message": "item name `EvidenceRailReceipt` repeats `evidence` from ancestor path segment `evidence_rails`",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:edf82a63b8ec5843",
@@ -36631,6 +36709,19 @@
       "line": 221,
       "column": 9,
       "message": "boolean binding `valid` should have a predicate prefix",
+      "crate_name": "cargo_octet"
+    },
+    {
+      "stable_id": "b3:ee21c908ddee917a",
+      "semantic_id": "b3:ee21c908ddee917a",
+      "identity_status": "computed",
+      "lint": "excessive_file_length",
+      "group": "tigerstyle::structure",
+      "severity": "warning",
+      "file": "cargo-octet/src/evidence_rails.rs",
+      "line": 1,
+      "column": 1,
+      "message": "source file is 10785 lines (limit: 300)",
       "crate_name": "cargo_octet"
     },
     {
@@ -36719,7 +36810,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/mod.rs",
-      "line": 21,
+      "line": 19,
       "column": 1,
       "message": "non-trait import `EXPECTED_PROVIDER_PROFILE_IDENTITY` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -37031,7 +37122,7 @@
       "group": "tigerstyle::naming",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/mod.rs",
-      "line": 15,
+      "line": 14,
       "column": 1,
       "message": "non-trait import `ComparisonParent` hides the owner path; prefer the qualified path at the use site",
       "crate_name": "cargo_octet"
@@ -37219,19 +37310,6 @@
       "crate_name": "octet_standards"
     },
     {
-      "stable_id": "b3:f16191cd42895e5e",
-      "semantic_id": "b3:f16191cd42895e5e",
-      "identity_status": "computed",
-      "lint": "underscore_in_module_filename",
-      "group": "tigerstyle::naming",
-      "severity": "warning",
-      "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 1,
-      "column": 1,
-      "message": "module filename `evidence_rails.rs` contains an underscore; prefer `evidence/rails.rs`",
-      "crate_name": "cargo_octet"
-    },
-    {
       "stable_id": "b3:f1702bfc00d1db55",
       "semantic_id": "b3:f1702bfc00d1db55",
       "identity_status": "computed",
@@ -37268,19 +37346,6 @@
       "line": 14,
       "column": 1,
       "message": "non-trait import `EvidenceIndexInput` hides the owner path; prefer the qualified path at the use site",
-      "crate_name": "cargo_octet"
-    },
-    {
-      "stable_id": "b3:f185bf9fc81e4870",
-      "semantic_id": "b3:f185bf9fc81e4870",
-      "identity_status": "computed",
-      "lint": "no_recursion",
-      "group": "tigerstyle::safety",
-      "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 1114,
-      "column": 17,
-      "message": "function calls itself recursively",
       "crate_name": "cargo_octet"
     },
     {
@@ -37687,6 +37752,19 @@
       "crate_name": "octet"
     },
     {
+      "stable_id": "b3:f42834ab13dd1919",
+      "semantic_id": "b3:f42834ab13dd1919",
+      "identity_status": "computed",
+      "lint": "underscore_in_module_filename",
+      "group": "tigerstyle::naming",
+      "severity": "warning",
+      "file": "cargo-octet/src/evidence_rails.rs",
+      "line": 1,
+      "column": 1,
+      "message": "module filename `evidence_rails.rs` contains an underscore; prefer `evidence/rails.rs`",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:f43b7926fd86f2d5",
       "semantic_id": "b3:f43b7926fd86f2d5",
       "identity_status": "computed",
@@ -37850,7 +37928,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 1194,
+      "line": 884,
       "column": 9,
       "message": "catch-all `_` on enum match returns deny value — new variants will be silently handled",
       "crate_name": "cargo_octet"
@@ -37902,7 +37980,7 @@
       "group": "tigerstyle::structure",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 6105,
+      "line": 6494,
       "column": 1,
       "message": "function has 6 parameters (limit: 5) — consider an options struct",
       "crate_name": "cargo_octet"
@@ -38058,7 +38136,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/model.rs",
-      "line": 140,
+      "line": 135,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -38240,7 +38318,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 5916,
+      "line": 6305,
       "column": 17,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -38584,6 +38662,19 @@
       "crate_name": "cargo_octet"
     },
     {
+      "stable_id": "b3:fa98faae86d43f5a",
+      "semantic_id": "b3:fa98faae86d43f5a",
+      "identity_status": "computed",
+      "lint": "fallible_int_fallback",
+      "group": "tigerstyle::safety",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 361,
+      "column": 21,
+      "message": "fallible integer conversion hides an out-of-range error behind a sentinel fallback",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:fab88e86f60dc439",
       "semantic_id": "b3:fab88e86f60dc439",
       "identity_status": "computed",
@@ -38760,7 +38851,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/charon_semantic/mod.rs",
-      "line": 487,
+      "line": 338,
       "column": 27,
       "message": "collection grows in loop without a prior reservation or explicit local bound",
       "crate_name": "cargo_octet"
@@ -38777,19 +38868,6 @@
       "column": 28,
       "message": "`panic!` will abort the process on execution",
       "crate_name": "octet"
-    },
-    {
-      "stable_id": "b3:fc0c8652772f6d05",
-      "semantic_id": "b3:fc0c8652772f6d05",
-      "identity_status": "computed",
-      "lint": "sentinel_fallback",
-      "group": "tigerstyle::safety",
-      "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 454,
-      "column": 21,
-      "message": "extreme sentinel fallback masks absence or failure",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:fc24844dfeed9d17",
@@ -38857,6 +38935,19 @@
       "crate_name": "octet_standards"
     },
     {
+      "stable_id": "b3:fcc834de5f281675",
+      "semantic_id": "b3:fcc834de5f281675",
+      "identity_status": "computed",
+      "lint": "sentinel_fallback",
+      "group": "tigerstyle::safety",
+      "severity": "warning",
+      "file": "cargo-octet/src/charon_semantic/core.rs",
+      "line": 362,
+      "column": 21,
+      "message": "extreme sentinel fallback masks absence or failure",
+      "crate_name": "cargo_octet"
+    },
+    {
       "stable_id": "b3:fce8717c7938f9fa",
       "semantic_id": "b3:fce8717c7938f9fa",
       "identity_status": "computed",
@@ -38864,7 +38955,7 @@
       "group": "tigerstyle::safety",
       "severity": "warning",
       "file": "cargo-octet/src/evidence_rails.rs",
-      "line": 727,
+      "line": 730,
       "column": 5,
       "message": "implicit default on external type — construct with explicit values",
       "crate_name": "cargo_octet"
@@ -38881,19 +38972,6 @@
       "column": 9,
       "message": "catch-all `_` on enum match returns deny value — new variants will be silently handled",
       "crate_name": "octet_standards"
-    },
-    {
-      "stable_id": "b3:fd2cc256fbf1db28",
-      "semantic_id": "b3:fd2cc256fbf1db28",
-      "identity_status": "computed",
-      "lint": "function_length",
-      "group": "tigerstyle::structure",
-      "severity": "warning",
-      "file": "cargo-octet/src/charon_semantic/core.rs",
-      "line": 345,
-      "column": 38,
-      "message": "function `analyze_inner` is 79 lines (limit: 70)",
-      "crate_name": "cargo_octet"
     },
     {
       "stable_id": "b3:fd4a984cc5d830bf",

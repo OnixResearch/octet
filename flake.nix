@@ -2457,6 +2457,72 @@
               mkdir -p "$out"
             '';
 
+        dynamicQualificationCheck =
+          pkgs.runCommand "octet-dynamic-qualification-check"
+            {
+              nativeBuildInputs = with pkgs; [
+                b3sum
+                diffutils
+                jq
+                nickel
+              ];
+            }
+            ''
+              cd ${./.}
+              generated=$(mktemp)
+              expected_identity=7aa345b6df1e329bf43aa6dbb4799e9dd07629caaca3b2827f07707b9ea2cf84
+              nickel typecheck standards/dynamic-evidence/qualified-profiles.ncl
+              nickel export --format json standards/dynamic-evidence/qualified-profiles.ncl > "$generated"
+              diff -u standards/dynamic-evidence/qualified-profiles.json "$generated"
+              test "$(b3sum "$generated" | cut -d ' ' -f 1)" = "$expected_identity"
+              jq --exit-status '
+                .schema_version == "octet-dynamic-qualified-profiles/v1"
+                and (.profiles | length) == 2
+                and all(.profiles[]; .evidence_tier == "transcript_assertion" and (.test_inventory | length) > 0 and (.matrix_cells | length) > 0)
+              ' "$generated" >/dev/null
+              nickel export --format json standards/evidence/fixtures/valid/dynamic_qualification_details_v1.ncl >/dev/null
+              if nickel export --format json standards/evidence/fixtures/invalid/dynamic_qualification_wrong_identity.ncl >/dev/null 2>&1; then
+                echo "invalid dynamic qualification fixture passed" >&2
+                exit 1
+              fi
+              mkdir -p "$out"
+            '';
+
+        kaniProducerCheck =
+          pkgs.runCommand "octet-kani-producer-check"
+            {
+              nativeBuildInputs = with pkgs; [
+                b3sum
+                diffutils
+                jq
+                nickel
+              ];
+            }
+            ''
+              cd ${./.}
+              generated=$(mktemp)
+              expected_identity=2194d49b606a2a75ec957fc270c9a3b3b2f100e38f7f6f683458aaf12951a378
+              nickel typecheck standards/kani-producer/profile.ncl
+              nickel export --format json standards/kani-producer/profile.ncl > "$generated"
+              diff -u standards/kani-producer/profile.json "$generated"
+              test "$(b3sum "$generated" | cut -d ' ' -f 1)" = "$expected_identity"
+              jq --exit-status '
+                .schema_version == "octet-kani-producer-profile/v1"
+                and .profile_id == "kani-0.68.0-panic-freedom"
+                and .kani_pin.kani_version == "0.68.0"
+                and .evidence_tier == "transcript_assertion"
+                and (.harnesses | length) > 0
+                and .require_reachable_cover
+                and .require_assumption_review
+              ' "$generated" >/dev/null
+              nickel export --format json standards/evidence/fixtures/valid/kani_producer_details_v1.ncl >/dev/null
+              if nickel export --format json standards/evidence/fixtures/invalid/kani_producer_formal_proof_overclaim.ncl >/dev/null 2>&1; then
+                echo "invalid kani producer fixture passed" >&2
+                exit 1
+              fi
+              mkdir -p "$out"
+            '';
+
         miraiPilotCheck =
           pkgs.runCommand "octet-mirai-semantic-pilot-check"
             {
@@ -5066,6 +5132,8 @@
             wasm-artifact-rail = wasmArtifactRailCheck;
             binary-debug-map-rail = binaryDebugMapRailCheck;
             dynamic-evidence-profiles = dynamicEvidenceProfilesCheck;
+            dynamic-qualification = dynamicQualificationCheck;
+            kani-producer = kaniProducerCheck;
             sarif-profiles = sarifProfilesCheck;
             coverage-profiles = coverageProfilesCheck;
             benchmark-profiles = benchmarkProfilesCheck;
@@ -5146,6 +5214,8 @@
                   "binary-debug-map-rail"
                   "ast-grep-structural-rail"
                   "dynamic-evidence-profiles"
+                  "dynamic-qualification"
+                  "kani-producer"
                   "sarif-profiles"
                   "coverage-profiles"
                   "benchmark-profiles"
