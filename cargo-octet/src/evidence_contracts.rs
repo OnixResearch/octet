@@ -17,6 +17,8 @@ const COVERAGE_DETAILS_CONTRACT_NAME: &str = "CoverageBaselineReceiptDetailsV1";
 const MUTATION_DETAILS_CONTRACT_NAME: &str = "CargoMutantsReceiptDetailsV1";
 const BENCHMARK_DETAILS_CONTRACT_NAME: &str = "BenchmarkEvidenceReceiptDetailsV1";
 const BINARY_DEBUG_MAP_DETAILS_CONTRACT_NAME: &str = "BinaryDebugMapReceiptDetailsV1";
+const DYNAMIC_QUALIFICATION_DETAILS_CONTRACT_NAME: &str = "DynamicQualificationReceiptDetailsV1";
+const KANI_PRODUCER_DETAILS_CONTRACT_NAME: &str = "KaniProducerReceiptDetailsV1";
 const CHAOSCONTROL_PROOF_STYLE_INPUT_CONTRACT_NAME: &str = "ChaosControlProofStyleInputContractV1";
 const CHAOSCONTROL_PROOF_STYLE_INPUT_SCHEMA_VERSION: &str = "octet-chaoscontrol-proof-style-input-contract/v1";
 const CHAOSCONTROL_CONSUMER_REPO: &str = "github:OnixResearch/chaoscontrol";
@@ -273,6 +275,59 @@ static BINARY_DEBUG_MAP_DETAILS_FIELDS: &[ContractField] = &[
     ContractField::required("non_claims", FieldKind::StringArray),
 ];
 
+static DYNAMIC_QUALIFICATION_DETAILS_FIELDS: &[ContractField] = &[
+    ContractField::required("schema_version", FieldKind::ExactString(crate::dynamic::RECEIPT_SCHEMA)),
+    ContractField::required("profile_id", FieldKind::NonEmptyString),
+    ContractField::required("profile_identity", FieldKind::ExactString(crate::dynamic::EXPECTED_PROFILE_IDENTITY)),
+    ContractField::required("tool", FieldKind::NonEmptyString),
+    ContractField::required("package", FieldKind::NonEmptyString),
+    ContractField::required("target", FieldKind::NonEmptyString),
+    ContractField::required("command_argv", FieldKind::StringArray),
+    ContractField::required("source_manifest_identity", FieldKind::NonEmptyString),
+    ContractField::optional_string("lockfile_identity"),
+    ContractField::required("compiler_probe", FieldKind::Dyn),
+    ContractField::required("qualification_status", FieldKind::NonEmptyString),
+    ContractField::required("matrix_cells", FieldKind::DynArray),
+    ContractField::required("tests_started", FieldKind::Number),
+    ContractField::required("tests_passed", FieldKind::Number),
+    ContractField::required("tests_failed", FieldKind::Number),
+    ContractField::required("tests_ignored", FieldKind::Number),
+    ContractField::required("tests_filtered_out", FieldKind::Number),
+    ContractField::required("executed_tests", FieldKind::StringArray),
+    ContractField::required("filters", FieldKind::StringArray),
+    ContractField::required("model_entered", FieldKind::Bool),
+    ContractField::required("model_completed", FieldKind::Bool),
+    ContractField::required("permutations_explored", FieldKind::Number),
+    ContractField::required("bounded_log_identity", FieldKind::NonEmptyString),
+    ContractField::required("evidence_tier", FieldKind::ExactString(crate::dynamic::EVIDENCE_TIER)),
+    ContractField::required("non_claims", FieldKind::StringArray),
+];
+
+static KANI_PRODUCER_DETAILS_FIELDS: &[ContractField] = &[
+    ContractField::required("schema_version", FieldKind::ExactString(crate::kani::RECEIPT_SCHEMA)),
+    ContractField::required("profile_id", FieldKind::ExactString(crate::kani::PRODUCER_PROFILE_ID)),
+    ContractField::required("profile_identity", FieldKind::ExactString(crate::kani::EXPECTED_PROFILE_IDENTITY)),
+    ContractField::required("package", FieldKind::NonEmptyString),
+    ContractField::required("target", FieldKind::NonEmptyString),
+    ContractField::required("command_argv", FieldKind::StringArray),
+    ContractField::required("source_manifest_identity", FieldKind::NonEmptyString),
+    ContractField::optional_string("lockfile_identity"),
+    ContractField::required("toolchain", FieldKind::Dyn),
+    ContractField::required("selected_harnesses", FieldKind::StringArray),
+    ContractField::required("executed_harnesses", FieldKind::StringArray),
+    ContractField::required("harnesses", FieldKind::DynArray),
+    ContractField::required("property_totals", FieldKind::Dyn),
+    ContractField::required("execution_status", FieldKind::NonEmptyString),
+    ContractField::required("assumption_status", FieldKind::NonEmptyString),
+    ContractField::required("assumptions_reviewed", FieldKind::Bool),
+    ContractField::optional_string("assumption_review_identity"),
+    ContractField::required("raw_export_identity", FieldKind::NonEmptyString),
+    ContractField::required("normalized_summary_identity", FieldKind::NonEmptyString),
+    ContractField::required("bounded_log_identity", FieldKind::NonEmptyString),
+    ContractField::required("evidence_tier", FieldKind::ExactString(crate::kani::EVIDENCE_TIER)),
+    ContractField::required("non_claims", FieldKind::StringArray),
+];
+
 static CHAOSCONTROL_PROOF_STYLE_INPUT_FIELDS: &[ContractField] = &[
     ContractField::required("schema_version", FieldKind::ExactString(CHAOSCONTROL_PROOF_STYLE_INPUT_SCHEMA_VERSION)),
     ContractField::required("consumer_repo", FieldKind::NonEmptyString),
@@ -383,6 +438,8 @@ static EVIDENCE_RAIL_RECEIPT_FIELDS: &[ContractField] = &[
     },
     ContractField::optional("dependency_trust", FieldKind::Dyn),
     ContractField::optional("binary_debug_map", FieldKind::Dyn),
+    ContractField::optional("dynamic_qualification", FieldKind::Dyn),
+    ContractField::optional("kani_producer", FieldKind::Dyn),
 ];
 
 #[derive(Clone, Copy)]
@@ -392,6 +449,7 @@ enum FieldKind {
     NonEmptyString,
     String,
     NullableString,
+    Bool,
     Number,
     NumberRecord,
     EvidenceTier,
@@ -429,6 +487,8 @@ pub fn render_generated_contracts() -> String {
         mutation_details_schema(),
         benchmark_details_schema(),
         binary_debug_map_details_schema(),
+        dynamic_qualification_details_schema(),
+        kani_producer_details_schema(),
         evidence_rail_receipt_schema(),
         chaoscontrol_proof_style_input_schema(),
     ];
@@ -545,6 +605,20 @@ fn binary_debug_map_details_schema() -> ContractSchema {
     }
 }
 
+fn dynamic_qualification_details_schema() -> ContractSchema {
+    ContractSchema {
+        name: DYNAMIC_QUALIFICATION_DETAILS_CONTRACT_NAME,
+        fields: DYNAMIC_QUALIFICATION_DETAILS_FIELDS,
+    }
+}
+
+fn kani_producer_details_schema() -> ContractSchema {
+    ContractSchema {
+        name: KANI_PRODUCER_DETAILS_CONTRACT_NAME,
+        fields: KANI_PRODUCER_DETAILS_FIELDS,
+    }
+}
+
 fn evidence_rail_receipt_schema() -> ContractSchema {
     ContractSchema {
         name: EVIDENCE_RAIL_RECEIPT_CONTRACT_NAME,
@@ -626,6 +700,7 @@ fn render_field_kind(kind: FieldKind) -> String {
         FieldKind::NonEmptyString => "NonEmptyString".to_owned(),
         FieldKind::String => "String".to_owned(),
         FieldKind::NullableString => "NullableString".to_owned(),
+        FieldKind::Bool => "Bool".to_owned(),
         FieldKind::Number => "Number".to_owned(),
         FieldKind::NumberRecord => "{ _ | Number }".to_owned(),
         FieldKind::EvidenceTier => "EvidenceTier".to_owned(),
@@ -754,6 +829,8 @@ mod tests {
         "standards/evidence/fixtures/valid/coverage_baseline_details_v1.ncl",
         "standards/evidence/fixtures/valid/cargo_mutants_details_v1.ncl",
         "standards/evidence/fixtures/valid/binary_debug_map_details_v1.ncl",
+        "standards/evidence/fixtures/valid/dynamic_qualification_details_v1.ncl",
+        "standards/evidence/fixtures/valid/kani_producer_details_v1.ncl",
         "standards/evidence/fixtures/valid/evidence_rail_receipt_v1.ncl",
         "standards/evidence/fixtures/valid/chaoscontrol_proof_style_input_v1.ncl",
     ];
@@ -771,6 +848,8 @@ mod tests {
         "standards/evidence/fixtures/invalid/coverage_baseline_bad_profile.ncl",
         "standards/evidence/fixtures/invalid/cargo_mutants_bad_profile.ncl",
         "standards/evidence/fixtures/invalid/binary_debug_map_missing_non_claims.ncl",
+        "standards/evidence/fixtures/invalid/dynamic_qualification_wrong_identity.ncl",
+        "standards/evidence/fixtures/invalid/kani_producer_formal_proof_overclaim.ncl",
         "standards/evidence/fixtures/invalid/evidence_rail_receipt_missing_non_claims.ncl",
         "standards/evidence/fixtures/invalid/evidence_rail_receipt_missing_finding_counts.ncl",
         "standards/evidence/fixtures/invalid/chaoscontrol_missing_profile.ncl",
@@ -949,6 +1028,18 @@ mod tests {
                 Some("regression-fixtures"),
                 Some("cargo test verifier_fixture_normalization"),
             )),
+            emitted_receipt_record(&rail_receipt(
+                evidence_rails::EvidenceRailKind::DynamicEvidence,
+                &sample_dynamic_qualification_input(),
+                Some(crate::dynamic::MIRI_QUALIFIED_PROFILE_ID),
+                None,
+            )),
+            emitted_receipt_record(&rail_receipt(
+                evidence_rails::EvidenceRailKind::KaniModelCheck,
+                &sample_kani_producer_input(),
+                Some(crate::kani::PRODUCER_PROFILE_ID),
+                None,
+            )),
         ];
 
         let emitted_keys: std::collections::BTreeSet<String> = records.iter().flat_map(wire_keys).collect();
@@ -959,10 +1050,88 @@ mod tests {
             "tool_exit_code",
             "z4_solver",
             "verifier_fixtures",
+            "dynamic_qualification",
+            "kani_producer",
         ] {
             assert!(emitted_keys.contains(key), "sampled receipts never emitted `{key}`");
         }
         assert_records_satisfy_contract(EVIDENCE_RAIL_RECEIPT_CONTRACT_NAME, &records);
+    }
+
+    fn sample_dynamic_qualification_input() -> String {
+        serde_json::json!({
+            "schema_version": crate::dynamic::MATRIX_RECEIPT_SCHEMA,
+            "profile_id": crate::dynamic::MIRI_QUALIFIED_PROFILE_ID,
+            "profile_identity": crate::dynamic::EXPECTED_PROFILE_IDENTITY,
+            "source_manifest_identity": crate::dynamic::prefixed_identity(b"src"),
+            "command_argv": crate::dynamic::selected_profile(crate::dynamic::MIRI_QUALIFIED_PROFILE_ID).expect("profile").command_argv,
+            "compiler_probe": {
+                "cargo_version": "cargo 1.98.0-nightly",
+                "rustc_release": "1.98.0-nightly",
+                "commit_hash": "31a9463c6e2794a59ce57a8f37abc6966afc2a58",
+                "host_triple": "x86_64-unknown-linux-gnu",
+                "tool_kind": "miri",
+                "tool_version": "miri 0.1.0",
+                "sysroot_identity": crate::dynamic::prefixed_identity(b"sysroot"),
+            },
+            "observed_runs": [{
+                "cell_id": "miri-x86_64-tree-borrows-seed1",
+                "disposition": "passed",
+                "target_triple": "x86_64-unknown-linux-gnu",
+                "tool_version": "miri 0.1.0",
+                "rustc_release": "1.98.0-nightly",
+                "miri_flags": ["-Zmiri-strict-provenance", "-Zmiri-tree-borrows", "-Zmiri-seed=1"],
+                "tests_started": 2,
+                "tests_passed": 2,
+                "tests_failed": 0,
+                "tests_ignored": 0,
+                "tests_filtered_out": 0,
+                "executed_tests": ["tests::checked_slice_window_sound", "tests::raw_pointer_read_aligned"],
+                "exit_code": 0,
+                "bounded_log_identity": crate::dynamic::prefixed_identity(b"log"),
+            }]
+        })
+        .to_string()
+    }
+
+    fn sample_kani_producer_input() -> String {
+        serde_json::json!({
+            "schema_version": crate::kani::OBSERVATION_SCHEMA,
+            "profile_id": crate::kani::PRODUCER_PROFILE_ID,
+            "profile_identity": crate::kani::EXPECTED_PROFILE_IDENTITY,
+            "source_manifest_identity": crate::kani::prefixed_identity(b"kani-src"),
+            "command_argv": ["cargo", "kani", "--locked", "--offline", "-p", "octet-kani-boundary-pilot", "--lib", "--harness", "check_checked_window_bounds", "--default-unwind", "8", "-Z", "unstable-options", "--export-json", "kani-export.json"],
+            "toolchain": {
+                "kani_version": "cargo-kani 0.68.0",
+                "provider_revision": "kani-0.68.0-release",
+                "closure_identity": "nix:kani-0.68.0-x86_64-unknown-linux-gnu",
+                "rustc_release": "1.87.0-nightly",
+                "rustc_commit_hash": "1111111111111111111111111111111111111111",
+                "cbmc_version": "6.5.0",
+                "solver_mode": "cbmc_builtin",
+                "solver_identity": "cbmc-builtin-cadical",
+            },
+            "exit_code": 0,
+            "bounded_log_identity": crate::kani::prefixed_identity(b"kani-log"),
+            "raw_export_json": serde_json::json!({
+                "schema_version": crate::kani::EXPORT_SCHEMA,
+                "kani_version": "0.68.0",
+                "harnesses": [{
+                    "package": "octet-kani-boundary-pilot",
+                    "target": "lib",
+                    "name": "check_checked_window_bounds",
+                    "verification_status": "SUCCESS",
+                    "unwind_bound": 8,
+                    "properties": [
+                        { "name": "a1", "check_type": "assert", "status": "SUCCESS" },
+                        { "name": "cover_valid_window_reachable", "check_type": "cover", "status": "SATISFIED" },
+                        { "name": "u1", "check_type": "unwind", "status": "SUCCESS" },
+                    ]
+                }]
+            })
+            .to_string(),
+        })
+        .to_string()
     }
 
     fn emitted_finding(suggestion: Option<&str>, applicability: Option<&str>) -> output::Finding {
@@ -1061,6 +1230,8 @@ mod tests {
             benchmark_evidence: _,
             dependency_trust: _,
             binary_debug_map: _,
+            dynamic_qualification: _,
+            kani_producer: _,
         } = receipt;
         [
             "schema_version",
@@ -1100,6 +1271,8 @@ mod tests {
             "benchmark_evidence",
             "dependency_trust",
             "binary_debug_map",
+            "dynamic_qualification",
+            "kani_producer",
         ]
         .into_iter()
         .map(str::to_owned)

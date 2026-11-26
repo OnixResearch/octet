@@ -1,0 +1,130 @@
+{
+  "profiles": [
+    {
+      "cargo_cfg": [
+        "miri"
+      ],
+      "cargo_features": [],
+      "command_argv": [
+        "cargo",
+        "miri",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "octet-dynamic-pilot",
+        "--lib",
+        "--",
+        "--test-threads=1"
+      ],
+      "evidence_tier": "transcript_assertion",
+      "expected_workload": "Execute deterministic unsafe pointer/slice boundary tests under Miri with strict provenance and Tree Borrows enabled",
+      "limits": {
+        "max_input_bytes": 524288,
+        "max_output_bytes": 262144,
+        "max_source_files": 64,
+        "poll_interval_ms": 25,
+        "teardown_timeout_ms": 5000,
+        "timeout_seconds": 120
+      },
+      "matrix_cells": [
+        {
+          "borrow_model": "tree-borrows",
+          "cell_id": "miri-x86_64-tree-borrows-seed1",
+          "required": true,
+          "seed": 1,
+          "target_triple": "x86_64-unknown-linux-gnu",
+          "tool": "miri"
+        }
+      ],
+      "miri": {
+        "borrow_model": "tree-borrows",
+        "check_provenance": true,
+        "isolation": "strict",
+        "miri_flags": [
+          "-Zmiri-strict-provenance",
+          "-Zmiri-tree-borrows",
+          "-Zmiri-seed=1"
+        ],
+        "seeds": [
+          1
+        ],
+        "target_triple": "x86_64-unknown-linux-gnu",
+        "toolchain_pin": "1.98.0-nightly"
+      },
+      "non_claims": [
+        "Miri checks executed Rust abstract-machine paths under declared seeds, borrow rules, and targets only; it does not prove whole-program soundness or unexecuted paths",
+        "Finite seed and test-inventory dynamic evidence does not replace formal proof or release eligibility"
+      ],
+      "package": "octet-dynamic-pilot",
+      "profile_id": "miri-unsafe-boundary-qualified",
+      "target": "lib",
+      "test_inventory": [
+        "tests::checked_slice_window_sound",
+        "tests::raw_pointer_read_aligned"
+      ],
+      "tool": "miri"
+    },
+    {
+      "cargo_cfg": [
+        "loom"
+      ],
+      "cargo_features": [],
+      "command_argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "-p",
+        "octet-dynamic-pilot",
+        "--lib",
+        "loom_models",
+        "--",
+        "--test-threads=1"
+      ],
+      "evidence_tier": "transcript_assertion",
+      "expected_workload": "Explore bounded thread interleavings for the two-thread handoff model with explicit preemption and branch caps",
+      "limits": {
+        "max_input_bytes": 524288,
+        "max_output_bytes": 262144,
+        "max_source_files": 64,
+        "poll_interval_ms": 25,
+        "teardown_timeout_ms": 5000,
+        "timeout_seconds": 120
+      },
+      "loom": {
+        "encoded_rustflags": "--cfg\u001floom",
+        "expected_model_completion_marker": "loom_model_completed",
+        "expected_model_entry_marker": "loom::model",
+        "max_branches": 1000,
+        "max_permutations": 256,
+        "max_threads": 3,
+        "model_identity": "loom_models::bounded_handoff_preserves_order",
+        "preemption_bound": 2,
+        "rustflags": "--cfg loom",
+        "stopping_rules": "fail-on-first-counterexample-or-exceeded-preemption-bound"
+      },
+      "matrix_cells": [
+        {
+          "cell_id": "loom-x86_64-preemption2-t3",
+          "preemption_bound": 2,
+          "required": true,
+          "target_triple": "x86_64-unknown-linux-gnu",
+          "tool": "loom"
+        }
+      ],
+      "non_claims": [
+        "Loom explores bounded schedules under configured preemption, branch, and thread caps only; it does not prove correctness under arbitrary OS scheduling or unbounded concurrency",
+        "Finite schedule dynamic evidence does not prove whole-program soundness or release eligibility"
+      ],
+      "package": "octet-dynamic-pilot",
+      "profile_id": "loom-concurrency-qualified",
+      "target": "lib",
+      "test_inventory": [
+        "loom_models::bounded_handoff_preserves_order"
+      ],
+      "tool": "loom"
+    }
+  ],
+  "schema_version": "octet-dynamic-qualified-profiles/v1"
+}

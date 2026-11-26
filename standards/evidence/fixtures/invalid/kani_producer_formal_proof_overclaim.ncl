@@ -1,0 +1,23 @@
+let contracts = import "../../contracts/generated.ncl" in
+{
+  schema_version = "octet-kani-producer-receipt/v1",
+  profile_id = "kani-0.68.0-panic-freedom",
+  profile_identity = "b3:2194d49b606a2a75ec957fc270c9a3b3b2f100e38f7f6f683458aaf12951a378",
+  package = "octet-kani-boundary-pilot",
+  target = "lib",
+  command_argv = [],
+  source_manifest_identity = "b3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  toolchain = {},
+  selected_harnesses = [],
+  executed_harnesses = [],
+  harnesses = [],
+  property_totals = {},
+  execution_status = "passed",
+  assumption_status = "reviewed",
+  assumptions_reviewed = true,
+  raw_export_identity = "b3:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  normalized_summary_identity = "b3:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  bounded_log_identity = "b3:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  evidence_tier = "formal_proof",
+  non_claims = ["overclaim"],
+} | contracts.KaniProducerReceiptDetailsV1

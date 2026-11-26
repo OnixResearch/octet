@@ -57,6 +57,10 @@ const EVIDENCE_BUNDLE_ARTIFACT_NAMES: &[&str] = &[
     crate::hegel::GENERATOR_MANIFEST_ARTIFACT,
     crate::hegel::COUNTEREXAMPLE_ARTIFACT,
     crate::hegel::PROJECTION_ARTIFACT,
+    crate::dynamic::DETAILS_ARTIFACT,
+    crate::kani::DETAILS_ARTIFACT,
+    crate::kani::RAW_EXPORT_ARTIFACT,
+    crate::kani::NORMALIZED_SUMMARY_ARTIFACT,
 ];
 const EVIDENCE_BUNDLE_ARTIFACT_PREFIXES: &[&str] = &[
     crate::mutation::RETAINED_LOG_PREFIX,
@@ -739,6 +743,10 @@ pub struct EvidenceRailReceipt {
     pub dependency_trust: Option<DependencyTrustReceiptDetails>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub binary_debug_map: Option<crate::binary_debug_map::BinaryDebugMapReceiptDetails>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dynamic_qualification: Option<crate::dynamic::ReceiptDetails>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kani_producer: Option<crate::kani::ReceiptDetails>,
 }
 
 pub struct EvaluationInput<'a> {
@@ -795,8 +803,16 @@ struct RailParseOutput {
     verifier_fixtures: Option<VerifierFixtureReceiptDetails>,
 }
 
-#[allow(clippy::too_many_lines)]
+#[cfg(test)]
 pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
+    run_with_environment(args, &[])
+}
+
+#[allow(clippy::too_many_lines)]
+pub fn run_with_environment(
+    args: &EvidenceRailArgs,
+    process_env: &[(std::ffi::OsString, std::ffi::OsString)],
+) -> Result<i32, String> {
     if args.output_format == OutputFormat::Sarif {
         return Err("evidence collect does not support SARIF output; use human or json".to_owned());
     }
@@ -822,7 +838,11 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
             let (envelope, registry_identity) = analyze_binary_debug_map_input(args)?;
             ((MODE_IMPORT, envelope, None), None, Some(registry_identity))
         } else {
-            (input_text(args, prepared_clippy_run.as_ref(), prepared_ast_grep.as_ref())?, None, None)
+            (
+                input_text_with_env(args, prepared_clippy_run.as_ref(), prepared_ast_grep.as_ref(), process_env)?,
+                None,
+                None,
+            )
         };
     let identities = input_identities(
         args,
@@ -911,6 +931,7 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
     if let Some(details) = receipt.hegel_property.as_ref().and_then(|details| details.hardened.as_ref()) {
         additional_artifacts.extend(crate::hegel::request::artifact_payloads(details, &import_text)?);
     }
+    attach_dynamic_and_kani_artifacts(&receipt, &import_text, &mut additional_artifacts)?;
     let receipt_json = render_receipt_json(&receipt)?;
     let summary = render_summary_for_command(&receipt, &args.command_line);
     let provenance_jsonl = render_provenance_jsonl(&receipt, &receipt_json, &summary)?;
@@ -918,6 +939,31 @@ pub fn run(args: &EvidenceRailArgs) -> Result<i32, String> {
     render_cli_output(&receipt, args.output_format)?;
 
     Ok(exit_code_for_receipt(&receipt))
+}
+
+fn attach_dynamic_and_kani_artifacts(
+    receipt: &EvidenceRailReceipt,
+    import_text: &str,
+    additional_artifacts: &mut BTreeMap<String, Vec<u8>>,
+) -> Result<(), String> {
+    if let Some(details) = receipt.dynamic_qualification.as_ref() {
+        let rendered = serde_json::to_vec_pretty(details)
+            .map_err(|error| format!("serialize dynamic qualification artifact: {error}"))?;
+        additional_artifacts.insert(crate::dynamic::DETAILS_ARTIFACT.to_owned(), rendered);
+    }
+    if let Some(details) = receipt.kani_producer.as_ref() {
+        let rendered =
+            serde_json::to_vec_pretty(details).map_err(|error| format!("serialize Kani producer artifact: {error}"))?;
+        additional_artifacts.insert(crate::kani::DETAILS_ARTIFACT.to_owned(), rendered);
+        let eval = crate::kani::evaluate_observation(import_text);
+        if let Some(raw) = eval.raw_export_json {
+            additional_artifacts.insert(crate::kani::RAW_EXPORT_ARTIFACT.to_owned(), raw.into_bytes());
+        }
+        if let Some(summary) = eval.normalized_summary_json {
+            additional_artifacts.insert(crate::kani::NORMALIZED_SUMMARY_ARTIFACT.to_owned(), summary.into_bytes());
+        }
+    }
+    Ok(())
 }
 
 struct PreparedInputs<'a> {
@@ -969,6 +1015,13 @@ fn input_identities(
     } else if args.rail == EvidenceRailKind::CharonSemantic {
         // `analyze_charon_semantic_input` already verified the config bytes against this identity.
         Some(crate::charon_semantic::EXPECTED_PROFILE_IDENTITY.to_owned())
+    } else if args.rail == EvidenceRailKind::DynamicEvidence
+        && crate::dynamic::is_qualified_profile(args.profile.as_deref())
+    {
+        Some(crate::dynamic::EXPECTED_PROFILE_IDENTITY.to_owned())
+    } else if args.rail == EvidenceRailKind::KaniModelCheck && crate::kani::is_producer_profile(args.profile.as_deref())
+    {
+        Some(crate::kani::EXPECTED_PROFILE_IDENTITY.to_owned())
     } else {
         args.config.as_ref().map(|path| path_identity(&workspace_root.join(path))).transpose()?
     };
@@ -1180,55 +1233,113 @@ fn sarif_producer_status(outcome: &str, findings: &[EvidenceRailFinding]) -> Str
     }
 }
 
+struct SpecializedDetails {
+    charon_semantic: Option<crate::charon_semantic::CharonSemanticReceiptDetails>,
+    ast_grep: Option<crate::ast_grep_rail::AstGrepReceiptDetails>,
+    wasm_artifact: Option<crate::wasm_artifact::WasmArtifactReceiptDetails>,
+    binary_debug_map: Option<crate::binary_debug_map::BinaryDebugMapReceiptDetails>,
+    cargo_fuzz: Option<crate::cargo::fuzz::ReceiptDetails>,
+    sarif_import: Option<crate::external::sarif::ReceiptDetails>,
+    coverage_baseline: Option<crate::coverage::ReceiptDetails>,
+    cargo_mutants: Option<crate::mutation::ReceiptDetails>,
+    benchmark_evidence: Option<crate::benchmark::ReceiptDetails>,
+    dynamic_qualification: Option<crate::dynamic::ReceiptDetails>,
+    kani_producer: Option<crate::kani::ReceiptDetails>,
+}
+
+fn collect_specialized_details(input: &EvaluationInput<'_>) -> SpecializedDetails {
+    SpecializedDetails {
+        charon_semantic: (input.rail == EvidenceRailKind::CharonSemantic)
+            .then(|| crate::charon_semantic::evaluate_envelope(input.import_text).details)
+            .flatten(),
+        ast_grep: (input.rail == EvidenceRailKind::AstGrepStructural)
+            .then(|| crate::ast_grep_rail::evaluate_envelope(input.import_text).details)
+            .flatten(),
+        wasm_artifact: (input.rail == EvidenceRailKind::WasmArtifact)
+            .then(|| crate::wasm_artifact::evaluate_envelope(input.import_text).details)
+            .flatten(),
+        binary_debug_map: (input.rail == EvidenceRailKind::BinaryDebugMap)
+            .then(|| crate::binary_debug_map::evaluate_envelope(input.import_text).details)
+            .flatten(),
+        cargo_fuzz: fuzz_details(input),
+        sarif_import: sarif_details(input),
+        coverage_baseline: coverage_details(input),
+        cargo_mutants: mutation_details(input),
+        benchmark_evidence: benchmark_details(input),
+        dynamic_qualification: dynamic_qualification_details(input),
+        kani_producer: kani_producer_details(input),
+    }
+}
+
 pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
     let mut parsed = parse_rail_input(&input);
-    let charon_semantic = if input.rail == EvidenceRailKind::CharonSemantic {
-        crate::charon_semantic::evaluate_envelope(input.import_text).details
-    } else {
-        None
-    };
-    let ast_grep = if input.rail == EvidenceRailKind::AstGrepStructural {
-        crate::ast_grep_rail::evaluate_envelope(input.import_text).details
-    } else {
-        None
-    };
-    let wasm_artifact = if input.rail == EvidenceRailKind::WasmArtifact {
-        crate::wasm_artifact::evaluate_envelope(input.import_text).details
-    } else {
-        None
-    };
-    let binary_debug_map = if input.rail == EvidenceRailKind::BinaryDebugMap {
-        crate::binary_debug_map::evaluate_envelope(input.import_text).details
-    } else {
-        None
-    };
-    let cargo_fuzz = fuzz_details(&input);
-    let sarif_import = sarif_details(&input);
-    let coverage_baseline = coverage_details(&input);
-    let cargo_mutants = mutation_details(&input);
-    let benchmark_evidence = benchmark_details(&input);
+    let details = collect_specialized_details(&input);
     parsed.diagnostics.sort();
     parsed.diagnostics.dedup();
-    let status = if parsed.diagnostics.is_empty() {
-        parsed.status
+    let preservation = if details.dynamic_qualification.is_some() || details.kani_producer.is_some() {
+        StatusPreservation::Specialized
     } else {
-        STATUS_FAILED.to_owned()
+        StatusPreservation::Standard
     };
-    let bounded_log_identity = receipt_log_identity(&input);
-    let advisory_database_update = advisory_database_update(&input);
+    let status = evaluate_receipt_status(&parsed, preservation);
+    let bounded_log_identity = receipt_log_identity_with_details(
+        &input,
+        details.dynamic_qualification.as_ref(),
+        details.kani_producer.as_ref(),
+    );
+    let command_argv = resolved_receipt_command(&input, &details);
+    assemble_receipt(ReceiptAssembly {
+        input,
+        parsed,
+        details,
+        status,
+        bounded_log_identity,
+        command_argv,
+    })
+}
 
+struct ReceiptAssembly<'a> {
+    input: EvaluationInput<'a>,
+    parsed: RailParseOutput,
+    details: SpecializedDetails,
+    status: String,
+    bounded_log_identity: String,
+    command_argv: Vec<String>,
+}
+
+fn resolved_receipt_command(input: &EvaluationInput<'_>, details: &SpecializedDetails) -> Vec<String> {
+    details
+        .dynamic_qualification
+        .as_ref()
+        .map(|d| d.command_argv.clone())
+        .or_else(|| details.kani_producer.as_ref().map(|d| d.command_argv.clone()))
+        .unwrap_or_else(|| {
+            receipt_command_argv(
+                input,
+                details.cargo_fuzz.as_ref(),
+                details.coverage_baseline.as_ref(),
+                details.cargo_mutants.as_ref(),
+                details.benchmark_evidence.as_ref(),
+            )
+        })
+}
+
+fn assemble_receipt(bundle: ReceiptAssembly<'_>) -> EvidenceRailReceipt {
+    let ReceiptAssembly {
+        input,
+        parsed,
+        details,
+        status,
+        bounded_log_identity,
+        command_argv,
+    } = bundle;
+    let advisory_database_update = advisory_database_update(&input);
     EvidenceRailReceipt {
         schema_version: RECEIPT_SCHEMA_VERSION.to_owned(),
         rail_id: input.rail.as_str().to_owned(),
         checker_id: input.rail.checker_id().to_owned(),
         mode: input.mode.to_owned(),
-        command_argv: receipt_command_argv(
-            &input,
-            cargo_fuzz.as_ref(),
-            coverage_baseline.as_ref(),
-            cargo_mutants.as_ref(),
-            benchmark_evidence.as_ref(),
-        ),
+        command_argv,
         workspace_scope: input.workspace_scope.to_owned(),
         config_path: input.config_path.map(ToOwned::to_owned),
         config_identity: None,
@@ -1248,20 +1359,74 @@ pub fn evaluate(input: EvaluationInput<'_>) -> EvidenceRailReceipt {
         parent_artifacts: input.parent_artifacts,
         property_classes: parsed.property_classes,
         clippy_restrictions: None,
-        ast_grep,
-        wasm_artifact,
-        charon_semantic,
+        ast_grep: details.ast_grep,
+        wasm_artifact: details.wasm_artifact,
+        charon_semantic: details.charon_semantic,
         hegel_property: parsed.hegel_property,
         z4_solver: parsed.z4_solver,
         verifier_fixtures: parsed.verifier_fixtures,
-        cargo_fuzz,
-        sarif_import,
-        coverage_baseline,
-        cargo_mutants,
-        benchmark_evidence,
+        cargo_fuzz: details.cargo_fuzz,
+        sarif_import: details.sarif_import,
+        coverage_baseline: details.coverage_baseline,
+        cargo_mutants: details.cargo_mutants,
+        benchmark_evidence: details.benchmark_evidence,
         dependency_trust: None,
-        binary_debug_map,
+        binary_debug_map: details.binary_debug_map,
+        dynamic_qualification: details.dynamic_qualification,
+        kani_producer: details.kani_producer,
     }
+}
+
+#[derive(Clone, Copy)]
+enum StatusPreservation {
+    Standard,
+    Specialized,
+}
+
+fn evaluate_receipt_status(parsed: &RailParseOutput, preservation: StatusPreservation) -> String {
+    let is_specialized_status = matches!(preservation, StatusPreservation::Specialized)
+        && matches!(
+            parsed.status.as_str(),
+            STATUS_UNSUPPORTED
+                | STATUS_TOOL_ERROR
+                | STATUS_TIMEOUT
+                | STATUS_INCOMPLETE_ANALYSIS
+                | "unavailable"
+                | "incomplete"
+        );
+    if parsed.diagnostics.is_empty() || is_specialized_status {
+        parsed.status.clone()
+    } else {
+        STATUS_FAILED.to_owned()
+    }
+}
+
+fn receipt_log_identity_with_details(
+    input: &EvaluationInput<'_>,
+    dynamic_qualification: Option<&crate::dynamic::ReceiptDetails>,
+    kani_producer: Option<&crate::kani::ReceiptDetails>,
+) -> String {
+    if let Some(details) = dynamic_qualification {
+        return details.bounded_log_identity.clone();
+    }
+    if let Some(details) = kani_producer {
+        return details.bounded_log_identity.clone();
+    }
+    receipt_log_identity(input)
+}
+
+fn dynamic_qualification_details(input: &EvaluationInput<'_>) -> Option<crate::dynamic::ReceiptDetails> {
+    if input.rail != EvidenceRailKind::DynamicEvidence || !crate::dynamic::is_qualified_profile(input.profile) {
+        return None;
+    }
+    crate::dynamic::evaluate_input(input.import_text, input.profile).details
+}
+
+fn kani_producer_details(input: &EvaluationInput<'_>) -> Option<crate::kani::ReceiptDetails> {
+    if input.rail != EvidenceRailKind::KaniModelCheck || !crate::kani::is_producer_profile(input.profile) {
+        return None;
+    }
+    crate::kani::evaluate_observation(input.import_text).details
 }
 
 fn receipt_log_identity(input: &EvaluationInput<'_>) -> String {
@@ -1823,6 +1988,8 @@ pub fn validate_receipt(receipt: &EvidenceRailReceipt) -> Vec<String> {
     diagnostics.extend(mutation_diagnostics(rail, receipt));
     diagnostics.extend(benchmark_diagnostics(rail, receipt));
     diagnostics.extend(dependency_trust_diagnostics(rail, receipt));
+    diagnostics.extend(dynamic_qualification_diagnostics(rail, receipt));
+    diagnostics.extend(kani_producer_diagnostics(rail, receipt));
     diagnostics
 }
 
@@ -2098,6 +2265,48 @@ fn benchmark_diagnostics(rail: EvidenceRailKind, receipt: &EvidenceRailReceipt) 
     diagnostics
 }
 
+fn dynamic_qualification_diagnostics(rail: EvidenceRailKind, receipt: &EvidenceRailReceipt) -> Vec<String> {
+    let mut diagnostics = Vec::with_capacity(SPECIALIZED_DIAGNOSTIC_CAPACITY);
+    let is_selected =
+        rail == EvidenceRailKind::DynamicEvidence && crate::dynamic::is_qualified_profile(receipt.profile.as_deref());
+    match (is_selected, receipt.dynamic_qualification.as_ref()) {
+        (true, Some(details)) => {
+            diagnostics.extend(crate::dynamic::validate(details));
+            if receipt.command_argv != details.command_argv {
+                diagnostics.push("dynamic qualification receipt command does not match typed details".to_owned());
+            }
+        }
+        (true, None) => {
+            diagnostics.push("qualified dynamic receipt is missing dynamic_qualification details".to_owned());
+        }
+        (false, Some(_)) => {
+            diagnostics.push("dynamic_qualification details require a qualified dynamic profile".to_owned());
+        }
+        (false, None) => {}
+    }
+    diagnostics
+}
+
+fn kani_producer_diagnostics(rail: EvidenceRailKind, receipt: &EvidenceRailReceipt) -> Vec<String> {
+    let mut diagnostics = Vec::with_capacity(SPECIALIZED_DIAGNOSTIC_CAPACITY);
+    let is_selected =
+        rail == EvidenceRailKind::KaniModelCheck && crate::kani::is_producer_profile(receipt.profile.as_deref());
+    match (is_selected, receipt.kani_producer.as_ref()) {
+        (true, Some(details)) => {
+            diagnostics.extend(crate::kani::validate(details));
+            if receipt.command_argv != details.command_argv {
+                diagnostics.push("Kani producer receipt command does not match typed details".to_owned());
+            }
+        }
+        (true, None) => diagnostics.push("Kani producer receipt is missing kani_producer details".to_owned()),
+        (false, Some(_)) => {
+            diagnostics.push("kani_producer details require the checked Kani producer profile".to_owned());
+        }
+        (false, None) => {}
+    }
+    diagnostics
+}
+
 fn validate_clippy_restriction_receipt(
     rail: EvidenceRailKind,
     receipt: &EvidenceRailReceipt,
@@ -2305,6 +2514,16 @@ pub fn expected_bundle_files_for_receipt(receipt: Option<&EvidenceRailReceipt>) 
         if details.counterexample_identity.is_some() {
             files.push(crate::hegel::COUNTEREXAMPLE_ARTIFACT.to_owned());
         }
+    }
+    if receipt.is_some_and(|receipt| receipt.dynamic_qualification.is_some()) {
+        files.push(crate::dynamic::DETAILS_ARTIFACT.to_owned());
+    }
+    if receipt.is_some_and(|receipt| receipt.kani_producer.is_some()) {
+        files.extend([
+            crate::kani::DETAILS_ARTIFACT.to_owned(),
+            crate::kani::RAW_EXPORT_ARTIFACT.to_owned(),
+            crate::kani::NORMALIZED_SUMMARY_ARTIFACT.to_owned(),
+        ]);
     }
     files.sort();
     files
@@ -2953,6 +3172,9 @@ fn parse_dynamic_evidence(input: &EvaluationInput<'_>) -> RailParseOutput {
     if input.profile == Some(crate::cargo::fuzz::PROFILE_ID) {
         return parse_fuzz(input);
     }
+    if crate::dynamic::is_qualified_profile(input.profile) {
+        return parse_qualified_dynamic(input);
+    }
     let mut diagnostics = Vec::new();
     let mut findings = Vec::new();
     let profile = if input.mode == MODE_RUN {
@@ -3104,6 +3326,32 @@ fn parse_fuzz(input: &EvaluationInput<'_>) -> RailParseOutput {
         diagnostics: evaluation.diagnostics,
         status,
         profile: Some(crate::cargo::fuzz::PROFILE_ID.to_owned()),
+        property_classes: Vec::new(),
+        hegel_property: None,
+        z4_solver: None,
+        verifier_fixtures: None,
+    }
+}
+
+fn parse_qualified_dynamic(input: &EvaluationInput<'_>) -> RailParseOutput {
+    let evaluation = crate::dynamic::evaluate_input(input.import_text, input.profile);
+    let findings: Vec<EvidenceRailFinding> =
+        evaluation.findings.iter().map(|message| dynamic_finding(message.clone())).collect();
+    let finding_counts = counts_by_family(&findings);
+    let status = match evaluation.status.as_str() {
+        "qualified_passed" => STATUS_PASSED.to_owned(),
+        "timeout" => STATUS_TIMEOUT.to_owned(),
+        "incomplete" => STATUS_INCOMPLETE_ANALYSIS.to_owned(),
+        "unsupported" => STATUS_UNSUPPORTED.to_owned(),
+        "unavailable" => "unavailable".to_owned(),
+        _ => STATUS_FAILED.to_owned(),
+    };
+    RailParseOutput {
+        findings,
+        finding_counts,
+        diagnostics: evaluation.diagnostics,
+        status,
+        profile: input.profile.map(ToOwned::to_owned),
         property_classes: Vec::new(),
         hegel_property: None,
         z4_solver: None,
@@ -3515,6 +3763,9 @@ fn append_coverage_metric_findings(
 }
 
 fn parse_kani_model_check(input: &EvaluationInput<'_>) -> RailParseOutput {
+    if crate::kani::is_producer_profile(input.profile) {
+        return parse_kani_producer(input);
+    }
     let mut diagnostics = Vec::new();
     let mut findings = Vec::new();
     let mut property_classes = Vec::new();
@@ -3565,6 +3816,38 @@ fn parse_kani_model_check(input: &EvaluationInput<'_>) -> RailParseOutput {
         status,
         profile: input.profile.map(ToOwned::to_owned),
         property_classes,
+        hegel_property: None,
+        z4_solver: None,
+        verifier_fixtures: None,
+    }
+}
+
+fn parse_kani_producer(input: &EvaluationInput<'_>) -> RailParseOutput {
+    let evaluation = crate::kani::evaluate_observation(input.import_text);
+    let findings: Vec<EvidenceRailFinding> = evaluation
+        .finding_messages
+        .iter()
+        .map(|(family, severity, message)| kani_finding(family, severity, message))
+        .collect();
+    let finding_counts = counts_by_family(&findings);
+    let status = evaluation
+        .details
+        .as_ref()
+        .and_then(|details| match details.execution_status.as_str() {
+            "unsupported" => Some(STATUS_UNSUPPORTED.to_owned()),
+            "tool_error" => Some(STATUS_TOOL_ERROR.to_owned()),
+            "timeout" => Some(STATUS_TIMEOUT.to_owned()),
+            "incomplete_analysis" => Some(STATUS_INCOMPLETE_ANALYSIS.to_owned()),
+            _ => None,
+        })
+        .unwrap_or(evaluation.status);
+    RailParseOutput {
+        findings,
+        finding_counts,
+        diagnostics: evaluation.diagnostics,
+        status,
+        profile: Some(crate::kani::PRODUCER_PROFILE_ID.to_owned()),
+        property_classes: vec![KANI_PROPERTY_CLASS_BOUNDARY_PANIC.to_owned()],
         hegel_property: None,
         z4_solver: None,
         verifier_fixtures: None,
@@ -4510,10 +4793,20 @@ fn status_from_kani_findings(findings: &[EvidenceRailFinding]) -> String {
     }
 }
 
+#[cfg(test)]
 fn input_text(
     args: &EvidenceRailArgs,
     prepared_clippy_run: Option<&PreparedClippyRun>,
     prepared_ast_grep: Option<&PreparedAstGrep>,
+) -> Result<(&'static str, String, Option<i32>), String> {
+    input_text_with_env(args, prepared_clippy_run, prepared_ast_grep, &[])
+}
+
+fn input_text_with_env(
+    args: &EvidenceRailArgs,
+    prepared_clippy_run: Option<&PreparedClippyRun>,
+    prepared_ast_grep: Option<&PreparedAstGrep>,
+    process_env: &[(std::ffi::OsString, std::ffi::OsString)],
 ) -> Result<(&'static str, String, Option<i32>), String> {
     if args.rail == EvidenceRailKind::WasmArtifact {
         return Err("wasm-artifact input is analyzed with its exact bytes by `analyze_wasm_input`".to_owned());
@@ -4544,6 +4837,12 @@ fn input_text(
     }
     if args.rail == EvidenceRailKind::HegelProperty && args.profile.as_deref() == Some(crate::hegel::PROFILE_ID) {
         return analyze_profiled_hegel_input(args);
+    }
+    if args.rail == EvidenceRailKind::DynamicEvidence && crate::dynamic::is_qualified_profile(args.profile.as_deref()) {
+        return analyze_qualified_dynamic_input(args, process_env);
+    }
+    if args.rail == EvidenceRailKind::KaniModelCheck && crate::kani::is_producer_profile(args.profile.as_deref()) {
+        return analyze_kani_producer_input(args, process_env);
     }
     if args.rail == EvidenceRailKind::DynamicEvidence
         && args.profile.as_deref() == Some(crate::cargo::fuzz::PROFILE_ID)
@@ -4613,7 +4912,81 @@ fn analyze_profiled_hegel_input(args: &EvidenceRailArgs) -> Result<(&'static str
         .checked_mul(REQUEST_LIMIT_MULTIPLIER)
         .ok_or_else(|| "Hegel request byte limit overflowed".to_owned())?;
     let bytes = crate::hegel::safe_read::read_checked_input(workspace, input, request_limit)?;
-    let text = String::from_utf8(bytes).map_err(|error| format!("profiled Hegel input is not UTF-8: {error}"))?;
+    let text = String::from_utf8(bytes).map_err(|error| format!("Hegel input is not UTF-8: {error}"))?;
+    Ok((MODE_IMPORT, text, None))
+}
+
+fn analyze_qualified_dynamic_input(
+    args: &EvidenceRailArgs,
+    process_env: &[(std::ffi::OsString, std::ffi::OsString)],
+) -> Result<(&'static str, String, Option<i32>), String> {
+    if args.command.as_deref().is_some_and(|command| !command.is_empty()) {
+        return Err("qualified dynamic evidence rejects arbitrary `--command` authority".to_owned());
+    }
+    if args.run && args.input.is_some() {
+        return Err("qualified dynamic evidence accepts either `--input PATH` or `--run`, not both".to_owned());
+    }
+    let profile_id = args
+        .profile
+        .as_deref()
+        .ok_or_else(|| "qualified dynamic evidence requires `--profile NAME`".to_owned())?;
+    let profile = crate::dynamic::selected_profile(profile_id)?;
+    let workspace = args.workspace_root.as_deref().unwrap_or_else(|| Path::new("."));
+    let root = SourceRoot::open_existing(workspace)?;
+    if let Some(config) = args.config.as_deref() {
+        let bytes = root.read_bounded(&RootRelativePath::new(config)?, profile.limits.max_input_bytes)?;
+        if crate::dynamic::prefixed_identity(&bytes) != crate::dynamic::EXPECTED_PROFILE_IDENTITY {
+            return Err("dynamic qualification profile bytes do not match checked Nickel registry".to_owned());
+        }
+    } else if args.run {
+        return Err("qualified dynamic `--run` requires `--config PATH`".to_owned());
+    }
+    if args.run {
+        let (rendered, exit_code) = crate::dynamic::run(workspace, &profile, process_env)?;
+        return Ok((MODE_RUN, rendered, Some(exit_code)));
+    }
+    let input = args
+        .input
+        .as_deref()
+        .ok_or_else(|| "qualified dynamic evidence requires `--input PATH` or `--run`".to_owned())?;
+    let bytes = root.read_bounded(&RootRelativePath::new(input)?, profile.limits.max_input_bytes)?;
+    let text = String::from_utf8(bytes).map_err(|error| format!("dynamic qualification input not UTF-8: {error}"))?;
+    Ok((MODE_IMPORT, text, None))
+}
+
+fn analyze_kani_producer_input(
+    args: &EvidenceRailArgs,
+    process_env: &[(std::ffi::OsString, std::ffi::OsString)],
+) -> Result<(&'static str, String, Option<i32>), String> {
+    if args.command.as_deref().is_some_and(|command| !command.is_empty()) {
+        return Err("Kani producer rail rejects arbitrary `--command` authority".to_owned());
+    }
+    if args.run && args.input.is_some() {
+        return Err("Kani producer rail accepts either `--input PATH` or `--run`, not both".to_owned());
+    }
+    let profile_id =
+        args.profile.as_deref().ok_or_else(|| "Kani producer rail requires `--profile NAME`".to_owned())?;
+    let profile = crate::kani::selected_profile(profile_id)?;
+    let workspace = args.workspace_root.as_deref().unwrap_or_else(|| Path::new("."));
+    let root = SourceRoot::open_existing(workspace)?;
+    if let Some(config) = args.config.as_deref() {
+        let bytes = root.read_bounded(&RootRelativePath::new(config)?, profile.limits.max_export_bytes)?;
+        if crate::kani::prefixed_identity(&bytes) != crate::kani::EXPECTED_PROFILE_IDENTITY {
+            return Err("Kani producer profile bytes do not match checked Nickel registry".to_owned());
+        }
+    } else if args.run {
+        return Err("Kani producer `--run` requires `--config PATH`".to_owned());
+    }
+    if args.run {
+        let (rendered, exit_code) = crate::kani::run(workspace, &profile, args.baseline.as_deref(), None, process_env)?;
+        return Ok((MODE_RUN, rendered, Some(exit_code)));
+    }
+    let input = args
+        .input
+        .as_deref()
+        .ok_or_else(|| "Kani producer rail requires `--input PATH` or `--run`".to_owned())?;
+    let bytes = root.read_bounded(&RootRelativePath::new(input)?, profile.limits.max_export_bytes)?;
+    let text = String::from_utf8(bytes).map_err(|error| format!("Kani producer input not UTF-8: {error}"))?;
     Ok((MODE_IMPORT, text, None))
 }
 
@@ -5452,6 +5825,30 @@ fn default_clippy_command_argv() -> Vec<String> {
     string_vec(&["cargo", "clippy", "--message-format=json"])
 }
 
+fn profiled_run_command_argv(args: &EvidenceRailArgs) -> Option<Result<Vec<String>, String>> {
+    let reject_cmd = |msg: &str| -> Result<(), String> {
+        if args.command.as_deref().is_some_and(|command| !command.is_empty()) {
+            return Err(msg.to_owned());
+        }
+        Ok(())
+    };
+    if args.rail == EvidenceRailKind::DynamicEvidence && crate::dynamic::is_qualified_profile(args.profile.as_deref()) {
+        if let Err(err) = reject_cmd("qualified dynamic evidence rejects arbitrary --command authority") {
+            return Some(Err(err));
+        }
+        let profile_id = args.profile.as_deref().unwrap_or_default();
+        return Some(crate::dynamic::selected_profile(profile_id).map(|profile| profile.command_argv));
+    }
+    if args.rail == EvidenceRailKind::KaniModelCheck && crate::kani::is_producer_profile(args.profile.as_deref()) {
+        if let Err(err) = reject_cmd("Kani producer rail rejects arbitrary --command authority") {
+            return Some(Err(err));
+        }
+        let profile_id = args.profile.as_deref().unwrap_or_default();
+        return Some(crate::kani::selected_profile(profile_id).map(|profile| profile.command_prefix));
+    }
+    None
+}
+
 fn run_mode_command_argv(args: &EvidenceRailArgs) -> Result<Vec<String>, String> {
     let config_path = args.config.as_ref().map(|path| path.display().to_string());
     let baseline_path = args.baseline.as_ref().map(|path| path.display().to_string());
@@ -5462,6 +5859,9 @@ fn run_mode_command_argv(args: &EvidenceRailArgs) -> Result<Vec<String>, String>
     if args.rail == EvidenceRailKind::AstGrepStructural {
         // The scan argv comes only from the profile `prepare_ast_grep` checked; never an unchecked default.
         return Err("ast-grep run argv comes only from the checked structural profile".to_owned());
+    }
+    if let Some(result) = profiled_run_command_argv(args) {
+        return result;
     }
     if args.rail == EvidenceRailKind::DynamicEvidence {
         return dynamic_run_command_argv(args.profile.as_deref(), args.command.as_deref());
@@ -9236,6 +9636,146 @@ mod tests {
         assert!(invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("unsupported Kani property class")));
         assert!(invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("unbounded claim")));
         assert!(invalid.diagnostics.iter().any(|diagnostic| diagnostic.contains("cannot be promoted")));
+    }
+
+    #[test]
+    fn qualified_dynamic_receipts_preserve_evidence_boundaries() {
+        let miri_input = serde_json::json!({
+            "schema_version": crate::dynamic::MATRIX_RECEIPT_SCHEMA,
+            "profile_id": crate::dynamic::MIRI_QUALIFIED_PROFILE_ID,
+            "profile_identity": crate::dynamic::EXPECTED_PROFILE_IDENTITY,
+            "source_manifest_identity": crate::dynamic::prefixed_identity(b"src"),
+            "command_argv": crate::dynamic::selected_profile(crate::dynamic::MIRI_QUALIFIED_PROFILE_ID).expect("profile").command_argv,
+            "compiler_probe": {
+                "cargo_version": "cargo 1.98.0-nightly",
+                "rustc_release": "1.98.0-nightly",
+                "commit_hash": "31a9463c6e2794a59ce57a8f37abc6966afc2a58",
+                "host_triple": "x86_64-unknown-linux-gnu",
+                "tool_kind": "miri",
+                "tool_version": "miri 0.1.0",
+                "sysroot_identity": crate::dynamic::prefixed_identity(b"sysroot"),
+            },
+            "observed_runs": [{
+                "cell_id": "miri-x86_64-tree-borrows-seed1",
+                "disposition": "passed",
+                "target_triple": "x86_64-unknown-linux-gnu",
+                "tool_version": "miri 0.1.0",
+                "rustc_release": "1.98.0-nightly",
+                "miri_flags": ["-Zmiri-strict-provenance", "-Zmiri-tree-borrows", "-Zmiri-seed=1"],
+                "tests_started": 2,
+                "tests_passed": 2,
+                "tests_failed": 0,
+                "tests_ignored": 0,
+                "tests_filtered_out": 0,
+                "executed_tests": ["tests::checked_slice_window_sound", "tests::raw_pointer_read_aligned"],
+                "exit_code": 0,
+                "bounded_log_identity": crate::dynamic::prefixed_identity(b"log"),
+            }]
+        })
+        .to_string();
+        let miri_receipt = evaluate(EvaluationInput {
+            rail: EvidenceRailKind::DynamicEvidence,
+            mode: MODE_IMPORT,
+            import_text: &miri_input,
+            workspace_scope: WORKSPACE_SCOPE,
+            config_path: Some("standards/dynamic-evidence/qualified-profiles.json"),
+            baseline_identity: None,
+            lockfile_identity: None,
+            locked: true,
+            advisory_updated_by_prior_step: false,
+            profile: Some(crate::dynamic::MIRI_QUALIFIED_PROFILE_ID),
+            requested_command: None,
+            parent_artifacts: Vec::new(),
+            tool_exit_code: Some(EXIT_SUCCESS),
+        });
+        assert_eq!(miri_receipt.status, STATUS_PASSED, "{:?}", miri_receipt.diagnostics);
+        assert!(validate_receipt(&miri_receipt).is_empty(), "{:?}", validate_receipt(&miri_receipt));
+        assert!(miri_receipt.dynamic_qualification.is_some());
+    }
+
+    #[test]
+    fn kani_producer_receipts_preserve_evidence_boundaries() {
+        let kani_profile = crate::kani::selected_profile(crate::kani::PRODUCER_PROFILE_ID).expect("kani profile");
+        let src_id = crate::kani::prefixed_identity(b"kani-src");
+        let mut argv = kani_profile.command_prefix;
+        argv.extend([
+            "--harness".to_owned(),
+            "check_checked_window_bounds".to_owned(),
+            "--default-unwind".to_owned(),
+            "8".to_owned(),
+            "-Z".to_owned(),
+            "unstable-options".to_owned(),
+            "--export-json".to_owned(),
+            "kani-export.json".to_owned(),
+        ]);
+        let kani_input = serde_json::json!({
+            "schema_version": crate::kani::OBSERVATION_SCHEMA,
+            "profile_id": crate::kani::PRODUCER_PROFILE_ID,
+            "profile_identity": crate::kani::EXPECTED_PROFILE_IDENTITY,
+            "source_manifest_identity": src_id,
+            "command_argv": argv,
+            "toolchain": {
+                "kani_version": "cargo-kani 0.68.0",
+                "provider_revision": "kani-0.68.0-release",
+                "closure_identity": "nix:kani-0.68.0-x86_64-unknown-linux-gnu",
+                "rustc_release": "1.87.0-nightly",
+                "rustc_commit_hash": "1111111111111111111111111111111111111111",
+                "cbmc_version": "6.5.0",
+                "solver_mode": "cbmc_builtin",
+                "solver_identity": "cbmc-builtin-cadical",
+            },
+            "exit_code": 0,
+            "bounded_log_identity": crate::kani::prefixed_identity(b"kani-log"),
+            "raw_export_json": serde_json::json!({
+                "schema_version": crate::kani::EXPORT_SCHEMA,
+                "kani_version": "0.68.0",
+                "harnesses": [{
+                    "package": "octet-kani-boundary-pilot",
+                    "target": "lib",
+                    "name": "check_checked_window_bounds",
+                    "verification_status": "SUCCESS",
+                    "unwind_bound": 8,
+                    "properties": [
+                        { "name": "a1", "check_type": "assert", "status": "SUCCESS" },
+                        { "name": "cover_valid_window_reachable", "check_type": "cover", "status": "SATISFIED" },
+                        { "name": "u1", "check_type": "unwind", "status": "SUCCESS" },
+                    ]
+                }]
+            }).to_string(),
+            "assumption_review": {
+                "schema_version": crate::kani::ASSUMPTION_REVIEW_SCHEMA,
+                "source_manifest_identity": src_id,
+                "harness_names": ["check_checked_window_bounds"],
+                "assumptions_reviewed": true,
+                "assumption_status": "reviewed",
+                "reviewer": "rev",
+                "notes": "checked"
+            }
+        })
+        .to_string();
+        let kani_rec = evaluate(EvaluationInput {
+            rail: EvidenceRailKind::KaniModelCheck,
+            mode: MODE_RUN,
+            import_text: &kani_input,
+            workspace_scope: WORKSPACE_SCOPE,
+            config_path: Some("standards/kani-producer/profile.json"),
+            baseline_identity: None,
+            lockfile_identity: None,
+            locked: true,
+            advisory_updated_by_prior_step: false,
+            profile: Some(crate::kani::PRODUCER_PROFILE_ID),
+            requested_command: None,
+            parent_artifacts: Vec::new(),
+            tool_exit_code: Some(EXIT_SUCCESS),
+        });
+        assert_eq!(kani_rec.status, STATUS_PASSED, "{:?}", kani_rec.diagnostics);
+        assert!(validate_receipt(&kani_rec).is_empty(), "{:?}", validate_receipt(&kani_rec));
+        assert!(kani_rec.kani_producer.is_some());
+        let summary = render_summary(&kani_rec);
+        let prov =
+            render_provenance_jsonl(&kani_rec, &render_receipt_json(&kani_rec).expect("json"), &summary).expect("prov");
+        assert!(prov.contains("\"evidence_tier\":\"transcript_assertion\""));
+        assert!(!prov.contains("\"evidence_tier\":\"formal_proof\""));
     }
 
     #[test]
